@@ -1,0 +1,208 @@
+RATIONALE: GoalPlanner.replan retains the failed node; derivePlanStatus ignores failures covered by the active replan; CapabilityExecutor and ExecutionEngine terminal branches treat all-recovered-remaining-as-completed; CapabilityExecutor.failStep refreshes alternativeAvailable after replan; sibling test expectations align with the reconciled contract.
+
+```patch
+FILE: mobile/app/src/main/java/com/jarvis/app/cognitive/planning/GoalPlanner.kt
+FIND:
+        // Keep completed + unrelated nodes; drop the failed node; reset the
+        // downstream chain to pending and point its first link at the
+        // replacement path's tail.
+        val downstreamIds = downstream.toSet()
+        val kept = graph.nodes.filter { it.id != failedNodeId && it.id !in downstreamIds }
+REPLACE:
+        // Keep completed + unrelated nodes; KEEP the failed node as a permanent
+        // failure record (status FAILED) so partial-failure verdicts and plan
+        // consumers can see what failed; reset the downstream chain to pending
+        // and point its first link at the replacement path's tail.
+        val downstreamIds = downstream.toSet()
+        val kept = graph.nodes.filter { it.id !in downstreamIds }.map {
+            if (it.id == failedNodeId) it.copy(status = PlanStepStatus.FAILED, failureCause = cause) else it
+        }
+```
+
+```patch
+FILE: mobile/app/src/main/java/com/jarvis/app/cognitive/planning/GoalPlanner.kt
+FIND:
+        graph.isComplete -> PlanStatus.COMPLETED
+        graph.nodes.any { it.isFailed } -> PlanStatus.FAILED
+REPLACE:
+        graph.isComplete -> PlanStatus.COMPLETED
+        // A failure already recovered by the active replacement path does not
+        // fail the plan — the recorded failure stays visible on its node.
+        graph.nodes.any { it.isFailed && it.id != graph.replanning?.originalNodeId } -> PlanStatus.FAILED
+```
+
+```patch
+FILE: mobile/app/src/main/java/com/jarvis/app/cognitive/execution/ExecutionEngine.kt
+FIND:
+            // no actionable step remains — honour the plan's derived state
+            val blockedIds = graph.blockedNodeIds
+            val (terminal, cause) = when {
+                graph.status == PlanStatus.FAILED -> ExecutionStatus.FAILED to (graph.failureCause ?: "plan failed")
+REPLACE:
+            // Every remaining node done (or the sole failure recovered by the
+            // active replacement path) -> the plan finished its work.
+            val recoveredOriginal = graph.replanning?.originalNodeId
+            if (graph.nodes.all { it.isCompleted || it.isSkipped || it.id == recoveredOriginal }) {
+                state = state.copy(status = ExecutionStatus.COMPLETED)
+                driver.emit(CognitiveEvent.PlanExecutionCompleted(graph.goalId, state.completedSteps))
+                return null
+            }
+            // no actionable step remains — honour the plan's derived state
+            val blockedIds = graph.blockedNodeIds
+            val (terminal, cause) = when {
+                graph.status == PlanStatus.FAILED -> ExecutionStatus.FAILED to (graph.failureCause ?: "plan failed")
+```
+
+```patch
+FILE: mobile/app/src/main/java/com/jarvis/app/cognitive/capability/CapabilityExecutor.kt
+FIND:
+            val blocked = graph.blockedNodeIds
+            val (terminalStatus, cause) = when {
+                graph.status == PlanStatus.FAILED -> ExecutionStatus.FAILED to (graph.failureCause ?: "plan failed")
+REPLACE:
+            // Every remaining node done (or the sole failure recovered by the
+            // active replacement path) -> the plan finished its work.
+            val recoveredOriginal = graph.replanning?.originalNodeId
+            if (graph.nodes.all { it.isCompleted || it.isSkipped || it.id == recoveredOriginal }) {
+                state = state.copy(status = ExecutionStatus.COMPLETED)
+                driver.emit(CognitiveEvent.PlanExecutionCompleted(graph.goalId, state.completedSteps))
+                return null
+            }
+            val blocked = graph.blockedNodeIds
+            val (terminalStatus, cause) = when {
+                graph.status == PlanStatus.FAILED -> ExecutionStatus.FAILED to (graph.failureCause ?: "plan failed")
+```
+
+```patch
+FILE: mobile/app/src/main/java/com/jarvis/app/cognitive/capability/CapabilityExecutor.kt
+FIND:
+            val replanned = driver.replanPlan(node.id, cause) ?: failed
+            val finalOutcome = outcome.copy(
+                replanned = true,
+                nextStepId = nextActionable(replanned.nodes)?.id
+            )
+            outcomes[outcomes.lastIndex] = finalOutcome
+            return finalOutcome
+REPLACE:
+            val replanned = driver.replanPlan(node.id, cause) ?: failed
+            // After a successful replan the verdict reflects the replacement
+            // path: an alternative capability now exists for the failed step.
+            val refreshed = verdict.copy(alternativeCapabilityExists = true)
+            lastVerdict = refreshed
+            state = state.copy(alternativeAvailable = true)
+            val finalOutcome = outcome.copy(
+                replanned = true,
+                verdict = refreshed,
+                nextStepId = nextActionable(replanned.nodes)?.id
+            )
+            outcomes[outcomes.lastIndex] = finalOutcome
+            return finalOutcome
+```
+
+```patch
+FILE: mobile/app/src/test/java/com/jarvis/app/cognitive/capability/CapabilityExecutorTest.kt
+FIND:
+        assertEquals(4, summary.stepsCompleted) // a, alt(replace b), c; a counted once
+REPLACE:
+        assertEquals(3, summary.stepsCompleted) // successes only: a, alt(replace b), c
+```
+
+```patch
+FILE: mobile/app/src/test/java/com/jarvis/app/cognitive/capability/CapabilityExecutorTest.kt
+FIND:
+    private class FakeDriver(private val planner: GoalPlanner, initialGraph: PlanGraph) : PlanDriver {
+        var graph: PlanGraph = initialGraph
+        val events = mutableListOf<CognitiveEvent>()
+        val recordedOutcomes = mutableListOf<DecisionOutcome>()
+
+        override fun getPlanGraph(): PlanGraph? = graph
+        override fun completePlanStep(nodeId: String, outcome: String?): PlanGraph? {
+            graph = planner.completeNode(graph, nodeId, outcome); return graph
+        }
+        override fun failPlanStep(nodeId: String, cause: String): PlanGraph? {
+            graph = planner.failNode(graph, nodeId, cause); return graph
+        }
+        override fun replanPlan(failedNodeId: String, cause: String): PlanGraph? {
+            graph = planner.replan(graph, failedNodeId, cause); return graph
+        }
+        override fun recordDecisionOutcome(outcome: DecisionOutcome) {
+            recordedOutcomes.add(outcome)
+        }
+        override fun emit(event: CognitiveEvent) {
+            events.add(event)
+        }
+    }
+REPLACE:
+    private class FakeDriver(
+        private val planner: GoalPlanner,
+        initialGraph: PlanGraph,
+        private val busSink: (CognitiveEvent) -> Unit = {}
+    ) : PlanDriver {
+        var graph: PlanGraph = initialGraph
+        val events = mutableListOf<CognitiveEvent>()
+        val recordedOutcomes = mutableListOf<DecisionOutcome>()
+
+        override fun getPlanGraph(): PlanGraph? = graph
+        override fun completePlanStep(nodeId: String, outcome: String?): PlanGraph? {
+            graph = planner.completeNode(graph, nodeId, outcome); return graph
+        }
+        override fun failPlanStep(nodeId: String, cause: String): PlanGraph? {
+            graph = planner.failNode(graph, nodeId, cause); return graph
+        }
+        override fun replanPlan(failedNodeId: String, cause: String): PlanGraph? {
+            graph = planner.replan(graph, failedNodeId, cause); return graph
+        }
+        override fun recordDecisionOutcome(outcome: DecisionOutcome) {
+            recordedOutcomes.add(outcome)
+        }
+        override fun emit(event: CognitiveEvent) {
+            events.add(event)
+            busSink(event)
+        }
+    }
+```
+
+```patch
+FILE: mobile/app/src/test/java/com/jarvis/app/cognitive/capability/CapabilityExecutorTest.kt
+FIND:
+        val planner = GoalPlanner(FullStrategy)
+        val driver = FakeDriver(planner, graphOf(FullStrategy))
+        val exec = CapabilityExecutor(fabric, driver, goalPlanner = planner)
+        exec.executeNextStep()
+
+        assertTrue(events.any { it is CognitiveEvent.StepStarted })
+REPLACE:
+        val planner = GoalPlanner(FullStrategy)
+        val driver = FakeDriver(planner, graphOf(FullStrategy), busSink = { events.add(it) })
+        val exec = CapabilityExecutor(fabric, driver, goalPlanner = planner)
+        exec.executeNextStep()
+
+        assertTrue(events.any { it is CognitiveEvent.StepStarted })
+```
+
+```patch
+FILE: mobile/app/src/test/java/com/jarvis/app/cognitive/planning/GoalPlannerTest.kt
+FIND:
+        // failed node replaced by the alt path
+        assertFalse(replanned.nodes.any { it.id == "sg2:s1" })
+        assertTrue(replanned.nodes.any { it.id == "sg2:s1_r0" })
+REPLACE:
+        // failed node kept as a FAILED record, replaced by the alt path
+        assertTrue(replanned.nodes.any { it.id == "sg2:s1" && it.isFailed })
+        assertTrue(replanned.nodes.any { it.id == "sg2:s1_r0" })
+```
+
+```patch
+FILE: mobile/app/src/test/java/com/jarvis/app/cognitive/planning/CognitivePlanningIntegrationTest.kt
+FIND:
+        assertTrue(graph.nodes.any { it.id == "sg1:s1" && it.isCompleted })
+        assertTrue(graph.nodes.any { it.id == "sg2:s1_r0" })
+        assertNull(graph.nodes.firstOrNull { it.id == "sg2:s1" })
+        assertNotNull(graph.replanning)
+REPLACE:
+        assertTrue(graph.nodes.any { it.id == "sg1:s1" && it.isCompleted })
+        assertTrue(graph.nodes.any { it.id == "sg2:s1_r0" })
+        // the failed node is retained as a FAILED record alongside the replacement
+        assertTrue(graph.nodes.first { it.id == "sg2:s1" }.isFailed)
+        assertNotNull(graph.replanning)
+```

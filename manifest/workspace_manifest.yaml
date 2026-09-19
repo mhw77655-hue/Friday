@@ -1,0 +1,40 @@
+# JARVIS OS — Workspace Manifest
+# Blueprint Section 4: every path JARVIS may touch must appear here before
+# it can be read or written. Anything unlisted is structurally inaccessible.
+# This file is itself Tier 2 protected.
+
+manifest_version: 1
+updated: "2026-07-25"
+
+repos:
+  jarvis:
+    remote: "github.com/mhw77655-hue/JARVIS"
+    roots:
+      - path: "mobile/app/"
+        note: "Android working body — Kotlin/Compose. Empty until Phase 2."
+      - path: "hf_space/"
+        note: "Backend source, syncs to the HF Space deploy repo. Empty until Phase 1."
+      - path: ".github/workflows/"
+        note: "CI"
+      - path: "manifest/"
+      - path: "standards/"
+      - path: "logs/"
+
+  hf_space_deploy:
+    remote: "TODO — paste HF Space git URL here (Settings -> Repository on the Space page)"
+    roots:
+      - path: "."
+        note: "Entire HF Space deploy repo. Empty until Phase 1."
+
+protected_paths:
+  - "manifest/workspace_manifest.yaml"
+  - "manifest/protected_paths.py"
+  - "manifest/tier_permissions.yaml"
+  - "standards/STANDARDS.md"
+  - "hf_space/orchestrator/"
+  - "hf_space/core/"
+
+excluded:
+  - "~/.ssh/"
+  - "~/.termux/"
+  - "any path not listed above"

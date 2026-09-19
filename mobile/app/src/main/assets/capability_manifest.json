@@ -1,0 +1,33 @@
+{
+  "stage": 1,
+  "updated": "2026-08-05",
+  "capabilities": {
+    "stt_vosk": true,
+    "stt_cascade_sherpa_whisper": true,
+    "wake_word_substring": true,
+    "screen_reading_shizuku": true,
+    "notification_listener": true,
+    "battery_signal": true,
+    "network_signal": true,
+    "raw_mic_capture": true,
+    "cloud_brain_single_shot": false,
+    "local_brain_llama_server": true,
+    "tts_android_system": true,
+    "voice_ssml_pacing": false,
+    "reasoning_multistage": false,
+    "persistent_long_term_memory": false,
+    "personality_layer": true,
+    "relationship_engine": true,
+    "conversation_thread_tracking": false,
+    "self_evolution": true,
+    "voice_substrate_v1": true,
+    "voice_organism_v1": true
+  },
+  "known_limitations": {
+    "grammar_constrained_vosk": "primitive by design, not resolved",
+    "hf_space_token_storage": "plaintext, flagged security gap",
+    "voice_pipeline_v1": "retired, native mutex crash root-caused; R1 voice substrate (dedicated :voice process, supervised restart, crash containment) is live",
+    "voice_organism_v1": "R2: sherpa-onnx Kokoro (English, 11 speakers) + Android system TTS (Arabic/fallback) live inside the :voice habitat, downloaded on first use (~103MB, no network after). STT still in-app legacy; multilingual Kokoro + streaming are R3",
+    "human_core_memory_substrate": "annotations only — no queryable memory subsystem yet (Memory Interface §16 is a port)"
+  }
+}

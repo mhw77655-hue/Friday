@@ -1,0 +1,23 @@
+# Tier 1 / Tier 2 permissions model (Blueprint Section 10, step 7)
+# Tier 1: proceeds without approval. Tier 2: requires explicit human
+# confirmation before the execution layer applies it.
+
+tier_1_examples:
+  - "Adding a new file inside an existing manifest root that isn't protected"
+  - "Non-breaking edits inside mobile/app/ or hf_space/"
+  - "Adding tests"
+  - "Log housekeeping inside logs/"
+
+tier_2_triggers:
+  - "Any write to a path listed in workspace_manifest.yaml's protected_paths"
+  - "Any change to workspace_manifest.yaml itself"
+  - "Any change to standards/STANDARDS.md"
+  - "Any change to hf_space/orchestrator/ or hf_space/core/"
+  - "Any change that adds a new external dependency or network call"
+  - "Any change that widens the manifest"
+
+approval_flow:
+  - "Builder Mode drafts the diff and marks it tier_1 or tier_2"
+  - "tier_2 diffs are surfaced to Nick for explicit yes/no before Apply"
+  - "tier_1 diffs proceed to Apply, still logged and reported"
+  - "No mission may reclassify itself from tier_2 to tier_1 mid-cycle"

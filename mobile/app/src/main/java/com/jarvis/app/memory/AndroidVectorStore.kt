@@ -1,0 +1,102 @@
+package com.jarvis.app.memory
+
+import android.content.Context
+import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteOpenHelper
+
+/**
+ * Production Android-native [VectorStore] backed by
+ * [android.database.sqlite.SQLiteDatabase] — plain Android SQLite, no JDBC, no
+ * bundled/downloaded native .so, and no vector-search extension of any kind.
+ * This is the implementation that ships in the APK.
+ *
+ * Embeddings are stored as binary-quantized BLOBs (1 bit per dimension, packed
+ * into a byte array of length dimension/8 — see [EmbeddingMath.binaryQuantize])
+ * in a normal `BLOB` column. Nearest-neighbour search is ordinary Kotlin code:
+ * Hamming distance (XOR each packed byte against the query's packed bytes,
+ * popcount, lower = closer) computed over the persisted BLOB rows.
+ *
+ * JVM unit tests exercise the same contract via a pure-Kotlin zero-native
+ * reference store (KotlinVectorStore) because android.database.sqlite is not
+ * available on the JVM unit-test runtime of this host.
+ */
+class AndroidVectorStore(
+    context: Context,
+    private val dimension: Int,
+    private val modelId: String = "jarvis-neural-embed-v1",
+    dbName: String = "galaxy_memory_vectors.db"
+) : VectorStore {
+
+    private val helper = object : SQLiteOpenHelper(context, dbName, null, 1) {
+        override fun onCreate(db: SQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS memories (" +
+                    "id TEXT PRIMARY KEY, content TEXT, embedding BLOB NOT NULL, model_id TEXT, metadata TEXT)"
+            )
+        }
+
+        override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+            // No migrations yet.
+        }
+    }
+
+    private val db: SQLiteDatabase = helper.writableDatabase
+
+    override fun upsert(id: String, content: String, vector: FloatArray, metadata: Map<String, String>) {
+        // Real embedding model output, binary-quantized to dimension/8 bytes.
+        validateDimension(vector)
+        val blob = EmbeddingMath.binaryQuantize(vector)
+        val meta = metadata.entries.joinToString(";") { "${it.key}=${it.value}" }
+        db.execSQL(
+            "INSERT OR REPLACE INTO memories (id, content, embedding, model_id, metadata) VALUES (?,?,?,?,?)",
+            arrayOf<Any>(id, content, blob, modelId, meta)
+        )
+    }
+
+    override fun nearest(query: FloatArray, k: Int): List<ScoredMemory> {
+        validateDimension(query)
+        val qblob = EmbeddingMath.binaryQuantize(query)
+        // Pure-Kotlin Hamming search over persisted BLOB rows — no native call.
+        val rows = mutableListOf<ScoredMemory>()
+        db.rawQuery(
+            "SELECT id, content, embedding, metadata FROM memories", null
+        ).use { c ->
+            val idIdx = c.getColumnIndexOrThrow("id")
+            val contentIdx = c.getColumnIndexOrThrow("content")
+            val embIdx = c.getColumnIndexOrThrow("embedding")
+            val metaIdx = c.getColumnIndexOrThrow("metadata")
+            while (c.moveToNext()) {
+                val blob = c.getBlob(embIdx) ?: continue
+                rows.add(
+                    ScoredMemory(
+                        id = c.getString(idIdx),
+                        content = c.getString(contentIdx),
+                        distance = EmbeddingMath.hammingDistance(qblob, blob),
+                        metadata = parseMeta(c.getString(metaIdx))
+                    )
+                )
+            }
+        }
+        return rows.sortedBy { it.distance }.take(k)
+    }
+
+    private fun validateDimension(v: FloatArray) {
+        require(v.size == dimension) { "vector dimension ${v.size} != store dimension $dimension" }
+    }
+
+    private fun parseMeta(raw: String?): Map<String, String> {
+        if (raw.isNullOrBlank()) return emptyMap()
+        return raw.split(";").mapNotNull { kv ->
+            val eq = kv.indexOf('=')
+            if (eq <= 0) null else kv.substring(0, eq) to kv.substring(eq + 1)
+        }.toMap()
+    }
+
+    override fun close() {
+        try {
+            db.close()
+            helper.close()
+        } catch (_: Throwable) {
+        }
+    }
+}

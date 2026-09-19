@@ -1,0 +1,114 @@
+===== JARVIS TEMP BUILD BODY =====
+PATH: /workspace
+
+=== JAVA ===
+openjdk version "17.0.19" 2026-04-21
+OpenJDK Runtime Environment (build 17.0.19+10-1-26.04.2-Ubuntu)
+OpenJDK 64-Bit Server VM (build 17.0.19+10-1-26.04.2-Ubuntu, mixed mode, sharing)
+
+=== PYTHON ===
+Python 3.14.4
+
+=== NODE ===
+v22.23.2
+
+=== GIT ===
+git version 2.53.0
+
+=== GRADLE WRAPPER ===
+
+------------------------------------------------------------
+Gradle 8.9
+------------------------------------------------------------
+
+Build time:    2024-07-11 14:37:41 UTC
+Revision:      d536ef36a19186ccc596d8817123e5445f30fef8
+
+Kotlin:        1.9.23
+Groovy:        3.0.21
+Ant:           Apache Ant(TM) version 1.10.13 compiled on January 4 2023
+Launcher JVM:  17.0.19 (Ubuntu 17.0.19+10-1-26.04.2-Ubuntu)
+Daemon JVM:    /usr/lib/jvm/java-17-openjdk-arm64 (no JDK specified, using current Java home)
+OS:            Linux 6.17.0-PRoot-Distro aarch64
+
+
+=== ANDROID SDK ===
+ANDROID_HOME=
+ANDROID_SDK_ROOT=
+ls: cannot access '/root/android-sdk': No such file or directory
+
+=== ANDROID TOOLS ===
+/data/data/com.termux/files/usr/bin/adb
+/data/data/com.termux/files/usr/bin/aapt2
+/data/data/com.termux/files/usr/bin/d8
+/data/data/com.termux/files/usr/bin/apksigner
+/data/data/com.termux/files/usr/bin/aidl
+
+=== LFM ===
+LFM: offline
+
+=== PYTHON BUILDER ===
+.................                                                        [100%]
+17 passed in 84.71s (0:01:24)
+
+=== STORAGE ===
+Filesystem                       Size  Used Avail Use% Mounted on
+/dev/block/dm-72                 106G   97G  9.5G  92% /
+/storage/emulated/0/jarvis-repo  106G   97G  9.5G  92% /workspace
+
+=== JARVIS TOP LEVEL ===
+CLAUDE.md
+ENVIRONMENT_AUDIT_PART1.md
+ENVIRONMENT_CONFIG_PART2.md
+JARVIS_BUILDING_SYSTEM_MAP.md
+JARVIS_INVENTORY_REPORT.md
+JARVIS_PHASE12_DEBUG_EXPORT.txt
+JARVIS_PHASE12_EXPORT.txt
+JARVIS_STATUS_REPORT_2026-08-10.md
+JARVIS_TEMP_BODY_BASELINE.txt
+MILESTONE_REPORT_capability_fabric.md
+MILESTONE_REPORT_cognitive_modeling.md
+MILESTONE_REPORT_cognitive_substrate.md
+MILESTONE_REPORT_goal_planning.md
+MILESTONE_REPORT_jarvis_building_system.md
+TASK_REPORT_stt_compile_fix.md
+__pycache__
+_bmad
+build.gradle.kts
+building
+cascade_controller.py
+compute_node.py
+core
+gradle
+gradle.properties
+gradlew
+gradlew.bat
+graphify-out
+jarvis-browser
+jniLibs
+local-repo
+local.properties
+logs
+logs_lfm_server.txt
+manifest
+mobile
+models
+none
+patch_user_model.py
+phase0_report.txt
+phase12_execution_dump.txt
+pytest.ini
+runtime
+scripts
+settings.gradle.kts
+sherpa-onnx-v1.13.2-android.tar.bz2
+sherpa-onnx-whisper-tiny.en
+sherpa-onnx-whisper-tiny.en.tar.bz2
+standards
+test_all_three.py
+test_vosk_grammar.py
+tests
+vault
+vosk-model-small-en-us-0.15
+vosk-model-small-en-us-0.15.zip
+whisper_out.txt

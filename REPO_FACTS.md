@@ -1,0 +1,3 @@
+
+## Verification scope limit — MANDATORY in every report/note
+`bash ./gradlew testDebugUnitTest` confirms the code compiles and unit tests pass. It does NOT confirm the app assembles into a real APK, installs, or runs on a real device. Local `assembleDebug`/`assembleRelease` are banned (2026-08-20 phone-crash incident) and no CI push currently runs (GitHub not set up on this device). Every story's `notes` field and every ralph run report MUST state this scope limit explicitly. Never write or imply "app works" / "fully verified" / "complete" from unit-test success alone — say "unit-tested, real-app assembly unverified" instead.

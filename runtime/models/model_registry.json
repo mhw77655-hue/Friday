@@ -1,0 +1,45 @@
+{
+  "version": 4,
+  "model_root": "/sdcard/jarvis-repo/models",
+  "models": [
+    {
+      "id": "lfm2.5-1.2b-instruct",
+      "name": "LFM2.5-1.2B-Instruct-Q4_K_M",
+      "filename": "LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
+      "role": [
+        "fast",
+        "general",
+        "fallback"
+      ],
+      "estimated_rss_mib": 900,
+      "context": 4096,
+      "resident": true
+    },
+    {
+      "id": "qwen3-1.7b-q4",
+      "name": "Qwen3-1.7B-Q4_K_M",
+      "filename": "Qwen3-1.7B-Q4_K_M.gguf",
+      "role": [
+        "normal",
+        "reasoning",
+        "builder"
+      ],
+      "estimated_rss_mib": 1400,
+      "context": 4096,
+      "resident": false
+    },
+    {
+      "id": "qwen3-1.7b-q8",
+      "name": "Qwen3-1.7B-Q8_0",
+      "filename": "Qwen3-1.7B-Q8_0.gguf",
+      "role": [
+        "deep_reasoning",
+        "research",
+        "builder"
+      ],
+      "estimated_rss_mib": 2100,
+      "context": 4096,
+      "resident": false
+    }
+  ]
+}
