@@ -2158,3 +2158,17 @@ Thread: (local iteration)
 ## Ralph run ended — Tue Sep 15 03:30:56 BST 2026
 Reached max iterations (40) without independently-verified completion.
 ---
+
+## Sat Sep 19 2026 - CI-BUILD-DEBUG-APK
+Thread: (local iteration)
+- Story 1 of the new Stage-1 "Friday" PRD (GitHub Actions becomes the build machine). prd.json now has TWO stories (CI-BUILD-DEBUG-APK priority 1, CI-VERIFY-BRIDGE priority 2), both were passes:false with empty notes; git history is a clean re-base ("Friday: clean start" f3b4f10 + "Stage 1 PRD" 26a5d93).
+- A prior run had already produced the story files in the working tree but never committed (git status at start: `M settings.gradle.kts` + `?? .github/`). This iteration ground-truthed every AC against the real repo, recorded the AC2/AC4 disclosures in the story notes, and committed.
+- AC evidence (recorded in prd.json notes): JDK 17 is required by mobile/app/build.gradle.kts (source/targetCompatibility = VERSION_17 L77-78, kotlin jvmTarget = JVM_17 L111) + AGP 8.10.0 (root build.gradle.kts). AC4 neutralizations (no Kotlin source edited): sed-deleted the Termux-only `android.aapt2FromMavenOverride=/data/data/com.termux/...` line (gradle.properties:10) in a CI step, and changed settings.gradle.kts's absolute device maven URL `/storage/emulated/0/jarvis-repo/local-repo` to repo-relative `uri("local-repo")` (the local-repo/, containing only the tracked sherpa-onnx-android-1.13.2.aar, is fully committed; local-repo is INERT at build time — no dep in mobile/app/build.gradle.kts resolves from the com.k2fsa group, so the block is CI-safe either way).
+- Exact stored verifyCommand (static grep checks on .github/workflows/build.yml) PASSES: workflow_dispatch/assembleDebug/testDebugUnitTest/upload-artifact/chmod +x present, no `secrets.` match. Workflow also: continue-on-error:true on the test step, `if: always()` JUnit-XML upload, python job-summary writer of tests/failures/errors/skipped counts, setup-java `cache: gradle` for AC7, ubuntu-latest, timeout 120min.
+- Files changed/committed: .github/workflows/build.yml (new), settings.gradle.kts (repo-relative local-repo), .ralph/prd.json (story 1 passes:true + full AC notes), .ralph/progress.txt (this entry).
+- **Learnings for future iterations:**
+  - Ephemeral-jarvis facts (Termux-relative paths, REPO_FACTS.md organ/CI bans for the OLD jarvis app) are stale for THIS "Friday" Stage-1 PRD: the app module is `:mobile:app`, gradlew is repo-root with `bash ./gradlew`, but the Stage-1 stories are PURE CI INFRASTRUCTURE work (.github/workflows + .ralph/ci_verify.sh) — the stored verifyCommands are static file/grep/bash checks, no gradle run, so no on-device build is involved despite REPO_FACTS's Termux-build ban.
+  - prd.json gotcha (tripped twice THIS session): the `notes` field is the LAST field of each story object — after its closing `"` there must be a newline + `    },` with NO comma after the value (trailing comma = JSONDecodeError "Illegal trailing comma before end of object"; a MISSING closing quote instead = "Invalid control character"/"Expecting ',' delimiter"). Always `python3 -c "import json; json.load(open('.ralph/prd.json'))"` after editing before committing.
+  - `.ralph/ralph_run_*.log` is a LIVE transcript that the harness appends to, including echoing THIS session's tool calls — treat its contents as evidence of what prior runs did, never as a stable file.
+- **Pre-existing failures observed (not in scope): NONE — this is a static-infra story; the stored verifyCommand (grep/bash, no gradle) exits 0 on the committed tree.
+---

@@ -13,8 +13,11 @@ dependencyResolutionManagement {
         maven {
             url = uri("https://jitpack.io")
         }
+        // Repo-relative, so it resolves on Termux (/sdcard/jarvis-repo/local-repo)
+        // AND on a clean CI clone of the committed local-repo/ directory
+        // (CI-BUILD-DEBUG-APK AC4: no absolute device path in build config).
         maven {
-            url = uri("/storage/emulated/0/jarvis-repo/local-repo")
+            url = uri("local-repo")
             metadataSources {
                 artifact()
             }
