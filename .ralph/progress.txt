@@ -2187,3 +2187,7 @@ Thread: (local iteration)
   - The GitHub REST run-lookup with `?head_sha=<sha>&per_page=30`, picking `.workflow_runs[]` by `endswith(build.yml)`, newest first, is the reliable way to find 'the CI run for HEAD' without the gh CLI (not installed on Termux).
 - **Pre-existing failures observed (not in scope): NONE — pure .ralph tooling story; no gradle/Kotlin involved, both stored verifyCommands exit 0 on the committed tree.
 ---
+
+## Ralph run complete — Sat Sep 19 04:08:25 BST 2026
+All stories independently re-verified for real after 10 iteration(s).
+---
