@@ -9,12 +9,6 @@ jobs:
   debug-apk:
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    env:
-      # Writable SDK root for this job. The runner-image SDK at
-      # /usr/local/lib/android/sdk is read-only; components pinned by
-      # mobile/app/build.gradle.kts are installed here instead.
-      ANDROID_HOME: ${{ runner.temp }}/android-sdk
-      ANDROID_SDK_ROOT: ${{ runner.temp }}/android-sdk
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,6 +23,16 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: gradle
+
+      # Writable SDK root for this job. MUST be exported inside a step (not in
+      # a job-level env block): the runner context is not allowed there and
+      # GitHub rejects the whole workflow. The runner-image SDK at
+      # /usr/local/lib/android/sdk is read-only, so components pinned by
+      # mobile/app/build.gradle.kts go here instead.
+      - name: Set ANDROID_HOME for the job
+        run: |
+          echo "ANDROID_HOME=${{ runner.temp }}/android-sdk" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=${{ runner.temp }}/android-sdk" >> "$GITHUB_ENV"
 
       # SDK versions pinned by mobile/app/build.gradle.kts: compileSdk = 36,
       # ndkVersion = 27.3.13750724, externalNativeBuild cmake version 3.22.1,
