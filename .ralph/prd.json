@@ -15,8 +15,8 @@
       ],
       "verifyCommand": "cd /sdcard/jarvis-repo && bash -n .ralph/ci_verify.sh && bash .ralph/ci_verify.sh --build-status --dry-run && grep -q 'build-status' .ralph/ci_verify.sh && ! grep -qE 'ghp_|github_pat_' .ralph/ci_verify.sh .ralph/ralph.sh .ralph/reject_story.py .ralph/prompt.md",
       "priority": 1,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "AC1: --build-status reuses the existing mode's run lookup/push/wait (unchanged code path) and exits 0 iff CONCL == success; any other completed conclusion goes to the reporter. AC2: reporter prints run URL + 'NOT success: conclusion=<c>', then every job with its conclusion, then for each non-success/non-neutral/non-skipped job the failing/cancelled step names and the last 80 lines of that job's log via GET /repos/{o}/{r}/actions/jobs/{job_id}/logs (GITHUB_TOKEN only, never a file; temp dir mktemp + EXIT trap). AC3: JOB_COUNT==0 prints 'GitHub started NO jobs ... workflow file itself was rejected' + run URL before exiting 1. AC4: --build-status --dry-run does zero network (verified tokenless exit 0). AC5: filter mode untouched (re-verified pass/fail/no-match verdicts end-to-end against a fake curl harness); bash -n clean; no token-prefix literal in the 4 scanned tooling files. FIXED pre-existing latent bug in pick_run_id: `python3 - <<'PY'` heredoc consumed the pipeline stdin so json.load(sys.stdin) read the python source, meaning the run lookup could never work for real (would have blocked CI-GREEN-BUILD) — the piped JSON now travels via RUN_JSON_PAYLOAD env var. Verified against a fake curl: success run exit 0; failure run exit 1 with URL/jobs/failed-step/log-tail; zero-jobs exit 1 with rejection message."
     },
     {
       "id": "CI-GREEN-BUILD",

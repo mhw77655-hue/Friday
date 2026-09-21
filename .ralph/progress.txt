@@ -71,3 +71,22 @@ All stories independently re-verified for real after 10 iteration(s).
 ## Ralph run ended — Sat Sep 19 07:06:16 BST 2026
 Reached max iterations (6) without independently-verified completion.
 ---
+
+## Ralph run ended — Sat Sep 19 11:25:22 BST 2026
+Reached max iterations (6) without independently-verified completion.
+---
+
+## Sat Sep 21 2026 - CI-STATUS-MODE
+Thread: (local iteration)
+- Story 1 of the Stage-2 "Friday" PRD. Implemented the --build-status mode in .ralph/ci_verify.sh (the CLI parse + --dry-run text was already in the working tree, uncommitted; the real behavior was missing and --build-status fell through to the JUnit filter path, exiting 1 with 'no tests matched' even on a green run).
+- New branch after the wait-for-completion loop: CONCL==success -> exit 0; otherwise print run URL, conclusion, every job + its conclusion, then for each failed job the failing/cancelled step names and the last 80 lines of that job's log (GET /repos/{o}/{r}/actions/jobs/{job_id}/logs). Zero jobs -> explicit 'GitHub started NO jobs ... workflow file itself was rejected' + run URL, exit 1. Cancelled runs no longer hard-fail in build-status mode (they feed the reporter). TMP/mktemp + EXIT trap moved above the branch so the log-tail downloads share it; filter mode then consumes the JUnit artifact exactly as before.
+- BROKEN pre-existing bug found and fixed in pick_run_id: `python3 - <<'PY'` heredoc redirects stdin, so a piped `get_runs | pick_run_id` made json.load(sys.stdin) read the heredoc's own python source -> JSONDecodeError, meaning the run lookup could never succeed for real (would have blocked CI-GREEN-BUILD). Fix: `RUN_JSON_PAYLOAD="$(cat)"` + env var -> `json.loads(os.environ[...])`. The CI-VERIFY-BRIDGE story only exercised dry-run/static checks, so this latent break had no effect on that story's green result.
+- Verified ALL paths end-to-end against a fake `curl` in PATH serving canned GitHub API responses: success run -> exit 0; failure run -> exit 1 with URL/jobs/failed-step-name/80-log-lines; zero-jobs -> rejection message; filter mode pass/fail/no-match verdicts unchanged; --dry-run --build-status tokenless exit 0. Stored story-1 verifyCommand passes; bash -n clean; no token literal in the 4 scanned tooling files.
+- Files changed/committed: .ralph/ci_verify.sh (build-status branch + pick_run_id fix + TMP relocation), .ralph/prd.json (story 1 passes:true + AC notes), .ralph/progress.txt (this entry).
+- **Learnings for future iterations:**
+  - bash function invoked in a PIPE cannot feed stdin to `python3 -` when the python script itself comes from `python3 - <<'PY'` heredoc: the heredoc wins, python reads its own source, json.load crashes. Carry piped data to python via `VAR="$(cat)"` + export (or argv), never via stdin + heredoc together. Applies to any future `cmd | python3 - <<'PY'` pattern in ci_verify.sh or elsewhere.
+  - Fake-API harness (fake curl in PATH) is the fast way to test ci_verify.sh's real-mode paths without a token/network; keep json responses keyed off the URL tail.
+  - prd.json notes keeps biting: my edit DUPED the object's closing `},` (oldString ended at `},` and newString re-emitted it) -> 'Expecting value' at the next `{`. Always re-running python3 json.load after the edit caught it immediately.
+  - `log tail` for failed jobs uses the job-level log endpoint, NOT the run log URL; curate `conclusion != success/neutral/skipped` as the failed-job set, and report per-job step conclusions from `.steps[]`.
+- **Pre-existing failures observed (not in scope): NONE — .ralph tooling only, no gradle/Kotlin involved; story-1 verifyCommand exits 0 on the committed tree.
+---
