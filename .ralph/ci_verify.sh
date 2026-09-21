@@ -142,8 +142,20 @@ command -v unzip >/dev/null 2>&1 || fail "unzip is required but not installed"
 
 AUTH=(-H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.github+json")
 
+# GET a URL with retries on transient TLS/network errors. A bare curl in a
+# command substitution under set -e aborts the whole run on the first EOF.
+api_get() {
+  local url="$1" tries=3
+  while [ "$tries" -gt 0 ]; do
+    if curl -fsS "${AUTH[@]}" "$url"; then return 0; fi
+    tries=$((tries - 1))
+    [ "$tries" -gt 0 ] && sleep 3
+  done
+  return 1
+}
+
 get_runs() {
-  curl -fsS "${AUTH[@]}" "${API_BASE}/repos/${OWNER_REPO}/actions/runs?head_sha=${HEAD_SHA}&per_page=30" || {
+  api_get "${API_BASE}/repos/${OWNER_REPO}/actions/runs?head_sha=${HEAD_SHA}&per_page=30" || {
     echo "ci_verify.sh: GitHub API request failed (check GITHUB_TOKEN/network)" >&2
     return 1
   }
@@ -203,7 +215,7 @@ fi
 # ---------------------------------------------------------------------------
 start=$SECONDS
 while :; do
-  RUN_JSON="$(curl -fsS "${AUTH[@]}" "${API_BASE}/repos/${OWNER_REPO}/actions/runs/${RUN_ID}")"
+  RUN_JSON="$(api_get "${API_BASE}/repos/${OWNER_REPO}/actions/runs/${RUN_ID}")"
   STATUS="$(printf '%s' "$RUN_JSON" | jq -r '.status')"
   if [ "$STATUS" = "completed" ]; then
     CONCL="$(printf '%s' "$RUN_JSON" | jq -r '.conclusion')"
@@ -276,7 +288,7 @@ fi
 # ---------------------------------------------------------------------------
 # Download the JUnit results artifact
 # ---------------------------------------------------------------------------
-ART_JSON="$(curl -fsS "${AUTH[@]}" "${API_BASE}/repos/${OWNER_REPO}/actions/runs/${RUN_ID}/artifacts?per_page=100")"
+ART_JSON="$(api_get "${API_BASE}/repos/${OWNER_REPO}/actions/runs/${RUN_ID}/artifacts?per_page=100")"
 DL_URL="$(printf '%s' "$ART_JSON" | jq -r --arg n "$ARTIFACT_NAME" '.artifacts[] | select(.name == $n) | .archive_download_url' | head -n 1)"
 [ -n "$DL_URL" ] || fail "no '${ARTIFACT_NAME}' artifact on run ${RUN_ID}"
 echo "ci_verify.sh: downloading '${ARTIFACT_NAME}' artifact from run ${RUN_ID}"
