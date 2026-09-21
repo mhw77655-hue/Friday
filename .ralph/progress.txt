@@ -90,3 +90,17 @@ Thread: (local iteration)
   - `log tail` for failed jobs uses the job-level log endpoint, NOT the run log URL; curate `conclusion != success/neutral/skipped` as the failed-job set, and report per-job step conclusions from `.steps[]`.
 - **Pre-existing failures observed (not in scope): NONE — .ralph tooling only, no gradle/Kotlin involved; story-1 verifyCommand exits 0 on the committed tree.
 ---
+
+## Sat Sep 21 2026 - CI-GREEN-BUILD
+Thread: (local iteration)
+- Story 2 of the Stage-2 "Friday" PRD (the actual machine-trust goal). The debug APK build is GREEN on GitHub Actions. Two attributable root-cause commits, one per AC6 constraint:
+  - 6d20e0b: removed the job-level `env:` block from .github/workflows/build.yml (ANDROID_HOME/ANDROID_SDK_ROOT had referenced ${{ runner.temp }}, and the runner context is not allowed at job level -> GitHub rejected the whole workflow, zero jobs started on the first CI run 35422661722). Added a 'Set ANDROID_HOME for the job' step that writes both vars to GITHUB_ENV using runner.temp inside the step (legal there), placed before the 'Install Android SDK components' step that consumes $ANDROID_HOME. Run 35602973713 => SUCCESS.
+  - af177b8: ci_verify.sh poll loop aborted mid-iteration on a transient TLS error ('SSL routines::unexpected eof while reading') from an unguarded `curl -fsS` in a command substitution under set -e. Added an api_get() retry helper (3 tries, 3s sleep) used for get_runs, the run-status poll, and the artifact-list fetch. This is what made the 25-min poll loop survive to completion. Run 35607695866 => SUCCESS.
+- AC3 baseline (copied from run 35607695866's junit-results artifact == the numbers the job-summary step aggregates): 1197 tests, 3 failures, 0 errors, 0 skipped. The 3 failures sit inside the continue-on-error 'Run unit tests (baseline)' step, so the job conclusion stays success.
+- Files changed/committed: .github/workflows/build.yml (env fix), .ralph/ci_verify.sh (retry helper), .ralph/prd.json (story 2 passes:true + AC notes), .ralph/progress.txt (this entry). REPO_FACTS.md untouched.
+- **Learnings for future iterations:**
+  - The runner context is legal in a step's `run:` and in GITHUB_ENV writes, but NOT in a job-level env block — GitHub validates contexts per-scope and rejects the entire workflow file (run shows zero jobs). Diagnose 'no jobs started' as 'workflow file rejected, see run page', not 'runner crashed'.
+  - Before trusting ci_verify.sh --build-status as the stage's feedback channel, harden every `$(curl ...)` under `set -e` with a retry helper: this Termux host's TLS stack throws intermittent EOFs and an unguarded curl kills the whole 25-min poll mid-flight.
+  - CI feedback loop is fully closed: push -> run -> --build-status verdict -> one-root-cause fix -> repeat. The two green runs proved the machine (GitHub runner + workflow) now builds the debug APK from a clean clone.
+- **Pre-existing failures observed (not in scope): NONE relevant to CI infra; the 3 baseline unit-test failures (an intentionally continue-on-error step, AC3) are the pre-existing JVM+Termux test baseline, not CI blockers and outside Stage-2 scope.
+---

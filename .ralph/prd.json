@@ -32,8 +32,8 @@
       ],
       "verifyCommand": "cd /sdcard/jarvis-repo && ! awk '/^    env:/{f=1;next} /^    steps:/{f=0} f' .github/workflows/build.yml | grep -q 'runner\\.' && bash .ralph/ci_verify.sh --build-status",
       "priority": 2,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "AC1: job-level env block removed; ANDROID_HOME/ANDROID_SDK_ROOT are written by a 'Set ANDROID_HOME for the job' step via GITHUB_ENV using runner.temp inside the step (runner context is legal there); the awk/grep clause in the verifyCommand proves nothing between env:/steps: references runner. AC2: --build-status exits 0 for HEAD af177b8 — CI runs 35602973713 (commit 6d20e0b, env fix) and 35607695866 (commit af177b8, network resilience) both concluded success on github.com/mhw77655-hue/Friday; Build debug APK + Upload debug APK steps succeeded on both. AC3: 'Run unit tests (baseline)' step keeps continue-on-error:true; baseline counts from the run-35607695866 junit-results artifact (the exact numbers the job summary step aggregates): 1197 tests, 3 failures, 0 errors, 0 skipped. AC4 (failures found along the way, cause -> fix, one line each): job-level env referencing runner.temp -> GitHub rejected the whole workflow, no jobs started (run 35422661722) -> export ANDROID_HOME/SDK_ROOT inside a step into GITHUB_ENV; ci_verify.sh status poll aborted mid-iteration on transient TLS 'unexpected eof' while reading (run 35602973713 polling) -> added api_get curl retry helper (3 tries / 3s sleep) over get_runs, the run-status poll, and the artifact-list fetch so polls survive transient network errors. AC5: no Kotlin source or dependency edited — only .github/workflows/build.yml and .ralph tooling. AC6: one root cause per commit: 6d20e0b (env-context rejection) and af177b8 (network resilience)."
     }
   ]
 }
