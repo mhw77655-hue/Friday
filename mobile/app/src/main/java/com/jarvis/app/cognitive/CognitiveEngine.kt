@@ -25,7 +25,7 @@ import com.jarvis.app.cognitive.planning.GoalPlanner
 import com.jarvis.app.cognitive.planning.PlanGraph
 import com.jarvis.app.cognitive.planning.PlanResult
 import com.jarvis.app.trace.TurnTrace
-import com.jarvis.app.trace.TurnTraceRecord
+import com.jarvis.app.trace.TurnTrace.TurnTraceRecord
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -502,7 +502,7 @@ class CognitiveEngine(
         inputText: String,
         decision: TurnDecision,
         retrievedMemoryIds: List<String>,
-        promptSections: List<com.jarvis.app.trace.PromptSection>,
+        promptSections: List<com.jarvis.app.trace.TurnTrace.PromptSection>,
         outputText: String?,
         generationPayload: String?,
         crossSessionMemories: List<String>,
