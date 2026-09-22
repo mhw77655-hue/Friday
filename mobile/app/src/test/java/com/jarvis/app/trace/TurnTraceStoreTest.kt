@@ -58,8 +58,8 @@ class TurnTraceStoreTest {
             retrievedMemoryIds = listOf("mem-1", "mem-2"),
             predictions = listOf(TracePrediction("next-turn greeting", 0.9)),
             promptSections = listOf(
-                PromptSection("user-input", 0, 31, "My favorite color is green"),
-                PromptSection("identity-context", 31, 17, "[Identity context]")
+                PromptSection("user-input", 0, 26, "My favorite color is green"),
+                PromptSection("identity-context", 26, 18, "[Identity context]")
             ),
             outputText = outputText,
             generationPayload = "My favorite color is green[Identity context]",
