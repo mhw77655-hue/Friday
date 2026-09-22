@@ -20,6 +20,7 @@ class SystemGraph {
         SAFETY,
         VOICE,
         ENTRY,
+        TRACE,
         PLANNED,
         RESOLUTION,
         CLOUD,

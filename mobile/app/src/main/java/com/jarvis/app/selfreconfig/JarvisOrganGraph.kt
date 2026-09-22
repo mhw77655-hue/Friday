@@ -403,6 +403,25 @@ object JarvisOrganGraph {
                 "so no organ can bypass the gate."
         ))
 
+        // TURN-TRACE (Gate 3a): the append-only local turn-trace store is a REAL
+        // organ (TRACE, not PLANNED). JsonlTurnTraceStore is constructed in
+        // JarvisEngine.init (filesDir/traces/turn_traces.jsonl), handed to
+        // CognitiveEngine's turnTraceStore seam via the Auth-free local File only;
+        // every real turn writes one JSON-Lines record through the engine. Local-only
+        // by construction (a File on this device) — never an upload, never a socket.
+        g.registerNode(SystemGraph.SystemNode(
+            id = "trace.turnTraceStore",
+            name = "JsonlTurnTraceStore",
+            organType = SystemGraph.OrganType.TRACE,
+            qualifiedClassName = "com.jarvis.app.trace.JsonlTurnTraceStore",
+            description = "TURN-TRACE (2026-09-22): append-only local JSON-Lines trace of every real turn " +
+                "through the production CognitiveEngine.process path (input, retrieved memory ids, prompt " +
+                "section boundaries, output text, per-stage latency ms). Constructed in JarvisEngine.init at " +
+                "filesDir/traces/turn_traces.jsonl and consumed by the engine's turnTraceStore seam; " +
+                "local-only, never a network call; writing is a no-op when the store is disabled or the " +
+                "seam is null (AC5)."
+        ))
+
         // Fixed invariants
         g.registerNode(SystemGraph.SystemNode(id = "identity.root", name = "Identity Root", organType = SystemGraph.OrganType.SAFETY, isFixedInvariant = true))
         g.registerNode(SystemGraph.SystemNode(id = "authorization.root", name = "Authorization Root", organType = SystemGraph.OrganType.SAFETY, isFixedInvariant = true))
@@ -507,6 +526,8 @@ object JarvisOrganGraph {
         // consume the snapshot. The engine DEPENDS_ON the gate it holds, so the
         // gate is genuinely reachable from the live entry.
         g.addEdge("cognitive.engine", "continuity.continuityGate", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        // TURN-TRACE: the engine SENDS_TO the local trace store on every real turn.
+        g.addEdge("cognitive.engine", "trace.turnTraceStore", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("continuity.continuityGate", "identity.identityContext", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("continuity.continuityGate", "cognitive.contextWindowAssembler", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         // Contributor organs -> gate (signal INTO the registry; no direct payload write).

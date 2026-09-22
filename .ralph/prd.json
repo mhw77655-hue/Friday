@@ -1,39 +1,52 @@
 {
   "project": "Friday",
-  "description": "Stage 2: make the build machine trustworthy. Root cause of the failed first CI run (run 35422661722, no jobs started): .github/workflows/build.yml uses the runner context inside the job-level env block, where GitHub only allows the github, needs, strategy, matrix, vars, secrets and inputs contexts, so GitHub rejected the whole workflow. Story 1 gives ci_verify.sh a build-status mode so Ralph can see CI failures. Story 2 fixes the workflow and iterates against real CI until the build is green. Each CI check can take up to 25 minutes. Later stages are specified only after a Ralph report.",
+  "description": "Stage 3, Gate 3a: a structured trace of every turn, and open threads as first-class objects. This is the data layer everything else (predictor, sleep replay, self-build) needs to exist before it can be trusted, and it directly targets the tangent-handling failure: every unfinished thought in a message becomes a tracked object instead of being dropped.",
   "userStories": [
     {
-      "id": "CI-STATUS-MODE",
-      "title": "ci_verify.sh --build-status: pass only if the CI build for the current commit succeeded, and show why not",
-      "description": "Add a --build-status mode to .ralph/ci_verify.sh. The existing test-filter mode stays unchanged. Exit 0 only if the workflow run for the current HEAD concluded success. A failing unit-test step that is marked continue-on-error must not count as a build failure.",
+      "id": "TURN-TRACE",
+      "title": "Every turn writes a structured trace record",
+      "description": "On every real conversation turn (the production CognitiveTurnResult path, not a test harness), write one JSON record: raw input, memories retrieved, any predictions made, the assembled prompt sections, the model output, and per-stage latency (embed/retrieve/prompt-build/generate/post-process). This is pure logging — no new behavior, no model changes.",
       "acceptanceCriteria": [
-        "AC1: ci_verify.sh --build-status finds the workflow run for the current HEAD (pushing and waiting exactly like the existing mode when there is none) and exits 0 if and only if that run's conclusion is success",
-        "AC2: on any other outcome it exits 1 and prints the run URL, the conclusion, every job with its conclusion, the name of each failed step, and the last 80 lines of the failed job's log (fetched with GITHUB_TOKEN)",
-        "AC3: if the run has zero jobs it says explicitly that GitHub started no jobs, which means the workflow file itself was rejected, and prints the run URL where GitHub shows the reason",
-        "AC4: --dry-run works together with --build-status and makes no network call",
-        "AC5: existing test-filter behavior is unchanged, bash -n passes, and no token value appears anywhere in the script"
+        "AC1: a trace record is written for every turn that goes through the real production entry point, not a mock/test-only path",
+        "AC2: record includes input text, retrieved memory IDs, prompt section boundaries, output text, and stage timings in milliseconds",
+        "AC3: traces are stored locally, append-only, with a replay_turn(id) function that can re-run a past turn's stored input against current logic",
+        "AC4: no PII leaves the device — this is a local file/DB, not a network call",
+        "AC5: negative control: if trace writing is disabled, a test asserts the trace file does not grow — proves the wiring is real, not a stub"
       ],
-      "verifyCommand": "cd /sdcard/jarvis-repo && bash -n .ralph/ci_verify.sh && bash .ralph/ci_verify.sh --build-status --dry-run && grep -q 'build-status' .ralph/ci_verify.sh && ! grep -qE 'ghp_|github_pat_' .ralph/ci_verify.sh .ralph/ralph.sh .ralph/reject_story.py .ralph/prompt.md",
+      "verifyCommand": "cd /sdcard/jarvis-repo && ! grep -rnE 'HttpURLConnection|OkHttp|Retrofit|java\\.net\\.Socket' mobile/app/src/main/java/com/jarvis/app/trace/ && bash .ralph/ci_verify.sh 'com.jarvis.app.trace.*' 'com.jarvis.app.termux.TurnTraceProductionWiringTest.*'",
       "priority": 1,
       "passes": true,
-      "notes": "AC1: --build-status reuses the existing mode's run lookup/push/wait (unchanged code path) and exits 0 iff CONCL == success; any other completed conclusion goes to the reporter. AC2: reporter prints run URL + 'NOT success: conclusion=<c>', then every job with its conclusion, then for each non-success/non-neutral/non-skipped job the failing/cancelled step names and the last 80 lines of that job's log via GET /repos/{o}/{r}/actions/jobs/{job_id}/logs (GITHUB_TOKEN only, never a file; temp dir mktemp + EXIT trap). AC3: JOB_COUNT==0 prints 'GitHub started NO jobs ... workflow file itself was rejected' + run URL before exiting 1. AC4: --build-status --dry-run does zero network (verified tokenless exit 0). AC5: filter mode untouched (re-verified pass/fail/no-match verdicts end-to-end against a fake curl harness); bash -n clean; no token-prefix literal in the 4 scanned tooling files. FIXED pre-existing latent bug in pick_run_id: `python3 - <<'PY'` heredoc consumed the pipeline stdin so json.load(sys.stdin) read the python source, meaning the run lookup could never work for real (would have blocked CI-GREEN-BUILD) — the piped JSON now travels via RUN_JSON_PAYLOAD env var. Verified against a fake curl: success run exit 0; failure run exit 1 with URL/jobs/failed-step/log-tail; zero-jobs exit 1 with rejection message."
+      "notes": "AC1: every real turn through the production entry writes exactly one record — proven through the REAL JVM-executable composition root TermuxJarvisServer(port=0, backendOverride=FakeModelBackend(), turnTraceStore=JsonlTurnTraceStore(tempfile)) driven through the REAL LatencyPipeline.onUserInput -> CognitiveEngine.process(sendBlock=bridgeSend) call path (the /api/chat production chain); the ONLY swapped hop is the last one (recording collector instead of modelManager.send) — the store itself is a real file. 2 pipeline turns -> exactly 2 records, each carrying the exact raw input (TurnTraceProductionWiringTest). AC2: store-level round trip proves every field survives JSON (inputText, retrievedMemoryIds, promptSections offsets+length, outputText, crossSessionMemories, stageTimingsMs) plus all 5 canonical stage keys embed/retrieve/prompt-build/generate/post-process in ms; the live record's user-input prompt section starts at offset 0 with length==inputText.length and the generationPayload equals the payload captured at the bridge; the model output text is captured when generation answers synchronously (modelCall seam -> outputText=='Noted: green.'). AC3: replay_turn(id) re-runs the byte-identical stored input against the CURRENT engine (runner invoked), storedInput(id) reads it back, unknown id -> null without invoking the runner. AC4: append-only local file (JSON Lines; JarvisEngine.init writes under filesDir/traces, JVM harness under java.io.tmpdir), JsonlTurnTraceStore is a pure java.io.File store with no network — verifyCommand greps the whole trace package for zero HttpURLConnection/OkHttp/Retrofit/java.net.Socket references and the test asserts serialized records carry no http/socket markers. AC5 negative control THROUGH the real path: store disabled -> a full pipeline turn adds zero bytes and zero records (file length provably unchanged); re-enabled -> per-turn growth resumes — the wiring is real, not a stub. Wiring: CognitiveEngine got a nullable turnTraceStore seam (default null keeps the pre-trace path byte-for-byte), filled by JarvisEngine.init + TermuxJarvisServer; SystemGraph registers trace.turnTraceStore as a REAL TRACE organ (not PLANNED) with a cognitive.engine -> trace.turnTraceStore SENDS_TO edge reachable from entry.latencyPipeline (pinned by SystemGraphTest)."
     },
     {
-      "id": "CI-GREEN-BUILD",
-      "title": "The debug APK builds green on GitHub Actions",
-      "description": "Get the debug APK build green on GitHub Actions. Known cause of the first failure: in .github/workflows/build.yml the job-level env block uses runner.temp, and the runner context is not allowed there. Move ANDROID_HOME and ANDROID_SDK_ROOT into a step (write them to GITHUB_ENV, using runner.temp inside the step where it is allowed) or use a fixed path. After that, iterate against real CI: results come back through ci_verify.sh --build-status. Fix what it reports, one root cause at a time.",
+      "id": "THREAD-OBJECTS",
+      "title": "Unfinished/tangent thoughts become tracked thread objects, not discarded text",
+      "description": "When a user message contains more than one distinct thought (a task plus an aside, an unfinished sentence, a jump to an unrelated topic), each becomes a Thread object: id, content, completeness (finished/trailing-off), a decay clock, and a link back to the turn it came from. The main task gets a main_anchor pointer that survives any number of tangents. This must work in mixed English/Egyptian Arabic/Franco-Arabic input — test fixtures include all three from this story onward.",
       "acceptanceCriteria": [
-        "AC1: the workflow no longer references the runner or env context in any job-level env value",
-        "AC2: ci_verify.sh --build-status exits 0 for the HEAD commit, meaning the Build debug APK step and the artifact upload steps succeeded on GitHub",
-        "AC3: the unit test step stays continue-on-error, and the baseline counts (tests, failures, errors, skipped) from the job summary are copied into this story's notes",
-        "AC4: every failure found along the way is recorded in the notes as one line each (cause and fix), so the same kind of failure is quick to recognize next time",
-        "AC5: no Kotlin source is edited to make CI pass; if the only way forward needs a source or dependency decision, stop and write it under a clear heading in progress.txt instead of stubbing or disabling modules",
-        "AC6: change at most one root cause per commit so CI feedback stays attributable"
+        "AC1: segment_message() splits one message into its separate thoughts; each becomes a Thread with its own completeness score",
+        "AC2: the reply acknowledges every open thread in one clause each without abandoning the main topic (thread_acknowledge) — it does not turn every message into a checklist",
+        "AC3: an unfinished thought is stored as incomplete, never auto-completed or invented",
+        "AC4: resurface_policy() brings a thread back on an idle moment or related topic, gated by its decay clock, not on a fixed timer alone",
+        "AC5: close_detect() notices when the user resolves a thread themselves without being told to",
+        "AC6: acceptance test three_thoughts_test(): one message with three unrelated thoughts, one half-finished — all three get answered, the open one is marked, and it correctly resurfaces in a later turn. Fixtures include at least one Egyptian Arabic and one Franco-Arabic case",
+        "AC7: negative control: with THREAD-OBJECTS disabled, three_thoughts_test() must fail (proves the test isn't vacuously passing)"
       ],
-      "verifyCommand": "cd /sdcard/jarvis-repo && ! awk '/^    env:/{f=1;next} /^    steps:/{f=0} f' .github/workflows/build.yml | grep -q 'runner\\.' && bash .ralph/ci_verify.sh --build-status",
       "priority": 2,
-      "passes": true,
-      "notes": "AC1: job-level env block removed; ANDROID_HOME/ANDROID_SDK_ROOT are written by a 'Set ANDROID_HOME for the job' step via GITHUB_ENV using runner.temp inside the step (runner context is legal there); the awk/grep clause in the verifyCommand proves nothing between env:/steps: references runner. AC2: --build-status exits 0 for HEAD af177b8 — CI runs 35602973713 (commit 6d20e0b, env fix) and 35607695866 (commit af177b8, network resilience) both concluded success on github.com/mhw77655-hue/Friday; Build debug APK + Upload debug APK steps succeeded on both. AC3: 'Run unit tests (baseline)' step keeps continue-on-error:true; baseline counts from the run-35607695866 junit-results artifact (the exact numbers the job summary step aggregates): 1197 tests, 3 failures, 0 errors, 0 skipped. AC4 (failures found along the way, cause -> fix, one line each): job-level env referencing runner.temp -> GitHub rejected the whole workflow, no jobs started (run 35422661722) -> export ANDROID_HOME/SDK_ROOT inside a step into GITHUB_ENV; ci_verify.sh status poll aborted mid-iteration on transient TLS 'unexpected eof' while reading (run 35602973713 polling) -> added api_get curl retry helper (3 tries / 3s sleep) over get_runs, the run-status poll, and the artifact-list fetch so polls survive transient network errors. AC5: no Kotlin source or dependency edited — only .github/workflows/build.yml and .ralph tooling. AC6: one root cause per commit: 6d20e0b (env-context rejection) and af177b8 (network resilience)."
+      "passes": false
+    },
+    {
+      "id": "SIGNAL-SPLIT",
+      "title": "Separate relevance, importance, uncertainty, novelty, consent, and cost from raw prediction error",
+      "description": "Do not let a single prediction-error scalar drive encoding strength. A repeated, explicitly-stated boundary is unsurprising by definition but must never lose weight. Compute distinct signals and keep them distinct in storage; only combine them into one score later, and only after testing the combination against a simpler baseline (most-recent-N or keyword-match) shows it's actually better.",
+      "acceptanceCriteria": [
+        "AC1: importance is scored separately from novelty — an explicitly repeated instruction scores high importance regardless of how many times it's been said",
+        "AC2: each of the six signals (relevance, importance, uncertainty, novelty, consent, cost) is stored as its own field on the memory/thread record, not pre-collapsed",
+        "AC3: a fixture proves the bug this fixes: a boundary stated 5 times in test data must retain its top-tier importance score on the 5th mention, not decay",
+        "AC4: no combined single score is computed or used by any consumer yet — that's a later story, gated on baseline comparison",
+        "AC5: negative control: reverting to a naive single prediction-error scalar makes AC3's fixture fail"
+      ],
+      "priority": 3,
+      "passes": false
     }
   ]
 }

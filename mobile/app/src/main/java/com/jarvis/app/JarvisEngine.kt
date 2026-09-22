@@ -105,6 +105,8 @@ object JarvisEngine {
         private set
     @Volatile var continuityGate: com.jarvis.app.continuity.ContinuityGate? = null
         private set
+    @Volatile var turnTraceStore: com.jarvis.app.trace.TurnTraceStore? = null
+        private set
     @Volatile var memoryConsolidationLoop: com.jarvis.app.memory.MemoryConsolidationLoop? = null
         private set
     @Volatile var capabilityFabric: com.jarvis.app.cognitive.capability.CapabilityFabric? = null
@@ -511,6 +513,17 @@ object JarvisEngine {
                 mentalStateEstimator = mentalStateEstimator
             )
 
+            // ── TURN-TRACE (Gate 3a) ─────────────────────────────────────────
+            // Append-only local trace store for every real conversation turn
+            // (JSON Lines under filesDir/traces). Local-only by construction:
+            // written to this device's app-private files directory; there is
+            // no upload, no network hop, no PII surface beyond what a turn
+            // itself already holds.
+            val turnTraceStore = com.jarvis.app.trace.JsonlTurnTraceStore(
+                file = java.io.File(appContext.filesDir, "traces/turn_traces.jsonl")
+            )
+            JarvisEngine.turnTraceStore = turnTraceStore
+
             val cognitiveEngine = com.jarvis.app.cognitive.CognitiveEngine(
                 scope = scope,
                 memoryStore = memoryStore,
@@ -522,7 +535,8 @@ object JarvisEngine {
                 identityContext = identityContext,
                 continuityGate = continuityGate,
                 capabilityFabric = capabilityFabric,
-                dialectDetector = dialectDetector
+                dialectDetector = dialectDetector,
+                turnTraceStore = turnTraceStore
             )
 
             val bodyCoordinator = BodyCoordinator(

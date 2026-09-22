@@ -24,6 +24,8 @@ import com.jarvis.app.cognitive.planning.DecisionResult
 import com.jarvis.app.cognitive.planning.GoalPlanner
 import com.jarvis.app.cognitive.planning.PlanGraph
 import com.jarvis.app.cognitive.planning.PlanResult
+import com.jarvis.app.trace.TurnTrace
+import com.jarvis.app.trace.TurnTraceRecord
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -143,7 +145,19 @@ class CognitiveEngine(
      * own identity/dialect/galaxy seams so the pre-gate behavior stays
      * byte-for-byte (JVM tests that construct the engine without a gate).
      */
-    private val continuityGate: com.jarvis.app.continuity.ContinuityGate? = null
+    private val continuityGate: com.jarvis.app.continuity.ContinuityGate? = null,
+
+    /**
+     * TURN-TRACE (Gate 3a): append-only local trace of every real turn through
+     * this production entry point. One [com.jarvis.app.trace.TurnTraceRecord]
+     * is written per turn (raw input, retrieved memory ids, prompt section
+     * boundaries, synchronously-available model output, per-stage latency in
+     * milliseconds). Pure logging — no new behavior, no model changes. Writing
+     * is a no-op when null or when the store is disabled (negative control: the
+     * trace file provably does not grow while disabled). Null keeps the
+     * pre-trace path byte-for-byte.
+     */
+    private val turnTraceStore: com.jarvis.app.trace.TurnTraceStore? = null
 ) : PlanDriver {
 
     private val intentInference = IntentInference(scope)
@@ -258,12 +272,28 @@ class CognitiveEngine(
          */
         interlocutor: String? = null
     ): CognitiveTurnResult {
+        // TURN-TRACE stage timing: the "embed" stage is the input-understanding
+        // phase — intent inference + the representational context built by
+        // processInput (including its working-memory retrieval).
+        val embedStartMs = System.currentTimeMillis()
         val cognitiveResult = processInput(userText, sessionContext)
+        val embedMs = System.currentTimeMillis() - embedStartMs
 
         // If pronoun resolution is ambiguous, short-circuit with NEEDS_CLARIFICATION
         if (cognitiveResult.pronounResolution.ambiguous) {
             val ambiguousResolutions = cognitiveResult.pronounResolution.resolutions
                 .filter { it.ambiguous }
+            recordTurnTrace(
+                turnIndex = cognitiveResult.turnIndex,
+                inputText = userText,
+                decision = TurnDecision.NEEDS_CLARIFICATION,
+                retrievedMemoryIds = cognitiveResult.workingMemorySnapshot.map { it.sourceId },
+                promptSections = TurnTrace.buildPromptSections(userText, "", null),
+                outputText = null,
+                generationPayload = null,
+                crossSessionMemories = emptyList(),
+                stageTimingsMs = traceTimings(embedMs, 0, 0, 0, 0)
+            )
             return CognitiveTurnResult(
                 cognitiveResult = cognitiveResult,
                 decision = TurnDecision.NEEDS_CLARIFICATION,
@@ -317,6 +347,10 @@ class CognitiveEngine(
         // cross-session memories AND the admitted model tier are ALL computed
         // here by the gate's registered organ seams — no organ writes any of
         // them directly into the payload.
+        // TURN-TRACE stage timing: the "retrieve" stage spans the gate snapshot,
+        // the context-window assembly from it, and the identity gather-for-turn
+        // — i.e. every retrieved-memory / context contribution to the payload.
+        val retrieveStartMs = System.currentTimeMillis()
         val mentioned = cognitiveResult.intentResult.explicitIntent.entities
             .map { it.name }
         val selfReferential = userText.lowercase().matches(
@@ -368,6 +402,7 @@ class CognitiveEngine(
             } else {
                 null
             }
+        val retrieveMs = System.currentTimeMillis() - retrieveStartMs
 
         // Phase A Galaxy Memory write-back: a durable fact stated in a
         // DIRECT_REPLY turn is written to the graph store through the existing
@@ -382,7 +417,15 @@ class CognitiveEngine(
             )
         }
 
+        // TURN-TRACE stage timing: the "prompt-build" stage is the single
+        // generation-payload concatenation of the contributions assembled above.
+        val promptBuildStartMs = System.currentTimeMillis()
         val fullContextMessage = userText + galaxyContext + (identitySuffix ?: "")
+        val promptBuildMs = System.currentTimeMillis() - promptBuildStartMs
+
+        // TURN-TRACE stage timing: the "generate" stage is the model call — the
+        // synchronous reply through the bridge/sendWithContext/modelCall seam.
+        val generateStartMs = System.currentTimeMillis()
         val responseText = when (decision) {
             TurnDecision.DIRECT_REPLY -> {
                 if (sendBlock != null) {
@@ -400,6 +443,7 @@ class CognitiveEngine(
             TurnDecision.PLAN -> null
             TurnDecision.NEEDS_CLARIFICATION -> null
         }
+        val generateMs = System.currentTimeMillis() - generateStartMs
 
         // REASONING-TIER-MODEL-GROUND-TRUTH-AND-WIRE turn teardown: the booked
         // reasoning handle was consumed by send() above when the generation went
@@ -420,6 +464,22 @@ class CognitiveEngine(
         if (reasoningWoken && modelManager != null) {
             modelManager.release(com.jarvis.app.model.OrganRole.REASONING)
         }
+        val postProcessMs = System.currentTimeMillis() - generateStartMs - generateMs
+
+        // TURN-TRACE: write one structured, append-only, local record for this
+        // real production turn (AC1/AC2/AC3/AC4). Pure logging — the pre-trace
+        // path is byte-for-byte when the seam is null or the store is disabled.
+        recordTurnTrace(
+            turnIndex = cognitiveResult.turnIndex,
+            inputText = userText,
+            decision = decision,
+            retrievedMemoryIds = cognitiveResult.workingMemorySnapshot.map { it.sourceId },
+            promptSections = TurnTrace.buildPromptSections(userText, galaxyContext, identitySuffix),
+            outputText = responseText,
+            generationPayload = fullContextMessage,
+            crossSessionMemories = galaxyMems.map { it.content },
+            stageTimingsMs = traceTimings(embedMs, retrieveMs, promptBuildMs, generateMs, postProcessMs)
+        )
 
         return CognitiveTurnResult(
             cognitiveResult = cognitiveResult,
@@ -431,6 +491,57 @@ class CognitiveEngine(
             identityContextSuffix = identitySuffix
         )
     }
+
+    /**
+     * TURN-TRACE: push one record to the store, if a store is wired and
+     * enabled. Null/disabled ⇒ no-op — the trace file provably stays the same
+     * size across the turn (AC5 negative control).
+     */
+    private fun recordTurnTrace(
+        turnIndex: Long,
+        inputText: String,
+        decision: TurnDecision,
+        retrievedMemoryIds: List<String>,
+        promptSections: List<com.jarvis.app.trace.PromptSection>,
+        outputText: String?,
+        generationPayload: String?,
+        crossSessionMemories: List<String>,
+        stageTimingsMs: Map<String, Long>
+    ) {
+        val store = turnTraceStore ?: return
+        if (!store.enabled) return
+        store.append(
+            TurnTraceRecord(
+                id = "turn-${turnIndex}-${System.currentTimeMillis()}",
+                turnIndex = turnIndex,
+                timestampMs = System.currentTimeMillis(),
+                inputText = inputText,
+                decision = decision.name,
+                retrievedMemoryIds = retrievedMemoryIds,
+                predictions = emptyList(),
+                promptSections = promptSections,
+                outputText = outputText,
+                generationPayload = generationPayload,
+                crossSessionMemories = crossSessionMemories,
+                stageTimingsMs = stageTimingsMs
+            )
+        )
+    }
+
+    /** TURN-TRACE: canonical five-stage latency map, milliseconds. */
+    private fun traceTimings(
+        embed: Long,
+        retrieve: Long,
+        promptBuild: Long,
+        generate: Long,
+        postProcess: Long
+    ): Map<String, Long> = linkedMapOf(
+        com.jarvis.app.trace.TurnTrace.STAGE_EMBED to embed,
+        com.jarvis.app.trace.TurnTrace.STAGE_RETRIEVE to retrieve,
+        com.jarvis.app.trace.TurnTrace.STAGE_PROMPT_BUILD to promptBuild,
+        com.jarvis.app.trace.TurnTrace.STAGE_GENERATE to generate,
+        com.jarvis.app.trace.TurnTrace.STAGE_POST_PROCESS to postProcess
+    )
 
     data class Config(
         val autoPopulateWorkingMemory: Boolean = true,

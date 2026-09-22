@@ -89,7 +89,12 @@ class TermuxJarvisServer(
     private val modelId: String = "jarvis-resident:latest",
     private val backendOverride: ModelBackend? = null,
     private val voiceForgeSynthesizerOverride: com.jarvis.app.voice.VoiceForgeSynthesizer? = null,
-    private val dataDir: java.io.File = java.io.File(System.getProperty("java.io.tmpdir"), "jarvis-termux")
+    private val dataDir: java.io.File = java.io.File(System.getProperty("java.io.tmpdir"), "jarvis-termux"),
+
+    // TURN-TRACE (Gate 3a): optional append-only local trace store. Null ⇒ no
+    // tracing (negative control: the trace file provably does not grow). Tests
+    // inject a temp-file JsonlTurnTraceStore; Termux/normal runs leave it null.
+    private val turnTraceStore: com.jarvis.app.trace.TurnTraceStore? = null
 ) {
     private var serverSocket: ServerSocket? = null
     private var acceptThread: Thread? = null
@@ -284,7 +289,8 @@ class TermuxJarvisServer(
         identityContext = identityContext,
         continuityGate = continuityGate,
         capabilityFabric = capabilityFabric,
-        dialectDetector = dialectDetector
+        dialectDetector = dialectDetector,
+        turnTraceStore = turnTraceStore
     )
 
     val pipeline = LatencyPipeline(

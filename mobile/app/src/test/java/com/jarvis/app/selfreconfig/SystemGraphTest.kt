@@ -670,4 +670,37 @@ class SystemGraphTest {
             )
         }
     }
+
+    @Test
+    fun `turn trace store is a real local organ fed by the live engine`() {
+        val realOrgans = JarvisOrganGraph.build()
+
+        // TURN-TRACE (Gate 3a): JsonlTurnTraceStore is a REAL TRACE organ — not
+        // a PLANNED placeholder — pointing at the real production class.
+        val node = realOrgans.node("trace.turnTraceStore")
+        assertNotNull("trace.turnTraceStore node must exist", node)
+        assertEquals("com.jarvis.app.trace.JsonlTurnTraceStore", node!!.qualifiedClassName)
+        assertEquals(SystemGraph.OrganType.TRACE, node.organType)
+        assertTrue(
+            "turn trace store must be a REAL organ, not PLANNED",
+            node.organType != SystemGraph.OrganType.PLANNED
+        )
+
+        // The live engine SENDS_TO the store on every real turn (constructor-injected
+        // turnTraceStore seam in JarvisEngine.init).
+        assertTrue(
+            "cognitive.engine must send its turn trace into trace.turnTraceStore",
+            realOrgans.edgesFrom("cognitive.engine").any {
+                it.toId == "trace.turnTraceStore" &&
+                    it.kind == SystemGraph.DependencyEdge.EdgeKind.SENDS_TO
+            }
+        )
+
+        // The store is genuinely reachable from the live entry via the engine.
+        val reachability = realOrgans.computeReachability("entry.latencyPipeline")
+        assertTrue(
+            "trace.turnTraceStore must be reachable from the entry in the production composition",
+            reachability.reachableIds.contains("trace.turnTraceStore")
+        )
+    }
 }
