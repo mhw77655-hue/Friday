@@ -58,6 +58,13 @@ interface MemoryGraphStore {
  * [salience], [accessCount], and [embedding] are used by
  * [MemoryImportanceScorer] and have sensible defaults so graph-only code
  * doesn't need to set them explicitly.
+ *
+ * The six *signal* fields ([relevance], [importance], [uncertainty],
+ * [novelty], [consent], [cost]) are the SIGNAL-SPLIT record: each is stored as
+ * its OWN field and is never pre-collapsed into a single score. They default
+ * to null so legacy constructions stay byte-identical; they are filled by
+ * [com.jarvis.app.memory.SignalSplitScorer] via `withSignals` and must not be
+ * blended by any consumer (a combined score is a later, baseline-gated story).
  */
 data class MemoryNode(
     val id: String,
@@ -72,7 +79,19 @@ data class MemoryNode(
     /** How many times this memory has been accessed/reinforced. */
     val accessCount: Int = 0,
     /** Pre-computed embedding of the object text for semantic relevance scoring. */
-    val embedding: FloatArray? = null
+    val embedding: FloatArray? = null,
+    /** Signal: semantic match to the current conversation context [0,1]. */
+    val relevance: Float? = null,
+    /** Signal: inherent worth of this fact to the user, independent of surprise [0,1]. */
+    val importance: Float? = null,
+    /** Signal: how uncertain/hedged the stated fact is [0,1]. */
+    val uncertainty: Float? = null,
+    /** Signal: how new/surprising the fact is; decays with repetition [0,1]. */
+    val novelty: Float? = null,
+    /** Signal: whether the user explicitly stated/directed this vs. it being inferred [0,1]. */
+    val consent: Float? = null,
+    /** Signal: cost-to-retrieve/execute (no consumer computes it yet; 0 default) [0,1]. */
+    val cost: Float? = null
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
