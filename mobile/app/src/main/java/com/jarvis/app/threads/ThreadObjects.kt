@@ -1,5 +1,8 @@
 package com.jarvis.app.threads
 
+import com.jarvis.app.threads.ThreadObjects.Completeness
+import com.jarvis.app.threads.ThreadObjects.OpenThread
+
 /**
  * THREAD-OBJECTS (Gate 3a, priority 2): unfinished/tangent thoughts become
  * tracked thread objects instead of discarded text.
