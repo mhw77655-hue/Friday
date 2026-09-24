@@ -4,6 +4,7 @@ Started: Fri Aug 21 20:17:26 BST 2026
 
 ## Codebase Patterns
 - For Kotlin-code stories in this GitHub-CI-backed repo, the stored verifyCommand = an optional static grep clause + `bash .ralph/ci_verify.sh '<NewTestClass>.*'` class filters (exit 0 iff >=1 JUnit case matched and none failed in the CI junit-results artifact). The harness runs it after passes:true, so it pushes HEAD and polls the real CI run; filter mode ignores unrelated baseline failures. Local gradle stays banned.
+- An auto-reject is only evidence about the CODE if the captured verify output (/tmp/ralph_verify_*.txt) shows a real test failure. `ci_verify.sh: GITHUB_TOKEN is not set` there is a HARNESS env failure — reproduce the true verdict by hand with the token set before debugging code. When `git ls-remote origin refs/heads/main` already equals HEAD and a completed run exists for that SHA, `bash .ralph/ci_verify.sh '<filter>'` reuses it instantly (no push, no 25-min wait).
 - Fixtures driven through the REAL CognitiveEngine path must avoid the `it`/`that`/`this` REFERENT-unknown substrings (even inside words like "favorite") and the VAGUE_ACTION verbs (do/make/handle/fix/take care of/deal with), or doubt hits 1.0 and the reasoning organ wakes unpredictably in otherwise-deterministic tests.
 - TermuxJarvisServer IS the JVM-executable production composition root (mirrors JarvisEngine.init, discloses its JVM-safe doubles InMemoryGraph/DeterministicEmbedding in main source). For any 'exact production call path' AC proof of a JarvisEngine.init-wired seam, construct TermuxJarvisServer(port=0, backendOverride=FakeModelBackend()) and drive its engine through a recording LatencyPipeline with `bridgeSend = { captured.add(it) }` — the captured text IS the outgoing generation request payload (IdentityInChatPipelineGroundTruthTest, DialectIntegrationTest pattern). The only honest exception to 'swap only the 2 Android-bound stores': the last hop (modelManager.send) may be a recording collector, never an assertion on model reply text.
 - CognitiveEngine nullable seams are added AFTER capabilityFabric and default null; each carries a KDoc 'Null keeps the pre-X path byte-for-byte'. Adding a seam = constructor param + read in processInput + (optionally) JarvisEngine.init + TermuxJarvisServer wiring + JarvisOrganGraph node+edge + SystemGraphTest pin.
@@ -125,3 +126,50 @@ Thread: (local iteration)
 - **Pre-existing failures observed (not in scope): NONE observed — no local gradle run (ban); new-code proof is delegated to the CI JUnit artifact via the stored verifyCommand. The 3 baseline CI failures (Stage-2 AC3) are untouched and filtered out by the class-level filter.
 ---
 
+
+## Ralph run ended — Tue Sep 22 12:04:39 BST 2026
+Reached max iterations (40) without independently-verified completion.
+---
+
+## 2026-09-22 — known blocker for TURN-TRACE
+Last run's TURN-TRACE was auto-rejected: verifyCommand failed because
+OwnerBiometricBindingTest.kt:156 ("production port binds through the real
+HumanCore singleton facade") started failing after the turnTraceStore wiring
+was added to CognitiveEngine's composition. Fix that regression first, then
+re-set passes:true. GITHUB_TOKEN was also exported empty during that run —
+already fixed above; verify it's non-empty before trusting a green result.
+
+## Ralph run ended — Wed Sep 23 07:58:24 BST 2026
+Reached max iterations (25) without independently-verified completion.
+---
+Wed Sep 23 08:27:17 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 1/8 with omniroute/auto/best-free (same iteration).
+Wed Sep 23 08:28:13 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 2/8 with omniroute/oc/hy3-free (same iteration).
+Wed Sep 23 08:28:52 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 3/8 with omniroute/opencode/deepseek-v4-flash-free (same iteration).
+Wed Sep 23 08:29:27 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 4/8 with omniroute/openrouter/z-ai/glm-5.2:free (same iteration).
+Wed Sep 23 08:30:15 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 5/8 with omniroute/openrouter/nvidia/nemotron-3-ultra-550b-a55b:free (same iteration).
+Wed Sep 23 08:30:57 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 6/8 with omniroute/openrouter/openai/gpt-oss-20b:free (same iteration).
+Wed Sep 23 08:31:40 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 7/8 with omniroute/oc/nemotron-3-ultra-free (same iteration).
+Wed Sep 23 08:32:30 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 8/8 with omniroute/oc/mimo-v2.5-free (same iteration).
+Wed Sep 23 08:33:41 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 1/8 with omniroute/oc/hy3-free (same iteration).
+Wed Sep 23 08:34:19 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 2/8 with omniroute/opencode/deepseek-v4-flash-free (same iteration).
+Wed Sep 23 08:35:22 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 3/8 with omniroute/openrouter/z-ai/glm-5.2:free (same iteration).
+Wed Sep 23 08:44:58 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 4/8 with omniroute/openrouter/nvidia/nemotron-3-ultra-550b-a55b:free (same iteration).
+Wed Sep 23 08:45:51 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 5/8 with omniroute/openrouter/openai/gpt-oss-20b:free (same iteration).
+Wed Sep 23 08:46:24 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 6/8 with omniroute/oc/nemotron-3-ultra-free (same iteration).
+Wed Sep 23 08:46:58 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 7/8 with omniroute/oc/mimo-v2.5-free (same iteration).
+Wed Sep 23 08:47:36 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 8/8 with opencode/big-pickle (same iteration).
+
+## Thu Sep 24 2026 - TURN-TRACE (re-verify/close-out)
+Thread: (local iteration)
+- Diagnosis of the iteration-19 auto-reject: NOT a code regression. /tmp/ralph_verify_0.txt (the harness's captured verify output) read exactly `ci_verify.sh: GITHUB_TOKEN is not set: refusing to query the GitHub API without it` — the harness env had an empty token during re-verify, so the verifyCommand could never exit 0 no matter what the code did. The Sep-22 "OwnerBiometricBindingTest.kt:156 regression" hypothesis is RESOLVED on the current tree: that 9-test class passes 9/9 in the HEAD CI run.
+- Machine verdict (re-ran the exact stored verifyCommand by hand with GITHUB_TOKEN set): (1) static clause `! grep -rnE 'HttpURLConnection|OkHttp|Retrofit|java\.net\.Socket' mobile/app/src/main/java/com/jarvis/app/trace/` -> no match (clean); (2) `bash .ralph/ci_verify.sh 'com.jarvis.app.trace.*' 'com.jarvis.app.termux.TurnTraceProductionWiringTest.*'` -> reused the EXISTING completed run 35714886605 for HEAD 38f71a8 (already success, remote main == HEAD, so no push happened) -> verdict: 12 matched tests, all passed, EXIT=0.
+- Artifact forensics on run 35714886605's junit-results: TurnTraceStoreTest 7/7 failures=0, TurnTraceProductionWiringTest 5/5 failures=0, OwnerBiometricBindingTest 9/9 failures=0. The FULL suite's only failures are the known pre-existing baselines (StorePersistenceTest x1, TermuxJarvisServerTest x1) — unrelated to TURN-TRACE and filtered out by the class-level filter.
+- prd.json: re-set TURN-TRACE passes:false->true, replaced the stale "AUTO-REJECTED iteration 19" notes tail with the verified-green record (run id, counts, real cause). JSON re-validated with python3 json.load.
+- No Kotlin code changed this iteration — the 3 TURN-TRACE commits (98da045 feat, f064240 fix nested TurnTraceRecord/PromptSection refs, 38f71a8 fix prompt-section fixture length) were already correct and CI-green.
+- Files changed/committed: .ralph/prd.json (passes:true + notes), .ralph/progress.txt (this entry), .ralph/ralph.sh (harness router-retry block, pre-existing uncommitted harness edit), .ralph/REPO_FACTS.md (durable fact below).
+- **Learnings for future iterations:**
+  - A JUnit-verify auto-reject must be read from the captured output file (/tmp/ralph_verify_*.txt), never assumed: `GITHUB_TOKEN is not set` inside ci_verify.sh is a HARNESS env failure and says NOTHING about the code. Reproduce the true verdict yourself with the token set before debugging code.
+  - When remote main already equals HEAD and a completed run exists for that SHA, ci_verify.sh reuses it INSTANTLY (no push, no 25-min wait) — `git ls-remote origin refs/heads/main` + the runs API are the cheap pre-flight check.
+  - The 12 passing trace tests (7 store-level + 5 production-path) are the machine proof of all 5 TURN-TRACE ACs; grep the run's junit-results XML for the failures= counts rather than trusting conclusion=success alone (the suite has 2 other baseline failures).
+- **Pre-existing failures observed (not in scope):** StorePersistenceTest (humancore) x1 + TermuxJarvisServerTest x1 in run 35714886605 — pre-existing baselines, filtered out of the story verdict, untouched.
+---

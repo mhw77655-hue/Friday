@@ -140,13 +140,30 @@ for i in $(seq 1 $MAX_ITERATIONS); do
   COMMIT_BEFORE=$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null)
 
   OUTPUT=""
-  if [[ "$TOOL" == "opencode" ]]; then
-    OUTPUT=$(opencode run -m "$MODEL" "$COMBINED_PROMPT" 2>&1 | tee -a "$RUN_LOG" /dev/stderr) || true
-  elif [[ "$TOOL" == "amp" ]]; then
-    OUTPUT=$(echo "$COMBINED_PROMPT" | amp --dangerously-allow-all 2>&1 | tee -a "$RUN_LOG" /dev/stderr) || true
-  else
-    OUTPUT=$(echo "$COMBINED_PROMPT" | claude --dangerously-skip-permissions --print 2>&1 | tee -a "$RUN_LOG" /dev/stderr) || true
-  fi
+  ROUTER_DOWN_PATTERN="quota|rate.limit|capacity is busy|Cannot connect|exhausted|429|UnknownError|Unexpected server error|unreachable"
+  RETRY_COUNT=0
+  MAX_RETRIES=$((POOL_SIZE - 1))
+  CALL_MODEL="$MODEL"
+  while true; do
+    if [[ "$TOOL" == "opencode" ]]; then
+      OUTPUT=$(opencode run -m "$CALL_MODEL" "$COMBINED_PROMPT" 2>&1 | tee -a "$RUN_LOG" /dev/stderr) || true
+    elif [[ "$TOOL" == "amp" ]]; then
+      OUTPUT=$(echo "$COMBINED_PROMPT" | amp --dangerously-allow-all 2>&1 | tee -a "$RUN_LOG" /dev/stderr) || true
+    else
+      OUTPUT=$(echo "$COMBINED_PROMPT" | claude --dangerously-skip-permissions --print 2>&1 | tee -a "$RUN_LOG" /dev/stderr) || true
+    fi
+
+    if echo "$OUTPUT" | grep -qiE "$ROUTER_DOWN_PATTERN" && [ "$RETRY_COUNT" -lt "$MAX_RETRIES" ]; then
+      RETRY_COUNT=$((RETRY_COUNT + 1))
+      NEXT_IDX=$(( (MODEL_IDX + RETRY_COUNT) % POOL_SIZE ))
+      CALL_MODEL="${MODEL_POOL[$NEXT_IDX]}"
+      echo "$(date): Iteration $i - router/provider error on $MODEL, retry $RETRY_COUNT/$MAX_RETRIES with $CALL_MODEL (same iteration)." >> "$PROGRESS_FILE"
+      sleep 2
+      continue
+    fi
+    break
+  done
+  MODEL="$CALL_MODEL"
 
   COMMIT_AFTER=$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null)
   TRIMMED_OUTPUT=$(echo "$OUTPUT" | tr -d '[:space:]')
@@ -154,9 +171,9 @@ for i in $(seq 1 $MAX_ITERATIONS); do
     echo "$(date): SILENT ITERATION $i ($MODEL) - no commit, no meaningful output (${#TRIMMED_OUTPUT} chars). Likely model-pool/API failure, not a code issue. Raw output saved in $RUN_LOG." >> "$PROGRESS_FILE"
   fi
 
-  if echo "$OUTPUT" | grep -qi "quota\|rate.limit\|capacity is busy\|Cannot connect\|exhausted\|429"; then
+  if echo "$OUTPUT" | grep -qiE "$ROUTER_DOWN_PATTERN"; then
     echo ""
-    echo ">>> Model $MODEL appears exhausted/unreachable this iteration. Next iteration will rotate to a different model automatically."
+    echo ">>> All retried models failed this iteration ($MODEL last tried). Router/provider likely degraded across the board right now."
   fi
 
   echo ""
