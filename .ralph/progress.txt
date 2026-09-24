@@ -241,3 +241,5 @@ Thread: (local iteration)
   - ci_verify.sh filter verdicts on the SAME SHA reuse the existing completed run instantly; the junit-results artifact is the ground truth for the FULL module failure count (run conclusion stays success because the test step is continue-on-error).
 - **Pre-existing failures observed (not in scope): NONE — the two baselines ARE this story's scope, and the fix removed the only 2 failures in the module.
 ---
+- **Machine verdict (2026-09-24):** stored verifyCommand GREEN — `bash .ralph/ci_verify.sh '*StorePersistenceTest*' '*TermuxJarvisServerTest*'` pushed HEAD d4f81eb to main (no run existed), polled run 36015343755 to conclusion=success, 12 matched tests (6 StorePersistence + 6 TermuxJarvisServer) all passed, EXIT=0. Full-module artifact for that run: 1233 tests / 0 failures / 0 errors / 0 skipped — AC3 requirement met exactly.
+---
