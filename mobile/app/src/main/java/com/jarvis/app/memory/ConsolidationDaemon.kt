@@ -54,7 +54,16 @@ class ConsolidationDaemon(
      * How old (in ms) an entry must be before it's considered stale
      * for compression.
      */
-    private val staleThresholdMs: Long = 3_600_000L
+    private val staleThresholdMs: Long = 3_600_000L,
+
+    /**
+     * PROVENANCE-LEDGER: optional durable local record of which source
+     * memories every derived artifact came from. When wired, each pass that
+     * promotes one or more entries appends ONE SUMMARY entry naming every
+     * promoted entry id — the pass's consolidation summary over its sources.
+     * Null keeps the pre-provenance path byte-for-byte.
+     */
+    private val provenanceLedger: com.jarvis.app.memory.provenance.ProvenanceLedger? = null
 ) {
     /**
      * Run one consolidation pass. Scans all unconsolidated episodic entries:
@@ -68,6 +77,7 @@ class ConsolidationDaemon(
     fun consolidate(now: Long = System.currentTimeMillis()): ConsolidationResult {
         var promoted = 0
         var compressed = 0
+        val promotedIds = mutableListOf<String>()
 
         for (entry in episodicStore) {
             if (entry.consolidated) continue
@@ -81,6 +91,7 @@ class ConsolidationDaemon(
                     source = "consolidation:${entry.id}"
                 )
                 entry.consolidated = true
+                promotedIds.add(entry.id)
                 promoted++
             } else if (now - entry.timestamp > staleThresholdMs) {
                 // Compress stale entry (archive, not delete)
@@ -88,6 +99,17 @@ class ConsolidationDaemon(
                 entry.consolidated = true
                 compressed++
             }
+        }
+
+        // PROVENANCE-LEDGER: one per-pass SUMMARY per consolidation that
+        // promoted sources — the durable record FORGET-PROPAGATION later
+        // consults to find every derived artifact of a source memory.
+        if (promotedIds.isNotEmpty()) {
+            provenanceLedger?.record(
+                derivedId = "consolidation-summary-$now",
+                kind = com.jarvis.app.memory.provenance.ProvenanceKind.SUMMARY,
+                sourceIds = promotedIds
+            )
         }
 
         return ConsolidationResult(

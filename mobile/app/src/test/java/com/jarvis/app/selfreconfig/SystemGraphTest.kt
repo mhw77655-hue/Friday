@@ -140,6 +140,8 @@ class SystemGraphTest {
             "cognitive.contextWindowAssembler",
             "memory.graphStore",
             "memory.blendedRetriever",
+            "memory.provenanceLedger",
+            "memory.consolidationDaemon",
             "identity.selfModel",
             "identity.userProfile",
             "identity.worldModelService",
@@ -734,6 +736,58 @@ class SystemGraphTest {
         assertTrue(
             "threads.threadTracker must be reachable from the entry in the production composition",
             reachability.reachableIds.contains("threads.threadTracker")
+        )
+    }
+
+    @Test
+    fun `provenance ledger is a real organ fed by the consolidation and trace organ edges`() {
+        val realOrgans = JarvisOrganGraph.build()
+
+        // PROVENANCE-LEDGER AC6: the ledger is a REAL MEMORY organ pointing at the
+        // real provenance package — not a PLANNED placeholder.
+        val node = realOrgans.node("memory.provenanceLedger")
+        assertNotNull("memory.provenanceLedger node must exist", node)
+        assertEquals("com.jarvis.app.memory.provenance.ProvenanceLedger", node!!.qualifiedClassName)
+        assertEquals(SystemGraph.OrganType.MEMORY, node.organType)
+        assertTrue(
+            "provenance ledger must be a REAL organ, not PLANNED",
+            node.organType != SystemGraph.OrganType.PLANNED
+        )
+
+        // The consolidation organ is a REAL MEMORY organ too — the memory package's
+        // consolidation daemon whose consolidate() records the per-pass SUMMARY.
+        val daemon = realOrgans.node("memory.consolidationDaemon")
+        assertNotNull("memory.consolidationDaemon node must exist", daemon)
+        assertEquals("com.jarvis.app.memory.ConsolidationDaemon", daemon!!.qualifiedClassName)
+        assertEquals(SystemGraph.OrganType.MEMORY, daemon.organType)
+        assertTrue(
+            "consolidation daemon must be a REAL organ, not PLANNED",
+            daemon.organType != SystemGraph.OrganType.PLANNED
+        )
+
+        // Edges: the consolidation organ SENDS_TO the ledger (real recording in
+        // ConsolidationDaemon.consolidate), and the live engine SENDS_TO the ledger
+        // on the same per-turn call that feeds the trace store (TRACE_RECORD, AC2).
+        assertTrue(
+            "consolidation daemon must feed the provenance ledger",
+            realOrgans.edgesFrom("memory.consolidationDaemon").any {
+                it.toId == "memory.provenanceLedger" &&
+                    it.kind == SystemGraph.DependencyEdge.EdgeKind.SENDS_TO
+            }
+        )
+        assertTrue(
+            "cognitive.engine must send its TRACE_RECORD provenance into the ledger",
+            realOrgans.edgesFrom("cognitive.engine").any {
+                it.toId == "memory.provenanceLedger" &&
+                    it.kind == SystemGraph.DependencyEdge.EdgeKind.SENDS_TO
+            }
+        )
+
+        // The ledger is genuinely reachable from the live entry via the engine.
+        val reachability = realOrgans.computeReachability("entry.latencyPipeline")
+        assertTrue(
+            "memory.provenanceLedger must be reachable from the entry in the production composition",
+            reachability.reachableIds.contains("memory.provenanceLedger")
         )
     }
 }

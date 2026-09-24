@@ -24,7 +24,15 @@ class AndroidVectorStore(
     context: Context,
     private val dimension: Int,
     private val modelId: String = "jarvis-neural-embed-v1",
-    dbName: String = "galaxy_memory_vectors.db"
+    dbName: String = "galaxy_memory_vectors.db",
+
+    /**
+     * PROVENANCE-LEDGER: optional durable local record of which source
+     * memories every derived artifact came from. When wired, each [upsert]
+     * appends one INDEX_ENTRY naming the id being indexed as its source.
+     * Null keeps the pre-provenance path byte-for-byte.
+     */
+    private val provenanceLedger: com.jarvis.app.memory.provenance.ProvenanceLedger? = null
 ) : VectorStore {
 
     private val helper = object : SQLiteOpenHelper(context, dbName, null, 1) {
@@ -50,6 +58,12 @@ class AndroidVectorStore(
         db.execSQL(
             "INSERT OR REPLACE INTO memories (id, content, embedding, model_id, metadata) VALUES (?,?,?,?,?)",
             arrayOf<Any>(id, content, blob, modelId, meta)
+        )
+        // PROVENANCE-LEDGER: the index entry derives from the memory it indexes.
+        provenanceLedger?.record(
+            derivedId = "index-$id",
+            kind = com.jarvis.app.memory.provenance.ProvenanceKind.INDEX_ENTRY,
+            sourceIds = listOf(id)
         )
     }
 

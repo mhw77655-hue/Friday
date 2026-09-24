@@ -17,7 +17,15 @@ import java.util.concurrent.CopyOnWriteArrayList
  */
 class KotlinVectorStore(
     private val dimension: Int,
-    private val modelId: String = "jarvis-neural-embed-v1"
+    private val modelId: String = "jarvis-neural-embed-v1",
+
+    /**
+     * PROVENANCE-LEDGER: optional durable local record of which source
+     * memories every derived artifact came from. When wired, each [upsert]
+     * appends one INDEX_ENTRY naming the id being indexed as its source —
+     * the same seam the production [AndroidVectorStore] carries.
+     */
+    private val provenanceLedger: com.jarvis.app.memory.provenance.ProvenanceLedger? = null
 ) : VectorStore {
 
     private data class Row(
@@ -37,6 +45,12 @@ class KotlinVectorStore(
         val existingIdx = rows.indexOfFirst { it.id == id }
         val row = Row(id, content, blob, metadata)
         if (existingIdx >= 0) rows[existingIdx] = row else rows.add(row)
+        // PROVENANCE-LEDGER: the index entry derives from the memory it indexes.
+        provenanceLedger?.record(
+            derivedId = "index-$id",
+            kind = com.jarvis.app.memory.provenance.ProvenanceKind.INDEX_ENTRY,
+            sourceIds = listOf(id)
+        )
     }
 
     override fun nearest(query: FloatArray, k: Int): List<ScoredMemory> {

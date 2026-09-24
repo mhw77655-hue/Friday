@@ -112,6 +112,8 @@ object JarvisEngine {
     // seam — every real turn splits into tracked threads (ack/resurface/close).
     @Volatile var threadTracker: com.jarvis.app.threads.ThreadTracker? = null
         private set
+    @Volatile var provenanceLedger: com.jarvis.app.memory.provenance.ProvenanceLedger? = null
+        private set
     @Volatile var memoryConsolidationLoop: com.jarvis.app.memory.MemoryConsolidationLoop? = null
         private set
     @Volatile var capabilityFabric: com.jarvis.app.cognitive.capability.CapabilityFabric? = null
@@ -537,6 +539,18 @@ object JarvisEngine {
             val threadTracker = com.jarvis.app.threads.ThreadTracker()
             JarvisEngine.threadTracker = threadTracker
 
+            // ── PROVENANCE-LEDGER ───────────────────────────────────────────
+            // Append-only local provenance ledger for every derived memory
+            // artifact (consolidation summaries, vector-index entries, turn-trace
+            // records): which source memories each derived artifact came from.
+            // JSON Lines under filesDir/memory/provenance.jsonl. Local-only by
+            // construction: written to this device's app-private files
+            // directory; there is no upload, no network hop.
+            val provenanceLedger = com.jarvis.app.memory.provenance.JsonlProvenanceLedger(
+                file = java.io.File(appContext.filesDir, "memory/provenance.jsonl")
+            )
+            JarvisEngine.provenanceLedger = provenanceLedger
+
             val cognitiveEngine = com.jarvis.app.cognitive.CognitiveEngine(
                 scope = scope,
                 memoryStore = memoryStore,
@@ -550,7 +564,8 @@ object JarvisEngine {
                 capabilityFabric = capabilityFabric,
                 dialectDetector = dialectDetector,
                 turnTraceStore = turnTraceStore,
-                threadTracker = threadTracker
+                threadTracker = threadTracker,
+                provenanceLedger = provenanceLedger
             )
 
             val bodyCoordinator = BodyCoordinator(

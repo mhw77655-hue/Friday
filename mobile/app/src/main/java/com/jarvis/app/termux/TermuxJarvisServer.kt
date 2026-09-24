@@ -101,7 +101,17 @@ class TermuxJarvisServer(
     // ⇒ no thread tracking (AC7 negative control: with the tracker disabled, the
     // three_thoughts_test assertions fail). Tests inject a real ThreadTracker;
     // Termux/normal runs leave it null.
-    val threadTracker: com.jarvis.app.threads.ThreadTracker? = null
+    val threadTracker: com.jarvis.app.threads.ThreadTracker? = null,
+
+    // PROVENANCE-LEDGER: optional durable local provenance ledger. Null ⇒ no
+    // provenance recording (negative control: derivedFrom stays empty). Tests
+    // inject a temp-file JsonlProvenanceLedger; Termux/normal runs leave it null.
+    val provenanceLedger: com.jarvis.app.memory.provenance.ProvenanceLedger? = null,
+
+    // PROVENANCE-LEDGER (AC2): optional memory-store override so a REAL turn can
+    // actually retrieve a fixture memory (the production default is the empty
+    // store). Null ⇒ the existing EmptyMemoryStore behavior byte-for-byte.
+    val memoryStoreOverride: MemoryStorePort? = null
 ) {
     private var serverSocket: ServerSocket? = null
     private var acceptThread: Thread? = null
@@ -287,7 +297,7 @@ class TermuxJarvisServer(
 
     val engine = CognitiveEngine(
         scope = scope,
-        memoryStore = EmptyMemoryStore(),
+        memoryStore = memoryStoreOverride ?: EmptyMemoryStore(),
         humanCore = HumanCore,
         modelManager = modelManager,
         cognitiveAdmissionPolicy = policy,
@@ -298,7 +308,8 @@ class TermuxJarvisServer(
         capabilityFabric = capabilityFabric,
         dialectDetector = dialectDetector,
         turnTraceStore = turnTraceStore,
-        threadTracker = threadTracker
+        threadTracker = threadTracker,
+        provenanceLedger = provenanceLedger
     )
 
     val pipeline = LatencyPipeline(

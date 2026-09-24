@@ -160,6 +160,16 @@ class CognitiveEngine(
     private val turnTraceStore: com.jarvis.app.trace.TurnTraceStore? = null,
 
     /**
+     * PROVENANCE-LEDGER: durable local record of which source memories every
+     * derived memory artifact came from. When wired, each recorded turn appends
+     * one TRACE_RECORD naming the retrieved memory ids that produced it (the
+     * working-memory snapshot, the same ids the trace record carries). Pure
+     * local-file logging — no new behavior, no model changes, no network. Null
+     * keeps the pre-provenance path byte-for-byte.
+     */
+    private val provenanceLedger: com.jarvis.app.memory.provenance.ProvenanceLedger? = null,
+
+    /**
      * THREAD-OBJECTS (Gate 3a, priority 2): the cross-turn registry of open
      * thoughts. When wired, every real turn is ingested ([ThreadTracker.ingestTurn]:
      * split the message into distinct thoughts → each becomes a tracked thread
@@ -535,9 +545,10 @@ class CognitiveEngine(
     ) {
         val store = turnTraceStore ?: return
         if (!store.enabled) return
+        val recordId = "turn-${turnIndex}-${System.currentTimeMillis()}"
         store.append(
             TurnTraceRecord(
-                id = "turn-${turnIndex}-${System.currentTimeMillis()}",
+                id = recordId,
                 turnIndex = turnIndex,
                 timestampMs = System.currentTimeMillis(),
                 inputText = inputText,
@@ -551,6 +562,16 @@ class CognitiveEngine(
                 stageTimingsMs = stageTimingsMs
             )
         )
+        // PROVENANCE-LEDGER: the trace record is a derived artifact of this
+        // turn's retrieved memories — record which source ids produced it so
+        // FORGET-PROPAGATION can find every derived artifact of a source.
+        if (retrievedMemoryIds.isNotEmpty()) {
+            provenanceLedger?.record(
+                derivedId = "trace-$recordId",
+                kind = com.jarvis.app.memory.provenance.ProvenanceKind.TRACE_RECORD,
+                sourceIds = retrievedMemoryIds
+            )
+        }
     }
 
     /** TURN-TRACE: canonical five-stage latency map, milliseconds. */

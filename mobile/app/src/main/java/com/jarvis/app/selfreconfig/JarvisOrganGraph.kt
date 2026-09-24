@@ -80,6 +80,40 @@ object JarvisOrganGraph {
             organType = SystemGraph.OrganType.MEMORY,
             qualifiedClassName = "com.jarvis.app.memory.BlendedMemoryRetriever"
         ))
+        // PROVENANCE-LEDGER (AC6): the durable local provenance ledger is a REAL
+        // organ (MEMORY, not PLANNED). JsonlProvenanceLedger is constructed in
+        // JarvisEngine.init (filesDir/memory/provenance.jsonl) and handed to
+        // CognitiveEngine's provenanceLedger seam; the consolidation daemon and
+        // vector-index creation points carry the same seam. Local-only by
+        // construction (a File on this device) — never a network call.
+        g.registerNode(SystemGraph.SystemNode(
+            id = "memory.provenanceLedger",
+            name = "JsonlProvenanceLedger",
+            organType = SystemGraph.OrganType.MEMORY,
+            qualifiedClassName = "com.jarvis.app.memory.provenance.ProvenanceLedger",
+            description = "PROVENANCE-LEDGER (2026-09-24): append-only JSON-Lines record of which " +
+                "source memories every derived memory artifact came from — consolidation summaries, " +
+                "vector-index entries, per-turn TRACE_RECORDs. Constructed in JarvisEngine.init at " +
+                "filesDir/memory/provenance.jsonl and consumed by the engine's provenanceLedger seam " +
+                "on the same per-turn call that feeds the trace store; ConsolidationDaemon.consolidate " +
+                "and the VectorStore.upsert creation points carry the same seam. Local-only, never a " +
+                "network call; writing is a no-op when the ledger is disabled or the seam is null (AC4)."
+        ))
+        // PROVENANCE-LEDGER (AC6): the real consolidation daemon (the memory
+        // package's autonomous consolidation path) is a REAL organ (MEMORY, not
+        // PLANNED). Its consolidate() records the per-pass SUMMARY into the
+        // ledger. (The production background consolidation loop — MemoryConsolidationLoop —
+        // feeds the single-statement durability gate; the daemon is the
+        // pass-to-summary consolidation path this ledger records.)
+        g.registerNode(SystemGraph.SystemNode(
+            id = "memory.consolidationDaemon",
+            name = "ConsolidationDaemon",
+            organType = SystemGraph.OrganType.MEMORY,
+            qualifiedClassName = "com.jarvis.app.memory.ConsolidationDaemon",
+            description = "PROVENANCE-LEDGER (2026-09-24): the memory package's consolidation daemon. " +
+                "One SUMMARY provenance entry per pass that promotes sources (ConsolidationDaemon.consolidate, " +
+                "derivedId consolidation-summary-<timestamp>, sourceIds = the promoted entry ids)."
+        ))
 
         // Identity organs (Stage 03 — bound by IdentityContext in PHASE-A)
         g.registerNode(SystemGraph.SystemNode(
@@ -550,6 +584,11 @@ object JarvisOrganGraph {
         g.addEdge("cognitive.engine", "trace.turnTraceStore", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         // THREAD-OBJECTS: the engine SENDS_TO the open-thread registry on every real turn.
         g.addEdge("cognitive.engine", "threads.threadTracker", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
+        // PROVENANCE-LEDGER (AC6): the consolidation daemon feeds the ledger one SUMMARY
+        // per promotion pass, and the live engine SENDS_TO the ledger on the same per-turn
+        // call that feeds the trace store (TRACE_RECORD, AC2).
+        g.addEdge("memory.consolidationDaemon", "memory.provenanceLedger", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
+        g.addEdge("cognitive.engine", "memory.provenanceLedger", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("continuity.continuityGate", "identity.identityContext", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("continuity.continuityGate", "cognitive.contextWindowAssembler", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         // Contributor organs -> gate (signal INTO the registry; no direct payload write).

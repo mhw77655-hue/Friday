@@ -243,3 +243,30 @@ Thread: (local iteration)
 ---
 - **Machine verdict (2026-09-24):** stored verifyCommand GREEN — `bash .ralph/ci_verify.sh '*StorePersistenceTest*' '*TermuxJarvisServerTest*'` pushed HEAD d4f81eb to main (no run existed), polled run 36015343755 to conclusion=success, 12 matched tests (6 StorePersistence + 6 TermuxJarvisServer) all passed, EXIT=0. Full-module artifact for that run: 1233 tests / 0 failures / 0 errors / 0 skipped — AC3 requirement met exactly.
 ---
+
+---
+## Thu Sep 24 2026 - PROVENANCE-LEDGER (Gate 3b priority 2)
+Thread: (local iteration)
+- Story: "Every derived artifact records which memories it came from" — durable local ProvenanceLedger in new package com.jarvis.app.memory.provenance, wired into the ALREADY-EXISTING creation points (no parallel paths): consolidation summaries, vector-index entries, turn-trace records (retrievedMemoryIds). Registered as a real organ with edges from the consolidation and trace organs.
+- New production code (com.jarvis.app.memory.provenance): ProvenanceLedger interface (record(derivedId, kind, sourceIds), derivedFrom(sourceId)->List<DerivedRef> in record order with duplicates collapsed, sourcesOf(derivedId)->Set<String>, enabled/setEnabled), ProvenanceKind enum (SUMMARY/INDEX_ENTRY/GRAPH_EDGE/CACHE_ENTRY/TRACE_RECORD/ADAPTER_BATCH), and JsonlProvenanceLedger — append-only local JSON Lines under JarvisEngine.init filesDir/memory/provenance.jsonl; record() flushes one line and double-guards the enabled flag; reads file back on derivedFrom/sourcesOf (reload == new instance over same file). Zero network anywhere in the package (grep: no HttpURLConnection/OkHttp/Retrofit/Socket — AC4 static clause).
+- Seams (all constructor-injected, null OR disabled keeps the pre-provenance path byte-for-byte):
+  - CognitiveEngine.recordTurnTrace: the SAME per-turn call that appends the TurnTraceRecord now appends one TRACE_RECORD naming the working-memory snapshot's retrievedMemoryIds (the exact ids the trace record carries). Gated so provenance recording only fires when a trace store is wired+enabled (there is no trace record to attribute otherwise).
+  - ConsolidationDaemon.consolidate: one SUMMARY per pass that promotes >=1 entry, sourceIds = the promoted episodic entry ids.
+  - AndroidVectorStore.upsert + KotlinVectorStore.upsert (JVM reference): one INDEX_ENTRY per id indexed.
+- JarvisEngine.init constructs JsonlProvenanceLedger(File(filesDir, "memory/provenance.jsonl")) and hands it to the engine seam next to the turnTraceStore. TermuxJarvisServer mirrors it: provenanceLedger + memoryStoreOverride params (override lets a REAL turn actually retrieve a fixture memory against the otherwise-empty store).
+- JarvisOrganGraph: two new REAL MEMORY organs — memory.provenanceLedger (JsonlProvenanceLedger) and memory.consolidationDaemon (ConsolidationDaemon) — with SENDS_TO edges consolidationDaemon->provenanceLedger and cognitive.engine->provenanceLedger. SystemGraphTest pins them (new test method, reachable from entry.latencyPipeline).
+- Acceptance evidence (new tests in com.jarvis.app.memory.provenance, matching the story verify filter):
+  - ProvenanceLedgerTest: core ledger semantics — record appends lines, derivedFrom returns distinct refs in record order, sourcesOf exact sets, reload-from-file reproduces identical answers (AC3 core), disabled ledger records nothing and re-enabling resumes.
+  - ProvenanceProductionWiringTest: the PRODUCTION-path half.
+    - AC1: fixtures M1 (English 'Ahmed planted roses in spring') and M2 (Egyptian Arabic 'أحمد زرع ورد في الربيع') consolidate into S=consolidation-summary-4242 through the REAL ConsolidationDaemon; M1 upserted through the REAL vector store (index-M1); derivedFrom(M1) == EXACTLY {S SUMMARY, index-M1 INDEX_ENTRY}; sourcesOf(S) == {M1, M2}.
+    - AC2: a REAL turn 'Green tea smells pleasant' through TermuxJarvisServer -> LatencyPipeline -> CognitiveEngine (with memoryStoreOverride returning M1 + a real JsonlTurnTraceStore) retrieves M1; derivedFrom(M1) then includes the TRACE_RECORD whose id equals the stored trace id.
+    - AC3: a NEW JsonlProvenanceLedger over the same file reproduces every AC1/AC2 answer byte-for-byte.
+    - AC4 negative control: same REAL daemon + vector upsert + REAL server turn with the ledger DISABLED — the trace store provably grows (1 record) while derivedFrom(M1) stays empty and the provenance file never appears/never grows.
+    - AC5: the consolidated fixtures are an English memory and an Egyptian Arabic memory.
+- Candid note recorded in the story: the production background consolidation loop (MemoryConsolidationLoop) remains a separate single-statement durability gate; ConsolidationDaemon is the pass-to-summary consolidation path this ledger records (registered as a REAL MEMORY organ). This distinction predates and is not introduced by this story.
+- Files changed: new provenance package in main + test, seams in CognitiveEngine/ConsolidationDaemon/AndroidVectorStore/KotlinVectorStore/JarvisEngine/TermuxJarvisServer, JarvisOrganGraph + SystemGraphTest, .ralph/prd.json (PROVENANCE-LEDGER passes:true + AC notes), .ralph/progress.txt (this entry).
+- **Learnings for future iterations:**
+  - ci_verify filter verdicts match on CLASS-exact fnmatch ('com.jarvis.app.memory.provenance.*' + '*SystemGraphTest*' both hit for these tests); the static no-network grep over the main package dir is independent of test sources.
+  - A "real turn that retrieves M1" without an Android store is achievable via TermuxJarvisServer's memoryStoreOverride injection while keeping the server/pipeline/engine REAL.
+  - The TRACE_RECORD depends on the trace-store wiring seat because recordTurnTrace returns early when no trace store exists — provenance for a trace only fires where a trace is actually being written.
+- **Pre-existing failures observed (not in scope):** none.
