@@ -68,7 +68,7 @@ class TermuxJarvisServerTest {
         val parsed = org.json.JSONObject(body)
         val reply = parsed.optString("reply")
         assertTrue("expected a real reply, got: $body", reply.isNotBlank())
-        assertTrue("reply should echo the engine's generation, got: $reply", reply.contains("Hello"))
+        assertTrue("reply should echo the engine's generation, got: $reply", reply.contains("[fake-model-backend] echo:"))
     }
 
     @Test

@@ -46,10 +46,14 @@ class StorePersistenceTest {
     fun `cold start personality matches documented defaults`() {
         val g = newGraph(tempDir(), ManualClock())
         val traits = g.registry.personality.allTraits()
-        // Every documented trait exists with its baseline as the starting value.
+        // Every documented trait exists with its baseline as the starting
+        // value. The documented defaults ARE the production vector:
+        // PersonalityStore.defaultTraits ("Documented default trait vector,
+        // used at cold start and on failure reset", §5), the only numeric
+        // source the HUMAN_CORE_SPEC §5 defers to.
         val expected = mapOf(
-            "directness" to 0.55, "warmth" to 0.60, "humorFrequency" to 0.35,
-            "formality" to 0.35, "proactiveness" to 0.30, "curiosity" to 0.65
+            "directness" to 0.60, "warmth" to 0.75, "humorFrequency" to 0.55,
+            "formality" to 0.20, "proactiveness" to 0.45, "curiosity" to 0.70
         )
         expected.forEach { (name, baseline) ->
             val t = traits[name]
