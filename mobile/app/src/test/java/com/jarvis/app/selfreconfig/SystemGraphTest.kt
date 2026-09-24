@@ -703,4 +703,37 @@ class SystemGraphTest {
             reachability.reachableIds.contains("trace.turnTraceStore")
         )
     }
+
+    @Test
+    fun `thread tracker is a real open-thread organ fed by the live engine`() {
+        val realOrgans = JarvisOrganGraph.build()
+
+        // THREAD-OBJECTS (Gate 3a, priority 2): ThreadTracker is a REAL THREAD organ
+        // — not a PLANNED placeholder — pointing at the real production class.
+        val node = realOrgans.node("threads.threadTracker")
+        assertNotNull("threads.threadTracker node must exist", node)
+        assertEquals("com.jarvis.app.threads.ThreadTracker", node!!.qualifiedClassName)
+        assertEquals(SystemGraph.OrganType.THREAD, node.organType)
+        assertTrue(
+            "thread tracker must be a REAL organ, not PLANNED",
+            node.organType != SystemGraph.OrganType.PLANNED
+        )
+
+        // The live engine SENDS_TO the registry on every real turn (constructor-
+        // injected threadTracker seam in JarvisEngine.init).
+        assertTrue(
+            "cognitive.engine must feed its open threads into threads.threadTracker",
+            realOrgans.edgesFrom("cognitive.engine").any {
+                it.toId == "threads.threadTracker" &&
+                    it.kind == SystemGraph.DependencyEdge.EdgeKind.SENDS_TO
+            }
+        )
+
+        // The registry is genuinely reachable from the live entry via the engine.
+        val reachability = realOrgans.computeReachability("entry.latencyPipeline")
+        assertTrue(
+            "threads.threadTracker must be reachable from the entry in the production composition",
+            reachability.reachableIds.contains("threads.threadTracker")
+        )
+    }
 }

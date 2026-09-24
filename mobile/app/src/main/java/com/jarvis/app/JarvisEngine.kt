@@ -107,6 +107,11 @@ object JarvisEngine {
         private set
     @Volatile var turnTraceStore: com.jarvis.app.trace.TurnTraceStore? = null
         private set
+    // THREAD-OBJECTS (Gate 3a, priority 2): the per-conversation open-thread
+    // registry, constructed in init() and handed to the engine's threadTracker
+    // seam — every real turn splits into tracked threads (ack/resurface/close).
+    @Volatile var threadTracker: com.jarvis.app.threads.ThreadTracker? = null
+        private set
     @Volatile var memoryConsolidationLoop: com.jarvis.app.memory.MemoryConsolidationLoop? = null
         private set
     @Volatile var capabilityFabric: com.jarvis.app.cognitive.capability.CapabilityFabric? = null
@@ -524,6 +529,14 @@ object JarvisEngine {
             )
             JarvisEngine.turnTraceStore = turnTraceStore
 
+            // ── THREAD-OBJECTS (Gate 3a, priority 2) ─────────────────────────
+            // The per-conversation open-thread registry. Pure in-memory Kotlin
+            // (no I/O, no Android); every real turn through the engine splits
+            // into tracked threads — unfinished/tangent thoughts stop being
+            // discarded text and become tracked objects (ack/resurface/close).
+            val threadTracker = com.jarvis.app.threads.ThreadTracker()
+            JarvisEngine.threadTracker = threadTracker
+
             val cognitiveEngine = com.jarvis.app.cognitive.CognitiveEngine(
                 scope = scope,
                 memoryStore = memoryStore,
@@ -536,7 +549,8 @@ object JarvisEngine {
                 continuityGate = continuityGate,
                 capabilityFabric = capabilityFabric,
                 dialectDetector = dialectDetector,
-                turnTraceStore = turnTraceStore
+                turnTraceStore = turnTraceStore,
+                threadTracker = threadTracker
             )
 
             val bodyCoordinator = BodyCoordinator(

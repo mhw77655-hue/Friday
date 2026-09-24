@@ -21,6 +21,7 @@ class SystemGraph {
         VOICE,
         ENTRY,
         TRACE,
+        THREAD,
         PLANNED,
         RESOLUTION,
         CLOUD,

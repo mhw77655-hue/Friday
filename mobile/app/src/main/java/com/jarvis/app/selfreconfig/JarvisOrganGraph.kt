@@ -422,6 +422,26 @@ object JarvisOrganGraph {
                 "seam is null (AC5)."
         ))
 
+        // THREAD-OBJECTS (Gate 3a, priority 2): the open-thread registry is a REAL
+        // organ (THREAD, not PLANNED). ThreadTracker is a pure-in-memory Kotlin
+        // class constructed in JarvisEngine.init and handed to CognitiveEngine's
+        // threadTracker seam; every real turn splits into tracked threads —
+        // unfinished/tangent thoughts become tracked objects instead of discarded
+        // text (acknowledge/resurface/close). No I/O, no network, no model calls.
+        g.registerNode(SystemGraph.SystemNode(
+            id = "threads.threadTracker",
+            name = "ThreadTracker",
+            organType = SystemGraph.OrganType.THREAD,
+            qualifiedClassName = "com.jarvis.app.threads.ThreadTracker",
+            description = "THREAD-OBJECTS (2026-09-24): the cross-turn registry of open thoughts. " +
+                "Constructed in JarvisEngine.init and consumed by the engine's threadTracker seam; per real " +
+                "turn each message is split into distinct thoughts (segment_message), each becoming a tracked " +
+                "OpenThread with completeness + decay clock + main-anchor; the reply acknowledges every open " +
+                "thread in one clause each (thread_acknowledge); unfinished threads resurface on an idle/related " +
+                "turn gated by their decay clock (resurface_policy); threads the user resolves themselves are " +
+                "closed (close_detect). Local-only in-memory, never a network call; inert when the seam is null "
+        ))
+
         // Fixed invariants
         g.registerNode(SystemGraph.SystemNode(id = "identity.root", name = "Identity Root", organType = SystemGraph.OrganType.SAFETY, isFixedInvariant = true))
         g.registerNode(SystemGraph.SystemNode(id = "authorization.root", name = "Authorization Root", organType = SystemGraph.OrganType.SAFETY, isFixedInvariant = true))
@@ -528,6 +548,8 @@ object JarvisOrganGraph {
         g.addEdge("cognitive.engine", "continuity.continuityGate", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         // TURN-TRACE: the engine SENDS_TO the local trace store on every real turn.
         g.addEdge("cognitive.engine", "trace.turnTraceStore", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
+        // THREAD-OBJECTS: the engine SENDS_TO the open-thread registry on every real turn.
+        g.addEdge("cognitive.engine", "threads.threadTracker", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("continuity.continuityGate", "identity.identityContext", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("continuity.continuityGate", "cognitive.contextWindowAssembler", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         // Contributor organs -> gate (signal INTO the registry; no direct payload write).

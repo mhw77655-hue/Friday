@@ -157,7 +157,23 @@ class CognitiveEngine(
      * trace file provably does not grow while disabled). Null keeps the
      * pre-trace path byte-for-byte.
      */
-    private val turnTraceStore: com.jarvis.app.trace.TurnTraceStore? = null
+    private val turnTraceStore: com.jarvis.app.trace.TurnTraceStore? = null,
+
+    /**
+     * THREAD-OBJECTS (Gate 3a, priority 2): the cross-turn registry of open
+     * thoughts. When wired, every real turn is ingested ([ThreadTracker.ingestTurn]:
+     * split the message into distinct thoughts → each becomes a tracked thread
+     * with its own completeness/main-anchor), a just-created open thread is
+     * acknowledged in ONE clause each ([ThreadTracker.thread_acknowledge]), and an
+     * unfinished thread from an earlier turn may resurface on an idle/related
+     * turn gated by its decay clock ([ThreadTracker.resurface_policy]); threads
+     * the user resolves themselves are closed ([ThreadTracker.close_detect]).
+     * The acknowledgment + resurface clauses ride the DIRECT_REPLY generation
+     * payload under an "[Open threads]" block. Null — or a tracker whose
+     * [com.jarvis.app.threads.ThreadTracker.enabled] is false — keeps the
+     * pre-thread path byte-for-byte (AC7 negative control).
+     */
+    private val threadTracker: com.jarvis.app.threads.ThreadTracker? = null
 ) : PlanDriver {
 
     private val intentInference = IntentInference(scope)
@@ -301,6 +317,14 @@ class CognitiveEngine(
             )
         }
 
+        // THREAD-OBJECTS (Gate 3a, priority 2): every real turn (past the
+        // pronoun short-circuit) feeds the open-thread registry. A resolving
+        // turn first CLOSES what it settles (close_detect), then the message is
+        // split into distinct thoughts, each becoming a tracked thread — the
+        // half-finished one marked TRAILING_OFF, tangents anchored to the main
+        // task. A null/disabled tracker is a no-op (AC7).
+        threadTracker?.ingestTurn(cognitiveResult.turnIndex, userText)
+
         // Classify intent via LLM seam and route accordingly
         val intentCategory = classifyIntent(userText)
         val decision = intentToDecision(intentCategory)
@@ -420,7 +444,8 @@ class CognitiveEngine(
         // TURN-TRACE stage timing: the "prompt-build" stage is the single
         // generation-payload concatenation of the contributions assembled above.
         val promptBuildStartMs = System.currentTimeMillis()
-        val fullContextMessage = userText + galaxyContext + (identitySuffix ?: "")
+        val fullContextMessage = userText + galaxyContext + (identitySuffix ?: "") +
+            buildThreadContext(cognitiveResult.turnIndex, userText)
         val promptBuildMs = System.currentTimeMillis() - promptBuildStartMs
 
         // TURN-TRACE stage timing: the "generate" stage is the model call — the
@@ -542,6 +567,29 @@ class CognitiveEngine(
         com.jarvis.app.trace.TurnTrace.STAGE_GENERATE to generate,
         com.jarvis.app.trace.TurnTrace.STAGE_POST_PROCESS to postProcess
     )
+
+    /**
+     * THREAD-OBJECTS: the "[Open threads]" block appended to the DIRECT_REPLY
+     * generation payload — one clause per thread created this turn
+     * (thread_acknowledge, AC2) plus one clause per unfinished thread from an
+     * earlier turn that this turn's idle/related content brings back
+     * (resurface_policy, AC4). Empty string when no tracker is wired, disabled,
+     * or there is nothing to say — so the pre-thread payload is byte-for-byte
+     * (AC7 negative control).
+     */
+    private fun buildThreadContext(turnIndex: Long, userText: String): String {
+        val tracker = threadTracker ?: return ""
+        val clauses = buildList {
+            addAll(tracker.thread_acknowledge(turnIndex))
+            addAll(
+                tracker.resurface_policy(turnIndex, userText).map {
+                    "returning: ${it.content} (open from turn ${it.createdAtTurn})"
+                }
+            )
+        }
+        if (clauses.isEmpty()) return ""
+        return "\n\n[Open threads]:\n" + clauses.joinToString("\n") { "- $it" }
+    }
 
     data class Config(
         val autoPopulateWorkingMemory: Boolean = true,

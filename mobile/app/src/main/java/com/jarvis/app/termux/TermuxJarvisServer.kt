@@ -94,7 +94,14 @@ class TermuxJarvisServer(
     // TURN-TRACE (Gate 3a): optional append-only local trace store. Null ⇒ no
     // tracing (negative control: the trace file provably does not grow). Tests
     // inject a temp-file JsonlTurnTraceStore; Termux/normal runs leave it null.
-    private val turnTraceStore: com.jarvis.app.trace.TurnTraceStore? = null
+    private val turnTraceStore: com.jarvis.app.trace.TurnTraceStore? = null,
+
+    // THREAD-OBJECTS (Gate 3a, priority 2): optional per-conversation open-thread
+    // registry, exposed so a harness can read openThreads()/toggle enabled. Null
+    // ⇒ no thread tracking (AC7 negative control: with the tracker disabled, the
+    // three_thoughts_test assertions fail). Tests inject a real ThreadTracker;
+    // Termux/normal runs leave it null.
+    val threadTracker: com.jarvis.app.threads.ThreadTracker? = null
 ) {
     private var serverSocket: ServerSocket? = null
     private var acceptThread: Thread? = null
@@ -290,7 +297,8 @@ class TermuxJarvisServer(
         continuityGate = continuityGate,
         capabilityFabric = capabilityFabric,
         dialectDetector = dialectDetector,
-        turnTraceStore = turnTraceStore
+        turnTraceStore = turnTraceStore,
+        threadTracker = threadTracker
     )
 
     val pipeline = LatencyPipeline(
