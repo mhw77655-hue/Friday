@@ -102,8 +102,11 @@ class MemoryForgetter(
     }
 
     /**
-     * Explicit "remember X": lift the tombstone for that content so the memory
-     * can genuinely be re-learned on the next sub-threshold turn (AC4).
+     * Explicit "remember X": lift every tombstone sharing a token with [content]
+     * so the memory can genuinely be re-learned (AC4). The deliberate assertion
+     * yields the incidental-relearning guard for its whole token family, so a
+     * value forgotten in two forms (e.g. English + Egyptian Arabic) comes back
+     * when the user explicitly re-states either form.
      */
     fun remember(content: String): Int = tombstoneStore.remember(content)
 

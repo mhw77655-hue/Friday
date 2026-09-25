@@ -14,12 +14,17 @@ import java.security.MessageDigest
  * no-network invariant intact in both code and comments):
  *
  *  - [contentHash]: a SHA-256 over the full normalized content's sorted token
- *    set, used by [TombstoneStore.remember] to clear a tombstone when the user
- *    explicitly re-states the same memory;
+ *    set — one stable identity for a forgotten memory;
  *  - [tokenHashes]: one SHA-256 per ≥4-char token, used by
  *    [TombstoneStore.matchesAny] to block ANY incidental re-learning — a later
  *    consolidation pass or live turn carrying a tombstoned token is suppressed,
  *    so the forgotten fact cannot be re-created by ingesting the fragment again.
+ *
+ * [TombstoneStore.remember] lifts a tombstone by token-family overlap: an
+ * explicit "remember X" re-asserts the content, so every tombstone sharing a
+ * token with X yields — the incidental-relearning guard must not fight a
+ * deliberate re-statement (AC4 lifts the whole family, e.g. when one value was
+ * forgotten in two languages).
  *
  * Normalization lowercases and splits on non-letter/digit runs; Arabic tokens
  * (Egyptian colloquial) are kept verbatim, so both English and Arabic forget
@@ -69,7 +74,7 @@ interface TombstoneStore {
     /** Record [sourceId] + the fingerprints of [content] as forgotten. */
     fun tombstone(sourceId: String, content: String)
 
-    /** Clear the tombstones whose contentHash equals [content]'s. Returns count cleared. */
+    /** Lift the tombstones overlapping [content]'s token family. Returns count cleared. */
     fun remember(content: String): Int
 
     /** Whether the exact source memory [sourceId] is tombstoned. */
@@ -148,10 +153,12 @@ class JsonlTombstoneStore(
     }
 
     override fun remember(content: String): Int {
-        val targetHash = TombstoneFingerprint.contentHash(content)
+        val lifted = TombstoneFingerprint.tokenSet(content)
+        if (lifted.isEmpty()) return 0
+        val liftedHashes = lifted.map { TombstoneFingerprint.sha256Hex(it) }.toSet()
         synchronized(this) {
             val all = readRecords()
-            val kept = all.filter { it.contentHash != targetHash }
+            val kept = all.filter { rec -> rec.tokenHashes.none { it in liftedHashes } }
             val cleared = all.size - kept.size
             if (cleared > 0) rewrite(kept)
             return cleared

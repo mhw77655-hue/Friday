@@ -90,6 +90,17 @@ class ForgetPropagationTest {
         assertEquals(0L, store.count())
         assertFalse(store.isTombstoned("M1"))
         assertFalse(store.matchesAny("the code is 4471"))
+
+        // AC4 family-lift: a deliberate remember yields the WHOLE token family —
+        // a second tombstone sharing the value "4471" (here, the same secret in
+        // Egyptian Arabic) also clears, while an unrelated tombstone survives.
+        store.tombstone("M2", "كود الدولاب بتاع سارة هو 4471")
+        store.tombstone("M3", "Ahmed planted roses in spring")
+        assertEquals(1, store.remember("may I remember the code is 4471"))
+        assertEquals(1L, store.count())
+        assertTrue(store.matchesAny("ahmed planted roses in spring"))
+        assertFalse(store.matchesAny("كود الدولاب بتاع سارة هو 4471"))
+        assertFalse(store.matchesAny("the code is 4471"))
     }
 
     // ── Ledger redact / redactSource ─────────────────────────────────────────
