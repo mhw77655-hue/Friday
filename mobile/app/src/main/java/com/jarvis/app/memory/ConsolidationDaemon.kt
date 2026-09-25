@@ -63,8 +63,17 @@ class ConsolidationDaemon(
      * promoted entry id — the pass's consolidation summary over its sources.
      * Null keeps the pre-provenance path byte-for-byte.
      */
-    private val provenanceLedger: com.jarvis.app.memory.provenance.ProvenanceLedger? = null
-) {
+    private val provenanceLedger: com.jarvis.app.memory.provenance.ProvenanceLedger? = null,
+
+    /**
+     * FORGET-PROPAGATION: durable tombstone registry consulted before every
+     * promotion. An entry whose text carries a tombstoned content token is
+     * SUPPRESSED (marked consolidated, never promoted) so a forgotten fact is
+     * never re-created by a later automatic consolidation run (AC4). Null keeps
+     * the pre-forget promotion behavior byte-for-byte.
+     */
+    private val tombstoneStore: com.jarvis.app.memory.provenance.TombstoneStore? = null
+) : com.jarvis.app.memory.provenance.ForgetPurgeable {
     /**
      * Run one consolidation pass. Scans all unconsolidated episodic entries:
      *  - High-salience entries are promoted to the graph store
@@ -83,6 +92,14 @@ class ConsolidationDaemon(
             if (entry.consolidated) continue
 
             if (entry.salience >= promotionSalienceThreshold) {
+                // FORGET-PROPAGATION: a tombstoned fact must not be re-created
+                // by an automatic consolidation pass. The guard CONSUMES the
+                // entry (suppressed, not promoted) — the forgotten content can
+                // no longer reach the graph through this queue.
+                if (tombstoneStore?.matchesAny(entry.text) == true) {
+                    entry.consolidated = true
+                    continue
+                }
                 // Promote durable fact to graph
                 graphStore.addFact(
                     subject = "episodic",
@@ -123,4 +140,16 @@ class ConsolidationDaemon(
      * Check if consolidation would actually do work (unprocessed entries exist).
      */
     fun hasWorkPending(): Boolean = episodicStore.any { !it.consolidated }
+
+    // FORGET-PROPAGATION: the queue byte-scan surface of a forget — remove every
+    // pending entry whose text carries the forgotten content, so the daemon's own
+    // episodic queue holds zero plaintext after the turn (AC1/AC2). The tombstone
+    // guard above covers the promoted-after-forget re-creation path; this covers
+    // the still-pending path.
+    override fun purgeContaining(needle: String): Int {
+        val needleLc = needle.lowercase()
+        val before = episodicStore.size
+        episodicStore.removeAll { it.text.lowercase().contains(needleLc) }
+        return before - episodicStore.size
+    }
 }

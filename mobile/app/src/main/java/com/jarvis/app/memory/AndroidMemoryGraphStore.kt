@@ -102,6 +102,26 @@ class AndroidMemoryGraphStore(
         }
     }
 
+    // FORGET-PROPAGATION: forget by EXPIRY, never deletion — the row is kept
+    // (nodeCount never decreases) and its validity window closes at now, so
+    // query/as-of-now retrievers stop returning the forgotten fact. Same
+    // supersede-not-delete move addFact already uses for contradictions, applied
+    // to every currently-valid node whose subject/object carries the content.
+    // Pure SQL over the same SQLiteDatabase — no new storage or native code.
+    override fun removeContaining(text: String): Int {
+        val count = db.rawQuery(
+            "SELECT COUNT(*) FROM nodes WHERE validUntil IS NULL AND (object LIKE ? OR subject LIKE ?)",
+            arrayOf("%$text%", "%$text%")
+        ).use { c -> c.moveToFirst(); c.getLong(0) }.toInt()
+        if (count > 0) {
+            db.execSQL(
+                "UPDATE nodes SET validUntil = ? WHERE validUntil IS NULL AND (object LIKE ? OR subject LIKE ?)",
+                arrayOf<Any>(System.currentTimeMillis(), "%$text%", "%$text%")
+            )
+        }
+        return count
+    }
+
     private fun queryNodes(sql: String, args: Array<out Any>): List<MemoryNode> {
         val out = mutableListOf<MemoryNode>()
         db.rawQuery(sql, args.map { it.toString() }.toTypedArray()).use { c ->

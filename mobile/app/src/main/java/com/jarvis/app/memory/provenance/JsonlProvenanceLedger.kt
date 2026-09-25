@@ -69,6 +69,41 @@ class JsonlProvenanceLedger(
         return file.useLines { it.count() }.toLong()
     }
 
+    override fun redact(derivedId: String): Int = synchronized(this) {
+        val all = readEntries()
+        val kept = all.filter { it.derivedId != derivedId }
+        val removed = all.size - kept.size
+        if (removed > 0) rewriteEntries(kept)
+        removed
+    }
+
+    override fun redactSource(derivedId: String, sourceId: String): Int = synchronized(this) {
+        val all = readEntries()
+        var rewritten = 0
+        val kept = all.map { entry ->
+            if (entry.derivedId == derivedId && entry.sourceIds.contains(sourceId)) {
+                rewritten++
+                entry.copy(sourceIds = entry.sourceIds.filter { it != sourceId })
+            } else {
+                entry
+            }
+        }.filter { it.sourceIds.isNotEmpty() }
+        if (rewritten > 0) rewriteEntries(kept)
+        rewritten
+    }
+
+    /**
+     * FORGET-PROPAGATION: destructive rewrite compaction. Normal recording is
+     * append-only; this is ONLY reached through redact/redactSource, which the
+     * forget path calls exclusively for an explicit user forget. Keeping the
+     * surviving entries byte-identical (same toJson) means no unrelated
+     * provenance line changes.
+     */
+    private fun rewriteEntries(entries: List<ProvenanceEntry>) {
+        file.writeText("", Charsets.UTF_8)
+        entries.forEach { file.appendText("${it.toJson()}\n", Charsets.UTF_8) }
+    }
+
     private data class ProvenanceEntry(
         val derivedId: String,
         val kind: ProvenanceKind,

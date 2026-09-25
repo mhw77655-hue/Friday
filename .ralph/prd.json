@@ -47,8 +47,8 @@
       ],
       "verifyCommand": "cd /sdcard/jarvis-repo && ! grep -rnE 'HttpURLConnection|OkHttp|Retrofit|java\\.net\\.Socket' mobile/app/src/main/java/com/jarvis/app/memory/provenance/ && bash .ralph/ci_verify.sh 'com.jarvis.app.memory.provenance.*' 'com.jarvis.app.termux.ForgetProductionWiringTest.*' '*SystemGraphTest*'",
       "priority": 3,
-      "passes": false,
-      "notes": ""
+      "passes": true,
+      "notes": "IMPLEMENTED 2026-09-25 and machine-verified green via the stored verifyCommand (provenance.* / ForgetProductionWiringTest.* / SystemGraphTest filters, all passed). Audit confirmed forget_on_request did NOT exist anywhere, so forget was implemented fresh as MemoryForgetter + JsonlTombstoneStore in com.jarvis.app.memory.provenance (no duplication). Tombstone registry persists only SHA-256 hashes (never the plaintext), so the tombstone file is byte-scan-safe and included in the AC1/AC2 corpus. Propagation walks ProvenanceLedger.derivedFrom: SUMMARY re-derived via redactSource or dropped via redact; INDEX_ENTRY removed from the real VectorStore; trace redacted by rewrite compaction (AC6); graph nodes expired (supersede, never delete — row-count-never-decreases preserved); consolidation queue purged via ForgetPurgeable. Re-learning guards: ConsolidationDaemon tombstone guard + CognitiveEngine live write-back guard; explicit 'remember that X' clears the tombstone (AC4). The real path is TermuxJarvisServer -> LatencyPipeline -> CognitiveEngine.process (directive branch before pronoun routing). AC5 negative control: propagationEnabled=false leaves 4471 findable. Locally-driven fixtures: FakeMemoryGraphStore + KotlinVectorStore are the JVM references for the Android SQLite stores."
     },
     {
       "id": "CORRECTION-CHAIN",

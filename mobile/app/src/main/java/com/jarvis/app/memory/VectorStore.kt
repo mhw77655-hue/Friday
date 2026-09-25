@@ -27,6 +27,27 @@ interface VectorStore {
 
     /** Close/release resources. */
     fun close()
+
+    /**
+     * FORGET-PROPAGATION: remove the stored row for [id]. Implementations that
+     * never forget (or that have no on-disk storage yet) may keep the default
+     * no-op. Returns true when a row was actually removed.
+     */
+    fun remove(id: String): Boolean = false
+
+    /**
+     * FORGET-PROPAGATION: remove every stored row whose content carries [text]
+     * (case-insensitive) — the index/cache byte-scan surface of a forget. The
+     * Default implementation is a no-op returning 0; the real SQLite store and
+     * the Kotlin reference store both override it. Returns the count removed.
+     */
+    fun removeContaining(text: String): Int = 0
+
+    /**
+     * FORGET-PROPAGATION: every stored row's content, in store order — the
+     * on-disk index/cache content surface scanned for forgotten plaintext.
+     */
+    fun contents(): List<String> = emptyList()
 }
 
 /**

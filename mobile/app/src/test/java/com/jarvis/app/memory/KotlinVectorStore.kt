@@ -74,4 +74,19 @@ class KotlinVectorStore(
     override fun close() {
         rows.clear()
     }
+
+    // FORGET-PROPAGATION: the same remove/removeContaining/contents contract the
+    // production AndroidVectorStore executes against android.database.sqlite rows,
+    // mirrored here over the in-memory row list (CopyOnWriteArrayList removal via
+    // removeIf — the COW iterator does not support structural removal).
+    override fun remove(id: String): Boolean =
+        rows.removeIf { it.id == id }
+
+    override fun removeContaining(text: String): Int {
+        val before = rows.size
+        rows.removeIf { it.content.contains(text, ignoreCase = true) }
+        return before - rows.size
+    }
+
+    override fun contents(): List<String> = rows.map { it.content }
 }

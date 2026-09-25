@@ -183,7 +183,19 @@ class CognitiveEngine(
      * [com.jarvis.app.threads.ThreadTracker.enabled] is false — keeps the
      * pre-thread path byte-for-byte (AC7 negative control).
      */
-    private val threadTracker: com.jarvis.app.threads.ThreadTracker? = null
+    private val threadTracker: com.jarvis.app.threads.ThreadTracker? = null,
+
+    /**
+     * FORGET-PROPAGATION: the propagation engine behind "forget X" / "انسى X".
+     * When wired, a turn whose text is an explicit forget directive resolves the
+     * fragment against this engine's real memory store, tombstones it and
+     * propagates through the ledger to every derived artifact; an explicit
+     * "remember X" lifts the tombstone so the memory can be re-learned (AC4);
+     * and the live-turn graph write-back below is suppressed for any text still
+     * carrying a tombstoned content token. Null keeps the pre-forget path
+     * byte-for-byte.
+     */
+    private val memoryForgetter: com.jarvis.app.memory.provenance.MemoryForgetter? = null
 ) : PlanDriver {
 
     private val intentInference = IntentInference(scope)
@@ -304,6 +316,12 @@ class CognitiveEngine(
         val embedStartMs = System.currentTimeMillis()
         val cognitiveResult = processInput(userText, sessionContext)
         val embedMs = System.currentTimeMillis() - embedStartMs
+
+        // FORGET-PROPAGATION: an explicit forget/remember directive is routed
+        // through the real propagation path BEFORE pronoun/clarification routing,
+        // so a forget turn is never misrouted and never reaches the model bridge.
+        val directiveResult = handleMemoryDirective(userText, cognitiveResult, embedMs)
+        if (directiveResult != null) return directiveResult
 
         // If pronoun resolution is ambiguous, short-circuit with NEEDS_CLARIFICATION
         if (cognitiveResult.pronounResolution.ambiguous) {
@@ -443,12 +461,19 @@ class CognitiveEngine(
         // MemoryGraphStore.addFact so a later turn can retrieve it through the
         // blended retriever. No-op when no store is wired.
         if (graphStore != null && decision == TurnDecision.DIRECT_REPLY) {
-            graphStore.addFact(
-                subject = "user",
-                predicate = "stated",
-                `object` = userText,
-                source = "live-turn"
-            )
+            // FORGET-PROPAGATION: a tombstoned fact must not be re-created by a
+            // live turn's write-back (a later turn mentioning the fact in
+            // passing — AC4). The tombstone clears only through an explicit
+            // "remember X", which lets the write-back through again.
+            val tombstoned = memoryForgetter?.isTombstoned(userText) == true
+            if (!tombstoned) {
+                graphStore.addFact(
+                    subject = "user",
+                    predicate = "stated",
+                    `object` = userText,
+                    source = "live-turn"
+                )
+            }
         }
 
         // TURN-TRACE stage timing: the "prompt-build" stage is the single
@@ -541,7 +566,12 @@ class CognitiveEngine(
         outputText: String?,
         generationPayload: String?,
         crossSessionMemories: List<String>,
-        stageTimingsMs: Map<String, Long>
+        stageTimingsMs: Map<String, Long>,
+        // FORGET-PROPAGATION (AC6): when true the text-bearing fields are
+        // blanked AT WRITE so the forget turn's own trace never carries the
+        // forgotten content — the record still exists, with id, turn index,
+        // timestamps, retrieved ids and timings intact.
+        redactText: Boolean = false
     ) {
         val store = turnTraceStore ?: return
         if (!store.enabled) return
@@ -551,14 +581,14 @@ class CognitiveEngine(
                 id = recordId,
                 turnIndex = turnIndex,
                 timestampMs = System.currentTimeMillis(),
-                inputText = inputText,
+                inputText = if (redactText) "" else inputText,
                 decision = decision.name,
                 retrievedMemoryIds = retrievedMemoryIds,
                 predictions = emptyList(),
-                promptSections = promptSections,
-                outputText = outputText,
-                generationPayload = generationPayload,
-                crossSessionMemories = crossSessionMemories,
+                promptSections = if (redactText) promptSections.map { it.copy(preview = "") } else promptSections,
+                outputText = if (redactText) null else outputText,
+                generationPayload = if (redactText) null else generationPayload,
+                crossSessionMemories = if (redactText) emptyList() else crossSessionMemories,
                 stageTimingsMs = stageTimingsMs
             )
         )
@@ -588,6 +618,58 @@ class CognitiveEngine(
         com.jarvis.app.trace.TurnTrace.STAGE_GENERATE to generate,
         com.jarvis.app.trace.TurnTrace.STAGE_POST_PROCESS to postProcess
     )
+
+    /**
+     * FORGET-PROPAGATION: route an explicit forget/remember directive through
+     * the real conversation path. Called after processInput (so the turn index
+     * and working-memory snapshot exist) and before pronoun routing. Returns a
+     * finished DIRECT_REPLY turn when the utterance was a forget directive that
+     * resolved a memory; clears the tombstone for an explicit remember and falls
+     * through to normal routing; null when no directive is present, the
+     * forgetting engine is unwired, or the fragment matched no memory.
+     */
+    private fun handleMemoryDirective(
+        userText: String,
+        cognitiveResult: CognitiveResult,
+        embedMs: Long
+    ): CognitiveTurnResult? {
+        val forgetter = memoryForgetter ?: return null
+
+        com.jarvis.app.memory.provenance.MemoryForgetter.forgetFragment(userText)?.let { fragment ->
+            // The REAL memory lookup: this engine's own memory store resolves the
+            // fragment to the concrete memory id + content being forgotten.
+            val target = memoryStore.queryMemories(userText, limit = 10)
+                .firstOrNull { it.content.contains(fragment, ignoreCase = true) }
+            if (target == null) return null
+            forgetter.forget(target.id, target.content)
+            val turnIndex = cognitiveResult.turnIndex
+            recordTurnTrace(
+                turnIndex = turnIndex,
+                inputText = userText,
+                decision = TurnDecision.DIRECT_REPLY,
+                retrievedMemoryIds = cognitiveResult.workingMemorySnapshot.map { it.sourceId },
+                promptSections = TurnTrace.buildPromptSections(userText, "", null),
+                outputText = null,
+                generationPayload = null,
+                crossSessionMemories = emptyList(),
+                stageTimingsMs = traceTimings(embedMs, 0, 0, 0, 0),
+                redactText = true
+            )
+            return CognitiveTurnResult(
+                cognitiveResult = cognitiveResult,
+                decision = TurnDecision.DIRECT_REPLY
+            )
+        }
+
+        com.jarvis.app.memory.provenance.MemoryForgetter.rememberFragment(userText)?.let { phrase ->
+            // Explicit "remember X": lift the tombstone so the memory can be
+            // genuinely re-learned. Falls through to normal routing — the turn is
+            // then a TEACHING/STATEMENT whose write-back is again allowed (AC4).
+            forgetter.remember(phrase)
+        }
+
+        return null
+    }
 
     /**
      * THREAD-OBJECTS: the "[Open threads]" block appended to the DIRECT_REPLY

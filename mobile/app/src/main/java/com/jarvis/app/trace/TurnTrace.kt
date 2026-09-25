@@ -207,6 +207,19 @@ interface TurnTraceStore {
      * null when no stored turn exists with that id.
      */
     suspend fun <T> replay_turn(id: String, runner: suspend (String) -> T): T?
+
+    /**
+     * FORGET-PROPAGATION: redact every stored record whose serialized text
+     * carries [text] (case-insensitive) via a rewrite compaction — the record
+     * keeps its id, turn index, timestamp, decision, retrieved ids, predictions
+     * and stage timings, but its input/output/generation text and its
+     * cross-session memory block are blanked (AC6: the trace exists, the text
+     * does not). Appending new turns stays append-only; this is the only
+     * destructive path and it is reachable solely from an explicit user forget.
+     * Returns the number of records redacted. Default no-op keeps stores that
+     * never forget compiling unchanged.
+     */
+    fun redactContaining(text: String): Int = 0
 }
 
 /**
@@ -274,5 +287,34 @@ class JsonlTurnTraceStore(
             }
         }
         return records
+    }
+
+    // FORGET-PROPAGATION: the trace-file surface of a forget. Only the explicit
+    // forget/مرور rewrite path rewrites history (text blanked, structure kept);
+    // the AC6 records of the forget turn are written already-redacted by the
+    // engine. The same double-guarded append stays the ONLY writer for new turns.
+    override fun redactContaining(text: String): Int = synchronized(this) {
+        val all = readRecords()
+        var redacted = 0
+        val needle = text.lowercase()
+        val rewritten = all.map { record ->
+            if (record.toJson().toString().lowercase().contains(needle)) {
+                redacted++
+                record.copy(
+                    inputText = "",
+                    outputText = null,
+                    generationPayload = null,
+                    promptSections = record.promptSections.map { it.copy(preview = "") },
+                    crossSessionMemories = emptyList()
+                )
+            } else {
+                record
+            }
+        }
+        if (redacted > 0) {
+            file.writeText("", Charsets.UTF_8)
+            rewritten.forEach { file.appendText("${it.toJson()}\n", Charsets.UTF_8) }
+        }
+        redacted
     }
 }

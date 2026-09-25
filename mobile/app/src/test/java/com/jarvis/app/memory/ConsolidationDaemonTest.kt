@@ -261,6 +261,27 @@ class FakeMemoryGraphStore : MemoryGraphStore {
 
     override fun nodeCount(): Long = nodes.size.toLong()
 
+    // FORGET-PROPAGATION: expire (supersede, never delete) every currently-valid
+    // node whose subject/object carries the forgotten content — the same semantics
+    // as the production AndroidMemoryGraphStore.removeContaining, so the wiring
+    // test's byte scan of graph query() texts finds zero forgotten plaintext after
+    // the forget turn.
+    override fun removeContaining(text: String): Int {
+        val now = System.currentTimeMillis()
+        val needle = text.lowercase()
+        var count = 0
+        for (i in nodes.indices) {
+            val n = nodes[i]
+            if (n.validUntil == null &&
+                (n.subject.lowercase().contains(needle) || n.`object`.lowercase().contains(needle))
+            ) {
+                nodes[i] = n.copy(validUntil = now)
+                count++
+            }
+        }
+        return count
+    }
+
     override fun close() {}
 
     /** Directly insert a pre-built node (for tests that need specific node configs). */

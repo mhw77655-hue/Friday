@@ -67,4 +67,23 @@ interface ProvenanceLedger {
 
     /** The set of source memories one derived artifact was built from. */
     fun sourcesOf(derivedId: String): Set<String>
+
+    /**
+     * FORGET-PROPAGATION: drop every provenance entry for [derivedId] — used
+     * when a forgotten memory was the only source of a SUMMARY, so the summary
+     * artifact itself is removed. Implemented by the file-backed ledger through
+     * a rewrite compaction (normal recording stays append-only; only an explicit
+     * user forget performs this destructive rewrite). Default no-op keeps
+     * callers that never forget safe. Returns the number of entries removed.
+     */
+    fun redact(derivedId: String): Int = 0
+
+    /**
+     * FORGET-PROPAGATION: rewrite every entry naming [derivedId] so its source
+     * set no longer includes [sourceId] — the forgotten memory is removed from
+     * the provenance of a SUMMARY that was re-derived to its remaining sources
+     * (sourcesOf() then no longer lists the forgotten id — AC3). Same rewrite
+     * compaction note as [redact]. Returns the number of entries rewritten.
+     */
+    fun redactSource(derivedId: String, sourceId: String): Int = 0
 }

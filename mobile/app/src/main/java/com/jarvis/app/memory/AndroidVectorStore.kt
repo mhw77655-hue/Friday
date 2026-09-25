@@ -106,6 +106,21 @@ class AndroidVectorStore(
         }.toMap()
     }
 
+    // FORGET-PROPAGATION: the index/cache sink of a forget. Rows are the
+    // INDEX_ENTRY-deriving artifacts, removed so the vector content byte-scan
+    // finds zero plaintext after the forget turn (AC1/AC2). Pure SQL DELETE over
+    // the same SQLiteDatabase used above — no new storage or native code.
+    override fun remove(id: String): Boolean =
+        db.delete("memories", "id = ?", arrayOf(id)) > 0
+
+    override fun removeContaining(text: String): Int =
+        db.delete("memories", "content LIKE ?", arrayOf("%$text%"))
+
+    override fun contents(): List<String> =
+        db.rawQuery("SELECT content FROM memories", null).use { c ->
+            buildList { while (c.moveToNext()) add(c.getString(0)) }
+        }
+
     override fun close() {
         try {
             db.close()

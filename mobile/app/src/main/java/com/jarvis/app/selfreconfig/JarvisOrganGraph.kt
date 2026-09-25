@@ -114,6 +114,32 @@ object JarvisOrganGraph {
                 "One SUMMARY provenance entry per pass that promotes sources (ConsolidationDaemon.consolidate, " +
                 "derivedId consolidation-summary-<timestamp>, sourceIds = the promoted entry ids)."
         ))
+        // FORGET-PROPAGATION (AC6): the forgetting engine is a REAL organ (MEMORY,
+        // not PLANNED). It tombstones forgotten memories and propagates the tombstone
+        // through the ledger to every derived artifact family; the engine wires it
+        // per-turn, the daemon consults it before every promotion.
+        g.registerNode(SystemGraph.SystemNode(
+            id = "memory.forgetPropagation",
+            name = "MemoryForgetter",
+            organType = SystemGraph.OrganType.MEMORY,
+            qualifiedClassName = "com.jarvis.app.memory.provenance.MemoryForgetter",
+            description = "FORGET-PROPAGATION (2026-09-24): the propagation engine behind " +
+                "\"forget X\"/\"انسى X\". Tombstones a source memory (JsonlTombstoneStore), then " +
+                "walks the ProvenanceLedger to every derived artifact — SUMMARYs re-derived/dropped " +
+                "(redact/redactSource), INDEX_ENTRY rows removed from the VectorStore, graph nodes " +
+                "expired, trace text redacted, consolidation queue purged — so a byte scan of every " +
+                "memory/index/cache/queue/trace artifact finds zero forgotten plaintext (AC1)."
+        ))
+        g.registerNode(SystemGraph.SystemNode(
+            id = "memory.tombstoneStore",
+            name = "JsonlTombstoneStore",
+            organType = SystemGraph.OrganType.MEMORY,
+            qualifiedClassName = "com.jarvis.app.memory.provenance.TombstoneStore",
+            description = "FORGET-PROPAGATION (2026-09-24): local JSON-Lines registry of forgotten " +
+                "memories. Persists only SHA-256 hashes of the forgotten content (never the plaintext) " +
+                "at filesDir/memory/tombstones.jsonl, blocks re-learning via token-hash matching, and " +
+                "is cleared by an explicit remember (AC4). Local-only, never a network call."
+        ))
 
         // Identity organs (Stage 03 — bound by IdentityContext in PHASE-A)
         g.registerNode(SystemGraph.SystemNode(
@@ -589,6 +615,16 @@ object JarvisOrganGraph {
         // call that feeds the trace store (TRACE_RECORD, AC2).
         g.addEdge("memory.consolidationDaemon", "memory.provenanceLedger", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("cognitive.engine", "memory.provenanceLedger", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
+        // FORGET-PROPAGATION: the engine feeds the forgetting organ every real turn
+        // (forget/remember directives + write-back guard), the forgetting organ
+        // SEPARATELY consumes the tombstone registry, the ledger and the graph store
+        // it propagates over, and the consolidation daemon consults the registry
+        // before every promotion pass (AC4 guard).
+        g.addEdge("cognitive.engine", "memory.forgetPropagation", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        g.addEdge("memory.forgetPropagation", "memory.tombstoneStore", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
+        g.addEdge("memory.forgetPropagation", "memory.provenanceLedger", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
+        g.addEdge("memory.forgetPropagation", "memory.graphStore", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
+        g.addEdge("memory.consolidationDaemon", "memory.tombstoneStore", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
         g.addEdge("continuity.continuityGate", "identity.identityContext", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("continuity.continuityGate", "cognitive.contextWindowAssembler", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         // Contributor organs -> gate (signal INTO the registry; no direct payload write).

@@ -111,7 +111,18 @@ class TermuxJarvisServer(
     // PROVENANCE-LEDGER (AC2): optional memory-store override so a REAL turn can
     // actually retrieve a fixture memory (the production default is the empty
     // store). Null ⇒ the existing EmptyMemoryStore behavior byte-for-byte.
-    val memoryStoreOverride: MemoryStorePort? = null
+    val memoryStoreOverride: MemoryStorePort? = null,
+
+    // FORGET-PROPAGATION: optional JVM reference memory graph store for the
+    // engine's write-back path, so a forget test can share ONE graph store with
+    // the daemon and the forgetter. Null ⇒ the existing InMemoryGraph behavior
+    // byte-for-byte.
+    val graphStoreOverride: MemoryGraphStore? = null,
+
+    // FORGET-PROPAGATION: optional forget propagation engine. Null ⇒ the
+    // pre-forget conversation path byte-for-byte. Tests inject a real
+    // MemoryForgetter; Termux/normal runs leave it null.
+    val memoryForgetter: com.jarvis.app.memory.provenance.MemoryForgetter? = null
 ) {
     private var serverSocket: ServerSocket? = null
     private var acceptThread: Thread? = null
@@ -157,6 +168,25 @@ class TermuxJarvisServer(
             }
         override fun getHistory(subject: String, predicate: String): List<MemoryNode> =
             nodes.filter { it.subject == subject && it.predicate == predicate }.sortedBy { it.validFrom }
+        // FORGET-PROPAGATION: expire (supersede, never delete) every currently-
+        // valid node whose subject/object carries the forgotten content — matching
+        // the store's decay-not-delete principle and the row-count-never-decreases
+        // assertion the Android store keeps.
+        override fun removeContaining(text: String): Int {
+            val now = System.currentTimeMillis()
+            val needle = text.lowercase()
+            var count = 0
+            for (i in nodes.indices) {
+                val n = nodes[i]
+                if (n.validUntil == null &&
+                    (n.subject.lowercase().contains(needle) || n.`object`.lowercase().contains(needle))
+                ) {
+                    nodes[i] = n.copy(validUntil = now)
+                    count++
+                }
+            }
+            return count
+        }
         override fun nodeCount(): Long = nodes.size.toLong()
         override fun close() {}
     }
@@ -190,7 +220,7 @@ class TermuxJarvisServer(
 
     // ── Identity, memory, capability (real subsystems, JVM-safe stores) ──
 
-    val graphStore: MemoryGraphStore = InMemoryGraph()
+    val graphStore: MemoryGraphStore = graphStoreOverride ?: InMemoryGraph()
     private val embeddingProvider = DeterministicEmbedding(dimension = 256)
     private val scorer = MemoryImportanceScorer(embeddingProvider = embeddingProvider)
     val retriever = BlendedMemoryRetriever(graphStore, embeddingProvider, scorer)
@@ -309,7 +339,8 @@ class TermuxJarvisServer(
         dialectDetector = dialectDetector,
         turnTraceStore = turnTraceStore,
         threadTracker = threadTracker,
-        provenanceLedger = provenanceLedger
+        provenanceLedger = provenanceLedger,
+        memoryForgetter = memoryForgetter
     )
 
     val pipeline = LatencyPipeline(

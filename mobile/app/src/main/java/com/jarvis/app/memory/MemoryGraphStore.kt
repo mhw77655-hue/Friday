@@ -47,6 +47,17 @@ interface MemoryGraphStore {
     /** Count all rows in the nodes table (for row-count-never-decreases assertions). */
     fun nodeCount(): Long
 
+    /**
+     * FORGET-PROPAGATION: remove every currently-valid node whose subject or
+     * object carries [text] (case-insensitive) by EXPIRING it — the bi-temporal
+     * way to forget: the node keeps its row (nodeCount never decreases, honoring
+     * the project-wide never-hard-delete principle) but its validity window is
+     * closed at now, so [query] and every as-of-now retriever stop returning it.
+     * Returns the number of nodes expired. The default no-op lets fakes that
+     * never forget keep compiling unchanged.
+     */
+    fun removeContaining(text: String): Int = 0
+
     /** Close/release resources. */
     fun close()
 }
