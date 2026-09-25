@@ -122,7 +122,7 @@ class MemoryForgetter(
          */
         fun forgetFragment(userText: String): String? {
             val text = userText.trim()
-            val english = Regex("""^(?:please\s+)?(?:jarvis\s+)?forget\s+(?:about\s+)?(.+)$""", RegexOption.IGNORE_CASE)
+            val english = Regex("""^(?:(?:please|jarvis)\s+){0,2}forget\s+(?:about\s+)?(.+)$""", RegexOption.IGNORE_CASE)
                 .find(text)?.groupValues?.get(1)?.trim()
             if (!english.isNullOrBlank()) return english
             for (prefix in listOf("انسى", "انسي")) {
@@ -137,7 +137,7 @@ class MemoryForgetter(
         /** "remember that X" / "remember X" in English → the content, or null. */
         fun rememberFragment(userText: String): String? {
             val text = userText.trim()
-            return Regex("""^(?:please\s+)?remember\s+(?:that\s+)?(.+)$""", RegexOption.IGNORE_CASE)
+            return Regex("""^(?:(?:please|jarvis)\s+){0,2}remember\s+(?:that\s+)?(.+)$""", RegexOption.IGNORE_CASE)
                 .find(text)?.groupValues?.get(1)?.trim()?.takeIf { it.isNotBlank() }
         }
     }

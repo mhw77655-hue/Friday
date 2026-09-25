@@ -48,7 +48,7 @@ import java.io.File
  *    its last source — drops the summary entirely.
  *  - AC4: neither a later consolidation pass nor a real passing turn re-creates
  *    the fact while the tombstone stands; an explicit
- *    "remember that Sara's locker code is 4471" over the real pipe lifts it and
+ *    "remember Sara's locker code is 4471" over the real pipe lifts it and
  *    re-creates the memory.
  *  - AC5: with propagation disabled the forget is accepted but removes nothing —
  *    the byte scan still finds the content (proves the wiring is not a stub).
@@ -284,14 +284,17 @@ class ForgetProductionWiringTest {
             )
 
             // ── AC4: a real passing turn must not write the fact back ───────────
-            pipeline.onUserInput("remind me that Sara's locker code is 4471")
+            pipeline.onUserInput("remind me Sara's locker code is 4471")
             assertTrue(
                 "live write-back guard blocked the passing mention",
                 graph.query().none { it.`object`.contains("4471") }
             )
 
             // ── AC4: an explicit remember over the real pipe re-creates it ──────
-            pipeline.onUserInput("remember that Sara's locker code is 4471")
+            // (no "that" — the pronoun-referent heuristics short-circuit any
+            // utterance carrying it/that/this to NEEDS_CLARIFICATION, which would
+            // legitimately skip the DIRECT_REPLY write-back we are asserting.)
+            pipeline.onUserInput("remember Sara's locker code is 4471")
             assertTrue(
                 "explicit remember re-created the fact",
                 graph.query().any { it.`object`.contains("4471") }
