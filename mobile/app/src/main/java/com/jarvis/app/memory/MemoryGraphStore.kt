@@ -22,9 +22,15 @@ interface MemoryGraphStore {
     /**
      * Add a fact to the graph. If a currently-valid node with the same
      * [subject] and [predicate] already exists, it is superseded (its
-     * validUntil is set to now) before the new node is inserted.
+     * validUntil is set to now AND its [MemoryNode.supersededBy] is pointed at
+     * the new node) before the new node is inserted.
+     *
+     * CORRECTION-CHAIN: returns the id of the node that was inserted, so the
+     * caller can attribute stored signals ([recordSignals]) and accessibility
+     * ([setAccessibility]) to exactly that node. Callers that ignore the result
+     * keep the pre-story behavior byte-for-byte.
      */
-    fun addFact(subject: String, predicate: String, `object`: String, source: String = "")
+    fun addFact(subject: String, predicate: String, `object`: String, source: String = ""): String
 
     /**
      * Query currently-valid facts matching [subject] (if non-null) and/or
@@ -58,6 +64,24 @@ interface MemoryGraphStore {
      */
     fun removeContaining(text: String): Int = 0
 
+    /**
+     * CORRECTION-CHAIN: persist the six SPLIT signals of [profile] as their own
+     * fields on the stored node [id] (never as a combined score). The default
+     * no-op returns false so stores that do not model signals keep compiling and
+     * behave unchanged; stores that DO model them return true once written.
+     */
+    fun recordSignals(id: String, profile: SignalProfile): Boolean = false
+
+    /**
+     * CORRECTION-CHAIN: persist ONLY the accessibility axis of node [id].
+     *
+     * Deliberately a separate seam from [recordSignals]: consolidation and
+     * repeated recall may raise how easily a memory is reached
+     * ([MemoryAccessibility]) and must never reach a stored signal — in
+     * particular never [MemoryNode.uncertainty]. Default no-op returns false.
+     */
+    fun setAccessibility(id: String, accessibility: Float): Boolean = false
+
     /** Close/release resources. */
     fun close()
 }
@@ -76,6 +100,10 @@ interface MemoryGraphStore {
  * to null so legacy constructions stay byte-identical; they are filled by
  * [com.jarvis.app.memory.SignalSplitScorer] via `withSignals` and must not be
  * blended by any consumer (a combined score is a later, baseline-gated story).
+ *
+ * CORRECTION-CHAIN adds two non-signal fields: [supersededBy] (the forward link
+ * from a superseded assertion to the one that replaced it) and [accessibility]
+ * (the axis consolidation is allowed to move — see [MemoryAccessibility]).
  */
 data class MemoryNode(
     val id: String,
@@ -85,10 +113,26 @@ data class MemoryNode(
     val source: String,
     val validFrom: Long,
     val validUntil: Long? = null,
+    /**
+     * CORRECTION-CHAIN: id of the node that superseded this one, set in the SAME
+     * bi-temporal operation that closes [validUntil]. A correction therefore
+     * never overwrites the old assertion: the old node stays in
+     * [MemoryGraphStore.getHistory] marked superseded, and this pointer is the
+     * forward link a reader follows to reach the assertion that is current.
+     * Null on a node nothing has superseded yet.
+     */
+    val supersededBy: String? = null,
     /** How emotionally/practically significant this memory is [0,1]. */
     val salience: Float = 0.5f,
     /** How many times this memory has been accessed/reinforced. */
     val accessCount: Int = 0,
+    /**
+     * CORRECTION-CHAIN: the ACCESSIBILITY axis [0,1] — how reachable this
+     * memory currently is after consolidation/recall passes
+     * ([MemoryAccessibility]). It is NOT one of the six split signals and NOT a
+     * combined score: passes may raise it, nothing else may.
+     */
+    val accessibility: Float? = null,
     /** Pre-computed embedding of the object text for semantic relevance scoring. */
     val embedding: FloatArray? = null,
     /** Signal: semantic match to the current conversation context [0,1]. */

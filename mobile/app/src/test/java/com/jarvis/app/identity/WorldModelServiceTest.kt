@@ -21,20 +21,22 @@ class FakeGraph : MemoryGraphStore {
     private val nodes = mutableListOf<com.jarvis.app.memory.MemoryNode>()
     private var idCounter = 0
 
-    override fun addFact(subject: String, predicate: String, `object`: String, source: String) {
+    override fun addFact(subject: String, predicate: String, `object`: String, source: String): String {
         val now = System.currentTimeMillis()
+        val id = "id-${++idCounter}"
         for (n in nodes) {
             if (n.subject == subject && n.predicate == predicate && n.validUntil == null) {
                 val idx = nodes.indexOf(n)
-                nodes[idx] = n.copy(validUntil = now)
+                nodes[idx] = n.copy(validUntil = now, supersededBy = id)
             }
         }
         nodes.add(
             com.jarvis.app.memory.MemoryNode(
-                id = "id-${++idCounter}", subject = subject, predicate = predicate,
+                id = id, subject = subject, predicate = predicate,
                 `object` = `object`, source = source, validFrom = now
             )
         )
+        return id
     }
 
     override fun query(subject: String?, predicate: String?, asOfTime: Long): List<com.jarvis.app.memory.MemoryNode> =

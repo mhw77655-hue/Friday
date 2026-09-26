@@ -155,3 +155,51 @@ fun MemoryNode.withSignals(profile: SignalProfile): MemoryNode = copy(
     consent = profile.consent,
     cost = profile.cost
 )
+
+/**
+ * CORRECTION-CHAIN: the ACCESSIBILITY axis of a memory record.
+ *
+ * Accessibility answers one question only: how reachable is this memory right
+ * now? Consolidation passes and repeated recall may raise it; nothing else may.
+ *
+ * It is deliberately NOT a seventh signal and NOT a combined score:
+ *  - it is not stored in [SignalProfile] and no scorer computes it, so
+ *  - no consumer can blend it, and
+ *  - a consolidation pass physically cannot reach a stored signal, because
+ *    [withRaisedAccessibility] copies [MemoryNode.accessibility] and nothing
+ *    else — in particular never [MemoryNode.uncertainty].
+ *
+ * A stated fact's uncertainty is decided ONCE, when the fact is stored, by
+ * [SignalSplitScorer.uncertaintySignal]. Consolidation does not get to make a
+ * fact "more certain" just because it was consolidated more often; only how
+ * easily it comes back changes. The formula is a saturating fixed step, so a
+ * given number of passes always yields the same computed amount.
+ */
+object MemoryAccessibility {
+    /** Accessibility added by ONE consolidation/recall pass. */
+    const val STEP: Float = 0.05f
+
+    /** Accessibility a freshly stored memory starts at. */
+    fun initial(): Float = 0f
+
+    /**
+     * The computed accessibility after [passes] more passes, saturating at 1.
+     * [current] null means "never reinforced", i.e. [initial].
+     */
+    fun raise(current: Float?, passes: Int = 1): Float {
+        val base = current ?: initial()
+        return (base + STEP * passes).coerceIn(0f, 1f)
+    }
+}
+
+/**
+ * CORRECTION-CHAIN: a copy of this node with [passes] more consolidation passes
+ * applied to its accessibility ONLY.
+ *
+ * Every other field — including [MemoryNode.uncertainty] and all six split
+ * signals — is carried over untouched, which is the structural reason a
+ * consolidation pass can never inflate a fact's confidence: the copy names one
+ * argument, and it is not a signal.
+ */
+fun MemoryNode.withRaisedAccessibility(passes: Int = 1): MemoryNode =
+    copy(accessibility = MemoryAccessibility.raise(accessibility, passes))

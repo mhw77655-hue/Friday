@@ -224,18 +224,20 @@ class FakeMemoryGraphStore : MemoryGraphStore {
     private val nodes = mutableListOf<MemoryNode>()
     private var idCounter = 0
 
-    override fun addFact(subject: String, predicate: String, `object`: String, source: String) {
+    override fun addFact(subject: String, predicate: String, `object`: String, source: String): String {
         val now = System.currentTimeMillis()
-        // Supersede existing
+        val id = "fake-${++idCounter}"
+        // Supersede existing — close the old row AND point it at the new one
+        // (CORRECTION-CHAIN), exactly as the production Android store does.
         for (n in nodes) {
             if (n.subject == subject && n.predicate == predicate && n.validUntil == null) {
                 val idx = nodes.indexOf(n)
-                nodes[idx] = n.copy(validUntil = now)
+                nodes[idx] = n.copy(validUntil = now, supersededBy = id)
             }
         }
         nodes.add(
             MemoryNode(
-                id = "fake-${++idCounter}",
+                id = id,
                 subject = subject,
                 predicate = predicate,
                 `object` = `object`,
@@ -243,6 +245,7 @@ class FakeMemoryGraphStore : MemoryGraphStore {
                 validFrom = now
             )
         )
+        return id
     }
 
     override fun query(subject: String?, predicate: String?, asOfTime: Long): List<MemoryNode> {
@@ -260,6 +263,23 @@ class FakeMemoryGraphStore : MemoryGraphStore {
     }
 
     override fun nodeCount(): Long = nodes.size.toLong()
+
+    // CORRECTION-CHAIN: field-by-field signal persistence, same contract as the
+    // production Android store.
+    override fun recordSignals(id: String, profile: SignalProfile): Boolean {
+        val idx = nodes.indexOfFirst { it.id == id }
+        if (idx < 0) return false
+        nodes[idx] = nodes[idx].withSignals(profile)
+        return true
+    }
+
+    // Accessibility is a separate seam from the signals, on purpose.
+    override fun setAccessibility(id: String, accessibility: Float): Boolean {
+        val idx = nodes.indexOfFirst { it.id == id }
+        if (idx < 0) return false
+        nodes[idx] = nodes[idx].copy(accessibility = accessibility)
+        return true
+    }
 
     // FORGET-PROPAGATION: expire (supersede, never delete) every currently-valid
     // node whose subject/object carries the forgotten content — the same semantics

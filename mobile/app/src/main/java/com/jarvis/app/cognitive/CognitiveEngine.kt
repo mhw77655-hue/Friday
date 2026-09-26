@@ -195,7 +195,17 @@ class CognitiveEngine(
      * carrying a tombstoned content token. Null keeps the pre-forget path
      * byte-for-byte.
      */
-    private val memoryForgetter: com.jarvis.app.memory.provenance.MemoryForgetter? = null
+    private val memoryForgetter: com.jarvis.app.memory.provenance.MemoryForgetter? = null,
+
+    /**
+     * CORRECTION-CHAIN: the six-SIGNAL-SPLIT scorer, wired at the ONE place a
+     * fact is stored. When present, the live DIRECT_REPLY write-back below
+     * records the six signals of the newly stored node field-by-field (never as a
+     * combined score) so the node carries a real stored [MemoryNode.uncertainty]
+     * that later consolidation passes must leave byte-identical. Null keeps the
+     * pre-correction write-back byte-for-byte (only the node itself is written).
+     */
+    private val signalScorer: com.jarvis.app.memory.SignalSplitScorer? = null
 ) : PlanDriver {
 
     private val intentInference = IntentInference(scope)
@@ -467,12 +477,22 @@ class CognitiveEngine(
             // "remember X", which lets the write-back through again.
             val tombstoned = memoryForgetter?.isTombstoned(userText) == true
             if (!tombstoned) {
-                graphStore.addFact(
-                    subject = "user",
-                    predicate = "stated",
-                    `object` = userText,
-                    source = "live-turn"
+                // CORRECTION-CHAIN: a correction stores the ASSERTION being
+                // corrected to, with the correction marker ("no, " / "لا ")
+                // stripped, and is tagged as a correction. The store closes the
+                // previous node's validity window and points its supersededBy at
+                // this node, so the old assertion stays in history as superseded
+                // instead of being overwritten, and the current assertion is what
+                // a later retrieval can present.
+                val correction = com.jarvis.app.memory.MemoryCorrection.parse(userText)
+                val asserted = correction?.assertion ?: userText
+                val nodeId = graphStore.addFact(
+                    subject = WRITEBACK_SUBJECT,
+                    predicate = WRITEBACK_PREDICATE,
+                    `object` = asserted,
+                    source = if (correction != null) "live-correction" else "live-turn"
                 )
+                recordStoredSignals(nodeId, asserted, userText)
             }
         }
 
@@ -618,6 +638,39 @@ class CognitiveEngine(
         com.jarvis.app.trace.TurnTrace.STAGE_GENERATE to generate,
         com.jarvis.app.trace.TurnTrace.STAGE_POST_PROCESS to postProcess
     )
+
+    /**
+     * CORRECTION-CHAIN: record the six split signals for the node [nodeId] that
+     * the live write-back just stored.
+     *
+     * Signals are decided HERE, once, at store time, and stored field-by-field
+     * through [MemoryGraphStore.recordSignals] — never as one combined score.
+     * Nothing later in the pipeline recomputes them: a consolidation pass may
+     * move only the separate accessibility axis
+     * ([MemoryGraphStore.setAccessibility]), so the stored uncertainty of a
+     * stated fact stays byte-identical for the life of the node.
+     *
+     * [repetitionCount] comes from stored evidence — the length of the
+     * supersession chain this node was appended to — not from a guess.
+     */
+    private fun recordStoredSignals(nodeId: String, assertion: String, context: String) {
+        val store = graphStore ?: return
+        val scorer = signalScorer ?: return
+        val repetitionCount = store.getHistory(WRITEBACK_SUBJECT, WRITEBACK_PREDICATE).size
+        val stored = com.jarvis.app.memory.MemoryNode(
+            id = nodeId,
+            subject = WRITEBACK_SUBJECT,
+            predicate = WRITEBACK_PREDICATE,
+            `object` = assertion,
+            source = "live-turn",
+            validFrom = System.currentTimeMillis()
+        )
+        store.recordSignals(
+            nodeId,
+            scorer.computeProfile(stored, context, repetitionCount)
+        )
+        store.setAccessibility(nodeId, com.jarvis.app.memory.MemoryAccessibility.initial())
+    }
 
     /**
      * FORGET-PROPAGATION: route an explicit forget/remember directive through
@@ -1672,6 +1725,18 @@ class CognitiveEngine(
             val value: String,
             val timestamp: Long
         ) : CognitiveEvent
+    }
+
+    private companion object {
+        /**
+         * The single live-turn write-back slot: every fact the user states lands
+         * under ("user", "stated"), so re-stating a corrected fact supersedes the
+         * previous assertion in place (the bi-temporal chain) instead of
+         * overwriting it. CORRECTION-CHAIN reads the same two constants when it
+         * measures the supersession chain length as stored evidence.
+         */
+        const val WRITEBACK_SUBJECT = "user"
+        const val WRITEBACK_PREDICATE = "stated"
     }
 }
 

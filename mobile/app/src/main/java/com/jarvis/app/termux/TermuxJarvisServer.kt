@@ -27,6 +27,9 @@ import com.jarvis.app.memory.EmbeddingProvider
 import com.jarvis.app.memory.MemoryGraphStore
 import com.jarvis.app.memory.MemoryImportanceScorer
 import com.jarvis.app.memory.MemoryNode
+import com.jarvis.app.memory.SignalProfile
+import com.jarvis.app.memory.SignalSplitScorer
+import com.jarvis.app.memory.withSignals
 import com.jarvis.app.model.CognitiveAdmissionPolicy
 import com.jarvis.app.model.ModelBackend
 import com.jarvis.app.model.ModelHandle
@@ -146,19 +149,21 @@ class TermuxJarvisServer(
     class InMemoryGraph : MemoryGraphStore {
         private val nodes = mutableListOf<MemoryNode>()
         private var idCounter = 0
-        override fun addFact(subject: String, predicate: String, `object`: String, source: String) {
+        override fun addFact(subject: String, predicate: String, `object`: String, source: String): String {
             val now = System.currentTimeMillis()
+            val id = "termux-${++idCounter}"
             for (i in nodes.indices) {
                 if (nodes[i].subject == subject && nodes[i].predicate == predicate && nodes[i].validUntil == null) {
-                    nodes[i] = nodes[i].copy(validUntil = now)
+                    nodes[i] = nodes[i].copy(validUntil = now, supersededBy = id)
                 }
             }
             nodes.add(
                 MemoryNode(
-                    id = "termux-${++idCounter}", subject = subject, predicate = predicate,
+                    id = id, subject = subject, predicate = predicate,
                     `object` = `object`, source = source, validFrom = now
                 )
             )
+            return id
         }
         override fun query(subject: String?, predicate: String?, asOfTime: Long): List<MemoryNode> =
             nodes.filter { n ->
@@ -168,6 +173,22 @@ class TermuxJarvisServer(
             }
         override fun getHistory(subject: String, predicate: String): List<MemoryNode> =
             nodes.filter { it.subject == subject && it.predicate == predicate }.sortedBy { it.validFrom }
+        // CORRECTION-CHAIN: same field-by-field signal persistence as the
+        // Android store — the six signals are stored separately, never blended.
+        override fun recordSignals(id: String, profile: SignalProfile): Boolean {
+            val idx = nodes.indexOfFirst { it.id == id }
+            if (idx < 0) return false
+            nodes[idx] = nodes[idx].withSignals(profile)
+            return true
+        }
+        // Accessibility is its own seam: a consolidation pass moves this axis and
+        // physically cannot reach a stored signal through it.
+        override fun setAccessibility(id: String, accessibility: Float): Boolean {
+            val idx = nodes.indexOfFirst { it.id == id }
+            if (idx < 0) return false
+            nodes[idx] = nodes[idx].copy(accessibility = accessibility)
+            return true
+        }
         // FORGET-PROPAGATION: expire (supersede, never delete) every currently-
         // valid node whose subject/object carries the forgotten content — matching
         // the store's decay-not-delete principle and the row-count-never-decreases
@@ -224,6 +245,9 @@ class TermuxJarvisServer(
     private val embeddingProvider = DeterministicEmbedding(dimension = 256)
     private val scorer = MemoryImportanceScorer(embeddingProvider = embeddingProvider)
     val retriever = BlendedMemoryRetriever(graphStore, embeddingProvider, scorer)
+    // CORRECTION-CHAIN: the six split signals are computed ONCE, where a fact is
+    // stored (the engine write-back), over this same real embedding provider.
+    private val signalScorer = SignalSplitScorer(embeddingProvider)
 
     val worldModel = WorldModelService(graphStore, retriever)
     val userProfile = UserProfile(worldModel)
@@ -340,7 +364,8 @@ class TermuxJarvisServer(
         turnTraceStore = turnTraceStore,
         threadTracker = threadTracker,
         provenanceLedger = provenanceLedger,
-        memoryForgetter = memoryForgetter
+        memoryForgetter = memoryForgetter,
+        signalScorer = signalScorer
     )
 
     val pipeline = LatencyPipeline(

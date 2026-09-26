@@ -24,6 +24,12 @@ data class ConsolidationResult(
     val compressed: Int,
     /** Total entries scanned. */
     val scanned: Int,
+    /**
+     * CORRECTION-CHAIN: how many currently-valid graph nodes this pass raised
+     * the ACCESSIBILITY axis of. Reported separately from [promoted]/[compressed]
+     * so a pass that only reinforced reachability is still visible.
+     */
+    val accessibilityReinforced: Int = 0,
     /** Whether this was a no-op (no entries to process). */
     val wasNoop: Boolean = promoted == 0 && compressed == 0
 )
@@ -36,6 +42,10 @@ data class ConsolidationResult(
  *    [MemoryGraphStore] as nodes/edges, using supersession for contradictions
  *  - **Compresses** low-salience, stale entries into shorter summaries
  *    (archived, not deleted) consistent with the project's recycling principle
+ *  - **Reinforces reachability only**: CORRECTION-CHAIN — every pass raises the
+ *    [MemoryNode.accessibility] of each currently-valid node by a computed step
+ *    and writes back nothing else, so consolidation can never change a stored
+ *    signal (in particular never the stored uncertainty).
  *
  * This must NOT block or slow the live conversational path. It runs entirely
  * off the hot path — either via an idle-cycle scheduler (when that infra
@@ -129,10 +139,27 @@ class ConsolidationDaemon(
             )
         }
 
+        // CORRECTION-CHAIN: consolidation may raise ACCESSIBILITY and nothing
+        // else. Each currently-valid node is copied with a computed
+        // accessibility step (MemoryAccessibility.raise) and written back through
+        // the store's dedicated accessibility seam — the copy touches no signal,
+        // so a stored uncertainty (or any other of the six) cannot be inflated by
+        // consolidating more often. Reading through query() also means a
+        // superseded assertion is never reinforced: only current facts are.
+        var reinforced = 0
+        for (node in graphStore.query()) {
+            val raised = node.withRaisedAccessibility()
+            val raisedValue = raised.accessibility ?: continue
+            if (raisedValue != node.accessibility && graphStore.setAccessibility(node.id, raisedValue)) {
+                reinforced++
+            }
+        }
+
         return ConsolidationResult(
             promoted = promoted,
             compressed = compressed,
-            scanned = episodicStore.size
+            scanned = episodicStore.size,
+            accessibilityReinforced = reinforced
         )
     }
 

@@ -625,6 +625,12 @@ object JarvisOrganGraph {
         g.addEdge("memory.forgetPropagation", "memory.provenanceLedger", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
         g.addEdge("memory.forgetPropagation", "memory.graphStore", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
         g.addEdge("memory.consolidationDaemon", "memory.tombstoneStore", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
+        // CORRECTION-CHAIN: the live engine SENDS_TO the graph store one fact per
+        // DIRECT_REPLY turn — a correction appends a new node and points the old
+        // one's supersededBy at it (supersede, never overwrite) — and the
+        // consolidation daemon SENDS_TO the same store once per pass, writing back
+        // the ACCESSIBILITY axis alone. Neither path can reach a stored signal.
+        g.addEdge("memory.consolidationDaemon", "memory.graphStore", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("continuity.continuityGate", "identity.identityContext", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("continuity.continuityGate", "cognitive.contextWindowAssembler", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         // Contributor organs -> gate (signal INTO the registry; no direct payload write).

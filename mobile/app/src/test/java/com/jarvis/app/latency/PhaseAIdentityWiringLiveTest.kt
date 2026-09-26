@@ -68,19 +68,21 @@ class PhaseAIdentityWiringLiveTest {
     private class LiveFakeGraph : MemoryGraphStore {
         private val nodes = mutableListOf<MemoryNode>()
         private var idCounter = 0
-        override fun addFact(subject: String, predicate: String, `object`: String, source: String) {
+        override fun addFact(subject: String, predicate: String, `object`: String, source: String): String {
             val now = System.currentTimeMillis()
+            val id = "live-${++idCounter}"
             for (i in nodes.indices) {
                 if (nodes[i].subject == subject && nodes[i].predicate == predicate && nodes[i].validUntil == null) {
-                    nodes[i] = nodes[i].copy(validUntil = now)
+                    nodes[i] = nodes[i].copy(validUntil = now, supersededBy = id)
                 }
             }
             nodes.add(
                 MemoryNode(
-                    id = "live-${++idCounter}", subject = subject, predicate = predicate,
+                    id = id, subject = subject, predicate = predicate,
                     `object` = `object`, source = source, validFrom = now
                 )
             )
+            return id
         }
         override fun query(subject: String?, predicate: String?, asOfTime: Long): List<MemoryNode> =
             nodes.filter { n ->

@@ -22,45 +22,53 @@ class AndroidMemoryGraphStore(
     dbName: String = "galaxy_memory_graph.db"
 ) : MemoryGraphStore {
 
-    private val helper = object : SQLiteOpenHelper(context, dbName, null, 1) {
+    private val helper = object : SQLiteOpenHelper(context, dbName, null, SCHEMA_VERSION) {
         override fun onCreate(db: SQLiteDatabase) {
-            db.execSQL(
-                "CREATE TABLE nodes (" +
-                    "id TEXT PRIMARY KEY, " +
-                    "subject TEXT NOT NULL, " +
-                    "predicate TEXT NOT NULL, " +
-                    "object TEXT NOT NULL, " +
-                    "source TEXT NOT NULL DEFAULT '', " +
-                    "validFrom INTEGER NOT NULL, " +
-                    "validUntil INTEGER)"
-            )
+            db.execSQL(CREATE_NODES)
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_nodes_subject_pred ON nodes(subject, predicate)")
             db.execSQL("CREATE INDEX IF NOT EXISTS idx_nodes_valid ON nodes(validFrom, validUntil)")
         }
 
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-            // No migrations yet.
+            // CORRECTION-CHAIN: v1 -> v2 adds the forward supersession pointer, the
+            // accessibility axis and the six split signals. Every existing row
+            // keeps its value: each new column is nullable and a superseded row
+            // with no known successor simply keeps supersededBy = NULL. A column
+            // the device's database already carries is left exactly as it is.
+            if (oldVersion < 2) {
+                val present = existingColumnNames(db)
+                for (column in V2_ADDED_COLUMNS) {
+                    if (column.substringBefore(' ') !in present) {
+                        db.execSQL("ALTER TABLE nodes ADD COLUMN $column")
+                    }
+                }
+            }
         }
     }
 
     private val db: SQLiteDatabase = helper.writableDatabase
 
-    override fun addFact(subject: String, predicate: String, `object`: String, source: String) {
+    override fun addFact(subject: String, predicate: String, `object`: String, source: String): String {
         val now = System.currentTimeMillis()
+        val id = java.util.UUID.randomUUID().toString()
         db.beginTransaction()
         try {
+            // Supersede-not-overwrite: the open row for this slot is closed AND
+            // pointed at the node that replaces it, in the same transaction.
             db.execSQL(
-                "UPDATE nodes SET validUntil = ? WHERE subject = ? AND predicate = ? AND validUntil IS NULL",
-                arrayOf<Any>(now, subject, predicate)
+                "UPDATE nodes SET validUntil = ?, supersededBy = ? " +
+                    "WHERE subject = ? AND predicate = ? AND validUntil IS NULL",
+                arrayOf<Any>(now, id, subject, predicate)
             )
             db.execSQL(
                 "INSERT INTO nodes (id, subject, predicate, object, source, validFrom, validUntil) VALUES (?,?,?,?,?,?,NULL)",
-                arrayOf<Any>(java.util.UUID.randomUUID().toString(), subject, predicate, `object`, source, now)
+                arrayOf<Any>(id, subject, predicate, `object`, source, now)
             )
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
         }
+        return id
     }
 
     override fun query(
@@ -82,14 +90,14 @@ class AndroidMemoryGraphStore(
         }.map { it as Any }.toTypedArray()
 
         return queryNodes(
-            "SELECT id, subject, predicate, object, source, validFrom, validUntil FROM nodes " +
+            "SELECT $NODE_COLUMNS FROM nodes " +
                 "WHERE $where ORDER BY validFrom ASC", args
         )
     }
 
     override fun getHistory(subject: String, predicate: String): List<MemoryNode> {
         return queryNodes(
-            "SELECT id, subject, predicate, object, source, validFrom, validUntil FROM nodes " +
+            "SELECT $NODE_COLUMNS FROM nodes " +
                 "WHERE subject = ? AND predicate = ? ORDER BY validFrom ASC",
             arrayOf(subject, predicate)
         )
@@ -122,12 +130,38 @@ class AndroidMemoryGraphStore(
         return count
     }
 
+    // CORRECTION-CHAIN: the six split signals are stored field-by-field, never as
+    // one collapsed number, and the accessibility axis is a SEPARATE seam so a
+    // consolidation pass can move accessibility without ever reaching a signal.
+    override fun recordSignals(id: String, profile: SignalProfile): Boolean {
+        db.execSQL(
+            "UPDATE nodes SET relevance = ?, importance = ?, uncertainty = ?, " +
+                "novelty = ?, consent = ?, cost = ? WHERE id = ?",
+            arrayOf<Any>(
+                profile.relevance.toDouble(),
+                profile.importance.toDouble(),
+                profile.uncertainty.toDouble(),
+                profile.novelty.toDouble(),
+                profile.consent.toDouble(),
+                profile.cost.toDouble(),
+                id
+            )
+        )
+        return true
+    }
+
+    override fun setAccessibility(id: String, accessibility: Float): Boolean {
+        db.execSQL(
+            "UPDATE nodes SET accessibility = ? WHERE id = ?",
+            arrayOf<Any>(accessibility.toDouble(), id)
+        )
+        return true
+    }
+
     private fun queryNodes(sql: String, args: Array<out Any>): List<MemoryNode> {
         val out = mutableListOf<MemoryNode>()
         db.rawQuery(sql, args.map { it.toString() }.toTypedArray()).use { c ->
             while (c.moveToNext()) {
-                val validUntilIdx = c.getColumnIndexOrThrow("validUntil")
-                val validUntil = if (c.isNull(validUntilIdx)) null else c.getLong(validUntilIdx)
                 out.add(
                     MemoryNode(
                         id = c.getString(c.getColumnIndexOrThrow("id")),
@@ -136,12 +170,35 @@ class AndroidMemoryGraphStore(
                         `object` = c.getString(c.getColumnIndexOrThrow("object")),
                         source = c.getString(c.getColumnIndexOrThrow("source")),
                         validFrom = c.getLong(c.getColumnIndexOrThrow("validFrom")),
-                        validUntil = validUntil
+                        validUntil = c.longOrNull("validUntil"),
+                        supersededBy = c.stringOrNull("supersededBy"),
+                        accessibility = c.floatOrNull("accessibility"),
+                        relevance = c.floatOrNull("relevance"),
+                        importance = c.floatOrNull("importance"),
+                        uncertainty = c.floatOrNull("uncertainty"),
+                        novelty = c.floatOrNull("novelty"),
+                        consent = c.floatOrNull("consent"),
+                        cost = c.floatOrNull("cost")
                     )
                 )
             }
         }
         return out
+    }
+
+    private fun android.database.sqlite.Cursor.longOrNull(column: String): Long? {
+        val idx = getColumnIndexOrThrow(column)
+        return if (isNull(idx)) null else getLong(idx)
+    }
+
+    private fun android.database.sqlite.Cursor.stringOrNull(column: String): String? {
+        val idx = getColumnIndexOrThrow(column)
+        return if (isNull(idx)) null else getString(idx)
+    }
+
+    private fun android.database.sqlite.Cursor.floatOrNull(column: String): Float? {
+        val idx = getColumnIndexOrThrow(column)
+        return if (isNull(idx)) null else getFloat(idx)
     }
 
     override fun close() {
@@ -150,5 +207,64 @@ class AndroidMemoryGraphStore(
             helper.close()
         } catch (_: Throwable) {
         }
+    }
+
+    private companion object {
+        /**
+         * The column names SQLite reports for [CREATE_NODES] on this device's
+         * database, so a v1 -> v2 upgrade adds only the columns that are truly
+         * missing instead of relying on ALTER throwing for the ones that are not.
+         */
+        private fun existingColumnNames(db: SQLiteDatabase): Set<String> =
+            db.rawQuery("PRAGMA table_info(nodes)", null).use { c ->
+                val nameIdx = c.getColumnIndexOrThrow("name")
+                val names = mutableSetOf<String>()
+                while (c.moveToNext()) names.add(c.getString(nameIdx))
+                names
+            }
+
+        /**
+         * v2 = v1 + the forward supersession pointer, the accessibility axis and
+         * the six split signals. Bumping the version is what makes the
+         * onUpgrade ALTERs run on a device that already has a v1 database.
+         */
+        const val SCHEMA_VERSION = 2
+
+        const val CREATE_NODES =
+            "CREATE TABLE nodes (" +
+                "id TEXT PRIMARY KEY, " +
+                "subject TEXT NOT NULL, " +
+                "predicate TEXT NOT NULL, " +
+                "object TEXT NOT NULL, " +
+                "source TEXT NOT NULL DEFAULT '', " +
+                "validFrom INTEGER NOT NULL, " +
+                "validUntil INTEGER, " +
+                // v2: supersession pointer + accessibility axis + the six split
+                // signals, all nullable so a fresh row needs no value for them.
+                "supersededBy TEXT, " +
+                "accessibility REAL, " +
+                "relevance REAL, " +
+                "importance REAL, " +
+                "uncertainty REAL, " +
+                "novelty REAL, " +
+                "consent REAL, " +
+                "cost REAL)"
+
+        /** Added in v2; nullable so every existing row keeps its values. */
+        val V2_ADDED_COLUMNS = listOf(
+            "supersededBy TEXT",
+            "accessibility REAL",
+            "relevance REAL",
+            "importance REAL",
+            "uncertainty REAL",
+            "novelty REAL",
+            "consent REAL",
+            "cost REAL"
+        )
+
+        /** Every column a read maps back into a [MemoryNode], in one place. */
+        const val NODE_COLUMNS =
+            "id, subject, predicate, object, source, validFrom, validUntil, " +
+                "supersededBy, accessibility, relevance, importance, uncertainty, novelty, consent, cost"
     }
 }

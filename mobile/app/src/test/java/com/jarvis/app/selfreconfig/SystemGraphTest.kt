@@ -790,4 +790,46 @@ class SystemGraphTest {
             reachability.reachableIds.contains("memory.provenanceLedger")
         )
     }
+
+    @Test
+    fun `correction chain supersedes through the engine and reinforces accessibility from the daemon`() {
+        val realOrgans = JarvisOrganGraph.build()
+
+        // CORRECTION-CHAIN: the graph store is a REAL MEMORY organ — the store the
+        // correction chain appends to and the daemon writes accessibility back to.
+        val graphStore = realOrgans.node("memory.graphStore")
+        assertNotNull("memory.graphStore node must exist", graphStore)
+        assertEquals("com.jarvis.app.memory.MemoryGraphStore", graphStore!!.qualifiedClassName)
+        assertEquals(SystemGraph.OrganType.MEMORY, graphStore.organType)
+        assertTrue(
+            "the graph store must be a REAL organ, not PLANNED",
+            graphStore.organType != SystemGraph.OrganType.PLANNED
+        )
+
+        // The live engine SENDS_TO the store: every DIRECT_REPLY turn writes one
+        // fact, and a correction supersedes the previous node in place.
+        assertTrue(
+            "the engine must write the stated fact (and its correction) to the graph store",
+            realOrgans.edgesFrom("cognitive.engine").any {
+                it.toId == "memory.graphStore" &&
+                    it.kind == SystemGraph.DependencyEdge.EdgeKind.SENDS_TO
+            }
+        )
+
+        // The consolidation daemon SENDS_TO the same store: once per pass it writes
+        // back the accessibility axis of each currently-valid node.
+        assertTrue(
+            "the consolidation daemon must write accessibility back to the graph store",
+            realOrgans.edgesFrom("memory.consolidationDaemon").any {
+                it.toId == "memory.graphStore" &&
+                    it.kind == SystemGraph.DependencyEdge.EdgeKind.SENDS_TO
+            }
+        )
+
+        val reachability = realOrgans.computeReachability("entry.latencyPipeline")
+        assertTrue(
+            "memory.graphStore must be reachable from the entry in the production composition",
+            reachability.reachableIds.contains("memory.graphStore")
+        )
+    }
 }

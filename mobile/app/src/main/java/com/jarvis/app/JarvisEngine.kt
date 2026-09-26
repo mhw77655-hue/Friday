@@ -291,6 +291,9 @@ object JarvisEngine {
             val embeddingProvider = com.jarvis.app.memory.NeuralEmbeddingProvider()
             val memoryScorer = MemoryImportanceScorer(embeddingProvider)
             val blendedRetriever = BlendedMemoryRetriever(graphStore, embeddingProvider, memoryScorer)
+            // CORRECTION-CHAIN: the six split signals are computed once, where a
+            // fact is stored, over this same real (neural) embedding provider.
+            val signalScorer = com.jarvis.app.memory.SignalSplitScorer(embeddingProvider)
 
             // Index voice_organism_v1 capability into Galaxy Memory so the
             // fuzzy command resolver can find it through real retrieval.
@@ -565,7 +568,8 @@ object JarvisEngine {
                 dialectDetector = dialectDetector,
                 turnTraceStore = turnTraceStore,
                 threadTracker = threadTracker,
-                provenanceLedger = provenanceLedger
+                provenanceLedger = provenanceLedger,
+                signalScorer = signalScorer
             )
 
             val bodyCoordinator = BodyCoordinator(
