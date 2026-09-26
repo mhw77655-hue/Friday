@@ -3,6 +3,7 @@ package com.jarvis.app.memory.provenance
 import com.jarvis.app.body.MemoryItem
 import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.body.MemoryType
+import com.jarvis.app.env.ModelProviderType
 import com.jarvis.app.humancore.protocol.StyledResponse
 import com.jarvis.app.latency.LatencyPipeline
 import com.jarvis.app.memory.FakeMemoryGraphStore
@@ -13,7 +14,6 @@ import com.jarvis.app.model.ModelBackend
 import com.jarvis.app.model.ModelBackendConfig
 import com.jarvis.app.model.ModelHandle
 import com.jarvis.app.model.ModelManager
-import com.jarvis.app.model.ModelProviderType
 import com.jarvis.app.model.OrganWakeRequest
 import com.jarvis.app.model.ResourceGovernor
 import com.jarvis.app.termux.TermuxJarvisServer

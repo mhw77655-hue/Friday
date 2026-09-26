@@ -741,7 +741,8 @@ class SystemGraphTest {
     }
 
     @Test
-    fun `provenance ledger is a real organ fed by the consolidation and trace organ edges`() {        val realOrgans = JarvisOrganGraph.build()
+    fun `provenance ledger is a real organ fed by the consolidation and trace organ edges`() {
+        val realOrgans = JarvisOrganGraph.build()
 
         // PROVENANCE-LEDGER AC6: the ledger is a REAL MEMORY organ pointing at the
         // real provenance package — not a PLANNED placeholder.
