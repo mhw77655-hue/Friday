@@ -35,7 +35,9 @@ data class ForgetResult(
  *    it (so sourcesOf() no longer lists the forgotten id — AC3), or dropped
  *    entirely (ledger redact) when the forgotten memory was its only source;
  *  - INDEX_ENTRY: the vector-index row is removed from the real VectorStore;
- *  - TRACE_RECORD / GRAPH_EDGE / CACHE_ENTRY / ADAPTER_BATCH: handled by the
+ *  - ADAPTER_BATCH: the adapter trained from the forgotten memory is TAINTED in
+ *    the AdapterManifest, so the real load seam refuses its bytes;
+ *  - TRACE_RECORD / GRAPH_EDGE / CACHE_ENTRY: handled by the
  *    content sweep below (rewrites the trace file, expires graph nodes, purges
  *    the queue).
  *
@@ -57,6 +59,7 @@ class MemoryForgetter(
     private val graphStore: MemoryGraphStore? = null,
     private val vectorStore: VectorStore? = null,
     private val purgeables: List<ForgetPurgeable> = emptyList(),
+    private val adapterManifest: AdapterManifest? = null,
     private var propagationEnabled: Boolean = true
 ) {
 
@@ -89,8 +92,15 @@ class MemoryForgetter(
                     }
                     ProvenanceKind.TRACE_RECORD,
                     ProvenanceKind.GRAPH_EDGE,
-                    ProvenanceKind.CACHE_ENTRY,
-                    ProvenanceKind.ADAPTER_BATCH -> handled++
+                    ProvenanceKind.CACHE_ENTRY -> handled++
+                    ProvenanceKind.ADAPTER_BATCH -> {
+                        // ADAPTER-MANIFEST: an adapter that was trained from the
+                        // forgotten memory is TAINTED. The bytes may stay on disk,
+                        // but the load gate refuses them (mayLoad) and
+                        // retrainPlan() hands back only the sources that survive,
+                        // so the forgotten memory cannot survive inside a model.
+                        if (adapterManifest?.taint(ref.derivedId, sourceId) == true) handled++
+                    }
                 }
             }
         }

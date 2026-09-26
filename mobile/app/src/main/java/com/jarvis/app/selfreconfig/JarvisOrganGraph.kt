@@ -140,6 +140,24 @@ object JarvisOrganGraph {
                 "at filesDir/memory/tombstones.jsonl, blocks re-learning via token-hash matching, and " +
                 "is cleared by an explicit remember (AC4). Local-only, never a network call."
         ))
+        // ADAPTER-MANIFEST (AC5): the adapter registry is a REAL organ (MEMORY,
+        // not PLANNED). JsonlAdapterManifest is constructed in JarvisEngine.init
+        // at filesDir/memory/adapters.jsonl and handed to ModelManager's
+        // adapterLoadGate — the one seam every model load passes — so a TAINTED
+        // adapter's bytes cannot enter memory. No training exists yet; the
+        // organ is the contract that keeps that from being an assumption.
+        g.registerNode(SystemGraph.SystemNode(
+            id = "memory.adapterManifest",
+            name = "JsonlAdapterManifest",
+            organType = SystemGraph.OrganType.MEMORY,
+            qualifiedClassName = "com.jarvis.app.memory.provenance.AdapterManifest",
+            description = "ADAPTER-MANIFEST (2026-09-26): append-only local registry of which source " +
+                "memories every model adapter was trained from. Each registration also lands in the " +
+                "ProvenanceLedger as an ADAPTER_BATCH, so forgetting a source memory moves the adapter " +
+                "to TAINTED; mayLoad then refuses its bytes at the ModelManager load seam and retrainPlan " +
+                "returns only the sources that survive. Ids only — never adapter bytes, never memory " +
+                "content. Local-only, never a network call."
+        ))
 
         // Identity organs (Stage 03 — bound by IdentityContext in PHASE-A)
         g.registerNode(SystemGraph.SystemNode(
@@ -624,6 +642,11 @@ object JarvisOrganGraph {
         g.addEdge("memory.forgetPropagation", "memory.tombstoneStore", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
         g.addEdge("memory.forgetPropagation", "memory.provenanceLedger", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
         g.addEdge("memory.forgetPropagation", "memory.graphStore", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
+        // ADAPTER-MANIFEST: the forget organ taints every adapter the ledger
+        // reports as deriving from a forgotten source, and the ONE model load
+        // path consults the manifest's mayLoad before any bytes enter memory.
+        g.addEdge("memory.forgetPropagation", "memory.adapterManifest", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
+        g.addEdge("model.modelManager", "memory.adapterManifest", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
         g.addEdge("memory.consolidationDaemon", "memory.tombstoneStore", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
         // CORRECTION-CHAIN: the live engine SENDS_TO the graph store one fact per
         // DIRECT_REPLY turn — a correction appends a new node and points the old

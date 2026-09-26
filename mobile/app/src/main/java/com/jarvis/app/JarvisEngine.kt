@@ -114,6 +114,11 @@ object JarvisEngine {
         private set
     @Volatile var provenanceLedger: com.jarvis.app.memory.provenance.ProvenanceLedger? = null
         private set
+    // ADAPTER-MANIFEST: the real adapter registry, constructed in init() before
+    // the ModelManager and handed to its adapterLoadGate — the single seam every
+    // model load passes, where a TAINTED adapter is refused.
+    @Volatile var adapterManifest: com.jarvis.app.memory.provenance.AdapterManifest? = null
+        private set
     @Volatile var memoryConsolidationLoop: com.jarvis.app.memory.MemoryConsolidationLoop? = null
         private set
     @Volatile var capabilityFabric: com.jarvis.app.cognitive.capability.CapabilityFabric? = null
@@ -173,15 +178,26 @@ object JarvisEngine {
             )
         }
         val ollamaModelBackend = com.jarvis.app.model.OllamaModelBackend(ollamaAdapter)
+        // ADAPTER-MANIFEST: the real adapter manifest, constructed here — before
+        // the ModelManager — so the ONE model-loading path carries the load gate
+        // from its first load. JSON Lines under filesDir/memory/adapters.jsonl.
+        // No adapter training exists yet; what exists is the contract that makes
+        // an adapter's source memories answerable, so training can never fold in
+        // a memory that cannot be traced back. Ids only, never adapter bytes.
+        val adapterManifest = com.jarvis.app.memory.provenance.JsonlAdapterManifest(
+            file = java.io.File(appContext.filesDir, "memory/adapters.jsonl")
+        )
         val modelManager = ModelManager(
             appContext,
             scope,
             backend = ollamaModelBackend,
             resourceGovernor = com.jarvis.app.model.ResourceGovernor(
                 snapshotProvider = { com.jarvis.app.model.AndroidResourceSnapshot(appContext) }
-            )
+            ),
+            adapterLoadGate = adapterManifest
         )
         JarvisEngine.ollamaModelBackend = ollamaModelBackend
+        JarvisEngine.adapterManifest = adapterManifest
 
         // VOICE-FORGE-EGYPTIAN-KAREN-TTS (AC2): VoiceForgeAdapter +
         // VoiceForgeBackend constructed HERE — the SAME composition point as

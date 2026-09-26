@@ -125,7 +125,11 @@ class TermuxJarvisServer(
     // FORGET-PROPAGATION: optional forget propagation engine. Null ⇒ the
     // pre-forget conversation path byte-for-byte. Tests inject a real
     // MemoryForgetter; Termux/normal runs leave it null.
-    val memoryForgetter: com.jarvis.app.memory.provenance.MemoryForgetter? = null
+    val memoryForgetter: com.jarvis.app.memory.provenance.MemoryForgetter? = null,
+
+    // ADAPTER-MANIFEST: optional adapter registry consulted by the ONE model load
+    // path below. Null ⇒ the pre-ADAPTER-MANIFEST load behaviour byte-for-byte.
+    val adapterManifest: com.jarvis.app.memory.provenance.AdapterManifest? = null
 ) {
     private var serverSocket: ServerSocket? = null
     private var acceptThread: Thread? = null
@@ -311,7 +315,8 @@ class TermuxJarvisServer(
         context = null,
         scope = scope,
         backend = resolvedBackend,
-        resourceGovernor = governor
+        resourceGovernor = governor,
+        adapterLoadGate = adapterManifest
     )
     private val policy = CognitiveAdmissionPolicy()
 

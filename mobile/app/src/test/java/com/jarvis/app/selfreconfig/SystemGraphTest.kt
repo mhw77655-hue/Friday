@@ -142,6 +142,7 @@ class SystemGraphTest {
             "memory.blendedRetriever",
             "memory.provenanceLedger",
             "memory.consolidationDaemon",
+            "memory.adapterManifest",
             "identity.selfModel",
             "identity.userProfile",
             "identity.worldModelService",
@@ -740,8 +741,7 @@ class SystemGraphTest {
     }
 
     @Test
-    fun `provenance ledger is a real organ fed by the consolidation and trace organ edges`() {
-        val realOrgans = JarvisOrganGraph.build()
+    fun `provenance ledger is a real organ fed by the consolidation and trace organ edges`() {        val realOrgans = JarvisOrganGraph.build()
 
         // PROVENANCE-LEDGER AC6: the ledger is a REAL MEMORY organ pointing at the
         // real provenance package — not a PLANNED placeholder.
@@ -788,6 +788,45 @@ class SystemGraphTest {
         assertTrue(
             "memory.provenanceLedger must be reachable from the entry in the production composition",
             reachability.reachableIds.contains("memory.provenanceLedger")
+        )
+    }
+
+    /**
+     * ADAPTER-MANIFEST AC5: the adapter manifest is a REAL MEMORY organ wired to
+     * both halves of the contract — the forget organ taints it, and the ONE model
+     * load path consults it — and is reachable from the live entry.
+     */
+    @Test
+    fun `adapter manifest is a real organ between the forget organ and the model load path`() {
+        val realOrgans = JarvisOrganGraph.build()
+
+        val manifest = realOrgans.node("memory.adapterManifest")
+        assertNotNull("memory.adapterManifest node must exist", manifest)
+        assertEquals("com.jarvis.app.memory.provenance.AdapterManifest", manifest!!.qualifiedClassName)
+        assertEquals(SystemGraph.OrganType.MEMORY, manifest.organType)
+        assertTrue(
+            "the adapter manifest must be a REAL organ, not PLANNED",
+            manifest.organType != SystemGraph.OrganType.PLANNED
+        )
+
+        assertTrue(
+            "forgetting a source memory must taint the adapter trained from it",
+            realOrgans.edgesFrom("memory.forgetPropagation").any {
+                it.toId == "memory.adapterManifest" &&
+                    it.kind == SystemGraph.DependencyEdge.EdgeKind.SENDS_TO
+            }
+        )
+        assertTrue(
+            "the one model load path must consult the manifest before loading bytes",
+            realOrgans.edgesFrom("model.modelManager").any {
+                it.toId == "memory.adapterManifest" &&
+                    it.kind == SystemGraph.DependencyEdge.EdgeKind.READS_FROM
+            }
+        )
+        assertTrue(
+            "memory.adapterManifest must be reachable from the entry in the production composition",
+            realOrgans.computeReachability("entry.latencyPipeline").reachableIds
+                .contains("memory.adapterManifest")
         )
     }
 

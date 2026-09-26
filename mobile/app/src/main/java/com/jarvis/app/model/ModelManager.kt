@@ -48,6 +48,10 @@ class ModelManager(
     private val resourceGovernor: ResourceGovernor = ResourceGovernor(),
     // Idle time after release() before the sweep unloads an on-demand organ.
     private val cooldownMs: Long = 60_000L,
+    // ADAPTER-MANIFEST: the load-time authority for adapter bytes. Consulted at
+    // the single point every model load funnels through, so no load path can
+    // bypass it; null keeps the pre-ADAPTER-MANIFEST behaviour byte-for-byte.
+    private val adapterLoadGate: com.jarvis.app.memory.provenance.AdapterLoadGate? = null,
     // Injected clock — deterministic cooldown tests advance it by hand.
     private val clock: () -> Long = { System.currentTimeMillis() },
     // Launch the background cooldown sweep on this manager's scope. Tests run
@@ -403,6 +407,14 @@ class ModelManager(
         modelId: String,
         providerType: ModelProviderType?
     ): ModelHandle {
+        // ADAPTER-MANIFEST: an adapter whose training sources include a forgotten
+        // memory must not enter memory at all. The check sits BEFORE any load
+        // state is claimed, so a refused adapter consumes no cache slot and
+        // cannot slip in through the single-flight path either.
+        val gate = adapterLoadGate
+        if (gate != null && !gate.mayLoad(modelId)) {
+            throw com.jarvis.app.memory.provenance.TaintedAdapterRefused(modelId)
+        }
         when (val outcome = beginLoad(tier)) {
             is LoadOutcome.Cached -> {
                 synchronized(lifecycleLock) { lastUsedMs[tier] = clock() }
