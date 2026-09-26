@@ -31,12 +31,153 @@ MODEL_POOL=(
   "omniroute/oc/mimo-v2.5-free"
 )
 
+# ---------------------------------------------------------------------------
+# PREFLIGHT — the two failures a run cannot work around on its own:
+# a dead model connection and a dead GITHUB_TOKEN. Checked ONCE here, before
+# the iteration loop, so a wall is reported in seconds instead of being
+# rediscovered (and paid for) once per iteration.
+#
+# AC4: the preflight is NOT an iteration. It never touches MAX_ITERATIONS or
+# ITER_REACHED, and it is not the full-prompt tool call the loop makes — it is
+# a single-token probe plus one HTTP GET.
+# ---------------------------------------------------------------------------
+PREFLIGHT_GITHUB_TIMEOUT="${PREFLIGHT_GITHUB_TIMEOUT:-20}"
+# The probe is a real single-token model call, so its cost is a real cold model
+# round trip, not a ping: a measured `opencode run -m opencode/big-pickle
+# 'Reply with exactly one word: ok'` on this host took 177s. Any bound under
+# that aborts EVERY run before the loop and makes the stage unusable, so 420s
+# is the shortest honest ceiling. It is still one probe versus MAX_ITERATIONS
+# full-prompt calls that a dead connection would otherwise be paid for.
+PREFLIGHT_MODEL_TIMEOUT="${PREFLIGHT_MODEL_TIMEOUT:-420}"
+# Transport-level retries for the GitHub check ONLY. This host's TLS path to
+# api.github.com is bursty (2 of 10 consecutive real-token calls returned
+# "unexpected eof while reading" with no HTTP status at all), so a one-shot
+# check would abort most runs on a link blip rather than on a dead token. These
+# attempts fire ONLY when no HTTP status line came back; any real HTTP
+# response -- including the 401 of a bad token -- is a verdict and is used
+# immediately, so a genuinely invalid token still fails on the first request.
+PREFLIGHT_GITHUB_ATTEMPTS="${PREFLIGHT_GITHUB_ATTEMPTS:-3}"
+PREFLIGHT_GITHUB_RETRY_SLEEP="${PREFLIGHT_GITHUB_RETRY_SLEEP:-3}"
+PREFLIGHT_PROMPT='Reply with exactly one word: ok'
+SKIP_PREFLIGHT=false
+PREFLIGHT_ONLY=false
+# Shared by the preflight probe and the loop's provider-failure matcher, so both
+# verdicts come from one definition (value unchanged from the pre-story loop).
+ROUTER_DOWN_PATTERN="quota|rate.limit|capacity is busy|Cannot connect|exhausted|429|UnknownError|Unexpected server error|unreachable"
+
+with_timeout() {
+  local secs="$1"; shift
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "$secs" "$@"
+  else
+    "$@"
+  fi
+}
+
+preflight_github() {
+  local token="${GITHUB_TOKEN:-}"
+  if [ -z "$token" ]; then
+    echo "PREFLIGHT FAIL [github]: GITHUB_TOKEN is unset or empty."
+    echo "  Why this run needs it: every Kotlin story is verified with '.ralph/ci_verify.sh', which reaches the GitHub API with this token."
+    echo "  Fix: export GITHUB_TOKEN=<a token with repo scope> before running ralph.sh."
+    return 1
+  fi
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "PREFLIGHT FAIL [github]: curl is not on PATH, so the token cannot be verified at all."
+    return 1
+  fi
+  echo "PREFLIGHT .... [github]: GET https://api.github.com/user (timeout ${PREFLIGHT_GITHUB_TIMEOUT}s, token length ${#token})"
+  local raw status body login attempt
+  for attempt in $(seq 1 "$PREFLIGHT_GITHUB_ATTEMPTS"); do
+    raw="$(with_timeout "$PREFLIGHT_GITHUB_TIMEOUT" curl -sS \
+            -H "Authorization: Bearer $token" \
+            -H "Accept: application/vnd.github+json" \
+            -w $'\nHTTP_STATUS:%{http_code}' \
+            https://api.github.com/user 2>&1)" || true
+    status="$(printf '%s\n' "$raw" | sed -n 's/^HTTP_STATUS:\([0-9][0-9]*\)$/\1/p' | tail -1)"
+    body="$(printf '%s\n' "$raw" | sed '/^HTTP_STATUS:/d')"
+    # 000 (or no status line at all) means the request never reached GitHub:
+    # a transport fault, not a verdict about the token. Retry those.
+    if [ "$status" = "000" ] || [ -z "$status" ]; then
+      if [ "$attempt" -lt "$PREFLIGHT_GITHUB_ATTEMPTS" ]; then
+        echo "  ...no HTTP response reached (transport fault), retrying check ${attempt}/${PREFLIGHT_GITHUB_ATTEMPTS} in ${PREFLIGHT_GITHUB_RETRY_SLEEP}s"
+        sleep "$PREFLIGHT_GITHUB_RETRY_SLEEP"
+        continue
+      fi
+      break
+    fi
+    break
+  done
+  if [ "$status" != "200" ]; then
+    echo "PREFLIGHT FAIL [github]: https://api.github.com/user returned HTTP ${status:-<no status line>} — the token is not usable."
+    echo "  --- raw curl output (verbatim) ---"
+    printf '%s\n' "$body"
+    echo "  ----------------------------------"
+    return 1
+  fi
+  login="$(printf '%s\n' "$body" | jq -r '.login // "(no login field)"' 2>/dev/null || true)"
+  echo "PREFLIGHT OK   [github]: token accepted by GitHub (user: ${login:-unknown})."
+  return 0
+}
+
+preflight_model_call() {
+  local model="$1"
+  case "$TOOL" in
+    opencode) with_timeout "$PREFLIGHT_MODEL_TIMEOUT" opencode run -m "$model" "$PREFLIGHT_PROMPT" ;;
+    amp) printf '%s\n' "$PREFLIGHT_PROMPT" | with_timeout "$PREFLIGHT_MODEL_TIMEOUT" amp --dangerously-allow-all ;;
+    *) printf '%s\n' "$PREFLIGHT_PROMPT" | with_timeout "$PREFLIGHT_MODEL_TIMEOUT" claude --dangerously-skip-permissions --print ;;
+  esac
+}
+
+preflight_model() {
+  local model="${MODEL_POOL[0]}"
+  echo "PREFLIGHT .... [model]: one-token probe of $TOOL / $model (timeout ${PREFLIGHT_MODEL_TIMEOUT}s)"
+  local out rc=0
+  out="$(preflight_model_call "$model" 2>&1)" || rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "PREFLIGHT FAIL [model]: the $TOOL probe on $model exited $rc."
+    echo "  --- raw tool output (verbatim, last 40 lines) ---"
+    printf '%s\n' "$out" | tail -40
+    echo "  ----------------------------------"
+    return 1
+  fi
+  if [ -z "$(printf '%s' "$out" | tr -d '[:space:]')" ]; then
+    echo "PREFLIGHT FAIL [model]: the $TOOL probe on $model exited 0 with no output at all."
+    return 1
+  fi
+  if printf '%s\n' "$out" | grep -qiE "$ROUTER_DOWN_PATTERN"; then
+    echo "PREFLIGHT FAIL [model]: the $TOOL probe on $model reported a provider/router failure."
+    echo "  --- raw tool output (verbatim, last 40 lines) ---"
+    printf '%s\n' "$out" | tail -40
+    echo "  ----------------------------------"
+    return 1
+  fi
+  echo "PREFLIGHT OK   [model]: $TOOL reached $model (reply began: \"$(printf '%s\n' "$out" | tr -d '\r' | tail -1 | tr -s ' ' | cut -c1-80)\")."
+  return 0
+}
+
+run_preflight() {
+  echo "==============================================================="
+  echo "  PREFLIGHT — GITHUB_TOKEN + model connection, before any iteration"
+  echo "==============================================================="
+  # GitHub first: it is free and deterministic, so a dead token aborts the run
+  # without spending a model call. The model probe runs only once the token is
+  # known good, so a valid-token run still proves the model path (AC3).
+  if ! preflight_github; then return 1; fi
+  if ! preflight_model; then return 1; fi
+  echo "PREFLIGHT OK: both checks passed. Entering the iteration loop."
+  echo "==============================================================="
+  return 0
+}
+
 while [[ $# -gt 0 ]]; do
   case $1 in
     --tool) TOOL="$2"; shift 2 ;;
     --tool=*) TOOL="${1#*=}"; shift ;;
     --model) MODEL_POOL=("$2"); shift 2 ;;
     --model=*) MODEL_POOL=("${1#*=}"); shift ;;
+    --skip-preflight) SKIP_PREFLIGHT=true; shift ;;
+    --preflight-only) PREFLIGHT_ONLY=true; shift ;;
     *)
       if [[ "$1" =~ ^[0-9]+$ ]]; then MAX_ITERATIONS="$1"; fi
       shift
@@ -50,10 +191,35 @@ PROMPT_FILE="$SCRIPT_DIR/prompt.md"
 FACTS_FILE="$SCRIPT_DIR/REPO_FACTS.md"
 PROGRESS_FILE="$SCRIPT_DIR/progress.txt"
 RUN_LOG="$SCRIPT_DIR/ralph_run_$(date +%Y%m%d_%H%M%S).log"
-touch "$RUN_LOG"
 PRD_FILE="$SCRIPT_DIR/prd.json"
 GRADLE_PROPS="$REPO_DIR/gradle.properties"
 REJECT_HELPER="$SCRIPT_DIR/reject_story.py"
+
+# ---------------------------------------------------------------------------
+# Preflight gate — runs BEFORE the run log, the resume check and the loop, so
+# a dead token/model costs zero iterations and leaves zero files behind.
+# A failure here never falls through into the loop.
+# ---------------------------------------------------------------------------
+if [ "$PREFLIGHT_ONLY" = "true" ]; then
+  if run_preflight; then
+    echo "--preflight-only: both checks passed, exiting 0 without iterating."
+    exit 0
+  fi
+  echo "--preflight-only: a check failed, exiting 1 without iterating."
+  exit 1
+fi
+if [ "$SKIP_PREFLIGHT" = "true" ]; then
+  echo "PREFLIGHT SKIPPED (--skip-preflight): the token and model connection were NOT checked."
+else
+  if ! run_preflight; then
+    echo ""
+    echo "PREFLIGHT FAILED: aborting now, with zero iterations spent."
+    echo "Fix the failing check above, then re-run. (--skip-preflight overrides this deliberately.)"
+    exit 1
+  fi
+fi
+
+touch "$RUN_LOG"
 
 if [ ! -f "$PROGRESS_FILE" ]; then
   echo "# Ralph Progress Log" > "$PROGRESS_FILE"
@@ -140,7 +306,6 @@ for i in $(seq 1 $MAX_ITERATIONS); do
   COMMIT_BEFORE=$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null)
 
   OUTPUT=""
-  ROUTER_DOWN_PATTERN="quota|rate.limit|capacity is busy|Cannot connect|exhausted|429|UnknownError|Unexpected server error|unreachable"
   RETRY_COUNT=0
   MAX_RETRIES=$((POOL_SIZE - 1))
   CALL_MODEL="$MODEL"
