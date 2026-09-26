@@ -400,7 +400,7 @@ class TermuxJarvisServer(
     fun start() {
         val socket = ServerSocket()
         socket.reuseAddress = true
-        socket.bind(InetSocketAddress("0.0.0.0", port))
+        bindWithReleaseRetry(socket)
         serverSocket = socket
         workers = Executors.newCachedThreadPool()
         acceptThread = Thread {
@@ -416,6 +416,29 @@ class TermuxJarvisServer(
             isDaemon = true
             start()
         }
+    }
+
+    /**
+     * A fixed port (production 8081) is reused across restarts, and the kernel
+     * needs a moment to release the previous listening socket. A restart must
+     * retry briefly instead of dying on a transient EADDRINUSE.
+     */
+    private fun bindWithReleaseRetry(socket: ServerSocket) {
+        var lastFailure: IOException? = null
+        for (attempt in 1..BIND_ATTEMPTS) {
+            try {
+                socket.bind(InetSocketAddress("0.0.0.0", port))
+                return
+            } catch (e: IOException) {
+                lastFailure = e
+                try {
+                    Thread.sleep(BIND_RETRY_MS)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                }
+            }
+        }
+        throw lastFailure ?: IOException("could not bind port $port")
     }
 
     fun stop() {
@@ -559,6 +582,8 @@ class TermuxJarvisServer(
     }
 
     private companion object {
+        const val BIND_ATTEMPTS = 40
+        const val BIND_RETRY_MS = 50L
         const val CHAT_HTML = """<!DOCTYPE html>
 <html>
 <head>
