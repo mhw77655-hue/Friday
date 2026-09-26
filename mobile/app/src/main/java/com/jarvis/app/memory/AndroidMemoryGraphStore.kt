@@ -1,6 +1,7 @@
 package com.jarvis.app.memory
 
 import android.content.Context
+import android.database.sqlite.Cursor
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
@@ -186,17 +187,17 @@ class AndroidMemoryGraphStore(
         return out
     }
 
-    private fun android.database.sqlite.Cursor.longOrNull(column: String): Long? {
+    private fun Cursor.longOrNull(column: String): Long? {
         val idx = getColumnIndexOrThrow(column)
         return if (isNull(idx)) null else getLong(idx)
     }
 
-    private fun android.database.sqlite.Cursor.stringOrNull(column: String): String? {
+    private fun Cursor.stringOrNull(column: String): String? {
         val idx = getColumnIndexOrThrow(column)
         return if (isNull(idx)) null else getString(idx)
     }
 
-    private fun android.database.sqlite.Cursor.floatOrNull(column: String): Float? {
+    private fun Cursor.floatOrNull(column: String): Float? {
         val idx = getColumnIndexOrThrow(column)
         return if (isNull(idx)) null else getFloat(idx)
     }
