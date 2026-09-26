@@ -204,6 +204,13 @@ class JsonlAdapterManifest(
 
     override fun state(adapterId: String): AdapterState = entryFor(adapterId)?.state ?: AdapterState.ACTIVE
 
+    /**
+     * The load decision. An adapter this manifest has never heard of is not its
+     * business, so ordinary model loads are unaffected; a TAINTED one is refused
+     * even when recording is disabled, because refusing is the safe direction.
+     */
+    override fun mayLoad(adapterId: String): Boolean = state(adapterId) != AdapterState.TAINTED
+
     override fun sources(adapterId: String): List<String> = entryFor(adapterId)?.sources ?: emptyList()
 
     override fun taint(adapterId: String, forgottenSourceId: String): Boolean = synchronized(this) {
