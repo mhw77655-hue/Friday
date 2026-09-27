@@ -72,10 +72,13 @@ class InMemoryWorkspace : Workspace {
     override fun tick(nowMillis: Long) {
         synchronized(lock) {
             val last = lastTickAt
+            // The first tick only starts the clock. An instant at or before the
+            // current one is ignored outright — a late or duplicated tick must
+            // never rewind the clock, or the next real tick would decay the
+            // claims by twice the elapsed time.
+            if (last != null && nowMillis <= last) return@synchronized
             lastTickAt = nowMillis
-            // The first tick only starts the clock; an earlier instant is ignored
-            // rather than rewinding a clock that already moved.
-            val elapsed = if (last == null) 0L else (nowMillis - last).coerceAtLeast(0L)
+            val elapsed = if (last == null) 0L else nowMillis - last
             val steps = (elapsed / Workspace.TICK_INTERVAL_MS).toInt()
             if (steps <= 0) return@synchronized
             val ids = byId.keys.toList()
