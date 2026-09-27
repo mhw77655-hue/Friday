@@ -139,6 +139,7 @@ class SystemGraphTest {
             "cognitive.engine",
             "cognitive.contextWindowAssembler",
             "cognition.workspace",
+            "cognition.continuityLaw",
             "memory.graphStore",
             "memory.blendedRetriever",
             "memory.provenanceLedger",
@@ -466,6 +467,58 @@ class SystemGraphTest {
         assertTrue(
             "cognition.workspace must be reachable from the entry in the production composition",
             reachability.reachableIds.contains("cognition.workspace")
+        )
+    }
+
+    @Test
+    fun `continuity law is a real organ gated off the shared workspace`() {
+        val realOrgans = JarvisOrganGraph.build()
+
+        // CONTINUITY-LAW (Gate 3c) AC6: the change gate is a REAL COGNITIVE
+        // organ pointing at the real production class — not a PLANNED
+        // placeholder.
+        val node = realOrgans.node("cognition.continuityLaw")
+        assertNotNull("cognition.continuityLaw node must exist", node)
+        assertEquals("com.jarvis.app.cognition.workspace.ContinuityLaw", node!!.qualifiedClassName)
+        assertEquals(SystemGraph.OrganType.COGNITIVE, node.organType)
+        assertTrue(
+            "the law must be a REAL organ, not PLANNED",
+            node.organType != SystemGraph.OrganType.PLANNED
+        )
+
+        // AC6: the edge FROM cognition.workspace. The workspace publishes the
+        // claim stream; that stream is exactly what the law judges.
+        assertTrue(
+            "cognition.workspace must send its claim stream to cognition.continuityLaw",
+            realOrgans.edgesFrom("cognition.workspace").any {
+                it.toId == "cognition.continuityLaw" &&
+                    it.kind == SystemGraph.DependencyEdge.EdgeKind.SENDS_TO
+            }
+        )
+        // ...and the holder arm: the law is constructed OVER that same workspace,
+        // the same two-arm pattern as emotion.fusionLayerTier1 <->
+        // identity.mentalStateEstimator.
+        assertTrue(
+            "cognition.continuityLaw must depend on the shared workspace it judges",
+            realOrgans.edgesFrom("cognition.continuityLaw").any {
+                it.toId == "cognition.workspace" &&
+                    it.kind == SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON
+            }
+        )
+
+        // So it is genuinely reachable from the live entry, through the real
+        // composition that builds it.
+        val reachability = realOrgans.computeReachability("entry.latencyPipeline")
+        assertTrue(
+            "cognition.continuityLaw must be reachable from the entry in the production composition",
+            reachability.reachableIds.contains("cognition.continuityLaw")
+        )
+        // The verified construction-site ground truth is carried on the node, so
+        // a claim of "wired" can be checked against the real file.
+        assertTrue(
+            "the law node carries its construction-site ground truth",
+            node.description.contains("JarvisEngine.kt:392") &&
+                node.description.contains("TermuxJarvisServer.kt:286")
         )
     }
 

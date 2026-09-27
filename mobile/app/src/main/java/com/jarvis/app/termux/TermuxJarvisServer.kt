@@ -92,7 +92,13 @@ class TermuxJarvisServer(
     private val modelId: String = "jarvis-resident:latest",
     private val backendOverride: ModelBackend? = null,
     private val voiceForgeSynthesizerOverride: com.jarvis.app.voice.VoiceForgeSynthesizer? = null,
-    private val dataDir: java.io.File = java.io.File(System.getProperty("java.io.tmpdir"), "jarvis-termux"),
+    // CONTINUITY-LAW (Gate 3c): the durable local data directory is a constructor
+    // param and is PUBLIC, because the durable change log under
+    // <dataDir>/identity/change_log.jsonl has to be pointable at a real directory
+    // that survives a restart — a test proves that by starting a second server
+    // over the same one. The default is byte-for-byte the pre-CONTINUITY-LAW
+    // value, so a normal Termux run and every existing caller are unchanged.
+    val dataDir: java.io.File = java.io.File(System.getProperty("java.io.tmpdir"), "jarvis-termux"),
 
     // TURN-TRACE (Gate 3a): optional append-only local trace store. Null ⇒ no
     // tracing (negative control: the trace file provably does not grow). Tests
@@ -269,6 +275,34 @@ class TermuxJarvisServer(
         stageHistory = StageHistorySource { emptyList() }
     )
     val personaTuner = PersonaTuner(worldModel)
+    // CONTINUITY-LAW: the JVM mirror of the JarvisEngine.init construction point.
+    // Same shared workspace, same real durable log (a local JSONL file under this
+    // server's data directory), same replay check over the ONE committed set of
+    // recorded turns. It is a public val like workspace, because a gate nothing
+    // outside the composition can reach is not a gate.
+    val changeLog = com.jarvis.app.cognition.workspace.FileChangeLog(
+        dataDir.resolve("identity/change_log.jsonl")
+    )
+    val continuityLaw = com.jarvis.app.cognition.workspace.ContinuityLaw(
+        workspace = workspace,
+        changeLog = changeLog
+    )
+    // Null, not an empty fixture: a JVM classpath without the recorded turns has
+    // nothing to replay, and a check that trivially passes because it compared
+    // no turns is worse than no check at all.
+    val replayCheck: com.jarvis.app.cognition.workspace.ReplayCheck? =
+        com.jarvis.app.cognition.workspace.RecordedTurns.fromClasspath()?.let { fixture ->
+            com.jarvis.app.cognition.workspace.ReplayCheck(
+                workspace = workspace,
+                changeLog = changeLog,
+                coreIdentity = com.jarvis.app.cognition.workspace.CoreIdentity(
+                    name = selfModel.identity().name,
+                    version = selfModel.identity().version,
+                    userNodeName = com.jarvis.app.identity.WorldModelService.USER_NODE_NAME
+                ),
+                fixture = fixture
+            )
+        }
     // PERSON-RELATIONSHIP-MODEL-AND-CONFIDENTIALITY-FIREWALL: the JVM mirror
     // of the JarvisEngine.init construction point — the real social stack over
     // the same graph store + world-model seam, wired into IdentityContext.

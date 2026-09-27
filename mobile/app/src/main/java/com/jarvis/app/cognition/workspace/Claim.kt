@@ -39,6 +39,11 @@ package com.jarvis.app.cognition.workspace
  *   other kind, so a prediction cannot hide behind a non-predictive kind.
  * @param wasCorrect the PREDICTION outcome: null until a real later turn
  *   confirms or contradicts it, then true/false exactly once.
+ * @param target CONTINUITY-LAW: for an identity-adjacent claim, the FIELD being
+ *   asserted ("persona:directness", "relationship:Alice:trust", "name"). It is
+ *   what the [layer] is computed FROM, so the caller cannot declare its own tempo
+ *   and wave a CORE change through as FAST. Null for a claim that is not about a
+ *   named identity field.
  */
 data class Claim(
     val id: String,
@@ -51,7 +56,8 @@ data class Claim(
     val createdAt: Long,
     val supersedes: String? = null,
     val baseline: String? = null,
-    val wasCorrect: Boolean? = null
+    val wasCorrect: Boolean? = null,
+    val target: String? = null
 ) {
     init {
         validateSchema()
@@ -59,6 +65,13 @@ data class Claim(
 
     /** True when this claim is about the future and must be provable. */
     val isPrediction: Boolean get() = kind.isPrediction
+
+    /**
+     * CONTINUITY-LAW: how fast this claim's field is allowed to change. Derived
+     * from the KIND plus the FIELD, never declared by the publisher — see
+     * [ChangeLayer.forTarget].
+     */
+    val layer: ChangeLayer get() = ChangeLayer.forTarget(kind, target)
 
     /** True when the outcome of a prediction has been settled by a real turn. */
     val isResolved: Boolean get() = wasCorrect != null
@@ -87,7 +100,8 @@ data class Claim(
             decayRate == other.decayRate &&
             createdAt == other.createdAt &&
             supersedes == other.supersedes &&
-            baseline == other.baseline
+            baseline == other.baseline &&
+            target == other.target
 
     /**
      * The prediction outcome, settled by a real later turn. Returns the same
@@ -128,6 +142,18 @@ data class Claim(
                 "non-prediction claim '$id' of kind $kind cannot carry a prediction outcome"
             }
         }
+        if (kind.isIdentity) {
+            require(!target.isNullOrBlank()) {
+                "identity-adjacent claim '$id' of kind $kind must name the field it changes"
+            }
+        } else {
+            require(target == null) {
+                "claim '$id' of kind $kind is not identity-adjacent, so it must not name a field"
+            }
+        }
+        // Resolve the layer now rather than at first read: a claim that cannot be
+        // classified never exists, so no CORE change can enter the store unlabelled.
+        layer
     }
 
     companion object {

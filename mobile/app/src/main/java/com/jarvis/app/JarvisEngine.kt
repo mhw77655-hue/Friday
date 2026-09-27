@@ -3,6 +3,7 @@ package com.jarvis.app
 import android.content.Context
 import android.os.Handler
 import android.os.HandlerThread
+import android.util.Log
 import com.jarvis.app.body.BodyCoordinator
 import com.jarvis.app.body.LanguageRouter
 import com.jarvis.app.body.MemoryStore
@@ -80,6 +81,16 @@ object JarvisEngine {
     @Volatile var bootstrapManager: com.jarvis.app.bootstrap.BootstrapManager? = null
         private set
     @Volatile var cognitiveEngine: com.jarvis.app.cognitive.CognitiveEngine? = null
+        private set
+    // CONTINUITY-LAW (Gate 3c): the change gate and the drift check built in
+    // init() over the shared workspace and a real durable local change log. Same
+    // idiom as the other process-scoped singletons above — public with a private
+    // setter — because a gate the rest of the process cannot reach is not a gate.
+    // replayCheck is null on a build that packaged no recorded turns, and that is
+    // logged at init rather than papered over with an empty fixture.
+    @Volatile var continuityLaw: com.jarvis.app.cognition.workspace.ContinuityLaw? = null
+        private set
+    @Volatile var replayCheck: com.jarvis.app.cognition.workspace.ReplayCheck? = null
         private set
     @Volatile var anchorEngine: com.jarvis.app.anchor.AnchorEngine? = null
         private set
@@ -366,6 +377,49 @@ object JarvisEngine {
                 )
             )
             val personaTuner = com.jarvis.app.identity.PersonaTuner(worldModel)
+
+            // CONTINUITY-LAW: the gate every change to identity-adjacent state
+            // passes through, constructed HERE — at the same production
+            // composition point as the shared workspace it judges, and over the
+            // live SelfModel whose real identity it pins. The durable log is a
+            // real local file under the app's own filesDir
+            // (identity/change_log.jsonl), append-only JSONL, the same local-only
+            // shape the provenance ledger and turn-trace store use, so an
+            // accepted SLOW change survives a process restart on the device.
+            val changeLog = com.jarvis.app.cognition.workspace.FileChangeLog(
+                appContext.filesDir.resolve("identity/change_log.jsonl")
+            )
+            continuityLaw = com.jarvis.app.cognition.workspace.ContinuityLaw(
+                workspace = workspace,
+                changeLog = changeLog
+            )
+            // The replay check is the other half of the law and is built HERE too,
+            // over the SAME workspace, the SAME durable log and the live CORE
+            // identity, reading the ONE committed set of real recorded turns
+            // (classpath resource replay/recorded_turns.jsonl). A build that
+            // packaged none cannot run it, and that is disclosed as null — and
+            // logged — rather than papered over with an empty fixture that would
+            // pass everything.
+            replayCheck = com.jarvis.app.cognition.workspace.RecordedTurns.fromClasspath()?.let { fixture ->
+                com.jarvis.app.cognition.workspace.ReplayCheck(
+                    workspace = workspace,
+                    changeLog = changeLog,
+                    coreIdentity = com.jarvis.app.cognition.workspace.CoreIdentity(
+                        name = selfModel.identity().name,
+                        version = selfModel.identity().version,
+                        userNodeName = com.jarvis.app.identity.WorldModelService.USER_NODE_NAME
+                    ),
+                    fixture = fixture
+                )
+            }
+            if (replayCheck == null) {
+                Log.w(
+                    "JarvisEngine",
+                    "CONTINUITY-LAW: no recorded turns packaged " +
+                        "(${com.jarvis.app.cognition.workspace.RecordedTurns.CLASSPATH_RESOURCE}) — " +
+                        "the replay check is NOT running on this build"
+                )
+            }
 
             // PERSON-RELATIONSHIP-MODEL-AND-CONFIDENTIALITY-FIREWALL: the
             // social stack is constructed HERE — at the SAME composition point

@@ -90,6 +90,36 @@ object JarvisOrganGraph {
                 "confidence by the claim's decayRate."
         ))
 
+        // CONTINUITY-LAW (Gate 3c): the gate every change to identity-adjacent
+        // state passes through, and the ONE place a ChangeLayer is enforced. REAL
+        // COGNITIVE organ: constructed at the production composition points
+        // (JarvisEngine.init and its JVM twin TermuxJarvisServer) over the shared
+        // workspace and a real durable FileChangeLog. FAST self-model state is
+        // unrestricted (SelfModel derives it from a live source every call), SLOW
+        // state (the persona:<trait> facts PersonaTuner persists, the
+        // relationship:<person>:trust tier) is accepted only after enough real
+        // accumulated evidence claims and enough real elapsed time, and CORE
+        // identity (the real SelfIdentity name/version) is rejected outright and
+        // left to the frozen-invariant path. No live caller publishes an
+        // identity-adjacent claim yet, so the law does not gate a per-turn claim
+        // today; it is the acceptance path those claims must use, and
+        // ReplayCheck is what catches a change that bypasses it.
+        g.registerNode(SystemGraph.SystemNode(
+            id = "cognition.continuityLaw",
+            name = "ContinuityLaw",
+            organType = SystemGraph.OrganType.COGNITIVE,
+            qualifiedClassName = "com.jarvis.app.cognition.workspace.ContinuityLaw",
+            description = "CONTINUITY-LAW (Gate 3c): propose(claim) reads the change layer from the " +
+                "claim's kind+field (derived, never declared by the caller), then accepts FAST as-is, " +
+                "rejects CORE unconditionally, and accepts SLOW only past the evidence-count and " +
+                "real-elapsed-time thresholds — appending a ChangeLogEntry (old value, new value, " +
+                "justifying claim ids, instant) to the durable FileChangeLog. ReplayCheck re-renders a " +
+                "committed set of recorded turns and judges them against a human-authored CORE-fact " +
+                "expectation, so a change that bypasses this gate shows up as drift. CONSTRUCTION-SITE " +
+                "GROUND TRUTH: built in JarvisEngine.init (JarvisEngine.kt:392, over a real durable log " +
+                "at JarvisEngine.kt:389) and in its JVM twin TermuxJarvisServer (TermuxJarvisServer.kt:286)."
+        ))
+
         // Memory organs
         g.registerNode(SystemGraph.SystemNode(
             id = "memory.graphStore",
@@ -587,6 +617,16 @@ object JarvisOrganGraph {
         g.addEdge("cognitive.contextWindowAssembler", "cognition.workspace", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
         g.addEdge("identity.mentalStateEstimator", "cognition.workspace", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("cognitive.engine", "cognition.workspace", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        // CONTINUITY-LAW (Gate 3c): both arms are real, in the same sense the
+        // emotion/estimator pair below is wired. The HOLDER arm — the law is
+        // constructed over the shared workspace (JarvisEngine.init), through which
+        // it publishes the accepted value of a SLOW field and reads the retained
+        // evidence it counts. The DATA-FLOW arm — cognition.workspace SENDS_TO
+        // the law, because the claim stream it publishes is exactly what the law
+        // judges; this is the same two-arm pattern as
+        // emotion.fusionLayerTier1 <-> identity.mentalStateEstimator below.
+        g.addEdge("cognition.continuityLaw", "cognition.workspace", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        g.addEdge("cognition.workspace", "cognition.continuityLaw", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         // The emotion tier SENDS_TO (feeds) the estimator's provider seam; the
         // estimator DEPENDS_ON the tier for its hypothesis, keeping the tier
         // genuinely reachable from the entry — both arms are real in the
