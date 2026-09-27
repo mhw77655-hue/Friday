@@ -31,10 +31,45 @@ separate passes even within one iteration:
 
 This single discipline is what separates a fast convergence (2-3 iterations)
 from a slow one (10 iterations wasted on wrong assumptions) - confirm your
-plan is grounded in what the code actually does, not what you'd expect it to
+plan is grounded in what the code actually does, not what you expect it to
 do.
 
+## MANDATORY: grep the real source tree BEFORE you write any import
+
+A guessed Kotlin package costs a full CI round trip to discover, because the
+only proof is a compile error on a machine you do not control. That has already
+happened twice in this repo on the same class. So, for EVERY import you write,
+in this exact order:
+
+1. **Is the class already in `.ralph/SYMBOL_FACTS.md`?** That file is injected
+   above REPO_FACTS' sibling and is permanent memory of real locations. If the
+   class is listed there, use the package it gives you and stop.
+2. **Is the class in the file you are currently editing?** If you can see its
+   declaration, or an existing import of it, in that same file, use that.
+3. **Otherwise grep the real tree for the declaration FIRST**, then write the
+   import from the grep result:
+
+       grep -rnE '^(data |sealed |enum |abstract |open )*(class|interface|object) <ClassName>\b' mobile/app/src/main/java mobile/app/src/test/java
+
+   For a nested/enum member, grep the bare name too (`grep -rn '<ClassName>' <suspected dir>`)
+   and read the surrounding lines to see what it is nested inside. Then use the
+   FULL path, including the outer object: a class nested in
+   `object ThreadObjects` is imported as
+   `com.jarvis.app.threads.ThreadObjects.OpenThread`, never as a sibling of it.
+
+**Never** guess a package by convention, by what the class name suggests, or by
+copying the shape of a neighbouring import. "It is obviously in the same package
+as its only user" is exactly the inference that cost a CI round trip twice.
+
+**When you fix an `Unresolved reference` / `cannot find symbol` compile error**,
+append the real mapping to `.ralph/SYMBOL_FACTS.md` in the form
+`ClassName -> real.package.path (path/File.kt:line)` BEFORE you continue, so the
+same mistake can never be paid for a third time. `.ralph/symbol_facts_check.sh`
+runs that whole loop end to end (grep -> record -> prompt contains the rule and
+the new fact) and is the proof this mechanism works.
+
 ## Your Task
+
 
 1. Read the PRD at `prd.json` (in the same directory as this file)
 2. Read the progress log at `progress.txt` (check Codebase Patterns section first)

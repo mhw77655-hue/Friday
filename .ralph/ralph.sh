@@ -61,6 +61,7 @@ PREFLIGHT_GITHUB_RETRY_SLEEP="${PREFLIGHT_GITHUB_RETRY_SLEEP:-3}"
 PREFLIGHT_PROMPT='Reply with exactly one word: ok'
 SKIP_PREFLIGHT=false
 PREFLIGHT_ONLY=false
+PRINT_PROMPT=false
 # Shared by the preflight probe and the loop's provider-failure matcher, so both
 # verdicts come from one definition (value unchanged from the pre-story loop).
 ROUTER_DOWN_PATTERN="quota|rate.limit|capacity is busy|Cannot connect|exhausted|429|UnknownError|Unexpected server error|unreachable"
@@ -170,6 +171,36 @@ run_preflight() {
   return 0
 }
 
+# ---------------------------------------------------------------------------
+# Prompt composition — the ONE place the model's prompt is assembled, so the
+# injection of the fact files is greppable and there is a single source of
+# truth for what the model is actually told.
+#
+#   REPO_FACTS.md    durable facts about this repo (auto-prepended)
+#   SYMBOL_FACTS.md  class -> real package, so a wrong-package guess is never
+#                    paid for twice (a full CI round trip each time)
+#   prompt.md        the Ralph instructions themselves
+#
+# --print-prompt runs exactly this and exits: the real prompt, no preflight, no
+# iteration, no model call, so prompt content is testable offline.
+# ---------------------------------------------------------------------------
+build_prompt() {
+  cat "$FACTS_FILE"
+  echo
+  echo "---"
+  echo
+  cat "$SYMBOL_FACTS_FILE"
+  echo
+  echo "---"
+  echo
+  cat "$PROMPT_FILE"
+}
+
+print_prompt_and_exit() {
+  build_prompt
+  exit 0
+}
+
 while [[ $# -gt 0 ]]; do
   case $1 in
     --tool) TOOL="$2"; shift 2 ;;
@@ -178,6 +209,7 @@ while [[ $# -gt 0 ]]; do
     --model=*) MODEL_POOL=("${1#*=}"); shift ;;
     --skip-preflight) SKIP_PREFLIGHT=true; shift ;;
     --preflight-only) PREFLIGHT_ONLY=true; shift ;;
+    --print-prompt) PRINT_PROMPT=true; shift ;;
     *)
       if [[ "$1" =~ ^[0-9]+$ ]]; then MAX_ITERATIONS="$1"; fi
       shift
@@ -189,6 +221,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROMPT_FILE="$SCRIPT_DIR/prompt.md"
 FACTS_FILE="$SCRIPT_DIR/REPO_FACTS.md"
+SYMBOL_FACTS_FILE="$SCRIPT_DIR/SYMBOL_FACTS.md"
 PROGRESS_FILE="$SCRIPT_DIR/progress.txt"
 RUN_LOG="$SCRIPT_DIR/ralph_run_$(date +%Y%m%d_%H%M%S).log"
 PRD_FILE="$SCRIPT_DIR/prd.json"
@@ -200,6 +233,9 @@ REJECT_HELPER="$SCRIPT_DIR/reject_story.py"
 # a dead token/model costs zero iterations and leaves zero files behind.
 # A failure here never falls through into the loop.
 # ---------------------------------------------------------------------------
+if [ "$PRINT_PROMPT" = "true" ]; then
+  print_prompt_and_exit
+fi
 if [ "$PREFLIGHT_ONLY" = "true" ]; then
   if run_preflight; then
     echo "--preflight-only: both checks passed, exiting 0 without iterating."
@@ -230,6 +266,11 @@ fi
 if [ ! -f "$FACTS_FILE" ]; then
   echo "# REPO_FACTS.md" > "$FACTS_FILE"
   echo "(no facts recorded yet)" >> "$FACTS_FILE"
+fi
+
+if [ ! -f "$SYMBOL_FACTS_FILE" ]; then
+  echo "# SYMBOL_FACTS.md" > "$SYMBOL_FACTS_FILE"
+  echo "(no symbol facts recorded yet)" >> "$SYMBOL_FACTS_FILE"
 fi
 
 if [ ! -f "$REJECT_HELPER" ]; then
@@ -299,7 +340,7 @@ for i in $(seq 1 $MAX_ITERATIONS); do
     continue
   fi
 
-  COMBINED_PROMPT="$(cat "$FACTS_FILE"; echo; echo "---"; echo; cat "$PROMPT_FILE")"
+  COMBINED_PROMPT="$(build_prompt)"
 
   echo "" >> "$RUN_LOG"
   echo "===== Iteration $i of $MAX_ITERATIONS ($TOOL / $MODEL) =====" >> "$RUN_LOG"
