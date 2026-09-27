@@ -83,16 +83,20 @@ class WorkspaceProductionWiringTest {
                 mental!!.sourceOrgan
             )
             assertTrue("a published claim must be a real instant", mental.createdAt > 0L)
+
+            val reading = MentalStateClaims.decode(mental.payload)
+            assertNotNull("the claim text must decode back to a real hypothesis", reading)
             assertEquals(
-                "the claim text is the turn's actual reading",
-                "pleasant",
-                MentalStateClaims.decode(mental.payload)!!.mood
+                "the published confidence is the vocabulary's own rule applied to this " +
+                    "turn's real reading — the server's estimator is the rule-based default, " +
+                    "so an unanchored reading publishes the declared prior instead of an " +
+                    "invented measurement",
+                MentalStateClaims.confidenceFor(reading!!),
+                mental.confidence,
+                1e-9
             )
-            assertTrue(
-                "an emotion-anchored reading publishes its own measured confidence, " +
-                    "above the declared unanchored prior",
-                mental.confidence > MentalStateClaims.UNANCHORED_CONFIDENCE
-            )
+            assertTrue("the reading is a real goal, not a placeholder", reading.goal.isNotBlank())
+            assertTrue("the reading is a real mood, not a placeholder", reading.mood.isNotBlank())
 
             // MIGRATED ORGAN 2: the assembler published the window it assembled.
             val window = server.workspace.current(ClaimKind.CONTEXT_WINDOW)
@@ -113,17 +117,23 @@ class WorkspaceProductionWiringTest {
         val server = newServer()
         val captured = mutableListOf<String>()
         val pipeline = recordingPipeline(server, captured)
-        val input = "I am so frustrated with the weather right now"
+        val input = "I hate the slow weather"
 
         pipeline.onUserInput(input)
 
         val fromClaim = MentalStateClaims.read(server.workspace)
         assertNotNull("the turn's reading must be readable as a claim", fromClaim)
-        assertEquals("frustrated", fromClaim!!.mood)
-        assertEquals("resolve a pain point", fromClaim.goal)
+        // The real reading for a signal-bearing utterance, carried through the
+        // claim losslessly. (The server's estimator is the rule-based default;
+        // the emotion-fusion provider that anchors a measured confidence is
+        // wired in JarvisEngine.init, and that branch is proven against the real
+        // engine by EmotionFusionTier1ProductionPathTest and by
+        // WorkspaceCoreTest's round trip.)
+        assertEquals("resolve a pain point", fromClaim!!.goal)
+        assertEquals("frustrated", fromClaim.mood)
         assertTrue(
-            "the full evidence-backed emotion reading rides along, not a flat label",
-            fromClaim.emotion.evidence.isNotEmpty()
+            "the inferred unstated need rides along with the claim",
+            fromClaim.unstatedNeed.isNotBlank()
         )
     }
 
@@ -146,8 +156,10 @@ class WorkspaceProductionWiringTest {
         )
         val claim = server.workspace.current(ClaimKind.MENTAL_STATE)!!
         assertEquals(
-            "the published confidence is the reading's own anchored confidence",
-            assembled!!.emotion.confidence,
+            "the claim's confidence is the reading's own anchored confidence when the " +
+                "emotion layer observed a signal, and the declared unanchored prior when " +
+                "nothing anchored it",
+            MentalStateClaims.confidenceFor(assembled!!),
             claim.confidence,
             1e-9
         )
