@@ -27,3 +27,4 @@ mobile/app/src/main/assets/sherpa-onnx-whisper-tiny.en/
 mobile/app/.cxx/
 .ralph/*.log
 .ralph/prd.json.bak
+.ralph/.ralph_active

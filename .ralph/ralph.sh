@@ -1,18 +1,10 @@
 #!/bin/bash
 
-print_progress_bar() {
-  local total=$(grep -c '"id":' /sdcard/jarvis-repo/.ralph/prd.json 2>/dev/null)
-  local passed=$(grep -c '"passes": *true' /sdcard/jarvis-repo/.ralph/prd.json 2>/dev/null)
-  [ -z "$total" ] && total=1
-  [ "$total" -eq 0 ] && total=1
-  local pct=$(( passed * 100 / total ))
-  local filled=$(( pct / 5 ))
-  local bar=""
-  for ((k=0; k<20; k++)); do
-    if [ $k -lt $filled ]; then bar="${bar}#"; else bar="${bar}-"; fi
-  done
-  echo "Progress: [${bar}] ${pct}% (${passed}/${total} stories passing)"
-}
+# The progress readout lives in .ralph/progress.sh, not here: it reads the real
+# prd.json passes fields and the real run state, so it is the single source of
+# truth and can also be run standalone (`bash .ralph/progress.sh`) at any time.
+print_progress() { bash "$SCRIPT_DIR/progress.sh" "$@"; }
+
 set -e
 
 TOOL="opencode"
@@ -257,6 +249,13 @@ fi
 
 touch "$RUN_LOG"
 
+# Live-run marker: progress.sh reads this to tell "a run is happening right now"
+# from "this marker was left behind by a killed run". The pid inside is what
+# decides, so a legitimate multi-hour run is never reported as stale.
+ACTIVE_MARKER="$SCRIPT_DIR/.ralph_active"
+echo "$$" > "$ACTIVE_MARKER"
+trap 'rm -f "$ACTIVE_MARKER"' EXIT
+
 if [ ! -f "$PROGRESS_FILE" ]; then
   echo "# Ralph Progress Log" > "$PROGRESS_FILE"
   echo "Started: $(date)" >> "$PROGRESS_FILE"
@@ -304,6 +303,9 @@ echo "--- Current prd.json story states ---"
 jq -r '.userStories[] | "\(.id): passes=\(.passes)"' "$PRD_FILE" 2>/dev/null || echo "(could not read prd.json)"
 echo "==============================================================="
 cd "$SCRIPT_DIR"
+
+# Start-of-run readout: the real story state, straight from prd.json.
+print_progress
 
 echo ""
 echo "Starting Ralph — Tool: $TOOL — Model pool size: ${#MODEL_POOL[@]} — Max iterations: $MAX_ITERATIONS"
@@ -515,7 +517,7 @@ for i in $(seq 1 $MAX_ITERATIONS); do
   fi
 
   echo "Iteration $i complete (model used: $MODEL). Continuing..."
-        print_progress_bar
+        print_progress --brief
                 sleep 2
 done
 
@@ -560,5 +562,10 @@ fi
 echo "Full progress log: $PROGRESS_FILE"
 echo "Report exported to: $REPORT_PATH"
 echo "==============================================================="
+
+# End-of-run readout: same real numbers, after the run has had its say. The
+# note carries this run's own outcome, because the shell printing it is the very
+# process the liveness probe would otherwise report as running.
+print_progress --note "this run finished — final status: $FINAL_STATUS, iterations run: $ITER_REACHED of $MAX_ITERATIONS."
 
 [ "$FINAL_STATUS" == "complete" ] && exit 0 || exit 1
