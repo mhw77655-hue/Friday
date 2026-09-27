@@ -13,14 +13,30 @@ import com.jarvis.app.emotion.EmotionHypothesis
  * assembler as an additional signal alongside the durable profile — the two are
  * never conflated (the exact mistake 2026 research flags: treating a dynamic
  * per-turn state as a durable profile, or vice versa).
+ *
+ * COGNITION-WORKSPACE: when a [Workspace] is wired, every hypothesis this
+ * organ computes is PUBLISHED as a [ClaimKind.MENTAL_STATE] claim — that is the
+ * migration of this seam off a named wire. Readers (the context assembler) now
+ * ask the workspace for the current claim instead of holding a reference to this
+ * estimator, and the claim text is a lossless encoding of exactly the hypothesis
+ * returned here, so publishing changes nothing about the value callers see.
+ * Publishing is not persistence: the claim is in-memory, per-turn, and superseded
+ * by the next turn's claim.
  */
 class UserMentalStateEstimator(
-    private val hypothesisProvider: (String) -> MentalStateHypothesis = ::ruleBasedHypothesis
+    private val hypothesisProvider: (String) -> MentalStateHypothesis = ::ruleBasedHypothesis,
+    private val workspace: com.jarvis.app.cognition.workspace.Workspace? = null
 ) {
 
-    /** Generate the mental-state hypothesis for the current user turn. */
-    fun estimateForTurn(userText: String): MentalStateHypothesis =
-        hypothesisProvider(userText.trim())
+    /** Generate the mental-state hypothesis for the current user turn, and
+     *  publish it as this turn's MENTAL_STATE claim when a workspace is wired. */
+    fun estimateForTurn(userText: String): MentalStateHypothesis {
+        val hypothesis = hypothesisProvider(userText.trim())
+        workspace?.let {
+            com.jarvis.app.cognition.workspace.MentalStateClaims.publish(it, hypothesis)
+        }
+        return hypothesis
+    }
 
     /** Mark that a new session/turn boundary began; retained for symmetry with
      *  the durable profile, this estimator keeps no cross-session state. */

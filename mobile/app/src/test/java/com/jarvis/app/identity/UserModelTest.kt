@@ -4,6 +4,7 @@ import com.jarvis.app.cognitive.ContextWindowAssembler
 import com.jarvis.app.cognitive.ReferenceStore
 import com.jarvis.app.cognitive.SalienceScorer
 import com.jarvis.app.cognitive.TopicTracker
+import com.jarvis.app.cognition.workspace.InMemoryWorkspace
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
@@ -114,11 +115,19 @@ class UserModelTest {
         val tt = TopicTracker()
         val scorer = SalienceScorer(ReferenceStore())
         tt.recordTurn(0, "How does the weather look today?")
+        // COGNITION-WORKSPACE: the estimator no longer reaches the assembler
+        // through a named reference. It publishes this turn's reading as a
+        // MENTAL_STATE claim, and the assembler reads the claim — exactly the
+        // order the real production turn runs in (ContinuityGate.snapshotForTurn
+        // calls the estimator, then the engine assembles the window).
+        val workspace = InMemoryWorkspace()
+        val estimator = UserMentalStateEstimator(workspace = workspace)
         val assembler = ContextWindowAssembler(
             topicTracker = tt,
             salienceScorer = scorer,
-            mentalStateEstimator = UserMentalStateEstimator()
+            workspace = workspace
         )
+        estimator.estimateForTurn("How does the weather look today?")
 
         val window = assembler.assemble(0, tt.currentSegmentId(), "How does the weather look today?")
         assertNotNull("mental-state estimate must be present as an additional signal", window.mentalState)
@@ -131,7 +140,7 @@ class UserModelTest {
     }
 
     @Test
-    fun `context window has null mental state when no estimator wired`() {
+    fun `context window has null mental state when no workspace is wired`() {
         val tt = TopicTracker()
         tt.recordTurn(0, "hello there")
         val assembler = ContextWindowAssembler(tt, SalienceScorer(ReferenceStore()))

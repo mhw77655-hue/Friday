@@ -342,10 +342,18 @@ object JarvisEngine {
             // provider fold keeps the existing single hypothesis path: one
             // estimator, one EmotionHypothesis riding the per-turn hypothesis.
             val emotionFusionTier1 = com.jarvis.app.emotion.FusionLayerTier1()
+            // COGNITION-WORKSPACE: the shared claim store, constructed HERE and
+            // handed to the estimator (which publishes each turn's MENTAL_STATE
+            // claim into it) and, below, to the engine that owns the context-window
+            // assembler (which reads that claim and publishes the assembled window
+            // as a CONTEXT_WINDOW claim). ONE instance for both organs — that
+            // shared store IS the replacement for the old named wire between them.
+            val workspace = com.jarvis.app.cognition.workspace.InMemoryWorkspace()
             val mentalStateEstimator = com.jarvis.app.identity.UserMentalStateEstimator(
                 hypothesisProvider = { text ->
                     com.jarvis.app.identity.MentalStateHypothesis.fromEmotion(emotionFusionTier1.estimate(text))
-                }
+                },
+                workspace = workspace
             )
             val capabilityRegistry = com.jarvis.app.capability.CapabilityRegistryHolder.get()
             val selfModel = com.jarvis.app.identity.SelfModel(
@@ -585,7 +593,8 @@ object JarvisEngine {
                 turnTraceStore = turnTraceStore,
                 threadTracker = threadTracker,
                 provenanceLedger = provenanceLedger,
-                signalScorer = signalScorer
+                signalScorer = signalScorer,
+                workspace = workspace
             )
 
             val bodyCoordinator = BodyCoordinator(

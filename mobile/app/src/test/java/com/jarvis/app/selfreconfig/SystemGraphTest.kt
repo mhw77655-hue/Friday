@@ -138,6 +138,7 @@ class SystemGraphTest {
             "core.bodyCoordinator",
             "cognitive.engine",
             "cognitive.contextWindowAssembler",
+            "cognition.workspace",
             "memory.graphStore",
             "memory.blendedRetriever",
             "memory.provenanceLedger",
@@ -374,15 +375,22 @@ class SystemGraphTest {
 
         // Ground truth (CONTEXT-WINDOW-ASSEMBLER-GROUND-TRUTH): the assembler's
         // READS_FROM edges must point at BOTH of its real construction seams as
-        // wired by JarvisEngine.init — the live retriever and the live estimator.
+        // wired by JarvisEngine.init — the live retriever and, since
+        // COGNITION-WORKSPACE, the shared claim store it reads the turn's
+        // MENTAL_STATE claim from.
         val readEdges = realOrgans.edgesFrom("cognitive.contextWindowAssembler")
         assertTrue(
             "assembler reads cross-session memories from the real retriever seam",
             readEdges.any { it.toId == "memory.blendedRetriever" && it.kind == SystemGraph.DependencyEdge.EdgeKind.READS_FROM }
         )
         assertTrue(
-            "assembler reads the per-turn mental-state hypothesis from the real estimator seam",
-            readEdges.any { it.toId == "identity.mentalStateEstimator" && it.kind == SystemGraph.DependencyEdge.EdgeKind.READS_FROM }
+            "assembler reads the per-turn mental state from the shared workspace claim store",
+            readEdges.any { it.toId == "cognition.workspace" && it.kind == SystemGraph.DependencyEdge.EdgeKind.READS_FROM }
+        )
+        assertFalse(
+            "the old named wire from the assembler to the estimator must be gone — the " +
+                "migrated path goes through cognition.workspace, not a direct reference",
+            readEdges.any { it.toId == "identity.mentalStateEstimator" }
         )
 
         // The engine node depends on the assembler it constructs.
@@ -399,6 +407,65 @@ class SystemGraphTest {
         assertTrue(
             "assembler node carries the ground-truth description",
             assemblerNode!!.description.contains("CognitiveEngine.kt:135-140")
+        )
+    }
+
+    @Test
+    fun `cognition workspace is a real organ wired to both migrated callers`() {
+        val realOrgans = JarvisOrganGraph.build()
+
+        // COGNITION-WORKSPACE (Gate 3c) AC5: the shared claim store is a REAL
+        // COGNITIVE organ pointing at the real production class, not a PLANNED
+        // placeholder.
+        val node = realOrgans.node("cognition.workspace")
+        assertNotNull("cognition.workspace node must exist", node)
+        assertEquals("com.jarvis.app.cognition.workspace.InMemoryWorkspace", node!!.qualifiedClassName)
+        assertEquals(SystemGraph.OrganType.COGNITIVE, node.organType)
+        assertTrue(
+            "the workspace must be a REAL organ, not PLANNED",
+            node.organType != SystemGraph.OrganType.PLANNED
+        )
+
+        // MIGRATION 1 of 2: the mental-state estimator PUBLISHES into the
+        // workspace instead of being named by its reader.
+        assertTrue(
+            "identity.mentalStateEstimator must send its per-turn claim into cognition.workspace",
+            realOrgans.edgesFrom("identity.mentalStateEstimator").any {
+                it.toId == "cognition.workspace" &&
+                    it.kind == SystemGraph.DependencyEdge.EdgeKind.SENDS_TO
+            }
+        )
+
+        // MIGRATION 2 of 2: the context-window assembler READS the turn's claim
+        // from the workspace instead of naming the estimator.
+        assertTrue(
+            "cognitive.contextWindowAssembler must read the turn's claim from cognition.workspace",
+            realOrgans.edgesFrom("cognitive.contextWindowAssembler").any {
+                it.toId == "cognition.workspace" &&
+                    it.kind == SystemGraph.DependencyEdge.EdgeKind.READS_FROM
+            }
+        )
+        assertFalse(
+            "the assembler's old direct reference to the estimator must be removed",
+            realOrgans.edgesFrom("cognitive.contextWindowAssembler").any {
+                it.toId == "identity.mentalStateEstimator"
+            }
+        )
+
+        // The engine constructs the assembler and holds the shared store itself.
+        assertTrue(
+            "cognitive.engine must depend on the shared workspace it wires",
+            realOrgans.edgesFrom("cognitive.engine").any {
+                it.toId == "cognition.workspace" &&
+                    it.kind == SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON
+            }
+        )
+
+        // And the store is genuinely reachable from the live entry via the engine.
+        val reachability = realOrgans.computeReachability("entry.latencyPipeline")
+        assertTrue(
+            "cognition.workspace must be reachable from the entry in the production composition",
+            reachability.reachableIds.contains("cognition.workspace")
         )
     }
 

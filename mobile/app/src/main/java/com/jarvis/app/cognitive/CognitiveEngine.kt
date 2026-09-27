@@ -205,7 +205,17 @@ class CognitiveEngine(
      * that later consolidation passes must leave byte-identical. Null keeps the
      * pre-correction write-back byte-for-byte (only the node itself is written).
      */
-    private val signalScorer: com.jarvis.app.memory.SignalSplitScorer? = null
+    private val signalScorer: com.jarvis.app.memory.SignalSplitScorer? = null,
+
+    /**
+     * COGNITION-WORKSPACE: the shared claim store the per-turn organs publish
+     * into and read from. When the composition root wires it, the context-window
+     * assembler reads the turn's mental state as a MENTAL_STATE claim and
+     * publishes the assembled window as a CONTEXT_WINDOW claim — neither organ
+     * names the other. Null keeps the pre-workspace behavior byte-for-byte (the
+     * assembler simply has no workspace to publish into or read from).
+     */
+    private val workspace: com.jarvis.app.cognition.workspace.Workspace? = null
 ) : PlanDriver {
 
     private val intentInference = IntentInference(scope)
@@ -219,8 +229,8 @@ class CognitiveEngine(
         topicTracker,
         salienceScorer,
         blendedRetriever = blendedRetriever,
-        mentalStateEstimator = identityContext?.mentalStateEstimator,
-        confidentialityFirewall = identityContext?.confidentialityFirewall
+        confidentialityFirewall = identityContext?.confidentialityFirewall,
+        workspace = workspace
     )
     /**
      * CONTINUITY-GATE-ENFORCED-SEAM: the generation seam this engine balances.

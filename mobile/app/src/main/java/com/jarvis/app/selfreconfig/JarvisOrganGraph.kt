@@ -61,10 +61,33 @@ object JarvisOrganGraph {
             qualifiedClassName = "com.jarvis.app.cognitive.ContextWindowAssembler",
             description = "CONTEXT-WINDOW-ASSEMBLER-GROUND-TRUTH (2026-09-05): constructed ONLY inside " +
                 "CognitiveEngine (CognitiveEngine.kt:135-140) from the engine's real seams — blendedRetriever " +
-                "(JarvisEngine.init wires the live BlendedMemoryRetriever) and mentalStateEstimator (the real " +
-                "UserMentalStateEstimator bound inside IdentityContext). assemble() runs on every non-clarification " +
-                "turn in the live path; the assembled window's cross-session memories AND per-turn mental-state " +
-                "hypothesis are surfaced on CognitiveTurnResult."
+                "(JarvisEngine.init wires the live BlendedMemoryRetriever). assemble() runs on every " +
+                "non-clarification turn in the live path; the assembled window's cross-session memories AND " +
+                "per-turn mental-state hypothesis are surfaced on CognitiveTurnResult. COGNITION-WORKSPACE " +
+                "(Gate 3c): it no longer names the mental-state estimator — it reads the turn's MENTAL_STATE " +
+                "claim from cognition.workspace and publishes the assembled union as a CONTEXT_WINDOW claim."
+        ))
+
+        // COGNITION-WORKSPACE (Gate 3c): the shared cognitive workspace is a REAL
+        // COGNITIVE organ, not a PLANNED placeholder. InMemoryWorkspace is
+        // constructed at the single production composition point (JarvisEngine.init
+        // and its JVM twin TermuxJarvisServer) and handed to BOTH migrated organs:
+        // the estimator publishes each turn's MENTAL_STATE claim into it, and the
+        // context-window assembler reads that claim and publishes the assembled
+        // CONTEXT_WINDOW claim back. In-memory and per-turn by construction — no
+        // storage target and no network hop; supersession/decay, never deletion.
+        g.registerNode(SystemGraph.SystemNode(
+            id = "cognition.workspace",
+            name = "InMemoryWorkspace",
+            organType = SystemGraph.OrganType.COGNITIVE,
+            qualifiedClassName = "com.jarvis.app.cognition.workspace.InMemoryWorkspace",
+            description = "COGNITION-WORKSPACE (Gate 3c): the ONE place per-turn organs publish what they " +
+                "know, addressed by ClaimKind instead of by naming the organ. Claim(id, kind, payload, " +
+                "confidence 0..1, sourceOrgan, personId?, decayRate, createdAt, supersedes?) plus a required " +
+                "baseline and a set-once wasCorrect outcome on every PREDICTION kind, so no prediction can " +
+                "exist without a way to later prove whether it beat the naive baseline. current(kind) returns " +
+                "the highest-confidence live claim; claims(kind) keeps every loser queryable; tick() decays " +
+                "confidence by the claim's decayRate."
         ))
 
         // Memory organs
@@ -556,7 +579,14 @@ object JarvisOrganGraph {
         g.addEdge("model.anchorEngine", "model.modelManager", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("model.anchorEngine", "model.cognitiveAdmissionPolicy", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("cognitive.contextWindowAssembler", "memory.blendedRetriever", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
-        g.addEdge("cognitive.contextWindowAssembler", "identity.mentalStateEstimator", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
+        // COGNITION-WORKSPACE (Gate 3c): the assembler's OLD named wire to the
+        // mental-state estimator is gone — it reads the turn's MENTAL_STATE claim
+        // from the shared workspace instead. The estimator SENDS_TO that same
+        // workspace (it is what publishes the claim), so both migrated organs
+        // reach the store and neither names the other.
+        g.addEdge("cognitive.contextWindowAssembler", "cognition.workspace", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
+        g.addEdge("identity.mentalStateEstimator", "cognition.workspace", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
+        g.addEdge("cognitive.engine", "cognition.workspace", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         // The emotion tier SENDS_TO (feeds) the estimator's provider seam; the
         // estimator DEPENDS_ON the tier for its hypothesis, keeping the tier
         // genuinely reachable from the entry — both arms are real in the

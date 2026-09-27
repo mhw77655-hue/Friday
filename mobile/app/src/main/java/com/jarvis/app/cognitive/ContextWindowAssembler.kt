@@ -1,9 +1,13 @@
 package com.jarvis.app.cognitive
 
+import com.jarvis.app.cognition.workspace.Claim
+import com.jarvis.app.cognition.workspace.ClaimKind
+import com.jarvis.app.cognition.workspace.MentalStateClaims
+import com.jarvis.app.cognition.workspace.Workspace
 import com.jarvis.app.identity.MentalStateHypothesis
-import com.jarvis.app.identity.UserMentalStateEstimator
 import com.jarvis.app.memory.BlendedMemoryRetriever
 import com.jarvis.app.memory.RankedMemory
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Assembles a bounded, salience-driven context window from the current
@@ -17,6 +21,14 @@ import com.jarvis.app.memory.RankedMemory
  * Optionally integrates cross-session long-term memory via
  * [BlendedMemoryRetriever] — when provided, assembled context includes
  * relevant memories from prior sessions alongside session-scoped signals.
+ *
+ * COGNITION-WORKSPACE: this organ's old direct reference to the mental-state
+ * estimator is GONE. It no longer names [com.jarvis.app.identity.UserMentalStateEstimator]
+ * at all: the per-turn mental state is read as a [ClaimKind.MENTAL_STATE] claim
+ * from the shared [Workspace], and the assembled union is published as a
+ * [ClaimKind.CONTEXT_WINDOW] claim so another organ can consume this window
+ * without naming this class. The workspace is in-memory and per-turn, so the
+ * window's contents and the generated prompt are unchanged by the migration.
  */
 class ContextWindowAssembler(
     private val topicTracker: TopicTracker,
@@ -44,12 +56,11 @@ class ContextWindowAssembler(
     /** Maximum number of cross-session memories to include. */
     val maxCrossSessionMemories: Int = 5,
     /**
-     * Optional per-turn mental-state estimator. When provided, the assembled
-     * window carries an explicit hypothesis of the user's current goal/mood/
-     * unstated need as an ADDITIONAL signal. The hypothesis is ephemeral — it
-     * is never written to durable memory.
+     * The shared cognitive workspace. When wired, this organ reads the current
+     * per-turn mental state as a claim instead of computing it through a named
+     * estimator, and publishes the assembled window as a claim of its own.
      */
-    private val mentalStateEstimator: UserMentalStateEstimator? = null
+    private val workspace: Workspace? = null
 ) {
     /**
      * A single turn in the assembled context window.
@@ -86,8 +97,10 @@ class ContextWindowAssembler(
         val salientEntities: List<SalientEntity>,
         val crossSessionMemories: List<CrossSessionMemory>,
         /**
-         * Per-turn mental-state hypothesis (when an estimator is wired). This is
-         * an ephemeral additional signal and is NEVER part of durable memory.
+         * Per-turn mental-state hypothesis — the [ClaimKind.MENTAL_STATE] claim
+         * read from the shared workspace (assemble), or the gate snapshot's own
+         * contribution (assembleFrom). This is an ephemeral additional signal and
+         * is NEVER part of durable memory.
          */
         val mentalState: MentalStateHypothesis?,
         val turnCount: Int,
@@ -137,14 +150,15 @@ class ContextWindowAssembler(
             emptyList()
         }
 
-        // Per-turn mental-state hypothesis (ephemeral signal, never persisted).
-        val mental = if (mentalStateEstimator != null) {
-            mentalStateEstimator.estimateForTurn(currentTurnText)
-        } else {
-            null
-        }
+        // Per-turn mental-state hypothesis, read as a CLAIM from the shared
+        // workspace. The caller publishes this turn's reading first: in the real
+        // production order that is ContinuityGate.snapshotForTurn calling the
+        // estimator, which publishes on the way through. The claim text is a
+        // lossless encoding, so the hypothesis surfaced here is the same one the
+        // estimator returned.
+        val mental: MentalStateHypothesis? = workspace?.let { MentalStateClaims.read(it) }
 
-        return ContextWindow(
+        val window = ContextWindow(
             segmentId = currentSegmentId,
             turns = boundedTurns.map { ContextTurn(it.turnIndex, it.text) },
             salientEntities = topEntities.map { SalientEntity(it.first, it.second) },
@@ -153,6 +167,8 @@ class ContextWindowAssembler(
             turnCount = allSegmentTurns.size,
             wasBounded = wasBounded
         )
+        publishContextWindow(window)
+        return window
     }
 
     /**
@@ -188,7 +204,7 @@ class ContextWindowAssembler(
             .take(maxCrossSessionMemories)
             .map { CrossSessionMemory(it.node.`object`, it.score, it.source) }
 
-        return ContextWindow(
+        val window = ContextWindow(
             segmentId = currentSegmentId,
             turns = boundedTurns.map { ContextTurn(it.turnIndex, it.text) },
             salientEntities = topEntities.map { SalientEntity(it.first, it.second) },
@@ -196,6 +212,46 @@ class ContextWindowAssembler(
             mentalState = snapshot.mentalState,
             turnCount = allSegmentTurns.size,
             wasBounded = wasBounded
+        )
+        publishContextWindow(window)
+        return window
+    }
+
+    /**
+     * COGNITION-WORKSPACE: publish the assembled union as this turn's
+     * [ClaimKind.CONTEXT_WINDOW] claim, superseding the previous turn's window
+     * claim. The payload is this assembler's own deterministic rendering of the
+     * union — the same text [formatForPrompt] produces — so a consumer can read
+     * the window without naming this class.
+     *
+     * The published confidence is exactly 1.0 and that is a statement, not a
+     * measurement: the window is assembled deterministically from this turn's
+     * facts, so there is no inference to be uncertain about. Staleness is
+     * handled by supersession (newest turn wins) and, for a window nothing
+     * supersedes, by [Workspace.tick] — the union is re-derived every turn, so it
+     * is not given a decay rate.
+     */
+    private fun publishContextWindow(window: ContextWindow) {
+        val ws = workspace ?: return
+        // A claim must always carry content. On a turn where nothing had been
+        // assembled yet, this assembler's own rendering is empty — say exactly
+        // that instead of publishing a blank payload or skipping the publish.
+        val rendering = formatForPrompt(window)
+        ws.publish(
+            Claim(
+                id = "cognition.contextWindow.${WINDOW_SEQUENCE.incrementAndGet()}",
+                kind = ClaimKind.CONTEXT_WINDOW,
+                payload = if (rendering.isBlank()) {
+                    "Empty context window for segment ${window.segmentId}: no segment turns, " +
+                        "salient entities, cross-session memories or mental state were assembled yet"
+                } else {
+                    rendering
+                },
+                confidence = 1.0,
+                sourceOrgan = SOURCE_ORGAN,
+                createdAt = System.currentTimeMillis(),
+                supersedes = ws.current(ClaimKind.CONTEXT_WINDOW)?.id
+            )
         )
     }
 
@@ -236,5 +292,16 @@ class ContextWindowAssembler(
         }
 
         return sb.toString().trimEnd()
+    }
+
+    private companion object {
+        /** The organ id this window claim records as its source. */
+        const val SOURCE_ORGAN = "cognitive.contextWindowAssembler"
+
+        /**
+         * Mints unique claim ids so two windows assembled in the same millisecond
+         * are still two claims. Carries no meaning about the conversation.
+         */
+        val WINDOW_SEQUENCE = AtomicLong(0L)
     }
 }

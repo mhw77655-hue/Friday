@@ -255,7 +255,13 @@ class TermuxJarvisServer(
 
     val worldModel = WorldModelService(graphStore, retriever)
     val userProfile = UserProfile(worldModel)
-    val mentalStateEstimator = UserMentalStateEstimator()
+    // COGNITION-WORKSPACE: the shared claim store, constructed HERE at the one
+    // production composition point and handed to BOTH migrated organs — the
+    // estimator publishes each turn's MENTAL_STATE claim into it and the
+    // context-window assembler reads the claim and publishes the CONTEXT_WINDOW
+    // claim back. One instance, shared; in-memory and per-turn, no storage call.
+    val workspace = com.jarvis.app.cognition.workspace.InMemoryWorkspace()
+    val mentalStateEstimator = UserMentalStateEstimator(workspace = workspace)
     val registry = CapabilityRegistry()
     val selfModel = SelfModel(
         identitySource = HumanCoreIdentitySource(),
@@ -370,7 +376,8 @@ class TermuxJarvisServer(
         threadTracker = threadTracker,
         provenanceLedger = provenanceLedger,
         memoryForgetter = memoryForgetter,
-        signalScorer = signalScorer
+        signalScorer = signalScorer,
+        workspace = workspace
     )
 
     val pipeline = LatencyPipeline(
