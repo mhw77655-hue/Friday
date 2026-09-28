@@ -426,3 +426,22 @@ Thread: (local iteration)
   - A backticked test title is a JVM METHOD name, so `: ; [ ] / < >` and friends are compile errors there. The AC5 title had to lose its colon (a69f86d).
   - prd.json `notes` remains the LAST field: write the whole value including its closing quote in one edit, then `python3 -c "import json; json.load(open('.ralph/prd.json'))"` before committing.
 - **Pre-existing failures observed (not in scope):** none - the full module is green (1309/1309) on run 36374009041.
+
+## Mon Sep 28 2026 - STAGE-3 GATE-3C INDEPENDENT RE-VERIFICATION (no new story)
+Thread: (local iteration)
+- State found on entry: ALL 5 stories in .ralph/prd.json were already `passes: true`, HEAD 498e687 (the CONTINUITY-LAW docs commit) was already on remote main, and the working tree was clean apart from the long-documented untracked stray `.ralph/prd_gate3b_done.json`. There was no `passes: false` story left to implement, so the whole-stage rule reduces to the honest close: re-verify every stored verifyCommand for real, rather than trusting the previous iteration's machine verdict.
+- No source file was edited this iteration. Only this progress entry was appended.
+- Re-verification, all five stored verifyCommands run VERBATIM on the committed tree, this run:
+  - RALPH-FAST-PREFLIGHT: EXIT=0. Empty token aborted in the first line of the preflight; the deliberately invalid `ghp_invalid...` token reached the real API and came back HTTP 401 with the verbatim `{"message": "Bad credentials", ...}` body. Zero iterations spent either way.
+  - RALPH-SYMBOL-FACTS: EXIT=0 (SYMBOL_FACTS.md exists, carries the ModelProviderType fact, prompt.md carries the grep-first rule).
+  - RALPH-PROGRESS-BAR: EXIT=0 (both clauses - progress.sh prints a real `5/5`, and the file stays free of any network-client marker).
+  - WORKSPACE-CORE: static no-network clause EXIT=0, then `bash .ralph/ci_verify.sh 'com.jarvis.app.cognition.workspace.*' '*SystemGraphTest*'` -> 73 matched testcases, all passed, EXIT=0.
+  - CONTINUITY-LAW: `bash .ralph/ci_verify.sh 'com.jarvis.app.cognition.workspace.ContinuityLaw*' '*SystemGraphTest*'` -> 53 matched testcases, all passed, EXIT=0.
+  - Both CI checks reused the SAME completed run (no push, no 25-minute poll, because `git ls-remote origin refs/heads/main` already equalled HEAD): run **36433969388**, conclusion success. This is a NEWER run than the 36374009041 recorded by the previous iteration, on identical code.
+- FULL-SUITE check done separately, because ci_verify.sh only greps the FILTERED tests and a filtered pass can hide a red module: the run's `junit-results` artifact (id 10974818023) reports **1309 tests / 0 failures / 0 errors / 0 skipped** across 180 XML files - unchanged from the 1309 the previous iteration recorded. This host's network dropped connections twice mid-download (`curl: (28)` after ~31s each time), so the first extraction was re-done and proven complete with `unzip -t` ("No errors detected in compressed data") before the counts were trusted.
+- **Learnings for future iterations:**
+  - The re-verification of a finished stage is cheap and worth doing before declaring COMPLETE: when `git ls-remote origin refs/heads/main` == HEAD and a completed run exists for that SHA, ci_verify.sh reuses it instantly, so five verifyCommands cost seconds, not an hour.
+  - A docs-only commit still gets its own CI run id. The recorded run id in progress.txt is a point-in-time fact, not a stable handle - resolve the CURRENT run id from HEAD when you need a verdict.
+  - When curl drops a connection mid-artifact-download, the script keeps going and a PARTIAL extraction can still parse and print a plausible-looking test count. Verify the archive (`unzip -t`, or compare against the count a previous run recorded) before reporting a suite as green. The count matching an independently known figure is real corroboration; the file count alone is not.
+  - Never name a network tool inside a file that a stored verifyCommand greps for network markers, even to say the file does not use one - RALPH-PROGRESS-BAR's clause bans the literal in comments too.
+- **Pre-existing failures observed (not in scope):** none - full module 1309/1309 green on run 36433969388; all five stories' stored verifyCommands exit 0 on the committed tree.
