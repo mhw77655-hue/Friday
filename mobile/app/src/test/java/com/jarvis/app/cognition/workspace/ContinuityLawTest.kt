@@ -165,7 +165,11 @@ class ContinuityLawTest {
         assertEquals("direct", first.newValue)
         assertEquals(listOf("c-1", "c-2"), first.evidenceClaimIds)
         assertEquals("c-2", first.acceptedClaimId)
-        assertEquals("the entry carries the real instant the gate accepted at", 10_000L, first.timestamp)
+        // The clock is the ONLY thing injected, so the recorded instant is
+        // exactly where that clock stood: 1_000 at the first proposal, +10_000
+        // here. A literal that disagrees with the fixture would be asserting
+        // something the gate never did.
+        assertEquals("the entry carries the real instant the gate accepted at", 11_000L, first.timestamp)
         assertEquals(ChangeLayer.SLOW, first.layer)
 
         now += 10_000L
@@ -188,21 +192,33 @@ class ContinuityLawTest {
         // workspace starts empty, exactly as it would after a process death.
         val restoredLog = FileChangeLog(log.changeLogFile)
         val restored = ContinuityLaw(InMemoryWorkspace(), restoredLog, now = { now })
-        assertEquals("a restart reads back every accepted change", 2L, restoredLog.count())
+        // EXACTLY ONE change was accepted above (c-1 is a suggestion, not a
+        // change), so the file holds one line. The count is the number of
+        // accepted changes on disk, not the number of proposals.
+        assertEquals("a restart reads back every accepted change", 1L, restoredLog.count())
         assertEquals(
             "no line was silently dropped by the reader",
             restoredLog.count(),
             restoredLog.entries().size.toLong()
         )
         assertEquals("direct", restored.valueOf("persona:directness"))
-        assertEquals(10_000L, restoredLog.lastChangeAt("persona:directness"))
+        assertEquals(11_000L, restoredLog.lastChangeAt("persona:directness"))
 
-        val refused = restored.propose(persona("c-3", "directness", "playful"))
+        // TWO real proposals, so the evidence count is satisfied and the interval
+        // is the only remaining reason a refusal could have. One proposal would
+        // be refused for want of evidence whether or not the interval survived —
+        // a test that passes for the wrong reason proves nothing.
+        restored.propose(persona("c-3", "directness", "playful"))
+        val refused = restored.propose(persona("c-4", "directness", "playful"))
         assertTrue(
             "the interval survived the restart — an in-memory counter would have forgotten it",
             refused.isRejected
         )
-        assertEquals(2L, restoredLog.count())
+        assertTrue(
+            "and it was refused for the interval, not for evidence: ${refused.reason}",
+            refused.reason.contains("rate limited")
+        )
+        assertEquals(1L, restoredLog.count())
     }
 
     // ── AC3: CORE is rejected, whatever the evidence ────────────────────────────
@@ -232,15 +248,20 @@ class ContinuityLawTest {
 
     @Test
     fun `a change the gate cannot classify is an error, not a fast pass`() {
-        val noField = Claim(
-            id = "x-1",
-            kind = ClaimKind.PERSONA_TRAIT,
-            payload = "direct",
-            confidence = 0.5,
-            sourceOrgan = "identity.personaTuner",
-            createdAt = now
-        )
+        // The claim is CONSTRUCTED inside the try on purpose: the refusal is a
+        // construction-time schema check (Claim's init resolves the layer), so a
+        // test that built the claim outside the try would let the real
+        // IllegalArgumentException escape and report a code failure for a refusal
+        // the code is supposed to make.
         try {
+            val noField = Claim(
+                id = "x-1",
+                kind = ClaimKind.PERSONA_TRAIT,
+                payload = "direct",
+                confidence = 0.5,
+                sourceOrgan = "identity.personaTuner",
+                createdAt = now
+            )
             noField.layer
             fail("an identity-adjacent claim with no field must not be constructible")
         } catch (e: IllegalArgumentException) {

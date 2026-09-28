@@ -60,7 +60,7 @@ class FileChangeLog(private val file: File) : ChangeLog {
                     // reader test: it asserts count() == entries().size, so a
                     // silently-skipped line fails the suite instead of quietly
                     // shortening an accepted-change history.
-                    runCatching { ChangeLogEntry.fromJson(JSONObject(line)) }
+                    runCatching { fromJson(JSONObject(line)) }
                         .onSuccess { entries.add(it) }
                 }
             }
@@ -78,17 +78,22 @@ class FileChangeLog(private val file: File) : ChangeLog {
         .put("acceptedClaimId", acceptedClaimId)
         .put("timestamp", timestamp)
 
-    private companion object {
-        fun ChangeLogEntry.fromJson(json: JSONObject): ChangeLogEntry = ChangeLogEntry(
-            id = json.getString("id"),
-            target = json.getString("target"),
-            layer = ChangeLayer.valueOf(json.getString("layer")),
-            oldValue = if (json.isNull("oldValue")) null else json.getString("oldValue"),
-            newValue = json.getString("newValue"),
-            evidenceClaimIds = json.getJSONArray("evidenceClaimIds")
-                .let { a -> (0 until a.length()).map { a.getString(it) } },
-            acceptedClaimId = json.getString("acceptedClaimId"),
-            timestamp = json.getLong("timestamp")
-        )
-    }
+    // A private MEMBER, not an extension in the companion object: a qualified
+    // extension call (ChangeLogEntry.fromJson(...)) needs its dispatch receiver
+    // to be in scope, and a companion object is not a dispatch receiver for the
+    // class that owns it. The proof is the real compiler, not this comment —
+    // see the CI log for run 36332850661, which failed on exactly that call.
+    // TurnTrace (turn-trace/TurnTrace.kt) keeps its parser in the RECORD's own
+    // companion for the same reason: that shape provably resolves.
+    private fun fromJson(json: JSONObject): ChangeLogEntry = ChangeLogEntry(
+        id = json.getString("id"),
+        target = json.getString("target"),
+        layer = ChangeLayer.valueOf(json.getString("layer")),
+        oldValue = if (json.isNull("oldValue")) null else json.getString("oldValue"),
+        newValue = json.getString("newValue"),
+        evidenceClaimIds = json.getJSONArray("evidenceClaimIds")
+            .let { a -> (0 until a.length()).map { a.getString(it) } },
+        acceptedClaimId = json.getString("acceptedClaimId"),
+        timestamp = json.getLong("timestamp")
+    )
 }
