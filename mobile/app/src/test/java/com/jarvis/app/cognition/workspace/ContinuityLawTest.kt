@@ -361,8 +361,11 @@ class ContinuityLawTest {
         )
     }
 
+    // A backticked test name is a JVM METHOD name, and `:` is one of the
+    // characters the compiler refuses there (it separates descriptors) — a colon
+    // in a test title is a compile error, not a style choice.
     @Test
-    fun `AC5 the check is not trivially passing: a real drift in one recorded turn fails the suite`() {
+    fun `AC5 the check is not trivially passing - a real drift in one recorded turn fails the suite`() {
         val check = replayCheck()
         val baseline = check.replay()
         // Same corruption, aimed at a CORE field, to prove the per-turn
