@@ -11,9 +11,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
-import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.TemporaryFolder
 
 /**
  * CONTINUITY-LAW (Gate 3c) AC1/AC2/AC4/AC5 — the PRODUCTION-path half of the
@@ -22,10 +20,9 @@ import org.junit.rules.TemporaryFolder
  * Everything below runs against the real JVM-executable composition root,
  * [TermuxJarvisServer] — the mirror of `JarvisEngine.init` with only the
  * Android-bound stores swapped. The law, the durable log, the workspace and the
- * replay check are the objects the composition itself built, over a real
- * [TemporaryFolder] data directory, and a real turn goes through the real
- * [LatencyPipeline] first so the state being judged is state the live path
- * produced.
+ * replay check are the objects the composition itself built, over a real data
+ * directory on disk, and a real turn goes through the real [LatencyPipeline]
+ * first so the state being judged is state the live path produced.
  *
  * What this proves that a unit test in isolation cannot: that the gate is wired
  * at the composition point, that its durable log lives where a restart can find
@@ -35,15 +32,37 @@ import org.junit.rules.TemporaryFolder
  */
 class ContinuityLawProductionWiringTest {
 
-    @get:Rule
-    val temp = TemporaryFolder()
+    /**
+     * The data directory is deliberately NOT a JUnit TemporaryFolder, and must
+     * never become one.
+     *
+     * `TermuxJarvisServer` hands the FIRST data directory it is given to the
+     * process-wide HumanCore singleton (`HumanCore.init` runs only while that
+     * singleton is uninitialised, TermuxJarvisServer.kt:153), and the singleton
+     * keeps writing to that directory for the rest of the JVM. A TemporaryFolder
+     * is DELETED when its test class finishes, so every later test that touches
+     * the real HumanCore then fails on
+     * `FileNotFoundException: .../humancore/relationship.json.tmp`.
+     *
+     * That is not hypothetical: CI run 36365413999 failed 3 tests in 2 unrelated
+     * classes (OwnerBiometricBindingTest, PhaseBDisconnectedSubsystemWiringTest)
+     * with exactly that message, and this class was the only one in the whole
+     * tree naming a `jarvis-data` folder. So the directory is unique per test
+     * (which keeps each test's "no accepted change yet" assertion honest) and
+     * it is left in place, the same way the second composition in
+     * [the two compositions are independent] already leaves its directory.
+     */
+    private lateinit var dataDir: java.io.File
 
     private val servers = mutableListOf<TermuxJarvisServer>()
-    private lateinit var dataDir: java.io.File
 
     @Before
     fun setUp() {
-        dataDir = temp.newFolder("jarvis-data")
+        dataDir = java.io.File(
+            System.getProperty("java.io.tmpdir"),
+            "jarvis-continuitylaw-${System.nanoTime()}"
+        )
+        dataDir.mkdirs()
     }
 
     @After
