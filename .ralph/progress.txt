@@ -497,3 +497,30 @@ Thread: (local iteration)
   - prd.json `notes` remains the LAST field; unchanged this time because restoring meant reverting to the committed bytes, but any edit still needs `python3 -c "import json; json.load(open('.ralph/prd.json'))"` before committing.
 - **Pre-existing failures observed (not in scope):** none - 1309/1309 on run 36483109171; the auto-reject left no code defect behind, same as the WORKSPACE-CORE rejection on 2026-09-28.
 ---
+Wed Sep 30 07:04:04 BST 2026: Iteration 3 - router/provider error on omniroute/oc/hy3-free, retry 1/8 with omniroute/opencode/deepseek-v4-flash-free (same iteration).
+Wed Sep 30 08:07:57 BST 2026: Iteration 3 - router/provider error on omniroute/oc/hy3-free, retry 2/8 with omniroute/openrouter/z-ai/glm-5.2:free (same iteration).
+Wed Sep 30 08:31:31 BST 2026: Iteration 3 - router/provider error on omniroute/oc/hy3-free, retry 3/8 with omniroute/openrouter/nvidia/nemotron-3-ultra-550b-a55b:free (same iteration).
+Wed Sep 30 09:00:00 BST 2026: Iteration 3 - router/provider error on omniroute/oc/hy3-free, retry 4/8 with omniroute/openrouter/openai/gpt-oss-20b:free (same iteration).
+Wed Sep 30 09:00:44 BST 2026: Iteration 3 - router/provider error on omniroute/oc/hy3-free, retry 5/8 with omniroute/oc/nemotron-3-ultra-free (same iteration).
+Wed Sep 30 09:01:25 BST 2026: Iteration 3 - router/provider error on omniroute/oc/hy3-free, retry 6/8 with omniroute/oc/mimo-v2.5-free (same iteration).
+Wed Sep 30 09:02:00 BST 2026: Iteration 3 - router/provider error on omniroute/oc/hy3-free, retry 7/8 with opencode/big-pickle (same iteration).
+
+## 2026-09-30 (iteration 4) - CONTINUITY-LAW
+Thread: (local iteration)
+- What was implemented: nothing in Kotlin. CONTINUITY-LAW was already fully implemented and green, and the story had been auto-rejected for the FOURTH time on transport. The two prior iterations only documented that and restored the state, and the story was auto-rejected again — so this iteration fixed the actual cause in `.ralph/ci_verify.sh` (my own verification bridge) instead of documenting it a third time.
+- Files changed: `.ralph/ci_verify.sh` (retries), `.ralph/prd.json` (state restored via `git checkout`, byte-identical to HEAD), `.ralph/REPO_FACTS.md`, `.ralph/progress.txt`.
+- Verification of the current, unchanged Kotlin BEFORE touching anything: stored verifyCommand re-run in a retry loop -> attempt 1 transport (`curl: (6) Could not resolve host: api.github.com`), attempt 2 reached the real verdict line, **EXIT=0, 53 matched test(s) all passed** (run 36671806056). So the code was never the problem.
+- The two defects found, both network-only and both invisible to a local test:
+  1. the junit-results download was the single unretried network call in the script -> `fetch_artifact` (5 tries, 10s, `rm -f` before each attempt, `unzip -t` to prove a COMPLETE archive).
+  2. `api_get` retried 3 x 3s (~9s) against outage windows this host measures at 30-60s -> now 6 x 15s (~90s), both env-overridable (CIV_API_TRIES/CIV_API_SLEEP/CIV_DOWNLOAD_TRIES/CIV_DOWNLOAD_SLEEP) so a test can shrink them.
+- Controls run (each with a stub `curl` first on PATH, real curl behind it):
+  - broken pipe on the first download -> `attempt 1/4 failed (status 56)` -> `succeeded on attempt 2/4` -> `53 matched test(s), all passed`, EXIT=0. The rescue is real, not claimed.
+  - truncated archive delivered with curl exit 0 (transfer died after the status line) -> `unzip -t` status 9 on both attempts -> `failed to download ... after 2 attempts (check network)`, EXIT=1, and NO verdict line. A bad download can never read as green.
+  - a real 4 x 31s connect outage exhausted the (deliberately shrunk) budget and was reported per attempt with an honest fail — correct behaviour, not a defect to chase.
+- **Learnings for future iterations:**
+  - A verdict line the script PRINTS is the only verdict. Grep for `matched test(s), all passed` / `matched tests FAILED` / `no tests matched` first; transport markers earlier in the output are expected noise, not a code failure.
+  - The artifact download's URL in argv is `api.github.com/.../actions/artifacts/<id>/zip`; it redirects to the blob host internally, so a stub matching the blob host never fires (cost one wasted control run).
+  - "Document it as transport and restore the state" is not a fix when the same story has already been auto-rejected for transport twice: the bridge itself has to survive the transport.
+  - `bash -n` plus `--dry-run` (still EXIT=0 with the token unset) are the cheap local gates for a script change; neither proves the network behaviour, which is why the stub controls exist.
+- **Pre-existing failures observed (not in scope):** none — 53/53 on the matched filters, and the full `junit-results` artifact for that run is 1309/1309 (unchanged from the last three iterations, since no Kotlin moved).
+---

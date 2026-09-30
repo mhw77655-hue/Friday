@@ -23,6 +23,11 @@
 #
 # The GitHub token is read ONLY from the GITHUB_TOKEN environment variable
 # and is never written to a file.
+#
+# Every network call retries on a transient transport error, including the
+# junit-results download, which is the flakiest hop (different host, big
+# archive). A transport failure is never a verdict: the script keeps trying
+# and reports the raw per-attempt status; only a reached verdict exits.
 set -euo pipefail
 
 API_BASE="https://api.github.com"
@@ -144,12 +149,20 @@ AUTH=(-H "Authorization: Bearer ${GITHUB_TOKEN}" -H "Accept: application/vnd.git
 
 # GET a URL with retries on transient TLS/network errors. A bare curl in a
 # command substitution under set -e aborts the whole run on the first EOF.
+#
+# The retry budget must SPAN this host's outage window, not merely retry: the
+# api.github.com DNS/connect drops observed on this machine last 30-60s, so a
+# 3-try/3s loop gave up after ~9s of a 60s outage and failed a run whose CI
+# result was never even consulted. Defaults below cover ~90s; both are
+# env-overridable so a test can shrink them.
 api_get() {
-  local url="$1" tries=3
+  local url="$1" tries="${CIV_API_TRIES:-6}" rc=0
   while [ "$tries" -gt 0 ]; do
-    if curl -fsS "${AUTH[@]}" "$url"; then return 0; fi
+    rc=0
+    curl -fsS "${AUTH[@]}" "$url" || rc=$?
+    [ "$rc" -eq 0 ] && return 0
     tries=$((tries - 1))
-    [ "$tries" -gt 0 ] && sleep 3
+    [ "$tries" -gt 0 ] && sleep "${CIV_API_SLEEP:-15}"
   done
   return 1
 }
@@ -292,7 +305,35 @@ ART_JSON="$(api_get "${API_BASE}/repos/${OWNER_REPO}/actions/runs/${RUN_ID}/arti
 DL_URL="$(printf '%s' "$ART_JSON" | jq -r --arg n "$ARTIFACT_NAME" '.artifacts[] | select(.name == $n) | .archive_download_url' | head -n 1)"
 [ -n "$DL_URL" ] || fail "no '${ARTIFACT_NAME}' artifact on run ${RUN_ID}"
 echo "ci_verify.sh: downloading '${ARTIFACT_NAME}' artifact from run ${RUN_ID}"
-curl -fsSL "${AUTH[@]}" "$DL_URL" -o "$TMP/junit.zip" || fail "failed to download the junit-results artifact"
+# This is the ONE network call in the script that used to have no retry, and
+# the artifact is served from a different host than the API
+# (productionresultssa0.blob.core.windows.net), which this host drops for
+# 30-60s at a time. A single broken pipe or DNS miss therefore failed a run
+# that had ALREADY concluded success, which cost four consecutive auto-rejects
+# of an already-green story. Retrying is a transport concern only: each attempt
+# starts from an empty file and must yield a COMPLETE archive (a truncated zip
+# has no central directory, so `unzip -t` is what proves the transfer landed).
+# Nothing here can turn a red verdict green -- the judge below is unchanged.
+fetch_artifact() {
+  local tries="${CIV_DOWNLOAD_TRIES:-5}" sleep_s="${CIV_DOWNLOAD_SLEEP:-10}" i=1 rc=0
+  while [ "$i" -le "$tries" ]; do
+    rm -f "$TMP/junit.zip"
+    rc=0
+    curl -fsSL "${AUTH[@]}" "$DL_URL" -o "$TMP/junit.zip" || rc=$?
+    if [ "$rc" -eq 0 ]; then
+      unzip -t "$TMP/junit.zip" >/dev/null 2>&1 || rc=$?
+    fi
+    if [ "$rc" -eq 0 ]; then
+      [ "$i" -gt 1 ] && echo "ci_verify.sh: artifact download succeeded on attempt ${i}/${tries}"
+      return 0
+    fi
+    echo "ci_verify.sh: artifact download attempt ${i}/${tries} failed (status ${rc}), retrying in ${sleep_s}s" >&2
+    i=$((i + 1))
+    [ "$i" -le "$tries" ] && sleep "$sleep_s"
+  done
+  return 1
+}
+fetch_artifact || fail "failed to download the junit-results artifact after ${CIV_DOWNLOAD_TRIES:-5} attempts (check network)"
 unzip -q "$TMP/junit.zip" -d "$TMP/xml" || fail "failed to unzip the junit-results archive"
 
 # ---------------------------------------------------------------------------
