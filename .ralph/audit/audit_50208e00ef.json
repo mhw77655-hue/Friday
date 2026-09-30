@@ -1,0 +1,11 @@
+{
+  "range": "files: mobile/app/src/main/java/com/jarvis/app/NamedSoulEngine.kt, mobile/app/src/main/java/com/jarvis/app/NamedSelfEngine.kt",
+  "model_calls": 1,
+  "deviations": [],
+  "observations": [],
+  "report": "../../../tmp/tmp.RPqNUoUuuI/model2.md",
+  "patch": null,
+  "branch": null,
+  "branch_sha": null,
+  "merged": false
+}

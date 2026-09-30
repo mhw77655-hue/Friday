@@ -197,3 +197,32 @@ If there are still stories with `passes: false`, end your response normally (ano
 - Keep CI green
 - Read the Codebase Patterns section in progress.txt before starting
 - PLAN before you edit (Phase 0) - this is the single biggest lever on how many iterations a story takes
+
+## AUDIT-TOOL
+
+Build a tool that runs after any story closes. It reads .ralph/VISION.md and the diff that story produced. It checks the changed code against VISION.md Section 13's checklist. It produces a report in Ralph's own evidence-first voice, and, only for findings it is actually confident about, a real draft patch that runs against the full suite.
+
+What it checks, mechanically where possible before reaching for a model call:
+- a closed enum, sealed class, or fixed switch/when standing in for something Section 4 says should stay open
+- a threshold, count, or interval that's a bare constant where the vision requires it to scale with accumulated evidence
+- two organs calling each other directly instead of through the shared claim store
+- a class, interface, or file whose name or structure claims permanent ownership of a cognitive function rather than declaring an affordance
+- anything shaped like a resolver or arbiter making a meaning-level decision instead of a resource-level one
+
+Use grep/AST-level detection for anything on that list that's structurally checkable before spending a model call. Reach for the model only where the check is genuinely semantic, like judging whether a class name implies ownership.
+
+What it produces, every run, two things, never one:
+1. A report naming every finding with a file and line, in the same no-unverified-claims standard the rest of Ralph already holds.
+2. For findings it's confident about, a real patch, run against CI, that reconfigures the flagged code toward the liquid form Section 4 describes. Sitting as a diff, not merged.
+
+An open list at the end for anything it flagged but can't resolve on its own.
+
+What it never touches: anything CONTINUITY-LAW already gates, identity-adjacent claims, the security floor, approval requirements. It operates on ordinary implementation code only. It never merges its own patch.
+
+Acceptance criteria:
+AC1 positive control: run cold, no hint, against the current repo. It must independently surface all three disclosed Section 12 deviations: ClaimKind's closed enum, ChangeLayer's fixed three-way classification, and the SLOW-layer's flat evidence-count-plus-fixed-interval threshold. Missing any one fails this story.
+AC2 negative control: run against a legitimate construct that looks similar, the Workspace interface itself or InMemoryWorkspace's own internal fields, and confirm it is not flagged.
+AC3 a real patch: for at least one of the three findings, produce an actual diff that resolves it, and prove that diff passes the full CI suite on its own branch, unmerged.
+AC4 no self-merge: prove structurally that no code path in the tool writes to main or closes a story on its own; only a human action does.
+AC5 cost discipline: prove the structural findings are caught without any model call, and only the ownership-naming check spends one.
+AC6 the tool audits itself: run it against its own source. If it finds nothing, the story notes must say explicitly what was checked and why zero is the honest answer, not silently assumed.

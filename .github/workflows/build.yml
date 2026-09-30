@@ -2,7 +2,12 @@ name: build
 
 on:
   push:
-    branches: [ main ]
+    # `audit/**` exists so the AUDIT-TOOL can prove its draft patch compiles
+    # and passes the suite on a branch of its own, unmerged. Without this the
+    # patch could only ever be verified by merging it, which is the one thing
+    # the tool must never do. Nothing under audit/** is merged by CI or by the
+    # tool; a run there is evidence, not a gate on main.
+    branches: [ main, 'audit/**' ]
   workflow_dispatch:
 
 jobs:

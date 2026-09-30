@@ -1,0 +1,17 @@
+{
+  "id": "AUDIT-TOOL",
+  "title": "Vision audit tool: check committed code against VISION.md Section 13",
+  "description": "A script, .ralph/vision_audit.sh, run after any story closes. It reads .ralph/VISION.md and the diff/current state of the code a story touched. It checks that code against Section 13's checklist: closed enums or fixed taxonomies standing in for something that should stay open, thresholds that are bare constants where the vision requires them to develop with evidence, two organs calling each other directly instead of through the shared claim store, a class or file whose name claims permanent ownership of a cognitive function instead of declaring an affordance, and anything shaped like a resolver or arbiter making a meaning-level decision instead of a resource-level one. Use grep/AST-level detection for anything structurally checkable before spending a model call; reach for a model only for genuinely semantic judgments like whether a class name implies ownership. It produces two things every run: a report naming every finding with file and line, and, only for findings it is confident about, a real patch that runs against CI, sitting as a diff, never merged automatically. It never touches CONTINUITY-LAW-gated identity-adjacent state or the security floor. It never merges its own patch, never commits, never pushes, and never closes a story itself.",
+  "acceptanceCriteria": [
+    "AC1 positive control: run cold with no hints against the current repo and independently surface all three disclosed Section 12 deviations: ClaimKind's closed enum, ChangeLayer's fixed three-way classification, and the SLOW-layer's flat evidence-count-plus-fixed-interval threshold. Missing any one fails this story.",
+    "AC2 negative control: run against a legitimate construct that looks similar, the Workspace interface itself or InMemoryWorkspace's own internal fields, and confirm it is not flagged.",
+    "AC3 a real patch: for at least one of the three findings, produce an actual diff that resolves it and prove that diff passes the full CI suite on its own branch, unmerged.",
+    "AC4 no self-merge: prove structurally that no code path in the tool writes to main, commits, pushes, or closes a story on its own; only a human action does.",
+    "AC5 cost discipline: prove the structural findings are caught with zero model calls, and only the ownership-naming check spends one.",
+    "AC6 the tool audits itself: run it against its own source and report explicitly what was checked and why zero (or non-zero) findings is the honest answer, not silently assumed."
+  ],
+  "verifyCommand": "cd /sdcard/jarvis-repo && test -x .ralph/vision_audit.sh && OUT=$(bash .ralph/vision_audit.sh) && echo \"$OUT\" | grep -q 'ClaimKind' && echo \"$OUT\" | grep -q 'ChangeLayer' && echo \"$OUT\" | grep -qi 'SLOW' && ! echo \"$OUT\" | grep -q 'InMemoryWorkspace' && ! grep -rnE 'git (commit|push|merge)|gh pr merge' .ralph/vision_audit.sh",
+  "priority": 6,
+  "passes": false,
+  "notes": ""
+}

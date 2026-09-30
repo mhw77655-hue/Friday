@@ -1,0 +1,102 @@
+{
+  "range": "4bdbea7084..9c92571",
+  "model_calls": 0,
+  "deviations": [
+    {
+      "check": "closed_type",
+      "symbol": "ChangeLayer",
+      "file": "mobile/app/src/main/java/com/jarvis/app/cognition/workspace/ChangeLayer.kt",
+      "line": 38,
+      "s13": "Did this replace \"whatever is actually needed right now\" with a predefined list of inputs, outputs, types, thresholds, stages, or roles?",
+      "recipe": ""
+    },
+    {
+      "check": "closed_type",
+      "symbol": "ClaimKind",
+      "file": "mobile/app/src/main/java/com/jarvis/app/cognition/workspace/ClaimKind.kt",
+      "line": 18,
+      "s13": "Did this replace \"whatever is actually needed right now\" with a predefined list of inputs, outputs, types, thresholds, stages, or roles?",
+      "recipe": ""
+    },
+    {
+      "check": "fixed_classification",
+      "symbol": "ChangeLayer -> {CORE, FAST, SLOW}",
+      "file": "mobile/app/src/main/java/com/jarvis/app/cognition/workspace/ChangeLayer.kt",
+      "line": 88,
+      "s13": "Did this turn an emergent, per-task behavior into a fixed function with a fixed role?",
+      "recipe": ""
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "DEFAULT_MIN_EVIDENCE_CLAIMS",
+      "file": "mobile/app/src/main/java/com/jarvis/app/cognition/workspace/ContinuityLaw.kt",
+      "line": 221,
+      "s13": "Did this replace \"whatever is actually needed right now\" with a predefined list of inputs, outputs, types, thresholds, stages, or roles?",
+      "recipe": "evidence-scaled-threshold"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "DEFAULT_MIN_INTERVAL_MS",
+      "file": "mobile/app/src/main/java/com/jarvis/app/cognition/workspace/ContinuityLaw.kt",
+      "line": 228,
+      "s13": "Did this replace \"whatever is actually needed right now\" with a predefined list of inputs, outputs, types, thresholds, stages, or roles?",
+      "recipe": "evidence-scaled-threshold"
+    }
+  ],
+  "observations": [
+    {
+      "check": "flat_threshold",
+      "symbol": "EVIDENCE_CONFIDENCE",
+      "file": "mobile/app/src/main/java/com/jarvis/app/cognition/workspace/ContinuityLaw.kt",
+      "line": 236,
+      "why_not": "no comparison in the changed code reaches this constant"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "ACCEPTED_CONFIDENCE",
+      "file": "mobile/app/src/main/java/com/jarvis/app/cognition/workspace/ContinuityLaw.kt",
+      "line": 242,
+      "why_not": "no comparison in the changed code reaches this constant"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "DECAY_RATE",
+      "file": "mobile/app/src/main/java/com/jarvis/app/cognition/workspace/MentalStateClaims.kt",
+      "line": 39,
+      "why_not": "no comparison in the changed code reaches this constant"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "UNANCHORED_CONFIDENCE",
+      "file": "mobile/app/src/main/java/com/jarvis/app/cognition/workspace/MentalStateClaims.kt",
+      "line": 45,
+      "why_not": "no comparison in the changed code reaches this constant"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "MIN_FIELD_SIMILARITY",
+      "file": "mobile/app/src/main/java/com/jarvis/app/cognition/workspace/ReplayCheck.kt",
+      "line": 252,
+      "why_not": "the compared quantity is neither an evidence count nor an elapsed interval"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "TICK_INTERVAL_MS",
+      "file": "mobile/app/src/main/java/com/jarvis/app/cognition/workspace/Workspace.kt",
+      "line": 58,
+      "why_not": "no comparison in the changed code reaches this constant"
+    },
+    {
+      "check": "ownership_naming",
+      "symbol": "CoreIdentity",
+      "file": "mobile/app/src/main/java/com/jarvis/app/cognition/workspace/ReplayCheck.kt",
+      "line": 266,
+      "why_not": "unjudged: the only model-backed check had no model, so the names are reported as open, not as deviations"
+    }
+  ],
+  "report": "../../../tmp/tmp.RPqNUoUuuI/branch.md",
+  "patch": ".ralph/audit/audit_9c92571.patch",
+  "branch": "audit/ac4-probe-23613",
+  "branch_sha": "e9f4ad2b330b9c6ee6fdb3e71571826901b75178",
+  "merged": false
+}

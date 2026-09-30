@@ -1,0 +1,229 @@
+{
+  "range": "self-audit: .ralph/audit.py",
+  "model_calls": 0,
+  "deviations": [],
+  "observations": [
+    {
+      "check": "flat_threshold",
+      "symbol": "1",
+      "file": ".ralph/audit.py",
+      "line": 165,
+      "why_not": "a display-truncation or a minimum-membership cut-off inside the tool is not a gate on what the audited system may do; recorded so the number is not invisible, not called drift"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "0",
+      "file": ".ralph/audit.py",
+      "line": 244,
+      "why_not": "a display-truncation or a minimum-membership cut-off inside the tool is not a gate on what the audited system may do; recorded so the number is not invisible, not called drift"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "0",
+      "file": ".ralph/audit.py",
+      "line": 422,
+      "why_not": "a display-truncation or a minimum-membership cut-off inside the tool is not a gate on what the audited system may do; recorded so the number is not invisible, not called drift"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "0",
+      "file": ".ralph/audit.py",
+      "line": 433,
+      "why_not": "a display-truncation or a minimum-membership cut-off inside the tool is not a gate on what the audited system may do; recorded so the number is not invisible, not called drift"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "0",
+      "file": ".ralph/audit.py",
+      "line": 451,
+      "why_not": "a display-truncation or a minimum-membership cut-off inside the tool is not a gate on what the audited system may do; recorded so the number is not invisible, not called drift"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "0",
+      "file": ".ralph/audit.py",
+      "line": 459,
+      "why_not": "a display-truncation or a minimum-membership cut-off inside the tool is not a gate on what the audited system may do; recorded so the number is not invisible, not called drift"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "2",
+      "file": ".ralph/audit.py",
+      "line": 493,
+      "why_not": "a display-truncation or a minimum-membership cut-off inside the tool is not a gate on what the audited system may do; recorded so the number is not invisible, not called drift"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "2",
+      "file": ".ralph/audit.py",
+      "line": 584,
+      "why_not": "a display-truncation or a minimum-membership cut-off inside the tool is not a gate on what the audited system may do; recorded so the number is not invisible, not called drift"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "2",
+      "file": ".ralph/audit.py",
+      "line": 602,
+      "why_not": "a display-truncation or a minimum-membership cut-off inside the tool is not a gate on what the audited system may do; recorded so the number is not invisible, not called drift"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "0",
+      "file": ".ralph/audit.py",
+      "line": 776,
+      "why_not": "a display-truncation or a minimum-membership cut-off inside the tool is not a gate on what the audited system may do; recorded so the number is not invisible, not called drift"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "0",
+      "file": ".ralph/audit.py",
+      "line": 790,
+      "why_not": "a display-truncation or a minimum-membership cut-off inside the tool is not a gate on what the audited system may do; recorded so the number is not invisible, not called drift"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "2",
+      "file": ".ralph/audit.py",
+      "line": 969,
+      "why_not": "a display-truncation or a minimum-membership cut-off inside the tool is not a gate on what the audited system may do; recorded so the number is not invisible, not called drift"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "2",
+      "file": ".ralph/audit.py",
+      "line": 975,
+      "why_not": "a display-truncation or a minimum-membership cut-off inside the tool is not a gate on what the audited system may do; recorded so the number is not invisible, not called drift"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "2",
+      "file": ".ralph/audit.py",
+      "line": 1116,
+      "why_not": "a display-truncation or a minimum-membership cut-off inside the tool is not a gate on what the audited system may do; recorded so the number is not invisible, not called drift"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "1",
+      "file": ".ralph/audit.py",
+      "line": 1433,
+      "why_not": "a display-truncation or a minimum-membership cut-off inside the tool is not a gate on what the audited system may do; recorded so the number is not invisible, not called drift"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "0",
+      "file": ".ralph/audit.py",
+      "line": 1484,
+      "why_not": "a display-truncation or a minimum-membership cut-off inside the tool is not a gate on what the audited system may do; recorded so the number is not invisible, not called drift"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "0",
+      "file": ".ralph/audit.py",
+      "line": 1523,
+      "why_not": "a display-truncation or a minimum-membership cut-off inside the tool is not a gate on what the audited system may do; recorded so the number is not invisible, not called drift"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "0",
+      "file": ".ralph/audit.py",
+      "line": 1531,
+      "why_not": "a display-truncation or a minimum-membership cut-off inside the tool is not a gate on what the audited system may do; recorded so the number is not invisible, not called drift"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "0",
+      "file": ".ralph/audit.py",
+      "line": 1834,
+      "why_not": "a display-truncation or a minimum-membership cut-off inside the tool is not a gate on what the audited system may do; recorded so the number is not invisible, not called drift"
+    },
+    {
+      "check": "meaning_arbiter",
+      "symbol": "check_meaning_arbiter",
+      "file": ".ralph/audit.py",
+      "line": 996,
+      "why_not": "a text scan cannot resolve whether a name reflects a reserved cognitive role or names the step it performs; the finding is open, not answered"
+    },
+    {
+      "check": "named_wire",
+      "symbol": "git",
+      "file": ".ralph/audit.py",
+      "line": 212,
+      "why_not": "the dependency is on the mechanism, not on a peer subsystem, and it is what the tool is for"
+    },
+    {
+      "check": "named_wire",
+      "symbol": "git",
+      "file": ".ralph/audit.py",
+      "line": 219,
+      "why_not": "the dependency is on the mechanism, not on a peer subsystem, and it is what the tool is for"
+    },
+    {
+      "check": "named_wire",
+      "symbol": "git",
+      "file": ".ralph/audit.py",
+      "line": 241,
+      "why_not": "the dependency is on the mechanism, not on a peer subsystem, and it is what the tool is for"
+    },
+    {
+      "check": "named_wire",
+      "symbol": "git",
+      "file": ".ralph/audit.py",
+      "line": 398,
+      "why_not": "the dependency is on the mechanism, not on a peer subsystem, and it is what the tool is for"
+    },
+    {
+      "check": "named_wire",
+      "symbol": "git",
+      "file": ".ralph/audit.py",
+      "line": 1482,
+      "why_not": "the dependency is on the mechanism, not on a peer subsystem, and it is what the tool is for"
+    },
+    {
+      "check": "named_wire",
+      "symbol": "git",
+      "file": ".ralph/audit.py",
+      "line": 1497,
+      "why_not": "the dependency is on the mechanism, not on a peer subsystem, and it is what the tool is for"
+    },
+    {
+      "check": "named_wire",
+      "symbol": "git",
+      "file": ".ralph/audit.py",
+      "line": 1521,
+      "why_not": "the dependency is on the mechanism, not on a peer subsystem, and it is what the tool is for"
+    },
+    {
+      "check": "named_wire",
+      "symbol": "git",
+      "file": ".ralph/audit.py",
+      "line": 1545,
+      "why_not": "the dependency is on the mechanism, not on a peer subsystem, and it is what the tool is for"
+    },
+    {
+      "check": "named_wire",
+      "symbol": "git",
+      "file": ".ralph/audit.py",
+      "line": 1547,
+      "why_not": "the dependency is on the mechanism, not on a peer subsystem, and it is what the tool is for"
+    },
+    {
+      "check": "named_wire",
+      "symbol": "git",
+      "file": ".ralph/audit.py",
+      "line": 1830,
+      "why_not": "the dependency is on the mechanism, not on a peer subsystem, and it is what the tool is for"
+    },
+    {
+      "check": "named_wire",
+      "symbol": "bash",
+      "file": ".ralph/audit.py",
+      "line": 1845,
+      "why_not": "the dependency is on the mechanism, not on a peer subsystem, and it is what the tool is for"
+    }
+  ],
+  "report": ".ralph/audit/audit_self-1790777812.md",
+  "patch": null,
+  "branch": null,
+  "branch_sha": null,
+  "merged": false
+}

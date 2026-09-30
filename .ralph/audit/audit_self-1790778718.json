@@ -1,0 +1,103 @@
+{
+  "range": "self-audit: .ralph/audit.py",
+  "model_calls": 0,
+  "deviations": [
+    {
+      "check": "flat_threshold",
+      "symbol": "2",
+      "file": ".ralph/audit.py",
+      "line": 493,
+      "s13": "Did this replace \"whatever is actually needed right now\" with a predefined list of inputs, outputs, types, thresholds, stages, or roles?",
+      "recipe": ""
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "2",
+      "file": ".ralph/audit.py",
+      "line": 584,
+      "s13": "Did this replace \"whatever is actually needed right now\" with a predefined list of inputs, outputs, types, thresholds, stages, or roles?",
+      "recipe": ""
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "2",
+      "file": ".ralph/audit.py",
+      "line": 602,
+      "s13": "Did this replace \"whatever is actually needed right now\" with a predefined list of inputs, outputs, types, thresholds, stages, or roles?",
+      "recipe": ""
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "2",
+      "file": ".ralph/audit.py",
+      "line": 969,
+      "s13": "Did this replace \"whatever is actually needed right now\" with a predefined list of inputs, outputs, types, thresholds, stages, or roles?",
+      "recipe": ""
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "2",
+      "file": ".ralph/audit.py",
+      "line": 975,
+      "s13": "Did this replace \"whatever is actually needed right now\" with a predefined list of inputs, outputs, types, thresholds, stages, or roles?",
+      "recipe": ""
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "2",
+      "file": ".ralph/audit.py",
+      "line": 1162,
+      "s13": "Did this replace \"whatever is actually needed right now\" with a predefined list of inputs, outputs, types, thresholds, stages, or roles?",
+      "recipe": ""
+    }
+  ],
+  "observations": [
+    {
+      "check": "closed_type",
+      "symbol": "S13_PHRASES",
+      "file": ".ralph/audit.py",
+      "line": 176,
+      "why_not": "a fixed table in the auditor is not automatically a closed classification of the audited system; whether it is one is a question for a reader, not something this scan can settle"
+    },
+    {
+      "check": "closed_type",
+      "symbol": "STORE_TYPES",
+      "file": ".ralph/audit.py",
+      "line": 350,
+      "why_not": "a fixed table in the auditor is not automatically a closed classification of the audited system; whether it is one is a question for a reader, not something this scan can settle"
+    },
+    {
+      "check": "closed_type",
+      "symbol": "SELF_AUDIT_LIMITS",
+      "file": ".ralph/audit.py",
+      "line": 1075,
+      "why_not": "a fixed table in the auditor is not automatically a closed classification of the audited system; whether it is one is a question for a reader, not something this scan can settle"
+    },
+    {
+      "check": "closed_type",
+      "symbol": "RECIPES",
+      "file": ".ralph/audit.py",
+      "line": 1297,
+      "why_not": "a fixed table in the auditor is not automatically a closed classification of the audited system; whether it is one is a question for a reader, not something this scan can settle"
+    },
+    {
+      "check": "meaning_arbiter",
+      "symbol": "check_meaning_arbiter",
+      "file": ".ralph/audit.py",
+      "line": 996,
+      "why_not": "a name is not a reserved cognitive role; the finding is left open because this scan cannot resolve it, not because it was dismissed"
+    },
+    {
+      "check": "named_wire",
+      "symbol": "git, bash",
+      "file": ".ralph/audit.py",
+      "line": 212,
+      "why_not": "the dependency is on the mechanism this tool exists to drive -- the same way the shared store is the mechanism for production code -- and replacing git with an indirection would not make the audit any more honest"
+    }
+  ],
+  "report": "../../../tmp/tmp.RPqNUoUuuI/self.md",
+  "patch": null,
+  "branch": null,
+  "branch_sha": null,
+  "merged": false
+}

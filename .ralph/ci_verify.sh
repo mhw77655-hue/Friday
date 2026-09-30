@@ -1,10 +1,19 @@
 #!/usr/bin/env bash
 # ci_verify.sh -- decide pass/fail for unit-test filters using the GitHub
-# Actions run for the current HEAD commit of this repo.
+# Actions run for a commit of this repo.
 #
 # Usage:
 #   ci_verify.sh [--dry-run] <filter> [<filter> ...]
 #   ci_verify.sh [--dry-run] --build-status
+#
+# CIV_BRANCH selects the branch whose tip is verified. It defaults to `main`,
+# which is exactly the previous behaviour: the tip of `main` and the commit
+# that is checked out were the same thing. They stop being the same thing the
+# moment a caller verifies a branch it did not check out -- the AUDIT-TOOL
+# verifies an unmerged `audit/**` patch branch while the working tree stays on
+# `main` -- so the commit under test is read from the branch REF, never from
+# HEAD. Reading HEAD there would have judged `main` and reported the patch
+# branch green.
 #
 # A filter uses the same package/class glob format as Gradle's --tests
 # argument (e.g. 'com.jarvis.app.cognitive.*'). Each filter is matched
@@ -33,6 +42,7 @@ set -euo pipefail
 API_BASE="https://api.github.com"
 WORKFLOW_FILENAME="build.yml"
 ARTIFACT_NAME="junit-results"
+BRANCH="${CIV_BRANCH:-main}"
 TIMEOUT_SECONDS="${CIV_TIMEOUT_SECONDS:-1500}"
 POLL_SECONDS="${CIV_POLL_SECONDS:-15}"
 
@@ -70,10 +80,11 @@ Usage:
 Filter mode:
 A filter is a package/class glob like Gradle's --tests argument, e.g.
 'com.jarvis.app.cognitive.*'. The script looks up the GitHub Actions run for
-the current HEAD commit, pushes main if no run exists yet, waits (up to 25
-minutes) for the run to finish, downloads its 'junit-results' artifact, and
-returns exit 0 only when every test matching the filter(s) passed and at
-least one matching test exists. GITHUB_TOKEN must be set (never stored).
+the tip of the branch named by CIV_BRANCH (default: main), pushes that branch
+if no run exists yet, waits (up to 25 minutes) for the run to finish,
+downloads its 'junit-results' artifact, and returns exit 0 only when every
+test matching the filter(s) passed and at least one matching test exists.
+GITHUB_TOKEN must be set (never stored).
 HELP
       exit 0 ;;
     -*) echo "ci_verify.sh: unknown option: $1" >&2; exit 2 ;;
@@ -93,7 +104,17 @@ fi
 # ---------------------------------------------------------------------------
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
-HEAD_SHA="$(git rev-parse HEAD)"
+# The tip of the branch under test, NOT HEAD: when CIV_BRANCH names a branch
+# that is not checked out, HEAD is a different commit entirely.
+if ! HEAD_SHA="$(git rev-parse --verify --quiet "refs/heads/${BRANCH}" 2>/dev/null)" \
+        || [ -z "$HEAD_SHA" ]; then
+  if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+    HEAD_SHA="$(git rev-parse HEAD)"
+  else
+    echo "ci_verify.sh: branch '${BRANCH}' does not exist locally; it must be pushed before it can be verified" >&2
+    exit 1
+  fi
+fi
 ORIGIN="$(git config --get remote.origin.url || true)"
 OWNER_REPO=""
 if [ -n "$ORIGIN" ]; then
@@ -116,22 +137,24 @@ if [ "$DRY_RUN" -eq 1 ]; then
     TOKEN_LINE='  GITHUB_TOKEN: NOT set'
   fi
   if [ "$BUILD_STATUS" -eq 1 ]; then
-    printf 'ci_verify.sh dry-run: would check the build status of the CI run for HEAD\n'
-    printf '  HEAD       : %s\n' "$HEAD_SHA"
+    printf 'ci_verify.sh dry-run: would check the build status of the CI run for the branch tip\n'
+    printf '  branch     : %s\n' "$BRANCH"
+    printf '  commit     : %s\n' "$HEAD_SHA"
     printf '  repository : %s\n' "${OWNER_REPO:-unknown}"
     printf '  mode       : --build-status\n'
     printf '%s\n' "$TOKEN_LINE"
-    printf '  would      : look up the "%s" run for HEAD through %s; if none exists, push main; wait up to %ss for completion; exit 0 only if the run conclusion is success, otherwise report the run URL, jobs, failed steps and the failed job log tail, then exit 1.\n' \
-      "$WORKFLOW_FILENAME" "$API_BASE" "$TIMEOUT_SECONDS"
+    printf '  would      : look up the "%s" run for %s@%s via %s; if none exists, push %s; wait up to %ss for completion; exit 0 only if the run conclusion is success, otherwise report the run URL, jobs, failed steps and the failed job log tail, then exit 1.\n' \
+      "$WORKFLOW_FILENAME" "$BRANCH" "${HEAD_SHA:0:10}" "$API_BASE" "$BRANCH" "$TIMEOUT_SECONDS"
     exit 0
   fi
-  printf 'ci_verify.sh dry-run: would verify the following filter(s) against the CI run for HEAD\n'
-  printf '  HEAD       : %s\n' "$HEAD_SHA"
+  printf 'ci_verify.sh dry-run: would verify the following filter(s) against the CI run for the branch tip\n'
+  printf '  branch     : %s\n' "$BRANCH"
+  printf '  commit     : %s\n' "$HEAD_SHA"
   printf '  repository : %s\n' "${OWNER_REPO:-unknown}"
   printf '  filter(s)  : %s\n' "${FILTERS[*]}"
   printf '%s\n' "$TOKEN_LINE"
-  printf '  would      : look up the "%s" run for HEAD through %s; if none exists, push main; wait up to %ss for completion; download the "%s" artifact; compare every JUnit test against the filter(s); exit 0 only if at least one test matched and none failed.\n' \
-    "$WORKFLOW_FILENAME" "$API_BASE" "$TIMEOUT_SECONDS" "$ARTIFACT_NAME"
+  printf '  would      : look up the "%s" run for %s@%s via %s; if none exists, push %s; wait up to %ss for completion; download the "%s" artifact; compare every JUnit test against the filter(s); exit 0 only if at least one test matched and none failed.\n' \
+    "$WORKFLOW_FILENAME" "$BRANCH" "${HEAD_SHA:0:10}" "$API_BASE" "$BRANCH" "$TIMEOUT_SECONDS" "$ARTIFACT_NAME"
   exit 0
 fi
 
@@ -185,8 +208,11 @@ pick_run_id() {
 import json, os
 data = json.loads(os.environ["RUN_JSON_PAYLOAD"])
 cand = []
+branch = os.environ.get("BRANCH", "main")
 for r in data.get("workflow_runs", []):
-    if r.get("head_sha") == os.environ.get("HEAD_SHA") and r.get("path", "").endswith("build.yml"):
+    if r.get("head_sha") != os.environ.get("HEAD_SHA"):
+        continue
+    if r.get("path", "").endswith("build.yml") and (not branch or r.get("head_branch") == branch):
         cand.append(r)
 if not cand:
     print("")
@@ -197,7 +223,7 @@ PY
 }
 
 # shellcheck disable=SC2034
-export HEAD_SHA
+export HEAD_SHA BRANCH
 
 # ---------------------------------------------------------------------------
 # Find (or trigger) the run for HEAD
@@ -205,8 +231,21 @@ export HEAD_SHA
 RUN_ID="$(get_runs | pick_run_id)"
 
 if [ -z "$RUN_ID" ]; then
-  echo "ci_verify.sh: no run for ${HEAD_SHA}; pushing main so CI builds this commit"
-  git push origin HEAD:main || fail "could not push main (check auth/network)"
+  # Only the branch's OWN tip may be pushed to it. The push is `HEAD:refs/heads/
+  # ${BRANCH}`, so if the checked-out commit is not that tip it would publish a
+  # DIFFERENT commit under the branch's name -- and CI would then report a green
+  # run for code that is not the thing being verified. That is how a verification
+  # ends up proving something else, so it is refused here rather than after.
+  checked_out="$(git rev-parse --verify --quiet HEAD 2>/dev/null || true)"
+  if [ "$checked_out" != "$HEAD_SHA" ]; then
+    fail "no run for '${BRANCH}'@${HEAD_SHA:0:10}, and the checked-out commit is ${checked_out:0:10}: pushing it would put the wrong code on '${BRANCH}' and read as a verdict for the wrong thing. Check that branch out, or push it yourself, then re-run."
+  fi
+  echo "ci_verify.sh: no run for ${HEAD_SHA} on '${BRANCH}'; pushing that branch so CI builds this commit"
+  # Scoped to the branch under test. The previous `HEAD:main` would push the
+  # checked-out commit onto main whatever was being verified, which is how a
+  # verification of one thing can end up publishing another.
+  git push origin "HEAD:refs/heads/${BRANCH}" \
+    || fail "could not push ${BRANCH} (check auth/network)"
   RUN_ID=""
   deadline=$(( $(date +%s) + TIMEOUT_SECONDS ))
   while [ -z "$RUN_ID" ]; do
