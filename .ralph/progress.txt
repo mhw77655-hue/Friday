@@ -461,3 +461,39 @@ Thread: (local iteration)
   - prd.json `notes` remains the LAST field: still validate with `python3 -c "import json; json.load(open('.ralph/prd.json'))"` after any edit.
 - **Pre-existing failures observed (not in scope):** none — 1309/1309 on run 36448677803; the auto-reject left no code defect behind.
 ---
+
+## Ralph run complete — Mon Sep 28 22:16:34 BST 2026
+All stories independently re-verified for real after 1 iteration(s).
+---
+Tue Sep 29 23:45:18 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 1/8 with omniroute/auto/best-free (same iteration).
+Tue Sep 29 23:46:04 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 2/8 with omniroute/oc/hy3-free (same iteration).
+Tue Sep 29 23:46:51 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 3/8 with omniroute/opencode/deepseek-v4-flash-free (same iteration).
+Tue Sep 29 23:47:38 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 4/8 with omniroute/openrouter/z-ai/glm-5.2:free (same iteration).
+Tue Sep 29 23:48:24 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 5/8 with omniroute/openrouter/nvidia/nemotron-3-ultra-550b-a55b:free (same iteration).
+Tue Sep 29 23:49:14 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 6/8 with omniroute/openrouter/openai/gpt-oss-20b:free (same iteration).
+Tue Sep 29 23:50:02 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 7/8 with omniroute/oc/nemotron-3-ultra-free (same iteration).
+Tue Sep 29 23:51:01 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 8/8 with omniroute/oc/mimo-v2.5-free (same iteration).
+Tue Sep 29 23:58:32 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 1/8 with omniroute/oc/hy3-free (same iteration).
+Tue Sep 29 23:59:22 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 2/8 with omniroute/opencode/deepseek-v4-flash-free (same iteration).
+Wed Sep 30 00:00:33 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 3/8 with omniroute/openrouter/z-ai/glm-5.2:free (same iteration).
+Wed Sep 30 00:01:10 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 4/8 with omniroute/openrouter/nvidia/nemotron-3-ultra-550b-a55b:free (same iteration).
+Wed Sep 30 00:01:46 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 5/8 with omniroute/openrouter/openai/gpt-oss-20b:free (same iteration).
+Wed Sep 30 00:03:08 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 6/8 with omniroute/oc/nemotron-3-ultra-free (same iteration).
+Wed Sep 30 00:04:44 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 7/8 with omniroute/oc/mimo-v2.5-free (same iteration).
+Wed Sep 30 00:05:27 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 8/8 with opencode/big-pickle (same iteration).
+
+## Wed Sep 30 2026 - CONTINUITY-LAW REJECTION AUDIT (transport-only auto-reject, no new story)
+Thread: (local iteration)
+- State found on entry: all 4 earlier stories were `passes: true` at HEAD 0b6e086 with remote main already equal to HEAD, and the working tree carried only the harness's auto-reject write on CONTINUITY-LAW (`passes: false`, a `| AUTO-REJECTED iteration 1: ...` suffix on `notes`, the file's trailing newline dropped) plus ralph.sh's own run-log lines in progress.txt. So the pick for this iteration was CONTINUITY-LAW again, as a rejection audit rather than an implementation.
+- Read `/tmp/ralph_verify_4.txt` FIRST, before planning any edit: `ci_verify.sh: run 36483109171 finished with conclusion: success`, then `curl: (6) Could not resolve host: productionresultssa0.blob.core.windows.net`, then `ci_verify.sh: failed to download the junit-results artifact`. The run had ALREADY SUCCEEDED - only the artifact DOWNLOAD died, and on a different host than api.github.com. No Kotlin file was modified in this iteration.
+- PLAN before editing: (1) re-run the stored verifyCommand verbatim in a bounded retry loop that classifies its own output into TRANSPORT vs a real test verdict, (2) fetch the FULL junit-results artifact of the resolved run separately and count it, because ci_verify.sh only greps the FILTERED tests, (3) only then restore the story state, (4) commit REPO_FACTS + progress.
+- Re-verification, this run: the network was measurably bad - 5 probes of api.github.com returned two 20s timeouts, two DNS failures and a 200; the retry loop needed 4 attempts. Attempt 4 reached the script's real verdict line and exited 0: `ci_verify.sh: 53 matched test(s), all passed (filters: com.jarvis.app.cognition.workspace.ContinuityLaw* *SystemGraphTest*)` on run 36483109171 (conclusion success; remote main == HEAD, so the run was reused and nothing was pushed). Full `junit-results` artifact of that same run, downloaded independently and proven complete with `unzip -t` before counting: **1309 tests / 0 failures / 0 errors / 0 skipped** across 180 XML files - the identical 1309 recorded by three prior iterations, so the module has been green since CONTINUITY-LAW landed.
+- Restoring the story was `git checkout -- .ralph/prd.json` rather than a hand edit, then `cmp` against `git show HEAD:.ralph/prd.json`: IDENTICAL, i.e. all 5 stories `passes: true`, the AUTO-REJECTED suffix gone and the trailing newline back. This commit therefore carries only .ralph/REPO_FACTS.md and this progress entry - the strongest available evidence that the committed HEAD was already the correct, machine-verified state and there was no code defect to fix.
+- **Learnings for future iterations:**
+  - Classify a retry by the script's OWN verdict line, never by the presence of a transport marker anywhere in the output. `ci_verify.sh`'s `api_get` retries, so a fully successful run can still print `curl: (28)` lines BEFORE `ci_verify.sh: N matched test(s), all passed` - two of my attempts were exactly that and my first classifier wrongly called them transport. Grep for `matched test(s), all passed` / `matched tests FAILED` / `no tests matched the filter` first; treat the attempt as transport only if NO verdict line was reached.
+  - When re-wrapping a stored verifyCommand in a retry loop, forward the args as `"$@"` and do NOT add another `bash -c "cd X && $* "` - the extra nesting drops the inner quoting and every attempt dies with a bogus `No such file or directory`. That cost two 8-attempt rounds before I spotted it.
+  - The artifact download is a SECOND, independent flake point: the failing host is the blob store `productionresultssa0.blob.core.windows.net`, not api.github.com. A healthy api.github.com probe says nothing about the download; give the zip fetch its own retries (`curl --retry 6 --retry-all-errors`) and prove the archive with `unzip -t` before trusting any count.
+  - With remote main == HEAD, ci_verify.sh reuses the existing completed run, so re-verification costs seconds per attempt rather than a 25-minute poll - which makes a long retry loop affordable and is the right response to a transport rejection.
+  - prd.json `notes` remains the LAST field; unchanged this time because restoring meant reverting to the committed bytes, but any edit still needs `python3 -c "import json; json.load(open('.ralph/prd.json'))"` before committing.
+- **Pre-existing failures observed (not in scope):** none - 1309/1309 on run 36483109171; the auto-reject left no code defect behind, same as the WORKSPACE-CORE rejection on 2026-09-28.
+---
