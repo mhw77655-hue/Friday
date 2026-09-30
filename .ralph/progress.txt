@@ -524,3 +524,10 @@ Thread: (local iteration)
   - `bash -n` plus `--dry-run` (still EXIT=0 with the token unset) are the cheap local gates for a script change; neither proves the network behaviour, which is why the stub controls exist.
 - **Pre-existing failures observed (not in scope):** none — 53/53 on the matched filters, and the full `junit-results` artifact for that run is 1309/1309 (unchanged from the last three iterations, since no Kotlin moved).
 ---
+
+## 2026-09-30 (iteration 4, continued) - machine verdict for the retry fix
+Thread: (local iteration)
+- HEAD `f705f25`, run `36692563499` (pushed by ci_verify.sh itself, conclusion success): stored verifyCommand **EXIT=0, 53 matched test(s) all passed** (ContinuityLawTest 11 + ContinuityLawProductionWiringTest 5 + SystemGraphTest 37). Full `junit-results` artifact of that run, `unzip -t`-verified complete before counting: **1309 tests / 0 failures / 0 errors / 0 skipped** across 180 XMLs.
+- The retry was needed immediately and in anger: attempt 1/5 failed `curl: (6) Could not resolve host: productionresultssa4.blob.core.windows.net` — a different node than the `...sa0` in the 2026-09-30 rejection, which is evidence the blob pool is flaky host-by-host rather than one bad hostname. Under the old script that single line failed a story whose CI had already concluded success.
+- All five Gate-3c stories are `passes: true`; this commit carries only REPO_FACTS + progress.
+---
