@@ -121,15 +121,25 @@ class ContinuityLaw(
         )
         workspace.publish(evidenceCopy)
         val evidenceIds = (priorEvidence.map { it.id } + claim.id).distinct()
+        // The bar is a function of THIS FIELD's own accumulated history, not a
+        // number written down once: a value that has already been accepted N
+        // times is a more established value, and replacing it must cost more
+        // real evidence and more real time than the last replacement did. Both
+        // curves saturate, because a requirement that grows without bound would
+        // make durable identity-adjacent state permanently unchangeable -- a
+        // worse deviation than a flat one, not a better one.
+        val acceptedChanges = changeLog.entriesFor(field).size
+        val requiredClaims = requiredEvidenceClaims(acceptedChanges, minEvidenceClaims)
+        val requiredInterval = requiredIntervalMs(acceptedChanges, minIntervalMs)
 
-        if (evidenceIds.size < minEvidenceClaims) {
+        if (evidenceIds.size < requiredClaims) {
             return ChangeDecision(
                 claimId = claim.id,
                 target = field,
                 layer = layer,
                 accepted = false,
                 reason = "insufficient accumulated evidence for '$field': ${evidenceIds.size} of " +
-                    "$minEvidenceClaims real claims state '${claim.payload}' — one turn is a " +
+                    "$requiredClaims real claims state '${claim.payload}' — one turn is a " +
                     "suggestion, not a change",
                 evidenceClaimIds = evidenceIds,
                 entry = null
@@ -138,14 +148,14 @@ class ContinuityLaw(
 
         val at = now()
         val lastChangeAt = changeLog.lastChangeAt(field)
-        if (lastChangeAt != null && at - lastChangeAt < minIntervalMs) {
+        if (lastChangeAt != null && at - lastChangeAt < requiredInterval) {
             return ChangeDecision(
                 claimId = claim.id,
                 target = field,
                 layer = layer,
                 accepted = false,
                 reason = "rate limited: '$field' was last accepted at $lastChangeAt and only " +
-                    "${at - lastChangeAt}ms of real time have passed (minimum ${minIntervalMs}ms)",
+                    "${at - lastChangeAt}ms of real time have passed (minimum ${requiredInterval}ms for a field with $acceptedChanges prior accepted change(s))",
                 evidenceClaimIds = evidenceIds,
                 entry = null
             )
@@ -219,6 +229,41 @@ class ContinuityLaw(
          * a second independent real turn that says the same thing is evidence.
          */
         const val DEFAULT_MIN_EVIDENCE_CLAIMS: Int = 2
+
+        /**
+         * Extra real claims each additional accepted change to one field
+         * demands. The bar moves with the field's own history instead of
+         * being the same number forever.
+         */
+        const val EVIDENCE_STEP: Int = 1
+
+        /**
+         * Ceiling on the evidence bar. A requirement that grew without a
+         * bound would make durable identity-adjacent state unchangeable after
+         * enough history, which is a worse deviation than a flat one.
+         */
+        const val MAX_EVIDENCE_CLAIMS: Int = 4
+
+        /**
+         * Ceiling on the interval bar, for the same reason.
+         */
+        const val MAX_INTERVAL_MS: Long = 60_000L
+
+        /**
+         * Real claims a SLOW change to a field with [acceptedChanges] prior
+         * accepted changes must be supported by, saturating at
+         * [MAX_EVIDENCE_CLAIMS]. At zero prior changes this is [base]
+         * unchanged: the first change to a field costs what it always did.
+         */
+        fun requiredEvidenceClaims(acceptedChanges: Int, base: Int = DEFAULT_MIN_EVIDENCE_CLAIMS): Int =
+            (base + acceptedChanges * EVIDENCE_STEP).coerceAtMost(MAX_EVIDENCE_CLAIMS)
+
+        /**
+         * Real milliseconds a SLOW change to a field with [acceptedChanges]
+         * prior accepted changes must wait, saturating at [MAX_INTERVAL_MS].
+         */
+        fun requiredIntervalMs(acceptedChanges: Int, base: Long = DEFAULT_MIN_INTERVAL_MS): Long =
+            (base * (acceptedChanges + 1L)).coerceAtMost(MAX_INTERVAL_MS)
 
         /**
          * Minimum REAL elapsed milliseconds between two accepted SLOW changes to

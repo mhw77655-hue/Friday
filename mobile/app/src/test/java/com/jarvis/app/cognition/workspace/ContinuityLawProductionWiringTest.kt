@@ -171,7 +171,14 @@ class ContinuityLawProductionWiringTest {
         assertEquals("with its evidence intact", 1, restored.continuityLaw!!.historyOf("persona:directness").size)
 
         restored.continuityLaw!!.propose(persona("w-3", "directness", "playful", at + 2))
-        val tooSoon = restored.continuityLaw!!.propose(persona("w-4", "directness", "playful", at + 3))
+        restored.continuityLaw!!.propose(persona("w-4", "directness", "playful", at + 3))
+        // The evidence bar scales with the accepted change this field
+        // already has, so the interval is once more the only remaining
+        // reason a refusal could have. Too few real proposals would be
+        // refused for want of evidence whether or not the interval
+        // survived the restart -- a test that passes for the wrong reason
+        // proves nothing.
+        val tooSoon = restored.continuityLaw!!.propose(persona("w-5", "directness", "playful", at + 4))
         assertTrue(
             "the gate's real interval is measured against the RESTORED log, so an immediate rewrite is " +
                 "refused: ${tooSoon.reason}",

@@ -140,13 +140,21 @@ class ContinuityLawTest {
         // A new value for the SAME field, with its evidence complete, proposed in
         // the same instant: evidence is no longer the constraint — real time is.
         law.propose(persona("c-3", "directness", "playful"))
-        val tooSoon = law.propose(persona("c-4", "directness", "playful"))
+        law.propose(persona("c-4", "directness", "playful"))
+        // A third independent statement: the evidence bar scales with the
+        // field's accepted-change history, so one prior accepted change asks
+        // for three real claims. With only two, this test would be refused
+        // for want of EVIDENCE and would never reach the interval it exists
+        // to exercise.
+        val tooSoon = law.propose(persona("c-4b", "directness", "playful"))
         assertTrue("a second accepted change to one field inside the interval is refused", tooSoon.isRejected)
         assertTrue("the refusal says why: ${tooSoon.reason}", tooSoon.reason.contains("rate limited"))
         assertEquals("the accepted value is untouched by the refused change", "direct", law.valueOf("persona:directness"))
         assertEquals(1L, log.count())
 
-        now += ContinuityLaw.DEFAULT_MIN_INTERVAL_MS
+        // The interval scales with the same history: a field that has already
+        // accepted one change waits two intervals, not one.
+        now += ContinuityLaw.requiredIntervalMs(1)
         val later = law.propose(persona("c-5", "directness", "playful"))
         assertTrue("after the real interval has passed, the change is accepted", later.isAccepted)
         assertEquals("playful", law.valueOf("persona:directness"))
@@ -173,8 +181,11 @@ class ContinuityLawTest {
         assertEquals(ChangeLayer.SLOW, first.layer)
 
         now += 10_000L
+        // Three statements, not two: the evidence bar scales with the one change
+        // this field has already accepted, so a second change clears three.
         law.propose(persona("c-3", "directness", "playful"))
         law.propose(persona("c-4", "directness", "playful"))
+        law.propose(persona("c-5", "directness", "playful"))
         val second = log.entriesFor("persona:directness").last()
         assertEquals("an accepted change records the value it REPLACED", "direct", second.oldValue)
         assertEquals("playful", second.newValue)
@@ -204,12 +215,14 @@ class ContinuityLawTest {
         assertEquals("direct", restored.valueOf("persona:directness"))
         assertEquals(11_000L, restoredLog.lastChangeAt("persona:directness"))
 
-        // TWO real proposals, so the evidence count is satisfied and the interval
-        // is the only remaining reason a refusal could have. One proposal would
-        // be refused for want of evidence whether or not the interval survived —
-        // a test that passes for the wrong reason proves nothing.
+        // A full set of real proposals, so the SCALED evidence count is satisfied
+        // and the interval is once more the only remaining reason a refusal could
+        // have. Too few would be refused for want of evidence whether or not the
+        // interval survived — a test that passes for the wrong reason proves
+        // nothing.
         restored.propose(persona("c-3", "directness", "playful"))
-        val refused = restored.propose(persona("c-4", "directness", "playful"))
+        restored.propose(persona("c-4", "directness", "playful"))
+        val refused = restored.propose(persona("c-5", "directness", "playful"))
         assertTrue(
             "the interval survived the restart — an in-memory counter would have forgotten it",
             refused.isRejected
