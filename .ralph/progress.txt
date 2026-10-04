@@ -531,3 +531,75 @@ Thread: (local iteration)
 - The retry was needed immediately and in anger: attempt 1/5 failed `curl: (6) Could not resolve host: productionresultssa4.blob.core.windows.net` — a different node than the `...sa0` in the 2026-09-30 rejection, which is evidence the blob pool is flaky host-by-host rather than one bad hostname. Under the old script that single line failed a story whose CI had already concluded success.
 - All five Gate-3c stories are `passes: true`; this commit carries only REPO_FACTS + progress.
 ---
+Wed Sep 30 10:24:53 BST 2026: Iteration 3 - router/provider error on omniroute/oc/hy3-free, retry 8/8 with omniroute/auto/best-free (same iteration).
+
+## Ralph run complete — Wed Sep 30 10:30:44 BST 2026
+All stories independently re-verified for real after 3 iteration(s).
+---
+Wed Sep 30 16:19:50 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 1/8 with omniroute/auto/best-free (same iteration).
+Wed Sep 30 16:20:38 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 2/8 with omniroute/oc/hy3-free (same iteration).
+Wed Sep 30 16:24:07 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 3/8 with omniroute/opencode/deepseek-v4-flash-free (same iteration).
+Wed Sep 30 16:24:42 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 4/8 with omniroute/openrouter/z-ai/glm-5.2:free (same iteration).
+Wed Sep 30 16:25:14 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 5/8 with omniroute/openrouter/nvidia/nemotron-3-ultra-550b-a55b:free (same iteration).
+Wed Sep 30 16:26:00 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 6/8 with omniroute/openrouter/openai/gpt-oss-20b:free (same iteration).
+Wed Sep 30 16:26:45 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 7/8 with omniroute/oc/nemotron-3-ultra-free (same iteration).
+Wed Sep 30 16:27:53 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 8/8 with omniroute/oc/mimo-v2.5-free (same iteration).
+
+## Ralph run complete — Wed Sep 30 16:39:06 BST 2026
+All stories independently re-verified for real after 1 iteration(s).
+---
+Wed Sep 30 22:51:53 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 1/8 with omniroute/auto/best-free (same iteration).
+Wed Sep 30 22:52:27 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 2/8 with omniroute/oc/hy3-free (same iteration).
+Wed Sep 30 22:52:59 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 3/8 with omniroute/opencode/deepseek-v4-flash-free (same iteration).
+Wed Sep 30 22:53:32 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 4/8 with omniroute/openrouter/z-ai/glm-5.2:free (same iteration).
+Wed Sep 30 22:54:13 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 5/8 with omniroute/openrouter/nvidia/nemotron-3-ultra-550b-a55b:free (same iteration).
+Wed Sep 30 22:54:47 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 6/8 with omniroute/openrouter/openai/gpt-oss-20b:free (same iteration).
+Wed Sep 30 22:55:25 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 7/8 with omniroute/oc/nemotron-3-ultra-free (same iteration).
+Wed Sep 30 22:55:56 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 8/8 with omniroute/oc/mimo-v2.5-free (same iteration).
+Wed Sep 30 23:00:54 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 1/8 with omniroute/oc/hy3-free (same iteration).
+Wed Sep 30 23:01:51 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 2/8 with omniroute/opencode/deepseek-v4-flash-free (same iteration).
+Wed Sep 30 23:02:43 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 3/8 with omniroute/openrouter/z-ai/glm-5.2:free (same iteration).
+Wed Sep 30 23:03:40 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 4/8 with omniroute/openrouter/nvidia/nemotron-3-ultra-550b-a55b:free (same iteration).
+Wed Sep 30 23:04:34 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 5/8 with omniroute/openrouter/openai/gpt-oss-20b:free (same iteration).
+Wed Sep 30 23:05:30 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 6/8 with omniroute/oc/nemotron-3-ultra-free (same iteration).
+Wed Sep 30 23:06:22 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 7/8 with omniroute/oc/mimo-v2.5-free (same iteration).
+Wed Sep 30 23:07:05 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 8/8 with opencode/big-pickle (same iteration).
+
+## 2026-10-01 (final iteration) - AUDIT-TOOL closed, all six stories green
+Thread: (local iteration)
+- **State found on entry**: all three remaining stories were `passes: false`. WORKSPACE-CORE and CONTINUITY-LAW carried the harness's auto-reject write again; AUDIT-TOOL had a full implementation committed at `a3a1ea2` but the story was never flipped (`passes: false`, `notes: ""`) — the previous run was cut off by router errors before the story could close.
+- **Read `/tmp/ralph_verify_3.txt` and `_4.txt` FIRST**: both read `no run for a3a1ea2… on 'main'; pushing… fatal: unable to access … Failed to connect to github.com port 443 after 31s` / `could not push main (check auth/network)`. No test verdict was ever reached. Transport, not code — for the FIFTH and SIXTH time on these two stories.
+- **PLAN before editing**: (1) re-run each stored verifyCommand in a retry loop classified by the script's OWN verdict line, (2) count the FULL junit-results artifact separately since `ci_verify.sh` only greps the FILTERED tests, (3) restore the two stories by `git checkout`, not by hand, (4) close AUDIT-TOOL: run its stored verifyCommand, run `audit_check.sh`, then prove AC3 with a real branch + real CI run, (5) only then edit the PRD.
+- **WORKSPACE-CORE**: attempt 1 transport (`could not push main`), attempt 2 reached the verdict line — **EXIT=0, 73 matched test(s) all passed** on run 36788191042. (The retry fix from `f705f25` earned its keep immediately: attempt 1 of 5 downloads died `Could not resolve host: productionresultssa17.blob.core.windows.net` and attempt 2 landed.)
+- **CONTINUITY-LAW**: **EXIT=0, 53 matched test(s) all passed** on the same run, attempt 1.
+- **Full suite, checked separately**: `junit-results` artifact of run 36788191042, downloaded independently and proven complete with `unzip -t` before counting: **1309 tests / 0 failures / 0 errors / 0 skipped across 180 XMLs** — identical to the count four prior iterations recorded, so nothing regressed while the audit story was built.
+- **Restoration**: `git checkout -- .ralph/prd.json`, then `cmp` against `git show HEAD:.ralph/prd.json` — IDENTICAL. No Kotlin touched in either story.
+- **AUDIT-TOOL**: stored verifyCommand **EXIT=0**. `audit_check.sh` — **all 22 checks PASS**: AC1 (detector names none of the three disclosed deviations; audit.py never extracts Section 12; found independently `ClaimKind`, `ChangeLayer`, `DEFAULT_MIN_EVIDENCE_CLAIMS`, `DEFAULT_MIN_INTERVAL_MS`, and the three-way classification named as `forTarget`; every deviation cites file+line; the report states Section 12 was not read), AC2 (Workspace.kt + InMemoryWorkspace.kt → 0 deviations, and ≥1 observation with a stated reason for the declined near-miss), AC4 (no AST-level merge/push-main/prd.json/reject_story path; `--make-branch main` refused; `--run-ci` outside `audit/` refused before any push; a full run that BUILDS a branch leaves HEAD, branch and prd.json byte-identical), AC5 (5+ structural deviations with `model_calls == 0`; exactly 1 call for 1 naming candidate; 3 candidates still cost 1 call), AC6 (self-audit non-vacuous — 12 findings about itself, and it states what that pass cannot see).
+- **AC3 got its real proof**: branch `audit/continuity-threshold` (commit 36ae9b6, worktree removed, nothing merged), pushed, then `CIV_BRANCH=audit/continuity-threshold bash .ralph/ci_verify.sh '*'` → run **36791635610**, conclusion success, **1309 matched test(s), all passed, EXIT=0**. The FULL suite on a branch of its own, unmerged. The patch reconfigures the flat SLOW gate into a function of the field's own accepted-change history, both curves saturating at a stated ceiling, and at zero prior accepted changes behaviour is byte-identical to the flat gate.
+- **Pre-existing failures observed (not in scope):** none. 1309/1309 on main; 1309/1309 on the audit branch.
+- **Learnings for future iterations:**
+  - `vision_audit.sh` with `--make-branch`/`--run-ci` needs an EXPLICIT `--base`/`--head` whenever HEAD is not the newest production-Kotlin commit. With no arguments on a docs-only HEAD it resolves `base = HEAD~1`, finds nothing, prints `no changed production file … nothing to audit` — and still **exits 0**, which reads as success while auditing nothing.
+  - The full-suite artifact must be picked BY NAME. The run carries `debug-apk` too, and `artifacts[0]` was the 27MB APK, not `junit-results`; unzipping it yields 0 XMLs and a confident, completely fake "0 tests" reading. Always print name+id before downloading.
+  - A rejection log that ends at `could not push …(check auth/network)` with no verdict line is worth a retry, but so is one that ends at a verdict line: check which one you have BEFORE assuming.
+  - Restoring an auto-rejected story is `git checkout -- .ralph/prd.json` + `cmp` against `git show HEAD:…`. Never hand-edit the three things the harness write changed (`passes`, the `| AUTO-REJECTED` suffix, the dropped trailing newline).
+  - prd.json `notes` stays the LAST field, closing quote present, no trailing comma, trailing newline at EOF — verified with `python3 -c "import json; json.load(...)"` plus `tail -c 3 | cat -A` this time.
+---
+
+## Ralph run complete — Thu Oct  1 13:21:26 BST 2026
+All stories independently re-verified for real after 1 iteration(s).
+---
+
+## Sun Oct 4 2026 - ONE-1-VISION-SYNC
+Thread: (local iteration)
+- Story 7 of the Stage-4 "One Friday" PRD: `.ralph/VISION.md` brought in line with Venon's stated vision. Docs-only - one markdown file, no Kotlin, no gradle, no network.
+- All ten passages (H, P2, P3, P4, P6, P7, P8, B1, B2, B3) are in place at the places the story names, and are VERBATIM: they were extracted programmatically out of the story's own `description` in prd.json rather than retyped, so the wording cannot drift from what Venon wrote. Two blocks of existing text were replaced (the old title+intro, and Section 1's "This file is not a demand" paragraph); nothing else was reworded. Full changed-line ranges are in the story's `notes` (AC4).
+- AC2 proven structurally, not by eye: the edit script compared Sections 4 and 13 before/after using audit.py's OWN extractor regex and refused to write on any difference; the git diff contains no hunk in either section. A second guard walked every original line and confirmed none was lost beyond the two replaced blocks.
+- AC3: the exact stored verifyCommand exits 0. `bash .ralph/vision_audit.sh` still parses Sections 4 and 13 out of the edited file and prints its Headline, and its report is byte-identical to the pre-edit report except the `Generated <timestamp>` line - 5 deviations, 4 observations, 0 model calls, same findings, same patch. That equality is the proof the edit changed nothing the audit tool reads. `.ralph/audit_check.sh` also still passes every AC (AC1/AC2/AC4/AC5/AC6), including its proof that audit.py extracts Section 12 zero times, so the three new Section 12 bullets remain disclosures the tool cannot read.
+- Files changed: `.ralph/VISION.md` (this story), plus carried-over uncommitted work from the previous iteration that is committed here so it is not lost: `.ralph/prd.json` (AUDIT-TOOL passes:true + its AC notes + this new 12-story Stage-4 PRD, with ONE-1-VISION-SYNC passes:true + notes), `.ralph/REPO_FACTS.md` (the 2026-10-01 AUDIT-TOOL section), `.ralph/progress.txt` (the AUDIT-TOOL entry plus this one), `.ralph/audit/audit_6be9f660c0.md` (regenerated by AC3; timestamp line only).
+- **Learnings for future iterations:**
+  - The passages are written as ONE unwrapped line each. That is deliberate: the story's own grep targets (`legacy scaffolding, quarantined`, `Two compositions exist`, `replay of the original episode text blocked`, `seed of the final FRIDAY`) are substrings that hard-wrapping would split across a line break and silently break the stored verifyCommand forever. Markdown renders identically. Do not re-wrap them.
+  - Story passages in a prd.json `description` are delimited by `' ` (quote + SPACE), not by `' . ` - there is no sentence-ending period after the closing quote. Apostrophes INSIDE a passage (`Venon's`) also make naive quote-pair parsing wrong. And the passage order in the description is not the section order: P4 is followed by PASSAGE P6, only P8 is followed by PASSAGES B1-B3.
+  - A non-greedy `'(.*?)'\s+NEXT` regex anchored on the wrong next-passage label does not fail loudly - it silently swallows the two following passages (and their instruction text) into one 2159-char "passage". The cheap guards that caught it: assert the extracted text contains no `PASSAGE`, assert it ends with `.`, and assert it appears in the destination file exactly once. Two of the three greedy passages then looked "duplicated" in the file, which is what exposed it.
+  - `bash .ralph/audit_check.sh` is the cheap regression oracle for any VISION.md edit: it proves Sections 4 and 13 still parse and that Section 12 is still structurally unread, with no network and no gradle. Run it after touching the file, not just `vision_audit.sh`.
+  - The audit report under `.ralph/audit/` is regenerated (timestamp only) by every `vision_audit.sh` run, including the harness's own re-verification of a stored verifyCommand - expect it to be dirty after verification and do not read that diff as a finding change.
+---

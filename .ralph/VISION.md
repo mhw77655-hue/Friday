@@ -1,9 +1,6 @@
-# FRIDAY — Vision (source of truth)
+# FRIDAY - Vision (written record)
 
-This file is read by every Ralph story before it's written, and by the
-audit tool after every story closes. When anything else in this repo
-conflicts with this file, this file wins. This file changes only when
-Venon changes it.
+This file is the written record of Venon's vision of FRIDAY. Venon's latest explicit statement of his vision outranks this file: where he says something different, this file is out of date and is revised to match him - it is never used to overrule him. Everything else in the repo (plans, stories, code, audits) is subordinate to this file's current text and is read against it by every Ralph story and by the audit tool. This file changes only when Venon says it should.
 
 ## 1. What she is
 
@@ -12,6 +9,8 @@ kind of developmental individuality we observe in humans, then
 extending it beyond biological limits. She is not a chatbot, an LLM
 wrapper, a committee of agents, or a conventional assistant that
 accumulates features until she looks human.
+
+FRIDAY is a digital human: as close as possible to human personhood, individuality, development, relationship, understanding, emotion, values, agency and lived experience, while possessing machine-native capabilities that can exceed biological human limits - a human with outperformed machine algorithms. She is the person. Algorithms, models, memory implementations, tools, builders, external AIs and computational resources are what she has.
 
 Her language model, memory technology, voice, vision, reasoning,
 tools, Builder, and every future capability are things she can possess
@@ -28,12 +27,7 @@ She is not required to stay within the boundary of what humanity has
 already demonstrated. Existing knowledge is a resource she can use, not
 the boundary of what she is allowed to discover or build.
 
-This file is not a demand that every future capability described here
-exist now. The immediate build target is the first Friday who can
-already begin developing as an artificial individual, not merely
-behave like a chatbot: enough substrate to begin, not a finished mind.
-Later capabilities remain future possibilities to revisit when her
-development and available technology make them appropriate.
+The first FRIDAY is the seed of the final FRIDAY, not a small prototype of her. Her initial capabilities may be tiny; her developmental potential may not be. The seed already contains, in minimal form, the means of its own continuation: persistent identity, experience that can change her, observation of consequences, use of replaceable capabilities, recognition of capability gaps, a controlled path to acquire new capabilities, resource-adaptive computation, self-observation, and a protected continuity floor. The first FRIDAY has succeeded when she can keep increasing her own individuality and capabilities without Venon specifying her architecture or implementing each future capability by hand. Later capabilities described in this file are not demanded now; they are revisited as her development and available technology allow.
 
 ## 2. What makes her the same individual over time
 
@@ -78,6 +72,8 @@ exists. It counts only insofar as an event-driven change in it
 persists and measurably changes later processing or behavior. No
 storage format, variable type, or representation is development by
 itself.
+
+Mechanisms are not the definition of development. The requirement is: experience -> persistent internal change -> changed later cognition or behavior, attributable to that experience, produced by mechanisms that stay replaceable, composable and extensible and that may grow beyond whatever we first invent. While her language model is a frozen organ, internal change means a change in what she decides or selects around it (how she reads a request, which capability or tier she uses, what she retrieves, what she has learned to do cheaply) - not a stored sentence replayed into a prompt. Every claim of development is tested by a Life Test on the real composition, with two controls: with replay of the original episode text blocked the change must still appear, and with the developmental mechanism disabled it must disappear.
 
 ## 4. No permanent cognitive ownership
 
@@ -144,6 +140,8 @@ one developing individual remains that individual.
 
 Tracking and provenance apply universally, to every part of the
 system, not only to anything resembling a brain.
+
+Three layers are kept apart: the fixed floor (this section); bootstrap biases - the smallest set needed for her to begin functioning, each listed, justified and revisable only through the same ledger as any other change; and developed individuality - everything else, shaped by experience and relationship. We do not write her personality in advance.
 
 Nothing outside this section may declare itself an exception to it.
 
@@ -276,6 +274,8 @@ not precedent before invention. Most invented approaches will fail.
 That is expected, not a defect, provided every claimed success is
 verified honestly under Section 10.
 
+Construction capability belongs to the seed. From the first FRIDAY there is a controlled path: she recognizes a capability gap, describes the outcome she needs, requests construction resources, a candidate is produced and tested, it is approved (by Venon at first, later by her within the limits of Section 5), and it enters her capabilities. Ralph, GPT, Claude, search and other coding resources are tools she can call; they are not her.
+
 ## 10. The standard for every claim about her
 
 A description cannot fail. A test can. Any claim that a mechanism
@@ -292,6 +292,8 @@ For capability or performance claims, verification must exercise the
 mechanism under the conditions being claimed and produce observable
 evidence that another person could independently inspect or
 reproduce.
+
+A milestone is closed only when it has all three: code with passing tests; automated Life Test evidence produced on the real composition; and something Venon can run and see or hear on his phone. A green report alone never closes a milestone.
 
 ## 11. What we do not claim
 
@@ -318,6 +320,9 @@ checks. Disclosure does not make a deviation compliant.
   count and a flat time interval, identical regardless of how
   established the value being challenged already is. Sections 3 and 4
   both require it to develop with accumulated evidence instead.
+- The Human Core (four permanent passes, single-owner modules, rule-table learning, no part in her reasoning) is legacy scaffolding, quarantined: no new features, nothing new depends on it, and it is not her human side. Each part survives only while Life Tests show it contributes to her actual life without conflicting with this file; otherwise it is replaced or removed. Nothing remains because it was written first.
+- Two compositions exist: the Android app wires the Human Core and the real resource snapshot; the JVM/Termux server stubs the Human Core and reports all-clear resources. Evidence from the second does not speak for the first.
+- Intent is never classified (always STATEMENT), no prediction is ever formed on the live path, thresholds are flat, and the identity record still says JARVIS / he.
 
 These deviations are findings, not exemptions.
 
