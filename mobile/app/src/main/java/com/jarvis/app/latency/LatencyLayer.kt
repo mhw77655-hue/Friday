@@ -65,6 +65,7 @@ object LatencyLayer {
     @Volatile private var modelManager: com.jarvis.app.model.ModelManager? = null
     @Volatile private var pipeline: LatencyPipeline? = null
     @Volatile internal var failureSink: ((com.jarvis.app.failure.FailureReport) -> Unit)? = null
+    @Volatile private var collectorsStarted = false
     private val pipelineLock = Any()
 
     /** Bind the nervous-system failure surface to the turn pipeline (the reply
@@ -85,7 +86,7 @@ object LatencyLayer {
         WarmupEngine.attach(modelManager)
         SpeechEngine.init(context)
         AckSpeech.init(context)
-        pipeline()
+        startCollectorsOnce(pipeline())
         AckSpeech.prepare()
     }
 
@@ -93,6 +94,36 @@ object LatencyLayer {
     fun setStreamingSpeak(speak: (String) -> Unit) {
         streamingSpeak = speak
     }
+
+    // ── ONE-2-COMPOSITION: the turn path's platform seam ──────────────────────
+    // The composition root builds the ONE pipeline (com.jarvis.app.onefriday.
+    // TurnPathAssembly) and these four members are how the phone supplies the
+    // latency layer's own machinery to it. They add no behaviour and change no
+    // wiring; they make the existing internals reachable so there is ONE
+    // pipeline instead of a second one built here.
+
+    /**
+     * Install the composition root's pipeline as THE pipeline, before [init].
+     * Without this the layer would build its own — a second turn path on the
+     * same device, which is the exact duplication this closes.
+     */
+    fun installPipeline(p: LatencyPipeline) {
+        synchronized(pipelineLock) { pipeline = p }
+    }
+
+    /** Run one unit of slow-path turn work on this layer's single-thread executor. */
+    fun dispatchTurnWork(block: () -> Unit) {
+        slowExecutor.execute(block)
+    }
+
+    /** Schedule delayed turn work on this layer's own coroutine scope. */
+    fun scheduleTurnWork(ms: Long, block: () -> Unit) {
+        scope.launch { delay(ms); block() }
+    }
+
+    /** Speak a full reply the way this layer's pipeline does (streaming when the
+     *  body has attached, platform TTS otherwise). */
+    fun speakReplyText(text: String) = speakReply(text)
 
     private fun speakReply(text: String) {
         val streaming = streamingSpeak
@@ -185,14 +216,23 @@ object LatencyLayer {
                 cognitiveEngine = com.jarvis.app.JarvisEngine.cognitiveEngine
             )
             pipeline = p
-            startCollectors(p)
+            startCollectorsOnce(p)
             return p
         }
     }
 
+    /** App-scoped collectors, started exactly once for whichever pipeline is live. */
+    private fun startCollectorsOnce(p: LatencyPipeline) {
+        synchronized(pipelineLock) {
+            if (collectorsStarted) return
+            val mm = modelManager ?: return
+            collectorsStarted = true
+            startCollectors(p, mm)
+        }
+    }
+
     /** App-scoped collectors: model replies → completion, model status → errors. */
-    private fun startCollectors(p: LatencyPipeline) {
-        val mm = modelManager ?: return
+    private fun startCollectors(p: LatencyPipeline, mm: com.jarvis.app.model.ModelManager) {
         scope.launch {
             mm.lastReply.collect { reply ->
                 if (reply.isNotBlank()) p.onReplyReady(reply)

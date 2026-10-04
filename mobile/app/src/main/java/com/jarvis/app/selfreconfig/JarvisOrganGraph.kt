@@ -33,6 +33,37 @@ object JarvisOrganGraph {
             qualifiedClassName = "com.jarvis.app.latency.LatencyPipeline"
         ))
 
+        // ONE-2-COMPOSITION: the ONE composition root, as a real ENTRY organ.
+        // Both hosts construct this exact class — the phone through
+        // JarvisEngine.init, the JVM/Termux host through TermuxJarvisServer — so
+        // one graph can finally describe one Friday. It is the ORDER of
+        // CONSTRUCTION, not a cognitive role: it holds no cognitive logic and
+        // settles no meaning, which is why it is registered here next to the
+        // entry it builds rather than as an organ that understands anything.
+        g.registerNode(SystemGraph.SystemNode(
+            id = "entry.compositionRoot",
+            name = "TurnPathAssembly",
+            organType = SystemGraph.OrganType.ENTRY,
+            qualifiedClassName = "com.jarvis.app.onefriday.TurnPathAssembly",
+            description = "ONE-2-COMPOSITION: the single composition root for the turn path. Builds " +
+                "HumanCore, the memory substrate, the identity/emotion/social/continuity stack, the " +
+                "capability fabric, the single ModelManager + ResourceGovernor + LatencyPipeline and " +
+                "the CognitiveEngine — from a platform adapter that supplies only storage, a resource " +
+                "reading, the clock, speech/UI sinks and the host's stores. Not a cognitive role: a " +
+                "replaceable order of construction, identical on every host."
+        ))
+        // The platform adapter is INFRA, not an organ: it is the seam where a
+        // host's platform ends and the turn path begins.
+        g.registerNode(SystemGraph.SystemNode(
+            id = "entry.platformPorts",
+            name = "PlatformPorts",
+            organType = SystemGraph.OrganType.INFRA,
+            qualifiedClassName = "com.jarvis.app.onefriday.PlatformPorts",
+            description = "ONE-2-COMPOSITION: the platform adapter the composition root reads. Carries " +
+                "only supply — storage dir, live resource reading, clock, speech/UI sinks, failure " +
+                "surface and the host's stores. It decides nothing about what a turn means."
+        ))
+
         // Core organs
         g.registerNode(SystemGraph.SystemNode(
             id = "core.humanCore",
@@ -585,6 +616,13 @@ object JarvisOrganGraph {
         // Edges: real dependency topology of the PHASE-A production composition.
         // bodyCoordinator is genuinely constructed in JarvisEngine.init and is
         // reached in the reply path, so it gains an inbound edge from the entry.
+        // ONE-2-COMPOSITION: the composition root builds the entry point and the
+        // real Human Core wiring, and reads its supply from the platform adapter.
+        g.addEdge("entry.compositionRoot", "entry.latencyPipeline", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        g.addEdge("entry.compositionRoot", "core.humanCore", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        g.addEdge("entry.compositionRoot", "cognitive.engine", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        g.addEdge("entry.compositionRoot", "model.modelManager", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        g.addEdge("entry.compositionRoot", "entry.platformPorts", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
         g.addEdge("entry.latencyPipeline", "core.humanCore", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("entry.latencyPipeline", "cognitive.engine", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("entry.latencyPipeline", "core.bodyCoordinator", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)

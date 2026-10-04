@@ -13,9 +13,7 @@ import com.jarvis.app.companioncore.engine.HumanCoreIntegration
 import com.jarvis.app.env.LiquidEnvironmentManager
 import com.jarvis.app.humancore.HumanCore
 import com.jarvis.app.humancore.store.FileStorage
-import com.jarvis.app.memory.AndroidMemoryGraphStore
 import com.jarvis.app.memory.BlendedMemoryRetriever
-import com.jarvis.app.memory.MemoryImportanceScorer
 import com.jarvis.app.model.ModelManager
 import com.jarvis.app.runtime.RuntimeBinder
 import kotlinx.coroutines.CoroutineScope
@@ -67,6 +65,10 @@ object JarvisEngine {
     // live reply sink routes full replies through it; the platform TTS path is
     // only the failure fallback.
     @Volatile var voiceForgeBackend: com.jarvis.app.voice.VoiceForgeBackend? = null
+        private set
+    // ONE-2-COMPOSITION: the adapter the ONE composition root builds that single
+    // backend from. Exposed so the adapter exists before the turn path does.
+    @Volatile var voiceForgeSynthesizer: com.jarvis.app.voice.VoiceForgeSynthesizer? = null
         private set
     @Volatile var runtimeBinder: RuntimeBinder? = null
         private set
@@ -198,15 +200,10 @@ object JarvisEngine {
         val adapterManifest = com.jarvis.app.memory.provenance.JsonlAdapterManifest(
             file = java.io.File(appContext.filesDir, "memory/adapters.jsonl")
         )
-        val modelManager = ModelManager(
-            appContext,
-            scope,
-            backend = ollamaModelBackend,
-            resourceGovernor = com.jarvis.app.model.ResourceGovernor(
-                snapshotProvider = { com.jarvis.app.model.AndroidResourceSnapshot(appContext) }
-            ),
-            adapterLoadGate = adapterManifest
-        )
+        // ONE-2-COMPOSITION: the ModelManager is no longer built here. The ONE
+        // composition root builds it (with the ONE ResourceGovernor reading this
+        // phone's live resource state) once the stores it needs exist; building a
+        // second one here is exactly the duplication this story removes.
         JarvisEngine.ollamaModelBackend = ollamaModelBackend
         JarvisEngine.adapterManifest = adapterManifest
 
@@ -223,17 +220,15 @@ object JarvisEngine {
         voiceForgeAdapter.configure(
             com.jarvis.app.voice.VoiceForgeConfig(authToken = com.jarvis.app.voice.VoiceForgeConfig.DEFAULT_AUTH_TOKEN)
         )
-        val voiceForgeBackend = com.jarvis.app.voice.VoiceForgeBackend(
-            synthesizer = voiceForgeAdapter,
-            audioPromptPath = com.jarvis.app.voice.VoiceForgeConfig.DEFAULT_ASSET_PATH
-        )
-        JarvisEngine.voiceForgeBackend = voiceForgeBackend
+        // ONE-2-COMPOSITION: the VoiceForgeBackend is built by the ONE
+        // composition root from this adapter, so there is one of them; the
+        // public handle below is bound to that one inside init.
+        JarvisEngine.voiceForgeSynthesizer = voiceForgeAdapter
 
         val sessionManager = com.jarvis.app.session.SessionManager(appContext, fileStorage, scope)
         val taskInbox = com.jarvis.app.inbox.LocalTaskInbox(fileStorage, scope)
         val approvalQueue = com.jarvis.app.approvals.LocalApprovalQueue(fileStorage, scope)
         val alertStore = com.jarvis.app.alerts.LocalAlertStore(fileStorage, scope)
-        this.modelManager = modelManager
         this.sessionManager = sessionManager
         this.taskInbox = taskInbox
         this.approvalQueue = approvalQueue
@@ -251,43 +246,18 @@ object JarvisEngine {
         this.recoveryController = recoveryController
         this.selfDiagnosis = com.jarvis.app.failure.SelfDiagnosis(failureSurface)
 
-        // Human Core model port (§0.15): route the seam to the canonical model
-        // authority. ModelBackedModelPort reads this at call time, so setting
-        // it here is sufficient; it stays unset in pure-JVM tests, where the
-        // Human Core falls through to its deterministic heuristic port.
-        com.jarvis.app.humancore.mod.ModelBackend.requestChat = { messages, maxTokens, timeoutMs ->
-            modelManager.requestChat(messages, maxTokens, timeoutMs)
-        }
+        // The Human Core model port (§0.15) is bound by the ONE composition
+        // root inside init, over the same ModelManager this Friday uses.
 
         handler.post {
             Telemetry.init(appContext)
             com.jarvis.app.approval.ApprovalGate.init(appContext.filesDir)
             com.jarvis.app.approval.TaskExecutor.init(appContext.filesDir)
 
-            // Human Core: the local personality/identity subsystem. Loaded
-            // after the execution layer, before voice engines. Lives entirely
-            // on-device in filesDir/humancore/ (§0.4 ownership: the backend
-            // never owns identity, personality, emotion, or internal state).
-            // Its memory annotations flow to the Obsidian vault sidecar
-            // (relationship-context tags, §16) — the sink is optional and
-            // non-fatal.
-            HumanCore.init(
-                storage = fileStorage,
-                memorySink = { annotation ->
-                    ObsidianSync.logAnnotated(
-                        userText = annotation.userText,
-                        jarvisText = annotation.jarvisText,
-                        ts = annotation.ts,
-                        tags = annotation.tags
-                    )
-                    // Also wire to BodyCoordinator's MemoryStore for local retrieval
-                    val memoryStore = JarvisEngine.getMemoryStore()
-                    memoryStore?.storeConversation(
-                        userText = annotation.userText,
-                        assistantText = annotation.jarvisText
-                    )
-                }
-            )
+            // The legacy Human Core (§0.4: the backend never owns identity,
+            // personality, emotion, or internal state) is constructed by the ONE
+            // composition root below, over this host's storage and its optional
+            // annotation sink.
 
             loadCapabilityManifest(appContext)
 
@@ -310,147 +280,126 @@ object JarvisEngine {
             val companionIntegration = com.jarvis.app.companioncore.presence.CompanionCoreHolder.instance()?.integration
                 ?: throw IllegalStateException("CompanionCoreHolder not initialized")
 
-            // ── Phase A: Galaxy Memory ────────────────────────────────────────
-            // Real Android-native graph store + neural embedding provider +
-            // importance scorer + blended retrieval engine. All four are real,
-            // production-quality subsystems already proven green in isolation.
-            val graphStore = AndroidMemoryGraphStore(appContext)
-            val embeddingProvider = com.jarvis.app.memory.NeuralEmbeddingProvider()
-            val memoryScorer = MemoryImportanceScorer(embeddingProvider)
-            val blendedRetriever = BlendedMemoryRetriever(graphStore, embeddingProvider, memoryScorer)
-            // CORRECTION-CHAIN: the six split signals are computed once, where a
-            // fact is stored, over this same real (neural) embedding provider.
-            val signalScorer = com.jarvis.app.memory.SignalSplitScorer(embeddingProvider)
+            // ONE-2-COMPOSITION: this phone builds the SAME turn path the JVM
+            // host builds, through com.jarvis.app.onefriday.TurnPathAssembly.
+            // What follows is this host's SUPPLY — the android-bound stores, the
+            // real battery/CPU reading, the Companion Core's turn signals, the
+            // Obsidian vault sidecar, the platform speech engines — plus the
+            // phone-only subsystems that are NOT part of a turn's understanding
+            // (research, builder, device control, memory consolidation, voice
+            // organism, runtime binding).
+            //
+            // Before this, everything from here to CognitiveEngine was a second
+            // copy of a composition that agreed with the JVM host's only by
+            // hand: when the two drifted, evidence from one host silently stopped
+            // describing the other. The turn path is now written once.
 
-            // Index voice_organism_v1 capability into Galaxy Memory so the
-            // fuzzy command resolver can find it through real retrieval.
-            val capabilityMemoryIndex = com.jarvis.app.resolution.CapabilityMemoryIndex(graphStore)
-            val voiceCapability = com.jarvis.app.capability.CapabilityRegistry.Capability(
-                id = "voice_organism_v1",
-                version = "1.0",
-                name = "Voice organism (synthesis)",
-                function = "synthesize speech through the isolated :voice habitat",
-                category = com.jarvis.app.capability.CapabilityRegistry.Category.TTS,
-                model = "sherpa-onnx/kokoro-int8-en-v0_19",
-                ramEstimateMb = 350,
-                cpuEstimatePercent = 35.0,
-                startupCostMs = 6_000,
-                latencyMs = 350,
-                languages = setOf("en"),
-                quality = com.jarvis.app.capability.CapabilityRegistry.QualityTier.HIGH,
-                tags = setOf("r2", "habitat", "kokoro")
+            // ── TURN-TRACE / THREAD-OBJECTS / PROVENANCE-LEDGER ──────────────
+            // Local-only durable stores (append-only JSONL under filesDir, no
+            // upload, no network hop). Built here because they are android-bound
+            // FILES; they are handed to the composition root, which wires them
+            // into the one cognitive engine and the one turn pipeline.
+            val turnTraceStore = com.jarvis.app.trace.JsonlTurnTraceStore(
+                file = java.io.File(appContext.filesDir, "traces/turn_traces.jsonl")
             )
-            capabilityMemoryIndex.indexCapability(voiceCapability, "synthesize speech")
+            JarvisEngine.turnTraceStore = turnTraceStore
 
-            // ── Phase A: Identity (Self / User / World / Persona) ─────────────
-            val worldModel = com.jarvis.app.identity.WorldModelService(graphStore, blendedRetriever)
-            val userProfile = com.jarvis.app.identity.UserProfile(worldModel)
-            // EMOTIONAL-INTELLIGENCE-FUSION-LAYER-TIER-1: the Tier-1 (text-only)
-            // emotion fusion layer is constructed HERE — the single production
-            // composition point — and passed into the REAL UserMentalStateEstimator
-            // seam already consumed by ContextWindowAssembler (via IdentityContext
-            // -> CognitiveEngine -> the assembler's mentalStateEstimator). The
-            // provider fold keeps the existing single hypothesis path: one
-            // estimator, one EmotionHypothesis riding the per-turn hypothesis.
-            val emotionFusionTier1 = com.jarvis.app.emotion.FusionLayerTier1()
-            // COGNITION-WORKSPACE: the shared claim store, constructed HERE and
-            // handed to the estimator (which publishes each turn's MENTAL_STATE
-            // claim into it) and, below, to the engine that owns the context-window
-            // assembler (which reads that claim and publishes the assembled window
-            // as a CONTEXT_WINDOW claim). ONE instance for both organs — that
-            // shared store IS the replacement for the old named wire between them.
-            val workspace = com.jarvis.app.cognition.workspace.InMemoryWorkspace()
-            val mentalStateEstimator = com.jarvis.app.identity.UserMentalStateEstimator(
-                hypothesisProvider = { text ->
-                    com.jarvis.app.identity.MentalStateHypothesis.fromEmotion(emotionFusionTier1.estimate(text))
-                },
-                workspace = workspace
+            val threadTracker = com.jarvis.app.threads.ThreadTracker()
+            JarvisEngine.threadTracker = threadTracker
+
+            val provenanceLedger = com.jarvis.app.memory.provenance.JsonlProvenanceLedger(
+                file = java.io.File(appContext.filesDir, "memory/provenance.jsonl")
             )
-            val capabilityRegistry = com.jarvis.app.capability.CapabilityRegistryHolder.get()
-            val selfModel = com.jarvis.app.identity.SelfModel(
-                identitySource = com.jarvis.app.identity.HumanCoreIdentitySource(),
-                capabilityRegistry = capabilityRegistry,
-                stageHistory = com.jarvis.app.identity.PrdStageHistorySource(
-                    listOfNotNull(
-                        appContext.filesDir.resolve("ralph/prd.json").absolutePath
-                    )
+            JarvisEngine.provenanceLedger = provenanceLedger
+
+            // ── The ONE turn path ─────────────────────────────────────────────
+            val assembly = com.jarvis.app.onefriday.TurnPathAssembly.assemble(
+                com.jarvis.app.onefriday.AndroidPlatformPorts(
+                    context = appContext,
+                    storageDir = appContext.filesDir,
+                    scope = scope,
+                    memoryStore = memoryStore,
+                    // The legacy Human Core's own durable storage, and the
+                    // optional sink its memory annotations flow into (the
+                    // relationship-context sidecar plus local retrieval). The
+                    // root calls HumanCore.init itself, identically on every
+                    // host — see §0.4 ownership: the backend never owns identity,
+                    // personality, emotion, or internal state.
+                    humanCoreStorage = fileStorage,
+                    humanCoreMemorySink = { annotation ->
+                        ObsidianSync.logAnnotated(
+                            userText = annotation.userText,
+                            jarvisText = annotation.jarvisText,
+                            ts = annotation.ts,
+                            tags = annotation.tags
+                        )
+                        JarvisEngine.getMemoryStore()?.storeConversation(
+                            userText = annotation.userText,
+                            assistantText = annotation.jarvisText
+                        )
+                    },
+                    failureSurface = failureSurface,
+                    modelBackend = ollamaModelBackend,
+                    voiceSynthesizer = JarvisEngine.voiceForgeSynthesizer!!,
+                    turnTraceStore = turnTraceStore,
+                    threadTracker = threadTracker,
+                    provenanceLedger = provenanceLedger,
+                    adapterManifest = adapterManifest
                 )
             )
-            val personaTuner = com.jarvis.app.identity.PersonaTuner(worldModel)
+            // ONE ModelManager, ONE ResourceGovernor, ONE LatencyPipeline per
+            // Friday. The pipeline is installed into the latency layer BEFORE
+            // init, so the layer adopts this one instead of building a second.
+            val modelManager = assembly.modelManager
+            this.modelManager = modelManager
+            this.voiceForgeBackend = assembly.voiceForgeBackend
+            com.jarvis.app.latency.LatencyLayer.installPipeline(assembly.pipeline)
 
-            // CONTINUITY-LAW: the gate every change to identity-adjacent state
-            // passes through, constructed HERE — at the same production
-            // composition point as the shared workspace it judges, and over the
-            // live SelfModel whose real identity it pins. The durable log is a
-            // real local file under the app's own filesDir
-            // (identity/change_log.jsonl), append-only JSONL, the same local-only
-            // shape the provenance ledger and turn-trace store use, so an
-            // accepted SLOW change survives a process restart on the device.
-            val changeLog = com.jarvis.app.cognition.workspace.FileChangeLog(
-                appContext.filesDir.resolve("identity/change_log.jsonl")
-            )
-            continuityLaw = com.jarvis.app.cognition.workspace.ContinuityLaw(
-                workspace = workspace,
-                changeLog = changeLog
-            )
-            // The replay check is the other half of the law and is built HERE too,
-            // over the SAME workspace, the SAME durable log and the live CORE
-            // identity, reading the ONE committed set of real recorded turns
-            // (classpath resource replay/recorded_turns.jsonl). A build that
-            // packaged none cannot run it, and that is disclosed as null — and
-            // logged — rather than papered over with an empty fixture that would
-            // pass everything.
-            replayCheck = com.jarvis.app.cognition.workspace.RecordedTurns.fromClasspath()?.let { fixture ->
-                com.jarvis.app.cognition.workspace.ReplayCheck(
-                    workspace = workspace,
-                    changeLog = changeLog,
-                    coreIdentity = com.jarvis.app.cognition.workspace.CoreIdentity(
-                        name = selfModel.identity().name,
-                        version = selfModel.identity().version,
-                        userNodeName = com.jarvis.app.identity.WorldModelService.USER_NODE_NAME
-                    ),
-                    fixture = fixture
-                )
-            }
-            if (replayCheck == null) {
+            val graphStore = assembly.graphStore
+            val blendedRetriever = assembly.retriever
+            val identityContext = assembly.identityContext
+            val continuityGate = assembly.continuityGate
+            val capabilityFabric = assembly.capabilityFabric
+            val capabilityMemoryIndex = assembly.capabilityMemoryIndex
+            val fuzzyCommandResolver = assembly.fuzzyCommandResolver
+            val cloudModelRouter = assembly.cloudModelRouter
+            val cognitiveEngine = assembly.engine
+            val anchorEngine = assembly.anchorEngine
+            val userProfile = assembly.userProfile
+            continuityLaw = assembly.continuityLaw
+            replayCheck = assembly.replayCheck
+            // CONTINUITY-LAW: the replay check is the other half of the law. A
+            // build that packaged none cannot run it, and that is disclosed —
+            // not papered over with an empty fixture that would pass everything.
+            if (assembly.replayCheck == null) {
                 Log.w(
                     "JarvisEngine",
                     "CONTINUITY-LAW: no recorded turns packaged " +
-                        "(${com.jarvis.app.cognition.workspace.RecordedTurns.CLASSPATH_RESOURCE}) — " +
+                        "(${com.jarvis.app.cognition.workspace.RecordedTurns.CLASSPATH_RESOURCE}) \u2014 " +
                         "the replay check is NOT running on this build"
                 )
             }
 
-            // PERSON-RELATIONSHIP-MODEL-AND-CONFIDENTIALITY-FIREWALL: the
-            // social stack is constructed HERE — at the SAME composition point
-            // as the Stage-03 identity stack — over the SAME galaxy memory
-            // graph (worldModel is a typed view over graphStore; no second
-            // store). Both services are wired into IdentityContext, which is
-            // the seam the live DIRECT_REPLY generation consults per turn.
-            val personRelationshipModel = com.jarvis.app.social.PersonRelationshipModel(graphStore, worldModel)
-            val confidentialityFirewall = com.jarvis.app.social.ConfidentialityFirewall(graphStore, worldModel)
-            val identityContext = com.jarvis.app.identity.IdentityContext(
-                worldModel = worldModel,
-                userProfile = userProfile,
-                mentalStateEstimator = mentalStateEstimator,
-                selfModel = selfModel,
-                personaTuner = personaTuner,
-                personRelationshipModel = personRelationshipModel,
-                confidentialityFirewall = confidentialityFirewall
+            // Index voice_organism_v1 capability into Galaxy Memory so the
+            // fuzzy command resolver can find it through real retrieval.
+            capabilityMemoryIndex.indexCapability(
+                com.jarvis.app.capability.CapabilityRegistry.Capability(
+                    id = "voice_organism_v1",
+                    version = "1.0",
+                    name = "Voice organism (synthesis)",
+                    function = "synthesize speech through the isolated :voice habitat",
+                    category = com.jarvis.app.capability.CapabilityRegistry.Category.TTS,
+                    model = "sherpa-onnx/kokoro-int8-en-v0_19",
+                    ramEstimateMb = 350,
+                    cpuEstimatePercent = 35.0,
+                    startupCostMs = 6_000,
+                    latencyMs = 350,
+                    languages = setOf("en"),
+                    quality = com.jarvis.app.capability.CapabilityRegistry.QualityTier.HIGH,
+                    tags = setOf("r2", "habitat", "kokoro")
+                ),
+                "synthesize speech"
             )
-
-            // ── Phase A: Capability Fabric + Fuzzy Command Resolution ─────────
-            val immune = com.jarvis.app.cognitive.immune.ImmuneSystem(surface = failureSurface)
-            val capabilityFabric = com.jarvis.app.cognitive.capability.CapabilityFabric(immune)
-            val capabilityRouter = com.jarvis.app.capability.DeterministicCapabilityRouter(capabilityRegistry)
-            val fuzzyCommandResolver = com.jarvis.app.resolution.FuzzyCommandResolver(
-                blendedRetriever, capabilityRouter, capabilityRegistry
-            )
-
-            // ── Phase A: Cloud Model Router ───────────────────────────────────
-            // Constructed with an empty provider list today; real CloudProvider
-            // adapters will populate it as cloud backends come online.
-            val cloudModelRouter = com.jarvis.app.cloud.CloudModelRouter(emptyList())
 
             // ── Phase B: Universal Research Engine ───────────────────────────
             // Demand-driven (no autonomous loop): constructed with the real
@@ -514,13 +463,13 @@ object JarvisEngine {
             // ── Phase A: SystemGraph (organ map) ──────────────────────────────
             // The one source of truth organ map, built for real against THIS
             // composition so WiringDiagnostics can run against production, not a
-            // test fixture. Built after the phase-A subsystems above so its edges
+            // test fixture. Built after the subsystems above so its edges
             // reflect the genuinely-wired reality.
             val systemGraph = com.jarvis.app.selfreconfig.JarvisOrganGraph.build()
             JarvisEngine.systemGraph = systemGraph
 
-            // Store process-scoped singletons before constructing CognitiveEngine
-            // so they are accessible to any subsystem that needs them.
+            // Store process-scoped singletons before anything else so they are
+            // accessible to any subsystem that needs them.
             JarvisEngine.graphStore = graphStore
             JarvisEngine.blendedRetriever = blendedRetriever
             JarvisEngine.identityContext = identityContext
@@ -534,6 +483,10 @@ object JarvisEngine {
             JarvisEngine.androidRiskGate = androidRiskGate
             JarvisEngine.androidDeviceControlRouter = androidDeviceControlRouter
             JarvisEngine.toolBuilder = builderStack.builder
+            JarvisEngine.anchorEngine = anchorEngine
+            // The anchor establishes the resident tier as the runtime's stable
+            // base at boot (the tier the cooldown sweep never auto-unloads).
+            scope.launch { anchorEngine.anchor() }
 
             // MEMORY-CONSOLIDATION-BACKGROUND-LOOP: background consolidation.
             // Off-hot-path loop that reviews the user statements recorded in the
@@ -565,91 +518,6 @@ object JarvisEngine {
             )
             memoryConsolidationLoop.startIdleLoop()
             JarvisEngine.memoryConsolidationLoop = memoryConsolidationLoop
-
-            // ANCHOR-ENGINE-FOUNDATION: the cognitive runtime gateway is ONE
-            // instance shared by the engine and the anchor — a second decision
-            // authority would split the runtime's admission. The anchor is
-            // constructed with the real model_manager (ModelManager) and this
-            // gateway, then establishes the resident tier as the runtime's
-            // stable base at boot (the tier the cooldown sweep never
-            // auto-unloads).
-            val cognitiveAdmissionPolicy = com.jarvis.app.model.CognitiveAdmissionPolicy()
-            val anchorEngine = com.jarvis.app.anchor.AnchorEngine(modelManager, cognitiveAdmissionPolicy)
-            JarvisEngine.anchorEngine = anchorEngine
-            scope.launch { anchorEngine.anchor() }
-
-            // Egyptian Arabic dialect detection: per-turn lexicon/rule-based
-            // detector for the text generation seam. Wired into CognitiveEngine
-            // so replies match the user's register/dialect.
-            val dialectDetector = com.jarvis.app.language.EgyptianArabicDialectDetector()
-
-            // ── CONTINUITY-GATE-ENFORCED-SEAM (AC2) ───────────────────────────
-            // The typed ContinuityGate registry is constructed HERE at the SAME
-            // composition point as the identity/emotion/social stack it guards.
-            // Every organ that feeds the generation payload registers its real
-            // per-turn contribution into it at this instant (dialect, mental
-            // state/emotion, person/relationship + trust tier, confidentiality
-            // firewall, galaxy memory, and the model-tier signal). The
-            // generation payload is assembled ONLY from ContinuityGate.Snapshot —
-            // IdentityContext.gatherForTurn and ContextWindowAssembler take
-            // nothing else — so no organ can build a second parallel path.
-            val continuityGate = com.jarvis.app.continuity.ContinuityGate(
-                dialectDetector = dialectDetector,
-                personRelationshipModel = personRelationshipModel,
-                confidentialityFirewall = confidentialityFirewall,
-                blendedRetriever = blendedRetriever,
-                mentalStateEstimator = mentalStateEstimator
-            )
-
-            // ── TURN-TRACE (Gate 3a) ─────────────────────────────────────────
-            // Append-only local trace store for every real conversation turn
-            // (JSON Lines under filesDir/traces). Local-only by construction:
-            // written to this device's app-private files directory; there is
-            // no upload, no network hop, no PII surface beyond what a turn
-            // itself already holds.
-            val turnTraceStore = com.jarvis.app.trace.JsonlTurnTraceStore(
-                file = java.io.File(appContext.filesDir, "traces/turn_traces.jsonl")
-            )
-            JarvisEngine.turnTraceStore = turnTraceStore
-
-            // ── THREAD-OBJECTS (Gate 3a, priority 2) ─────────────────────────
-            // The per-conversation open-thread registry. Pure in-memory Kotlin
-            // (no I/O, no Android); every real turn through the engine splits
-            // into tracked threads — unfinished/tangent thoughts stop being
-            // discarded text and become tracked objects (ack/resurface/close).
-            val threadTracker = com.jarvis.app.threads.ThreadTracker()
-            JarvisEngine.threadTracker = threadTracker
-
-            // ── PROVENANCE-LEDGER ───────────────────────────────────────────
-            // Append-only local provenance ledger for every derived memory
-            // artifact (consolidation summaries, vector-index entries, turn-trace
-            // records): which source memories each derived artifact came from.
-            // JSON Lines under filesDir/memory/provenance.jsonl. Local-only by
-            // construction: written to this device's app-private files
-            // directory; there is no upload, no network hop.
-            val provenanceLedger = com.jarvis.app.memory.provenance.JsonlProvenanceLedger(
-                file = java.io.File(appContext.filesDir, "memory/provenance.jsonl")
-            )
-            JarvisEngine.provenanceLedger = provenanceLedger
-
-            val cognitiveEngine = com.jarvis.app.cognitive.CognitiveEngine(
-                scope = scope,
-                memoryStore = memoryStore,
-                humanCore = HumanCore,
-                modelManager = modelManager,
-                cognitiveAdmissionPolicy = cognitiveAdmissionPolicy,
-                blendedRetriever = blendedRetriever,
-                graphStore = graphStore,
-                identityContext = identityContext,
-                continuityGate = continuityGate,
-                capabilityFabric = capabilityFabric,
-                dialectDetector = dialectDetector,
-                turnTraceStore = turnTraceStore,
-                threadTracker = threadTracker,
-                provenanceLedger = provenanceLedger,
-                signalScorer = signalScorer,
-                workspace = workspace
-            )
 
             val bodyCoordinator = BodyCoordinator(
                 context = appContext,

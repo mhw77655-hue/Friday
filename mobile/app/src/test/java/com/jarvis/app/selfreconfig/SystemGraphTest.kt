@@ -992,4 +992,76 @@ class SystemGraphTest {
             reachability.reachableIds.contains("memory.graphStore")
         )
     }
+
+    // ── ONE-2-COMPOSITION ────────────────────────────────────────────────────
+
+    @Test
+    fun `the one composition root is a real registered organ`() {
+        val realOrgans = JarvisOrganGraph.build()
+
+        val root = realOrgans.node("entry.compositionRoot")
+        assertNotNull("the composition root must be in the real organ map", root)
+        assertEquals(
+            "the root is the ORDER OF CONSTRUCTION of a turn, so it is an entry, " +
+                "never a cognitive role",
+            SystemGraph.OrganType.ENTRY,
+            root!!.organType
+        )
+        assertEquals(
+            "the map must name the real class both hosts construct",
+            "com.jarvis.app.onefriday.TurnPathAssembly",
+            root.qualifiedClassName
+        )
+        assertNotNull(
+            "the registered class must actually exist — an organ map that names a " +
+                "class nothing can load is a fiction",
+            Class.forName(root.qualifiedClassName!!)
+        )
+    }
+
+    @Test
+    fun `the platform adapter is infrastructure and the root reads from it`() {
+        val realOrgans = JarvisOrganGraph.build()
+
+        val ports = realOrgans.node("entry.platformPorts")
+        assertNotNull("the platform adapter must be in the real organ map", ports)
+        assertEquals(
+            "the adapter is where a host's platform ends and the turn path begins",
+            SystemGraph.OrganType.INFRA,
+            ports!!.organType
+        )
+        assertTrue(
+            "the composition root READS_FROM the adapter — supply in, decisions out",
+            realOrgans.edgesFrom("entry.compositionRoot").any {
+                it.toId == "entry.platformPorts" &&
+                    it.kind == SystemGraph.DependencyEdge.EdgeKind.READS_FROM
+            }
+        )
+    }
+
+    @Test
+    fun `the composition root reaches the real turn path it builds`() {
+        val realOrgans = JarvisOrganGraph.build()
+        val reachable = realOrgans.computeReachability("entry.compositionRoot").reachableIds
+
+        // ONE root means the entry point, the engine and the single loading
+        // authority are all reachable THROUGH the root, not beside it: two
+        // compositions would make one of them unreachable from here.
+        assertTrue(
+            "the root builds the entry pipeline",
+            reachable.contains("entry.latencyPipeline")
+        )
+        assertTrue(
+            "the root builds the cognitive engine over real Human Core calls",
+            reachable.contains("cognitive.engine")
+        )
+        assertTrue(
+            "the root builds the single model loading authority",
+            reachable.contains("model.modelManager")
+        )
+        assertTrue(
+            "the root wires the legacy Human Core, not a stub of it",
+            reachable.contains("core.humanCore")
+        )
+    }
 }

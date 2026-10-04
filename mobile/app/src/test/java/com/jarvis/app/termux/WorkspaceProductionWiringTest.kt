@@ -124,11 +124,13 @@ class WorkspaceProductionWiringTest {
         val fromClaim = MentalStateClaims.read(server.workspace)
         assertNotNull("the turn's reading must be readable as a claim", fromClaim)
         // The real reading for a signal-bearing utterance, carried through the
-        // claim losslessly. (The server's estimator is the rule-based default;
-        // the emotion-fusion provider that anchors a measured confidence is
-        // wired in JarvisEngine.init, and that branch is proven against the real
-        // engine by EmotionFusionTier1ProductionPathTest and by
-        // WorkspaceCoreTest's round trip.)
+        // claim losslessly. ONE-2-COMPOSITION: this host now runs the SAME
+        // composition root as the phone, so the emotion-fusion provider that
+        // anchors a measured confidence is wired here too (it used to be
+        // phone-only, with this host on the rule-based default). The fusion
+        // branch itself is proven against the real layer by
+        // EmotionFusionTier1ProductionPathTest and by WorkspaceCoreTest's round
+        // trip.
         assertEquals("resolve a pain point", fromClaim!!.goal)
         assertEquals("frustrated", fromClaim.mood)
         assertTrue(
