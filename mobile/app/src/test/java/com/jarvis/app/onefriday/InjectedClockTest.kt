@@ -102,9 +102,7 @@ class InjectedClockTest {
         runBlocking<Unit> {
             val fixture = Fixture()
             var now = 1_000_000L
-            val assembly = TurnPathAssembly.assemble(
-                fixture.ports({ ResourceSnapshot.alwaysHealthy() }, { now })
-            )
+            val assembly = TurnPathAssembly.assemble(fixture.ports { now })
 
             // ── 1. The spoken-ack gap: a frozen clock speaks one ack ────────────
             repeat(3) { assembly.pipeline.onUserInput("hello $it") }
