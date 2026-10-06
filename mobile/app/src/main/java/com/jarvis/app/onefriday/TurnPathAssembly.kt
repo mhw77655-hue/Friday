@@ -21,6 +21,7 @@ import com.jarvis.app.env.ModelSource
 import com.jarvis.app.failure.FailureCategory
 import com.jarvis.app.failure.FailureReport
 import com.jarvis.app.failure.FailureSeverity
+import com.jarvis.app.failure.FailureSurface
 import com.jarvis.app.failure.Recoverability
 import com.jarvis.app.failure.RecoveryAction
 import com.jarvis.app.humancore.HumanCore
@@ -241,7 +242,11 @@ class TurnPathAssembly private constructor(
                 scope = ports.modelScope(),
                 backend = backend,
                 resourceGovernor = resourceGovernor,
-                adapterLoadGate = stores.adapterManifest()
+                adapterLoadGate = stores.adapterManifest(),
+                // The tier cooldown is a HALF-LIFE, so it reads the host's clock —
+                // one injected time source, never a second wall clock reached
+                // around the back of the composition root.
+                clock = { ports.nowMs() }
             )
             // The legacy Human Core's model port reads this at call time, so
             // binding it here is enough. It is a dependency direction (this root
@@ -254,7 +259,16 @@ class TurnPathAssembly private constructor(
 
             // ── Continuity: the change gate, and a replay check only if real ───
             val changeLog = FileChangeLog(ports.storageDir.resolve("identity/change_log.jsonl"))
-            val continuityLaw = ContinuityLaw(workspace = workspace, changeLog = changeLog)
+            // The SLOW layer's rate limit is an ELAPSED-TIME rule, so it reads the
+            // host's clock. On both production hosts that clock IS
+            // System.currentTimeMillis, so this changes no byte of real behaviour —
+            // what it changes is that the rule can no longer be reasoned about
+            // against a clock the host does not control.
+            val continuityLaw = ContinuityLaw(
+                workspace = workspace,
+                changeLog = changeLog,
+                now = { ports.nowMs() }
+            )
             // Null, not an empty fixture: a build that packaged no recorded turns
             // has nothing to replay, and a check that passes because it compared
             // nothing is worse than no check at all.

@@ -20,6 +20,7 @@ import com.jarvis.app.voice.VoiceForgeHealth
 import com.jarvis.app.voice.VoiceForgeSynthesisRequest
 import com.jarvis.app.voice.VoiceForgeSynthesisResponse
 import com.jarvis.app.voice.VoiceForgeSynthesizer
+import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,23 +29,18 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
-import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.TemporaryFolder
 
 /**
  * ONE-2-COMPOSITION: what the ONE composition root guarantees, proven against
  * the real production classes.
  *
- * Only genuinely host-bound leaves are faked (a temp directory, an in-memory
- * graph, a fake model backend, a silent speech synthesizer). Every organ, seam
- * and wiring under test is the production class — the same ones the phone and
- * the Termux host construct.
+ * Only genuinely host-bound leaves are faked (a directory, an in-memory graph,
+ * a fake model backend, a silent speech synthesizer). Every organ, seam and
+ * wiring under test is the production class — the same ones the phone and the
+ * Termux host construct.
  */
 class TurnPathAssemblyTest {
-
-    @get:Rule
-    val temp = TemporaryFolder()
 
     private class SilentSpeech : VoiceForgeSynthesizer {
         override suspend fun synthesize(
@@ -69,7 +65,7 @@ class TurnPathAssemblyTest {
         lateinit var storageDir: java.io.File
 
         fun ports(snapshot: () -> ResourceSnapshot, clock: () -> Long): JvmPlatformPorts {
-            storageDir = temp.newFolder()
+            storageDir = compositionDir("assembly")
             backend = FakeModelBackend()
             return JvmPlatformPorts(
                 storageDir = storageDir,
@@ -83,7 +79,7 @@ class TurnPathAssemblyTest {
                 ),
                 snapshot = snapshot,
                 clock = clock,
-                humanCoreStorage = FileStorage(storageDir),
+                humanCoreStorage = FileStorage(compositionDir("humancore")),
                 turnWork = runTurnWork,
                 later = { _, _ -> },
                 fastAckSink = { acks.add(it) },
@@ -257,7 +253,7 @@ class TurnPathAssemblyTest {
                 if (starved) StarvedSnapshot else ResourceSnapshot.alwaysHealthy()
             }, { 1_000L })
         )
-        val request = OrganWakeRequest(organRole = OrganRole.REASONING, tier = ModelTier.ON_DEMAND_REASONING)
+        val request = OrganWakeRequest(organRole = OrganRole.REASONING.name, tier = ModelTier.ON_DEMAND_REASONING)
 
         assertEquals(
             "a healthy reading admits the wake",
@@ -328,7 +324,7 @@ class TurnPathAssemblyTest {
         port = 0,
         backendOverride = FakeModelBackend(),
         voiceForgeSynthesizerOverride = SilentSpeech(),
-        dataDir = temp.newFolder(name)
+        dataDir = compositionDir(name)
     )
 
     private object StarvedSnapshot : ResourceSnapshot {
@@ -339,3 +335,27 @@ class TurnPathAssemblyTest {
         override val isCharging = true
     }
 }
+
+/**
+ * A unique composition directory that is deliberately NOT a JUnit
+ * TemporaryFolder, and must never become one.
+ *
+ * [HumanCore.init] runs only while the process-wide HumanCore singleton is
+ * uninitialised, so the FIRST directory a test hands the composition becomes
+ * that singleton's storage for the REST of the JVM — and a TemporaryFolder is
+ * deleted when its class finishes. Every later test that touches the real
+ * HumanCore then fails on `FileNotFoundException: .../relationship.json.tmp`,
+ * which is exactly what CI run 36365413999 did to OwnerBiometricBindingTest
+ * and PhaseBDisconnectedSubsystemWiringTest (fixed in 449efe9). Directories are
+ * unique per call (so each test's own state starts empty) and are left on disk.
+ *
+ * Top-level on purpose: it is called from a nested test fixture, and a nested
+ * class cannot see the test class's own members. It is `internal` rather than
+ * `private` because [InjectedClockTest] builds its composition the same way and
+ * must get the same rule from the same function.
+ */
+internal fun compositionDir(prefix: String): File =
+    File(
+        System.getProperty("java.io.tmpdir"),
+        "onefriday-$prefix-${System.nanoTime()}"
+    ).apply { mkdirs() }

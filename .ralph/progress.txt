@@ -603,3 +603,26 @@ Thread: (local iteration)
   - `bash .ralph/audit_check.sh` is the cheap regression oracle for any VISION.md edit: it proves Sections 4 and 13 still parse and that Section 12 is still structurally unread, with no network and no gradle. Run it after touching the file, not just `vision_audit.sh`.
   - The audit report under `.ralph/audit/` is regenerated (timestamp only) by every `vision_audit.sh` run, including the harness's own re-verification of a stored verifyCommand - expect it to be dirty after verification and do not read that diff as a finding change.
 ---
+Sun Oct  4 03:29:57 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 1/8 with omniroute/auto/best-free (same iteration).
+Sun Oct  4 03:30:38 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 2/8 with omniroute/oc/hy3-free (same iteration).
+Sun Oct  4 03:31:16 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 3/8 with omniroute/opencode/deepseek-v4-flash-free (same iteration).
+Sun Oct  4 03:31:52 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 4/8 with omniroute/openrouter/z-ai/glm-5.2:free (same iteration).
+Sun Oct  4 03:32:29 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 5/8 with omniroute/openrouter/nvidia/nemotron-3-ultra-550b-a55b:free (same iteration).
+Sun Oct  4 03:33:05 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 6/8 with omniroute/openrouter/openai/gpt-oss-20b:free (same iteration).
+Sun Oct  4 03:33:42 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 7/8 with omniroute/oc/nemotron-3-ultra-free (same iteration).
+Sun Oct  4 03:34:18 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 8/8 with omniroute/oc/mimo-v2.5-free (same iteration).
+Sun Oct  4 03:44:08 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 1/8 with omniroute/oc/hy3-free (same iteration).
+Sun Oct  4 03:44:48 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 2/8 with omniroute/opencode/deepseek-v4-flash-free (same iteration).
+Sun Oct  4 03:45:23 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 3/8 with omniroute/openrouter/z-ai/glm-5.2:free (same iteration).
+Sun Oct  4 03:45:58 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 4/8 with omniroute/openrouter/nvidia/nemotron-3-ultra-550b-a55b:free (same iteration).
+Sun Oct  4 03:46:35 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 5/8 with omniroute/openrouter/openai/gpt-oss-20b:free (same iteration).
+Sun Oct  4 03:47:11 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 6/8 with omniroute/oc/nemotron-3-ultra-free (same iteration).
+Sun Oct  4 03:47:45 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 7/8 with omniroute/oc/mimo-v2.5-free (same iteration).
+Sun Oct  4 03:48:24 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 8/8 with opencode/big-pickle (same iteration).
+Sun Oct  4 14:26:40 BST 2026: Iteration 3 - router/provider error on omniroute/oc/hy3-free, retry 1/8 with omniroute/opencode/deepseek-v4-flash-free (same iteration).
+Mon Oct  5 04:36:51 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 1/8 with omniroute/auto/best-free (same iteration).
+Mon Oct  5 04:37:52 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 2/8 with omniroute/oc/hy3-free (same iteration).
+Mon Oct  5 04:41:03 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 3/8 with omniroute/opencode/deepseek-v4-flash-free (same iteration).
+Mon Oct  5 04:41:38 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 4/8 with omniroute/openrouter/z-ai/glm-5.2:free (same iteration).
+Mon Oct  5 04:42:55 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 5/8 with omniroute/openrouter/nvidia/nemotron-3-ultra-550b-a55b:free (same iteration).
+Sun Oct  6 09:10:00 BST 2026: ONE-2-COMPOSITION - repaired main (dc8a68f did not compile: AndroidPlatformPorts.reportFailure returned FailureEvent where PlatformPorts declares Unit; TurnPathAssembly missing the FailureSurface import) and injected the host clock into ModelManager.cooldown and ContinuityLaw.now; fixed TurnPathAssemblyTest (OrganWakeRequest.organRole is a String, composition dirs must be stable non-TemporaryFolder dirs because HumanCore.init is first-init-wins), added InjectedClockTest (72h jump over ack gap / tier cooldown / SLOW rate limit) and WallClockAllowlistTest (68 declared reads over a recursive package walk, counts verified offline). Awaiting CI proof before setting passes.

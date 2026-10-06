@@ -104,8 +104,15 @@ class AndroidPlatformPorts(
         CompanionCoreHolder.instance()?.integration?.onUtteranceCompleted()
     }
 
-    override fun reportFailure(report: com.jarvis.app.failure.FailureReport) =
+    /**
+     * Reporting only: the port is where a host's failure channel is plugged in,
+     * not where an event is handed back. The real [FailureSurface] aggregates and
+     * deduplicates, so the `FailureEvent` it returns is deliberately dropped
+     * here — a turn's outcome must not depend on what the reporter does with it.
+     */
+    override fun reportFailure(report: com.jarvis.app.failure.FailureReport) {
         failureSurface.report(report)
+    }
 
     override fun humanCoreStorage(): com.jarvis.app.humancore.store.StoragePort = humanCoreStorage
 
