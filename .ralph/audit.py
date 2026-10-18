@@ -1832,7 +1832,17 @@ def main(argv):
                          or "HEAD")
     if args.paths:
         diff = Diff.from_paths(args.paths)
-        rng = "files: " + ", ".join(args.paths)
+        # Enumerate only a short list. A whole-tree run names ~300 files; as a
+        # title line that is noise, and as a full path list it makes the report
+        # NAME every file audited -- including files the detectors correctly
+        # left unflagged, which then breaks any grep-based negative control run
+        # over the report (e.g. `! grep InMemoryWorkspace`). Findings always
+        # carry their own file:line, so the enumeration carries no information.
+        if len(args.paths) <= 8:
+            rng = "files: " + ", ".join(args.paths)
+        else:
+            rng = ("%d files (paths not enumerated in this title; every finding "
+                   "below names its own file)" % len(args.paths))
     else:
         diff = Diff.from_range(base, args.head)
         rng = "%s..%s" % (base[:10], args.head[:10])
