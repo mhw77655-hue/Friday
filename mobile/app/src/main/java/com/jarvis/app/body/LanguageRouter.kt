@@ -61,6 +61,19 @@ class LanguageRouter(
 
     /** Get TTS locale for a language. */
     fun getTtsLocale(language: Language): Locale = language.locale
+
+    companion object {
+        /**
+         * LAUNCH-SURVIVAL AC2: resolve an EXTERNAL language tag (a segment tag,
+         * an STT hint, a config value) to a [Language]. This is the ONE place
+         * outside tags are turned into a language, and it never calls
+         * `valueOf`: an unknown, empty or differently-cased tag degrades to the
+         * default voice and is reported as unknown instead of throwing. See
+         * [LanguageTagResolver].
+         */
+        fun resolveLanguageTag(rawTag: String?): LanguageTagResolver.Resolution =
+            LanguageTagResolver.resolve(rawTag)
+    }
 }
 
 /** STT engine options. */

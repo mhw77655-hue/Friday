@@ -54,15 +54,77 @@ class OllamaModelBackend(
                 "Ollama server unreachable at 127.0.0.1:8080 — cannot load '${config.modelId}': ${e.message}"
             )
         }
-        val modelId = config.modelId
-        require(modelId in registered) {
-            "Ollama server does not register model '$modelId'; registered models: ${registered.joinToString(",")}"
-        }
-        val handle = ModelHandle(id = idSeq.incrementAndGet(), modelId = modelId)
+        // LAUNCH-SURVIVAL AC3: names are RESOLVED, not assumed. The phone
+        // registered `jarvis-resident:latest` and `jarvis-reasoning:latest`,
+        // but the tier's default id was the literal "resident" — the old
+        // `require(modelId in registered)` threw and took the :voice process
+        // down. The requested id is now resolved against what the server
+        // actually registers (exact name, then the ':latest' form, then a
+        // degrade to a registered model), and a registry that lacks the tier
+        // degrades instead of throwing out of the call.
+        val resolution = resolveRegisteredModel(config.modelId, registered)
+        lastResolution = resolution
+        val handle = ModelHandle(id = idSeq.incrementAndGet(), modelId = resolution.resolvedId)
         synchronized(loadedHandles) { loadedHandles.add(handle) }
         loadCount++
         return handle
     }
+
+    /**
+     * How the requested id was matched against [registered] — observable so a
+     * test can prove a tier name was RESOLVED (exact / ':latest' / degraded)
+     * rather than assumed, and so a genuine gap is named instead of thrown.
+     */
+    data class ModelResolution(
+        val requestedId: String,
+        val resolvedId: String,
+        val match: Match,
+        val registered: List<String>
+    ) {
+        enum class Match { EXACT, LATEST_FORM, DEGRADED_TO_REGISTERED, EMPTY_REGISTRY }
+        val degraded: Boolean get() = match == Match.DEGRADED_TO_REGISTERED || match == Match.EMPTY_REGISTRY
+    }
+
+    /** The last name resolution performed by [loadModel] (null before any load). */
+    @Volatile
+    var lastResolution: ModelResolution? = null
+        private set
+
+    /**
+     * Resolve [requested] against the names the server registers. Never throws:
+     * an unmatched request degrades to a registered model (preferring the same
+     * model family, then the sole registered model) and an empty registry
+     * yields an explicit EMPTY_REGISTRY resolution that names the gap.
+     */
+    private fun resolveRegisteredModel(requested: String, registered: List<String>): ModelResolution {
+        if (registered.isEmpty()) {
+            return ModelResolution(requested, requested, ModelResolution.Match.EMPTY_REGISTRY, registered)
+        }
+        if (requested in registered) {
+            return ModelResolution(requested, requested, ModelResolution.Match.EXACT, registered)
+        }
+        // The ':latest' form: "jarvis-resident" -> "jarvis-resident:latest".
+        val withLatest = "$requested:latest"
+        if (withLatest in registered) {
+            return ModelResolution(requested, withLatest, ModelResolution.Match.LATEST_FORM, registered)
+        }
+        // A request that already carries ':latest' but whose base name is
+        // registered under a different tag.
+        val base = requested.substringBefore(':')
+        val sameFamily = registered.firstOrNull { it.substringBefore(':') == base }
+        if (sameFamily != null) {
+            return ModelResolution(requested, sameFamily, ModelResolution.Match.LATEST_FORM, registered)
+        }
+        // Degrade: prefer a model whose family the REQUESTER is a prefix/substring
+        // of (e.g. "resident" -> "jarvis-resident:latest"), then the first
+        // registered model. This is the degradation path, recorded as such.
+        val prefixMatch = registered.firstOrNull { candidate ->
+            val family = candidate.substringBefore(':')
+            family.contains(requested, ignoreCase = true) || requested.contains(family, ignoreCase = true)
+        } ?: registered.first()
+        return ModelResolution(requested, prefixMatch, ModelResolution.Match.DEGRADED_TO_REGISTERED, registered)
+    }
+
 
     override suspend fun generate(handle: ModelHandle, prompt: String): String {
         check(isLoaded(handle)) {

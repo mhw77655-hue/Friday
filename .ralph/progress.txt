@@ -643,3 +643,7 @@ Sat Oct 17 10:48:40 BST 2026: Iteration 2 - router/provider error on omniroute/a
 Sat Oct 17 10:49:13 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 6/8 with omniroute/oc/nemotron-3-ultra-free (same iteration).
 Sat Oct 17 10:49:47 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 7/8 with omniroute/oc/mimo-v2.5-free (same iteration).
 Sat Oct 17 10:50:21 BST 2026: Iteration 2 - router/provider error on omniroute/auto/best-free, retry 8/8 with opencode/big-pickle (same iteration).
+Sun Oct 18 10:44:35 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 1/8 with omniroute/auto/best-free (same iteration).
+Sun Oct 18 10:49:22 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 2/8 with omniroute/oc/hy3-free (same iteration).
+Sun Oct 18 10:56:32 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 3/8 with omniroute/opencode/deepseek-v4-flash-free (same iteration).
+Sun Oct 18 10:57:15 BST 2026: Iteration 1 - router/provider error on opencode/big-pickle, retry 4/8 with omniroute/openrouter/z-ai/glm-5.2:free (same iteration).

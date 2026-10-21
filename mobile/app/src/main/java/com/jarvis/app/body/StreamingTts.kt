@@ -270,7 +270,31 @@ class StreamingTts(
     private fun startSynthesisLoop() {
         scope.launch(Dispatchers.IO) {
             for (segment in pendingSynthesis) {
-                synthesizeSegment(segment)
+                // LAUNCH-SURVIVAL AC4: a failing synthesis must not kill the
+                // body. The loop is the app-level worker that serves the NEXT
+                // typed turn; an exception escaping here used to take the whole
+                // process down on a Dispatchers.IO worker. Every failure is
+                // reported through the existing FailureSurface with its stack,
+                // and the loop keeps serving.
+                try {
+                    synthesizeSegment(segment)
+                } catch (t: Throwable) {
+                    if (t is kotlinx.coroutines.CancellationException) throw t
+                    onFailure(
+                        com.jarvis.app.failure.FailureReport(
+                            subsystem = "STREAMING_TTS",
+                            operation = "synthesize-segment",
+                            severity = com.jarvis.app.failure.FailureSeverity.ERROR,
+                            category = com.jarvis.app.failure.FailureCategory.TTS,
+                            message = "Streaming TTS segment synthesis threw and was contained",
+                            source = "StreamingTts",
+                            cause = "${t.javaClass.simpleName}: ${t.message}",
+                            dependency = segment.language,
+                            recoverability = com.jarvis.app.failure.Recoverability.RETRYABLE,
+                            recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY
+                        )
+                    )
+                }
             }
         }
     }
@@ -282,7 +306,14 @@ class StreamingTts(
     }
 
     private fun synthesizeSegment(segment: TtsSegment) {
-        val lang = LanguageRouter.Language.valueOf(segment.language.uppercase())
+        // LAUNCH-SURVIVAL AC2: the tag is external input — resolve it openly,
+        // never `valueOf` it. An unknown tag degrades to the default voice and
+        // is recorded as unknown; the resolution can never throw.
+        val reading = LanguageRouter.resolveLanguageTag(segment.language)
+        if (reading.unknown) {
+            Log.w(TAG, "Unknown TTS language tag '${segment.language}' — degrading to ${reading.language}")
+        }
+        val lang = reading.language
         val ssml = toSsml(segment.text)
 
         // Check cache first
