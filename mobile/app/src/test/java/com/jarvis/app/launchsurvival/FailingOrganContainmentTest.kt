@@ -91,8 +91,8 @@ class FailingOrganContainmentTest {
             )
             assertEquals(
                 "an empty registry yields an explicit gap resolution, not a throw",
-                com.jarvis.app.model.OllamaModelBackend.ModelResolution.Match.EMPTY_REGISTRY,
-                backend.lastResolution?.match
+                true,
+                backend.lastResolution?.emptyRegistry
             )
             assertEquals("resident", handle.modelId)
         }

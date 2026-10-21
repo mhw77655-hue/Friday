@@ -74,15 +74,21 @@ class OllamaModelBackend(
      * How the requested id was matched against [registered] — observable so a
      * test can prove a tier name was RESOLVED (exact / ':latest' / degraded)
      * rather than assumed, and so a genuine gap is named instead of thrown.
+     *
+     * The outcome is DATA, not a closed set of forms: [resolvedId] is what the
+     * load will actually use, [degraded] says whether the request was
+     * substituted, and [basis] records why in plain words. A new resolution
+     * strategy adds no enum member — it just resolves differently.
      */
     data class ModelResolution(
         val requestedId: String,
         val resolvedId: String,
-        val match: Match,
+        val degraded: Boolean,
+        val basis: String,
         val registered: List<String>
     ) {
-        enum class Match { EXACT, LATEST_FORM, DEGRADED_TO_REGISTERED, EMPTY_REGISTRY }
-        val degraded: Boolean get() = match == Match.DEGRADED_TO_REGISTERED || match == Match.EMPTY_REGISTRY
+        /** True when the server registered nothing to resolve against. */
+        val emptyRegistry: Boolean get() = registered.isEmpty()
     }
 
     /** The last name resolution performed by [loadModel] (null before any load). */
@@ -94,26 +100,32 @@ class OllamaModelBackend(
      * Resolve [requested] against the names the server registers. Never throws:
      * an unmatched request degrades to a registered model (preferring the same
      * model family, then the sole registered model) and an empty registry
-     * yields an explicit EMPTY_REGISTRY resolution that names the gap.
+     * yields an explicit empty-registry resolution that names the gap.
      */
     private fun resolveRegisteredModel(requested: String, registered: List<String>): ModelResolution {
         if (registered.isEmpty()) {
-            return ModelResolution(requested, requested, ModelResolution.Match.EMPTY_REGISTRY, registered)
+            return ModelResolution(
+                requestedId = requested,
+                resolvedId = requested,
+                degraded = true,
+                basis = "empty registry: no model registered, request kept as the explicit gap",
+                registered = registered
+            )
         }
         if (requested in registered) {
-            return ModelResolution(requested, requested, ModelResolution.Match.EXACT, registered)
+            return ModelResolution(requested, requested, degraded = false, basis = "exact", registered = registered)
         }
         // The ':latest' form: "jarvis-resident" -> "jarvis-resident:latest".
         val withLatest = "$requested:latest"
         if (withLatest in registered) {
-            return ModelResolution(requested, withLatest, ModelResolution.Match.LATEST_FORM, registered)
+            return ModelResolution(requested, withLatest, degraded = false, basis = "':latest' form", registered = registered)
         }
         // A request that already carries ':latest' but whose base name is
         // registered under a different tag.
         val base = requested.substringBefore(':')
         val sameFamily = registered.firstOrNull { it.substringBefore(':') == base }
         if (sameFamily != null) {
-            return ModelResolution(requested, sameFamily, ModelResolution.Match.LATEST_FORM, registered)
+            return ModelResolution(requested, sameFamily, degraded = false, basis = "same family under another tag", registered = registered)
         }
         // Degrade: prefer a model whose family the REQUESTER is a prefix/substring
         // of (e.g. "resident" -> "jarvis-resident:latest"), then the first
@@ -121,8 +133,12 @@ class OllamaModelBackend(
         val prefixMatch = registered.firstOrNull { candidate ->
             val family = candidate.substringBefore(':')
             family.contains(requested, ignoreCase = true) || requested.contains(family, ignoreCase = true)
-        } ?: registered.first()
-        return ModelResolution(requested, prefixMatch, ModelResolution.Match.DEGRADED_TO_REGISTERED, registered)
+        }
+        return if (prefixMatch != null) {
+            ModelResolution(requested, prefixMatch, degraded = true, basis = "degraded to a registered family match", registered = registered)
+        } else {
+            ModelResolution(requested, registered.first(), degraded = true, basis = "degraded to the first registered model", registered = registered)
+        }
     }
 
 
