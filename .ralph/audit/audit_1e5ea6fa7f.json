@@ -1,0 +1,11 @@
+{
+  "range": "2e3ce2d3ed..1e5ea6fa7f",
+  "model_calls": 0,
+  "deviations": [],
+  "observations": [],
+  "report": ".ralph/audit/audit_1e5ea6fa7f.md",
+  "patch": null,
+  "branch": null,
+  "branch_sha": null,
+  "merged": false
+}

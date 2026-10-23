@@ -1,0 +1,42 @@
+{
+  "range": "4bdbea7..220a38a",
+  "model_calls": 0,
+  "deviations": [
+    {
+      "check": "closed_type",
+      "symbol": "ClaimKind",
+      "file": "mobile/app/src/main/java/com/jarvis/app/cognition/workspace/ClaimKind.kt",
+      "line": 13,
+      "s13": "Did this replace \"whatever is actually needed right now\" with a predefined list of inputs, outputs, types, thresholds, stages, or roles?",
+      "recipe": ""
+    }
+  ],
+  "observations": [
+    {
+      "check": "flat_threshold",
+      "symbol": "DECAY_RATE",
+      "file": "mobile/app/src/main/java/com/jarvis/app/cognition/workspace/MentalStateClaims.kt",
+      "line": 39,
+      "why_not": "no comparison in the changed code reaches this constant"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "UNANCHORED_CONFIDENCE",
+      "file": "mobile/app/src/main/java/com/jarvis/app/cognition/workspace/MentalStateClaims.kt",
+      "line": 45,
+      "why_not": "no comparison in the changed code reaches this constant"
+    },
+    {
+      "check": "flat_threshold",
+      "symbol": "TICK_INTERVAL_MS",
+      "file": "mobile/app/src/main/java/com/jarvis/app/cognition/workspace/Workspace.kt",
+      "line": 58,
+      "why_not": "no comparison in the changed code reaches this constant"
+    }
+  ],
+  "report": ".ralph/audit/audit_220a38a.md",
+  "patch": null,
+  "branch": null,
+  "branch_sha": null,
+  "merged": false
+}

@@ -1,0 +1,19 @@
+{
+  "id": "DEV-1",
+  "name": "DEV-1: format preference through approval/disapproval",
+  "expect": "fail",
+  "controls": {
+    "replay-blocked": true,
+    "mechanism-off": true
+  },
+  "steps": [
+    {"type": "say", "text": "give me a summary"},
+    {"type": "tap", "target": "approve_bulleted", "outcome": "approve"},
+    {"type": "say", "text": "give me another summary"},
+    {"type": "tap", "target": "disapprove_paragraph", "outcome": "disapprove"},
+    {"type": "restart"},
+    {"type": "wait", "duration": 259200000},
+    {"type": "say", "text": "summarize this different topic differently"},
+    {"type": "assert", "over": "trace", "condition": "impossible_condition_dev1_not_implemented"}
+  ]
+}

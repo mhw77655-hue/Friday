@@ -1,0 +1,36 @@
+{
+  "range": "d6ef306e1d..5613bc550c",
+  "model_calls": 0,
+  "deviations": [
+    {
+      "check": "named_wire",
+      "symbol": "failureSurface: FailureSurface",
+      "file": "mobile/app/src/main/java/com/jarvis/app/onefriday/AndroidPlatformPorts.kt",
+      "line": 35,
+      "s13": "Did this create a fixed, named connection between two things where the task requires that interaction to vary?",
+      "recipe": ""
+    },
+    {
+      "check": "named_wire",
+      "symbol": "selfModel: SelfModel",
+      "file": "mobile/app/src/main/java/com/jarvis/app/onefriday/TurnPathAssembly.kt",
+      "line": 103,
+      "s13": "Did this create a fixed, named connection between two things where the task requires that interaction to vary?",
+      "recipe": ""
+    },
+    {
+      "check": "named_wire",
+      "symbol": "modelManager: ModelManager",
+      "file": "mobile/app/src/main/java/com/jarvis/app/onefriday/TurnPathAssembly.kt",
+      "line": 123,
+      "s13": "Did this create a fixed, named connection between two things where the task requires that interaction to vary?",
+      "recipe": ""
+    }
+  ],
+  "observations": [],
+  "report": ".ralph/audit/audit_5613bc550c.md",
+  "patch": null,
+  "branch": null,
+  "branch_sha": null,
+  "merged": false
+}

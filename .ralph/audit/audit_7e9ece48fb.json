@@ -1,0 +1,20 @@
+{
+  "range": "HEAD~1..HEAD",
+  "model_calls": 0,
+  "deviations": [
+    {
+      "check": "closed_type",
+      "symbol": "Match",
+      "file": "mobile/app/src/main/java/com/jarvis/app/model/OllamaModelBackend.kt",
+      "line": 84,
+      "s13": "Did this replace \"whatever is actually needed right now\" with a predefined list of inputs, outputs, types, thresholds, stages, or roles?",
+      "recipe": ""
+    }
+  ],
+  "observations": [],
+  "report": ".ralph/audit/audit_7e9ece48fb.md",
+  "patch": null,
+  "branch": null,
+  "branch_sha": null,
+  "merged": false
+}

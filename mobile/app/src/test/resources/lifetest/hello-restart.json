@@ -1,0 +1,13 @@
+{
+  "id": "hello-restart",
+  "name": "Scenario 0 'hello-restart'",
+  "expect": "pass",
+  "steps": [
+    {"type": "say", "text": "hello"},
+    {"type": "assert", "over": "trace", "condition": "reply_received"},
+    {"type": "restart"},
+    {"type": "say", "text": "what is my name and what did I say before?"},
+    {"type": "assert", "over": "trace", "condition": "identity_persisted"},
+    {"type": "assert", "over": "trace", "condition": "memory_path_used"}
+  ]
+}
