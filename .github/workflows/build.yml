@@ -73,11 +73,8 @@ jobs:
           name: debug-apk
           path: mobile/app/build/outputs/apk/debug/app-debug.apk
 
-      # Baseline unit-test run for this stage. Does NOT gate the job yet
-      # (continue-on-error); results are uploaded + summarized so the current
-      # baseline is recorded on every commit.
+      # Baseline unit-test run for this stage.
       - name: Run unit tests (baseline)
-        continue-on-error: true
         run: ./gradlew :mobile:app:testDebugUnitTest
 
       - name: Upload JUnit results
@@ -92,8 +89,13 @@ jobs:
         run: |
           python3 - <<'PY'
           import glob, re, os
+          paths = glob.glob('mobile/app/build/test-results/**/TEST-*.xml', recursive=True)
+          if not paths:
+              with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
+                  out.write('## JUnit baseline\n\nNO JUNIT FILES: the tests did not run\n')
+              raise SystemExit(0)
           t = f = e = s = 0
-          for p in glob.glob('mobile/app/build/test-results/**/TEST-*.xml', recursive=True):
+          for p in paths:
               with open(p, encoding='utf-8', errors='replace') as fh:
                   c = fh.read()
               m = re.search(r'<testsuite\b[^>]*>', c)
