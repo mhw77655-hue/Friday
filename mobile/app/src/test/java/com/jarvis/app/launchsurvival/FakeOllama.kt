@@ -29,7 +29,8 @@ class FakeOllama(
         "jarvis-reasoning:latest",
         "jarvis-resident:latest"
     ),
-    private val tagsStatus: Int = 200
+    private val tagsStatus: Int = 200,
+    port: Int = 0
 ) : AutoCloseable {
 
     /** Requests seen on /api/chat — proves generation really went through here. */
@@ -42,7 +43,7 @@ class FakeOllama(
     var lastChatModel: String? = null
         private set
 
-    private val server = ServerSocket(0, 4, java.net.InetAddress.getByName("127.0.0.1"))
+    private val server = ServerSocket(port, 4, java.net.InetAddress.getByName("127.0.0.1"))
 
     /** The "127.0.0.1:port" path form the adapters take in [configure]. */
     val host: String = "127.0.0.1:${server.localPort}"
