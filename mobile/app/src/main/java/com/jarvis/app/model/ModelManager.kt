@@ -54,10 +54,21 @@ class ModelManager(
     private val adapterLoadGate: com.jarvis.app.memory.provenance.AdapterLoadGate? = null,
     // Injected clock — deterministic cooldown tests advance it by hand.
     private val clock: () -> Long = { System.currentTimeMillis() },
+    // LAUNCH-OLLAMA-DOWN: the nervous system's one surface. When a load returns
+    // a typed gap (a dependency that is absent), the gap is reported HERE
+    // exactly once per down-episode — not once per anchor retry — and the
+    // recovery is recorded when a later load reaches the dependency. Null keeps
+    // the pre-story behaviour: the typed gap still completes, it just is not
+    // announced to a surface this manager does not own.
+    private val failureSurface: com.jarvis.app.failure.FailureSurface? = null,
     // Launch the background cooldown sweep on this manager's scope. Tests run
     // sweeps manually (autoSweep = false) to stay deterministic.
     private val autoSweep: Boolean = true
 ) {
+    // One down-episode, one entry: the flag is what makes "not one per retry"
+    // true by construction rather than a property of the surface's dedupe.
+    private val gapLock = Any()
+    private var gapReported = false
     // Provider adapters
     private val llamaCppAdapter = LlamaCppAdapter(context)
     private val ollamaAdapter = OllamaAdapter(context)
@@ -402,6 +413,50 @@ class ModelManager(
             ?: LoadOutcome.Lead(CompletableDeferred<ModelHandle>()).also { inflight[tier] = it.deferred }
     }
 
+    /**
+     * Report one down-episode to the failure surface. Idempotent until a load
+     * succeeds again: retries while the dependency is absent add no entries.
+     */
+    private fun reportGap(handle: ModelHandle) {
+        val surface = failureSurface ?: return
+        synchronized(gapLock) {
+            if (gapReported) return
+            gapReported = true
+        }
+        surface.report(
+            com.jarvis.app.failure.FailureReport(
+                subsystem = MODEL_SUBSYSTEM,
+                operation = MODEL_LOAD_OPERATION,
+                severity = com.jarvis.app.failure.FailureSeverity.ERROR,
+                category = com.jarvis.app.failure.FailureCategory.MODEL,
+                message = MODEL_GAP_MESSAGE,
+                source = "ModelManager",
+                cause = "model '${handle.modelId}' could not be loaded: the model server is unreachable",
+                dependency = "model-server",
+                recoverability = com.jarvis.app.failure.Recoverability.RETRYABLE,
+                recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY,
+                userMessage = MODEL_SERVER_UNREACHABLE_REPLY
+            )
+        )
+    }
+
+    /** Record that the dependency answered again, once, after a real gap. */
+    private fun reportRecovered() {
+        val surface = failureSurface ?: return
+        val wasGap = synchronized(gapLock) {
+            if (!gapReported) return
+            gapReported = false
+            true
+        }
+        if (!wasGap) return
+        surface.recover(
+            aggregateKey = MODEL_GAP_KEY,
+            result = com.jarvis.app.failure.RecoveryResult.SUCCESS,
+            message = "model server reachable again",
+            action = com.jarvis.app.failure.RecoveryAction.RETRY
+        )
+    }
+
     private suspend fun loadOnce(
         tier: ModelTier,
         modelId: String,
@@ -434,6 +489,16 @@ class ModelManager(
                     outcome.deferred.completeExceptionally(e)
                     throw e
                 }
+                if (!modelBackend.isAvailable(handle)) {
+                    // A typed gap, not a warm tier: announce it once and do NOT
+                    // cache it, so the next request genuinely retries and the
+                    // anchor reports honestly that it is not held.
+                    reportGap(handle)
+                    synchronized(lifecycleLock) { inflight.remove(tier) }
+                    outcome.deferred.complete(handle)
+                    return handle
+                }
+                reportRecovered()
                 synchronized(lifecycleLock) {
                     cachedByTier[tier] = handle
                     lastUsedMs[tier] = clock()
@@ -553,7 +618,7 @@ class ModelManager(
                     attemptSend(message, attempt + 1, tierHandle)
                 } else {
                     _status.value = "local brain unreachable after ${attempt + 1} attempts"
-                    _lastReply.value = ""
+                    _lastReply.value = MODEL_SERVER_UNREACHABLE_REPLY
                 }
             }
         } catch (e: Exception) {
@@ -563,7 +628,7 @@ class ModelManager(
             } else {
                 _status.value =
                     "local brain unreachable after ${attempt + 1} attempts (${e.message})"
-                _lastReply.value = ""
+                _lastReply.value = MODEL_SERVER_UNREACHABLE_REPLY
             }
         }
     }
@@ -612,6 +677,15 @@ class ModelManager(
          * GenerateRequest.modelId.
          */
         internal const val TIER_MODEL_ID_REASONING = "jarvis-reasoning:latest"
+
+        // The failure-surface vocabulary for a dependency that is absent. The
+        // message is a constant so the aggregate key (subsystem|operation|
+        // message) is stable across retries and a recovery can find it.
+        internal const val MODEL_SUBSYSTEM = "MODEL"
+        internal const val MODEL_LOAD_OPERATION = "load"
+        internal const val MODEL_GAP_MESSAGE =
+            "The model server is unreachable, so no model can be served yet."
+        internal const val MODEL_GAP_KEY = "$MODEL_SUBSYSTEM|$MODEL_LOAD_OPERATION|$MODEL_GAP_MESSAGE"
 
         const val MAX_RETRIES = 2
         val RETRY_DELAYS_MS = longArrayOf(1000L, 2000L)

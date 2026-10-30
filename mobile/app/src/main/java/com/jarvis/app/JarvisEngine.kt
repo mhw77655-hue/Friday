@@ -16,7 +16,6 @@ import com.jarvis.app.humancore.store.FileStorage
 import com.jarvis.app.memory.BlendedMemoryRetriever
 import com.jarvis.app.model.ModelManager
 import com.jarvis.app.runtime.RuntimeBinder
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -176,7 +175,17 @@ object JarvisEngine {
         // load). Runs on the main thread before any screen composes, so every
         // getX() helper can assume these singletons are non-null.
         val fileStorage = FileStorage(appContext.filesDir)
-        val scope = CoroutineScope(Dispatchers.Main)
+        // LAUNCH-OLLAMA-DOWN: the failure surface exists BEFORE the scope, so
+        // the ONE engine scope can record an uncaught organ failure into it.
+        // The scope is built by the shared containment factory — never a bare
+        // CoroutineScope, which has no supervisor and no exception handler (the
+        // shape that killed main and :voice when the model server was down).
+        val failureSurface = com.jarvis.app.failure.FailureSurface()
+        val scope = com.jarvis.app.failure.EngineContainment.scope(
+            name = "jarvis-engine",
+            failureSurface = failureSurface,
+            dispatcher = Dispatchers.Main
+        )
         // LOCAL-MODEL-BACKEND-GROUND-TRUTH-AND-BUILD: the ONE production
         // ModelBackend is the real OllamaModelBackend performing actual HTTP
         // against the local Ollama server (127.0.0.1:8080, model
@@ -234,10 +243,10 @@ object JarvisEngine {
         this.approvalQueue = approvalQueue
         this.alertStore = alertStore
 
-        // Nervous-system failure infrastructure: the central failure surface,
-        // its JSONL memory, and the recovery executor. Built before every
-        // subsystem so any failure from boot onward has a place to land.
-        val failureSurface = com.jarvis.app.failure.FailureSurface()
+        // Nervous-system failure infrastructure: the central failure surface
+        // (built above, before the scope so the scope can report into it), its
+        // JSONL memory, and the recovery executor. Built before every subsystem
+        // so any failure from boot onward has a place to land.
         val failureStore = com.jarvis.app.failure.FailureStore(fileStorage, scope)
         val recoveryController = com.jarvis.app.failure.RecoveryController(failureSurface, scope)
         failureStore.attach(failureSurface)

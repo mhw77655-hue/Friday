@@ -15,5 +15,6 @@ This file tracks all build/runtime incidents. Each incident has a file under
 |------|------|-----------|--------|
 | [2026-07-28_voice_pipeline.md](2026-07-28_voice_pipeline.md) | 2026-07-28 | Voice pipeline (KWS/Vosk/TTS) - disabled at d9ca295 | mitigated |
 | [2026-10-18_closed_enum_assumed_name.md](2026-10-18_closed_enum_assumed_name.md) | 2026-10-16 | Launch crashes: enum `valueOf` on external tag + assumed model name; uncaught organ exceptions | fixed |
+| [LAUNCH-OLLAMA-DOWN.md](LAUNCH-OLLAMA-DOWN.md) | 2026-10-24 | Launch crash: an absent Ollama server thrown out of a bare engine scope | fixed |
 
 

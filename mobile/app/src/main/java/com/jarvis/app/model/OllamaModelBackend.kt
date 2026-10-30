@@ -31,6 +31,9 @@ class OllamaModelBackend(
 ) : ModelBackend {
 
     private val loadedHandles = mutableSetOf<ModelHandle>()
+    // Handles minted because the server could not be reached. Kept separate
+    // from `loadedHandles` so availability is a real distinction, not a guess.
+    private val unreachableHandles = mutableSetOf<ModelHandle>()
     private val idSeq = AtomicLong(0)
 
     /** Successful [loadModel] calls — observable for tests, like FakeModelBackend. */
@@ -50,9 +53,25 @@ class OllamaModelBackend(
         val registered = try {
             ollama.listModels()
         } catch (e: IOException) {
-            throw IOException(
-                "Ollama server unreachable at 127.0.0.1:8080 — cannot load '${config.modelId}': ${e.message}"
+            // LAUNCH-OLLAMA-DOWN: an absent server is DATA, never an exception
+            // thrown out of the load path. On the phone this IOException sat in
+            // a bare engine scope (no supervisor, no handler) and killed the
+            // main process — and therefore :voice too. The gap is returned as a
+            // handle that names it, `isAvailable` is false so the lifecycle
+            // authority never caches it as a warm tier, and `generate` answers a
+            // turn in plain words instead of throwing or staying silent.
+            val gap = ModelHandle(id = idSeq.incrementAndGet(), modelId = config.modelId)
+            lastResolution = ModelResolution(
+                requestedId = config.modelId,
+                resolvedId = config.modelId,
+                degraded = true,
+                basis = "server unreachable: ${e.message}",
+                registered = emptyList(),
+                unreachable = true
             )
+            synchronized(unreachableHandles) { unreachableHandles.add(gap) }
+            synchronized(loadedHandles) { loadedHandles.add(gap) }
+            return gap
         }
         // LAUNCH-SURVIVAL AC3: names are RESOLVED, not assumed. The phone
         // registered `jarvis-resident:latest` and `jarvis-reasoning:latest`,
@@ -85,7 +104,13 @@ class OllamaModelBackend(
         val resolvedId: String,
         val degraded: Boolean,
         val basis: String,
-        val registered: List<String>
+        val registered: List<String>,
+        /**
+         * True when the load could not reach the server at all. A typed gap is
+         * a different outcome from an empty registry: the registry was never
+         * read, so nothing can be said about which models exist.
+         */
+        val unreachable: Boolean = false
     ) {
         /** True when the server registered nothing to resolve against. */
         val emptyRegistry: Boolean get() = registered.isEmpty()
@@ -143,6 +168,11 @@ class OllamaModelBackend(
 
 
     override suspend fun generate(handle: ModelHandle, prompt: String): String {
+        // A gap handle answers in plain words. It is not an inference result,
+        // and `generateCount` is NOT incremented for it: no model ran.
+        if (synchronized(unreachableHandles) { handle in unreachableHandles }) {
+            return MODEL_SERVER_UNREACHABLE_REPLY
+        }
         check(isLoaded(handle)) {
             "OllamaModelBackend.generate on an unloaded handle $handle — a handle is valid only after loadModel()"
         }
@@ -166,9 +196,17 @@ class OllamaModelBackend(
     }
 
     override suspend fun unloadModel(handle: ModelHandle) {
+        synchronized(unreachableHandles) { unreachableHandles.remove(handle) }
         synchronized(loadedHandles) { loadedHandles.remove(handle) }
     }
 
     override fun isLoaded(handle: ModelHandle): Boolean =
         synchronized(loadedHandles) { handle in loadedHandles }
+
+    /**
+     * A gap handle is loaded (so a booked turn reaches [generate] and gets the
+     * plain-language line) but never available (so no tier caches it as warm).
+     */
+    override fun isAvailable(handle: ModelHandle): Boolean =
+        synchronized(unreachableHandles) { handle !in unreachableHandles }
 }

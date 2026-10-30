@@ -246,7 +246,11 @@ class TurnPathAssembly private constructor(
                 // The tier cooldown is a HALF-LIFE, so it reads the host's clock —
                 // one injected time source, never a second wall clock reached
                 // around the back of the composition root.
-                clock = { ports.nowMs() }
+                clock = { ports.nowMs() },
+                // LAUNCH-OLLAMA-DOWN: an absent model server is a typed gap that
+                // is announced once per down-episode on the ONE failure surface,
+                // and the recovery is recorded when the server answers again.
+                failureSurface = failureSurface
             )
             // The legacy Human Core's model port reads this at call time, so
             // binding it here is enough. It is a dependency direction (this root
