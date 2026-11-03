@@ -24,7 +24,7 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       STORIES: ${{ inputs.stories }}
       RELAY: ${{ inputs.relay }}
-      OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+      NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
     steps:
       - uses: actions/checkout@v4
         with:
