@@ -1,0 +1,166 @@
+--- a/mobile/app/src/main/java/com/jarvis/app/cognition/workspace/ContinuityLaw.kt
++++ b/mobile/app/src/main/java/com/jarvis/app/cognition/workspace/ContinuityLaw.kt
+@@ -121,15 +121,25 @@
+         )
+         workspace.publish(evidenceCopy)
+         val evidenceIds = (priorEvidence.map { it.id } + claim.id).distinct()
+-
+-        if (evidenceIds.size < minEvidenceClaims) {
++        // The bar is a function of THIS FIELD's own accumulated history, not a
++        // number written down once: a value that has already been accepted N
++        // times is a more established value, and replacing it must cost more
++        // real evidence and more real time than the last replacement did. Both
++        // curves saturate, because a requirement that grows without bound would
++        // make durable identity-adjacent state permanently unchangeable -- a
++        // worse deviation than a flat one, not a better one.
++        val acceptedChanges = changeLog.entriesFor(field).size
++        val requiredClaims = requiredEvidenceClaims(acceptedChanges, minEvidenceClaims)
++        val requiredInterval = requiredIntervalMs(acceptedChanges, minIntervalMs)
++
++        if (evidenceIds.size < requiredClaims) {
+             return ChangeDecision(
+                 claimId = claim.id,
+                 target = field,
+                 layer = layer,
+                 accepted = false,
+                 reason = "insufficient accumulated evidence for '$field': ${evidenceIds.size} of " +
+-                    "$minEvidenceClaims real claims state '${claim.payload}' — one turn is a " +
++                    "$requiredClaims real claims state '${claim.payload}' — one turn is a " +
+                     "suggestion, not a change",
+                 evidenceClaimIds = evidenceIds,
+                 entry = null
+@@ -138,14 +148,14 @@
+ 
+         val at = now()
+         val lastChangeAt = changeLog.lastChangeAt(field)
+-        if (lastChangeAt != null && at - lastChangeAt < minIntervalMs) {
++        if (lastChangeAt != null && at - lastChangeAt < requiredInterval) {
+             return ChangeDecision(
+                 claimId = claim.id,
+                 target = field,
+                 layer = layer,
+                 accepted = false,
+                 reason = "rate limited: '$field' was last accepted at $lastChangeAt and only " +
+-                    "${at - lastChangeAt}ms of real time have passed (minimum ${minIntervalMs}ms)",
++                    "${at - lastChangeAt}ms of real time have passed (minimum ${requiredInterval}ms for a field with $acceptedChanges prior accepted change(s))",
+                 evidenceClaimIds = evidenceIds,
+                 entry = null
+             )
+@@ -221,6 +231,41 @@
+         const val DEFAULT_MIN_EVIDENCE_CLAIMS: Int = 2
+ 
+         /**
++         * Extra real claims each additional accepted change to one field
++         * demands. The bar moves with the field's own history instead of
++         * being the same number forever.
++         */
++        const val EVIDENCE_STEP: Int = 1
++
++        /**
++         * Ceiling on the evidence bar. A requirement that grew without a
++         * bound would make durable identity-adjacent state unchangeable after
++         * enough history, which is a worse deviation than a flat one.
++         */
++        const val MAX_EVIDENCE_CLAIMS: Int = 4
++
++        /**
++         * Ceiling on the interval bar, for the same reason.
++         */
++        const val MAX_INTERVAL_MS: Long = 60_000L
++
++        /**
++         * Real claims a SLOW change to a field with [acceptedChanges] prior
++         * accepted changes must be supported by, saturating at
++         * [MAX_EVIDENCE_CLAIMS]. At zero prior changes this is [base]
++         * unchanged: the first change to a field costs what it always did.
++         */
++        fun requiredEvidenceClaims(acceptedChanges: Int, base: Int = DEFAULT_MIN_EVIDENCE_CLAIMS): Int =
++            (base + acceptedChanges * EVIDENCE_STEP).coerceAtMost(MAX_EVIDENCE_CLAIMS)
++
++        /**
++         * Real milliseconds a SLOW change to a field with [acceptedChanges]
++         * prior accepted changes must wait, saturating at [MAX_INTERVAL_MS].
++         */
++        fun requiredIntervalMs(acceptedChanges: Int, base: Long = DEFAULT_MIN_INTERVAL_MS): Long =
++            (base * (acceptedChanges + 1L)).coerceAtMost(MAX_INTERVAL_MS)
++
++        /**
+          * Minimum REAL elapsed milliseconds between two accepted SLOW changes to
+          * the same field, so durable identity-adjacent state cannot be rewritten
+          * turn after turn.
+--- a/mobile/app/src/test/java/com/jarvis/app/cognition/workspace/ContinuityLawProductionWiringTest.kt
++++ b/mobile/app/src/test/java/com/jarvis/app/cognition/workspace/ContinuityLawProductionWiringTest.kt
+@@ -171,7 +171,14 @@
+         assertEquals("with its evidence intact", 1, restored.continuityLaw!!.historyOf("persona:directness").size)
+ 
+         restored.continuityLaw!!.propose(persona("w-3", "directness", "playful", at + 2))
+-        val tooSoon = restored.continuityLaw!!.propose(persona("w-4", "directness", "playful", at + 3))
++        restored.continuityLaw!!.propose(persona("w-4", "directness", "playful", at + 3))
++        // The evidence bar scales with the accepted change this field
++        // already has, so the interval is once more the only remaining
++        // reason a refusal could have. Too few real proposals would be
++        // refused for want of evidence whether or not the interval
++        // survived the restart -- a test that passes for the wrong reason
++        // proves nothing.
++        val tooSoon = restored.continuityLaw!!.propose(persona("w-5", "directness", "playful", at + 4))
+         assertTrue(
+             "the gate's real interval is measured against the RESTORED log, so an immediate rewrite is " +
+                 "refused: ${tooSoon.reason}",
+--- a/mobile/app/src/test/java/com/jarvis/app/cognition/workspace/ContinuityLawTest.kt
++++ b/mobile/app/src/test/java/com/jarvis/app/cognition/workspace/ContinuityLawTest.kt
+@@ -140,13 +140,21 @@
+         // A new value for the SAME field, with its evidence complete, proposed in
+         // the same instant: evidence is no longer the constraint — real time is.
+         law.propose(persona("c-3", "directness", "playful"))
+-        val tooSoon = law.propose(persona("c-4", "directness", "playful"))
++        law.propose(persona("c-4", "directness", "playful"))
++        // A third independent statement: the evidence bar scales with the
++        // field's accepted-change history, so one prior accepted change asks
++        // for three real claims. With only two, this test would be refused
++        // for want of EVIDENCE and would never reach the interval it exists
++        // to exercise.
++        val tooSoon = law.propose(persona("c-4b", "directness", "playful"))
+         assertTrue("a second accepted change to one field inside the interval is refused", tooSoon.isRejected)
+         assertTrue("the refusal says why: ${tooSoon.reason}", tooSoon.reason.contains("rate limited"))
+         assertEquals("the accepted value is untouched by the refused change", "direct", law.valueOf("persona:directness"))
+         assertEquals(1L, log.count())
+ 
+-        now += ContinuityLaw.DEFAULT_MIN_INTERVAL_MS
++        // The interval scales with the same history: a field that has already
++        // accepted one change waits two intervals, not one.
++        now += ContinuityLaw.requiredIntervalMs(1)
+         val later = law.propose(persona("c-5", "directness", "playful"))
+         assertTrue("after the real interval has passed, the change is accepted", later.isAccepted)
+         assertEquals("playful", law.valueOf("persona:directness"))
+@@ -173,8 +181,11 @@
+         assertEquals(ChangeLayer.SLOW, first.layer)
+ 
+         now += 10_000L
++        // Three statements, not two: the evidence bar scales with the one change
++        // this field has already accepted, so a second change clears three.
+         law.propose(persona("c-3", "directness", "playful"))
+         law.propose(persona("c-4", "directness", "playful"))
++        law.propose(persona("c-5", "directness", "playful"))
+         val second = log.entriesFor("persona:directness").last()
+         assertEquals("an accepted change records the value it REPLACED", "direct", second.oldValue)
+         assertEquals("playful", second.newValue)
+@@ -204,12 +215,14 @@
+         assertEquals("direct", restored.valueOf("persona:directness"))
+         assertEquals(11_000L, restoredLog.lastChangeAt("persona:directness"))
+ 
+-        // TWO real proposals, so the evidence count is satisfied and the interval
+-        // is the only remaining reason a refusal could have. One proposal would
+-        // be refused for want of evidence whether or not the interval survived —
+-        // a test that passes for the wrong reason proves nothing.
++        // A full set of real proposals, so the SCALED evidence count is satisfied
++        // and the interval is once more the only remaining reason a refusal could
++        // have. Too few would be refused for want of evidence whether or not the
++        // interval survived — a test that passes for the wrong reason proves
++        // nothing.
+         restored.propose(persona("c-3", "directness", "playful"))
+-        val refused = restored.propose(persona("c-4", "directness", "playful"))
++        restored.propose(persona("c-4", "directness", "playful"))
++        val refused = restored.propose(persona("c-5", "directness", "playful"))
+         assertTrue(
+             "the interval survived the restart — an in-memory counter would have forgotten it",
+             refused.isRejected
