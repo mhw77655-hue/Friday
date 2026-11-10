@@ -188,5 +188,4 @@ private fun CircularProgressWithLabel(
 }
 
 /** Engine-held process-scoped singleton (nav graph injection). */
-fun getBootstrapManager(): BootstrapManager = JarvisEngine.bootstrapManager
-    ?: throw IllegalStateException("JarvisEngine.init() must run before getBootstrapManager()")
+fun getBootstrapManager(): BootstrapManager? = com.jarvis.app.ui.EngineAccess.bootstrapManager().value

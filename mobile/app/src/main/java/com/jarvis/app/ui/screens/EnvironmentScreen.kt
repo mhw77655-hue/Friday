@@ -389,7 +389,6 @@ private fun defaultSourceFor(provider: ModelProviderType): ModelSource = when (p
 }
 
 /** Factory function for nav graph injection */
-fun getEnvironmentManager(): LiquidEnvironmentManager {
-    return JarvisEngine.environmentManager
-        ?: throw IllegalStateException("EnvironmentManager not initialized. Call JarvisEngine.init() first.")
+fun getEnvironmentManager(): LiquidEnvironmentManager? {
+    return com.jarvis.app.ui.EngineAccess.environmentManager().value
 }

@@ -114,5 +114,4 @@ private fun AlertRow(alert: AlertEntry) {
 }
 
 /** Engine-held process-scoped singleton (nav graph injection). */
-fun getAlertStore(): LocalAlertStore = JarvisEngine.alertStore
-    ?: throw IllegalStateException("JarvisEngine.init() must run before getAlertStore()")
+fun getAlertStore(): LocalAlertStore? = com.jarvis.app.ui.EngineAccess.alertStore().value

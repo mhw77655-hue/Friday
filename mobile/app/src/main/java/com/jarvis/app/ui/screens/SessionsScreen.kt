@@ -155,5 +155,4 @@ private fun SessionRow(
 }
 
 /** Engine-held process-scoped singleton (nav graph injection). */
-fun getSessionManager(): SessionManager = JarvisEngine.sessionManager
-    ?: throw IllegalStateException("JarvisEngine.init() must run before getSessionManager()")
+fun getSessionManager(): SessionManager? = com.jarvis.app.ui.EngineAccess.sessionManager().value

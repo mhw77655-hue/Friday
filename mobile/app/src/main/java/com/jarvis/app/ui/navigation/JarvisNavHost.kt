@@ -1,4 +1,7 @@
 package com.jarvis.app.ui.navigation
+import com.jarvis.app.ui.EngineAccess
+import com.jarvis.app.ui.WakingSurface
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -94,6 +97,12 @@ fun JarvisNavHost() {
     var moreSheetOpen by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
 
+    val readiness by EngineAccess.readinessState.collectAsStateWithLifecycle()
+    if (readiness !is com.jarvis.app.EngineReadinessState.Ready) {
+        WakingSurface(readiness)
+        return
+    }
+
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
@@ -152,13 +161,13 @@ fun JarvisNavHost() {
             composable(ROUTE_SYSTEM) { SystemScreen() }
             composable(ROUTE_SANDBOX) { SandboxScreen() }
             composable(ROUTE_SETTINGS) { SettingsScreen() }
-            composable(ROUTE_TASK_INBOX) { TaskInboxScreen(taskInbox = getTaskInbox(), onNavigate = ::navigateToTab) }
-            composable(ROUTE_APPROVALS) { ApprovalsScreen(approvalQueue = getApprovalQueue(), onNavigate = ::navigateToTab) }
-            composable(ROUTE_ALERTS) { AlertsScreen(alertStore = getAlertStore(), onNavigate = ::navigateToTab) }
-            composable(ROUTE_SESSIONS) { SessionsScreen(sessionManager = getSessionManager(), onNavigate = ::navigateToTab) }
-            composable(ROUTE_ENVIRONMENT) { EnvironmentScreen(environmentManager = getEnvironmentManager(), onNavigate = ::navigateToTab) }
-            composable(ROUTE_MODEL) { ModelScreen(modelManager = getModelManager(), onNavigate = ::navigateToTab) }
-            composable(ROUTE_BOOTSTRAP) { BootstrapScreen(bootstrapManager = getBootstrapManager(), onComplete = { navigateToTab(ROUTE_HOME) }) }
+            composable(ROUTE_TASK_INBOX) { TaskInboxScreen(taskInbox = getTaskInbox()!!, onNavigate = ::navigateToTab) }
+            composable(ROUTE_APPROVALS) { ApprovalsScreen(approvalQueue = getApprovalQueue()!!, onNavigate = ::navigateToTab) }
+            composable(ROUTE_ALERTS) { AlertsScreen(alertStore = getAlertStore()!!, onNavigate = ::navigateToTab) }
+            composable(ROUTE_SESSIONS) { SessionsScreen(sessionManager = getSessionManager()!!, onNavigate = ::navigateToTab) }
+            composable(ROUTE_ENVIRONMENT) { EnvironmentScreen(environmentManager = getEnvironmentManager()!!, onNavigate = ::navigateToTab) }
+            composable(ROUTE_MODEL) { ModelScreen(modelManager = getModelManager()!!, onNavigate = ::navigateToTab) }
+            composable(ROUTE_BOOTSTRAP) { BootstrapScreen(bootstrapManager = getBootstrapManager()!!, onComplete = { navigateToTab(ROUTE_HOME) }) }
         }
 
         if (moreSheetOpen) {

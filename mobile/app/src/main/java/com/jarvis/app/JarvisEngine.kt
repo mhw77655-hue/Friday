@@ -39,7 +39,16 @@ object JarvisEngine {
     private val thread = HandlerThread("JarvisEngine").apply { start() }
     private val handler = Handler(thread.looper)
 
-    @Volatile private var initialized = false
+    @Volatile private var started = false
+    @Volatile var initialized: Boolean = false
+        private set
+    val readinessGate = EngineReadinessGate()
+    val readinessState: kotlinx.coroutines.flow.StateFlow<EngineReadinessState> get() = readinessGate.state
+    val currentReadiness: EngineReadinessState get() = readinessGate.current
+
+    @Volatile var wiringLatchForTesting: java.util.concurrent.CountDownLatch? = null
+    @Volatile var wiringThrowForTesting: Throwable? = null
+
     @Volatile private var appContext: Context? = null
     @Volatile var capabilities: CapabilityManifest? = null
         private set
@@ -165,8 +174,10 @@ object JarvisEngine {
         private set
 
     fun init(context: Context) {
-        if (initialized) return
+        if (started) return
+        started = true
         initialized = true
+        readinessGate.markWaking()
         val appContext = context.applicationContext
         this.appContext = appContext
 
@@ -259,7 +270,10 @@ object JarvisEngine {
         // root inside init, over the same ModelManager this Friday uses.
 
         handler.post {
-            Telemetry.init(appContext)
+            try {
+                wiringLatchForTesting?.await()
+                wiringThrowForTesting?.let { throw it }
+                Telemetry.init(appContext)
             com.jarvis.app.approval.ApprovalGate.init(appContext.filesDir)
             com.jarvis.app.approval.TaskExecutor.init(appContext.filesDir)
 
@@ -655,6 +669,21 @@ object JarvisEngine {
             // boot (honest: the active provider becomes whatever the profile
             // selects; health is reported, never faked).
             scope.launch { environmentManager.initialize() }
+            readinessGate.markReady()
+            } catch (t: Throwable) {
+                readinessGate.markFailed(t)
+                failureSurface.report(
+                    com.jarvis.app.failure.FailureReport(
+                        subsystem = "JarvisEngine",
+                        operation = "init",
+                        severity = com.jarvis.app.failure.FailureSeverity.CRITICAL,
+                        category = com.jarvis.app.failure.FailureCategory.LIFECYCLE,
+                        message = "Engine wiring failed: ${t.message}",
+                        cause = "${t.javaClass.name}: ${t.message}",
+                        userMessage = "Failed to wake engine"
+                    )
+                )
+            }
         }
     }
 
@@ -686,6 +715,37 @@ object JarvisEngine {
 
     fun run(block: () -> Unit) {
         handler.post(block)
+    }
+
+
+    // Typed readiness-gated accessors (LAUNCH-WAKE-ORDER AC2)
+    fun bodyCoordinatorSlot(): EngineSlot<BodyCoordinator> = readinessGate.slot { bodyCoordinator }
+    fun languageRouterSlot(): EngineSlot<LanguageRouter> = readinessGate.slot { languageRouter }
+    fun memoryStoreSlot(): EngineSlot<MemoryStore> = readinessGate.slot { memoryStore }
+    fun streamingTtsSlot(): EngineSlot<StreamingTts> = readinessGate.slot { streamingTts }
+    fun visualStateBridgeSlot(): EngineSlot<VisualStateBridge> = readinessGate.slot { visualStateBridge }
+    fun voiceOrganismHostSlot(): EngineSlot<com.jarvis.app.voice.VoiceOrganismHost> = readinessGate.slot { voiceOrganismHost }
+    fun voiceOutputPathSlot(): EngineSlot<com.jarvis.app.voice.VoiceOutputPath> = readinessGate.slot { voiceOutputPath }
+    fun voiceMicroSystemSlot(): EngineSlot<com.jarvis.app.voice.VoiceOrganismMicroSystem> = readinessGate.slot { voiceMicroSystem }
+    fun failureSurfaceSlot(): EngineSlot<com.jarvis.app.failure.FailureSurface> = readinessGate.slot { failureSurface }
+    fun failureStoreSlot(): EngineSlot<com.jarvis.app.failure.FailureStore> = readinessGate.slot { failureStore }
+    fun recoveryControllerSlot(): EngineSlot<com.jarvis.app.failure.RecoveryController> = readinessGate.slot { recoveryController }
+    fun selfDiagnosisSlot(): EngineSlot<com.jarvis.app.failure.SelfDiagnosis> = readinessGate.slot { selfDiagnosis }
+    fun environmentManagerSlot(): EngineSlot<LiquidEnvironmentManager> = readinessGate.slot { environmentManager }
+    fun modelManagerSlot(): EngineSlot<ModelManager> = readinessGate.slot { modelManager }
+    fun sessionManagerSlot(): EngineSlot<com.jarvis.app.session.SessionManager> = readinessGate.slot { sessionManager }
+    fun taskInboxSlot(): EngineSlot<com.jarvis.app.inbox.LocalTaskInbox> = readinessGate.slot { taskInbox }
+    fun approvalQueueSlot(): EngineSlot<com.jarvis.app.approvals.LocalApprovalQueue> = readinessGate.slot { approvalQueue }
+    fun alertStoreSlot(): EngineSlot<com.jarvis.app.alerts.LocalAlertStore> = readinessGate.slot { alertStore }
+    fun bootstrapManagerSlot(): EngineSlot<com.jarvis.app.bootstrap.BootstrapManager> = readinessGate.slot { bootstrapManager }
+    fun appContextSlot(): EngineSlot<Context> = readinessGate.slot { appContext }
+
+    internal fun resetForTesting() {
+        started = false
+        initialized = false
+        readinessGate.resetForTesting()
+        wiringLatchForTesting = null
+        wiringThrowForTesting = null
     }
 
     /** Get the BodyCoordinator instance (initialized after init). */
