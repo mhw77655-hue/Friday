@@ -407,7 +407,6 @@ private fun ProviderConfigDialog(
 }
 
 /** Factory function for nav graph injection */
-fun getModelManager(): ModelManager {
-    return JarvisEngine.modelManager
-        ?: throw IllegalStateException("ModelManager not initialized. Call JarvisEngine.init() first.")
+fun getModelManager(): ModelManager? {
+    return com.jarvis.app.ui.EngineAccess.modelManager().value
 }

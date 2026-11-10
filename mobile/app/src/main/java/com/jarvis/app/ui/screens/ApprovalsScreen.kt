@@ -114,5 +114,4 @@ private fun ApprovalRow(approval: ApprovalEntry, onNavigate: (String) -> Unit) {
 }
 
 /** Engine-held process-scoped singleton (nav graph injection). */
-fun getApprovalQueue(): LocalApprovalQueue = JarvisEngine.approvalQueue
-    ?: throw IllegalStateException("JarvisEngine.init() must run before getApprovalQueue()")
+fun getApprovalQueue(): LocalApprovalQueue? = com.jarvis.app.ui.EngineAccess.approvalQueue().value

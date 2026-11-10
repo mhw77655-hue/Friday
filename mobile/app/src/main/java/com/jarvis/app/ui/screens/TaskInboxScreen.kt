@@ -111,5 +111,4 @@ private fun TaskRow(task: TaskEntry, onNavigate: (String) -> Unit) {
 }
 
 /** Engine-held process-scoped singleton (nav graph injection). */
-fun getTaskInbox(): LocalTaskInbox = JarvisEngine.taskInbox
-    ?: throw IllegalStateException("JarvisEngine.init() must run before getTaskInbox()")
+fun getTaskInbox(): LocalTaskInbox? = com.jarvis.app.ui.EngineAccess.taskInbox().value

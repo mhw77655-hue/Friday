@@ -18,3 +18,4 @@ This file tracks all build/runtime incidents. Each incident has a file under
 | [LAUNCH-OLLAMA-DOWN.md](LAUNCH-OLLAMA-DOWN.md) | 2026-10-24 | Launch crash: an absent Ollama server thrown out of a bare engine scope | fixed |
 
 
+| [LAUNCH-WAKE-ORDER.md](LAUNCH-WAKE-ORDER.md) | 2026-10-24 | Launch crash: UI asking half-built engine getters before wiring completes | fixed |

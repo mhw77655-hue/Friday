@@ -44,7 +44,12 @@ import com.jarvis.app.ui.viewmodel.Turn
 @Composable
 fun ConversationScreen() {
     val conversationViewModel: ConversationViewModel = viewModel()
-    val bodyCoordinator = JarvisEngine.getBodyCoordinator()
+    val bodySlot = com.jarvis.app.ui.EngineAccess.bodyCoordinator()
+    val bodyCoordinator = bodySlot.value
+    if (bodyCoordinator == null) {
+        com.jarvis.app.ui.WakingSurface(bodySlot.readiness)
+        return
+    }
     val bodyState by bodyCoordinator.state.collectAsStateWithLifecycle()
     val visualState by bodyCoordinator.visualState.collectAsStateWithLifecycle()
     val turns by conversationViewModel.turns.collectAsStateWithLifecycle()

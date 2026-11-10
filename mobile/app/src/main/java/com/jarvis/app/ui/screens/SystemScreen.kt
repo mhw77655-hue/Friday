@@ -1,4 +1,5 @@
 package com.jarvis.app.ui.screens
+import com.jarvis.app.ui.EngineAccess
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -39,7 +40,7 @@ private data class SystemRow(val name: String, val stateLabel: String, val dotCo
 @Composable
 fun SystemScreen() {
     val diagnosticsViewModel: DiagnosticsViewModel = viewModel()
-    val brainStatus by remember { JarvisEngine.modelManager?.status ?: MutableStateFlow("idle") }
+    val brainStatus by remember { EngineAccess.modelManager().value?.status ?: MutableStateFlow("idle") }
         .collectAsStateWithLifecycle()
     val networkText by diagnosticsViewModel.networkText.collectAsStateWithLifecycle()
     val batteryText by diagnosticsViewModel.batteryText.collectAsStateWithLifecycle()
