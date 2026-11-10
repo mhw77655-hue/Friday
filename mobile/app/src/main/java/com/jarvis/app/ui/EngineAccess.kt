@@ -85,7 +85,7 @@ fun WakingSurface(
                 is EngineReadinessState.FailedToWake -> {
                     Text(
                         text = "WAKE FAILED",
-                        style = JarvisType.Display.copy(color = JarvisColors.StateDegraded),
+                        style = JarvisType.Display.copy(color = JarvisColors.CoreWarning),
                         textAlign = TextAlign.Center
                     )
                     Spacer(modifier = Modifier.height(12.dp))
