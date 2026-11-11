@@ -103,8 +103,12 @@ object AckSpeech {
     private fun snapshotValence(): Double? = HumanCore.snapshot()?.moodValence
 
     /** "ready (...)" → a stable key that changes when the selected voice changes. */
-    private fun voiceKeyOf(status: String): String? =
-        status.takeIf { it.startsWith("ready") }?.let { Integer.toHexString(it.hashCode()) }
+    private fun voiceKeyOf(status: String): String? {
+        if (!com.jarvis.app.tts.ProcessTtsHolder.currentReadiness.let { it is com.jarvis.app.tts.TtsReadinessState.Ready }) {
+            return null
+        }
+        return status.takeIf { it.startsWith("ready") }?.let { Integer.toHexString(it.hashCode()) }
+    }
 
     private fun cachedFileFor(phrase: String): File? {
         val ctx = appContext ?: return null

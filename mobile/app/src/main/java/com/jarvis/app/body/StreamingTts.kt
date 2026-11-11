@@ -76,6 +76,30 @@ class StreamingTts(
     /** Lazily initialize the engine; no-op if already ready. */
     private fun ensureEngine() {
         if (engine != null) return
+        val existingEngine = com.jarvis.app.tts.ProcessTtsHolder.getRawEngine<TextToSpeech>()
+        if (existingEngine != null) {
+            engine = existingEngine
+            _status.value = if (com.jarvis.app.tts.ProcessTtsHolder.currentReadiness is com.jarvis.app.tts.TtsReadinessState.Ready) "ready" else "initializing"
+            attachProgressListener()
+            startSynthesisLoop()
+            startPlaybackLoop()
+            return
+        }
+
+        val registered = com.jarvis.app.tts.ProcessTtsHolder.registerOwner("com.jarvis.app.body.StreamingTts", null)
+        if (!registered) {
+            // Another owner is registered in this process; await or poll rawEngine
+            _status.value = "reusing process tts owner"
+            val raw = com.jarvis.app.tts.ProcessTtsHolder.getRawEngine<TextToSpeech>()
+            if (raw != null) {
+                engine = raw
+                attachProgressListener()
+            }
+            startSynthesisLoop()
+            startPlaybackLoop()
+            return
+        }
+
         initializeEngine()
         startSynthesisLoop()
         startPlaybackLoop()
@@ -83,24 +107,25 @@ class StreamingTts(
 
     private fun initializeEngine() {
         _status.value = "initializing"
+        com.jarvis.app.tts.ProcessTtsHolder.gate.markInitializing()
 
         val initListener = TextToSpeech.OnInitListener { initStatus ->
             if (initStatus != TextToSpeech.SUCCESS) {
                 _status.value = "init failed: $initStatus"
-                onFailure(
-                    com.jarvis.app.failure.FailureReport(
-                        subsystem = "STREAMING_TTS",
-                        operation = "init",
-                        severity = com.jarvis.app.failure.FailureSeverity.DEGRADED,
-                        category = com.jarvis.app.failure.FailureCategory.TTS,
-                        message = "Streaming TTS engine failed to initialize",
-                        source = "StreamingTts",
-                        cause = "engine status $initStatus",
-                        dependency = "com.google.android.tts",
-                        recoverability = com.jarvis.app.failure.Recoverability.RECOVERABLE,
-                        recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY_WITH_BACKOFF
-                    )
+                val report = com.jarvis.app.failure.FailureReport(
+                    subsystem = "STREAMING_TTS",
+                    operation = "init",
+                    severity = com.jarvis.app.failure.FailureSeverity.DEGRADED,
+                    category = com.jarvis.app.failure.FailureCategory.TTS,
+                    message = "Streaming TTS engine failed to initialize",
+                    source = "StreamingTts",
+                    cause = "engine status $initStatus",
+                    dependency = "com.google.android.tts",
+                    recoverability = com.jarvis.app.failure.Recoverability.RECOVERABLE,
+                    recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY_WITH_BACKOFF
                 )
+                com.jarvis.app.tts.ProcessTtsHolder.gate.markFailed(IllegalStateException("Streaming TTS init failed: $initStatus"))
+                onFailure(report)
                 return@OnInitListener
             }
 
@@ -108,29 +133,42 @@ class StreamingTts(
             val result = engine?.setLanguage(Locale.US)
             if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                 _status.value = "init failed: language unavailable"
-                onFailure(
-                    com.jarvis.app.failure.FailureReport(
-                        subsystem = "STREAMING_TTS",
-                        operation = "init",
-                        severity = com.jarvis.app.failure.FailureSeverity.DEGRADED,
-                        category = com.jarvis.app.failure.FailureCategory.TTS,
-                        message = "Streaming TTS language unavailable",
-                        source = "StreamingTts",
-                        cause = "language unavailable (en-US)",
-                        dependency = "en-US",
-                        recoverability = com.jarvis.app.failure.Recoverability.PERMANENT,
-                        recoveryAction = com.jarvis.app.failure.RecoveryAction.USER_ACTION_REQUIRED
-                    )
+                val report = com.jarvis.app.failure.FailureReport(
+                    subsystem = "STREAMING_TTS",
+                    operation = "init",
+                    severity = com.jarvis.app.failure.FailureSeverity.DEGRADED,
+                    category = com.jarvis.app.failure.FailureCategory.TTS,
+                    message = "Streaming TTS language unavailable",
+                    source = "StreamingTts",
+                    cause = "language unavailable (en-US)",
+                    dependency = "en-US",
+                    recoverability = com.jarvis.app.failure.Recoverability.PERMANENT,
+                    recoveryAction = com.jarvis.app.failure.RecoveryAction.USER_ACTION_REQUIRED
                 )
+                com.jarvis.app.tts.ProcessTtsHolder.gate.markFailed(IllegalStateException("Streaming TTS language unavailable"))
+                onFailure(report)
                 return@OnInitListener
             }
 
             selectBestVoiceForLanguage(languageRouter.currentLanguage.value)
             _status.value = "ready"
+            com.jarvis.app.tts.ProcessTtsHolder.gate.markReady()
         }
 
-        engine = TextToSpeech(context, initListener, "com.google.android.tts")
+        // Check if an existing owner was already registered in this process
+        val shared = com.jarvis.app.tts.ProcessTtsHolder.getRawEngine<TextToSpeech>()
+        if (shared != null) {
+            engine = shared
+        } else {
+            val tts = TextToSpeech(context, initListener, "com.google.android.tts")
+            engine = tts
+            com.jarvis.app.tts.ProcessTtsHolder.setEngine("com.jarvis.app.body.StreamingTts", tts)
+        }
 
+        attachProgressListener()
+    }
+
+    private fun attachProgressListener() {
         engine?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {
                 if (utteranceId != null && !utteranceId.startsWith("preload_")) {
@@ -237,9 +275,25 @@ class StreamingTts(
     /** Speak a single segment immediately (for ack/interrupt responses). */
     fun speakImmediate(text: String, language: LanguageRouter.Language) {
         ensureEngine()
+        val slot = com.jarvis.app.tts.ProcessTtsHolder.gate.slot { engine }
+        if (!slot.isReady || slot.value == null) {
+            onFailure(
+                com.jarvis.app.failure.FailureReport(
+                    subsystem = "STREAMING_TTS",
+                    operation = "speak-immediate",
+                    severity = com.jarvis.app.failure.FailureSeverity.RECOVERABLE,
+                    category = com.jarvis.app.failure.FailureCategory.TTS,
+                    message = "Streaming TTS speakImmediate called before engine ready",
+                    source = "StreamingTts",
+                    recoverability = com.jarvis.app.failure.Recoverability.RECOVERABLE,
+                    recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY
+                )
+            )
+            return
+        }
         val ssml = toSsml(text)
         val id = "immediate_${currentUtteranceId++}"
-        engine?.speak(ssml, TextToSpeech.QUEUE_FLUSH, null, id)
+        slot.value.speak(ssml, TextToSpeech.QUEUE_FLUSH, null, id)
         activePlayer.set(true)
         _isSpeaking.value = true
     }
@@ -329,13 +383,33 @@ class StreamingTts(
     }
 
     private fun synthesizeAndPlay(ssml: String, language: LanguageRouter.Language, isFinal: Boolean, cacheKey: String) {
+        val slot = com.jarvis.app.tts.ProcessTtsHolder.gate.slot { engine }
+        if (!slot.isReady || slot.value == null) {
+            onFailure(
+                com.jarvis.app.failure.FailureReport(
+                    subsystem = "STREAMING_TTS",
+                    operation = "synthesize",
+                    severity = com.jarvis.app.failure.FailureSeverity.RECOVERABLE,
+                    category = com.jarvis.app.failure.FailureCategory.TTS,
+                    message = "Streaming TTS synthesizeAndPlay called before engine ready",
+                    source = "StreamingTts",
+                    cause = "engine not ready: ${slot.readiness}",
+                    dependency = language.name,
+                    recoverability = com.jarvis.app.failure.Recoverability.RECOVERABLE,
+                    recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY
+                )
+            )
+            return
+        }
+
+        val activeEng = slot.value
         selectBestVoiceForLanguage(language)
 
         val id = "tts_${currentUtteranceId++}"
         val cacheFile = File(cacheDir, "$cacheKey.wav")
 
         // Use synthesizeToFile for caching
-        val result = engine?.synthesizeToFile(ssml, null, cacheFile, id)
+        val result = activeEng.synthesizeToFile(ssml, null, cacheFile, id)
         if (result == TextToSpeech.SUCCESS) {
             synthesisCache[cacheKey] = cacheFile
             trimCache()
@@ -343,8 +417,8 @@ class StreamingTts(
             playCached(cacheFile, isFinal)
         } else {
             // Fallback to direct speak
-            val speakResult = engine?.speak(ssml, TextToSpeech.QUEUE_ADD, null, id)
-            if (result == null || speakResult != TextToSpeech.SUCCESS) {
+            val speakResult = activeEng.speak(ssml, TextToSpeech.QUEUE_ADD, null, id)
+            if (speakResult != TextToSpeech.SUCCESS) {
                 onFailure(
                     com.jarvis.app.failure.FailureReport(
                         subsystem = "STREAMING_TTS",
@@ -364,6 +438,13 @@ class StreamingTts(
     }
 
     private fun playCached(file: File, isFinal: Boolean) {
+        if (!file.exists() || file.length() < 44) {
+            // Cold start or synthesis failed to output a complete audio file.
+            // Do not call player.setDataSource on an empty/missing file.
+            activePlayer.set(false)
+            if (isFinal) _isSpeaking.value = false
+            return
+        }
         try {
             currentPlayer?.stop()
             currentPlayer?.release()
@@ -430,6 +511,9 @@ class StreamingTts(
     }
 
     private fun synthesizeToCache(text: String, language: LanguageRouter.Language) {
+        val slot = com.jarvis.app.tts.ProcessTtsHolder.gate.slot { engine }
+        if (!slot.isReady || slot.value == null) return
+
         selectBestVoiceForLanguage(language)
         val ssml = toSsml(text)
         val cacheKey = "${text.hashCode()}_${language.code}"
@@ -440,7 +524,7 @@ class StreamingTts(
             return
         }
 
-        engine?.synthesizeToFile(ssml, null, cacheFile, "preload_$cacheKey")
+        slot.value.synthesizeToFile(ssml, null, cacheFile, "preload_$cacheKey")
         synthesisCache[cacheKey] = cacheFile
         trimCache()
     }
