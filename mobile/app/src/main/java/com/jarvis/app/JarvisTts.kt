@@ -41,47 +41,66 @@ class JarvisTts(
         }
 
     fun start(): Boolean {
+        // Enforce one TTS owner per process: if another component has already registered
+        // or is initializing the process TTS engine (e.g. VoiceService in :voice), reuse it or stay lazy.
+        val existingEngine = com.jarvis.app.tts.ProcessTtsHolder.getRawEngine<TextToSpeech>()
+        if (existingEngine != null) {
+            engine = existingEngine
+            status = if (com.jarvis.app.tts.ProcessTtsHolder.currentReadiness is com.jarvis.app.tts.TtsReadinessState.Ready) "ready" else "initializing"
+            attachProgressListener()
+            return true
+        }
+
+        val registered = com.jarvis.app.tts.ProcessTtsHolder.registerOwner("com.jarvis.app.JarvisTts", null)
+        if (!registered) {
+            // Another owner is registered in this process; do not bind a duplicate TextToSpeech instance.
+            status = "reusing process tts owner"
+            return true
+        }
+
         status = "initializing"
+        com.jarvis.app.tts.ProcessTtsHolder.gate.markInitializing()
 
         val initListener = TextToSpeech.OnInitListener { initStatus ->
             if (initStatus != TextToSpeech.SUCCESS) {
                 status = "init failed: engine status $initStatus"
-                onFailure(
-                    com.jarvis.app.failure.FailureReport(
-                        subsystem = "TTS",
-                        operation = "init",
-                        severity = com.jarvis.app.failure.FailureSeverity.DEGRADED,
-                        category = com.jarvis.app.failure.FailureCategory.TTS,
-                        message = "TTS engine failed to initialize",
-                        source = "JarvisTts",
-                        cause = "engine status $initStatus",
-                        dependency = PREFERRED_ENGINE,
-                        recoverability = com.jarvis.app.failure.Recoverability.RECOVERABLE,
-                        recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY_WITH_BACKOFF
-                    )
+                val report = com.jarvis.app.failure.FailureReport(
+                    subsystem = "TTS",
+                    operation = "init",
+                    severity = com.jarvis.app.failure.FailureSeverity.DEGRADED,
+                    category = com.jarvis.app.failure.FailureCategory.TTS,
+                    message = "TTS engine failed to initialize",
+                    source = "JarvisTts",
+                    cause = "engine status $initStatus",
+                    dependency = PREFERRED_ENGINE,
+                    recoverability = com.jarvis.app.failure.Recoverability.RECOVERABLE,
+                    recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY_WITH_BACKOFF
                 )
+                com.jarvis.app.tts.ProcessTtsHolder.gate.markFailed(IllegalStateException("TTS init failed: status $initStatus"))
+                onFailure(report)
                 return@OnInitListener
             }
             val result = engine?.setLanguage(Locale.US)
             if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                 status = "init failed: language unavailable"
-                onFailure(
-                    com.jarvis.app.failure.FailureReport(
-                        subsystem = "TTS",
-                        operation = "init",
-                        severity = com.jarvis.app.failure.FailureSeverity.DEGRADED,
-                        category = com.jarvis.app.failure.FailureCategory.TTS,
-                        message = "TTS language unavailable",
-                        source = "JarvisTts",
-                        cause = "language unavailable (en-US)",
-                        dependency = "en-US",
-                        recoverability = com.jarvis.app.failure.Recoverability.PERMANENT,
-                        recoveryAction = com.jarvis.app.failure.RecoveryAction.USER_ACTION_REQUIRED
-                    )
+                val report = com.jarvis.app.failure.FailureReport(
+                    subsystem = "TTS",
+                    operation = "init",
+                    severity = com.jarvis.app.failure.FailureSeverity.DEGRADED,
+                    category = com.jarvis.app.failure.FailureCategory.TTS,
+                    message = "TTS language unavailable",
+                    source = "JarvisTts",
+                    cause = "language unavailable (en-US)",
+                    dependency = "en-US",
+                    recoverability = com.jarvis.app.failure.Recoverability.PERMANENT,
+                    recoveryAction = com.jarvis.app.failure.RecoveryAction.USER_ACTION_REQUIRED
                 )
+                com.jarvis.app.tts.ProcessTtsHolder.gate.markFailed(IllegalStateException("TTS language unavailable"))
+                onFailure(report)
                 return@OnInitListener
             }
             selectBestVoice()
+            com.jarvis.app.tts.ProcessTtsHolder.gate.markReady()
         }
 
         // Try forcing Google's engine first; if it's not installed on this
@@ -89,7 +108,12 @@ class JarvisTts(
         // we fall back to whatever the system default is.
         val forced = TextToSpeech(appContext, initListener, PREFERRED_ENGINE)
         engine = forced
+        com.jarvis.app.tts.ProcessTtsHolder.setEngine("com.jarvis.app.JarvisTts", forced)
+        attachProgressListener()
+        return true
+    }
 
+    private fun attachProgressListener() {
         engine?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {
                 // Pre-synthesis (cache WAV) starts too, but must not flip the
@@ -117,7 +141,6 @@ class JarvisTts(
                 }
             }
         })
-        return true
     }
 
     private fun selectBestVoice() {
@@ -179,8 +202,8 @@ class JarvisTts(
     }
 
     fun speak(text: String) {
-        val eng = engine
-        if (eng == null) {
+        val slot = com.jarvis.app.tts.ProcessTtsHolder.gate.slot { engine }
+        if (!slot.isReady || slot.value == null) {
             status = "speak called before engine ready"
             onFailure(
                 com.jarvis.app.failure.FailureReport(
@@ -196,6 +219,7 @@ class JarvisTts(
             )
             return
         }
+        val eng = slot.value
         val ssml = toSsml(text)
         val result = eng.speak(ssml, TextToSpeech.QUEUE_FLUSH, null, "jarvis-utterance")
         if (result != TextToSpeech.SUCCESS) {
@@ -222,8 +246,12 @@ class JarvisTts(
      * the utterance id and the listener routes the completion back to it.
      */
     fun synthesizeToCacheFile(text: String, onResult: (File?) -> Unit) {
-        val eng = engine
-        if (eng == null) { onResult(null); return }
+        val slot = com.jarvis.app.tts.ProcessTtsHolder.gate.slot { engine }
+        if (!slot.isReady || slot.value == null) {
+            onResult(null)
+            return
+        }
+        val eng = slot.value
         val dir = File(appContext.cacheDir, CACHE_DIR_NAME)
         if (!dir.exists()) dir.mkdirs()
         val file = File(dir, cacheNameFor(text))

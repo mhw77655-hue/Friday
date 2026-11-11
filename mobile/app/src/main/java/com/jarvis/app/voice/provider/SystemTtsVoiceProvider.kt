@@ -71,15 +71,39 @@ class SystemTtsVoiceProvider(
 
     override suspend fun initialize(context: Context): VoiceInitResult {
         if (tts != null) return VoiceInitResult(ok = true)
+        val existing = com.jarvis.app.tts.ProcessTtsHolder.getRawEngine<TextToSpeech>()
+        if (existing != null) {
+            tts = existing
+            return VoiceInitResult(ok = true)
+        }
+
+        val registered = com.jarvis.app.tts.ProcessTtsHolder.registerOwner("com.jarvis.app.voice.VoiceService", null)
+        if (!registered) {
+            // Another owner is registered in this process; reuse its engine
+            val raw = com.jarvis.app.tts.ProcessTtsHolder.getRawEngine<TextToSpeech>()
+            if (raw != null) {
+                tts = raw
+                return VoiceInitResult(ok = true)
+            }
+        }
+
+        com.jarvis.app.tts.ProcessTtsHolder.gate.markInitializing()
         val completer = CompletableDeferred<Boolean>()
         // TextToSpeech must be constructed on a thread with a Looper.
         val engine = withContext(Dispatchers.Main) {
             TextToSpeech(context.applicationContext) { status ->
                 // Must not reference `engine` here — it is still being constructed.
-                completer.complete(status == TextToSpeech.SUCCESS)
+                val success = (status == TextToSpeech.SUCCESS)
+                if (success) {
+                    com.jarvis.app.tts.ProcessTtsHolder.gate.markReady()
+                } else {
+                    com.jarvis.app.tts.ProcessTtsHolder.gate.markFailed(IllegalStateException("TTS init failed: status $status"))
+                }
+                completer.complete(success)
             }
         }
         tts = engine
+        com.jarvis.app.tts.ProcessTtsHolder.setEngine("com.jarvis.app.voice.VoiceService", engine)
         return withContext(Dispatchers.IO) {
             val ok = completer.await()
             if (ok) VoiceInitResult(ok = true)
@@ -97,10 +121,11 @@ class SystemTtsVoiceProvider(
         params: VoiceSynthesisParams,
         outFile: File
     ): VoiceSynthesisResult = withContext(Dispatchers.IO) {
-        val engine = tts
-        if (engine == null) {
+        val slot = com.jarvis.app.tts.ProcessTtsHolder.gate.slot { tts }
+        if (!slot.isReady || slot.value == null) {
             return@withContext VoiceSynthesisResult(success = false, error = "TTS not initialized")
         }
+        val engine = slot.value
         val locale = localeFor(language, voiceId)
         val langResult = engine.setLanguage(locale)
         if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
