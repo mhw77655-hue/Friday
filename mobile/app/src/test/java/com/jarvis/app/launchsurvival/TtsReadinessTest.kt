@@ -238,8 +238,8 @@ class TtsReadinessTest {
         assertEquals(failedState, slot.readiness)
 
         // Verify failure was captured on failure surface
-        assertEquals(1, failureSurface.recent(5).size)
-        val report = failureSurface.recent(5)[0]
+        assertEquals(1, failureSurface.recentFailures.value.size)
+        val report = failureSurface.recentFailures.value[0]
         assertEquals("TTS", report.subsystem)
         assertEquals(FailureCategory.TTS, report.category)
         assertEquals("TTS connection failed: status -1", report.cause)
