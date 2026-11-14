@@ -399,7 +399,15 @@ class CognitiveEngine(
         // Experience can alter a later behavioural choice. The mechanism stores
         // outcome evidence, not the original conversation or a replayable prompt.
         val developmentalChoice = if (decision == TurnDecision.DIRECT_REPLY) {
-            developmentalChoiceLoop?.beginTurn(userText, developmentalResponseOptions)
+            developmentalChoiceLoop?.beginTurn(
+                userInput = userText,
+                options = developmentalResponseOptions,
+                // The existing turn contract treats a null interlocutor as the owner.
+                // Other identified interlocutors may benefit from the learned choice,
+                // but cannot update the owner's outcome evidence.
+                acceptFeedback = interlocutor == null ||
+                    interlocutor == com.jarvis.app.identity.WorldModelService.USER_NODE_NAME
+            )
         } else {
             null
         }

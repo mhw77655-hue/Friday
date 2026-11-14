@@ -93,4 +93,26 @@ class DevelopmentalChoiceLoopTest {
             directory.deleteRecursively()
         }
     }
+
+    @Test
+    fun aNonOwnerInterlocutorCannotTrainTheOwnerPreference() {
+        val directory = java.nio.file.Files.createTempDirectory("friday-development-owner").toFile()
+        val file = File(directory, "development/behaviour.jsonl")
+        try {
+            val loop = DevelopmentalChoiceLoop(JsonlDevelopmentJournal(file))
+            loop.beginTurn("First request.", options)
+
+            val choice = loop.beginTurn(
+                "Use bullet points next time.",
+                options,
+                acceptFeedback = false
+            )
+
+            assertEquals("untrusted interlocutor feedback does not alter the owner's preference", "prose", choice.id)
+            assertTrue("no owner outcome evidence was written", loop.evidenceSnapshot().isEmpty())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
 }

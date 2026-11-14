@@ -118,14 +118,15 @@ class DevelopmentalChoiceLoop(
 
     fun beginTurn(
         userInput: String,
-        options: List<DevelopmentalChoiceOption>
+        options: List<DevelopmentalChoiceOption>,
+        acceptFeedback: Boolean = true
     ): DevelopmentalChoice = synchronized(lock) {
         require(options.isNotEmpty()) { "At least one developmental choice is required" }
         require(options.map { it.id }.distinct().size == options.size) {
             "Developmental choice ids must be unique within a decision"
         }
 
-        applyExplicitFeedback(userInput, options)
+        if (acceptFeedback) applyExplicitFeedback(userInput, options)
 
         val selected = mechanism.select(options, evidence.toMap())
         require(options.any { it.id == selected.id }) {
