@@ -12,7 +12,7 @@ import com.friday.app.memory.MemoryImportanceScorer
 import com.friday.app.memory.RawEpisodicEntry
 import com.friday.app.memory.TestEmbeddingProvider
 import com.friday.app.model.FakeModelBackend
-import com.friday.app.termux.TermuxJarvisServer
+import com.friday.app.termux.TermuxFridayServer
 import com.friday.app.trace.JsonlTurnTraceStore
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -36,7 +36,7 @@ import java.io.File
  *    Then derivedFrom(M1) returns EXACTLY {S (SUMMARY), index-M1 (INDEX_ENTRY)}
  *    and sourcesOf(S) equals exactly {M1, M2}.
  *  - AC2: a REAL turn through the production composition root
- *    ([TermuxJarvisServer] → its [LatencyPipeline] → [com.friday.app.cognitive.CognitiveEngine.process])
+ *    ([TermuxFridayServer] → its [LatencyPipeline] → [com.friday.app.cognitive.CognitiveEngine.process])
  *    that retrieves M1 appends one TRACE_RECORD naming retrievedMemoryIds, so
  *    derivedFrom(M1) includes the trace record id.
  *  - AC3: a NEW [JsonlProvenanceLedger] over the same file (simulated restart)
@@ -50,7 +50,7 @@ import java.io.File
 class ProvenanceProductionWiringTest {
 
     private val files = mutableListOf<File>()
-    private val servers = mutableListOf<TermuxJarvisServer>()
+    private val servers = mutableListOf<TermuxFridayServer>()
 
     @After
     fun tearDown() {
@@ -84,7 +84,7 @@ class ProvenanceProductionWiringTest {
         }
 
     private fun recordingPipeline(
-        server: TermuxJarvisServer,
+        server: TermuxFridayServer,
         captured: MutableList<String>
     ): LatencyPipeline = LatencyPipeline(
         dispatch = { it() },
@@ -102,7 +102,7 @@ class ProvenanceProductionWiringTest {
         ledger: ProvenanceLedger,
         traceStore: JsonlTurnTraceStore,
         memoryOverride: MemoryStorePort
-    ): TermuxJarvisServer = TermuxJarvisServer(
+    ): TermuxFridayServer = TermuxFridayServer(
         port = 0,
         backendOverride = FakeModelBackend(),
         turnTraceStore = traceStore,

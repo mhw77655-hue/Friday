@@ -53,7 +53,7 @@ class VoiceOutputPath(
     fun speak(text: String, language: String? = null, voiceId: String? = null, vocabulary: VocabularyStore? = null) {
         if (text.isBlank()) return
         interrupt()
-        val profile = profileStore.get(DefaultJarvisVoiceProfile.id) ?: DefaultJarvisVoiceProfile
+        val profile = profileStore.get(DefaultFridayVoiceProfile.id) ?: DefaultFridayVoiceProfile
         val lang = language ?: profile.language
         val myJob = scope.launch {
             _isSpeaking.value = true

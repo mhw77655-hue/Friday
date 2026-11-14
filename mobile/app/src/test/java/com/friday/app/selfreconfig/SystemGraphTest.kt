@@ -366,7 +366,7 @@ class SystemGraphTest {
         // Construction-site ground truth (AC2) is captured on the node.
         assertTrue(
             "voice forge node carries the ground-truth construction-site description",
-            node.description.contains("FridayEngine.kt:175-189") && node.description.contains("TermuxJarvisServer.kt:232")
+            node.description.contains("FridayEngine.kt:175-189") && node.description.contains("TermuxFridayServer.kt:232")
         )
     }
 
@@ -518,7 +518,7 @@ class SystemGraphTest {
         assertTrue(
             "the law node carries its construction-site ground truth",
             node.description.contains("FridayEngine.kt:392") &&
-                node.description.contains("TermuxJarvisServer.kt:286")
+                node.description.contains("TermuxFridayServer.kt:286")
         )
     }
 
@@ -601,7 +601,7 @@ class SystemGraphTest {
         assertTrue(
             "verification twin node carries the ground-truth provisioning/architecture description",
             node.description.contains(".ralph/buildtwin/provision.sh") &&
-                node.description.contains("TermuxJarvisServer")
+                node.description.contains("TermuxFridayServer")
         )
     }
 

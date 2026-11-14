@@ -25,5 +25,5 @@ data class IntegrationContext(
     val affect: AffectRead?,
     val deviation: DeviationResult?,
     val vulnerabilityShared: Boolean,
-    val mentionsJarvis: Boolean
+    val mentionsFriday: Boolean
 )

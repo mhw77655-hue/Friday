@@ -3,7 +3,7 @@ package com.friday.app.social
 import com.friday.app.humancore.protocol.StyledResponse
 import com.friday.app.latency.LatencyPipeline
 import com.friday.app.model.FakeModelBackend
-import com.friday.app.termux.TermuxJarvisServer
+import com.friday.app.termux.TermuxFridayServer
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -12,7 +12,7 @@ import org.junit.Test
 
 /**
  * PERSON-RELATIONSHIP-MODEL-AND-CONFIDENTIALITY-FIREWALL AC6 — proof through
- * the EXACT production call path (TermuxJarvisServer -> LatencyPipeline ->
+ * the EXACT production call path (TermuxFridayServer -> LatencyPipeline ->
  * CognitiveEngine.process -> IdentityContext.gatherForTurn/Firewall ->
  * formatForPrompt -> the outgoing generation payload).
  *
@@ -29,7 +29,7 @@ import org.junit.Test
 class PersonRelationshipProductionPathTest {
 
     private fun recordingPipeline(
-        server: TermuxJarvisServer,
+        server: TermuxFridayServer,
         captured: MutableList<String>
     ): LatencyPipeline = LatencyPipeline(
         dispatch = { it() },
@@ -46,7 +46,7 @@ class PersonRelationshipProductionPathTest {
     @Test
     fun `confidential fact is blocked for the unauthorized interlocutor in the live path`(): Unit =
         runBlocking {
-            val server = TermuxJarvisServer(port = 0, backendOverride = FakeModelBackend())
+            val server = TermuxFridayServer(port = 0, backendOverride = FakeModelBackend())
             val captured = mutableListOf<String>()
             val pipeline = recordingPipeline(server, captured)
             try {
@@ -98,7 +98,7 @@ class PersonRelationshipProductionPathTest {
     @Test
     fun `trust tier differentiation is real for the same input`(): Unit =
         runBlocking {
-            val server = TermuxJarvisServer(port = 0, backendOverride = FakeModelBackend())
+            val server = TermuxFridayServer(port = 0, backendOverride = FakeModelBackend())
             val captured = mutableListOf<String>()
             val pipeline = recordingPipeline(server, captured)
             try {

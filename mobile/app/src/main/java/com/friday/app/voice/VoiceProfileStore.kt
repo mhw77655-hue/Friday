@@ -19,12 +19,12 @@ class VoiceProfileStore(context: Context) {
         context.getSharedPreferences("voice_profiles", Context.MODE_PRIVATE)
 
     fun all(): List<VoiceProfile> {
-        val raw = prefs.getString(KEY_PROFILES, null) ?: return listOf(DefaultJarvisVoiceProfile)
+        val raw = prefs.getString(KEY_PROFILES, null) ?: return listOf(DefaultFridayVoiceProfile)
         val arr = JSONArray(raw)
         val profiles = (0 until arr.length()).mapNotNull { i ->
             decode(arr.getJSONObject(i))
         }
-        return profiles.ifEmpty { listOf(DefaultJarvisVoiceProfile) }
+        return profiles.ifEmpty { listOf(DefaultFridayVoiceProfile) }
     }
 
     fun get(id: String): VoiceProfile? = all().firstOrNull { it.id == id }

@@ -170,16 +170,16 @@ dependencies {
 }
 
 // TERMUX-LIVE-INSTANCE-BROWSER-INTERFACE (AC6): the exact copy-paste run command
-// for the standalone JVM entry point. Runs TermuxJarvisServer's main() on the
+// for the standalone JVM entry point. Runs TermuxFridayServer's main() on the
 // JVM with the unit-test classpath (real production main classes + JVM deps).
-val runTermuxJarvisServer by tasks.registering(JavaExec::class) {
+val runTermuxFridayServer by tasks.registering(JavaExec::class) {
     group = "application"
     description = "Run the FRIDAY Termux live instance (localhost browser interface)."
     val mainOut = tasks.named("compileDebugKotlin", KotlinCompile::class).get().destinationDirectory
     val testOut = tasks.named("compileDebugUnitTestKotlin", KotlinCompile::class).get().destinationDirectory
     val runtimeCp = configurations.named("debugUnitTestRuntimeClasspath").get()
     classpath = files(mainOut.get().asFileTree, testOut.get().asFileTree, runtimeCp)
-    mainClass.set("com.friday.app.termux.TermuxJarvisServer")
+    mainClass.set("com.friday.app.termux.TermuxFridayServer")
     // Pass-through: --port=8081 --ollama=127.0.0.1:8080 --model=<id>
 }
 

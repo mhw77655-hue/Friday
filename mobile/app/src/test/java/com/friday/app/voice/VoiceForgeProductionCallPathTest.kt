@@ -4,7 +4,7 @@ import com.friday.app.humancore.protocol.StyledResponse
 import com.friday.app.language.EgyptianArabicDialectDetector
 import com.friday.app.latency.LatencyPipeline
 import com.friday.app.model.FakeModelBackend
-import com.friday.app.termux.TermuxJarvisServer
+import com.friday.app.termux.TermuxFridayServer
 import com.friday.app.voice.VoiceForgeBackend.VoiceForgeOutcome
 import com.friday.app.voice.VoiceForgeSynthesisResponse.Audio
 import kotlinx.coroutines.flow.first
@@ -15,7 +15,7 @@ import org.junit.Test
 
 /**
  * VOICE-FORGE-EGYPTIAN-KAREN-TTS AC3: the REAL production call path
- * (TermuxJarvisServer -> LatencyPipeline -> CognitiveEngine.process ->
+ * (TermuxFridayServer -> LatencyPipeline -> CognitiveEngine.process ->
  * model generation -> spoken-output seam) with a recording fake swapped in
  * ONLY at the final HTTP hop (the VoiceForgeSynthesizer seam).
  *
@@ -30,7 +30,7 @@ class VoiceForgeProductionCallPathTest {
     private var activeUserText = ""
 
     private fun recordingPipeline(
-        server: TermuxJarvisServer,
+        server: TermuxFridayServer,
         outgoingPayloads: MutableList<String>,
         spoken: MutableList<String>,
         outcomes: MutableList<VoiceForgeOutcome>
@@ -60,7 +60,7 @@ class VoiceForgeProductionCallPathTest {
         cognitiveEngine = server.engine
     )
 
-    private suspend fun driveReply(pipeline: LatencyPipeline, server: TermuxJarvisServer, userText: String): String {
+    private suspend fun driveReply(pipeline: LatencyPipeline, server: TermuxFridayServer, userText: String): String {
         activeUserText = userText
         pipeline.onUserInput(userText)
         val finalReply = server.modelManager.lastReply.first { it.isNotBlank() }
@@ -92,7 +92,7 @@ class VoiceForgeProductionCallPathTest {
     fun `egyptian flagged turn - final text reaches adapter with egyptian checkpoint and tuned params`(): Unit =
         runBlocking {
             val synth = RecordingVoiceForgeSynthesizer()
-            val server = TermuxJarvisServer(
+            val server = TermuxFridayServer(
                 port = 0,
                 backendOverride = FakeModelBackend(),
                 voiceForgeSynthesizerOverride = synth
@@ -120,7 +120,7 @@ class VoiceForgeProductionCallPathTest {
     fun `english turn - final text reaches adapter with base checkpoint`(): Unit =
         runBlocking {
             val synth = RecordingVoiceForgeSynthesizer()
-            val server = TermuxJarvisServer(
+            val server = TermuxFridayServer(
                 port = 0,
                 backendOverride = FakeModelBackend(),
                 voiceForgeSynthesizerOverride = synth
@@ -144,7 +144,7 @@ class VoiceForgeProductionCallPathTest {
     fun `synthesis failure falls back to platform speech instead of silence`(): Unit =
         runBlocking {
             val synth = RecordingVoiceForgeSynthesizer(RecordingVoiceForgeSynthesizer.Mode.FAIL)
-            val server = TermuxJarvisServer(
+            val server = TermuxFridayServer(
                 port = 0,
                 backendOverride = FakeModelBackend(),
                 voiceForgeSynthesizerOverride = synth

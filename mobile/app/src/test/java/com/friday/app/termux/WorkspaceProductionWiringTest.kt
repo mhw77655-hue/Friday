@@ -27,26 +27,26 @@ import org.junit.Test
  *            -> ContextWindowAssembler.assembleFrom
  *                 READS the MENTAL_STATE claim, PUBLISHES the CONTEXT_WINDOW claim
  *
- * That is the REAL JVM-executable composition root (TermuxJarvisServer, the
+ * That is the REAL JVM-executable composition root (TermuxFridayServer, the
  * mirror of FridayEngine.init with only the Android-bound stores swapped). Both
  * organs reach the SAME store instance the composition root constructed, and
  * neither names the other.
  */
 class WorkspaceProductionWiringTest {
 
-    private val servers = mutableListOf<TermuxJarvisServer>()
+    private val servers = mutableListOf<TermuxFridayServer>()
 
     @After
     fun tearDown() {
         servers.forEach { it.stop() }
     }
 
-    private fun newServer(): TermuxJarvisServer =
-        TermuxJarvisServer(port = 0, backendOverride = FakeModelBackend())
+    private fun newServer(): TermuxFridayServer =
+        TermuxFridayServer(port = 0, backendOverride = FakeModelBackend())
             .also { servers.add(it) }
 
     private fun recordingPipeline(
-        server: TermuxJarvisServer,
+        server: TermuxFridayServer,
         captured: MutableList<String>
     ): LatencyPipeline = LatencyPipeline(
         dispatch = { it() },

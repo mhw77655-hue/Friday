@@ -203,14 +203,14 @@ class WallClockAllowlistTest {
         put("model/adapters/HeuristicAdapter.kt", 1)
         put("model/adapters/LlamaCppAdapter.kt", 3)
         put("model/adapters/OllamaAdapter.kt", 3)
-        put("model/adapters/RemoteJarvisAdapter.kt", 3)
+        put("model/adapters/RemoteFridayAdapter.kt", 3)
 
         // ── the admission governor the root constructs ────────────────────────
         put("resource/ResourceGovernor.kt", 1)
 
         // ── the composition root and its two hosts ────────────────────────────
         put("onefriday/AndroidPlatformPorts.kt", 1)
-        put("termux/TermuxJarvisServer.kt", 3)
+        put("termux/TermuxFridayServer.kt", 3)
         put("resolution/FuzzyCommandResolver.kt", 1)
         put("threads/ThreadObjects.kt", 1)
     }
@@ -289,12 +289,12 @@ class WallClockAllowlistTest {
         put("model/adapters/HeuristicAdapter.kt", "the canned 'today's date' answer of a non-model fallback adapter")
         put("model/adapters/LlamaCppAdapter.kt", "request latency pair and the telemetry latency field")
         put("model/adapters/OllamaAdapter.kt", "request latency pair and the telemetry latency field")
-        put("model/adapters/RemoteJarvisAdapter.kt", "request latency pair and the telemetry latency field")
+        put("model/adapters/RemoteFridayAdapter.kt", "request latency pair and the telemetry latency field")
 
         put("resource/ResourceGovernor.kt", "the admission record's last-activity stamp — written and never read for a decision")
 
         put("onefriday/AndroidPlatformPorts.kt", "the phone adapter's clock DEFAULT; production passes the platform's own clock")
-        put("termux/TermuxJarvisServer.kt", "in-memory store defaults and the JVM host's clock value handed to the adapter")
+        put("termux/TermuxFridayServer.kt", "in-memory store defaults and the JVM host's clock value handed to the adapter")
         put("resolution/FuzzyCommandResolver.kt", "nowMs default on the recency-aware match")
         put("threads/ThreadObjects.kt", "the tracker's injected now default; a host that wants host-time decay passes it")
     }

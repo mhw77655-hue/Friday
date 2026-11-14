@@ -71,7 +71,7 @@ import java.util.concurrent.Executors
  * is supplied (tests swap ONLY the final HTTP hop with a recording fake — every
  * other object on the drive path is the real production class).
  */
-class TermuxJarvisServer(
+class TermuxFridayServer(
     private val port: Int = 8081,
     private val ollamaHost: String = "127.0.0.1:8080",
     private val modelId: String = "jarvis-resident:latest",
@@ -616,7 +616,7 @@ status.textContent='Connected to FRIDAY Termux'}
             println("FRIDAY Termux Server starting on port $port...")
             println("Ollama backend: $host (model: $model)")
 
-            val server = TermuxJarvisServer(port = port, ollamaHost = host, modelId = model)
+            val server = TermuxFridayServer(port = port, ollamaHost = host, modelId = model)
             server.useRealProvider()
             val handle = server.bootstrap()
             println("Resident organ loaded: ${handle.modelId}")

@@ -27,7 +27,7 @@ import java.io.File
  *    trace file provably does not grow.
  *
  * The production-path half (every REAL turn writes exactly one record, wired
- * through the TermuxJarvisServer composition) lives in
+ * through the TermuxFridayServer composition) lives in
  * com.friday.app.termux.TurnTraceProductionWiringTest.
  */
 class TurnTraceStoreTest {

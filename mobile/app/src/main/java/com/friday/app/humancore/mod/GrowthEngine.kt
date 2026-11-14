@@ -46,7 +46,7 @@ class GrowthEngine(
         if (ctx.vulnerabilityShared) pending += TraitUpdate(PersonalityStore.TRAIT_WARMTH, 0.04, "user opened up")
         if ((s["gratitude"] ?: 0.0) >= 0.4) pending += TraitUpdate(PersonalityStore.TRAIT_WARMTH, 0.02, "user expressed gratitude")
         if ((affect?.valence ?: 0.0) >= 0.5) pending += TraitUpdate(PersonalityStore.TRAIT_WARMTH, 0.01, "sustained warm exchanges")
-        if ((affect?.valence ?: 0.0) < -0.6 && ctx.mentionsJarvis) {
+        if ((affect?.valence ?: 0.0) < -0.6 && ctx.mentionsFriday) {
             pending += TraitUpdate(PersonalityStore.TRAIT_WARMTH, -0.02, "negative exchange attributed to FRIDAY")
         }
         // Humor: user matches playfulness (sarcasm/lightness).

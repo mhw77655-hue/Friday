@@ -35,7 +35,7 @@ object FridayOrganGraph {
 
         // ONE-2-COMPOSITION: the ONE composition root, as a real ENTRY organ.
         // Both hosts construct this exact class — the phone through
-        // FridayEngine.init, the JVM/Termux host through TermuxJarvisServer — so
+        // FridayEngine.init, the JVM/Termux host through TermuxFridayServer — so
         // one graph can finally describe one Friday. It is the ORDER of
         // CONSTRUCTION, not a cognitive role: it holds no cognitive logic and
         // settles no meaning, which is why it is registered here next to the
@@ -102,7 +102,7 @@ object FridayOrganGraph {
         // COGNITION-WORKSPACE (Gate 3c): the shared cognitive workspace is a REAL
         // COGNITIVE organ, not a PLANNED placeholder. InMemoryWorkspace is
         // constructed at the single production composition point (FridayEngine.init
-        // and its JVM twin TermuxJarvisServer) and handed to BOTH migrated organs:
+        // and its JVM twin TermuxFridayServer) and handed to BOTH migrated organs:
         // the estimator publishes each turn's MENTAL_STATE claim into it, and the
         // context-window assembler reads that claim and publishes the assembled
         // CONTEXT_WINDOW claim back. In-memory and per-turn by construction — no
@@ -124,7 +124,7 @@ object FridayOrganGraph {
         // CONTINUITY-LAW (Gate 3c): the gate every change to identity-adjacent
         // state passes through, and the ONE place a ChangeLayer is enforced. REAL
         // COGNITIVE organ: constructed at the production composition points
-        // (FridayEngine.init and its JVM twin TermuxJarvisServer) over the shared
+        // (FridayEngine.init and its JVM twin TermuxFridayServer) over the shared
         // workspace and a real durable FileChangeLog. FAST self-model state is
         // unrestricted (SelfModel derives it from a live source every call), SLOW
         // state (the persona:<trait> facts PersonaTuner persists, the
@@ -148,7 +148,7 @@ object FridayOrganGraph {
                 "committed set of recorded turns and judges them against a human-authored CORE-fact " +
                 "expectation, so a change that bypasses this gate shows up as drift. CONSTRUCTION-SITE " +
                 "GROUND TRUTH: built in FridayEngine.init (FridayEngine.kt:392, over a real durable log " +
-                "at FridayEngine.kt:389) and in its JVM twin TermuxJarvisServer (TermuxJarvisServer.kt:286)."
+                "at FridayEngine.kt:389) and in its JVM twin TermuxFridayServer (TermuxFridayServer.kt:286)."
         ))
 
         // Memory organs
@@ -504,7 +504,7 @@ object FridayOrganGraph {
         // VOICE-FORGE-EGYPTIAN-KAREN-TTS: the spoken-reply VoiceForge backend is
         // a REAL organ — VoiceForgeBackend (MODEL, not PLANNED) constructed in
         // FridayEngine.init at the SAME composition point as the other model
-        // backends and in TermuxJarvisServer (AC2). The reply-path organ that
+        // backends and in TermuxFridayServer (AC2). The reply-path organ that
         // owns spoken output (entry.latencyPipeline.fullSpeak) DEPENDS_ON it.
         g.registerNode(SystemGraph.SystemNode(
             id = "voice.voiceForge",
@@ -514,7 +514,7 @@ object FridayOrganGraph {
             description = "VOICE-FORGE-EGYPTIAN-KAREN-TTS (2026-09-12): the on-device spoken-reply speech backend " +
                 "(Chatterbox Multilingual runtime + Egyptian fine-tune via VoiceForgeAdapter over voiceforge/voiceforge_server.py). " +
                 "Constructed in FridayEngine.init at the same composition point as the model backends (FridayEngine.kt:175-189, " +
-                "backend at :185) and in TermuxJarvisServer (TermuxJarvisServer.kt:232) — AC2. The live reply sink " +
+                "backend at :185) and in TermuxFridayServer (TermuxFridayServer.kt:232) — AC2. The live reply sink " +
                 "(FridayEngine.kt:591) routes full replies through it; platform TTS is only the AC3(c) failure fallback."
         ))
         // BUILD-TWIN-ARM64-VERIFICATION: the infra verification twin is a REAL
@@ -532,7 +532,7 @@ object FridayOrganGraph {
             qualifiedClassName = "com.friday.app.buildtwin.BuildTwinVerifier",
             description = "BUILD-TWIN-ARM64-VERIFICATION (2026-09-13): the ARM64-native CPU-only " +
                 "6-8GB verification twin gate (BuildTwinVerifier + HttpTwinHealthProbe + " +
-                "LocalTwinCommandRunner + IncidentReportWriter, constructed on the TermuxJarvisServer " +
+                "LocalTwinCommandRunner + IncidentReportWriter, constructed on the TermuxFridayServer " +
                 "composition root) that authorizes copying hardware-sensitive artifacts to the phone " +
                 "only on twin-healthy:true + GGUF-step-exit-0; provisioned on demand via " +
                 ".ralph/buildtwin/provision.sh + teardown.sh."
@@ -558,7 +558,7 @@ object FridayOrganGraph {
             description = "CONTINUITY-GATE-ENFORCED-SEAM (2026-09-14): the typed registry every " +
                 "organ contributing to the generation payload registers into at construction " +
                 "time. COGNITIVE organ (real production class). Constructed at AC2 ground-truth " +
-                "sites FridayEngine.kt:502 and TermuxJarvisServer.kt:207 at the SAME composition " +
+                "sites FridayEngine.kt:502 and TermuxFridayServer.kt:207 at the SAME composition " +
                 "point as the identity/emotion/social stack it guards; per-turn the engine builds " +
                 "a ContinuityGate.Snapshot that IdentityContext and the ContextWindowAssembler " +
                 "consult exclusively — the ONLY parameter surface the generation payload accepts, " +

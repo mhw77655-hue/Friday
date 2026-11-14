@@ -59,7 +59,7 @@ class IntegrationPass(
             affect = perception?.affect,
             deviation = perception?.deviation,
             vulnerabilityShared = vulnerabilityShared,
-            mentionsJarvis = TextAnalysis.mentionsJarvis(exchange.userText)
+            mentionsFriday = TextAnalysis.mentionsFriday(exchange.userText)
         )
 
         perception?.affect?.let { emotionalRegulation.observe(it) }

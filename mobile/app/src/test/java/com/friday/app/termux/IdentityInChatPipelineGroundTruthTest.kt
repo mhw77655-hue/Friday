@@ -15,7 +15,7 @@ import org.junit.Test
  *
  * Ground truth of the exact production call path:
  *
- *   TermuxJarvisServer /api/chat -> pipeline.onUserInput
+ *   TermuxFridayServer /api/chat -> pipeline.onUserInput
  *     -> LatencyPipeline.onUserInput (LatencyLayer.kt:278)
  *     -> CognitiveEngine.process(text, ctx, sendBlock = bridgeSend) (LatencyLayer.kt:312)
  *
@@ -32,7 +32,7 @@ import org.junit.Test
  *   AC1 - the real composition now resolves the real HumanCore identity name;
  *   AC2 - real identity/persona content is wired into the outgoing payload
  *         through the existing IdentityContext.formatForPrompt mechanism, with
- *         the identity stack built by TermuxJarvisServer itself (no second
+ *         the identity stack built by TermuxFridayServer itself (no second
  *         identity-injection path created).
  */
 class IdentityInChatPipelineGroundTruthTest {
@@ -41,7 +41,7 @@ class IdentityInChatPipelineGroundTruthTest {
      *  hop is the last one (recording collector instead of modelManager.send),
      *  which is precisely the bridgeSend seam [CognitiveEngine.process] uses. */
     private fun recordingPipeline(
-        server: TermuxJarvisServer,
+        server: TermuxFridayServer,
         captured: MutableList<String>
     ): LatencyPipeline = LatencyPipeline(
         dispatch = { it() },
@@ -57,7 +57,7 @@ class IdentityInChatPipelineGroundTruthTest {
 
     @Test
     fun `real Termux composition resolves the real HumanCore identity name`() {
-        val server = TermuxJarvisServer(port = 0, backendOverride = FakeModelBackend())
+        val server = TermuxFridayServer(port = 0, backendOverride = FakeModelBackend())
         try {
             assertEquals(
                 "the fix initializes HumanCore, so the identity source reads the real 'FRIDAY' " +
@@ -75,7 +75,7 @@ class IdentityInChatPipelineGroundTruthTest {
     @Test
     fun `real HumanCore identity reaches the actual outgoing request payload`(): Unit =
         runBlocking {
-            val server = TermuxJarvisServer(port = 0, backendOverride = FakeModelBackend())
+            val server = TermuxFridayServer(port = 0, backendOverride = FakeModelBackend())
             val captured = mutableListOf<String>()
             val pipeline = recordingPipeline(server, captured)
             try {
@@ -98,7 +98,7 @@ class IdentityInChatPipelineGroundTruthTest {
     @Test
     fun `durable PersonaTuning content reaches the actual outgoing request payload`(): Unit =
         runBlocking {
-            val server = TermuxJarvisServer(port = 0, backendOverride = FakeModelBackend())
+            val server = TermuxFridayServer(port = 0, backendOverride = FakeModelBackend())
             val captured = mutableListOf<String>()
             val pipeline = recordingPipeline(server, captured)
             try {
@@ -121,7 +121,7 @@ class IdentityInChatPipelineGroundTruthTest {
     @Test
     fun `IdentityContext content is present in the outgoing payload on an ordinary turn`(): Unit =
         runBlocking {
-            val server = TermuxJarvisServer(port = 0, backendOverride = FakeModelBackend())
+            val server = TermuxFridayServer(port = 0, backendOverride = FakeModelBackend())
             val captured = mutableListOf<String>()
             val pipeline = recordingPipeline(server, captured)
             try {

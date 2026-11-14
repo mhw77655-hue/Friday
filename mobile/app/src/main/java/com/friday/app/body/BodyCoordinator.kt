@@ -515,7 +515,7 @@ class BodyCoordinator(
                 affect = null,
                 deviation = null,
                 vulnerabilityShared = false,
-                mentionsJarvis = false
+                mentionsFriday = false
             )
         )
 

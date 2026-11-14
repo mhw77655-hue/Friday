@@ -3,7 +3,7 @@ package com.friday.app.continuity
 import com.friday.app.humancore.protocol.StyledResponse
 import com.friday.app.latency.LatencyPipeline
 import com.friday.app.model.FakeModelBackend
-import com.friday.app.termux.TermuxJarvisServer
+import com.friday.app.termux.TermuxFridayServer
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -12,7 +12,7 @@ import org.junit.Test
 
 /**
  * CONTINUITY-GATE-ENFORCED-SEAM AC5 — proof through the EXACT production call
- * path (TermuxJarvisServer -> LatencyPipeline -> CognitiveEngine.process ->
+ * path (TermuxFridayServer -> LatencyPipeline -> CognitiveEngine.process ->
  * ContinuityGate.snapshotForTurn -> IdentityContext.gatherForTurn(snapshot) /
  * ContextWindowAssembler.assembleFrom(snapshot) -> the outgoing generation
  * payload) that every migrated contribution still reaches the real generation
@@ -33,7 +33,7 @@ import org.junit.Test
 class ContinuityGateProductionPathTest {
 
     private fun recordingPipeline(
-        server: TermuxJarvisServer,
+        server: TermuxFridayServer,
         captured: MutableList<String>
     ): LatencyPipeline = LatencyPipeline(
         dispatch = { it() },
@@ -50,7 +50,7 @@ class ContinuityGateProductionPathTest {
     @Test
     fun `the production gate registry carries every migrated organ contribution`(): Unit =
         runBlocking {
-            val server = TermuxJarvisServer(port = 0, backendOverride = FakeModelBackend())
+            val server = TermuxFridayServer(port = 0, backendOverride = FakeModelBackend())
             try {
                 val kinds = server.continuityGate.contributions().map { it.kind }.toSet()
                 assertTrue(
@@ -85,7 +85,7 @@ class ContinuityGateProductionPathTest {
     @Test
     fun `Egyptian Arabic dialect signal reaches the outgoing payload through the gate`(): Unit =
         runBlocking {
-            val server = TermuxJarvisServer(port = 0, backendOverride = FakeModelBackend())
+            val server = TermuxFridayServer(port = 0, backendOverride = FakeModelBackend())
             val captured = mutableListOf<String>()
             val pipeline = recordingPipeline(server, captured)
             try {
@@ -107,7 +107,7 @@ class ContinuityGateProductionPathTest {
     @Test
     fun `confidential fact is blocked for the unauthorized interlocutor in the live path`(): Unit =
         runBlocking {
-            val server = TermuxJarvisServer(port = 0, backendOverride = FakeModelBackend())
+            val server = TermuxFridayServer(port = 0, backendOverride = FakeModelBackend())
             val captured = mutableListOf<String>()
             val pipeline = recordingPipeline(server, captured)
             try {
@@ -157,7 +157,7 @@ class ContinuityGateProductionPathTest {
     @Test
     fun `trust tier differentiation is real for the same input through the gate`(): Unit =
         runBlocking {
-            val server = TermuxJarvisServer(port = 0, backendOverride = FakeModelBackend())
+            val server = TermuxFridayServer(port = 0, backendOverride = FakeModelBackend())
             val captured = mutableListOf<String>()
             val pipeline = recordingPipeline(server, captured)
             try {

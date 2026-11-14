@@ -65,7 +65,7 @@ import com.friday.app.voice.VoiceForgeConfig
  *
  * Before this there were two. The phone built one Friday inside
  * `FridayEngine.init`; the Termux/plain-JVM host built a second, different one
- * inside `TermuxJarvisServer` — same organs on paper, different behaviour in
+ * inside `TermuxFridayServer` — same organs on paper, different behaviour in
  * practice: the JVM host stubbed the legacy Human Core's three turn calls to
  * no-ops, reported an all-clear resource snapshot, and skipped the emotion tier
  * on the per-turn mental-state reading. Evidence gathered on one did not speak

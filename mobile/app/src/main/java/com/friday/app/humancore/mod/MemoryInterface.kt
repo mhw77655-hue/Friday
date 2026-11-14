@@ -61,7 +61,7 @@ class MemoryInterface {
         if ((s["gratitude"] ?: 0.0) >= 0.4) tags += "user_grateful"
         if (ctx.vulnerabilityShared) tags += "user_vulnerable"
         if (ctx.deviation?.significant == true) tags += "deviation_from_baseline"
-        if (ctx.mentionsJarvis) tags += "about_jarvis"
+        if (ctx.mentionsFriday) tags += "about_jarvis"
         return tags
     }
 }

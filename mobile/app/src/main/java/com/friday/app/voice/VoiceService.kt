@@ -103,7 +103,7 @@ class VoiceService : Service() {
                 return json(false, error = "empty text")
             }
             val params = parseOptions(optionsJson)
-            val profile = com.friday.app.voice.DefaultJarvisVoiceProfile.copy(
+            val profile = com.friday.app.voice.DefaultFridayVoiceProfile.copy(
                 language = language.ifBlank { "en" },
                 preferredProvider = null,
                 preferredVoice = voiceId.ifBlank { null },

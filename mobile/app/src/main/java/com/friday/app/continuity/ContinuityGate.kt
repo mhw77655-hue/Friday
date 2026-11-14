@@ -18,7 +18,7 @@ import com.friday.app.social.PersonRelationshipModel
  * Every organ that feeds the generation payload (dialect, identity/emotion
  * mental state, person/relationship + trust tier, confidentiality firewall,
  * galaxy memory, model tier) registers a real [Contribution] into this gate at
- * the composition point (FridayEngine.init / TermuxJarvisServer — AC2). Per
+ * the composition point (FridayEngine.init / TermuxFridayServer — AC2). Per
  * turn the gate produces ONE [Snapshot]; the generation seam
  * ([com.friday.app.identity.IdentityContext.gatherForTurn] and
  * [com.friday.app.cognitive.ContextWindowAssembler]) can ONLY assemble the

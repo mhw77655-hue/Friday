@@ -1,7 +1,7 @@
 package com.friday.app.social
 
 import com.friday.app.identity.WorldModelService
-import com.friday.app.termux.TermuxJarvisServer
+import com.friday.app.termux.TermuxFridayServer
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertEquals
@@ -18,8 +18,8 @@ import org.junit.Test
  */
 class ConfidentialityFirewallTest {
 
-    private fun freshFirewall(): Triple<TermuxJarvisServer.InMemoryGraph, WorldModelService, ConfidentialityFirewall> {
-        val graphStore = TermuxJarvisServer.InMemoryGraph()
+    private fun freshFirewall(): Triple<TermuxFridayServer.InMemoryGraph, WorldModelService, ConfidentialityFirewall> {
+        val graphStore = TermuxFridayServer.InMemoryGraph()
         val worldModel = WorldModelService(graphStore)
         return Triple(graphStore, worldModel, ConfidentialityFirewall(graphStore, worldModel))
     }

@@ -41,7 +41,7 @@ class TrustModeling(
         now: Long = clock()
     ) {
         val lower = userText.lowercase()
-        val mentionsJarvis = TextAnalysis.mentionsJarvis(userText)
+        val mentionsFriday = TextAnalysis.mentionsFriday(userText)
 
         // 1. Explicit praise / criticism / distrust — highest-signal. All
         // signals are applied independently: a mixed message ("that's wrong,
@@ -79,7 +79,7 @@ class TrustModeling(
         // 2. Deviation-based, only when significant and only when attributed.
         if (deviation != null && deviation.significant && !deviation.isInsufficient()) {
             val negative = affect != null && affect.valence < -0.3
-            if (negative && mentionsJarvis) {
+            if (negative && mentionsFriday) {
                 applyTrustObserved(
                     observation = 0.2,
                     confidence = deviation.confidence.coerceAtMost(0.8),
@@ -89,7 +89,7 @@ class TrustModeling(
                 )
             }
             // A positive deviation attributed to FRIDAY reinforces trust gently.
-            if (affect != null && affect.valence > 0.4 && mentionsJarvis) {
+            if (affect != null && affect.valence > 0.4 && mentionsFriday) {
                 applyTrustObserved(
                     observation = 0.7,
                     confidence = deviation.confidence.coerceAtMost(0.6),

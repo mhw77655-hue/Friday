@@ -96,7 +96,7 @@ enum class MemoryType {
 data class ConversationContext(
     val currentTurn: Int = 0,
     val recentUserTexts: List<String> = emptyList(),
-    val recentJarvisTexts: List<String> = emptyList(),
+    val recentFridayTexts: List<String> = emptyList(),
     val activeTopic: String? = null,
     val pendingMemoryItems: List<MemoryItem> = emptyList(),
     val userLanguage: String = "en",

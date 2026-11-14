@@ -14,7 +14,7 @@ object TextAnalysis {
     )
 
     /** Does the message plausibly reference FRIDAY or FRIDAY's behavior? */
-    fun mentionsJarvis(text: String): Boolean {
+    fun mentionsFriday(text: String): Boolean {
         val lower = text.lowercase()
         return MENTION_PATTERNS.any { lower.contains(it) }
     }

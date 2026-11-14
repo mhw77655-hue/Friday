@@ -33,7 +33,7 @@ import java.io.File
  *
  * The subsystem semantics live in
  * [com.friday.app.memory.provenance.ForgetPropagationTest]; this class proves
- * forget runs through the REAL conversation composition — TermuxJarvisServer →
+ * forget runs through the REAL conversation composition — TermuxFridayServer →
  * its LatencyPipeline → CognitiveEngine.process — on top of the REAL classes
  * (not test-only stubs) at every step:
  *
@@ -58,7 +58,7 @@ import java.io.File
 class ForgetProductionWiringTest {
 
     private val files = mutableListOf<File>()
-    private val servers = mutableListOf<TermuxJarvisServer>()
+    private val servers = mutableListOf<TermuxFridayServer>()
 
     @After
     fun tearDown() {
@@ -94,7 +94,7 @@ class ForgetProductionWiringTest {
         }
 
     private fun recordingPipeline(
-        server: TermuxJarvisServer,
+        server: TermuxFridayServer,
         captured: MutableList<String>
     ): LatencyPipeline = LatencyPipeline(
         dispatch = { it() },
@@ -114,7 +114,7 @@ class ForgetProductionWiringTest {
         memoryStore: MemoryStorePort,
         graphStore: MemoryGraphStore,
         memoryForgetter: MemoryForgetter
-    ): TermuxJarvisServer = TermuxJarvisServer(
+    ): TermuxFridayServer = TermuxFridayServer(
         port = 0,
         backendOverride = FakeModelBackend(),
         turnTraceStore = traceStore,

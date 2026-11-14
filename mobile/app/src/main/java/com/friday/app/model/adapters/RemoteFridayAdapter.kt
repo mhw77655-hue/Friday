@@ -27,10 +27,10 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
 /**
- * RemoteJarvisAdapter - HTTP adapter for another Friday host (OS Portal)
+ * RemoteFridayAdapter - HTTP adapter for another Friday host (OS Portal)
  * Connects to the OS Portal API on port 8150
  */
-class RemoteJarvisAdapter(private val context: Context?) : ModelProvider {
+class RemoteFridayAdapter(private val context: Context?) : ModelProvider {
     override val providerType = ModelProviderType.REMOTE_FRIDAY
 
     private var baseUrl = "http://127.0.0.1:8150"

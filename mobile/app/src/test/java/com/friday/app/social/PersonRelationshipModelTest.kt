@@ -1,7 +1,7 @@
 package com.friday.app.social
 
 import com.friday.app.identity.WorldModelService
-import com.friday.app.termux.TermuxJarvisServer
+import com.friday.app.termux.TermuxFridayServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -16,8 +16,8 @@ import org.junit.Test
  */
 class PersonRelationshipModelTest {
 
-    private fun freshModel(): Triple<TermuxJarvisServer.InMemoryGraph, WorldModelService, PersonRelationshipModel> {
-        val graphStore = TermuxJarvisServer.InMemoryGraph()
+    private fun freshModel(): Triple<TermuxFridayServer.InMemoryGraph, WorldModelService, PersonRelationshipModel> {
+        val graphStore = TermuxFridayServer.InMemoryGraph()
         val worldModel = WorldModelService(graphStore)
         return Triple(graphStore, worldModel, PersonRelationshipModel(graphStore, worldModel))
     }

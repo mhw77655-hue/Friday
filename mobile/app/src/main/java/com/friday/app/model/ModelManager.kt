@@ -7,7 +7,7 @@ import com.friday.app.env.ModelSource
 import com.friday.app.model.adapters.HeuristicAdapter
 import com.friday.app.model.adapters.LlamaCppAdapter
 import com.friday.app.model.adapters.OllamaAdapter
-import com.friday.app.model.adapters.RemoteJarvisAdapter
+import com.friday.app.model.adapters.RemoteFridayAdapter
 import com.friday.app.model.config.ProviderConfig
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -73,14 +73,14 @@ class ModelManager(
     // Provider adapters
     private val llamaCppAdapter = LlamaCppAdapter(context)
     private val ollamaAdapter = OllamaAdapter(context)
-    private val remoteJarvisAdapter = RemoteJarvisAdapter(context)
+    private val remoteFridayAdapter = RemoteFridayAdapter(context)
     private val heuristicAdapter = HeuristicAdapter()
 
     // All provider profiles known to the manager (one per adapter).
     private val providersByType: Map<ModelProviderType, ModelProvider> = mapOf(
         ModelProviderType.LLAMA_CPP to llamaCppAdapter,
         ModelProviderType.OLLAMA to ollamaAdapter,
-        ModelProviderType.REMOTE_FRIDAY to remoteJarvisAdapter,
+        ModelProviderType.REMOTE_FRIDAY to remoteFridayAdapter,
         ModelProviderType.HEURISTIC to heuristicAdapter,
         ModelProviderType.CLOUD to heuristicAdapter, // CloudProviderAdapter is a stub for now
         ModelProviderType.NONE to heuristicAdapter
@@ -152,8 +152,8 @@ class ModelManager(
                 ollamaAdapter
             }
             ModelProviderType.REMOTE_FRIDAY -> {
-                remoteJarvisAdapter.configure(modelSource, config)
-                remoteJarvisAdapter
+                remoteFridayAdapter.configure(modelSource, config)
+                remoteFridayAdapter
             }
             ModelProviderType.HEURISTIC -> heuristicAdapter
             ModelProviderType.NONE -> heuristicAdapter
@@ -198,7 +198,7 @@ class ModelManager(
                 }
             }
             ModelProviderType.OLLAMA -> ollamaAdapter.configure(defaultModelSource(type), config)
-            ModelProviderType.REMOTE_FRIDAY -> remoteJarvisAdapter.configure(defaultModelSource(type), config)
+            ModelProviderType.REMOTE_FRIDAY -> remoteFridayAdapter.configure(defaultModelSource(type), config)
             else -> return Result.failure(IllegalArgumentException("Provider $type is not configurable"))
         }
         Result.success(Unit)

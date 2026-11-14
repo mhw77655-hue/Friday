@@ -10,7 +10,7 @@ import com.friday.app.model.FakeModelBackend
 import com.friday.app.model.ModelTier
 import com.friday.app.model.OrganRole
 import com.friday.app.model.ResourceSnapshot
-import com.friday.app.termux.TermuxJarvisServer
+import com.friday.app.termux.TermuxFridayServer
 import com.friday.app.voice.VoiceForgeHealth
 import com.friday.app.voice.VoiceForgeSynthesisRequest
 import com.friday.app.voice.VoiceForgeSynthesisResponse
@@ -69,8 +69,8 @@ class InjectedClockTest {
             storageDir = compositionDir("clock"),
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
             stores = JvmPlatformStores(
-                graphStore = TermuxJarvisServer.InMemoryGraph(),
-                embeddingProvider = TermuxJarvisServer.DeterministicEmbedding(),
+                graphStore = TermuxFridayServer.InMemoryGraph(),
+                embeddingProvider = TermuxFridayServer.DeterministicEmbedding(),
                 memoryStore = NoMemories(),
                 backend = FakeModelBackend(),
                 voiceSynthesizer = SilentSpeech()

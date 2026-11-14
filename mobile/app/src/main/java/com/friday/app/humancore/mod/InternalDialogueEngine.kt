@@ -88,7 +88,7 @@ class InternalDialogueEngine(
         if (trust < 0.3) return TRIGGER_LOW_TRUST
         if (trust > 0.7) return TRIGGER_HIGH_TRUST
         val dev = ctx.deviation
-        if (dev != null && dev.significant && (affect?.valence ?: 0.0) < -0.3 && ctx.mentionsJarvis) {
+        if (dev != null && dev.significant && (affect?.valence ?: 0.0) < -0.3 && ctx.mentionsFriday) {
             return TRIGGER_AFTER_CONFLICT
         }
         return null

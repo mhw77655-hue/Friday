@@ -21,13 +21,13 @@ import java.net.URL
  * real engine + pipeline; the active provider (heuristic, offline fallback)
  * yields a deterministic reply.
  */
-class TermuxJarvisServerTest {
+class TermuxFridayServerTest {
 
-    private lateinit var server: TermuxJarvisServer
+    private lateinit var server: TermuxFridayServer
 
     @Before
     fun setUp() {
-        server = TermuxJarvisServer(port = 18081, backendOverride = FakeModelBackend())
+        server = TermuxFridayServer(port = 18081, backendOverride = FakeModelBackend())
         server.useRealProvider()
         server.start()
     }

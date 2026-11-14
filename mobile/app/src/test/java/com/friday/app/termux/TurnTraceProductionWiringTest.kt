@@ -19,7 +19,7 @@ import java.io.File
  *
  * AC1 demands proof against "every turn that goes through the real production
  * entry point, not a mock/test-only path." This drives the REAL JVM-executable
- * composition root (TermuxJarvisServer — the mirror of FridayEngine.init with
+ * composition root (TermuxFridayServer — the mirror of FridayEngine.init with
  * only the two Android-bound stores swapped) through its REAL LatencyPipeline
  * down to CognitiveEngine.process, i.e. the exact call path
  *
@@ -44,7 +44,7 @@ import java.io.File
 class TurnTraceProductionWiringTest {
 
     private val files = mutableListOf<File>()
-    private val servers = mutableListOf<TermuxJarvisServer>()
+    private val servers = mutableListOf<TermuxFridayServer>()
 
     @After
     fun tearDown() {
@@ -62,7 +62,7 @@ class TurnTraceProductionWiringTest {
     }
 
     private fun recordingPipeline(
-        server: TermuxJarvisServer,
+        server: TermuxFridayServer,
         captured: MutableList<String>
     ): LatencyPipeline = LatencyPipeline(
         dispatch = { it() },
@@ -77,8 +77,8 @@ class TurnTraceProductionWiringTest {
     )
 
     /** The real production composition, with a real file-backed trace store. */
-    private fun serverWithTrace(store: JsonlTurnTraceStore): TermuxJarvisServer =
-        TermuxJarvisServer(
+    private fun serverWithTrace(store: JsonlTurnTraceStore): TermuxFridayServer =
+        TermuxFridayServer(
             port = 0,
             backendOverride = FakeModelBackend(),
             turnTraceStore = store

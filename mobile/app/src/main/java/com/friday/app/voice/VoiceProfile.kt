@@ -34,7 +34,7 @@ data class VoiceProfile(
 enum class ResourcePreference { BATTERY, BALANCED, QUALITY }
 
 /** The built-in default voice — "Friday" — seeded when no profiles exist yet. */
-val DefaultJarvisVoiceProfile = VoiceProfile(
+val DefaultFridayVoiceProfile = VoiceProfile(
     id = "jarvis",
     name = "Friday",
     language = "en",

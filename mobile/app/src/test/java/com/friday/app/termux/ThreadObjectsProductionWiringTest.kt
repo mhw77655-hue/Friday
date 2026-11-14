@@ -18,7 +18,7 @@ import org.junit.Test
  * acceptance evidence.
  *
  * AC6 demands proof against the REAL entry point, not a mock/test-only path.
- * This drives the REAL JVM-executable composition root (TermuxJarvisServer —
+ * This drives the REAL JVM-executable composition root (TermuxFridayServer —
  * the mirror of FridayEngine.init with only the Android-bound stores swapped)
  * through its REAL LatencyPipeline down to CognitiveEngine.process, i.e. the
  * exact call path
@@ -49,7 +49,7 @@ import org.junit.Test
  */
 class ThreadObjectsProductionWiringTest {
 
-    private val servers = mutableListOf<TermuxJarvisServer>()
+    private val servers = mutableListOf<TermuxFridayServer>()
 
     @After
     fun tearDown() {
@@ -57,8 +57,8 @@ class ThreadObjectsProductionWiringTest {
     }
 
     /** Real production composition, with a real in-memory ThreadTracker. */
-    private fun serverWithTracker(tracker: ThreadTracker): TermuxJarvisServer {
-        val server = TermuxJarvisServer(
+    private fun serverWithTracker(tracker: ThreadTracker): TermuxFridayServer {
+        val server = TermuxFridayServer(
             port = 0,
             backendOverride = FakeModelBackend(),
             threadTracker = tracker
@@ -68,7 +68,7 @@ class ThreadObjectsProductionWiringTest {
     }
 
     private fun recordingPipeline(
-        server: TermuxJarvisServer,
+        server: TermuxFridayServer,
         captured: MutableList<String>
     ): LatencyPipeline = LatencyPipeline(
         dispatch = { it() },

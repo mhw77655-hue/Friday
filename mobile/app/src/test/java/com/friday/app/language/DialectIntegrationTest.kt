@@ -3,7 +3,7 @@ package com.friday.app.language
 import com.friday.app.humancore.protocol.StyledResponse
 import com.friday.app.latency.LatencyPipeline
 import com.friday.app.model.FakeModelBackend
-import com.friday.app.termux.TermuxJarvisServer
+import com.friday.app.termux.TermuxFridayServer
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -12,7 +12,7 @@ import org.junit.Test
 
 /**
  * EGYPTIAN-ARABIC-TEXT-HALF AC3: prove the dialect signal flows through the
- * REAL production composition (TermuxJarvisServer -> LatencyPipeline ->
+ * REAL production composition (TermuxFridayServer -> LatencyPipeline ->
  * CognitiveEngine.process -> dialectDetector -> IdentityContext ->
  * formatForPrompt) and lands in the actual outgoing request payload.
  *
@@ -24,7 +24,7 @@ import org.junit.Test
 class DialectIntegrationTest {
 
     private fun recordingPipeline(
-        server: TermuxJarvisServer,
+        server: TermuxFridayServer,
         captured: MutableList<String>
     ): LatencyPipeline = LatencyPipeline(
         dispatch = { it() },
@@ -41,7 +41,7 @@ class DialectIntegrationTest {
     @Test
     fun `Egyptian Arabic turn carries dialect signal in the outgoing payload`(): Unit =
         runBlocking {
-            val server = TermuxJarvisServer(port = 0, backendOverride = FakeModelBackend())
+            val server = TermuxFridayServer(port = 0, backendOverride = FakeModelBackend())
             val captured = mutableListOf<String>()
             val pipeline = recordingPipeline(server, captured)
             try {
@@ -60,7 +60,7 @@ class DialectIntegrationTest {
     @Test
     fun `code-switched turn reports the mixed language mix`(): Unit =
         runBlocking {
-            val server = TermuxJarvisServer(port = 0, backendOverride = FakeModelBackend())
+            val server = TermuxFridayServer(port = 0, backendOverride = FakeModelBackend())
             val captured = mutableListOf<String>()
             val pipeline = recordingPipeline(server, captured)
             try {
@@ -78,7 +78,7 @@ class DialectIntegrationTest {
     @Test
     fun `pure English turn does not emit a dialect line`(): Unit =
         runBlocking {
-            val server = TermuxJarvisServer(port = 0, backendOverride = FakeModelBackend())
+            val server = TermuxFridayServer(port = 0, backendOverride = FakeModelBackend())
             val captured = mutableListOf<String>()
             val pipeline = recordingPipeline(server, captured)
             try {

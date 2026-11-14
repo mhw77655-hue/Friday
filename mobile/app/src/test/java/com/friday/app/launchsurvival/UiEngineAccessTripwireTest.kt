@@ -49,7 +49,7 @@ class UiEngineAccessTripwireTest {
                     if (line.isEmpty()) return@forEachIndexed
 
                     val direct = throwingAccessors.firstOrNull { name ->
-                        Regex("""\bJarvisEngine\s*\.\s*$name\s*\(""").containsMatchIn(line)
+                        Regex("""\bFridayEngine\s*\.\s*$name\s*\(""").containsMatchIn(line)
                     }
                     if (direct != null) {
                         violations += "${relative(uiRoot, file)}:${index + 1}: " +
