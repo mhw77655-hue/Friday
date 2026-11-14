@@ -30,7 +30,7 @@ class PipelineIntegrityTest {
     fun `cold start snapshot reports the fallback identity`() {
         val g = newGraph(tempDir(), ManualClock(), modelPort = FixedModelPort())
         val s = g.ism.snapshot()
-        assertEquals("FRIDAY", s.identityName)
+        assertEquals("Friday", s.identityName)
         assertEquals(1, s.identityVersion)
         assertTrue(g.identityKernel.isFallback())
     }
@@ -58,9 +58,9 @@ class PipelineIntegrityTest {
 
         val id = g.identityKernel.read()
         assertTrue("identity must still be the fallback", g.identityKernel.isFallback())
-        assertEquals("FRIDAY", id.name)
+        assertEquals("Friday", id.name)
         assertEquals(1, id.version)
-        assertEquals("FRIDAY", g.ism.snapshot().identityName)
+        assertEquals("Friday", g.ism.snapshot().identityName)
     }
 
     @Test
