@@ -241,6 +241,10 @@ object HumanCore {
      * real Human Core owner relationship id ([OwnerBinding.OWNER_RELATIONSHIP_ID]).
      * The biometric result is the authority; device possession never is.
      */
+    /** One-time, owner-requested migration of an existing persisted JARVIS identity. */
+    fun migrateLegacyProductIdentityAfterOwnerRequest(): Boolean =
+        graph?.migrateLegacyProductIdentityAfterOwnerRequest() ?: false
+
     fun bindOwner(binding: OwnerBinding): Boolean = graph?.bindOwner(binding) ?: false
 
     /** The bound owner identity, or null when the owner relationship is not yet bound. */
@@ -352,6 +356,41 @@ class HumanCoreGraph(
     /** The bound owner identity, or null when no owner binding exists yet. */
     fun ownerBinding(): com.friday.app.humancore.protocol.OwnerBinding? =
         registry.relationship.ownerBinding()
+
+    /**
+     * Migrate a persisted legacy product identity only when its current name
+     * still equals JARVIS. Preserve existing values and boundaries, updating
+     * only their product-name references. The old authored fallback persona is
+     * replaced by the deliberately minimal seed. The change is versioned and
+     * written exclusively through IdentityRevisionHandler.
+     */
+    fun migrateLegacyProductIdentityAfterOwnerRequest(): Boolean {
+        val current = registry.identity.read()
+        if (!current.name.equals("JARVIS", ignoreCase = true)) return false
+
+        fun renameProduct(value: String): String =
+            value.replace("JARVIS", "Friday", ignoreCase = true)
+                .replace("Jarvis", "Friday")
+
+        val revisedValues = current.values.map { value ->
+            value.copy(
+                statement = renameProduct(value.statement),
+                justification = renameProduct(value.justification)
+            )
+        }
+        val revisedBoundaries = current.boundaries.map(::renameProduct)
+        val next = identityRevision.buildRevisionRecord(
+            newName = "Friday",
+            newSelfDescription = "Friday is a developing individual.",
+            newValues = revisedValues,
+            newBoundaries = revisedBoundaries
+        )
+        return identityRevision.performRevision(
+            next,
+            trigger = "Owner-requested Jarvis-to-Friday identity migration",
+            authorizer = "owner (explicit project instruction)"
+        )
+    }
 
     // Proactive behavior (§14)
     val companion = CompanionBehaviorOrchestrator(ism, bus, clock)
