@@ -390,7 +390,7 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
     ): String? {
         if (nativeHandle == 0L) return null
 
-        val prompt = messages.map { "${it.first}: ${it.second}" }.joinToString("\n")
+        val prompt = buildChatMlPrompt(messages)
         val genConfig = NativeGenConfig(
             maxTokens = maxTokens,
             temperature = 0.7f,
@@ -473,16 +473,37 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
     }
 
     /** Build prompt from GenerateRequest */
-    private fun buildPrompt(request: GenerateRequest): String {
-        val systemPrompt = "Use the supplied conversation context to answer the user's request. Be accurate, distinguish uncertainty from fact, and do not claim actions or capabilities that are not available."
-        val messages = buildString {
-            append(systemPrompt).append("\n\n")
-            request.messages.forEach { msg ->
-                append(msg.role.name.lowercase()).append(": ").append(msg.content).append("\n")
+    private fun buildPrompt(request: GenerateRequest): String =
+        buildChatMlPrompt(request.messages.map { it.role.name.lowercase() to it.content })
+
+    /**
+     * LFM2.5's published GGUF uses ChatML. Keep the conversation structure
+     * explicit so system instructions and role boundaries survive tokenization.
+     * The model is a replaceable substrate; this formatter belongs to the
+     * provider adapter, not to Friday's identity or memory.
+     */
+    private fun buildChatMlPrompt(messages: List<Pair<String, String>>): String {
+        val hasSystemMessage = messages.any { it.first.equals("system", ignoreCase = true) }
+        return buildString {
+            if (!hasSystemMessage) {
+                append("<|im_start|>system\n")
+                append("Use the supplied conversation context to answer accurately. ")
+                append("Distinguish uncertainty from fact, and do not claim actions or capabilities that are unavailable.")
+                append("<|im_end|>\n")
             }
-            append("assistant: ")
+            messages.forEach { (rawRole, content) ->
+                val role = when (rawRole.trim().lowercase()) {
+                    "system" -> "system"
+                    "assistant", "ai" -> "assistant"
+                    "developer" -> "system"
+                    "tool", "function" -> "tool"
+                    else -> "user"
+                }
+                append("<|im_start|>").append(role).append('\n')
+                append(content).append("<|im_end|>\n")
+            }
+            append("<|im_start|>assistant\n")
         }
-        return messages
     }
 
     /** Cleanup */
