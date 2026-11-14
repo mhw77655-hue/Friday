@@ -163,6 +163,10 @@ class TurnPathAssembly private constructor(
                 storage = ports.humanCoreStorage(),
                 memorySink = ports.humanCoreMemorySink()
             )
+            // The owner explicitly requested the Jarvis-to-Friday migration.
+            // Existing stores move through the protected, versioned admin path;
+            // fresh Friday installs are unchanged and the migration is idempotent.
+            HumanCore.migrateLegacyProductIdentityAfterOwnerRequest()
 
             // ── Memory substrate: real store, real scorer, real retrieval ──────
             val graphStore = stores.graphStore()
