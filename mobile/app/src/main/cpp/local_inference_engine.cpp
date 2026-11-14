@@ -155,7 +155,7 @@ static void prewarm_thread_func(LlamaModel* model) {
     set_state_locked(model, LLAMA_STATE_READY);
     model->prewarm_done = true;
     model->cv.notify_all();
-    LOGI("Model prewarmed in %lld ms", model->metrics.load_time_ms);
+    LOGI("Model prewarmed in %ld ms", static_cast<long>(model->metrics.load_time_ms));
 }
 
 // ------------------------------------------------------------------
@@ -256,14 +256,14 @@ bool llama_model_wait_ready(LlamaModel* model, int timeout_ms) {
     std::unique_lock<std::mutex> lock(model->mutex);
     auto timeout = std::chrono::milliseconds(timeout_ms);
     auto result = model->cv.wait_for(lock, timeout, [model] {
-        return model->state == LLAMA_STATE_READY || model->state == LLAMA_STATE_FAILED;
+        return model->state == LLAMA_STATE_READY || model->state == LLAMA_STATE_IDLE || model->state == LLAMA_STATE_FAILED;
     });
 
     if (!result) {
         LOGE("Prewarm timeout after %d ms", timeout_ms);
         return false;
     }
-    return model->state == LLAMA_STATE_READY;
+    return model->state == LLAMA_STATE_READY || model->state == LLAMA_STATE_IDLE;
 }
 
 const char* llama_model_generate(
@@ -279,7 +279,8 @@ const char* llama_model_generate(
     }
 
     // Wait for ready state
-    if (get_state_locked(model) != LLAMA_STATE_READY) {
+    const LlamaState current_state = get_state_locked(model);
+    if (current_state != LLAMA_STATE_READY && current_state != LLAMA_STATE_IDLE) {
         if (!llama_model_wait_ready(model, 30000)) {
             set_error_locked(model, "Model not ready for generation");
             return nullptr;
@@ -377,8 +378,11 @@ const char* llama_model_generate(
         return nullptr;
     }
 
-    model->metrics.first_token_ms = elapsed_ms(model->generation_start);
-    model->metrics.prompt_tokens = n_tokens;
+    {
+        std::lock_guard<std::mutex> metrics_lock(model->mutex);
+        model->metrics.first_token_ms = elapsed_ms(model->generation_start);
+        model->metrics.prompt_tokens = n_tokens;
+    }
 
     // Generate tokens
     std::string generated_text;
@@ -411,7 +415,10 @@ const char* llama_model_generate(
 
             if (first_token) {
                 first_token_time = elapsed_ms(model->generation_start);
-                model->metrics.first_token_ms = first_token_time;
+                {
+                    std::lock_guard<std::mutex> metrics_lock(model->mutex);
+                    model->metrics.first_token_ms = first_token_time;
+                }
                 first_token = false;
             }
 
@@ -446,13 +453,16 @@ const char* llama_model_generate(
         model->completion_tokens++;
     }
 
-    model->metrics.completion_tokens = model->completion_tokens;
-    model->metrics.total_tokens = model->prompt_tokens + model->completion_tokens;
-
-    auto gen_time = elapsed_ms(model->generation_start);
-    model->metrics.tokens_per_sec = model->completion_tokens / (gen_time / 1000.0f);
-    // This build does not expose a stable allocator-byte metric for llama_context.
-    model->metrics.current_ram_bytes = 0;
+    const auto gen_time = elapsed_ms(model->generation_start);
+    {
+        std::lock_guard<std::mutex> metrics_lock(model->mutex);
+        model->metrics.completion_tokens = model->completion_tokens;
+        model->metrics.total_tokens = model->prompt_tokens + model->completion_tokens;
+        model->metrics.tokens_per_sec = gen_time > 0
+            ? model->completion_tokens / (gen_time / 1000.0f) : 0.0f;
+        // The llama_context API does not expose a stable allocator-byte metric.
+        model->metrics.current_ram_bytes = 0;
+    }
 
     llama_sampler_free(sampler);
 
