@@ -79,7 +79,7 @@ class ContinuityLawTest {
     )
 
     private fun coreIdentity(): CoreIdentity = CoreIdentity(
-        name = "FRIDAY",
+        name = "Friday",
         version = 1,
         userNodeName = com.friday.app.identity.WorldModelService.USER_NODE_NAME
     )
@@ -357,7 +357,7 @@ class ContinuityLawTest {
         )
         assertTrue(
             "the drift must carry the human-authored expectation that broke",
-            verdict.drifts.any { it.expected == "FRIDAY" && it.actual == "HAL-9000" }
+            verdict.drifts.any { it.expected == "Friday" && it.actual == "HAL-9000" }
         )
     }
 
