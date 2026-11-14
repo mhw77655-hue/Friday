@@ -334,7 +334,10 @@ class TurnPathAssemblyTest {
     private object StarvedSnapshot : ResourceSnapshot {
         override val availableMemoryMb = 8L
         override val cpuLoadPercent = 99.0
-        override val
+        override val thermalLevel = 3
+        override val batteryPercent = 100
+        override val isCharging = true
+    }
 
     @Test
     fun developmentalFeedbackChangesTheNextLiveResponseApproachAndSurvivesRecomposition() = runBlocking {
@@ -385,16 +388,26 @@ class TurnPathAssemblyTest {
         assertTrue("the record stores a derived choice rather than raw episode text", journalText.contains("\"choice\":\"bullets\""))
         assertTrue("the original prompt is not replayable from the developmental journal", !journalText.contains("Summarize the first document"))
     }
- thermalLevel = 3
-        override val batteryPercent = 100
-        override val isCharging = true
-    }
+
 }
 
 /**
- * A unique composition directory that is deliberately NOT a JUnit TemporaryFolder.
- * HumanCore is process-wide and retains the first storage directory for the JVM,
- * so a temporary directory could be deleted while the singleton still uses it.
+ * A unique composition directory that is deliberately NOT a JUnit
+ * TemporaryFolder, and must never become one.
+ *
+ * [HumanCore.init] runs only while the process-wide HumanCore singleton is
+ * uninitialised, so the FIRST directory a test hands the composition becomes
+ * that singleton's storage for the REST of the JVM — and a TemporaryFolder is
+ * deleted when its class finishes. Every later test that touches the real
+ * HumanCore then fails on `FileNotFoundException: .../relationship.json.tmp`,
+ * which is exactly what CI run 36365413999 did to OwnerBiometricBindingTest
+ * and PhaseBDisconnectedSubsystemWiringTest (fixed in 449efe9). Directories are
+ * unique per call (so each test's own state starts empty) and are left on disk.
+ *
+ * Top-level on purpose: it is called from a nested test fixture, and a nested
+ * class cannot see the test class's own members. It is `internal` rather than
+ * `private` because [InjectedClockTest] builds its composition the same way and
+ * must get the same rule from the same function.
  */
 internal fun compositionDir(prefix: String): File =
     File(
