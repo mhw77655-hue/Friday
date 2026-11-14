@@ -179,11 +179,12 @@ LlamaModel* llama_model_create(const LlamaModelConfig* config) {
     // Model load params
     llama_model_params model_params = llama_model_default_params();
     model_params.n_gpu_layers = config->n_gpu_layers;
-    model_params.use_mmap = config->use_mmap;
-    model_params.use_mlock = config->use_mlock;
+    model_params.load_mode = config->use_mlock
+        ? LLAMA_LOAD_MODE_MMAP_MLOCK
+        : (config->use_mmap ? LLAMA_LOAD_MODE_MMAP : LLAMA_LOAD_MODE_NONE);
     model_params.vocab_only = false;
     model_params.progress_callback = nullptr;
-    model_params.progress_user_data = nullptr;
+    model_params.progress_callback_user_data = nullptr;
 
     LOGI("Loading model from %s", config->model_path);
     model->model = llama_model_load_from_file(config->model_path, model_params);
