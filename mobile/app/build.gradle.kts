@@ -36,8 +36,8 @@ plugins {
         }
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.2-phase2"
+        versionCode = 2
+        versionName = "0.3-friday-seed"
 
         // R1 voice substrate: instrumentation tests run on-device and prove
         // process isolation + supervised restart against the real :voice
