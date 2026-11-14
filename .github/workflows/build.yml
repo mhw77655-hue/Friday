@@ -22,6 +22,20 @@ jobs:
       # mobile/app/build.gradle.kts (compileOptions source/targetCompatibility =
       # VERSION_17, kotlin compilerOptions jvmTarget = JVM_17) and the root
       # build.gradle.kts (AGP 8.10.0, which requires JDK 17).
+      # Temporary handoff of the source conversation archive for this review.
+      # The archive is not extracted or committed to the public repository.
+      - name: Stage source conversation archive
+        run: |
+          mkdir -p "${{ runner.temp }}/friday-source"
+          cp "New Folder chats.zip" "${{ runner.temp }}/friday-source/New Folder chats.zip"
+
+      - name: Upload source conversation archive (temporary)
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-source-chats
+          path: ${{ runner.temp }}/friday-source/New Folder chats.zip
+          retention-days: 1
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
