@@ -161,7 +161,7 @@ class JarvisTts(
         // voices are allowed — this device has wifi, and "best possible"
         // means picking quality over guaranteed offline availability.
         val best = voices
-            .filter { it.locale.language == "en" && !it.isNetworkConnectionRequired.let { req -> req && false } }
+            .filter { it.locale.language == "en" && !it.isNetworkConnectionRequired }
             .filter { !it.features.contains(TextToSpeech.Engine.KEY_FEATURE_NOT_INSTALLED) }
             .maxByOrNull { it.quality }
 

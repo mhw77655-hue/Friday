@@ -5,6 +5,8 @@ import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.body.MemoryType
 import com.jarvis.app.cognitive.memory.ContinuityPort
 import com.jarvis.app.cognitive.model.ModelContextPort
+import com.jarvis.app.development.DevelopmentalChoiceLoop
+import com.jarvis.app.development.DevelopmentalChoiceOption
 import com.jarvis.app.failure.ContainmentStatus
 import com.jarvis.app.failure.DegradationLevel
 import com.jarvis.app.failure.FailureCause
@@ -215,7 +217,9 @@ class CognitiveEngine(
      * names the other. Null keeps the pre-workspace behavior byte-for-byte (the
      * assembler simply has no workspace to publish into or read from).
      */
-    private val workspace: com.jarvis.app.cognition.workspace.Workspace? = null
+    private val workspace: com.jarvis.app.cognition.workspace.Workspace? = null,
+    /** A replaceable learning experiment that can alter later response selection. */
+    private val developmentalChoiceLoop: DevelopmentalChoiceLoop? = null
 ) : PlanDriver {
 
     private val intentInference = IntentInference(scope)
@@ -253,6 +257,21 @@ class CognitiveEngine(
 
     // Build 01B planning state
     private var currentPlanGraph: PlanGraph? = null
+
+    /**
+     * Provisional behaviour candidates for the first live learning experiment.
+     * The choice set belongs to this experiment, not to Friday's permanent design.
+     */
+    private val developmentalResponseOptions = listOf(
+        DevelopmentalChoiceOption(
+            id = "prose",
+            instruction = "Prefer natural connected prose unless another form clearly serves the task better."
+        ),
+        DevelopmentalChoiceOption(
+            id = "bullets",
+            instruction = "Prefer concise structure and bullet points when presenting multiple facts, steps or comparisons; keep natural conversation natural."
+        )
+    )
 
     // Current cognitive state
     private val _cognitiveState = MutableStateFlow<CognitiveState>(CognitiveState())
@@ -376,6 +395,22 @@ class CognitiveEngine(
         // Classify intent via LLM seam and route accordingly
         val intentCategory = classifyIntent(userText)
         val decision = intentToDecision(intentCategory)
+
+        // Experience can alter a later behavioural choice. The mechanism stores
+        // outcome evidence, not the original conversation or a replayable prompt.
+        val developmentalChoice = if (decision == TurnDecision.DIRECT_REPLY) {
+            developmentalChoiceLoop?.beginTurn(
+                userInput = userText,
+                options = developmentalResponseOptions,
+                // The existing turn contract treats a null interlocutor as the owner.
+                // Other identified interlocutors may benefit from the learned choice,
+                // but cannot update the owner's outcome evidence.
+                acceptFeedback = interlocutor == null ||
+                    interlocutor == com.jarvis.app.identity.WorldModelService.USER_NODE_NAME
+            )
+        } else {
+            null
+        }
 
         // Stage 04 FEP wake gate: decide resident-vs-reasoning on this turn's
         // real uncertainty profile and, on high doubt, wake the reasoning
@@ -509,8 +544,13 @@ class CognitiveEngine(
         // TURN-TRACE stage timing: the "prompt-build" stage is the single
         // generation-payload concatenation of the contributions assembled above.
         val promptBuildStartMs = System.currentTimeMillis()
+        val developmentalContext = developmentalChoice?.let { choice ->
+            "\n\n[Response approach selected from accumulated interaction outcomes]\n" +
+                choice.instruction +
+                "\nTreat this as a learned preference, not an absolute rule; the present task may justify a different form."
+        }.orEmpty()
         val fullContextMessage = userText + galaxyContext + (identitySuffix ?: "") +
-            buildThreadContext(cognitiveResult.turnIndex, userText)
+            buildThreadContext(cognitiveResult.turnIndex, userText) + developmentalContext
         val promptBuildMs = System.currentTimeMillis() - promptBuildStartMs
 
         // TURN-TRACE stage timing: the "generate" stage is the model call — the

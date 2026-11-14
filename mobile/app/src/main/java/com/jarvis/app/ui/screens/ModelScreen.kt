@@ -1,5 +1,8 @@
 package com.jarvis.app.ui.screens
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.provider.OpenableColumns
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +35,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -48,7 +52,12 @@ import com.jarvis.app.model.ProviderHealth
 import com.jarvis.app.model.config.ProviderConfig
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileOutputStream
+import java.io.RandomAccessFile
 
 /**
  * ModelScreen - UI for managing model providers.
@@ -73,6 +82,65 @@ fun ModelScreen(
 
     var selectedProvider by remember { mutableStateOf<ModelProvider?>(null) }
     var showConfigDialog by remember { mutableStateOf(false) }
+    var modelSetupStatus by remember { mutableStateOf("No on-device model imported yet.") }
+    val context = LocalContext.current
+    val modelPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) scope.launch {
+            modelSetupStatus = "Copying and validating the selected GGUF file…"
+            val copied = withContext(Dispatchers.IO) {
+                runCatching {
+                    val displayName = context.contentResolver.query(
+                        uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null
+                    )?.use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) else null }
+                        ?: uri.lastPathSegment.orEmpty()
+                    require(displayName.endsWith(".gguf", ignoreCase = true)) { "Choose a .gguf model file." }
+                    val dir = File(context.filesDir, "models")
+                    check(dir.exists() || dir.mkdirs()) { "Could not create model storage." }
+                    val destination = File(dir, "friday-resident.gguf")
+                    val temporary = File(dir, "friday-resident.gguf.part")
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        FileOutputStream(temporary).use { output -> input.copyTo(output) }
+                    } ?: error("Android could not open the selected file.")
+                    require(temporary.length() >= 16L * 1024L * 1024L) {
+                        "Selected file is too small to be a useful language model."
+                    }
+                    val validMagic = RandomAccessFile(temporary, "r").use { file ->
+                        val magic = ByteArray(4)
+                        file.readFully(magic)
+                        String(magic, Charsets.US_ASCII) == "GGUF"
+                    }
+                    require(validMagic) { "File does not have a valid GGUF header." }
+                    if (destination.exists()) check(destination.delete()) { "Could not replace old model." }
+                    check(temporary.renameTo(destination)) { "Could not finalize model import." }
+                    destination
+                }
+            }
+            if (copied.isFailure) {
+                modelSetupStatus = "Import failed: ${copied.exceptionOrNull()?.message ?: "unknown error"}"
+            } else {
+                modelSetupStatus = "Imported. Preparing Friday's local model…"
+                val configured = modelManager.configureProvider(
+                    ModelProviderType.LLAMA_CPP,
+                    ProviderConfig(modelId = "friday-resident.gguf", parameters = mapOf("context_window" to "2048"))
+                )
+                if (configured.isFailure) {
+                    modelSetupStatus = "Saved, but provider setup failed: ${configured.exceptionOrNull()?.message}"
+                } else {
+                    val activated = modelManager.setActiveProvider(ModelProviderType.LLAMA_CPP)
+                    if (activated.isFailure) {
+                        modelSetupStatus = "Saved, but activation failed: ${activated.exceptionOrNull()?.message}"
+                    } else {
+                        val loaded = modelManager.loadModel(ModelProviderType.LLAMA_CPP, "friday-resident.gguf")
+                        modelSetupStatus = if (loaded.isSuccess) {
+                            "Local model loaded. Wait for warm-up, then test in airplane mode."
+                        } else {
+                            "Imported, but load failed: ${loaded.exceptionOrNull()?.message}"
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -92,6 +160,22 @@ fun ModelScreen(
             )
             IconButton(onClick = { modelManager.refreshHealth() }) {
                 Icon(Icons.Filled.Refresh, contentDescription = "Refresh health", tint = JarvisColors.TextSecondary)
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            colors = CardDefaults.cardColors(containerColor = JarvisColors.SurfacePanel),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("ON-DEVICE MODEL", style = JarvisType.Label)
+                Text(
+                    "Import a GGUF model from local storage. Friday copies it into private app storage; no model is silently downloaded.",
+                    style = JarvisType.Technical.copy(fontSize = 12.sp, color = JarvisColors.TextSecondary)
+                )
+                Button(onClick = { modelPicker.launch(arrayOf("*/*")) }) { Text("Choose GGUF model") }
+                Text(modelSetupStatus, style = JarvisType.Technical.copy(fontSize = 11.sp))
             }
         }
 

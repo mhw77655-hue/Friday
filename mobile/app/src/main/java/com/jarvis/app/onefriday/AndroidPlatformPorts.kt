@@ -39,7 +39,8 @@ class AndroidPlatformPorts(
     private val turnTraceStore: com.jarvis.app.trace.TurnTraceStore? = null,
     private val threadTracker: com.jarvis.app.threads.ThreadTracker? = null,
     private val provenanceLedger: com.jarvis.app.memory.provenance.ProvenanceLedger? = null,
-    private val adapterManifest: com.jarvis.app.memory.provenance.AdapterManifest? = null
+    private val adapterManifest: com.jarvis.app.memory.provenance.AdapterManifest? = null,
+    private val modelProviders: Map<com.jarvis.app.env.ModelProviderType, com.jarvis.app.model.ModelProvider> = emptyMap()
 ) : PlatformPorts {
 
     override fun modelScope(): CoroutineScope = scope
@@ -127,7 +128,8 @@ class AndroidPlatformPorts(
         traceStore = turnTraceStore,
         threads = threadTracker,
         provenance = provenanceLedger,
-        adapters = adapterManifest
+        adapters = adapterManifest,
+        modelProviders = modelProviders
     )
 
     override fun failureSurface(): FailureSurface = failureSurface
@@ -151,7 +153,8 @@ class AndroidPlatformStores(
     private val traceStore: com.jarvis.app.trace.TurnTraceStore? = null,
     private val threads: com.jarvis.app.threads.ThreadTracker? = null,
     private val provenance: com.jarvis.app.memory.provenance.ProvenanceLedger? = null,
-    private val adapters: com.jarvis.app.memory.provenance.AdapterManifest? = null
+    private val adapters: com.jarvis.app.memory.provenance.AdapterManifest? = null,
+    private val modelProviders: Map<com.jarvis.app.env.ModelProviderType, com.jarvis.app.model.ModelProvider> = emptyMap()
 ) : PlatformStores {
 
     override fun graphStore(): com.jarvis.app.memory.MemoryGraphStore =
@@ -166,6 +169,8 @@ class AndroidPlatformStores(
         com.jarvis.app.capability.CapabilityRegistryHolder.get()
 
     override fun modelBackend(): com.jarvis.app.model.ModelBackend = backend
+
+    override fun modelProviders(): Map<com.jarvis.app.env.ModelProviderType, com.jarvis.app.model.ModelProvider> = modelProviders
 
     override fun voiceSynthesizer(): com.jarvis.app.voice.VoiceForgeSynthesizer = voiceSynthesizer
 

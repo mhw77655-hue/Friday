@@ -50,7 +50,13 @@ class PlatformSpeechRecognizerPort(
 
     override fun recognize(locale: Locale, onResult: (String?) -> Unit) {
         cancel()
-        val sr = android.speech.SpeechRecognizer.createSpeechRecognizer(context)
+        val onDeviceAvailable = android.os.Build.VERSION.SDK_INT >= 31 &&
+            android.speech.SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
+        val sr = if (onDeviceAvailable) {
+            android.speech.SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+        } else {
+            android.speech.SpeechRecognizer.createSpeechRecognizer(context)
+        }
         activeRecognizer = sr
         var delivered = false
 
@@ -105,6 +111,7 @@ class PlatformSpeechRecognizerPort(
             )
             putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, locale.toLanguageTag())
             putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, locale.toLanguageTag())
+            putExtra(android.speech.RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
             putExtra(android.speech.RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
             putExtra(android.speech.RecognizerIntent.EXTRA_MAX_RESULTS, 3)
         }

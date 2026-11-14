@@ -84,9 +84,8 @@ JNI_CLASS(nativeCreate)(JNIEnv* env, jobject thiz, jobject config) {
     jfieldID repeatLastNField = env->GetFieldID(configClass, "repeatLastN", "I");
     nativeConfig.repeat_last_n = env->GetIntField(config, repeatLastNField);
 
-    env->ReleaseStringUTFChars(modelPathStr, modelPath);
-
     LlamaModel* model = llama_model_create(&nativeConfig);
+    env->ReleaseStringUTFChars(modelPathStr, modelPath);
     return reinterpret_cast<jlong>(model);
 }
 
@@ -109,7 +108,7 @@ JNI_CLASS(nativeGetHealth)(JNIEnv* env, jobject thiz, jlong handle) {
     jclass healthClass = env->FindClass("com/jarvis/app/model/adapters/LocalInferenceEngine$NativeHealth");
     if (!healthClass) return nullptr;
 
-    jmethodID constructor = env->GetMethodID(healthClass, "<init>", "(Lcom/jarvis/app/model/adapters/LocalInferenceEngine$NativeState;ZZLjava/lang/String;JJJFJJJJF)V");
+    jmethodID constructor = env->GetMethodID(healthClass, "<init>", "(Lcom/jarvis/app/model/adapters/LocalInferenceEngine$NativeState;ZZLjava/lang/String;JJJFJJJJJF)V");
     if (!constructor) return nullptr;
 
     // Map state
@@ -133,15 +132,15 @@ JNI_CLASS(nativeGetHealth)(JNIEnv* env, jobject thiz, jlong handle) {
         health.context_ready,
         errorMsg,
         health.last_activity_ms,
-        health.load_time_ms,
-        health.first_token_ms,
-        health.tokens_per_sec,
-        health.peak_ram_bytes,
-        health.current_ram_bytes,
-        health.prompt_tokens,
-        health.completion_tokens,
-        health.total_tokens,
-        health.cpu_percent
+        health.metrics.load_time_ms,
+        health.metrics.first_token_ms,
+        health.metrics.tokens_per_sec,
+        health.metrics.peak_ram_bytes,
+        health.metrics.current_ram_bytes,
+        health.metrics.prompt_tokens,
+        health.metrics.completion_tokens,
+        health.metrics.total_tokens,
+        health.metrics.cpu_percent
     );
 
     if (errorMsg) env->DeleteLocalRef(errorMsg);
@@ -317,7 +316,7 @@ JNI_CLASS(nativeDecode)(JNIEnv* env, jobject thiz, jlong handle, jintArray token
 // Version
 JNIEXPORT jstring JNICALL
 JNI_CLASS(nativeVersion)(JNIEnv* env, jobject thiz) {
-    return env->NewStringUTF(llama_version());
+    return env->NewStringUTF(jarvis_llama_version());
 }
 
 JNIEXPORT jstring JNICALL

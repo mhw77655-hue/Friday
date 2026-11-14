@@ -13,6 +13,8 @@ import com.jarvis.app.cognition.workspace.RecordedTurns
 import com.jarvis.app.cognition.workspace.ReplayCheck
 import com.jarvis.app.cognition.workspace.Workspace
 import com.jarvis.app.cognitive.CognitiveEngine
+import com.jarvis.app.development.DevelopmentalChoiceLoop
+import com.jarvis.app.development.JsonlDevelopmentJournal
 import com.jarvis.app.cognitive.capability.CapabilityFabric
 import com.jarvis.app.cognitive.immune.ImmuneSystem
 import com.jarvis.app.continuity.ContinuityGate
@@ -116,6 +118,8 @@ class TurnPathAssembly private constructor(
     val changeLog: FileChangeLog,
     val continuityLaw: ContinuityLaw,
     val replayCheck: ReplayCheck?,
+    /** The live, replaceable developmental experiment and its durable evidence journal. */
+    val developmentalChoiceLoop: DevelopmentalChoiceLoop,
     val memoryStore: MemoryStorePort,
     val backend: ModelBackend,
     val voiceForgeBackend: VoiceForgeBackend,
@@ -250,7 +254,8 @@ class TurnPathAssembly private constructor(
                 // LAUNCH-OLLAMA-DOWN: an absent model server is a typed gap that
                 // is announced once per down-episode on the ONE failure surface,
                 // and the recovery is recorded when the server answers again.
-                failureSurface = failureSurface
+                failureSurface = failureSurface,
+                platformProviders = stores.modelProviders()
             )
             // The legacy Human Core's model port reads this at call time, so
             // binding it here is enough. It is a dependency direction (this root
@@ -300,6 +305,14 @@ class TurnPathAssembly private constructor(
                 mentalStateEstimator = mentalStateEstimator
             )
 
+            // ── Developmental seed: durable outcome evidence, not transcript replay ──
+            val developmentalChoiceLoop = DevelopmentalChoiceLoop(
+                journal = JsonlDevelopmentJournal(
+                    java.io.File(ports.storageDir, "development/behaviour.jsonl")
+                ),
+                nowMs = { ports.nowMs() }
+            )
+
             // ── The cognitive engine: the one route a turn takes ───────────────
             val memoryStore = stores.memoryStore()
             val engine = CognitiveEngine(
@@ -319,7 +332,8 @@ class TurnPathAssembly private constructor(
                 provenanceLedger = stores.provenanceLedger(),
                 memoryForgetter = ports.memoryForgetter(),
                 signalScorer = signalScorer,
-                workspace = workspace
+                workspace = workspace,
+                developmentalChoiceLoop = developmentalChoiceLoop
             )
 
             // ── The entry point ────────────────────────────────────────────────
@@ -397,6 +411,7 @@ class TurnPathAssembly private constructor(
                 changeLog = changeLog,
                 continuityLaw = continuityLaw,
                 replayCheck = replayCheck,
+                developmentalChoiceLoop = developmentalChoiceLoop,
                 memoryStore = memoryStore,
                 backend = backend,
                 voiceForgeBackend = VoiceForgeBackend(

@@ -7,7 +7,7 @@ on:
     # patch could only ever be verified by merging it, which is the one thing
     # the tool must never do. Nothing under audit/** is merged by CI or by the
     # tool; a run there is evidence, not a gate on main.
-    branches: [ main, 'audit/**' ]
+    branches: [ main, 'audit/**', 'work/**' ]
   workflow_dispatch:
 
 jobs:
@@ -60,6 +60,14 @@ jobs:
       # here; AGP falls back to the Maven aapt2 for this platform.
       - name: Neutralize Termux-only gradle.properties override
         run: sed -i '/^android\.aapt2FromMavenOverride=/d' gradle.properties
+
+      # Exact source revision for the in-process JNI runtime. The installed
+      # APK performs inference locally; this checkout exists only in CI.
+      - name: Fetch pinned llama.cpp Android runtime
+        run: |
+          git clone --filter=blob:none --no-checkout https://github.com/ggml-org/llama.cpp mobile/llama.cpp
+          git -C mobile/llama.cpp fetch --depth=1 origin 956591f4570aa6636895d90439892fef7c075b17
+          git -C mobile/llama.cpp checkout --detach 956591f4570aa6636895d90439892fef7c075b17
 
       - name: Make gradlew executable
         run: chmod +x gradlew

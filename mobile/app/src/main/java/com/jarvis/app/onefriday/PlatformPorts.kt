@@ -12,6 +12,8 @@ import com.jarvis.app.memory.MemoryGraphStore
 import com.jarvis.app.memory.provenance.AdapterManifest
 import com.jarvis.app.memory.provenance.ProvenanceLedger
 import com.jarvis.app.model.ModelBackend
+import com.jarvis.app.model.ModelProvider
+import com.jarvis.app.env.ModelProviderType
 import com.jarvis.app.model.ResourceSnapshot
 import com.jarvis.app.threads.ThreadTracker
 import com.jarvis.app.trace.TurnTraceStore
@@ -145,6 +147,9 @@ interface PlatformStores {
 
     /** The speech synthesizer the spoken-reply backend drives. */
     fun voiceSynthesizer(): VoiceForgeSynthesizer
+
+    /** Optional in-process provider implementations supplied by the host. */
+    fun modelProviders(): Map<ModelProviderType, ModelProvider> = emptyMap()
 
     /** Optional per-turn trace store; null disables tracing honestly. */
     fun turnTraceStore(): TurnTraceStore?
