@@ -16,6 +16,10 @@
 #include <condition_variable>
 #include <unordered_map>
 #include <memory>
+#include <algorithm>
+#include <cstdarg>
+#include <cstring>
+#include <cstdlib>
 #include <android/log.h>
 
 #define LOG_TAG "LocalInferenceEngine"
@@ -31,7 +35,8 @@ struct LlamaModel {
     llama_context* ctx = nullptr;
     LlamaModelConfig config;
     LlamaState state = LLAMA_STATE_DORMANT;
-    std::mutex mutex;
+    std::mutex mutex; // Protects state and metrics.
+    std::mutex generation_mutex; // Serializes inference against suspend/unload.
     std::condition_variable cv;
     std::atomic<bool> cancel_flag{false};
     std::atomic<bool> prewarm_done{false};
@@ -121,11 +126,14 @@ static void prewarm_thread_func(LlamaModel* model) {
     ctx_params.yarn_beta_slow = 1.0f;
     ctx_params.yarn_orig_ctx = 0;
     ctx_params.defrag_thold = -1.0f;
-    ctx_params.callbacks = nullptr;
+    ctx_params.cb_eval = nullptr;
+    ctx_params.cb_eval_user_data = nullptr;
     ctx_params.type_k = GGML_TYPE_F16;
     ctx_params.type_v = GGML_TYPE_F16;
     ctx_params.offload_kqv = model->config.n_gpu_layers > 0;
-    ctx_params.flash_attn = model->config.flash_attn;
+    ctx_params.flash_attn_type = model->config.flash_attn
+        ? LLAMA_FLASH_ATTN_TYPE_ENABLED
+        : LLAMA_FLASH_ATTN_TYPE_DISABLED;
 
     model->ctx = llama_init_from_model(model->model, ctx_params);
 
@@ -137,15 +145,17 @@ static void prewarm_thread_func(LlamaModel* model) {
         return;
     }
 
-    model->metrics.load_time_ms = elapsed_ms(model->load_start);
-    model->metrics.peak_ram_bytes = ggml_used_mem(model->ctx);
-    model->metrics.current_ram_bytes = model->metrics.peak_ram_bytes;
+    {
+        std::lock_guard<std::mutex> lock(model->mutex);
+        model->metrics.load_time_ms = elapsed_ms(model->load_start);
+        model->metrics.peak_ram_bytes = 0;
+        model->metrics.current_ram_bytes = 0;
+    }
 
     set_state_locked(model, LLAMA_STATE_READY);
     model->prewarm_done = true;
     model->cv.notify_all();
-    LOGI("Model prewarmed in %lld ms, RAM: %.2f MB",
-         model->metrics.load_time_ms, model->metrics.peak_ram_bytes / (1024.0 * 1024.0));
+    LOGI("Model prewarmed in %lld ms", model->metrics.load_time_ms);
 }
 
 // ------------------------------------------------------------------
@@ -188,7 +198,6 @@ LlamaModel* llama_model_create(const LlamaModelConfig* config) {
 
     // Start prewarm in background
     model->prewarm_thread = std::thread(prewarm_thread_func, model);
-    model->prewarm_thread.detach();
 
     LOGI("Model loaded, prewarming started");
     return model;
@@ -233,10 +242,10 @@ bool llama_model_prewarm(LlamaModel* model, LlamaProgressCallback progress_cb, v
         return false;
     }
 
-    // Should not reach here if create() was called properly
+    // Collect the completed prewarm thread before reusing its slot.
+    if (model->prewarm_thread.joinable()) model->prewarm_thread.join();
     set_state_locked(model, LLAMA_STATE_PREWARMING);
     model->prewarm_thread = std::thread(prewarm_thread_func, model);
-    model->prewarm_thread.detach();
     return true;
 }
 
@@ -276,7 +285,7 @@ const char* llama_model_generate(
         }
     }
 
-    std::lock_guard<std::mutex> lock(model->mutex);
+    std::lock_guard<std::mutex> generation_lock(model->generation_mutex);
     if (!model->ctx) {
         set_error_locked(model, "Context not initialized");
         return nullptr;
@@ -322,20 +331,31 @@ const char* llama_model_generate(
         return nullptr;
     }
 
-    // Sampling params
-    llama_sampling_params sparams = llama_sampling_default_params();
-    sparams.temp = gc->temperature > 0 ? gc->temperature : model->config.temp;
-    sparams.top_k = gc->top_k > 0 ? gc->top_k : model->config.top_k;
-    sparams.top_p = gc->top_p > 0 ? gc->top_p : model->config.top_p;
-    sparams.penalty_repeat = gc->repeat_penalty > 0 ? gc->repeat_penalty : model->config.repeat_penalty;
-    sparams.penalty_last_n = model->config.repeat_last_n;
-    sparams.penalty_freq = 0.0f;
-    sparams.penalty_present = 0.0f;
-    sparams.mirostat = 0;
-    sparams.mirostat_tau = 5.0f;
-    sparams.mirostat_eta = 0.1f;
-    sparams.grammar = nullptr;
-    sparams.n_probs = 0;
+    const float temperature = gc->temperature > 0 ? gc->temperature : model->config.temp;
+    const int top_k = gc->top_k > 0 ? gc->top_k : model->config.top_k;
+    const float top_p = gc->top_p > 0 ? gc->top_p : model->config.top_p;
+    const float repeat_penalty = gc->repeat_penalty > 0
+        ? gc->repeat_penalty : model->config.repeat_penalty;
+
+    auto sampler_params = llama_sampler_chain_default_params();
+    llama_sampler * sampler = llama_sampler_chain_init(sampler_params);
+    if (!sampler) {
+        set_error_locked(model, "Failed to create sampler chain");
+        set_state_locked(model, LLAMA_STATE_IDLE);
+        return nullptr;
+    }
+    llama_sampler_chain_add(sampler, llama_sampler_init_penalties(
+        llama_vocab_n_tokens(vocab), model->config.repeat_last_n, repeat_penalty, 0.0f, 0.0f));
+    if (temperature <= 0.0f) {
+        llama_sampler_chain_add(sampler, llama_sampler_init_greedy());
+    } else {
+        llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
+        llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
+        llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
+        const uint32_t seed = model->config.seed < 0 ? LLAMA_DEFAULT_SEED :
+            static_cast<uint32_t>(model->config.seed);
+        llama_sampler_chain_add(sampler, llama_sampler_init_dist(seed));
+    }
 
     // Stop sequences
     std::vector<std::string> stop_strings;
@@ -347,19 +367,11 @@ const char* llama_model_generate(
     // Add EOS token as stop
     stop_strings.emplace_back("</s>");
 
-    // Create sampling context
-    llama_sampling_context* ctx_sampling = llama_sampling_init(sparams);
-    if (!ctx_sampling) {
-        set_error_locked(model, "Failed to create sampling context");
-        set_state_locked(model, LLAMA_STATE_IDLE);
-        return nullptr;
-    }
-
     // Feed prompt
     llama_batch batch = llama_batch_get_one(model->prompt_tokens_cache.data(), n_tokens);
     if (llama_decode(model->ctx, batch) != 0) {
         set_error_locked(model, "Failed to process prompt");
-        llama_sampling_free(ctx_sampling);
+        llama_sampler_free(sampler);
         set_state_locked(model, LLAMA_STATE_IDLE);
         return nullptr;
     }
@@ -382,16 +394,16 @@ const char* llama_model_generate(
         }
 
         // Sample next token
-        llama_token token = llama_sampling_sample(ctx_sampling, model->ctx, nullptr);
-        if (token == llama_token_eos(vocab)) {
+        llama_token token = llama_sampler_sample(sampler, model->ctx, -1);
+        if (llama_vocab_is_eog(vocab, token)) {
             LOGI("EOS token generated");
             break;
         }
 
         // Decode token to text
-        char token_str[256];
+        char token_str[1024];
         int n = llama_token_to_piece(vocab, token, token_str, sizeof(token_str), 0, true);
-        if (n > 0) {
+        if (n > 0 && n < static_cast<int>(sizeof(token_str))) {
             token_str[n] = '\0';
             generated_text += token_str;
             generated_tokens.push_back(token);
@@ -438,12 +450,10 @@ const char* llama_model_generate(
 
     auto gen_time = elapsed_ms(model->generation_start);
     model->metrics.tokens_per_sec = model->completion_tokens / (gen_time / 1000.0f);
-    model->metrics.current_ram_bytes = ggml_used_mem(model->ctx);
-    if (model->metrics.current_ram_bytes > model->metrics.peak_ram_bytes) {
-        model->metrics.peak_ram_bytes = model->metrics.current_ram_bytes;
-    }
+    // This build does not expose a stable allocator-byte metric for llama_context.
+    model->metrics.current_ram_bytes = 0;
 
-    llama_sampling_free(ctx_sampling);
+    llama_sampler_free(sampler);
 
     // Final callback
     if (gc->stream && token_cb) {
@@ -472,12 +482,17 @@ bool llama_model_suspend(LlamaModel* model) {
         return false;
     }
 
-    std::lock_guard<std::mutex> lock(model->mutex);
-    if (model->ctx) {
-        llama_free(model->ctx);
-        model->ctx = nullptr;
+    std::lock_guard<std::mutex> generation_lock(model->generation_mutex);
+    {
+        std::lock_guard<std::mutex> state_lock(model->mutex);
+        if (model->state != LLAMA_STATE_IDLE) return false;
+        if (model->ctx) {
+            llama_free(model->ctx);
+            model->ctx = nullptr;
+        }
+        model->state = LLAMA_STATE_SUSPENDED;
+        model->cv.notify_all();
     }
-    set_state_locked(model, LLAMA_STATE_SUSPENDED);
     LOGI("Model suspended");
     return true;
 }
@@ -491,9 +506,9 @@ bool llama_model_resume(LlamaModel* model) {
         return false;
     }
 
+    if (model->prewarm_thread.joinable()) model->prewarm_thread.join();
     set_state_locked(model, LLAMA_STATE_PREWARMING);
     model->prewarm_thread = std::thread(prewarm_thread_func, model);
-    model->prewarm_thread.detach();
     LOGI("Model resume initiated");
     return true;
 }
@@ -509,20 +524,24 @@ void llama_model_destroy(LlamaModel* model) {
         model->prewarm_thread.join();
     }
 
-    std::lock_guard<std::mutex> lock(model->mutex);
-    set_state_locked(model, LLAMA_STATE_UNLOADING);
-
-    if (model->ctx) {
-        llama_free(model->ctx);
-        model->ctx = nullptr;
-    }
-    if (model->model) {
-        llama_model_free(model->model);
-        model->model = nullptr;
+    std::lock_guard<std::mutex> generation_lock(model->generation_mutex);
+    {
+        std::lock_guard<std::mutex> state_lock(model->mutex);
+        model->state = LLAMA_STATE_UNLOADING;
+        model->cv.notify_all();
+        if (model->ctx) {
+            llama_free(model->ctx);
+            model->ctx = nullptr;
+        }
+        if (model->model) {
+            llama_model_free(model->model);
+            model->model = nullptr;
+        }
+        model->state = LLAMA_STATE_DORMANT;
+        model->cv.notify_all();
     }
 
     llama_backend_free();
-    set_state_locked(model, LLAMA_STATE_DORMANT);
     LOGI("Model destroyed");
 
     delete model;
@@ -575,8 +594,7 @@ int llama_tokenizer_count(LlamaTokenizer* tokenizer, const char* text) {
 // Utility functions
 // ------------------------------------------------------------------
 const char* llama_version() {
-    static std::string version = "llama.cpp " + std::string(llama_version_string());
-    return version.c_str();
+    return "llama.cpp (pinned Android build)";
 }
 
 const char* llama_system_info() {

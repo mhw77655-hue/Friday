@@ -84,9 +84,8 @@ JNI_CLASS(nativeCreate)(JNIEnv* env, jobject thiz, jobject config) {
     jfieldID repeatLastNField = env->GetFieldID(configClass, "repeatLastN", "I");
     nativeConfig.repeat_last_n = env->GetIntField(config, repeatLastNField);
 
-    env->ReleaseStringUTFChars(modelPathStr, modelPath);
-
     LlamaModel* model = llama_model_create(&nativeConfig);
+    env->ReleaseStringUTFChars(modelPathStr, modelPath);
     return reinterpret_cast<jlong>(model);
 }
 

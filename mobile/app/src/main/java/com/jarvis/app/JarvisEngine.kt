@@ -211,6 +211,25 @@ object JarvisEngine {
             )
         }
         val ollamaModelBackend = com.jarvis.app.model.OllamaModelBackend(ollamaAdapter)
+
+        // Resident inference runs inside this Android app process. The GGUF
+        // file is imported into app-private storage; no HTTP daemon is required.
+        val residentModelFile = java.io.File(appContext.filesDir, "models/friday-resident.gguf")
+        val localInferenceEngine = com.jarvis.app.model.adapters.LocalInferenceEngine(appContext).apply {
+            configure(
+                com.jarvis.app.env.ModelSource.Local(residentModelFile.absolutePath),
+                com.jarvis.app.model.config.ProviderConfig(
+                    modelId = "friday-resident.gguf",
+                    parameters = mapOf(
+                        "context_window" to "2048",
+                        "threads" to Runtime.getRuntime().availableProcessors().coerceIn(2, 4).toString()
+                    )
+                )
+            )
+        }
+        val localModelBackend = com.jarvis.app.model.AdapterModelBackend(
+            mapOf(com.jarvis.app.env.ModelProviderType.LLAMA_CPP to localInferenceEngine)
+        )
         // ADAPTER-MANIFEST: the real adapter manifest, constructed here — before
         // the ModelManager — so the ONE model-loading path carries the load gate
         // from its first load. JSON Lines under filesDir/memory/adapters.jsonl.
@@ -362,8 +381,11 @@ object JarvisEngine {
                         )
                     },
                     failureSurface = failureSurface,
-                    modelBackend = ollamaModelBackend,
+                    modelBackend = localModelBackend,
                     voiceSynthesizer = JarvisEngine.voiceForgeSynthesizer!!,
+                    modelProviders = mapOf(
+                        com.jarvis.app.env.ModelProviderType.LLAMA_CPP to localInferenceEngine
+                    ),
                     turnTraceStore = turnTraceStore,
                     threadTracker = threadTracker,
                     provenanceLedger = provenanceLedger,

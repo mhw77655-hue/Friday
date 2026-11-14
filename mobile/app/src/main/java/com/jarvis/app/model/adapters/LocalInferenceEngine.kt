@@ -167,11 +167,7 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
         val resolvedModel = modelPathResolver.resolve(
             configuredPath = configuredPath,
             modelId = config.modelId
-        ) ?: throw IllegalStateException(
-            "Local GGUF model not found. " +
-                "modelId=${config.modelId}, " +
-                "configuredPath=$configuredPath"
-        )
+        ) ?: modelPathResolver.expectedPrivateFile(config.modelId)
 
         currentConfig = NativeConfig(
             modelPath = resolvedModel.absolutePath,
@@ -478,7 +474,7 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
 
     /** Build prompt from GenerateRequest */
     private fun buildPrompt(request: GenerateRequest): String {
-        val systemPrompt = "You are JARVIS, a helpful AI assistant. Be concise and natural."
+        val systemPrompt = "Use the supplied conversation context to answer the user's request. Be accurate, distinguish uncertainty from fact, and do not claim actions or capabilities that are not available."
         val messages = buildString {
             append(systemPrompt).append("\n\n")
             request.messages.forEach { msg ->

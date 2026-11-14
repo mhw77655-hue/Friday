@@ -254,7 +254,8 @@ class TurnPathAssembly private constructor(
                 // LAUNCH-OLLAMA-DOWN: an absent model server is a typed gap that
                 // is announced once per down-episode on the ONE failure surface,
                 // and the recovery is recorded when the server answers again.
-                failureSurface = failureSurface
+                failureSurface = failureSurface,
+                platformProviders = stores.modelProviders()
             )
             // The legacy Human Core's model port reads this at call time, so
             // binding it here is enough. It is a dependency direction (this root

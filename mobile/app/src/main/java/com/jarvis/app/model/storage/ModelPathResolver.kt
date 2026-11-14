@@ -29,6 +29,8 @@ class ModelPathResolver(
         private val MODEL_FILENAMES = mapOf(
             "lfm2.5-1.2b-instruct" to "LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
             "lfm" to "LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
+            "friday-resident" to "friday-resident.gguf",
+            "friday-resident.gguf" to "friday-resident.gguf",
             "qwen3-1.7b" to "Qwen3-1.7B-Q8_0.gguf",
             "qwen3-1.7b-q8" to "Qwen3-1.7B-Q8_0.gguf",
             "qwen3-1.7b-q4" to "Qwen3-1.7B-Q4_K_M.gguf",
@@ -62,6 +64,9 @@ class ModelPathResolver(
      * A ModelSource.Local value such as "127.0.0.1:8080" is an endpoint,
      * not a filesystem path, so it is deliberately ignored here.
      */
+    fun expectedPrivateFile(modelId: String?): File =
+        File(context.filesDir, "models/${modelFileName(modelId)}")
+
     fun resolve(
         configuredPath: String?,
         modelId: String?

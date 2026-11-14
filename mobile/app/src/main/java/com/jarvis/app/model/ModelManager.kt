@@ -63,7 +63,8 @@ class ModelManager(
     private val failureSurface: com.jarvis.app.failure.FailureSurface? = null,
     // Launch the background cooldown sweep on this manager's scope. Tests run
     // sweeps manually (autoSweep = false) to stay deterministic.
-    private val autoSweep: Boolean = true
+    private val autoSweep: Boolean = true,
+    private val platformProviders: Map<ModelProviderType, ModelProvider> = emptyMap()
 ) {
     // One down-episode, one entry: the flag is what makes "not one per retry"
     // true by construction rather than a property of the surface's dedupe.
@@ -83,7 +84,7 @@ class ModelManager(
         ModelProviderType.HEURISTIC to heuristicAdapter,
         ModelProviderType.CLOUD to heuristicAdapter, // CloudProviderAdapter is a stub for now
         ModelProviderType.NONE to heuristicAdapter
-    )
+    ) + platformProviders
 
     // All model loading/unloading in the app flows through this one backend.
     private val modelBackend: ModelBackend = backend ?: AdapterModelBackend(providersByType)
@@ -102,12 +103,13 @@ class ModelManager(
 
     // Available provider profiles for the Model Manager UI
     private val _availableProviders = MutableStateFlow<List<ModelProvider>>(
-        listOf(llamaCppAdapter, ollamaAdapter, remoteJarvisAdapter, heuristicAdapter)
+        providersByType.values.distinct()
     )
     val availableProviders = _availableProviders.asStateFlow()
 
-    // Active provider state
-    private val _activeProvider = MutableStateFlow<ModelProvider>(heuristicAdapter)
+    private val _activeProvider = MutableStateFlow<ModelProvider>(
+        providersByType[ModelProviderType.LLAMA_CPP] ?: heuristicAdapter
+    )
     val activeProvider = _activeProvider.asStateFlow()
 
     // Health aggregation
@@ -136,8 +138,14 @@ class ModelManager(
     ): Result<Unit> = try {
         val newProvider = when (type) {
             ModelProviderType.LLAMA_CPP -> {
-                llamaCppAdapter.configure(modelSource, config)
-                llamaCppAdapter
+                val hostProvider = platformProviders[type]
+                if (hostProvider is com.jarvis.app.model.adapters.LocalInferenceEngine) {
+                    hostProvider.configure(modelSource, config)
+                    hostProvider
+                } else {
+                    llamaCppAdapter.configure(modelSource, config)
+                    llamaCppAdapter
+                }
             }
             ModelProviderType.OLLAMA -> {
                 ollamaAdapter.configure(modelSource, config)
@@ -181,7 +189,14 @@ class ModelManager(
     /** Reconfigure a provider without switching to it (Model Manager UI). */
     suspend fun configureProvider(type: ModelProviderType, config: ProviderConfig): Result<Unit> = try {
         when (type) {
-            ModelProviderType.LLAMA_CPP -> llamaCppAdapter.configure(defaultModelSource(type), config)
+            ModelProviderType.LLAMA_CPP -> {
+                val hostProvider = platformProviders[type]
+                if (hostProvider is com.jarvis.app.model.adapters.LocalInferenceEngine) {
+                    hostProvider.configure(defaultModelSource(type), config)
+                } else {
+                    llamaCppAdapter.configure(defaultModelSource(type), config)
+                }
+            }
             ModelProviderType.OLLAMA -> ollamaAdapter.configure(defaultModelSource(type), config)
             ModelProviderType.REMOTE_JARVIS -> remoteJarvisAdapter.configure(defaultModelSource(type), config)
             else -> return Result.failure(IllegalArgumentException("Provider $type is not configurable"))
@@ -240,7 +255,8 @@ class ModelManager(
         ModelProviderType.OLLAMA -> ModelSource.Local("127.0.0.1:11434")
         ModelProviderType.REMOTE_JARVIS -> ModelSource.Remote("auto-discover")
         ModelProviderType.CLOUD -> ModelSource.Remote("auto-discover")
-        else -> ModelSource.Local("127.0.0.1:8080") // LLAMA_CPP / HEURISTIC / NONE
+        ModelProviderType.LLAMA_CPP -> ModelSource.Local("friday-resident.gguf")
+        else -> ModelSource.Local("127.0.0.1:8080") // HTTP adapter fallback only
     }
 
     /** Generate (non-streaming) - delegates to active provider */
