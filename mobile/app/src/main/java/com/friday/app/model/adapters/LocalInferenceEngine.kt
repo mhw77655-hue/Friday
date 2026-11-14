@@ -356,9 +356,10 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
 
     /** Model info */
     override suspend fun modelInfo(): ModelInfo = withContext(Dispatchers.IO) {
+        val importedModel = currentConfig?.modelPath?.let(::File)?.takeIf { it.isFile }
         ModelInfo(
-            id = currentConfig?.modelPath?.let { File(it).name } ?: "Qwen3-1.7B-Q4_K_M",
-            name = "Local Qwen3-1.7B (GGUF)",
+            id = importedModel?.name ?: "no-local-gguf",
+            name = importedModel?.name ?: "No local GGUF imported",
             providerType = providerType,
             contextWindow = currentConfig?.nCtx ?: 4096,
             maxOutputTokens = 2048,
