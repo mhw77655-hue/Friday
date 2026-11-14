@@ -34,8 +34,8 @@ import com.friday.app.identity.HumanCoreIdentitySource
 import com.friday.app.identity.IdentityContext
 import com.friday.app.identity.MentalStateHypothesis
 import com.friday.app.identity.PersonaTuner
-import com.friday.app.identity.PrdStageHistorySource
 import com.friday.app.identity.SelfModel
+import com.friday.app.identity.StageHistorySource
 import com.friday.app.identity.UserMentalStateEstimator
 import com.friday.app.identity.UserProfile
 import com.friday.app.identity.WorldModelService
@@ -186,9 +186,11 @@ class TurnPathAssembly private constructor(
             val worldModel = WorldModelService(graphStore, retriever)
             val userProfile = UserProfile(worldModel)
             val personaTuner = PersonaTuner(worldModel)
-            val stageHistory = PrdStageHistorySource(
-                listOf(ports.storageDir.resolve("ralph/prd.json").absolutePath)
-            )
+            // The project PRD is construction bookkeeping, not Friday's
+            // autobiographical memory or authority on what she is. Until
+            // verified experience is recorded in her own Development Ledger,
+            // the live self-model reports no developmental history.
+            val stageHistory = StageHistorySource { emptyList() }
             val selfModel = SelfModel(
                 identitySource = HumanCoreIdentitySource(),
                 capabilityRegistry = stores.capabilityRegistry(),
