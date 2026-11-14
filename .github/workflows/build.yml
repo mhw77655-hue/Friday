@@ -11,8 +11,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  actions: write
+  contents: read
 
 jobs:
   debug-apk:
@@ -22,11 +21,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-
-      - name: Rebuild product identity as Friday
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: python3 .github/scripts/rebuild_friday_identity.py
 
       # JDK 17: the repo's Gradle/AGP configuration requires it. Read from
       # mobile/app/build.gradle.kts (compileOptions source/targetCompatibility =
