@@ -4,7 +4,7 @@ import org.gradle.api.tasks.testing.Test
 import java.util.Properties
 import java.io.FileInputStream
 
-// BUG FIX (JV-TOKEN-01): JarvisBrainBridge.kt had the live HF Space bearer
+// BUG FIX (JV-TOKEN-01): FridayBrainBridge.kt had the live HF Space bearer
 // token hardcoded as a plaintext string literal, committed to git/GitHub.
 // The Genesis roadmap doc claimed this was already fixed to read from
 // BuildConfig.HF_TOKEN/local.properties — it wasn't; no BuildConfig/
@@ -24,12 +24,13 @@ plugins {
 }
 
     android {
-    namespace = "com.jarvis.app"
+    namespace = "com.friday.app"
     compileSdk = 36
     ndkVersion = "27.3.13750724"
 
     defaultConfig {
         applicationId = "com.jarvis.app"
+        // Compatibility install ID: preserve the existing Friday user-data directory.
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
@@ -99,8 +100,8 @@ plugins {
     testOptions {
         unitTests {
             all {
-                it.filter.excludeTestsMatching("com.jarvis.app.latency.OllamaModelBackendLiveWiringTest")
-                it.filter.excludeTestsMatching("com.jarvis.app.model.OllamaModelBackendTest")
+                it.filter.excludeTestsMatching("com.friday.app.latency.OllamaModelBackendLiveWiringTest")
+                it.filter.excludeTestsMatching("com.friday.app.model.OllamaModelBackendTest")
             }
         }
     }
@@ -173,12 +174,12 @@ dependencies {
 // JVM with the unit-test classpath (real production main classes + JVM deps).
 val runTermuxJarvisServer by tasks.registering(JavaExec::class) {
     group = "application"
-    description = "Run the JARVIS Termux live instance (localhost browser interface)."
+    description = "Run the FRIDAY Termux live instance (localhost browser interface)."
     val mainOut = tasks.named("compileDebugKotlin", KotlinCompile::class).get().destinationDirectory
     val testOut = tasks.named("compileDebugUnitTestKotlin", KotlinCompile::class).get().destinationDirectory
     val runtimeCp = configurations.named("debugUnitTestRuntimeClasspath").get()
     classpath = files(mainOut.get().asFileTree, testOut.get().asFileTree, runtimeCp)
-    mainClass.set("com.jarvis.app.termux.TermuxJarvisServer")
+    mainClass.set("com.friday.app.termux.TermuxJarvisServer")
     // Pass-through: --port=8081 --ollama=127.0.0.1:8080 --model=<id>
 }
 
@@ -200,8 +201,8 @@ val verifyLiveOllama = tasks.register<Test>("verifyLiveOllama") {
     testClassesDirs = files(testOut)
     classpath = files(mainOut, testOut, runtimeCp)
     filter {
-        includeTestsMatching("com.jarvis.app.latency.OllamaModelBackendLiveWiringTest")
-        includeTestsMatching("com.jarvis.app.model.OllamaModelBackendTest")
+        includeTestsMatching("com.friday.app.latency.OllamaModelBackendLiveWiringTest")
+        includeTestsMatching("com.friday.app.model.OllamaModelBackendTest")
         isFailOnNoMatchingTests = true
     }
 }

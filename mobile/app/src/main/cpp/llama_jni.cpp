@@ -14,7 +14,7 @@
 // ------------------------------------------------------------------
 // JNI Helper macros
 // ------------------------------------------------------------------
-#define JNI_CLASS(name) Java_com_jarvis_app_model_adapters_LocalInferenceEngine_##name
+#define JNI_CLASS(name) Java_com_friday_app_model_adapters_LocalInferenceEngine_##name
 
 // ------------------------------------------------------------------
 // Native handle management
@@ -105,17 +105,17 @@ JNI_CLASS(nativeGetHealth)(JNIEnv* env, jobject thiz, jlong handle) {
 
     LlamaHealth health = llama_model_get_health(model);
 
-    jclass healthClass = env->FindClass("com/jarvis/app/model/adapters/LocalInferenceEngine$NativeHealth");
+    jclass healthClass = env->FindClass("com/friday/app/model/adapters/LocalInferenceEngine$NativeHealth");
     if (!healthClass) return nullptr;
 
-    jmethodID constructor = env->GetMethodID(healthClass, "<init>", "(Lcom/jarvis/app/model/adapters/LocalInferenceEngine$NativeState;ZZLjava/lang/String;JJJFJJJJJF)V");
+    jmethodID constructor = env->GetMethodID(healthClass, "<init>", "(Lcom/friday/app/model/adapters/LocalInferenceEngine$NativeState;ZZLjava/lang/String;JJJFJJJJJF)V");
     if (!constructor) return nullptr;
 
     // Map state
-    jclass stateClass = env->FindClass("com/jarvis/app/model/adapters/LocalInferenceEngine$NativeState");
+    jclass stateClass = env->FindClass("com/friday/app/model/adapters/LocalInferenceEngine$NativeState");
     jobject stateEnum = nullptr;
     if (stateClass) {
-        jfieldID valuesField = env->GetStaticFieldID(stateClass, "values", "[Lcom/jarvis/app/model/adapters/LocalInferenceEngine$NativeState;");
+        jfieldID valuesField = env->GetStaticFieldID(stateClass, "values", "[Lcom/friday/app/model/adapters/LocalInferenceEngine$NativeState;");
         if (valuesField) {
             jobjectArray states = (jobjectArray)env->GetStaticObjectField(stateClass, valuesField);
             if (states && health.state < env->GetArrayLength(states)) {

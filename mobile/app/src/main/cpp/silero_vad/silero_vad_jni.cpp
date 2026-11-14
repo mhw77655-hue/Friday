@@ -14,7 +14,7 @@
 // ------------------------------------------------------------------
 // JNI Helper macros
 // ------------------------------------------------------------------
-#define JNI_CLASS(name) Java_com_jarvis_app_vad_SileroVadManager_##name
+#define JNI_CLASS(name) Java_com_friday_app_vad_SileroVadManager_##name
 #define JNIEXPORT_JNICALL JNIEXPORT jlong JNICALL
 
 // ------------------------------------------------------------------
@@ -100,23 +100,23 @@ JNI_CLASS(nativeProcess)(JNIEnv* env, jobject thiz, jlong handle, jshortArray au
     env->ReleaseShortArrayElements(audio, audioData, JNI_ABORT);
 
     // Create Result object
-    jclass resultClass = env->FindClass("com/jarvis/app/vad/SileroVadManager$Result");
+    jclass resultClass = env->FindClass("com/friday/app/vad/SileroVadManager$Result");
     if (!resultClass) {
         LOGE("Result class not found");
         return nullptr;
     }
 
-    jmethodID constructor = env->GetMethodID(resultClass, "<init>", "(Lcom/jarvis/app/vad/SileroVadManager$State;FZJI)V");
+    jmethodID constructor = env->GetMethodID(resultClass, "<init>", "(Lcom/friday/app/vad/SileroVadManager$State;FZJI)V");
     if (!constructor) {
         LOGE("Result constructor not found");
         return nullptr;
     }
 
     // Map state ordinal to State enum
-    jclass stateClass = env->FindClass("com/jarvis/app/vad/SileroVadManager$State");
+    jclass stateClass = env->FindClass("com/friday/app/vad/SileroVadManager$State");
     jobject stateEnum = nullptr;
     if (stateClass) {
-        jfieldID stateField = env->GetStaticFieldID(stateClass, "values", "[Lcom/jarvis/app/vad/SileroVadManager$State;");
+        jfieldID stateField = env->GetStaticFieldID(stateClass, "values", "[Lcom/friday/app/vad/SileroVadManager$State;");
         if (stateField) {
             jobjectArray states = (jobjectArray)env->GetStaticObjectField(stateClass, stateField);
             if (states && result.state < env->GetArrayLength(states)) {
@@ -209,7 +209,7 @@ JNI_CLASS(nativeGetConfig)(JNIEnv* env, jobject thiz, jlong handle) {
 
     SileroVadConfig config = silero_vad_get_config(engine);
 
-    jclass configClass = env->FindClass("com/jarvis/app/vad/SileroVadManager$Config");
+    jclass configClass = env->FindClass("com/friday/app/vad/SileroVadManager$Config");
     if (!configClass) return nullptr;
 
     jmethodID constructor = env->GetMethodID(configClass, "<init>", "(Ljava/lang/String;IFFIIIIZI)V");
@@ -245,7 +245,7 @@ JNIEXPORT jobject JNICALL
 JNI_CLASS(nativeGetProfileConfig)(JNIEnv* env, jobject thiz, jint profile, jint sampleRate) {
     SileroVadConfig config = silero_vad_get_profile_config(static_cast<SileroVadProfile>(profile), sampleRate);
 
-    jclass configClass = env->FindClass("com/jarvis/app/vad/SileroVadManager$Config");
+    jclass configClass = env->FindClass("com/friday/app/vad/SileroVadManager$Config");
     if (!configClass) return nullptr;
 
     jmethodID constructor = env->GetMethodID(configClass, "<init>", "(Ljava/lang/String;IFFIIIIZI)V");
@@ -276,7 +276,7 @@ JNI_CLASS(nativeGetMetrics)(JNIEnv* env, jobject thiz, jlong handle) {
 
     SileroVadMetrics metrics = silero_vad_get_metrics(engine);
 
-    jclass metricsClass = env->FindClass("com/jarvis/app/vad/SileroVadManager$Metrics");
+    jclass metricsClass = env->FindClass("com/friday/app/vad/SileroVadManager$Metrics");
     if (!metricsClass) return nullptr;
 
     jmethodID constructor = env->GetMethodID(metricsClass, "<init>", "(JJJFFJJZLjava/lang/String;)V");

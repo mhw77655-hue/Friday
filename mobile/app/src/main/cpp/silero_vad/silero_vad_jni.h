@@ -2,8 +2,8 @@
  * JNI Header for Silero VAD Engine
  * Provides Android-native Voice Activity Detection via ONNX Runtime
  */
-#ifndef JARVIS_SILERO_VAD_JNI_H
-#define JARVIS_SILERO_VAD_JNI_H
+#ifndef FRIDAY_SILERO_VAD_JNI_H
+#define FRIDAY_SILERO_VAD_JNI_H
 
 #include <jni.h>
 #include <stdint.h>
@@ -174,4 +174,4 @@ const char* silero_vad_onnxruntime_version();
 }
 #endif
 
-#endif // JARVIS_SILERO_VAD_JNI_H
+#endif // FRIDAY_SILERO_VAD_JNI_H

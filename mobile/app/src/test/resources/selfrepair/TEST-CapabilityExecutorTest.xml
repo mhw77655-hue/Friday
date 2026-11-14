@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="com.jarvis.app.cognitive.capability.CapabilityExecutorTest" tests="18" skipped="0" failures="6" errors="0" timestamp="2026-08-25T02:54:39" hostname="localhost" time="4.669">
+<testsuite name="com.friday.app.cognitive.capability.CapabilityExecutorTest" tests="18" skipped="0" failures="6" errors="0" timestamp="2026-08-25T02:54:39" hostname="localhost" time="4.669">
   <properties/>
-  <testcase name="unknown operation fails the step and blocks dependents but not unrelated steps" classname="com.jarvis.app.cognitive.capability.CapabilityExecutorTest" time="3.484"/>
-  <testcase name="plan steps resolve invoke complete and finish the plan" classname="com.jarvis.app.cognitive.capability.CapabilityExecutorTest" time="0.07"/>
-  <testcase name="each step invokes through the fabric and completes the correct node" classname="com.jarvis.app.cognitive.capability.CapabilityExecutorTest" time="0.035"/>
-  <testcase name="alternative capability is recognized in the verdict" classname="com.jarvis.app.cognitive.capability.CapabilityExecutorTest" time="0.117">
+  <testcase name="unknown operation fails the step and blocks dependents but not unrelated steps" classname="com.friday.app.cognitive.capability.CapabilityExecutorTest" time="3.484"/>
+  <testcase name="plan steps resolve invoke complete and finish the plan" classname="com.friday.app.cognitive.capability.CapabilityExecutorTest" time="0.07"/>
+  <testcase name="each step invokes through the fabric and completes the correct node" classname="com.friday.app.cognitive.capability.CapabilityExecutorTest" time="0.035"/>
+  <testcase name="alternative capability is recognized in the verdict" classname="com.friday.app.cognitive.capability.CapabilityExecutorTest" time="0.117">
     <failure message="java.lang.AssertionError" type="java.lang.AssertionError">java.lang.AssertionError
 	at org.junit.Assert.fail(Assert.java:87)
 	at org.junit.Assert.assertTrue(Assert.java:42)
 	at org.junit.Assert.assertTrue(Assert.java:53)
-	at com.jarvis.app.cognitive.capability.CapabilityExecutorTest$alternative capability is recognized in the verdict$1.invokeSuspend(CapabilityExecutorTest.kt:405)
+	at com.friday.app.cognitive.capability.CapabilityExecutorTest$alternative capability is recognized in the verdict$1.invokeSuspend(CapabilityExecutorTest.kt:405)
 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
 	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:108)
 	at kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:280)
@@ -18,7 +18,7 @@
 	at kotlinx.coroutines.BuildersKt.runBlocking(Unknown Source)
 	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking$default(Builders.kt:38)
 	at kotlinx.coroutines.BuildersKt.runBlocking$default(Unknown Source)
-	at com.jarvis.app.cognitive.capability.CapabilityExecutorTest.alternative capability is recognized in the verdict(CapabilityExecutorTest.kt:394)
+	at com.friday.app.cognitive.capability.CapabilityExecutorTest.alternative capability is recognized in the verdict(CapabilityExecutorTest.kt:394)
 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
@@ -64,12 +64,12 @@
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
 </failure>
   </testcase>
-  <testcase name="events flow on the single CognitiveEvent bus end to end" classname="com.jarvis.app.cognitive.capability.CapabilityExecutorTest" time="0.034">
+  <testcase name="events flow on the single CognitiveEvent bus end to end" classname="com.friday.app.cognitive.capability.CapabilityExecutorTest" time="0.034">
     <failure message="java.lang.AssertionError" type="java.lang.AssertionError">java.lang.AssertionError
 	at org.junit.Assert.fail(Assert.java:87)
 	at org.junit.Assert.assertTrue(Assert.java:42)
 	at org.junit.Assert.assertTrue(Assert.java:53)
-	at com.jarvis.app.cognitive.capability.CapabilityExecutorTest$events flow on the single CognitiveEvent bus end to end$1.invokeSuspend(CapabilityExecutorTest.kt:427)
+	at com.friday.app.cognitive.capability.CapabilityExecutorTest$events flow on the single CognitiveEvent bus end to end$1.invokeSuspend(CapabilityExecutorTest.kt:427)
 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
 	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:108)
 	at kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:280)
@@ -78,7 +78,7 @@
 	at kotlinx.coroutines.BuildersKt.runBlocking(Unknown Source)
 	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking$default(Builders.kt:38)
 	at kotlinx.coroutines.BuildersKt.runBlocking$default(Unknown Source)
-	at com.jarvis.app.cognitive.capability.CapabilityExecutorTest.events flow on the single CognitiveEvent bus end to end(CapabilityExecutorTest.kt:411)
+	at com.friday.app.cognitive.capability.CapabilityExecutorTest.events flow on the single CognitiveEvent bus end to end(CapabilityExecutorTest.kt:411)
 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
@@ -124,17 +124,17 @@
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
 </failure>
   </testcase>
-  <testcase name="execution state tracks capability resolution and invocation" classname="com.jarvis.app.cognitive.capability.CapabilityExecutorTest" time="0.02"/>
-  <testcase name="disabled capability is not invoked" classname="com.jarvis.app.cognitive.capability.CapabilityExecutorTest" time="0.034"/>
-  <testcase name="degraded capability reflects immune state" classname="com.jarvis.app.cognitive.capability.CapabilityExecutorTest" time="0.036"/>
-  <testcase name="same plan and capabilities produce the same decision sequence" classname="com.jarvis.app.cognitive.capability.CapabilityExecutorTest" time="0.076"/>
-  <testcase name="missing dependency is represented without manufacturing a capability" classname="com.jarvis.app.cognitive.capability.CapabilityExecutorTest" time="0.035"/>
-  <testcase name="ambiguous resolution is represented and nothing executes" classname="com.jarvis.app.cognitive.capability.CapabilityExecutorTest" time="0.035"/>
-  <testcase name="replan budget exhausted leads to terminal failure" classname="com.jarvis.app.cognitive.capability.CapabilityExecutorTest" time="0.378"/>
-  <testcase name="missing permission is represented" classname="com.jarvis.app.cognitive.capability.CapabilityExecutorTest" time="0.048"/>
-  <testcase name="circuit-open refusal is passed through as CIRCUIT_OPEN" classname="com.jarvis.app.cognitive.capability.CapabilityExecutorTest" time="0.057">
+  <testcase name="execution state tracks capability resolution and invocation" classname="com.friday.app.cognitive.capability.CapabilityExecutorTest" time="0.02"/>
+  <testcase name="disabled capability is not invoked" classname="com.friday.app.cognitive.capability.CapabilityExecutorTest" time="0.034"/>
+  <testcase name="degraded capability reflects immune state" classname="com.friday.app.cognitive.capability.CapabilityExecutorTest" time="0.036"/>
+  <testcase name="same plan and capabilities produce the same decision sequence" classname="com.friday.app.cognitive.capability.CapabilityExecutorTest" time="0.076"/>
+  <testcase name="missing dependency is represented without manufacturing a capability" classname="com.friday.app.cognitive.capability.CapabilityExecutorTest" time="0.035"/>
+  <testcase name="ambiguous resolution is represented and nothing executes" classname="com.friday.app.cognitive.capability.CapabilityExecutorTest" time="0.035"/>
+  <testcase name="replan budget exhausted leads to terminal failure" classname="com.friday.app.cognitive.capability.CapabilityExecutorTest" time="0.378"/>
+  <testcase name="missing permission is represented" classname="com.friday.app.cognitive.capability.CapabilityExecutorTest" time="0.048"/>
+  <testcase name="circuit-open refusal is passed through as CIRCUIT_OPEN" classname="com.friday.app.cognitive.capability.CapabilityExecutorTest" time="0.057">
     <failure message="java.util.NoSuchElementException: Collection contains no element matching the predicate." type="java.util.NoSuchElementException">java.util.NoSuchElementException: Collection contains no element matching the predicate.
-	at com.jarvis.app.cognitive.capability.CapabilityExecutorTest$circuit-open refusal is passed through as CIRCUIT_OPEN$1.invokeSuspend(CapabilityExecutorTest.kt:479)
+	at com.friday.app.cognitive.capability.CapabilityExecutorTest$circuit-open refusal is passed through as CIRCUIT_OPEN$1.invokeSuspend(CapabilityExecutorTest.kt:479)
 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
 	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:108)
 	at kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:280)
@@ -143,7 +143,7 @@
 	at kotlinx.coroutines.BuildersKt.runBlocking(Unknown Source)
 	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking$default(Builders.kt:38)
 	at kotlinx.coroutines.BuildersKt.runBlocking$default(Unknown Source)
-	at com.jarvis.app.cognitive.capability.CapabilityExecutorTest.circuit-open refusal is passed through as CIRCUIT_OPEN(CapabilityExecutorTest.kt:281)
+	at com.friday.app.cognitive.capability.CapabilityExecutorTest.circuit-open refusal is passed through as CIRCUIT_OPEN(CapabilityExecutorTest.kt:281)
 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
@@ -189,9 +189,9 @@
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
 </failure>
   </testcase>
-  <testcase name="non-recoverable execution failure reaches the failure surface and is contained" classname="com.jarvis.app.cognitive.capability.CapabilityExecutorTest" time="0.017">
+  <testcase name="non-recoverable execution failure reaches the failure surface and is contained" classname="com.friday.app.cognitive.capability.CapabilityExecutorTest" time="0.017">
     <failure message="java.util.NoSuchElementException: Collection contains no element matching the predicate." type="java.util.NoSuchElementException">java.util.NoSuchElementException: Collection contains no element matching the predicate.
-	at com.jarvis.app.cognitive.capability.CapabilityExecutorTest$non-recoverable execution failure reaches the failure surface and is contained$1.invokeSuspend(CapabilityExecutorTest.kt:478)
+	at com.friday.app.cognitive.capability.CapabilityExecutorTest$non-recoverable execution failure reaches the failure surface and is contained$1.invokeSuspend(CapabilityExecutorTest.kt:478)
 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
 	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:108)
 	at kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:280)
@@ -200,7 +200,7 @@
 	at kotlinx.coroutines.BuildersKt.runBlocking(Unknown Source)
 	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking$default(Builders.kt:38)
 	at kotlinx.coroutines.BuildersKt.runBlocking$default(Unknown Source)
-	at com.jarvis.app.cognitive.capability.CapabilityExecutorTest.non-recoverable execution failure reaches the failure surface and is contained(CapabilityExecutorTest.kt:260)
+	at com.friday.app.cognitive.capability.CapabilityExecutorTest.non-recoverable execution failure reaches the failure surface and is contained(CapabilityExecutorTest.kt:260)
 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
@@ -246,13 +246,13 @@
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
 </failure>
   </testcase>
-  <testcase name="replan preserves completed prior work" classname="com.jarvis.app.cognitive.capability.CapabilityExecutorTest" time="0.068">
+  <testcase name="replan preserves completed prior work" classname="com.friday.app.cognitive.capability.CapabilityExecutorTest" time="0.068">
     <failure message="java.lang.AssertionError: expected:&lt;4&gt; but was:&lt;3&gt;" type="java.lang.AssertionError">java.lang.AssertionError: expected:&lt;4&gt; but was:&lt;3&gt;
 	at org.junit.Assert.fail(Assert.java:89)
 	at org.junit.Assert.failNotEquals(Assert.java:835)
 	at org.junit.Assert.assertEquals(Assert.java:120)
 	at org.junit.Assert.assertEquals(Assert.java:146)
-	at com.jarvis.app.cognitive.capability.CapabilityExecutorTest$replan preserves completed prior work$1.invokeSuspend(CapabilityExecutorTest.kt:346)
+	at com.friday.app.cognitive.capability.CapabilityExecutorTest$replan preserves completed prior work$1.invokeSuspend(CapabilityExecutorTest.kt:346)
 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
 	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:108)
 	at kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:280)
@@ -261,7 +261,7 @@
 	at kotlinx.coroutines.BuildersKt.runBlocking(Unknown Source)
 	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking$default(Builders.kt:38)
 	at kotlinx.coroutines.BuildersKt.runBlocking$default(Unknown Source)
-	at com.jarvis.app.cognitive.capability.CapabilityExecutorTest.replan preserves completed prior work(CapabilityExecutorTest.kt:332)
+	at com.friday.app.cognitive.capability.CapabilityExecutorTest.replan preserves completed prior work(CapabilityExecutorTest.kt:332)
 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
@@ -307,9 +307,9 @@
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
 </failure>
   </testcase>
-  <testcase name="failed step triggers replan and the replacement path executes" classname="com.jarvis.app.cognitive.capability.CapabilityExecutorTest" time="0.046">
+  <testcase name="failed step triggers replan and the replacement path executes" classname="com.friday.app.cognitive.capability.CapabilityExecutorTest" time="0.046">
     <failure message="java.util.NoSuchElementException: Collection contains no element matching the predicate." type="java.util.NoSuchElementException">java.util.NoSuchElementException: Collection contains no element matching the predicate.
-	at com.jarvis.app.cognitive.capability.CapabilityExecutorTest$failed step triggers replan and the replacement path executes$1.invokeSuspend(CapabilityExecutorTest.kt:478)
+	at com.friday.app.cognitive.capability.CapabilityExecutorTest$failed step triggers replan and the replacement path executes$1.invokeSuspend(CapabilityExecutorTest.kt:478)
 	at kotlin.coroutines.jvm.internal.BaseContinuationImpl.resumeWith(ContinuationImpl.kt:34)
 	at kotlinx.coroutines.DispatchedTask.run(DispatchedTask.kt:108)
 	at kotlinx.coroutines.EventLoopImplBase.processNextEvent(EventLoop.common.kt:280)
@@ -318,7 +318,7 @@
 	at kotlinx.coroutines.BuildersKt.runBlocking(Unknown Source)
 	at kotlinx.coroutines.BuildersKt__BuildersKt.runBlocking$default(Builders.kt:38)
 	at kotlinx.coroutines.BuildersKt.runBlocking$default(Unknown Source)
-	at com.jarvis.app.cognitive.capability.CapabilityExecutorTest.failed step triggers replan and the replacement path executes(CapabilityExecutorTest.kt:305)
+	at com.friday.app.cognitive.capability.CapabilityExecutorTest.failed step triggers replan and the replacement path executes(CapabilityExecutorTest.kt:305)
 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
 	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
 	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
@@ -364,7 +364,7 @@
 	at worker.org.gradle.process.internal.worker.GradleWorkerMain.main(GradleWorkerMain.java:74)
 </failure>
   </testcase>
-  <testcase name="usable partial result is retained with blocked steps identified" classname="com.jarvis.app.cognitive.capability.CapabilityExecutorTest" time="0.052"/>
+  <testcase name="usable partial result is retained with blocked steps identified" classname="com.friday.app.cognitive.capability.CapabilityExecutorTest" time="0.052"/>
   <system-out><![CDATA[]]></system-out>
   <system-err><![CDATA[]]></system-err>
 </testsuite>

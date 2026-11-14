@@ -1,0 +1,416 @@
+package com.friday.app.onefriday
+
+import com.friday.app.body.MemoryItem
+import com.friday.app.body.MemoryStorePort
+import com.friday.app.cognition.workspace.MentalStateClaims
+import com.friday.app.emotion.EmotionHypothesis
+import com.friday.app.failure.FailureSurface
+import com.friday.app.humancore.HumanCore
+import com.friday.app.humancore.store.FileStorage
+import com.friday.app.identity.MentalStateHypothesis
+import com.friday.app.latency.LatencyPipeline
+import com.friday.app.model.AdmissionDecision
+import com.friday.app.model.FakeModelBackend
+import com.friday.app.model.ModelTier
+import com.friday.app.model.OrganRole
+import com.friday.app.model.OrganWakeRequest
+import com.friday.app.model.ResourceSnapshot
+import com.friday.app.termux.TermuxJarvisServer
+import com.friday.app.voice.VoiceForgeHealth
+import com.friday.app.voice.VoiceForgeSynthesisRequest
+import com.friday.app.voice.VoiceForgeSynthesisResponse
+import com.friday.app.voice.VoiceForgeSynthesizer
+import java.io.File
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/**
+ * ONE-2-COMPOSITION: what the ONE composition root guarantees, proven against
+ * the real production classes.
+ *
+ * Only genuinely host-bound leaves are faked (a directory, an in-memory graph,
+ * a fake model backend, a silent speech synthesizer). Every organ, seam and
+ * wiring under test is the production class — the same ones the phone and the
+ * Termux host construct.
+ */
+class TurnPathAssemblyTest {
+
+    private class SilentSpeech : VoiceForgeSynthesizer {
+        override suspend fun synthesize(
+            request: VoiceForgeSynthesisRequest
+        ): VoiceForgeSynthesisResponse =
+            throw UnsupportedOperationException("this test never synthesizes audio")
+
+        override suspend fun health(): VoiceForgeHealth =
+            throw UnsupportedOperationException("this test never probes the speech host")
+    }
+
+    private class NoMemories : MemoryStorePort {
+        override fun queryMemories(query: String, limit: Int): List<MemoryItem> = emptyList()
+    }
+
+    private class Fixture(
+        val acks: MutableList<String> = mutableListOf(),
+        // The slow path runs inline unless a test needs to isolate the fast path.
+        val runTurnWork: (() -> Unit) -> Unit = { block -> block() }
+    ) {
+        lateinit var backend: FakeModelBackend
+        lateinit var storageDir: java.io.File
+
+        fun ports(
+            snapshot: () -> ResourceSnapshot,
+            clock: () -> Long,
+            persistentDirectory: File? = null
+        ): JvmPlatformPorts {
+            storageDir = persistentDirectory ?: compositionDir("assembly")
+            backend = FakeModelBackend()
+            return JvmPlatformPorts(
+                storageDir = storageDir,
+                scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
+                stores = JvmPlatformStores(
+                    graphStore = TermuxJarvisServer.InMemoryGraph(),
+                    embeddingProvider = TermuxJarvisServer.DeterministicEmbedding(),
+                    memoryStore = NoMemories(),
+                    backend = backend,
+                    voiceSynthesizer = SilentSpeech()
+                ),
+                snapshot = snapshot,
+                clock = clock,
+                humanCoreStorage = FileStorage(compositionDir("humancore")),
+                turnWork = runTurnWork,
+                later = { _, _ -> },
+                fastAckSink = { acks.add(it) },
+                fullReplySink = { },
+                turnLogSink = { _, _ -> },
+                warmer = { },
+                session = { null },
+                submittedSignal = { },
+                ackSignal = { },
+                firstSegmentSignal = { },
+                utteranceDoneSignal = { },
+                failureSink = { },
+                failureSurface = FailureSurface()
+            )
+        }
+    }
+
+    // ── The root builds the whole turn path ──────────────────────────────────
+
+    @Test
+    fun `the composition root builds every turn-path organ from one adapter`() {
+        val assembly = TurnPathAssembly.assemble(
+            Fixture().ports({ ResourceSnapshot.alwaysHealthy() }, { 1_000L })
+        )
+
+        assertNotNull("the real cognitive engine", assembly.engine)
+        assertNotNull("the entry pipeline", assembly.pipeline)
+        assertNotNull("the real Human Core turn port", assembly.humanCoreTurnPort)
+        assertNotNull("the real memory graph store", assembly.graphStore)
+        assertNotNull("the real blended retriever", assembly.retriever)
+        assertNotNull("the real identity context", assembly.identityContext)
+        assertNotNull("the real emotion fusion tier", assembly.emotionFusion)
+        assertNotNull("the real mental-state estimator", assembly.mentalStateEstimator)
+        assertNotNull("the real social stack", assembly.personRelationshipModel)
+        assertNotNull("the real confidentiality firewall", assembly.confidentialityFirewall)
+        assertNotNull("the real continuity gate", assembly.continuityGate)
+        assertNotNull("the real continuity law", assembly.continuityLaw)
+        assertNotNull("the real capability fabric", assembly.capabilityFabric)
+        assertNotNull("the real fuzzy command resolver", assembly.fuzzyCommandResolver)
+        assertNotNull("the single model loading authority", assembly.modelManager)
+        assertNotNull("the single admission governor", assembly.resourceGovernor)
+        assertNotNull("the real anchor engine", assembly.anchorEngine)
+        assertNotNull("the real spoken-reply backend", assembly.voiceForgeBackend)
+        assertNotNull("the real capability registry", assembly.capabilityRegistry)
+        assertNotNull("the real cloud router around this Friday", assembly.cloudModelRouter)
+    }
+
+    @Test
+    fun `one graph store serves the engine's write-back and the retriever's recall`() = runBlocking {
+        val assembly = TurnPathAssembly.assemble(
+            Fixture().ports({ ResourceSnapshot.alwaysHealthy() }, { 1_000L })
+        )
+
+        assembly.engine.process("My name is Venon", modelCall = { "Noted." })
+
+        val recalled = assembly.retriever.retrieve("Venon")
+        assertTrue(
+            "the engine wrote the stated fact to the graph store and the retriever " +
+                "read it back, which can only happen if they share ONE store. A " +
+                "second copy would recall nothing.",
+            recalled.isNotEmpty() && recalled.any { it.node.`object`.contains("Venon") }
+        )
+    }
+
+    @Test
+    fun `the anchor establishes the resident tier through the one loading authority`() = runBlocking {
+        val fixture = Fixture()
+        val assembly = TurnPathAssembly.assemble(
+            fixture.ports({ ResourceSnapshot.alwaysHealthy() }, { 1_000L })
+        )
+
+        assembly.anchorEngine.anchor()
+
+        assertEquals(
+            "exactly ONE load for the resident tier. Two would mean a second " +
+                "loading authority had been built alongside this one.",
+            1,
+            fixture.backend.loadCount
+        )
+    }
+
+    // ── The real legacy Human Core, on every host ────────────────────────────
+
+    @Test
+    fun `the turn path speaks through the real legacy Human Core, not a stub`() {
+        val assembly = TurnPathAssembly.assemble(
+            Fixture().ports({ ResourceSnapshot.alwaysHealthy() }, { 1_000L })
+        )
+
+        assertTrue(
+            "the root must initialize the legacy Human Core itself, so every host " +
+                "reaches the same singleton",
+            HumanCore.isInitialized()
+        )
+
+        val perception = assembly.humanCoreTurnPort.beginExchange("what did we decide?", null)
+        assertNotNull(
+            "beginExchange must return a REAL PerceptionResult. The JVM host used to " +
+                "pass a lambda that returned null by construction, so a turn through " +
+                "it recorded nothing at all.",
+            perception
+        )
+
+        assertEquals(
+            "the expression pass must be the real Human Core's own output",
+            HumanCore.express("The seed layer is closed.", null),
+            assembly.humanCoreTurnPort.express("The seed layer is closed.", null)
+        )
+    }
+
+    @Test
+    fun `the emotion tier is wired on the JVM host too, not just the phone`() {
+        val assembly = TurnPathAssembly.assemble(
+            Fixture().ports({ ResourceSnapshot.alwaysHealthy() }, { 1_000L })
+        )
+        val input = "I hate the slow weather"
+
+        val reading = assembly.mentalStateEstimator.estimateForTurn(input)
+
+        assertEquals(
+            "the Tier-1 emotion fusion must feed the ONE estimator seam, so this " +
+                "host reads the same per-turn state the phone reads",
+            MentalStateHypothesis.fromEmotion(assembly.emotionFusion.estimate(input)),
+            reading
+        )
+        assertEquals("frustrated", reading.mood)
+        assertEquals("resolve a pain point", reading.goal)
+        assertNotEquals(
+            "the reading must carry a real emotion reading, not the empty-neutral " +
+                "default the rule-based provider leaves behind",
+            EmotionHypothesis.neutral(),
+            reading.emotion
+        )
+    }
+
+    // ── The host's clock is the turn clock ───────────────────────────────────
+
+    @Test
+    fun `the host's clock governs the spoken-ack gap`() {
+        val fixture = Fixture(runTurnWork = { })
+        var now = 1_000_000L
+        val assembly = TurnPathAssembly.assemble(
+            fixture.ports({ ResourceSnapshot.alwaysHealthy() }, { now })
+        )
+
+        repeat(3) { assembly.pipeline.onUserInput("hello $it") }
+        assertEquals(
+            "with a frozen host clock no ack gap ever elapses, so exactly one ack is " +
+                "spoken. A count of 3 would mean the pipeline reached for " +
+                "System.currentTimeMillis() instead of the injected clock.",
+            1,
+            fixture.acks.size
+        )
+
+        now += LatencyPipeline.ACK_GAP_MS
+        assembly.pipeline.onUserInput("hello later")
+        assertEquals(
+            "once the host's clock advances past the gap, the next turn speaks",
+            2,
+            fixture.acks.size
+        )
+    }
+
+    // ── Admission reads the host's live resource state ───────────────────────
+
+    @Test
+    fun `admission reads the host's live resource reading`() {
+        var starved = false
+        val assembly = TurnPathAssembly.assemble(
+            Fixture().ports({
+                if (starved) StarvedSnapshot else ResourceSnapshot.alwaysHealthy()
+            }, { 1_000L })
+        )
+        val request = OrganWakeRequest(organRole = OrganRole.REASONING.name, tier = ModelTier.ON_DEMAND_REASONING)
+
+        assertEquals(
+            "a healthy reading admits the wake",
+            AdmissionDecision.ALLOW,
+            assembly.resourceGovernor.admit(request)
+        )
+
+        starved = true
+        val underPressure = assembly.resourceGovernor.admit(request)
+        assertTrue(
+            "a starved reading must not admit at the requested tier, and the reading " +
+                "must be the host's own, taken live per admission — not an all-clear " +
+                "constant buried in the composition root. Got: $underPressure",
+            underPressure is AdmissionDecision.DEGRADE_TO || underPressure is AdmissionDecision.DENY
+        )
+    }
+
+    // ── The JVM host gets this root, not a second one ────────────────────────
+
+    @Test
+    fun `the JVM host is built by the same composition root as the phone`() {
+        val server = newServer("root")
+
+        assertTrue(
+            "constructing the JVM host must go through the ONE root, which " +
+                "initializes the legacy Human Core exactly as the phone does",
+            HumanCore.isInitialized()
+        )
+        assertEquals(
+            "the JVM host's pipeline must be the real production pipeline",
+            "com.friday.app.latency.LatencyPipeline",
+            server.pipeline.javaClass.name
+        )
+        assertEquals(
+            "the JVM host's engine must be the real production engine",
+            "com.friday.app.cognitive.CognitiveEngine",
+            server.engine.javaClass.name
+        )
+    }
+
+    @Test
+    fun `a real turn through the JVM host runs the real composition`() {
+        val server = newServer("turn")
+        val input = "I hate the slow weather"
+
+        server.pipeline.onUserInput(input)
+
+        val reading = MentalStateClaims.read(server.workspace)
+        assertNotNull(
+            "a real turn through the real entry point must reach the real engine and " +
+                "publish this turn's mental state into the one shared claim store",
+            reading
+        )
+        assertEquals(
+            "the JVM host now reads the same Tier-1 emotion tier the phone reads",
+            "frustrated",
+            reading!!.mood
+        )
+        assertEquals(
+            "the legacy Human Core must have been consulted for real: the pipeline's " +
+                "own slow path calls beginExchange before the engine does",
+            "com.friday.app.latency.LatencyPipeline",
+            server.pipeline.javaClass.name
+        )
+    }
+
+    private fun newServer(name: String) = TermuxJarvisServer(
+        port = 0,
+        backendOverride = FakeModelBackend(),
+        voiceForgeSynthesizerOverride = SilentSpeech(),
+        dataDir = compositionDir(name)
+    )
+
+    private object StarvedSnapshot : ResourceSnapshot {
+        override val availableMemoryMb = 8L
+        override val cpuLoadPercent = 99.0
+        override val thermalLevel = 3
+        override val batteryPercent = 100
+        override val isCharging = true
+    }
+
+    @Test
+    fun developmentalFeedbackChangesTheNextLiveResponseApproachAndSurvivesRecomposition() = runBlocking {
+        val fixture = Fixture()
+        val assembly = TurnPathAssembly.assemble(
+            fixture.ports({ ResourceSnapshot.alwaysHealthy() }, { 2_000L })
+        )
+        val persistentDirectory = fixture.storageDir
+
+        var firstPrompt = ""
+        assembly.engine.process(
+            "Summarize the first document.",
+            modelCall = { prompt -> firstPrompt = prompt; "A paragraph summary." }
+        )
+        assertTrue("the first turn starts with the neutral first candidate", firstPrompt.contains("Prefer natural connected prose"))
+
+        var correctionPrompt = ""
+        assembly.engine.process(
+            "That was too long. Use bullet points next time.",
+            modelCall = { prompt -> correctionPrompt = prompt; "Understood." }
+        )
+        assertTrue("the explicit correction changes the selected behaviour", correctionPrompt.contains("Prefer concise structure"))
+
+        var unrelatedPrompt = ""
+        assembly.engine.process(
+            "Explain the key events in a completely different report.",
+            modelCall = { prompt -> unrelatedPrompt = prompt; "Here are the key events." }
+        )
+        assertTrue("the changed choice is reused on a different request", unrelatedPrompt.contains("Prefer concise structure"))
+
+        val restarted = TurnPathAssembly.assemble(
+            fixture.ports(
+                { ResourceSnapshot.alwaysHealthy() },
+                { 2_100L },
+                persistentDirectory = persistentDirectory
+            )
+        )
+        var afterRestartPrompt = ""
+        restarted.engine.process(
+            "Give me the main takeaways from another unrelated source.",
+            modelCall = { prompt -> afterRestartPrompt = prompt; "Takeaways." }
+        )
+        assertTrue("the behaviour survives reconstruction", afterRestartPrompt.contains("Prefer concise structure"))
+
+        val journal = java.io.File(persistentDirectory, "development/behaviour.jsonl")
+        assertTrue("the durable developmental journal exists", journal.isFile)
+        val journalText = journal.readText()
+        assertTrue("the record stores a derived choice rather than raw episode text", journalText.contains("\"choice\":\"bullets\""))
+        assertTrue("the original prompt is not replayable from the developmental journal", !journalText.contains("Summarize the first document"))
+    }
+
+}
+
+/**
+ * A unique composition directory that is deliberately NOT a JUnit
+ * TemporaryFolder, and must never become one.
+ *
+ * [HumanCore.init] runs only while the process-wide HumanCore singleton is
+ * uninitialised, so the FIRST directory a test hands the composition becomes
+ * that singleton's storage for the REST of the JVM — and a TemporaryFolder is
+ * deleted when its class finishes. Every later test that touches the real
+ * HumanCore then fails on `FileNotFoundException: .../relationship.json.tmp`,
+ * which is exactly what CI run 36365413999 did to OwnerBiometricBindingTest
+ * and PhaseBDisconnectedSubsystemWiringTest (fixed in 449efe9). Directories are
+ * unique per call (so each test's own state starts empty) and are left on disk.
+ *
+ * Top-level on purpose: it is called from a nested test fixture, and a nested
+ * class cannot see the test class's own members. It is `internal` rather than
+ * `private` because [InjectedClockTest] builds its composition the same way and
+ * must get the same rule from the same function.
+ */
+internal fun compositionDir(prefix: String): File =
+    File(
+        System.getProperty("java.io.tmpdir"),
+        "onefriday-$prefix-${System.nanoTime()}"
+    ).apply { mkdirs() }
