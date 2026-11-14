@@ -358,4 +358,52 @@ internal fun compositionDir(prefix: String): File =
     File(
         System.getProperty("java.io.tmpdir"),
         "onefriday-$prefix-${System.nanoTime()}"
-    ).apply { mkdirs() }
+    ).apply { mkdirs() 
+    @Test
+    fun \`explicit feedback changes the next live response approach and survives a new composition\`() = runBlocking {
+        val fixture = Fixture()
+        val assembly = TurnPathAssembly.assemble(
+            fixture.ports({ ResourceSnapshot.alwaysHealthy() }, { 2_000L })
+        )
+
+        var firstPrompt = ""
+        assembly.engine.process(
+            "Summarize the first document.",
+            modelCall = { prompt -> firstPrompt = prompt; "A paragraph summary." }
+        )
+        assertTrue("the first turn starts with the neutral first candidate", firstPrompt.contains("Prefer natural connected prose"))
+
+        var correctionPrompt = ""
+        assembly.engine.process(
+            "That was too long. Use bullet points next time.",
+            modelCall = { prompt -> correctionPrompt = prompt; "Understood." }
+        )
+        assertTrue("the explicit correction changes the selected behaviour", correctionPrompt.contains("Prefer concise structure"))
+
+        var unrelatedPrompt = ""
+        assembly.engine.process(
+            "Explain the key events in a completely different report.",
+            modelCall = { prompt -> unrelatedPrompt = prompt; "Here are the key events." }
+        )
+        assertTrue("the changed choice is reused on a different request", unrelatedPrompt.contains("Prefer concise structure"))
+
+        // A fresh composition over the same host storage must reconstruct the
+        // behavioural change without the original episode text.
+        val restarted = TurnPathAssembly.assemble(
+            fixture.ports({ ResourceSnapshot.alwaysHealthy() }, { 2_100L })
+        )
+        var afterRestartPrompt = ""
+        restarted.engine.process(
+            "Give me the main takeaways from another unrelated source.",
+            modelCall = { prompt -> afterRestartPrompt = prompt; "Takeaways." }
+        )
+        assertTrue("the behaviour survives reconstruction", afterRestartPrompt.contains("Prefer concise structure"))
+
+        val journal = java.io.File(fixture.storageDir, "development/behaviour.jsonl")
+        assertTrue("the durable developmental journal exists", journal.isFile)
+        val journalText = journal.readText()
+        assertTrue("the record stores a derived choice rather than raw episode text", journalText.contains("\"choice\":\"bullets\""))
+        assertTrue("the original prompt is not replayable from the developmental journal", !journalText.contains("Summarize the first document"))
+    }
+
+}
