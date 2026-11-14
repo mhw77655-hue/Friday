@@ -604,7 +604,7 @@ int llama_tokenizer_count(LlamaTokenizer* tokenizer, const char* text) {
 // ------------------------------------------------------------------
 // Utility functions
 // ------------------------------------------------------------------
-const char* llama_version() {
+const char* jarvis_llama_version() {
     return "llama.cpp (pinned Android build)";
 }
 

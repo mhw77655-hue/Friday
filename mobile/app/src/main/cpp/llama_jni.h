@@ -204,7 +204,7 @@ int llama_tokenizer_count(LlamaTokenizer* tokenizer, const char* text);
 /**
  * Get llama.cpp version string.
  */
-const char* llama_version();
+const char* jarvis_llama_version();
 
 /**
  * Get system info (CPU features, etc).

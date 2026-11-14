@@ -316,7 +316,7 @@ JNI_CLASS(nativeDecode)(JNIEnv* env, jobject thiz, jlong handle, jintArray token
 // Version
 JNIEXPORT jstring JNICALL
 JNI_CLASS(nativeVersion)(JNIEnv* env, jobject thiz) {
-    return env->NewStringUTF(llama_version());
+    return env->NewStringUTF(jarvis_llama_version());
 }
 
 JNIEXPORT jstring JNICALL
