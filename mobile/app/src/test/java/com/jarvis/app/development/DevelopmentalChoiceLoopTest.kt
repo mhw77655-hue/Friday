@@ -13,8 +13,8 @@ class DevelopmentalChoiceLoopTest {
     )
 
     @Test
-    fun \`explicit consequences change future selection across restart without transcript replay\`() {
-        val directory = createTempDirectory("friday-development").toFile()
+    fun explicitConsequencesChangeFutureSelectionAcrossRestartWithoutTranscriptReplay() {
+        val directory = java.nio.file.Files.createTempDirectory("friday-development").toFile()
         val file = File(directory, "development/behaviour.jsonl")
         var now = 1_000L
         try {
@@ -55,8 +55,8 @@ class DevelopmentalChoiceLoopTest {
     }
 
     @Test
-    fun \`disabling the developmental mechanism removes the learned effect\`() {
-        val directory = createTempDirectory("friday-development-off").toFile()
+    fun disablingTheDevelopmentalMechanismRemovesTheLearnedEffect() {
+        val directory = java.nio.file.Files.createTempDirectory("friday-development-off").toFile()
         val file = File(directory, "development/behaviour.jsonl")
         try {
             val learning = DevelopmentalChoiceLoop(JsonlDevelopmentJournal(file))
@@ -80,8 +80,8 @@ class DevelopmentalChoiceLoopTest {
     }
 
     @Test
-    fun \`ordinary unrelated conversation is not automatically scored as feedback\`() {
-        val directory = createTempDirectory("friday-development-neutral").toFile()
+    fun ordinaryUnrelatedConversationIsNotAutomaticallyScoredAsFeedback() {
+        val directory = java.nio.file.Files.createTempDirectory("friday-development-neutral").toFile()
         val file = File(directory, "development/behaviour.jsonl")
         try {
             val loop = DevelopmentalChoiceLoop(JsonlDevelopmentJournal(file))
