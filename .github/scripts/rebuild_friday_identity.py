@@ -10,8 +10,6 @@ from __future__ import annotations
 import os
 import re
 import subprocess
-import urllib.request
-import json
 from pathlib import Path
 
 ROOT = Path.cwd()
@@ -180,21 +178,6 @@ if CHANGED:
     print(summary)
     with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:
         f.write("## Friday code identity migration\n\n" + summary + "\n")
-    token = os.environ.get("GH_TOKEN")
-    repo = os.environ.get("GITHUB_REPOSITORY")
-    if token and repo:
-        req = urllib.request.Request(
-            f"https://api.github.com/repos/{repo}/actions/workflows/build.yml/dispatches",
-            data=json.dumps({"ref": branch}).encode("utf-8"),
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Accept": "application/vnd.github+json",
-                "X-GitHub-Api-Version": "2022-11-28",
-                "Content-Type": "application/json"
-            },
-            method="POST"
-        )
-        with urllib.request.urlopen(req, timeout=30) as response:
-            print(f"Dispatched verification workflow: HTTP {response.status}")
+
 else:
     print("Friday migration already applied; no new commit required.")
