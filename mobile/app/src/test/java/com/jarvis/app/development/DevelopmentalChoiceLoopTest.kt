@@ -115,4 +115,23 @@ class DevelopmentalChoiceLoopTest {
         }
     }
 
+
+    @Test
+    fun repeatingAnExplicitPreferenceReinforcesTheAlreadySelectedChoice() {
+        val directory = java.nio.file.Files.createTempDirectory("friday-development-repeat").toFile()
+        val file = File(directory, "development/behaviour.jsonl")
+        try {
+            val loop = DevelopmentalChoiceLoop(JsonlDevelopmentJournal(file))
+            loop.beginTurn("First request.", options)
+            val firstPreference = loop.beginTurn("Use bullet points next time.", options)
+            assertEquals("bullets", firstPreference.id)
+
+            val repeatedPreference = loop.beginTurn("Use bullet points next time.", options)
+            assertEquals("a repeated request for the selected behaviour reinforces it", "bullets", repeatedPreference.id)
+            assertTrue("repeated evidence increases confidence", repeatedPreference.evidenceCount >= 2)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
 }

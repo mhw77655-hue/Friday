@@ -162,10 +162,11 @@ class DevelopmentalChoiceLoop(
         val previous = lastChoiceId
 
         if (previous != null) {
+            val reinforcesPrevious = signal.preferredChoiceId == previous
             recordOutcome(
                 choiceId = previous,
-                reward = signal.previousReward,
-                signal = signal.provenance
+                reward = if (reinforcesPrevious) 1.0 else signal.previousReward,
+                signal = if (reinforcesPrevious) "explicit-preference-reinforcement" else signal.provenance
             )
         }
 
@@ -278,8 +279,8 @@ class DevelopmentalChoiceLoop(
         val positive = listOf(
             "that was good", "that was great", "that was perfect",
             "that's better", "that is better", "i like that",
-            "exactly", "perfect, thanks", "great, thanks"
-        ).any { text.contains(it) }
+            "perfect thanks", "great thanks"
+        ).any { text.startsWith(it) } || text == "exactly"
 
         if (positive) {
             return FeedbackSignal(1.0, "explicit-positive-evaluation")
