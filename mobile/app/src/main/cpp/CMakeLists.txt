@@ -45,7 +45,7 @@ target_compile_options(friday_llama_jni PRIVATE -fvisibility=hidden)
 
 # Optional VAD wrapper; speech input is not a dependency of local text inference.
 find_library(onnxruntime_lib onnxruntime
-    PATHS "${CMAKE_SOURCE_DIR}/../jniLibs/${ANDROID_ABI}"
+    PATHS "${CMAKE_SOURCE_DIR}/../../../jniLibs/${ANDROID_ABI}"
     NO_DEFAULT_PATH
 )
 if(onnxruntime_lib)
