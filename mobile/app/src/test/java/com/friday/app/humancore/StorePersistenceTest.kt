@@ -114,6 +114,62 @@ class StorePersistenceTest {
     }
 
     @Test
+    fun `legacy persisted JARVIS identity migrates once through the protected revision path`() {
+        val dir = tempDir()
+        val clock = ManualClock()
+        val original = newGraph(dir, clock)
+
+        val legacyValues = FallbackIdentity.values.map { value ->
+            value.copy(
+                statement = value.statement.replace("Friday", "JARVIS"),
+                justification = value.justification
+            )
+        }
+        val legacy = original.identityRevision.buildRevisionRecord(
+            newName = "JARVIS",
+            newSelfDescription = "JARVIS is the old authored fallback persona.",
+            newValues = legacyValues,
+            newBoundaries = FallbackIdentity.boundaries
+        )
+        assertTrue(
+            original.identityRevision.performRevision(
+                legacy,
+                trigger = "legacy fixture",
+                authorizer = "test"
+            )
+        )
+
+        // A new process reads the old persisted identity, then the exact
+        // production migration path is applied.
+        val restored = newGraph(dir, clock)
+        assertEquals("JARVIS", restored.identityKernel.read().name)
+        assertTrue(restored.migrateLegacyProductIdentityAfterOwnerRequest())
+
+        val migrated = restored.identityKernel.read()
+        assertEquals("Friday", migrated.name)
+        assertEquals("Friday is a developing individual.", migrated.selfDescription)
+        assertEquals(3, migrated.version)
+        assertEquals(legacy.values.map { it.key }.toSet(), migrated.values.map { it.key }.toSet())
+        assertTrue(migrated.values.none { it.statement.contains("JARVIS", ignoreCase = true) })
+        assertEquals(
+            "owner (explicit project instruction)",
+            restored.registry.identity.auditLog().last().authorizer
+        )
+
+        // A second startup is a no-op: no duplicate revision or data rewrite.
+        assertFalse(restored.migrateLegacyProductIdentityAfterOwnerRequest())
+        assertEquals(3, restored.identityKernel.read().version)
+    }
+
+    @Test
+    fun `fresh Friday identity does not receive a compatibility migration`() {
+        val graph = newGraph(tempDir(), ManualClock())
+        assertEquals("Friday", graph.identityKernel.read().name)
+        assertFalse(graph.migrateLegacyProductIdentityAfterOwnerRequest())
+        assertEquals(1, graph.identityKernel.read().version)
+    }
+
+    @Test
     fun `relationship and mood survive process death`() {
         val dir = tempDir()
         val clock = ManualClock()
