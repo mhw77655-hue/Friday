@@ -60,12 +60,12 @@ class IdentityInChatPipelineGroundTruthTest {
         val server = TermuxFridayServer(port = 0, backendOverride = FakeModelBackend())
         try {
             assertEquals(
-                "the fix initializes HumanCore, so the identity source reads the real 'FRIDAY' " +
+                "the fix initializes HumanCore, so the identity source reads the real 'Friday' " +
                     "cold-start baseline instead of the pre-fix null -> 'unknown v0'",
-                "FRIDAY",
+                "Friday",
                 HumanCoreIdentitySource().name()
             )
-            assertEquals("selfModel reports the real HumanCore identity name", "FRIDAY", server.selfModel.identity().name)
+            assertEquals("selfModel reports the real HumanCore identity name", "Friday", server.selfModel.identity().name)
             assertEquals("identity version is the real fallback baseline", 1, server.selfModel.identity().version)
         } finally {
             server.stop()
@@ -88,7 +88,7 @@ class IdentityInChatPipelineGroundTruthTest {
                 assertTrue(
                     "real HumanCore identity name travels in the outgoing request payload " +
                         "(pre-fix this was 'unknown v0')",
-                    payload.contains("self: identity=FRIDAY")
+                    payload.contains("self: identity=Friday")
                 )
             } finally {
                 server.stop()
