@@ -108,7 +108,7 @@ class ModelManager(
     val availableProviders = _availableProviders.asStateFlow()
 
     private val _activeProvider = MutableStateFlow<ModelProvider>(
-        providersByType[ModelProviderType.LLAMA_CPP] ?: heuristicAdapter
+        platformProviders[ModelProviderType.LLAMA_CPP] ?: heuristicAdapter
     )
     val activeProvider = _activeProvider.asStateFlow()
 
