@@ -63,7 +63,27 @@ object VoiceModelManifest {
         latencyMs = 400
     )
 
-    val ALL: List<VoiceModelEntry> = listOf(kokoroEnInt8, kokoroEnFp32, kokoroMultiLangInt8)
+    /** Nabra 82M Arabic Kokoro model; dialect fidelity needs native-speaker evaluation. */
+    val nabraArabicInt8 = VoiceModelEntry(
+        id = "nabra-82m-arabic-int8",
+        providerId = "sherpa",
+        displayName = "Nabra Arabic (int8)",
+        languages = setOf("ar"),
+        sizeMb = 82,
+        expectedRamMb = 260,
+        expectedCpuPercent = 30.0,
+        downloadUrl = BASE_URL + "/nabra-82m-arabic-int8.tar.bz2",
+        archiveFileName = "nabra-82m-arabic-int8.tar.bz2",
+        modelFile = "model.int8.onnx",
+        tokensFile = "tokens.txt",
+        voicesFile = "voices.bin",
+        speakerCount = 1,
+        quality = com.jarvis.app.voice.provider.VoiceQuality.HIGH,
+        startupCostMs = 7_000,
+        latencyMs = 500
+    )
+
+    val ALL: List<VoiceModelEntry> = listOf(kokoroEnInt8, kokoroEnFp32, kokoroMultiLangInt8, nabraArabicInt8)
 
     fun byId(id: String): VoiceModelEntry? = ALL.firstOrNull { it.id == id }
 }

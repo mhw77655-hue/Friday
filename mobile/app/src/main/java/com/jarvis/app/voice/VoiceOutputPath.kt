@@ -57,7 +57,7 @@ class VoiceOutputPath(
         interrupt()
         val requestStartedAt = SystemClock.elapsedRealtime()
         val profile = profileStore.get(DefaultJarvisVoiceProfile.id) ?: DefaultJarvisVoiceProfile
-        val lang = language ?: profile.language
+        val lang = language ?: if (text.any { Character.UnicodeBlock.of(it) == Character.UnicodeBlock.ARABIC }) "ar" else profile.language
         val segments = segment(text)
         Telemetry.logSignal("voice_output", "requested")
         Telemetry.logSignal("voice_output_language", lang)

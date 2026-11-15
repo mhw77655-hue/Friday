@@ -33,11 +33,14 @@ private const val TAG = "SherpaTtsProvider"
  */
 class SherpaTtsVoiceProvider(
     private val modelManager: VoiceModelManager,
-    private val modelEntry: VoiceModelEntry = VoiceModelManifest.kokoroEnInt8
+    private val modelEntry: VoiceModelEntry = VoiceModelManifest.kokoroEnInt8,
+    private val additionalEntries: List<VoiceModelEntry> = listOf(VoiceModelManifest.nabraArabicInt8)
 ) : VoiceProvider {
 
+    private val modelEntries = listOf(modelEntry) + additionalEntries
+
     override val id = "sherpa"
-    override val name = "sherpa-onnx Kokoro"
+    override val name = "sherpa-onnx Kokoro + Arabic Nabra"
 
     private val ttsCache = ConcurrentHashMap<String, OfflineTts>()
     private val cancelled = AtomicBoolean(false)
@@ -46,7 +49,7 @@ class SherpaTtsVoiceProvider(
         val entry = modelEntry
         return VoiceCapabilities(
             providerId = id,
-            languages = entry.languages,
+            languages = modelEntries.flatMap { it.languages }.toSet(),
             voices = voices(),
             streaming = false, // single-shot per sentence; the habitat segments
             cloning = false,
@@ -61,14 +64,13 @@ class SherpaTtsVoiceProvider(
         )
     }
 
-    override fun voices(): List<VoiceInfo> {
-        val entry = modelEntry
-        return (0 until entry.speakerCount).map { i ->
+    override fun voices(): List<VoiceInfo> = modelEntries.flatMap { entry ->
+        (0 until entry.speakerCount).map { i ->
             VoiceInfo(
-                id = "speaker_$i",
-                name = "Kokoro speaker ${i + 1}",
+                id = entry.id + ":speaker_" + i,
+                name = entry.displayName + " " + (i + 1),
                 language = entry.languages.firstOrNull() ?: "en",
-                quality = VoiceQuality.HIGH
+                quality = entry.quality
             )
         }
     }
@@ -87,7 +89,8 @@ class SherpaTtsVoiceProvider(
         outFile: File
     ): VoiceSynthesisResult = withContext(Dispatchers.IO) {
         cancelled.set(false)
-        val entry = modelEntry
+        val normalizedLanguage = language.lowercase().substringBefore("-")
+        val entry = modelEntries.firstOrNull { normalizedLanguage in it.languages } ?: modelEntry
         // The model supports the requested language (else the selector wouldn't route here).
         val acquire = modelManager.acquire(entry)
         if (acquire.isFailure) {
@@ -134,11 +137,12 @@ class SherpaTtsVoiceProvider(
     }
 
     override suspend fun healthCheck(): ProviderHealth {
-        val loaded = ttsCache.containsKey(modelEntry.id)
+        val loaded = modelEntries.any { ttsCache.containsKey(it.id) }
+        val present = modelEntries.any { modelManager.isPresent(it.id) }
         return ProviderHealth(
-            healthy = loaded || modelManager.isPresent(modelEntry.id),
+            healthy = loaded || present,
             providerId = id,
-            error = if (loaded) null else "model not loaded yet (lazy)"
+            error = if (loaded || present) null else "model not downloaded yet (lazy)"
         )
     }
 
@@ -179,7 +183,7 @@ class SherpaTtsVoiceProvider(
 
     private fun speakerIdFor(voiceId: String?): Int {
         if (voiceId.isNullOrBlank()) return 0
-        val i = voiceId.removePrefix("speaker_").toIntOrNull() ?: 0
+        val i = voiceId.substringAfterLast("speaker_").toIntOrNull() ?: 0
         return i.coerceAtLeast(0)
     }
 
