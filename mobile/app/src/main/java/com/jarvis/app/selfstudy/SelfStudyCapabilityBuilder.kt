@@ -30,7 +30,7 @@ object SelfStudyCapabilityPolicy {
             ?.takeIf { it.matches(Regex("[a-z][a-z0-9_]{2,63}")) }
             ?: return null
         val description = reflection.candidateDescription?.trim()
-            ?.takeIf { it.isNotBlank() && it.length <= 500 && '\\n' !in it && '\\r' !in it }
+            ?.takeIf { it.isNotBlank() && it.length <= 500 && '\n' !in it && '\r' !in it }
             ?: return null
         if (forbidden.containsMatchIn(capability.replace('_', ' ')) ||
             forbidden.containsMatchIn(description)
