@@ -18,6 +18,7 @@ import com.jarvis.app.ui.navigation.JarvisNavHost
 import com.jarvis.app.ui.theme.JarvisTheme
 import com.jarvis.app.video.VideoIntakeRepository
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
 
 class MainActivity : ComponentActivity() {
     private val micPermissionLauncher = registerForActivityResult(
@@ -31,6 +32,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         handleSharedVideoIntent(intent)
+        if (intent.getBooleanExtra(
+                com.jarvis.app.voice.FridayVoiceInteractionSession.EXTRA_FRIDAY_VOICE_INVOCATION,
+                false
+            )
+        ) beginAssistantListening()
         ShizukuBridge.init()
         // End the Human Core session when the app goes to the background so
         // session-boundary work (bond growth, baseline coupling, reflection)
@@ -84,13 +90,31 @@ class MainActivity : ComponentActivity() {
                 com.jarvis.app.voice.FridayVoiceInteractionSession.EXTRA_FRIDAY_VOICE_INVOCATION,
                 false
             )
+        ) beginAssistantListening()
+    }
+
+    private fun beginAssistantListening() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) !=
+            PackageManager.PERMISSION_GRANTED
         ) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
-                PackageManager.PERMISSION_GRANTED
-            ) {
-                JarvisMic.start(lifecycleScope)
+            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
+        lifecycleScope.launch {
+            val readiness = JarvisEngine.readinessState.first {
+                it is EngineReadinessState.Ready || it is EngineReadinessState.FailedToWake
+            }
+            if (readiness is EngineReadinessState.Ready) {
+                JarvisEngine.getBodyCoordinator().apply {
+                    emitEvent(com.jarvis.app.body.BodyEvent.WakeDetected(1.0f))
+                    emitEvent(com.jarvis.app.body.BodyEvent.SpeechStart)
+                }
             } else {
-                micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                Toast.makeText(
+                    this@MainActivity,
+                    "Friday's voice system is not ready yet.",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
     }
