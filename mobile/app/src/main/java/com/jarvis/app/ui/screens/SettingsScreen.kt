@@ -131,7 +131,7 @@ fun SettingsScreen() {
 
         SectionLabel("JEV DEVICE-DECISION ENGINE")
         Text(
-            text = "Optional TypeSafe Jev connection. When enabled, the spoken command context, proposed action and risk tier may be sent to TypeSafe for a decision. For text-entry commands, the actual text to be typed is redacted and never sent. Tap and text-entry actions still require Friday's local confirmation. The key is encrypted with Android Keystore and is never stored in plain SharedPreferences.",
+            text = "Optional TypeSafe Jev cloud decision faculty. Friday's own local model forms phone-action plans; the spoken request (with literal text-entry payload redacted), proposed action and risk tier may be sent to Jev for Choice, Score and Noul judgments. Screen snapshots stay on-device. Jev cannot execute Android actions or grant permissions. Consequential actions still require Friday's spoken confirmation. The key is encrypted with Android Keystore and is never stored in plain SharedPreferences.",
             style = JarvisType.Label,
             modifier = Modifier.padding(bottom = 8.dp)
         )
