@@ -10,11 +10,19 @@ The learned strategy changes future context budgets, concurrency, speech chunk s
 
 The state is stored in app-private files and restored after process restart. Persistence is throttled for host samples and forced after organ outcomes. It stores aggregate metrics and strategy values, not prompts, transcripts or screen contents.
 
-## JEPA-inspired predictive core
+## JEPA algorithms and predictive core
 
-`JepaLatentPredictor` learns a compact next-state predictor over six resource/workload features, conditioned on the previous operating action. It updates an EMA target representation, tracks prediction error and persists predictor parameters. It never trains on raw conversation text, audio or pixels.
+`JepaLatentPredictor` is now an action-conditioned latent world model over six normalized phone/resource/workload features. Its action vector records the quality outcome and the changes Friday made to reasoning context and background scheduling.
 
-This is a lightweight online latent predictor inspired by JEPA, not a pretrained or full neural JEPA model. Its value is to establish a persistent predictive-learning substrate on the phone; richer encoders and multimodal predictive models can be introduced as organs later.
+The implementation uses:
+- A fixed, bounded host-state representation as the target space. Because this encoder is not trainable, this small tabular model cannot collapse by learning a constant encoder.
+- An EMA-smoothed target latent, with a stop-gradient-equivalent target path (the target is data, not a trainable branch).
+- An action-conditioned predictor that forecasts the next latent state.
+- A bounded recent-transition replay buffer and a fixed number of online replay passes, inspired by persistent JEPA test-time adaptation.
+- Multi-step latent rollout, capped at eight steps, for comparing candidate operating-action sequences.
+- Persisted predictor weights, EMA target, replay samples, sample count and prediction-error telemetry.
+
+This applies the useful algorithmic ideas from seq-JEPA and JEPA-TTT to phone telemetry without pretending to be a full visual transformer JEPA. The phone-side implementation does not yet include learned visual/audio encoders, masked patch prediction, a large neural target encoder or a trained planning policy. Those require distinct model assets and validation. It never trains on raw conversation text, audio or pixels.
 
 ## Phone-wide voice control
 
