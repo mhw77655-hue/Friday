@@ -108,7 +108,7 @@ class NanoSymbioticPolicyTest {
     @Test
     fun `context is reduced before a smaller resident model is rejected`() {
         val host = HostResourceState(
-            availableMemoryMb = 2000,
+            availableMemoryMb = 2080,
             cpuLoadPercent = 20.0,
             thermalLevel = 0,
             batteryPercent = 90,
