@@ -6,33 +6,72 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class OfflineModelCatalogTest {
-    @Test fun residentModelHasPinnedOfficialSourceAndPrivateInstallIdentity() {
+    @Test fun primaryResidentIsMiniCpm5AndPinned() {
         val model = OfflineModelCatalog.resident
-        assertEquals("lfm2.5-1.2b-instruct", model.id)
-        assertEquals("LiquidAI/LFM2.5-1.2B-Instruct-GGUF", model.repository)
-        assertTrue(model.revision.matches(Regex("[0-9a-f]{7,40}")))
-        assertEquals("LFM2.5-1.2B-Instruct-Q4_K_M.gguf", model.filename)
+        assertEquals("minicpm5-2b-heretic", model.id)
+        assertEquals("saidutta69/MiniCPM5-2B-heretic", model.repository)
+        assertEquals("178a9e6", model.revision)
+        assertEquals("MiniCPM5-2B-heretic-Q4_K_M.gguf", model.filename)
+        assertEquals("Apache-2.0", model.license)
         assertTrue(model.downloadUrl.startsWith("https://huggingface.co/"))
         assertFalse(model.downloadUrl.contains("/resolve/main/"))
         assertTrue(model.resident)
     }
 
+    @Test fun lfmIsOnlyTheLowMemoryFallback() {
+        val model = OfflineModelCatalog.fallback
+        assertEquals("lfm2.5-1.2b-abliterated", model.id)
+        assertEquals("LFM 1.0", model.license)
+        assertFalse(model.resident)
+    }
+
     @Test fun reasoningModelIsSeparateAndApacheLicensed() {
         val model = OfflineModelCatalog.reasoning
-        assertEquals("ggml-org/Qwen3-1.7B-GGUF", model.repository)
+        assertEquals("qwen3.5-2b-abliterated", model.id)
+        assertEquals("mradermacher/Huihui-Qwen3.5-2B-abliterated-GGUF", model.repository)
         assertEquals("Apache-2.0", model.license)
         assertTrue(model.revision.matches(Regex("[0-9a-f]{7,40}")))
         assertFalse(model.resident)
     }
 
-    @Test fun modelIdsMatchExistingModelPathResolverAliases() {
+    @Test fun sparkIsTheHighestTierReasoningCandidate() {
+        val model = OfflineModelCatalog.advanced
+        assertEquals("spark-x2.6-4b-abliterated", model.id)
+        assertEquals("alexwkleung/Spark-X2.6-4B-Abliterated-GGUF", model.repository)
+        assertEquals("59e1a0b", model.revision)
+        assertFalse(model.resident)
+    }
+
+    @Test fun catalogIdsAreUniqueAndEveryAssetIsPinned() {
+        val all = OfflineModelCatalog.all
+        assertEquals(4, all.map { it.id }.toSet().size)
+        assertTrue(all.all { it.revision.matches(Regex("[0-9a-f]{7,40}")) })
+    }
+
+    @Test fun modelIdsMatchPathResolverAliases() {
         assertEquals(
-            "LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
+            "MiniCPM5-2B-heretic-Q4_K_M.gguf",
             ModelPathResolver.modelFileName(OfflineModelCatalog.resident.id)
         )
         assertEquals(
-            "Qwen3-1.7B-Q4_K_M.gguf",
+            "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
+            ModelPathResolver.modelFileName(OfflineModelCatalog.fallback.id)
+        )
+        assertEquals(
+            "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf",
             ModelPathResolver.modelFileName(OfflineModelCatalog.reasoning.id)
+        )
+        assertEquals(
+            "Spark-X2.6-4B-Abliterated-Q4_K_M.gguf",
+            ModelPathResolver.modelFileName(OfflineModelCatalog.advanced.id)
+        )
+        assertEquals(
+            "MiniCPM5-2B-heretic-Q4_K_M.gguf",
+            ModelPathResolver.modelFileName("jarvis-resident:latest")
+        )
+        assertEquals(
+            "Spark-X2.6-4B-Abliterated-Q4_K_M.gguf",
+            ModelPathResolver.modelFileName("jarvis-reasoning:latest")
         )
     }
 }
