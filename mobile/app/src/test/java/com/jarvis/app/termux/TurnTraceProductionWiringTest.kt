@@ -15,13 +15,11 @@ import org.junit.Test
 import java.io.File
 
 /**
- * TURN-TRACE (Gate 3a) — the PRODUCTION-path half of the acceptance evidence.
+ * TURN-TRACE (Gate 3a) — JVM test-harness evidence only.
  *
- * AC1 demands proof against "every turn that goes through the real production
- * entry point, not a mock/test-only path." This drives the REAL JVM-executable
- * composition root (TermuxJarvisServer — the mirror of JarvisEngine.init with
- * only the two Android-bound stores swapped) through its REAL LatencyPipeline
- * down to CognitiveEngine.process, i.e. the exact call path
+ * This drives the test-only JVM composition harness through its real
+ * LatencyPipeline down to CognitiveEngine.process. It exercises shared logic,
+ * but it is not proof of the Android app entry point or device lifecycle:
  *
  *   /api/chat -> LatencyPipeline.onUserInput
  *            -> CognitiveEngine.process(text, ctx, sendBlock = bridgeSend)
