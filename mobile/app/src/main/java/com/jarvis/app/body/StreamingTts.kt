@@ -27,7 +27,6 @@ import java.io.File
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicReference
 
 private const val TAG = "StreamingTts"
 private const val CACHE_DIR = "jarvis_tts_stream_cache"
@@ -67,6 +66,7 @@ class StreamingTts(
     private val cacheDir = File(context.cacheDir, CACHE_DIR)
     private val completedAudioCache = CompletedAudioCache(cacheDir)
     private val synthesisCompletionGate = SynthesisCompletionGate()
+    private val synthesisLifecycleLock = Any()
     private val synthesisCache = ConcurrentHashMap<String, File>()
     private val activePlayer = AtomicBoolean(false)
     private var currentPlayer: MediaPlayer? = null
@@ -185,58 +185,67 @@ class StreamingTts(
 
             override fun onDone(utteranceId: String?) {
                 if (utteranceId == null) return
-                val wasSynthesis = synthesisCompletionGate.isPending(utteranceId) || isSynthesisUtterance(utteranceId)
-                val outcome = synthesisCompletionGate.markCompleted(utteranceId)
-                if (outcome != null) {
-                    handleSynthesisOutcome(outcome)
-                } else if (!wasSynthesis) {
-                    activePlayer.set(false)
-                    _isSpeaking.value = false
+                synchronized(synthesisLifecycleLock) {
+                    val wasSynthesis = synthesisCompletionGate.isPending(utteranceId) ||
+                        isSynthesisUtterance(utteranceId)
+                    val outcome = synthesisCompletionGate.markCompleted(utteranceId)
+                    if (outcome != null) {
+                        handleSynthesisOutcome(outcome)
+                    } else if (!wasSynthesis) {
+                        activePlayer.set(false)
+                        _isSpeaking.value = false
+                    }
                 }
             }
 
             override fun onError(utteranceId: String?) {
                 if (utteranceId == null) return
-                val wasSynthesis = synthesisCompletionGate.isPending(utteranceId) || isSynthesisUtterance(utteranceId)
-                val outcome = synthesisCompletionGate.markFailed(
-                    utteranceId,
-                    "Android TextToSpeech reported an utterance error"
-                )
-                if (outcome != null) {
-                    handleSynthesisOutcome(outcome)
-                } else if (!wasSynthesis) {
-                    activePlayer.set(false)
-                    _isSpeaking.value = false
-                    onFailure(
-                        FailureReport(
-                            subsystem = "STREAMING_TTS",
-                            operation = "speak",
-                            severity = com.jarvis.app.failure.FailureSeverity.RECOVERABLE,
-                            category = com.jarvis.app.failure.FailureCategory.TTS,
-                            message = "Streaming TTS utterance error",
-                            source = "StreamingTts",
-                            cause = "utteranceId=$utteranceId",
-                            recoverability = com.jarvis.app.failure.Recoverability.RETRYABLE,
-                            recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY
-                        )
+                synchronized(synthesisLifecycleLock) {
+                    val wasSynthesis = synthesisCompletionGate.isPending(utteranceId) ||
+                        isSynthesisUtterance(utteranceId)
+                    val outcome = synthesisCompletionGate.markFailed(
+                        utteranceId,
+                        "Android TextToSpeech reported an utterance error"
                     )
+                    if (outcome != null) {
+                        handleSynthesisOutcome(outcome)
+                    } else if (!wasSynthesis) {
+                        activePlayer.set(false)
+                        _isSpeaking.value = false
+                        onFailure(
+                            FailureReport(
+                                subsystem = "STREAMING_TTS",
+                                operation = "speak",
+                                severity = com.jarvis.app.failure.FailureSeverity.RECOVERABLE,
+                                category = com.jarvis.app.failure.FailureCategory.TTS,
+                                message = "Streaming TTS utterance error",
+                                source = "StreamingTts",
+                                cause = "utteranceId=$utteranceId",
+                                recoverability = com.jarvis.app.failure.Recoverability.RETRYABLE,
+                                recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY
+                            )
+                        )
+                    }
                 }
             }
 
             override fun onStop(utteranceId: String?, interrupted: Boolean) {
                 if (utteranceId == null) return
-                val wasSynthesis = synthesisCompletionGate.isPending(utteranceId) || isSynthesisUtterance(utteranceId)
-                val reason = if (interrupted) {
-                    "TTS synthesis was interrupted before its output completed"
-                } else {
-                    "TTS synthesis was flushed before it started"
-                }
-                val outcome = synthesisCompletionGate.markFailed(utteranceId, reason)
-                if (outcome != null) {
-                    handleSynthesisOutcome(outcome)
-                } else if (!wasSynthesis) {
-                    activePlayer.set(false)
-                    _isSpeaking.value = false
+                synchronized(synthesisLifecycleLock) {
+                    val wasSynthesis = synthesisCompletionGate.isPending(utteranceId) ||
+                        isSynthesisUtterance(utteranceId)
+                    val reason = if (interrupted) {
+                        "TTS synthesis was interrupted before its output completed"
+                    } else {
+                        "TTS synthesis was flushed before it started"
+                    }
+                    val outcome = synthesisCompletionGate.markFailed(utteranceId, reason)
+                    if (outcome != null) {
+                        handleSynthesisOutcome(outcome)
+                    } else if (!wasSynthesis) {
+                        activePlayer.set(false)
+                        _isSpeaking.value = false
+                    }
                 }
             }
         })
@@ -307,7 +316,9 @@ class StreamingTts(
     }
 
     private fun cancelPendingSynthesis(reason: String) {
-        synthesisCompletionGate.cancelAll(reason).forEach(::handleSynthesisOutcome)
+        synchronized(synthesisLifecycleLock) {
+            synthesisCompletionGate.cancelAll(reason).forEach(::handleSynthesisOutcome)
+        }
     }
 
     private fun selectBestVoiceForLanguage(language: LanguageRouter.Language) {
@@ -485,8 +496,9 @@ class StreamingTts(
             playCached(cachedFile, segment.isFinal)
         } else {
             // A leftover file without the completion marker is never a cache hit.
+            // Keep it quarantined until a newly completed synthesis atomically
+            // replaces it; never delete another in-flight request's result.
             synthesisCache.remove(cacheKey)
-            completedAudioCache.invalidate(cacheKey)
             synthesizeAndPlay(ssml, lang, segment.isFinal, cacheKey)
         }
     }
@@ -542,19 +554,46 @@ class StreamingTts(
         val id = (if (shouldPlay) "tts_" else "preload_") +
             currentUtteranceId.incrementAndGet()
         val ticket = completedAudioCache.ticket(cacheKey, id)
-        val reservation = synthesisCompletionGate.reserve(ticket, shouldPlay, isFinal)
-        if (reservation is SynthesisReservation.Joined) return
+        var cacheHit: File? = null
+        var shouldStart = false
+
+        synchronized(synthesisLifecycleLock) {
+            val reservation = synthesisCompletionGate.reserve(ticket, shouldPlay, isFinal)
+            if (reservation is SynthesisReservation.Joined) return
+
+            // Re-check AFTER reserving. A previous first request may have
+            // completed between the initial cache lookup and this admission.
+            // The same lock serializes this check with callback-driven promotion.
+            if (completedAudioCache.isComplete(cacheKey)) {
+                synthesisCompletionGate.forget(id)
+                cacheHit = completedAudioCache.completedFile(cacheKey)
+                cacheHit?.let { synthesisCache[cacheKey] = it }
+            } else {
+                synthesisCache.remove(cacheKey)
+                ticket.temporaryFile.delete()
+                shouldStart = true
+            }
+        }
+
+        val completedHit = cacheHit
+        if (completedHit != null) {
+            if (shouldPlay) playCached(completedHit, isFinal)
+            return
+        }
+        if (!shouldStart) return
 
         try {
             // SUCCESS means only that Android accepted the queued request. The
             // completion gate waits for onDone before cache promotion or playback.
             val result = activeEng.synthesizeToFile(ssml, null, ticket.temporaryFile, id)
-            val outcome = synthesisCompletionGate.markAccepted(
-                id,
-                accepted = result == TextToSpeech.SUCCESS,
-                failureReason = "synthesizeToFile returned $result"
-            )
-            if (outcome != null) handleSynthesisOutcome(outcome)
+            synchronized(synthesisLifecycleLock) {
+                val outcome = synthesisCompletionGate.markAccepted(
+                    id,
+                    accepted = result == TextToSpeech.SUCCESS,
+                    failureReason = "synthesizeToFile returned $result"
+                )
+                if (outcome != null) handleSynthesisOutcome(outcome)
+            }
 
             // Preserve direct TTS as a fallback when the queue rejects the
             // synthesis request synchronously. Async onError/onStop is reported
@@ -580,11 +619,13 @@ class StreamingTts(
                 }
             }
         } catch (e: Exception) {
-            val outcome = synthesisCompletionGate.markFailed(
-                id,
-                "${e.javaClass.simpleName}: ${e.message}"
-            )
-            if (outcome != null) handleSynthesisOutcome(outcome)
+            synchronized(synthesisLifecycleLock) {
+                val outcome = synthesisCompletionGate.markFailed(
+                    id,
+                    "${e.javaClass.simpleName}: ${e.message}"
+                )
+                if (outcome != null) handleSynthesisOutcome(outcome)
+            }
         }
     }
 
