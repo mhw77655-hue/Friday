@@ -106,6 +106,65 @@ plugins {
     }
 }
 
+
+val fridaySourceIndexAssets = layout.buildDirectory.dir("generated/fridaySourceIndex/assets")
+android.sourceSets.getByName("main").assets.srcDir(fridaySourceIndexAssets)
+
+val generateFridaySourceIndex = tasks.register("generateFridaySourceIndex") {
+    val sourceRoot = layout.projectDirectory.dir("src/main/java")
+    inputs.dir(sourceRoot)
+    val indexFile = fridaySourceIndexAssets.map { it.file("friday-source-index.json") }
+    outputs.file(indexFile)
+    doLast {
+        val root = sourceRoot.asFile
+        val files = root.walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .sortedBy { it.relativeTo(root).invariantSeparatorsPath }
+            .toList()
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        val entries = files.map { source ->
+            val relative = source.relativeTo(root).invariantSeparatorsPath
+            val text = source.readText()
+            digest.update(relative.toByteArray(Charsets.UTF_8))
+            digest.update(0)
+            digest.update(text.toByteArray(Charsets.UTF_8))
+            val packageName = Regex("(?m)^\\s*package\\s+([A-Za-z0-9_.]+)")
+                .find(text)?.groupValues?.get(1).orEmpty()
+            val declarations = Regex(
+                "(?m)^\\s*(?:(?:public|internal|private|protected|abstract|open|data|sealed|enum|annotation|value|expect|actual|suspend|inline|infix|operator|override)\\s+)*(?:class|interface|object|typealias|fun)\\s+([A-Za-z_][A-Za-z0-9_]*)"
+            ).findAll(text).map { it.groupValues[1] }.distinct().toList()
+            Triple(relative, packageName, declarations)
+        }
+        val revision = digest.digest().joinToString("") { "%02x".format(it) }
+        fun String.jsonEscape(): String = replace("\\\\", "\\\\\\\\")
+            .replace("\\"", "\\\\\"")
+            .replace("\\n", "\\\\n")
+            .replace("\\r", "\\\\r")
+        val json = buildString {
+            append("{\n  \"schemaVersion\": 1,\n  \"sourceRevision\": \"")
+            append(revision)
+            append("\",\n  \"files\": [")
+            entries.forEachIndexed { index, entry ->
+                if (index > 0) append(",")
+                append("\n    { \"path\": \"").append(entry.first.jsonEscape())
+                append("\", \"package\": \"").append(entry.second.jsonEscape())
+                append("\", \"declarations\": [")
+                append(entry.third.joinToString(", ") { "\""+it.jsonEscape()+"\"" })
+                append("] }")
+            }
+            if (entries.isNotEmpty()) append("\n  ")
+            append("]\n}\n")
+        }
+        val out = indexFile.get().asFile
+        out.parentFile.mkdirs()
+        out.writeText(json)
+    }
+}
+
+tasks.named("preBuild").configure {
+    dependsOn(generateFridaySourceIndex)
+}
+
 kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_17)
