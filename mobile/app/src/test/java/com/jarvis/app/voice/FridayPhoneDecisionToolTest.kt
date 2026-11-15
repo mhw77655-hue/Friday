@@ -3,6 +3,7 @@ package com.jarvis.app.voice
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertFalse
 import java.util.concurrent.atomic.AtomicBoolean
 import org.junit.Test
 
@@ -41,6 +42,25 @@ class FridayPhoneDecisionToolTest {
         assertTrue("Jev should be consulted for consequential actions", remoteCalled.get())
         assertEquals(FridayPhoneDecisionTool.Verdict.CONFIRM, result.verdict)
         assertEquals(FridayPhoneDecisionTool.Source.FRIDAY_LOCAL_POLICY, result.source)
+    }
+
+    @Test fun `typed private content is redacted before Jev evaluation`() = runBlocking {
+        var sentText = ""
+        val tool = FridayPhoneDecisionTool { utterance, _, _ ->
+            sentText = utterance
+            null
+        }
+        val result = tool.judge(
+            utterance = "type my private password 12345",
+            command = PhoneCommandInterpreter.parse("type my private password 12345")!!,
+            remoteConfigured = true
+        )
+        assertEquals(
+            "The user explicitly requested text entry into the currently focused field.",
+            sentText
+        )
+        assertFalse(sentText.contains("12345"))
+        assertEquals(FridayPhoneDecisionTool.Verdict.CONFIRM, result.verdict)
     }
 
     @Test fun `configured but unavailable Jev falls back to local allowlist for low risk actions`() = runBlocking {
