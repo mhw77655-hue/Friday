@@ -243,6 +243,35 @@ class ToolBuilderTest {
     }
 
     @Test
+    fun `startup restores archived genome metadata but does not mistake it for an executable tool`() = runBlocking {
+        val root = tmpDir()
+        val storage = FileStorage(root)
+        val scope = CoroutineScope(Dispatchers.IO)
+        val archived = GenomeBuilder("archived-tool-genome")
+            .capability("archived_tool")
+            .build()
+            .copy(healthState = com.jarvis.app.genome.GenomeHealth.HEALTHY)
+        try {
+            GenomeArchive(storage, scope).put(archived)
+            Thread.sleep(250)
+            val stack = ToolBuilderComposition.build(
+                research = UniversalResearchEngine(),
+                failureSurface = FailureSurface(),
+                fileStorage = storage,
+                scope = scope,
+                workspacesDir = File(root, "workspaces")
+            )
+            assertEquals("archived-tool-genome", stack.genomeRegistry.bestFor("archived_tool")?.id)
+            val gap = CapabilityGapDetector(stack.registry, stack.genomeRegistry).detect("archived_tool")
+            assertTrue(gap.gap)
+            assertEquals("KNOWN_GOOD_ARTIFACT_MISSING", gap.status)
+            stack.scope.cancel()
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
     fun `building an already-satisfied capability is a no-op`() = runBlocking {
         val h = harness()
         val spec = ToolSpecification(
