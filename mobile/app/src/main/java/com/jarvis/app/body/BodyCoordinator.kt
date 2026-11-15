@@ -309,6 +309,8 @@ class BodyCoordinator(
                                     "I couldn't find ${actionResult.target}."
                                 is com.jarvis.app.voice.PhoneControlResult.Unavailable ->
                                     actionResult.reason
+                                is com.jarvis.app.voice.PhoneControlResult.UserActionRequired ->
+                                    actionResult.reason
                                 null -> "I couldn't perform that action."
                             }
                             tts?.speak(feedback)
