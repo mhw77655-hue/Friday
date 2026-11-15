@@ -4,6 +4,10 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
 
 /** Cross-host, atomic JSON store so Android and workshop builds share one schema. */
 class JsonFileExpectationStore(private val file: File) : ExpectationStore {
@@ -67,28 +71,42 @@ class JsonFileExpectationStore(private val file: File) : ExpectationStore {
         writeRoot(root)
     }
 
-    private fun readRoot(): JSONObject = runCatching {
-        if (!file.isFile) JSONObject() else JSONObject(file.readText(Charsets.UTF_8))
-    }.getOrElse { JSONObject() }
+    private fun readRoot(): JSONObject {
+        if (!file.isFile) return JSONObject()
+        return try {
+            JSONObject(file.readText(Charsets.UTF_8))
+        } catch (_: Exception) {
+            // Preserve a damaged store for inspection instead of silently overwriting it.
+            val backup = File(file.parentFile, file.name + ".corrupt-" + System.currentTimeMillis())
+            runCatching { file.copyTo(backup, overwrite = false) }
+            JSONObject()
+        }
+    }
 
     private fun writeRoot(root: JSONObject) {
-        file.parentFile?.mkdirs()
-        val temporary = File(file.parentFile, file.name + ".tmp")
+        val parent = file.absoluteFile.parentFile
+        parent?.mkdirs()
+        val temporary = File(parent, file.name + ".tmp")
         FileOutputStream(temporary).use { output ->
             output.write(root.toString().toByteArray(Charsets.UTF_8))
             output.fd.sync()
         }
-        if (file.exists() && !file.delete()) {
-            temporary.delete()
-            error("Could not replace predictive-state store.")
-        }
-        if (!temporary.renameTo(file)) {
-            temporary.delete()
-            error("Could not atomically save predictive-state store.")
+        try {
+            Files.move(
+                temporary.toPath(),
+                file.toPath(),
+                StandardCopyOption.REPLACE_EXISTING,
+                StandardCopyOption.ATOMIC_MOVE
+            )
+        } catch (_: AtomicMoveNotSupportedException) {
+            Files.move(temporary.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
         }
     }
 
-    private fun key(personKey: String): String = personKey.hashCode().toUInt().toString(16)
+    private fun key(personKey: String): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(personKey.toByteArray(Charsets.UTF_8))
+        return digest.take(12).joinToString("") { "%02x".format(it) }
+    }
 
     private fun JSONObject.toStringMap(): Map<String, String> {
         val result = linkedMapOf<String, String>()
