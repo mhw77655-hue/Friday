@@ -8,14 +8,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Persistent genome archive. Stores every genome that was ever created,
  * preserving the full lineage. Uses the existing [FileStorage] and
- * [StoreKind.GENOME_ARCHIVE] (JSONL append-only) — no second persistence system.
+ * [StoreKind.GENOME_ARCHIVE] (fsynced atomic JSON snapshot) — no second persistence system.
  *
  * The archive is the evolutionary memory. Queryable, append-only, never
  * prunes successful or informative failed candidates.
@@ -26,6 +29,8 @@ class GenomeArchive(
 ) {
 
     private val store = ConcurrentHashMap<String, Genome>()
+    private val persistMutex = Mutex()
+    private val persistGeneration = AtomicLong(0)
 
     /** All known genomes, keyed by id. */
     val allGenomes: Map<String, Genome> get() = store.toMap()
@@ -63,35 +68,48 @@ class GenomeArchive(
     fun count(): Int = store.size
 
     private fun persistAsync() {
+        val generation = persistGeneration.incrementAndGet()
         scope.launch(Dispatchers.IO) {
-            try {
-                val arr = JSONArray()
-                for (g in store.values) arr.put(toJson(g))
-                fileStorage.append(StoreKind.GENOME_ARCHIVE, arr.toString())
-            } catch (t: Throwable) {
-                android.util.Log.w("GenomeArchive", "persist failed", t)
+            persistMutex.withLock {
+                // Skip stale queued snapshots. The newest request writes the
+                // complete in-memory archive as one fsynced atomic file.
+                if (generation != persistGeneration.get()) return@withLock
+                try {
+                    val arr = JSONArray()
+                    store.values.sortedBy { it.id }.forEach { arr.put(toJson(it)) }
+                    fileStorage.write(StoreKind.GENOME_ARCHIVE, arr.toString())
+                } catch (t: Throwable) {
+                    android.util.Log.w("GenomeArchive", "persist failed", t)
+                }
             }
         }
+    }
+
+    private fun loadArray(array: JSONArray): Int {
+        var loaded = 0
+        for (i in 0 until array.length()) {
+            runCatching { fromJson(array.getJSONObject(i)) }.getOrNull()?.let { genome ->
+                store[genome.id] = genome
+                loaded++
+            }
+        }
+        return loaded
     }
 
     fun loadFromDisk(): Int {
         return try {
             val content = fileStorage.read(StoreKind.GENOME_ARCHIVE) ?: return 0
-            val lines = content.lines().filter { it.isNotBlank() }
             var loaded = 0
-            for (line in lines) {
-                try {
-                    val arr = JSONArray(line)
-                    for (i in 0 until arr.length()) {
-                        val g = fromJson(arr.getJSONObject(i))
-                        store[g.id] = g
-                        loaded++
-                    }
-                } catch (_: Exception) {
-                    // skip corrupt line
+            val snapshot = runCatching { JSONArray(content) }.getOrNull()
+            if (snapshot != null) {
+                loaded += loadArray(snapshot)
+            } else {
+                // Backward-compatible reader for earlier JSONL snapshot files.
+                content.lineSequence().filter { it.isNotBlank() }.forEach { line ->
+                    runCatching { JSONArray(line) }.getOrNull()?.let { loaded += loadArray(it) }
                 }
             }
-            _latestId.value = store.values.maxByOrNull { it.version }?.id
+            _latestId.value = store.values.maxByOrNull { it.provenance.createdMs }?.id
             loaded
         } catch (t: Throwable) {
             android.util.Log.w("GenomeArchive", "load failed", t)
