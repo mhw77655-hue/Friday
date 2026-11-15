@@ -137,34 +137,47 @@ class InAppLlamaModelBackend(context: Context) : ModelBackend {
      * Friday's identity or memory. If the new envelope fails, restore the
      * previous working envelope before surfacing an error.
      */
-    private suspend fun adaptIfNeeded(handle: ModelHandle, engine: LocalInferenceEngine) {
-        val previous = profiles[handle] ?: return
-        val file = modelFiles[handle] ?: return
-        val config = backendConfigs[handle] ?: return
+    private suspend fun adaptIfNeeded(handle: ModelHandle, engine: LocalInferenceEngine): Boolean {
+        val previous = profiles[handle] ?: return true
+        val file = modelFiles[handle] ?: return true
+        val config = backendConfigs[handle] ?: return true
         val host = nano.observeHost()
         val recommended = nano.recommend(host)
         val admission = NanoLiquidPolicy.admitModel(host, file.length(), recommended.contextTokens)
-        if (!admission.allowed) return
+        if (!admission.allowed) {
+            engine.unload(UnloadRequest(handle.modelId))
+            engines.remove(handle)
+            profiles.remove(handle)
+            modelFiles.remove(handle)
+            backendConfigs.remove(handle)
+            unavailable[handle] = "Paused to protect your phone. ${admission.reason}"
+            return false
+        }
         val latest = admission.suggestedContextTokens?.let { recommended.copy(contextTokens = it) }
             ?: recommended
-        if (latest.threads == previous.threads && latest.contextTokens == previous.contextTokens && latest.batchTokens == previous.batchTokens) return
+        if (latest.threads == previous.threads && latest.contextTokens == previous.contextTokens && latest.batchTokens == previous.batchTokens) return true
 
         engine.unload(UnloadRequest(handle.modelId))
         configure(engine, file, config, latest)
         val adapted = engine.load(LoadRequest(handle.modelId))
         if (adapted.success) {
             profiles[handle] = latest
-            return
+            return true
         }
 
         configure(engine, file, config, previous)
         val restored = engine.load(LoadRequest(handle.modelId))
         if (!restored.success) {
-            throw IllegalStateException(
-                "NAE adaptation failed and the previous inference context could not be restored: " +
-                    (restored.error ?: adapted.error ?: "unknown native load error")
-            )
+            engines.remove(handle)
+            profiles.remove(handle)
+            modelFiles.remove(handle)
+            backendConfigs.remove(handle)
+            unavailable[handle] =
+                "The phone could not safely restore the previous inference settings after adaptation. " +
+                (restored.error ?: adapted.error ?: "unknown native load error")
+            return false
         }
+        return true
     }
 
     override suspend fun generate(handle: ModelHandle, prompt: String): String {
@@ -173,7 +186,10 @@ class InAppLlamaModelBackend(context: Context) : ModelBackend {
         }
         val engine = engines[handle]
             ?: throw IllegalStateException("The requested local model handle is not loaded.")
-        adaptIfNeeded(handle, engine)
+        if (!adaptIfNeeded(handle, engine)) {
+            val reason = unavailable[handle] ?: "Phone resources are temporarily constrained."
+            return "I paused local inference to protect your phone. $reason"
+        }
         val startedAt = System.nanoTime()
         val result = engine.generate(
             GenerateRequest(messages = listOf(Message(MessageRole.USER, prompt)))
