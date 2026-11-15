@@ -1,11 +1,7 @@
 package com.jarvis.app.prediction
 
-import android.content.Context
-import org.json.JSONArray
-import org.json.JSONObject
 import kotlin.math.exp
 import kotlin.math.max
-import kotlin.math.min
 
 /**
  * A small, replaceable predictive-state experiment.
@@ -50,74 +46,6 @@ interface ExpectationStore {
     fun loadCalibration(personKey: String): PredictionCalibration
     fun saveCalibration(personKey: String, calibration: PredictionCalibration)
     fun clearCalibration(personKey: String) {}
-}
-
-/** Private persistent store; only compact situation features are retained. */
-class SharedPreferencesExpectationStore(context: Context) : ExpectationStore {
-    private val prefs = context.applicationContext.getSharedPreferences(
-        "friday_expectation_state",
-        Context.MODE_PRIVATE
-    )
-
-    override fun loadTransitions(): List<ExpectationTransition> {
-        val array = JSONArray(prefs.getString("transitions", "[]") ?: "[]")
-        return (0 until array.length()).mapNotNull { index ->
-            runCatching {
-                val item = array.getJSONObject(index)
-                ExpectationTransition(
-                    personKey = item.getString("person"),
-                    before = item.getJSONObject("before").toStringMap(),
-                    after = item.getJSONObject("after").toStringMap(),
-                    observedAtMs = item.optLong("at")
-                )
-            }.getOrNull()
-        }
-    }
-
-    override fun saveTransitions(transitions: List<ExpectationTransition>) {
-        val array = JSONArray()
-        transitions.forEach { transition ->
-            array.put(JSONObject().apply {
-                put("person", transition.personKey)
-                put("before", JSONObject(transition.before))
-                put("after", JSONObject(transition.after))
-                put("at", transition.observedAtMs)
-            })
-        }
-        prefs.edit().putString("transitions", array.toString()).apply()
-    }
-
-    override fun loadCalibration(personKey: String): PredictionCalibration {
-        val key = calibrationKey(personKey)
-        return PredictionCalibration(
-            settledSamples = prefs.getInt("${key}_n", 0),
-            predictorAccuracyEma = prefs.getFloat("${key}_p", 0f).toDouble(),
-            baselineAccuracyEma = prefs.getFloat("${key}_b", 0f).toDouble()
-        )
-    }
-
-    override fun saveCalibration(personKey: String, calibration: PredictionCalibration) {
-        val key = calibrationKey(personKey)
-        prefs.edit()
-            .putInt("${key}_n", calibration.settledSamples)
-            .putFloat("${key}_p", calibration.predictorAccuracyEma.toFloat())
-            .putFloat("${key}_b", calibration.baselineAccuracyEma.toFloat())
-            .apply()
-    }
-
-    override fun clearCalibration(personKey: String) {
-        val key = calibrationKey(personKey)
-        prefs.edit().remove("${key}_n").remove("${key}_p").remove("${key}_b").apply()
-    }
-
-    private fun calibrationKey(personKey: String) =
-        "cal_" + personKey.hashCode().toUInt().toString(16)
-
-    private fun JSONObject.toStringMap(): Map<String, String> {
-        val result = linkedMapOf<String, String>()
-        keys().forEach { key -> result[key] = optString(key) }
-        return result
-    }
 }
 
 /**
