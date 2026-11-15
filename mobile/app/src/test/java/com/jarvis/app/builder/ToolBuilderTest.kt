@@ -225,12 +225,8 @@ class ToolBuilderTest {
         assertEquals("3.0", cognitiveCall.result?.output?.get("result"))
 
         val rolledBack = stack.rollback.rollback(
-            com.jarvis.app.evolution.PromotionReceipt(
-                genomeId = result.genomeId!!,
-                rollbackPoint = null,
-                systemId = result.providerId!!,
-                promotedAtMs = 0
-            ),
+            result.promotionReceipt
+                ?: error("a promoted build must retain its complete rollback receipt"),
             "verify cognitive-fabric rollback"
         )
         assertTrue(rolledBack.success)
