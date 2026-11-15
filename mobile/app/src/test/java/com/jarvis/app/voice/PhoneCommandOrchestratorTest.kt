@@ -1,6 +1,8 @@
 package com.jarvis.app.voice
 
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.async
+import kotlinx.coroutines.CompletableDeferred
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -106,6 +108,27 @@ class PhoneCommandOrchestratorTest {
         assertFalse(router.hasPendingConfirmation())
         assertNull(router.handle("yes"))
         assertEquals(0, executions)
+    }
+
+    @Test fun `overlapping voice commands are serialized`() = runBlocking {
+        val started = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val router = PhoneCommandOrchestrator(
+            decisionTool = { FridayPhoneDecisionTool { _, _, _ -> null } },
+            remoteConfigured = { false },
+            execute = {
+                started.complete(Unit)
+                release.await()
+                PhoneControlResult.Success
+            }
+        )
+
+        val first = async { router.handle("go home") }
+        started.await()
+        val second = router.handle("go back")
+        assertTrue(second is PhoneCommandOrchestrator.Outcome.Unavailable)
+        release.complete(Unit)
+        assertTrue(first.await() is PhoneCommandOrchestrator.Outcome.Executed)
     }
 
     @Test fun `Android execution exception becomes a contained unavailable result`() = runBlocking {
