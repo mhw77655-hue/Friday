@@ -290,7 +290,6 @@ class TermuxJarvisServer(
                 embeddingProvider = embeddingProvider,
                 memoryStore = memoryStoreOverride ?: EmptyMemoryStore(),
                 backend = resolvedBackend,
-                voiceSynthesizer = voiceForgeSynthesizer,
                 capabilityRegistry = registry,
                 turnTraceStore = turnTraceStore,
                 threadTracker = threadTracker,
