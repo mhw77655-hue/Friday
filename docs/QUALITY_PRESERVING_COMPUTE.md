@@ -60,7 +60,7 @@ Unstructured sparsity often produces little real speedup unless the target runti
 
 ### 7. Runtime and kernel co-design
 
-Benchmark the actual native backend rather than changing frameworks on theory. Keep llama.cpp CPU as baseline on Snapdragon 695. Evaluate LiteRT-LM / Qualcomm delegate only for models and operators supported by the device/runtime, and measure initialization, prefill, decode, energy and fallback behaviour independently. Google documents CPU/GPU acceleration and Qualcomm AI Engine Direct delegates, but delegate availability is device-specific; don't assume the Snapdragon 695 is supported by a newer flagship-only NPU path.
+Benchmark the actual native backend rather than changing frameworks on theory. Keep llama.cpp CPU as baseline on Snapdragon 695. Evaluate LiteRT-LM / Qualcomm delegate only for models and operators supported by the device/runtime, and measure initialization, prefill, decode, energy and fallback behaviour independently. Important compatibility finding: Google's current published Qualcomm LiteRT QNN HTP support list names Snapdragon 8 Gen 1/2/3 and 8 Elite families, not Snapdragon 695 / SM6375. Qualcomm's official Snapdragon 695 brief identifies Hexagon 686, but the existence of a Hexagon DSP does not prove that the current QNN HTP delegate supports it. Treat NPU acceleration as unavailable unless a vendor-supported runtime and a real device probe prove otherwise. Do not spend the first implementation cycle porting the LLM to a delegate that may not support this SoC.
 
 ### 8. Memory and scheduling
 
