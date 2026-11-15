@@ -60,4 +60,4 @@ This is a milestone-weighted engineering estimate, not a line-count metric and n
 
 ## Percentage method
 
-Each of the 16 milestones contributes 6.25 percentage points to the overall estimate. The individual completion values above sum to 507 percentage points; divided by 16 gives 32%. Scores are deliberately partial where code exists but the acceptance proof is missing. Physical-device validation and the first complete release remain at zero.
+Each of the 16 milestones contributes 6.25 percentage points to the overall estimate. The individual completion values above sum to 519 percentage points; divided by 16 gives 32%. Scores are deliberately partial where code exists but the acceptance proof is missing. Physical-device validation and the first complete release remain at zero.
