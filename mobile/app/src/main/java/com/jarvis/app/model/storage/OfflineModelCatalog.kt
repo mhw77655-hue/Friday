@@ -46,20 +46,19 @@ object OfflineModelCatalog {
         resident = false
     )
 
-    // Community refusal-ablated Qwen3.5 2B. Q4_K_M is ~1.27 GB.
-    // Loaded only when the resource governor admits the reasoning tier.
+    // Explicitly uncensored Qwen3.5 2B reasoning fallback with a pinned SHA-256.
     val reasoning = OfflineModelAsset(
-        id = "qwen3.5-2b-abliterated",
-        displayName = "Huihui Qwen3.5 2B Abliterated · Q4_K_M",
-        repository = "mradermacher/Huihui-Qwen3.5-2B-abliterated-GGUF",
-        revision = "f36848f",
-        filename = "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf",
+        id = "qwen3.5-2b-uncensored",
+        displayName = "Qwen3.5 2B Uncensored · Q4_K_M",
+        repository = "HauhauCS/Qwen3.5-2B-Uncensored-HauhauCS-Aggressive",
+        revision = "cafbddc",
+        filename = "Qwen3.5-2B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf",
         license = "Apache-2.0",
-        description = "Stronger English reasoning candidate, loaded on demand only when NAE reports enough headroom. About 1.27 GB; inference memory is higher.",
-        expectedMinimumBytes = 1_000L * 1024L * 1024L,
-        resident = false
+        description = "Low-refusal English reasoning fallback when Spark is unavailable or NAE rejects its working set. About 1.27 GB; SHA-256 verified.",
+        expectedMinimumBytes = 1_100L * 1024L * 1024L,
+        resident = false,
+        sha256 = "be3ccca13a9d1bc8b67165ea80bd103cd6151a37ad131183cc7ca388f78d9517"
     )
-
 
     // Higher-capability 4B abliterated reasoning candidate. Installed on demand;
     // NAE decides whether its runtime working set fits the live phone state.
