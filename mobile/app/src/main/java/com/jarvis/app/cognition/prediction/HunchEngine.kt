@@ -3,6 +3,9 @@ package com.jarvis.app.cognition.prediction
 import com.jarvis.app.cognition.workspace.Claim
 import com.jarvis.app.cognition.workspace.ClaimKind
 import com.jarvis.app.cognition.workspace.Workspace
+import com.jarvis.app.cognition.workspace.WorkspaceOrgan
+import com.jarvis.app.cognition.workspace.WorkspaceTask
+import com.jarvis.app.cognition.workspace.RiskLevel
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -131,13 +134,27 @@ data class Hunch(
  * expectation table, outcome ledger, or Workspace contract.
  */
 class HunchEngine(
-    private val workspace: Workspace,
     private val store: ExpectationTableStore,
     private val minimumStateObservations: Int = 3,
     private val validationMargin: Double = 0.05
 ) {
+    override val organId: String = "cognition.hunch"
+
+    override fun relevance(claims: List<Claim>, task: WorkspaceTask): Int =
+        if (task.riskLevel != RiskLevel.CRITICAL &&
+            claims.any { it.kind == ClaimKind.MENTAL_STATE || it.kind == ClaimKind.CONTEXT_WINDOW }
+        ) 40 else 0
+
+    override fun contribute(workspace: Workspace, task: WorkspaceTask) {
+        observeTurn(workspace, task.nowMillis, task.episodeId)
+    }
+
     @Synchronized
-    fun observeTurn(now: Long = System.currentTimeMillis()): Hunch? {
+    fun observeTurn(
+        workspace: Workspace,
+        now: Long = System.currentTimeMillis(),
+        episodeId: String = "turn:$now"
+    ): Hunch? {
         val claims = ClaimKind.values()
             .filter { it != ClaimKind.PREDICTION }
             .mapNotNull { workspace.current(it) }
