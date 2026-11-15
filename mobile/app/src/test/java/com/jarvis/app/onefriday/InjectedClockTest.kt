@@ -7,6 +7,7 @@ import com.jarvis.app.cognition.workspace.ClaimKind
 import com.jarvis.app.failure.FailureSurface
 import com.jarvis.app.humancore.store.FileStorage
 import com.jarvis.app.model.FakeModelBackend
+import com.jarvis.app.memory.TestEmbeddingProvider
 import com.jarvis.app.model.ModelTier
 import com.jarvis.app.model.OrganRole
 import com.jarvis.app.model.ResourceSnapshot
