@@ -57,7 +57,22 @@ The Android app already has useful self-observation foundations: a packaged stru
 
 **The current PR #11 head no longer constructs ToolBuilder in the Android production composition and the self-study-to-ToolBuilder bridge has been deleted.** Legacy ToolBuilder/evolution source files still remain under the Android module and must be removed or relocated into the repository-side development environment before the architecture is considered clean. They are not an approved runtime capability.
 
-The repository-side request transport/worker handoff, durable task reconciliation, source reconstruction workflow, independent Vision gate and release-to-device update path are not yet proven end-to-end. Do not claim Friday can already modify her repository autonomously.
+### Existing repository-side worker lane — real, but not yet safe for Friday autonomy
+
+The repository already contains an external coding-agent lane:
+- `.github/workflows/ralph.yml` exposes a manually dispatched GitHub Actions workflow.
+- `.ralph/cloud/run.sh` runs OpenCode on a disposable GitHub-hosted runner, reads the repository PRD, checkpoints work to `ralph/wip`, pumps CI for branch tips and can publish reports.
+- `.ralph/ralph.sh` and `.ralph/prompt.md` define the coding loop and quality discipline.
+
+This is meaningful repository-side construction infrastructure. It means the worker itself is not wholly missing. However, the current lane is a legacy/manual whole-PRD runner, **not a safe Friday request endpoint**:
+- The workflow grants `contents: write`, `actions: write` and `issues: write` at job scope, exposes `GITHUB_TOKEN`/`GH_TOKEN` to the job that runs the coding agent, and optionally exposes an external model-provider secret.
+- The prompt instructs the agent to stay on `main` and commit there. The cloud script hydrates `main`, can merge audit branches into it, and may push final work to `main`.
+- On completion, the script can create/update prereleases including `friday-latest` and notify via repository issues.
+- It is manually dispatched against PRD story IDs; no authenticated, durable bridge takes Friday's on-device development request into this queue, tracks one request idempotently, or returns deployment evidence to her.
+
+Those properties are too powerful for an untrusted, model-generated request to trigger. Do not connect Friday's local reflection output directly to this workflow. First harden it into a proposal-only branch workflow: the agent job gets a read-only checkout and no repository-write or release credential; it builds in a disposable workspace and emits a validated patch/result artifact; a separate trusted job uses a narrowly scoped bot credential to create a draft PR on a dedicated branch; required CI and an independent Vision/security gate run; merge and release remain explicitly owner-approved. Protect `main` so neither the old nor new workflow can bypass review.
+
+The Android-side request transport, durable synchronization/reconciliation, per-request worker orchestration, independent Vision gate and release-to-device feedback path are not yet proven end-to-end. Do not claim Friday can already direct her own repository development autonomously.
 
 ## Acceptance tests
 
