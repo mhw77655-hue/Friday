@@ -37,8 +37,8 @@ import org.junit.Test
  *
  * Only genuinely host-bound leaves are faked (a directory, an in-memory graph,
  * a fake model backend, a silent speech synthesizer). Every organ, seam and
- * wiring under test is the production class — the same ones the phone and the
- * Termux host construct.
+ * wiring under test is the production class used by the Android app. The
+ * optional JVM harness is test-only.
  */
 class TurnPathAssemblyTest {
 
