@@ -134,6 +134,57 @@ class TurnPathAssembly private constructor(
     val ports: PlatformPorts
 ) {
 
+    /**
+     * Stable, open-key fingerprint of the cognitive composition this root owns.
+     * Platform-supplied leaves are intentionally excluded: their concrete
+     * implementations are recorded separately by [platformFingerprint].
+     *
+     * Life Tests persist this map in evidence packs so a model or host change
+     * cannot silently make two scenarios exercise different compositions.
+     */
+    val componentFingerprint: Map<String, String> = linkedMapOf(
+        "workspace" to workspace.javaClass.name,
+        "retriever" to retriever.javaClass.name,
+        "signalScorer" to signalScorer.javaClass.name,
+        "worldModel" to worldModel.javaClass.name,
+        "userProfile" to userProfile.javaClass.name,
+        "mentalStateEstimator" to mentalStateEstimator.javaClass.name,
+        "emotionFusion" to emotionFusion.javaClass.name,
+        "selfModel" to selfModel.javaClass.name,
+        "personaTuner" to personaTuner.javaClass.name,
+        "identityContext" to identityContext.javaClass.name,
+        "personRelationshipModel" to personRelationshipModel.javaClass.name,
+        "confidentialityFirewall" to confidentialityFirewall.javaClass.name,
+        "capabilityFabric" to capabilityFabric.javaClass.name,
+        "capabilityRouter" to capabilityRouter.javaClass.name,
+        "fuzzyCommandResolver" to fuzzyCommandResolver.javaClass.name,
+        "capabilityMemoryIndex" to capabilityMemoryIndex.javaClass.name,
+        "cloudModelRouter" to cloudModelRouter.javaClass.name,
+        "dialectDetector" to dialectDetector.javaClass.name,
+        "continuityGate" to continuityGate.javaClass.name,
+        "changeLog" to changeLog.javaClass.name,
+        "continuityLaw" to continuityLaw.javaClass.name,
+        "replayCheck" to (replayCheck?.javaClass?.name ?: "absent"),
+        "resourceGovernor" to resourceGovernor.javaClass.name,
+        "modelManager" to modelManager.javaClass.name,
+        "cognitiveAdmissionPolicy" to cognitiveAdmissionPolicy.javaClass.name,
+        "anchorEngine" to anchorEngine.javaClass.name,
+        "engine" to engine.javaClass.name,
+        "pipeline" to pipeline.javaClass.name,
+        "humanCoreTurnPort" to humanCoreTurnPort.javaClass.name
+    )
+
+    /** Concrete host-provided leaves, kept separate from root-owned cognition. */
+    val platformFingerprint: Map<String, String> = linkedMapOf(
+        "ports" to ports.javaClass.name,
+        "failureSurface" to failureSurface.javaClass.name,
+        "graphStore" to graphStore.javaClass.name,
+        "embeddingProvider" to embeddingProvider.javaClass.name,
+        "memoryStore" to memoryStore.javaClass.name,
+        "backend" to backend.javaClass.name,
+        "capabilityRegistry" to capabilityRegistry.javaClass.name
+    )
+
     companion object {
 
         /** The local model host both platforms talk to today. */
