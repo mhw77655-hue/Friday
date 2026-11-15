@@ -18,10 +18,9 @@ import kotlin.math.min
  * Nano-liquid symbiosis: a bounded, feedback-driven controller that adapts
  * inference and background work to the phone's current condition.
  *
- * This class deliberately does not train or rewrite model weights. It learns
- * operational preferences from measured outcomes and persists them through
- * SymbiosisProfileStore supplied by the app (DataStore/Room implementation).
- * All decisions are reversible and remain inside Android's public APIs.
+ * It learns operational preferences from measured outcomes. It does not
+ * train or rewrite model weights. Persist the profile through a DataStore or
+ * Room-backed SymbiosisProfileStore implementation supplied by the app.
  */
 data class HostCondition(
     val availableRamMb: Long,
@@ -81,9 +80,8 @@ interface SymbiosisProfileStore {
 }
 
 /**
- * The policy is intentionally conservative: thermal pressure, low memory,
- * low battery and foreground activity outrank speed. Experience feedback
- * tunes only within hard safety/resource bounds.
+ * The policy is conservative: thermal pressure, low memory, low battery and
+ * foreground activity outrank speed. Feedback tunes only within hard bounds.
  */
 class LiquidSymbiosisController(
     private val store: SymbiosisProfileStore,
@@ -102,8 +100,6 @@ class LiquidSymbiosisController(
         val success = old.successEma * (1.0 - alpha) + successValue * alpha
         val correction = old.correctionEma * (1.0 - alpha) + correctionValue * alpha
 
-        // If work is slow, reduce parallelism before consuming more memory.
-        // If it is fast and stable, cautiously allow one additional thread.
         val threadDelta = when {
             latency > 8_000.0 || !sample.successful -> -1
             latency in 1.0..2_500.0 && sample.successful && !sample.userCorrection -> 1
@@ -131,7 +127,9 @@ class LiquidSymbiosisController(
 
     fun plan(condition: HostCondition, workload: CognitiveWorkload): InferenceEnvelope {
         val p = profile.get()
-        val severeThermal = condition.thermalStatus >= 4
+        // Android PowerManager thermal levels: NONE=0, LIGHT=1, MODERATE=2,
+        // SEVERE=3, CRITICAL=4, EMERGENCY=5, SHUTDOWN=6.
+        val severeThermal = condition.thermalStatus >= 3
         val moderateThermal = condition.thermalStatus >= 2
         val lowBattery = condition.batteryPercent <= 15 && !condition.charging
         val memoryCritical = condition.availableRamMb < 650
@@ -199,7 +197,7 @@ class LiquidSymbiosisController(
     }
 }
 
-/** Reads only public Android signals; it does not request special permissions. */
+/** Reads public Android signals; it does not request special permissions. */
 class AndroidHostProbe(private val context: Context) {
     fun sample(appInForeground: Boolean): HostCondition {
         val activity = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
@@ -211,8 +209,9 @@ class AndroidHostProbe(private val context: Context) {
         val level = batteryIntent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale = batteryIntent?.getIntExtra(BatteryManager.EXTRA_SCALE, 100) ?: 100
         val batteryPercent = if (level >= 0 && scale > 0) (level * 100 / scale).coerceIn(0, 100) else 50
-        val charging = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) in
-            setOf(BatteryManager.BATTERY_STATUS_CHARGING, BatteryManager.BATTERY_STATUS_FULL)
+        val status = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+        val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+            status == BatteryManager.BATTERY_STATUS_FULL
         val power = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         val thermal = if (Build.VERSION.SDK_INT >= 29) power.currentThermalStatus else 0
         val connectivity = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
