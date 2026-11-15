@@ -29,9 +29,9 @@ object PhoneCommandInterpreter {
             "scroll down", "move down" -> PhoneControlCommand.ScrollForward
             "scroll up", "move up" -> PhoneControlCommand.ScrollBackward
             else -> when {
-                text.startsWith("open ") && text.length > 5 ->
+                text.startsWith("open ") && isSingleTarget(cleaned.substringAfter(' ', "").trim()) ->
                     PhoneControlCommand.OpenApp(cleaned.substringAfter(' ', "").trim())
-                text.startsWith("launch ") && text.length > 7 ->
+                text.startsWith("launch ") && isSingleTarget(cleaned.substringAfter(' ', "").trim()) ->
                     PhoneControlCommand.OpenApp(cleaned.substringAfter(' ', "").trim())
                 text.startsWith("tap ") && text.length > 4 ->
                     PhoneControlCommand.TapText(cleaned.substringAfter(' ', "").trim())
@@ -43,6 +43,11 @@ object PhoneCommandInterpreter {
             }
         }
     }
+
+    private fun isSingleTarget(value: String): Boolean =
+        value.isNotBlank() && value.length <= 60 &&
+            !Regex("\\b(and then|then|and|after that|before)\\b", RegexOption.IGNORE_CASE)
+                .containsMatchIn(value)
 
     private fun normalizeSpokenCommand(raw: String): String {
         var value = raw.trim().trimEnd('.', '!', '?', ',').trim()
