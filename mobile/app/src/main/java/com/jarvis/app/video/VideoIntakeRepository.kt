@@ -12,6 +12,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
+import java.io.BufferedInputStream
+import java.io.ByteArrayOutputStream
+import java.util.zip.ZipInputStream
 import java.security.MessageDigest
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
@@ -126,6 +129,63 @@ class VideoIntakeRepository(context: Context) {
         val text = intent.getStringExtra(Intent.EXTRA_TEXT)?.trim().orEmpty()
         val url = TIKTOK_URL.find(text)?.value ?: return emptyList()
         return listOf(saveLink(url, text.take(160).ifBlank { "TikTok video link" }))
+    }
+
+    suspend fun importTikTokExport(uri: Uri): List<VideoKnowledgeItem> = withContext(Dispatchers.IO) {
+        val input = app.contentResolver.openInputStream(uri) ?: error("Android could not open the TikTok export.")
+        val buffered = BufferedInputStream(input)
+        buffered.mark(4)
+        val header = ByteArray(4)
+        val headerSize = buffered.read(header)
+        buffered.reset()
+        val isZip = headerSize == 4 && header[0] == 0x50.toByte() && header[1] == 0x4b.toByte()
+        val collected = linkedSetOf<String>()
+        if (isZip) {
+            ZipInputStream(buffered).use { zip ->
+                var entry = zip.nextEntry
+                var totalRead = 0L
+                while (entry != null && totalRead < MAX_EXPORT_BYTES) {
+                    val name = entry.name.lowercase()
+                    val relevantName = name.contains("favorite") || name.contains("favourite") || name.endsWith(".json")
+                    if (!entry.isDirectory && relevantName) {
+                        val bytes = readLimited(zip, MAX_EXPORT_ENTRY_BYTES)
+                        totalRead += bytes.size
+                        val text = bytes.toString(Charsets.UTF_8)
+                        val isFavoritesFile = name.contains("favorite") || name.contains("favourite")
+                        if (isFavoritesFile || text.contains("Favorite Videos", true) || text.contains("Favourite Videos", true)) {
+                            TIKTOK_URL.findAll(text).forEach { match ->
+                                collected += match.value.trimEnd('.', ',', ')', ']', '}', '"')
+                            }
+                        }
+                    }
+                    zip.closeEntry()
+                    entry = zip.nextEntry
+                }
+            }
+        } else {
+            buffered.use { stream ->
+                val bytes = readLimited(stream, MAX_EXPORT_ENTRY_BYTES)
+                val text = bytes.toString(Charsets.UTF_8)
+                TIKTOK_URL.findAll(text).forEach { match ->
+                    collected += match.value.trimEnd('.', ',', ')', ']', '}', '"')
+                }
+            }
+        }
+        collected.map { saveLink(it, "TikTok favourite video") }
+    }
+
+    private fun readLimited(input: java.io.InputStream, limit: Int): ByteArray {
+        val output = ByteArrayOutputStream()
+        val buffer = ByteArray(32 * 1024)
+        var total = 0
+        while (true) {
+            val read = input.read(buffer)
+            if (read < 0 || total >= limit) break
+            val allowed = minOf(read, limit - total)
+            output.write(buffer, 0, allowed)
+            total += allowed
+        }
+        return output.toByteArray()
     }
 
     suspend fun importLink(url: String): VideoKnowledgeItem = withContext(Dispatchers.IO) {
@@ -264,6 +324,8 @@ class VideoIntakeRepository(context: Context) {
         private const val MAX_KEYFRAMES = 12
         private const val FRAME_INTERVAL_MS = 5_000L
         private const val MAX_FRAME_EDGE = 512
-        private val TIKTOK_URL = Regex("https?://(?:www\\.)?(?:tiktok\\.com|vm\\.tiktok\\.com)/[^\\s]+", RegexOption.IGNORE_CASE)
+        private const val MAX_EXPORT_ENTRY_BYTES = 5 * 1024 * 1024
+        private const val MAX_EXPORT_BYTES = 50L * 1024L * 1024L
+        private val TIKTOK_URL = Regex("https?://(?:www\\.)?(?:tiktok\\.com|vm\\.tiktok\\.com|vt\\.tiktok\\.com)/[^\\s]+", RegexOption.IGNORE_CASE)
     }
 }
