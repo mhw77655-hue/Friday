@@ -117,8 +117,8 @@ class PhoneActionPlanner(
             "open_app" -> target.takeIf { it.isNotBlank() }?.let(PhoneControlCommand::OpenApp)
             "tap_text" -> {
                 require(target.isNotBlank()) { "tap target is blank" }
-                require(screen.contains(target, ignoreCase = true)) {
-                    "the requested control is not present in the current accessible screen"
+                require(screenHasExactTarget(screen, target)) {
+                    "the requested control is not an exact visible match in the current accessible screen"
                 }
                 PhoneControlCommand.TapText(target)
             }
@@ -143,6 +143,20 @@ class PhoneActionPlanner(
             else -> null
         } ?: return Result.Unavailable("Friday cannot perform the proposed phone action yet.")
         return Result.Action(command)
+    }
+
+    private fun screenHasExactTarget(screen: String, target: String): Boolean {
+        val requested = target.trim()
+        if (requested.isBlank()) return false
+        return screen.lineSequence()
+            .filter { it.startsWith("node=") }
+            .map { it.substringAfter("node=").substringBefore(";clickable=") }
+            .flatMap { it.split(" | ").asSequence() }
+            .map(String::trim)
+            .any { value ->
+                value.equals(requested, ignoreCase = true) ||
+                    value.endsWith("/$requested", ignoreCase = true)
+            }
     }
 
     private fun extractObject(text: String): JSONObject? {
