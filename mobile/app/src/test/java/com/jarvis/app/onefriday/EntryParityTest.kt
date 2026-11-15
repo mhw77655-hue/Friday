@@ -84,7 +84,9 @@ class AndroidCompositionContractTest {
             File(cwd, relative),
             File(cwd, "mobile/app/$relative"),
             File(cwd.parentFile, relative),
-            File(cwd.parentFile, "mobile/app/$relative")
+            File(cwd.parentFile, "mobile/app/$relative"),
+            File(cwd.parentFile?.parentFile, relative),
+            File(cwd.parentFile?.parentFile, "mobile/app/$relative")
         )
         val file = candidates.firstOrNull { it.isFile }
             ?: error("Could not locate production source $relative from ${cwd.absolutePath}")
