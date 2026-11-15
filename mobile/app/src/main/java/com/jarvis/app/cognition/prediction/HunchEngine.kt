@@ -46,6 +46,10 @@ class FileExpectationTableStore(private val file: File) : ExpectationTableStore 
     private val lock = Any()
 
     override fun load(): ExpectationSnapshot = synchronized(lock) {
+        if (!file.isFile) {
+            val backup = File(file.parentFile, file.name + ".bak")
+            if (backup.isFile) runCatching { backup.copyTo(file, overwrite = true) }
+        }
         if (!file.isFile) return@synchronized ExpectationSnapshot()
         runCatching {
             val root = JSONObject(file.readText())
@@ -131,9 +135,17 @@ class FileExpectationTableStore(private val file: File) : ExpectationTableStore 
                 .put("baselineNext", it.baselineNext))
         }
         val temp = File(file.parentFile, file.name + ".tmp")
+        val backup = File(file.parentFile, file.name + ".bak")
         temp.writeText(root.toString())
-        if (file.exists() && !file.delete()) error("Cannot replace expectation table")
-        if (!temp.renameTo(file)) error("Cannot promote expectation table")
+        if (file.exists()) {
+            if (backup.exists()) backup.delete()
+            if (!file.renameTo(backup)) error("Cannot preserve previous expectation table")
+        }
+        if (!temp.renameTo(file)) {
+            if (backup.exists()) backup.renameTo(file)
+            error("Cannot promote expectation table")
+        }
+        backup.delete()
     }
 }
 
@@ -221,6 +233,16 @@ class HunchEngine(
                 .getOrPut(stateKey) { mutableListOf() }
             if (episodeId !in sourceIds) sourceIds.add(episodeId)
             while (sourceIds.size > 32) sourceIds.removeAt(0)
+            while (next.size > 32) {
+                val weakest = next.minByOrNull { it.value }?.key ?: break
+                next.remove(weakest)
+                episodeIds[previous]?.remove(weakest)
+            }
+        }
+        while (transitions.size > 512) {
+            val weakestState = transitions.minByOrNull { it.value.values.sum() }?.key ?: break
+            transitions.remove(weakestState)
+            episodeIds.remove(weakestState)
         }
         val globalCounts = mutableMapOf<String, Int>()
         transitions.values.forEach { counts -> counts.forEach { (next, count) ->
@@ -231,12 +253,15 @@ class HunchEngine(
         val total = stateCounts.values.sum()
         val best = stateCounts.maxByOrNull { it.value }
         val confidence = if (total == 0 || best == null) 0.0 else best.value.toDouble() / total
+        val baselineConfidence = if (globalCounts.values.sum() == 0 || baseline == null) 0.0
+            else (globalCounts[baseline] ?: 0).toDouble() / globalCounts.values.sum()
         val performance = snapshot.performance
         val validated = performance.evaluated >= 20 &&
             performance.modelAccuracy > performance.baselineAccuracy + validationMargin
 
         val hunch = if (best != null && baseline != null &&
-            total >= minimumStateObservations && best.key != baseline
+            total >= minimumStateObservations && best.key != baseline &&
+            confidence > baselineConfidence + validationMargin
         ) {
             Hunch(
                 stateKey = stateKey,
