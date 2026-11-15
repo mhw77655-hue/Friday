@@ -2,6 +2,8 @@ package com.jarvis.app.voice
 
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import java.util.concurrent.atomic.AtomicBoolean
 import org.junit.Test
 
 class FridayPhoneDecisionToolTest {
@@ -16,13 +18,27 @@ class FridayPhoneDecisionToolTest {
         assertEquals(FridayPhoneDecisionTool.Source.FRIDAY_LOCAL_POLICY, result.source)
     }
 
-    @Test fun `local policy always confirms free form screen actions`() = runBlocking {
-        val tool = FridayPhoneDecisionTool { _, _, _ -> error("remote must not override local invariant") }
+    @Test fun `Jev evaluates consequential screen actions but cannot bypass local confirmation`() = runBlocking {
+        val remoteCalled = AtomicBoolean(false)
+        val tool = FridayPhoneDecisionTool { _, _, risk ->
+            remoteCalled.set(true)
+            assertEquals("high", risk)
+            JevActionDecision(
+                choice = "execute",
+                confidence = 0.99,
+                probabilities = mapOf("execute" to 0.99),
+                riskScore = 0.1,
+                riskConfidence = 0.99,
+                explicitAuthorization = 0.99,
+                targetClarity = 0.99
+            )
+        }
         val result = tool.judge(
             utterance = "tap delete",
             command = PhoneCommandInterpreter.parse("tap delete")!!,
             remoteConfigured = true
         )
+        assertTrue("Jev should be consulted for consequential actions", remoteCalled.get())
         assertEquals(FridayPhoneDecisionTool.Verdict.CONFIRM, result.verdict)
         assertEquals(FridayPhoneDecisionTool.Source.FRIDAY_LOCAL_POLICY, result.source)
     }
