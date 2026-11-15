@@ -209,9 +209,8 @@ class WallClockAllowlistTest {
         // ── the admission governor the root constructs ────────────────────────
         put("resource/ResourceGovernor.kt", 1)
 
-        // ── the composition root and its two hosts ────────────────────────────
+        // ── the Android composition root ─────────────────────────────────────
         put("onefriday/AndroidPlatformPorts.kt", 1)
-        put("termux/TermuxJarvisServer.kt", 3)
         put("resolution/FuzzyCommandResolver.kt", 1)
         put("threads/ThreadObjects.kt", 1)
     }
@@ -296,7 +295,6 @@ class WallClockAllowlistTest {
         put("resource/ResourceGovernor.kt", "the admission record's last-activity stamp — written and never read for a decision")
 
         put("onefriday/AndroidPlatformPorts.kt", "the phone adapter's clock DEFAULT; production passes the platform's own clock")
-        put("termux/TermuxJarvisServer.kt", "in-memory store defaults and the JVM host's clock value handed to the adapter")
         put("resolution/FuzzyCommandResolver.kt", "nowMs default on the recency-aware match")
         put("threads/ThreadObjects.kt", "the tracker's injected now default; a host that wants host-time decay passes it")
     }
@@ -307,7 +305,7 @@ class WallClockAllowlistTest {
         "anchor", "body", "builder", "capability", "cloud", "cognition", "cognitive",
         "continuity", "emotion", "failure", "humancore", "identity", "language",
         "latency", "memory", "model", "onefriday", "policy", "resolution",
-        "resource", "selfreconfig", "social", "termux", "threads", "trace"
+        "resource", "selfreconfig", "social", "threads", "trace"
     )
 
     /**
