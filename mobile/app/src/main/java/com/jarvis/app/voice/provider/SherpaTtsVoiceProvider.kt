@@ -33,11 +33,11 @@ private const val TAG = "SherpaTtsProvider"
  */
 class SherpaTtsVoiceProvider(
     private val modelManager: VoiceModelManager,
-    private val modelEntry: VoiceModelEntry = VoiceModelManifest.kokoroEnInt8
+    private val modelEntry: VoiceModelEntry = VoiceModelManifest.kokoroEnInt8,
+    override val id: String = modelEntry.providerId
 ) : VoiceProvider {
 
-    override val id = "sherpa"
-    override val name = "sherpa-onnx Kokoro"
+    override val name = if (id == "sherpa-arabic") "sherpa-onnx Nabra Arabic" else "sherpa-onnx Kokoro"
 
     private val ttsCache = ConcurrentHashMap<String, OfflineTts>()
     private val cancelled = AtomicBoolean(false)
@@ -172,6 +172,9 @@ class SherpaTtsVoiceProvider(
             isKitten = false
         )
         Log.i(TAG, "loading ${entry.id} into :voice habitat")
+        if (entry.languages.any { it.startsWith("ar") }) {
+            config.model.kokoro.lang = "ar"
+        }
         val tts = OfflineTts(assetManager = null, config = config)
         ttsCache[entry.id] = tts
         return tts

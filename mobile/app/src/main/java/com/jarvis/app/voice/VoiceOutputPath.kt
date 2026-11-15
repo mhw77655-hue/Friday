@@ -61,7 +61,10 @@ class VoiceOutputPath(
             try {
                 for (segment in segment(text)) {
                     if (cancelled) break
-                    val spoken = habitatSpeak(segment, lang, voiceId ?: profile.preferredVoice, profile, vocabulary)
+                    // Route Arabic-script segments to the offline Arabic model even
+                    // when the saved default profile language is English.
+                    val segmentLanguage = if (containsArabic(segment)) "ar-EG" else lang
+                    val spoken = habitatSpeak(segment, segmentLanguage, voiceId ?: profile.preferredVoice, profile, vocabulary)
                     if (!spoken && fallback != null) {
                         runCatching { fallback.speakStreaming(segment, vocabulary ?: emptyVocabulary()) }
                     }
@@ -196,9 +199,12 @@ class VoiceOutputPath(
 
     // ───────────────────────────────────────────────── segmentation + hints
 
+    private fun containsArabic(text: String): Boolean =
+        text.any { it in '\u0600'..'\u06FF' || it in '\u0750'..'\u077F' || it in '\u08A0'..'\u08FF' }
+
     private fun segment(text: String): List<String> =
         text.trim()
-            .split(Regex("(?<=[.!?。！？])\\s+|\\n+"))
+            .split(Regex("(?<=[.!?。！？؟؛،])\\s+|\\n+"))
             .map { it.trim() }
             .filter { it.isNotEmpty() }
 

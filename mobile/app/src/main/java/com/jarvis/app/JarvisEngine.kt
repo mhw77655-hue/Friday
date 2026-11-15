@@ -612,24 +612,19 @@ object JarvisEngine {
                 )
             )
 
-            // Streaming reply TTS: sentence-level synthesis with per-segment
-            // language routing (English + Egyptian Arabic + code-switching).
-            // Uses vocabulary pronunciation hints for learned words.
-            // VOICE-FORGE-EGYPTIAN-KAREN-TTS: JARVIS's own spoken replies are
-            // rendered by the real on-device VoiceForge backend (Chatterbox
-            // Multilingual runtime + Egyptian fine-tune) — the platform
-            // TextToSpeech path below is ONLY the AC3(c) failure fallback.
+            // Friday speaks through her in-app :voice habitat. The habitat owns
+            // sherpa-onnx and its downloaded model packs; the app process only
+            // plays the resulting PCM through AudioTrack. No Termux Chatterbox
+            // server or localhost speech service is part of the live path.
             val legacyReplySpeech: (String) -> Unit = { text ->
                 val tts = JarvisEngine.getStreamingTts()
                 runCatching { tts.speakStreaming(text, getBodyCoordinator().vocabularyStore) }
                     .onFailure { tts.speak(text) }
             }
             com.jarvis.app.latency.LatencyLayer.setStreamingSpeak { text ->
-                val backend = JarvisEngine.voiceForgeBackend
-                if (backend != null) {
-                    scope.launch {
-                        backend.synthesize(text, signal = null, platformFallback = legacyReplySpeech)
-                    }
+                val output = JarvisEngine.voiceOutputPath
+                if (output != null) {
+                    output.speak(text, vocabulary = getBodyCoordinator().vocabularyStore)
                 } else {
                     legacyReplySpeech(text)
                 }

@@ -64,7 +64,14 @@ class VoiceService : Service() {
             onFailure = { report -> Log.w(TAG, report.message) }
         )
         registry = VoiceProviderRegistry().apply {
-            register(SherpaTtsVoiceProvider(modelManager), priority = VoiceProviderRegistry.HIGH_PRIORITY)
+            register(
+                SherpaTtsVoiceProvider(modelManager, VoiceModelManifest.kokoroEnInt8, providerId = "sherpa"),
+                priority = VoiceProviderRegistry.HIGH_PRIORITY
+            )
+            register(
+                SherpaTtsVoiceProvider(modelManager, VoiceModelManifest.nabraArabicInt8, providerId = "sherpa-arabic"),
+                priority = VoiceProviderRegistry.HIGH_PRIORITY
+            )
             register(SystemTtsVoiceProvider(this@VoiceService), priority = VoiceProviderRegistry.DEFAULT_PRIORITY)
         }
         selector = VoiceProviderSelector(registry)
