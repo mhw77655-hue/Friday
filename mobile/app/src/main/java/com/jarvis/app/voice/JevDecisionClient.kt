@@ -1,5 +1,6 @@
 package com.jarvis.app.voice
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -103,7 +104,7 @@ class JevDecisionClient(
             .header("Content-Type", "application/json")
             .post(payload.toString().toRequestBody(JSON))
             .build()
-        runCatching {
+        try {
             http.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) return@withContext null
                 val root = JSONObject(response.body?.string().orEmpty())
@@ -127,7 +128,11 @@ class JevDecisionClient(
                     targetClarity = target?.optDouble("noul", 0.0)?.coerceIn(0.0, 1.0) ?: 0.0
                 )
             }
-        }.getOrNull()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            null
+        }
     }
 
     companion object {
