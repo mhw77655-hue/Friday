@@ -1,5 +1,6 @@
 package com.jarvis.app.builder
 
+import com.jarvis.app.cognitive.capability.CapabilityFabric
 import com.jarvis.app.evolution.CandidateGenerator
 import com.jarvis.app.evolution.DEFAULT_SYNTHESIZERS
 import com.jarvis.app.evolution.EvolutionEngine
@@ -68,7 +69,8 @@ object ToolBuilderComposition {
         fileStorage: FileStorage,
         scope: CoroutineScope,
         workspacesDir: File,
-        llmSynthesisProvider: LlmSynthesisProvider? = null
+        llmSynthesisProvider: LlmSynthesisProvider? = null,
+        cognitiveCapabilityFabric: CapabilityFabric? = null
     ): Stack {
         val sandbox = ResourceSandbox()
         val factory = EnvironmentFactory(failureSurface, workspacesDir)
@@ -94,8 +96,12 @@ object ToolBuilderComposition {
         val synthesizers = DEFAULT_SYNTHESIZERS + listOfNotNull(llmSynthesisProvider?.let(::LlmSpecSynthesizer))
         val candidateGenerator = CandidateGenerator(synthesizers)
 
-        val promotion = PromotionController(registry, archive, genomeRegistry, failureSurface, sandbox)
-        val rollback = RollbackController(registry, archive, genomeRegistry, failureSurface)
+        val promotion = PromotionController(
+            registry, archive, genomeRegistry, failureSurface, sandbox, cognitiveCapabilityFabric
+        )
+        val rollback = RollbackController(
+            registry, archive, genomeRegistry, failureSurface, cognitiveCapabilityFabric
+        )
         val evolution = EvolutionEngine(
             archive = archive,
             registry = registry,
