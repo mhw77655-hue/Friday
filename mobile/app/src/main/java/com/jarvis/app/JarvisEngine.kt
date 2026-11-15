@@ -39,9 +39,7 @@ object JarvisEngine {
     private val thread = HandlerThread("JarvisEngine").apply { start() }
     private val handler = Handler(thread.looper)
 
-    @Volatile private var started = false
-    @Volatile var initialized: Boolean = false
-        private set
+    @Volatile private var bootstrapStarted = false
     val readinessGate = EngineReadinessGate()
     val readinessState: kotlinx.coroutines.flow.StateFlow<EngineReadinessState> get() = readinessGate.state
     val currentReadiness: EngineReadinessState get() = readinessGate.current
@@ -166,9 +164,8 @@ object JarvisEngine {
         private set
 
     fun init(context: Context) {
-        if (started) return
-        started = true
-        initialized = true
+        if (bootstrapStarted) return
+        bootstrapStarted = true
         readinessGate.markWaking()
         val appContext = context.applicationContext
         this.appContext = appContext
@@ -770,8 +767,7 @@ object JarvisEngine {
     fun appContextSlot(): EngineSlot<Context> = readinessGate.slot { appContext }
 
     internal fun resetForTesting() {
-        started = false
-        initialized = false
+        bootstrapStarted = false
         readinessGate.resetForTesting()
         wiringLatchForTesting = null
         wiringThrowForTesting = null
