@@ -5,7 +5,6 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityEvent
-import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -60,9 +59,7 @@ class FridayAccessibilityService : AccessibilityService() {
 
     private fun scroll(action: Int): PhoneControlResult {
         val root = rootInActiveWindow ?: return PhoneControlResult.Unavailable("No accessible screen is active.")
-        val node = generateSequence(root) { null }.firstOrNull {
-            it.isScrollable && it.isVisibleToUser
-        } ?: findScrollable(root)
+        val node = findScrollable(root)
         val ok = node?.performAction(action) == true
         return if (ok) PhoneControlResult.Success else PhoneControlResult.Unavailable("No scrollable control was found.")
     }
