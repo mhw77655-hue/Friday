@@ -30,6 +30,7 @@ class PhoneCommandInterpreterTest {
         assertEquals(PhoneControlCommand.VolumeUp, PhoneCommandInterpreter.parse("increase volume"))
         assertEquals(PhoneControlCommand.VolumeDown, PhoneCommandInterpreter.parse("quieter"))
         assertEquals(PhoneControlCommand.OpenInternetPanel, PhoneCommandInterpreter.parse("open wifi settings"))
+        assertEquals(PhoneControlCommand.OpenInternetPanel, PhoneCommandInterpreter.parse("turn off wifi"))
     }
 
     @Test fun `sensitive screen interactions are explicitly confirmation gated`() {
