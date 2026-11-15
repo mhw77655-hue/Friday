@@ -72,7 +72,7 @@ class NanoSymbioticController(
     /** Live admission gate for large model loads and subsequent inference turns. */
     fun admitModel(modelBytes: Long, requestedContextTokens: Int): ModelAdmission {
         val host = readHost()
-        val admission = policy.admitModel(host, modelBytes, requestedContextTokens)
+        val admission = policy.admitModel(applyLearnedHostReserve(host), modelBytes, requestedContextTokens)
         mutablePlan.value = admission.plan
         return admission
     }
@@ -80,11 +80,11 @@ class NanoSymbioticController(
     /** Current real host reading, adjusted only by a learned safety reserve. */
     fun resourceSnapshot(): ResourceSnapshot {
         val raw = readHost()
-        val currentPlan = policy.plan(raw)
+        val currentPlan = policy.plan(applyLearnedHostReserve(raw))
         mutablePlan.value = currentPlan
         return object : ResourceSnapshot {
             override val availableMemoryMb: Long =
-                (raw.availableMemoryMb - currentPlan.memoryReserveMb).coerceAtLeast(0L)
+                (raw.availableMemoryMb - currentPlan.memoryReserveMb - hostStudy.snapshot().additionalMemoryReserveMb).coerceAtLeast(0L)
             override val cpuLoadPercent: Double = raw.cpuLoadPercent
             override val thermalLevel: Int = raw.thermalLevel
             override val batteryPercent: Int = raw.batteryPercent
@@ -115,7 +115,8 @@ class NanoSymbioticController(
 
     private fun refresh() {
         val host = readHost()
-        mutablePlan.value = policy.plan(host)
+        hostStudy.observe(host, android.os.Debug.getPss().toLong().coerceAtLeast(0L) / 1024L, System.currentTimeMillis())
+        mutablePlan.value = policy.plan(applyLearnedHostReserve(host))
         val now = System.currentTimeMillis()
         val processPssMb = android.os.Debug.getPss().toLong().coerceAtLeast(0L) / 1024L
         hostStudy.observe(host, processPssMb, now)
@@ -126,6 +127,12 @@ class NanoSymbioticController(
             lastHostStudyPersistAtMs = now
         }
     }
+
+    private fun applyLearnedHostReserve(host: HostResourceState): HostResourceState =
+        host.copy(
+            availableMemoryMb = (host.availableMemoryMb -
+                hostStudy.snapshot().additionalMemoryReserveMb).coerceAtLeast(0L)
+        )
 
     private fun readHost(): HostResourceState {
         val storage = android.os.StatFs(storageDir.absolutePath).availableBytes / (1024L * 1024L)
@@ -206,6 +213,8 @@ class NanoSymbioticController(
                 averageCpuLoadEmaPercent = p.getProperty("averageCpuLoadEmaPercent")?.toDoubleOrNull() ?: 0.0,
                 thermalPressureSamples = p.getProperty("thermalPressureSamples")?.toLongOrNull() ?: 0L,
                 lowMemorySamples = p.getProperty("lowMemorySamples")?.toLongOrNull() ?: 0L,
+                memoryPressureEma = p.getProperty("memoryPressureEma")?.toDoubleOrNull() ?: 0.0,
+                thermalPressureEma = p.getProperty("thermalPressureEma")?.toDoubleOrNull() ?: 0.0,
                 minimumBatteryPercent = p.getProperty("minimumBatteryPercent")?.toIntOrNull() ?: 100,
                 maximumObservedProcessPssMb = p.getProperty("maximumObservedProcessPssMb")?.toLongOrNull() ?: 0L,
                 lastObservedAtMs = p.getProperty("lastObservedAtMs")?.toLongOrNull() ?: 0L
@@ -234,6 +243,8 @@ class NanoSymbioticController(
                 setProperty("averageCpuLoadEmaPercent", r.averageCpuLoadEmaPercent.toString())
                 setProperty("thermalPressureSamples", r.thermalPressureSamples.toString())
                 setProperty("lowMemorySamples", r.lowMemorySamples.toString())
+                setProperty("memoryPressureEma", r.memoryPressureEma.toString())
+                setProperty("thermalPressureEma", r.thermalPressureEma.toString())
                 setProperty("minimumBatteryPercent", r.minimumBatteryPercent.toString())
                 setProperty("maximumObservedProcessPssMb", r.maximumObservedProcessPssMb.toString())
                 setProperty("lastObservedAtMs", r.lastObservedAtMs.toString())
