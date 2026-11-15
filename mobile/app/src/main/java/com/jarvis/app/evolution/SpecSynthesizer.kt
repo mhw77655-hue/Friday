@@ -37,6 +37,16 @@ sealed interface Behavior {
     /** Map a lookup table; unknown keys yield the default. */
     data class Lookup(val table: Map<String, String>, val default: String) : Behavior
 
+    /** A model-synthesized capability with an explicit typed input contract. */
+    data class Custom(
+        val capability: String,
+        val port: String = "input",
+        val type: String = "String"
+    ) : Behavior {
+        override val capabilityName: String get() = capability
+        override val inputName: String get() = port
+    }
+
     val capabilityName: String
         get() = when (this) {
             is Normalize -> "normalize"
@@ -44,6 +54,7 @@ sealed interface Behavior {
             is Invert -> "invert"
             is ReverseWords -> "reverse_words"
             is Lookup -> "lookup"
+            is Custom -> capability
         }
 
     /** The input port this behavior reads (the genome's declared input). */
@@ -51,6 +62,7 @@ sealed interface Behavior {
         get() = when (this) {
             is ReverseWords -> "text"
             is Lookup -> "key"
+            is Custom -> port
             else -> "value"
         }
 }
@@ -96,7 +108,8 @@ object BehaviorSynthesizer {
 
     val SUPPORTED: Set<String> = setOf("normalize", "clamp", "invert", "reverse_words", "lookup")
 
-    fun supports(behavior: Behavior): Boolean = behavior.capabilityName in SUPPORTED
+    fun supports(behavior: Behavior): Boolean =
+        behavior !is Behavior.Custom && behavior.capabilityName in SUPPORTED
 
     /** Declarative source — persisted into the candidate workspace. */
     fun sourceFor(behavior: Behavior): String = when (behavior) {
@@ -113,6 +126,7 @@ object BehaviorSynthesizer {
         behavior: Behavior,
         strategy: AlgorithmSpec.Strategy = AlgorithmSpec.Strategy.DETERMINISTIC
     ): AlgorithmSpec {
+        require(behavior !is Behavior.Custom) { "custom capabilities require LlmSpecSynthesizer" }
         val deterministic = DeterministicSpec(
             capability = behavior.capabilityName,
             description = "Deterministic implementation of ${behavior.capabilityName}",
@@ -161,6 +175,7 @@ object BehaviorSynthesizer {
             TestCase("reverse_empty", mapOf("text" to ""), mapOf("result" to "")),
             TestCase("reverse_missing_input_fails", emptyMap(), expectedError = "missing input", isFailureCase = true)
         )
+        is Behavior.Custom -> emptyList()
         is Behavior.Lookup -> listOf(
             TestCase(
                 "lookup_known",
@@ -201,6 +216,7 @@ object BehaviorSynthesizer {
                 val key = input["key"] as? String ?: return SpecOutput.Failure("missing input 'key'")
                 behavior.table[key] ?: behavior.default
             }
+            is Behavior.Custom -> return SpecOutput.Failure("custom capability must run through its synthesized program")
         }
         SpecOutput.Success(mapOf("result" to out))
     } catch (t: Throwable) {
