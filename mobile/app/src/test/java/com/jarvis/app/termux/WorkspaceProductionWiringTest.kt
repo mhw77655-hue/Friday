@@ -27,10 +27,9 @@ import org.junit.Test
  *            -> ContextWindowAssembler.assembleFrom
  *                 READS the MENTAL_STATE claim, PUBLISHES the CONTEXT_WINDOW claim
  *
- * That is the REAL JVM-executable composition root (TermuxJarvisServer, the
- * mirror of JarvisEngine.init with only the Android-bound stores swapped). Both
- * organs reach the SAME store instance the composition root constructed, and
- * neither names the other.
+ * This is the test-only JVM composition harness, not the Android production
+ * entry point. Both organs reach the SAME store instance the harness constructed,
+ * and neither names the other.
  */
 class WorkspaceProductionWiringTest {
 
