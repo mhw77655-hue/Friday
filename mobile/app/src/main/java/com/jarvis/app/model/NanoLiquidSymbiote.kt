@@ -49,6 +49,7 @@ class NanoLiquidSymbiote(context: Context) {
         } catch (_: Exception) {
             0L
         }
+        val cpuLoad = runCatching { AndroidResourceSnapshot(app).cpuLoadPercent }.getOrDefault(0.0)
         return NanoHostState(
             availableMemoryMb = memory.availMem / (1024L * 1024L),
             totalMemoryMb = memory.totalMem / (1024L * 1024L),
@@ -58,7 +59,8 @@ class NanoLiquidSymbiote(context: Context) {
             isCharging = charging,
             cpuCores = Runtime.getRuntime().availableProcessors().coerceAtLeast(1),
             lowMemory = memory.lowMemory,
-            appPssMb = Debug.getPss().toLong() / 1024L
+            appPssMb = Debug.getPss().toLong() / 1024L,
+            cpuLoadPercent = cpuLoad
         )
     }
 
@@ -85,7 +87,7 @@ class NanoLiquidSymbiote(context: Context) {
         val estimatedTokens = outputTokens.toFloat()
         val speed = estimatedTokens / (elapsedMs / 1000f)
         val key = profile.threads.coerceIn(1, 4)
-        val constrained = host.thermalLevel >= 2 || host.lowMemory
+        val constrained = host.thermalLevel >= 2 || host.lowMemory || host.cpuLoadPercent >= 85.0
         synchronized(lock) {
             val oldSpeed = preferences.getFloat("speed_ewma_$key", 0f)
             val newSpeed = if (oldSpeed <= 0f) speed else oldSpeed * 0.75f + speed * 0.25f
@@ -98,6 +100,7 @@ class NanoLiquidSymbiote(context: Context) {
                 .putLong("last_observed_at", System.currentTimeMillis())
                 .putLong("last_available_memory_mb", host.availableMemoryMb)
                 .putLong("last_app_pss_mb", host.appPssMb)
+                .putFloat("last_cpu_load_percent", host.cpuLoadPercent.toFloat())
                 .putInt("last_thermal_level", host.thermalLevel)
                 .putInt("last_battery_percent", host.batteryPercent)
                 .putBoolean("last_run_was_constrained", constrained)
@@ -142,6 +145,7 @@ class NanoLiquidSymbiote(context: Context) {
         "lastSelectedContextTokens" to preferences.getInt("last_selected_context_tokens", -1),
         "lastAvailableMemoryMb" to preferences.getLong("last_available_memory_mb", -1L),
         "lastAppPssMb" to preferences.getLong("last_app_pss_mb", -1L),
+        "lastCpuLoadPercent" to preferences.getFloat("last_cpu_load_percent", -1f),
         "lastThermalLevel" to preferences.getInt("last_thermal_level", -1),
         "lastBatteryPercent" to preferences.getInt("last_battery_percent", -1),
         "lastRunConstrained" to preferences.getBoolean("last_run_was_constrained", false)
