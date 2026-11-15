@@ -1,6 +1,7 @@
 package com.jarvis.app.genome
 
 import com.jarvis.app.humancore.store.FileStorage
+import com.jarvis.app.humancore.store.StoreKind
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -83,6 +84,26 @@ class GenomeArchiveTest {
             assertNotNull(reloaded.get("persisted"))
         } finally {
             scope2.cancel()
+        }
+    }
+
+    @Test
+    fun `genome archive never writes into the Human Core dialogue store`() = runBlocking {
+        val scope = CoroutineScope(Dispatchers.Default)
+        val storage = FileStorage(tmpDir())
+        val dialogueRecord = """{"role":"user","content":"keep this conversation"}"""
+        storage.append(StoreKind.DIALOGUE, dialogueRecord)
+        val before = storage.read(StoreKind.DIALOGUE)
+
+        try {
+            val archive = GenomeArchive(storage, scope)
+            archive.put(genome("isolated-genome"))
+            Thread.sleep(200)
+
+            assertEquals(before, storage.read(StoreKind.DIALOGUE))
+            assertNotNull(storage.read(StoreKind.GENOME_ARCHIVE))
+        } finally {
+            scope.cancel()
         }
     }
 
