@@ -639,11 +639,12 @@ object JarvisEngine {
                     .onFailure { tts.speak(text) }
             }
             com.jarvis.app.latency.LatencyLayer.setStreamingSpeak { text ->
-                val backend = JarvisEngine.voiceForgeBackend
-                if (backend != null) {
-                    scope.launch {
-                        backend.synthesize(text, signal = null, platformFallback = legacyReplySpeech)
-                    }
+                // Spoken replies use the supervised in-app voice habitat. The
+                // Termux/localhost VoiceForge adapter is not part of Friday's
+                // production speech path; StreamingTts remains a failure fallback.
+                val voice = JarvisEngine.voiceOutputPath
+                if (voice != null) {
+                    voice.speak(text)
                 } else {
                     legacyReplySpeech(text)
                 }
