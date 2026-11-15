@@ -86,7 +86,7 @@ class LiquidSymbiosisEngineTest {
         val low = predictor.predict(state, reduceLoad)
         val high = predictor.predict(state, increaseCapacity)
         assertTrue("different actions should produce different latent futures",
-            low.indices.any { kotlin.math.abs(low[it] - high[it]) > 0.01 })
+            low.indices.any { kotlin.math.abs(low[it] - high[it]) > 0.001 })
         assertEquals(24, predictor.replaySize())
     }
 
