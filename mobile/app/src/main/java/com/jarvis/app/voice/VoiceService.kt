@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.IBinder
 import android.os.Process
+import android.os.Debug
 import android.os.SystemClock
 import android.util.Log
 import com.jarvis.app.voice.provider.SherpaTtsVoiceProvider
@@ -21,6 +22,7 @@ import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import com.jarvis.app.symbiosis.NanoSymbioticController
 import java.util.concurrent.TimeUnit
 
 private const val TAG = "VoiceService"
@@ -51,16 +53,29 @@ class VoiceService : Service() {
     private lateinit var registry: VoiceProviderRegistry
     private lateinit var selector: VoiceProviderSelector
     private lateinit var modelManager: VoiceModelManager
+    private lateinit var symbiosis: NanoSymbioticController
     private lateinit var failureController: VoiceFailureController
     private lateinit var providers: List<VoiceProvider>
 
     override fun onCreate() {
         super.onCreate()
         failureController = VoiceFailureController { report -> Log.w(TAG, report.message) }
+        // Voice is its own resource habitat. It measures the physical phone,
+        // learns from synthesis outcomes, and gates expensive voice-model loads.
+        val voiceStorage = File(filesDir, "voice").apply { mkdirs() }
+        symbiosis = NanoSymbioticController(this, voiceStorage)
+        symbiosis.start(scope)
         modelManager = VoiceModelManager(
             context = this,
-            governor = null, // the habitat admits itself; the host reports pressure
+            governor = null,
             scope = scope,
+            admissionGate = { entry ->
+                val admission = symbiosis.admitModel(
+                    modelBytes = entry.sizeMb * 1024L * 1024L,
+                    requestedContextTokens = 512
+                )
+                if (admission.allowed) null else admission.reason
+            },
             onFailure = { report -> Log.w(TAG, report.message) }
         )
         registry = VoiceProviderRegistry().apply {
@@ -93,6 +108,7 @@ class VoiceService : Service() {
     override fun onDestroy() {
         providers.forEach { runCatching { it.release() } }
         scheduler.close()
+        scope.cancel()
         super.onDestroy()
     }
 
@@ -230,6 +246,12 @@ class VoiceService : Service() {
                     provider.synthesize(text, language, voiceId, params, outFile)
                 }
                 val wallMs = SystemClock.elapsedRealtime() - t0
+                service.symbiosis.recordOutcome(
+                    organ = "voice_synthesis:${provider.id}",
+                    succeeded = result.success,
+                    latencyMs = wallMs,
+                    peakMemoryMb = Debug.getPss().toLong().coerceAtLeast(0L) / 1024L
+                )
                 if (result.success) {
                     VoiceMetrics.recordSynthesis(provider.id, language, wallMs, result.durationMs, result.sampleRate)
                     json(true, sampleRate = result.sampleRate, channels = result.channels, durationMs = result.durationMs)
@@ -238,6 +260,12 @@ class VoiceService : Service() {
                     json(false, error = result.error ?: "synthesis failed")
                 }
             } catch (e: Throwable) {
+                service.symbiosis.recordOutcome(
+                    organ = "voice_synthesis:${provider.id}",
+                    succeeded = false,
+                    latencyMs = (SystemClock.elapsedRealtime() - t0).coerceAtLeast(0L),
+                    peakMemoryMb = Debug.getPss().toLong().coerceAtLeast(0L) / 1024L
+                )
                 service.failureController.onSynthesisFailure(provider.id, e.message)
                 json(false, error = e.message ?: "synthesis threw")
             }

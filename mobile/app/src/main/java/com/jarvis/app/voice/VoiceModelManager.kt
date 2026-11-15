@@ -47,6 +47,8 @@ class VoiceModelManager(
     private val context: Context,
     private val governor: ResourceGovernor?,
     private val scope: CoroutineScope,
+    /** Returns a denial reason when the adaptive host policy refuses this model. */
+    private val admissionGate: ((VoiceModelEntry) -> String?)? = null,
     private val onFailure: (FailureReport) -> Unit = {}
 ) {
 
@@ -105,6 +107,11 @@ class VoiceModelManager(
     suspend fun acquire(entry: VoiceModelEntry): Result<File> = withContext(Dispatchers.IO) {
         val s = status(entry.id)
         // Admission first: refuse to even start a download we can't afford to load.
+        val adaptiveDenial = admissionGate?.invoke(entry)
+        if (!adaptiveDenial.isNullOrBlank()) {
+            s.update { it.copy(state = ModelState.FAILED, error = adaptiveDenial) }
+            return@withContext Result.failure(IllegalStateException(adaptiveDenial))
+        }
         val governor = governor
         if (governor != null && !governor.canAdmit(entry.expectedRamMb, entry.expectedCpuPercent)) {
             s.update { it.copy(state = ModelState.FAILED, error = "resource admission denied") }

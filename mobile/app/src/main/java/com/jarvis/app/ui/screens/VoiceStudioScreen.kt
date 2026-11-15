@@ -22,10 +22,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -33,7 +33,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.jarvis.app.JarvisEngine
 import com.jarvis.app.ui.EngineAccess
 import com.jarvis.app.voice.DefaultJarvisVoiceProfile
 import com.jarvis.app.voice.VoiceProfileStore
@@ -63,7 +62,12 @@ fun VoiceStudioScreen() {
     var referenceTranscript by remember { mutableStateOf(prefs.getString("reference_transcript", "") ?: "") }
     var status by remember { mutableStateOf("Ready") }
     var speechRate by remember { mutableFloatStateOf(profileStore.get(DefaultJarvisVoiceProfile.id)?.speechRate ?: 1f) }
-    var pitch by remember { mutableFloatStateOf(profileStore.get(DefaultJarvisVoiceProfile.id)?.pitch ?: 1f) }
+    var speakerIndex by remember {
+        mutableIntStateOf(
+            profileStore.get(DefaultJarvisVoiceProfile.id)?.preferredVoice
+                ?.removePrefix("speaker_")?.toIntOrNull()?.coerceIn(0, 10) ?: 0
+        )
+    }
     var busy by remember { mutableStateOf(false) }
 
     val pickAudio = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -74,7 +78,15 @@ fun VoiceStudioScreen() {
                 val imported = withContext(Dispatchers.IO) {
                     runCatching {
                         val directory = File(context.filesDir, "voice-studio").apply { mkdirs() }
-                        val target = File(directory, "reference-audio")
+                        val extension = when (context.contentResolver.getType(uri)?.lowercase()) {
+                            "audio/wav", "audio/x-wav" -> "wav"
+                            "audio/mpeg" -> "mp3"
+                            "audio/mp4", "audio/x-m4a" -> "m4a"
+                            "audio/ogg" -> "ogg"
+                            "audio/flac" -> "flac"
+                            else -> "audio"
+                        }
+                        val target = File(directory, "reference-audio.$extension")
                         context.contentResolver.openInputStream(uri)?.use { input ->
                             target.outputStream().use { output -> input.copyTo(output) }
                         } ?: error("Could not open selected audio")
@@ -105,8 +117,6 @@ fun VoiceStudioScreen() {
         }.onFailure { status = "Playback failed: ${it.message}" }
     }
 
-    DisposableEffect(Unit) { onDispose { /* playback is released by completion/error callbacks */ } }
-
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -128,7 +138,7 @@ fun VoiceStudioScreen() {
                             val audio = host?.synthesizeText(
                                 text = "Hello. I'm Friday. This is a preview of my current voice.",
                                 language = "en",
-                                voiceId = "speaker_0"
+                                voiceId = "speaker_${speakerIndex}"
                             )
                             if (audio != null) {
                                 status = "Playing Friday voice preview"
@@ -154,16 +164,20 @@ fun VoiceStudioScreen() {
                 Text("Voice identity settings", style = MaterialTheme.typography.titleMedium)
                 Text("Speech rate: ${"%.2f".format(speechRate)}×")
                 Slider(value = speechRate, onValueChange = { speechRate = it }, valueRange = 0.75f..1.25f)
-                Text("Pitch: ${"%.2f".format(pitch)}×")
-                Slider(value = pitch, onValueChange = { pitch = it }, valueRange = 0.8f..1.2f)
+                Text("Kokoro speaker: ${speakerIndex + 1} of 11")
+                Slider(
+                    value = speakerIndex.toFloat(),
+                    onValueChange = { speakerIndex = it.toInt().coerceIn(0, 10) },
+                    valueRange = 0f..10f,
+                    steps = 9
+                )
                 Button(enabled = !busy, onClick = {
                     val current = profileStore.get(DefaultJarvisVoiceProfile.id) ?: DefaultJarvisVoiceProfile
                     profileStore.save(current.copy(
                         language = "en",
                         preferredProvider = "sherpa",
-                        preferredVoice = "speaker_0",
-                        speechRate = speechRate,
-                        pitch = pitch
+                        preferredVoice = "speaker_${speakerIndex}",
+                        speechRate = speechRate
                     ))
                     status = "Friday's active voice profile saved"
                 }) { Text("Save active voice") }
