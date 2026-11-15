@@ -215,6 +215,18 @@ class ToolBuilderTest {
         )
         assertTrue("cognitive fabric could not invoke the promoted tool: ${cognitiveCall.resolution}", cognitiveCall.success)
         assertEquals("3.0", cognitiveCall.result?.output?.get("result"))
+
+        val rolledBack = stack.rollback.rollback(
+            com.jarvis.app.evolution.PromotionReceipt(
+                genomeId = result.genomeId!!,
+                rollbackPoint = null,
+                systemId = result.providerId!!,
+                promotedAtMs = 0
+            ),
+            "verify cognitive-fabric rollback"
+        )
+        assertTrue(rolledBack.success)
+        assertTrue(cognitiveFabric.registry.lookupByOperation("word_count").isEmpty())
         scope.cancel()
     }
 
