@@ -139,7 +139,7 @@ class ApplicationSelfStudyTest {
         }
     }
 
-    @Test fun `Friday model reflection creates and restores a bounded self-build proposal`() = kotlinx.coroutines.runBlocking {
+    @Test fun `Friday model reflection creates and restores a repository development request`() = kotlinx.coroutines.runBlocking {
         val dir = java.nio.file.Files.createTempDirectory("friday-reflection-").toFile()
         try {
             val reportFile = File(dir, "self-study/latest.properties")
@@ -163,11 +163,10 @@ class ApplicationSelfStudyTest {
                     GenerateResult(
                         content = """
                             {
-                              "summary":"The capability map shows a missing local host profile tool.",
+                              "summary":"The host profile adaptation needs a repository-side source change.",
                               "findings":["Source index is structural metadata, not source comprehension."],
                               "next_actions":["Inspect measured memory reserve before tuning."],
-                              "candidate_capability":"host_profile_summary",
-                              "candidate_description":"Summarize validated host resource observations without changing settings.",
+                              "development_request":"Add a repository-side calibrated host-profile adaptation strategy with explicit evidence and tests; do not build or execute source code in Android.",
                               "constraints":["pure function","no device side effects"],
                               "evidence_gaps":["No on-device benchmark is attached."]
                             }
@@ -179,8 +178,8 @@ class ApplicationSelfStudyTest {
 
             assertTrue(prompt.contains("source_revision=revision-42"))
             assertTrue(prompt.contains("Analyze only this evidence"))
-            assertEquals("host_profile_summary", reflection!!.candidateCapability)
-            assertTrue(reflection.hasBuildableCandidate)
+            assertTrue(reflection!!.hasDevelopmentRequest)
+            assertTrue(reflection.developmentRequest!!.contains("repository-side"))
             assertEquals(1, reflection.findings.size)
             assertTrue(File(dir, "self-study/latest-reflection.properties").isFile)
 
