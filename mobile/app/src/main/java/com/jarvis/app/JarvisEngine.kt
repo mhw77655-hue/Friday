@@ -537,10 +537,11 @@ object JarvisEngine {
 
             val phoneDecisionTool = com.jarvis.app.voice.FridayPhoneDecisionTool { utterance, description, risk ->
                 val key = com.jarvis.app.voice.JevApiKeyStore(appContext).read()
-                    ?: return@FridayPhoneDecisionTool null
-                com.jarvis.app.voice.JevDecisionClient(
-                    com.jarvis.app.voice.JevApiKeyProvider { key }
-                ).judgePhoneAction(utterance, description, risk)
+                if (key == null) null else {
+                    com.jarvis.app.voice.JevDecisionClient(
+                        com.jarvis.app.voice.JevApiKeyProvider { key }
+                    ).judgePhoneAction(utterance, description, risk)
+                }
             }
             JarvisEngine.phoneDecisionTool = phoneDecisionTool
 
