@@ -42,26 +42,23 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
- * JARVIS TERMUX LIVE INSTANCE — the real production conversation composition
- * behind a minimal Termux-native HTTP server.
+ * LEGACY JVM COMPOSITION TEST HARNESS — not part of Friday's Android app.
+ * This test-only HTTP server lets host-side tests exercise platform-neutral
+ * turn logic. It is not a production runtime and is not packaged in the APK.
  *
- * This host does not compose a Friday; it supplies one. The turn path itself is
- * built by [TurnPathAssembly] — the SAME root [com.jarvis.app.JarvisEngine]
- * builds for the phone — over the real [CognitiveEngine], real
- * [LatencyPipeline], real [ModelManager] and real legacy Human Core calls. What
- * is left here is this host's own supply (its durable data directory, its
- * JVM-safe stores, its headless speech/UI sinks) and the HTTP server in front.
+ * The harness assembles the platform-neutral [TurnPathAssembly] with test
+ * stores, a fakeable model backend, and headless sinks. Passing these tests is
+ * useful unit/integration evidence, but does not prove Android lifecycle,
+ * Android storage, the installed APK, or physical-device behaviour.
  *
- * JVM-safe doubles living IN this file (never test classes, never
- * Android-bound):
+ * Deterministic test doubles living IN this test-only file:
  *  - [InMemoryGraph] — pure-Kotlin [MemoryGraphStore] (the production store,
  *    AndroidMemoryGraphStore, is android.sqlite and cannot load in Termux)
  *  - [DeterministicEmbedding] — dense seeded [EmbeddingProvider] (production
  *    NeuralEmbeddingProvider runs the neural forward pass)
  *
- * The HTTP layer uses only [ServerSocket]/[Socket] (present in BOTH the
- * Android SDK and the JVM), so this file compiles against android.jar yet runs
- * unmodified on the Termux JVM.
+ * The HTTP layer uses [ServerSocket]/[Socket] only to drive tests. Friday's
+ * Android app does not launch or depend on this server.
  *
  * The model backend is real [OllamaModelBackend] unless [backendOverride] is
  * supplied (tests inject the in-memory FakeModelBackend).
