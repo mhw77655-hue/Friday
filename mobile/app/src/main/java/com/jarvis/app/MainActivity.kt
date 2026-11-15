@@ -80,6 +80,19 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleSharedVideoIntent(intent)
+        if (intent.getBooleanExtra(
+                com.jarvis.app.voice.FridayVoiceInteractionSession.EXTRA_FRIDAY_VOICE_INVOCATION,
+                false
+            )
+        ) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                JarvisMic.start(lifecycleScope)
+            } else {
+                micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
     }
 
     private fun handleSharedVideoIntent(intent: Intent?) {
