@@ -232,7 +232,7 @@ object JarvisEngine {
         // The Human Core model port (§0.15) is bound by the ONE composition
         // root inside init, over the same ModelManager this Friday uses.
 
-        handler.post {
+        val wiringPosted = handler.post {
             try {
                 wiringLatchForTesting?.await()
                 wiringThrowForTesting?.let { throw it }
@@ -662,6 +662,9 @@ object JarvisEngine {
                     )
                 )
             }
+        }
+        if (!wiringPosted) {
+            throw IllegalStateException("Engine handler thread rejected the wiring task")
         }
         } catch (t: Throwable) {
             readinessGate.markFailed(t)
