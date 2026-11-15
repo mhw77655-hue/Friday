@@ -14,6 +14,7 @@ class ModelPathResolver(private val context: Context) {
         private val MODEL_FILENAMES = mapOf(
             "qwen3.5-0.8b-abliterated" to "Qwen3.5-0.8B-abliterated-Q4_K_M.gguf",
             "qwen3.5-2b-uncensored" to "Qwen3.5-2B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf",
+            "spark-x2.6-4b-abliterated" to "Spark-X2.6-4B-Abliterated-Q4_K_M.gguf",
             "resident" to "Qwen3.5-0.8B-abliterated-Q4_K_M.gguf",
             "jarvis-resident:latest" to "Qwen3.5-0.8B-abliterated-Q4_K_M.gguf",
             "jarvis-reasoning:latest" to "Qwen3.5-2B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf",
