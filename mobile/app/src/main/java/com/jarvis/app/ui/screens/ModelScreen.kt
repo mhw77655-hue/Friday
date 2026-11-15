@@ -172,6 +172,7 @@ private fun OfflineModelDownloads() {
     var activeId by remember { mutableStateOf<String?>(null) }
     var progress by remember { mutableStateOf(0f) }
     var message by remember { mutableStateOf("") }
+    var refreshVersion by remember { mutableStateOf(0) }
 
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -183,7 +184,7 @@ private fun OfflineModelDownloads() {
             Text("Download model weights into Friday's private storage. Installed weights remain available offline.",
                 style = JarvisType.Technical.copy(fontSize = 11.sp, color = JarvisColors.TextSecondary))
             OfflineModelCatalog.all.forEach { asset ->
-                val installed = remember(asset.id) { downloader.isInstalled(asset) }
+                val installed = remember(asset.id, refreshVersion) { downloader.isInstalled(asset) }
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(asset.displayName, style = JarvisType.Body.copy(fontWeight = FontWeight.SemiBold))
                     Text(asset.role + " · " + asset.licenseName,
@@ -205,6 +206,7 @@ private fun OfflineModelDownloads() {
                                         }
                                     }.onSuccess {
                                         message = asset.displayName + " downloaded. Runtime activation is a separate step."
+                                        refreshVersion++
                                     }.onFailure {
                                         message = "Download paused/failed: " + (it.message ?: "unknown error") + ". Retry to resume."
                                     }
@@ -214,7 +216,7 @@ private fun OfflineModelDownloads() {
                         ) { Text(if (installed) "Installed" else if (activeId == asset.id) "Downloading" else "Download") }
                     }
                     if (activeId == asset.id) {
-                        androidx.compose.material3.LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                        androidx.compose.material3.LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth())
                     }
                 }
             }
