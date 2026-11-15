@@ -137,24 +137,22 @@ fun HomeScreen(onOpenTools: () -> Unit) {
     }
 }
 
-/** Readable label for the single presence mode (§2.1). */
+/** Friday remains present; these labels describe transient body activity only. */
 private fun presenceLabel(mode: PresenceMode): String = when (mode) {
-    PresenceMode.ASLEEP -> "asleep"
-    PresenceMode.WAKING -> "waking"
-    PresenceMode.IDLE -> "idle"
+    PresenceMode.PRESENT, PresenceMode.ASLEEP, PresenceMode.WAKING,
+    PresenceMode.IDLE, PresenceMode.THINKING -> "present"
     PresenceMode.LISTENING -> "listening"
-    PresenceMode.THINKING -> "thinking"
     PresenceMode.SPEAKING -> "speaking"
     PresenceMode.SHUTTING_DOWN -> "shutting down"
 }
 
 /** Readable label for body state. */
 private fun bodyStateLabel(state: BodyState): String = when (state) {
-    BodyState.IDLE -> "idle"
+    BodyState.IDLE -> "present"
     BodyState.WAKE -> "wake detected"
     BodyState.LISTENING -> "listening"
     BodyState.HEARING -> "processing speech"
-    BodyState.THINKING -> "thinking"
+    BodyState.THINKING -> "attending"
     BodyState.RETRIEVING -> "retrieving memory"
     BodyState.RESPONDING -> "preparing response"
     BodyState.SPEAKING -> "speaking"
