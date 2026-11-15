@@ -142,6 +142,21 @@ class SynthesisCompletionGateTest {
     }
 
     @Test
+    fun `a reservation can be released when a completed cache entry wins a race`() {
+        val directory = Files.createTempDirectory("tts-cache-race").toFile()
+        try {
+            val gate = SynthesisCompletionGate()
+            val first = ticket(directory, "racing_phrase", "tts_10")
+            assertTrue(gate.reserve(first, shouldPlay = true, isFinal = true) is SynthesisReservation.Started)
+            assertTrue(gate.forget("tts_10"))
+            assertFalse(gate.isPending("tts_10"))
+            assertFalse(gate.forget("tts_10"))
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun `cache hit requires completion marker and a sufficiently large file`() {
         val directory = Files.createTempDirectory("tts-cache").toFile()
         try {
