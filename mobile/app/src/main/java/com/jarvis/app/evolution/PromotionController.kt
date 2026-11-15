@@ -20,7 +20,7 @@ import com.jarvis.app.mutant.ResourceSandbox
  * and the production body.
  *
  * Promotion is a single transaction with a rollback point:
- *   1. snapshot the previous current-best (the rollback point),
+ *   1. snapshot the full previous capability index and current-best pointer,
  *   2. archive the promoted genome as HEALTHY,
  *   3. swap the Genome Registry's current-best pointer,
  *   4. build and register the callable SpecMicroSystem so the nervous system
@@ -53,7 +53,8 @@ class PromotionController(
         val rollbackPoint = RollbackPoint(
             previousGenomeId = previousBest?.id,
             previousSystemId = previousSystemId,
-            timestampMs = System.currentTimeMillis()
+            timestampMs = System.currentTimeMillis(),
+            previousCapabilityGenomeIds = previousCapabilityIndex.mapValues { (_, previous) -> previous.id }
         )
 
         val healthy = genome.copy(healthState = GenomeHealth.HEALTHY)
@@ -133,7 +134,9 @@ class PromotionController(
 data class RollbackPoint(
     val previousGenomeId: String?,
     val previousSystemId: String?,
-    val timestampMs: Long
+    val timestampMs: Long,
+    /** Every capability -> genome mapping before this promotion, for exact rollback. */
+    val previousCapabilityGenomeIds: Map<String, String> = emptyMap()
 )
 
 data class PromotionReceipt(
