@@ -147,7 +147,7 @@ fun ModelSimulationScreen() {
                             val measured = withContext(Dispatchers.IO) { simulator.snapshot() }
                             simulator.persistSnapshot(measured)
                             snapshot = measured
-                            simulations = simulator.simulate(measured, contextTokens)
+                            simulations = simulator.simulate(measured, contextTokens, discoveredCandidates.ifEmpty { ModelFreeDeviceSimulator.CANDIDATES })
                         } catch (failure: Exception) {
                             error = failure.message ?: "Benchmark could not complete."
                         } finally {
@@ -179,7 +179,7 @@ fun ModelSimulationScreen() {
             listOf(1024, 2048, 4096).forEach { tokens ->
                 Button(onClick = {
                     contextTokens = tokens
-                    snapshot?.let { simulations = simulator.simulate(it, tokens) }
+                    snapshot?.let { simulations = simulator.simulate(it, tokens, discoveredCandidates.ifEmpty { ModelFreeDeviceSimulator.CANDIDATES }) }
                 }) { Text("${tokens / 1024}K") }
             }
         }
