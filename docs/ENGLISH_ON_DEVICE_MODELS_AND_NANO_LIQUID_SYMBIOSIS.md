@@ -23,11 +23,11 @@ This replaces the old tiny LFM model as the normal resident candidate. It is not
 - The card says only Q8_0 was evaluated. Do not assume Q4 quality is identical.
 - Its advertised million-token context is not a phone setting: the card estimates about 36 KiB/token of f16 KV cache, or roughly 36 GiB for one million tokens. Friday uses NAE-bounded context instead.
 
-### Reasoning fallback: Qwen3.5-2B Abliterated Q4_K_M
+### Reasoning fallback: Qwen3.5-2B Uncensored HauhauCS Aggressive Q4_K_M
 
-- Repository: https://huggingface.co/mradermacher/Huihui-Qwen3.5-2B-abliterated-GGUF
+- Repository: https://huggingface.co/HauhauCS/Qwen3.5-2B-Uncensored-HauhauCS-Aggressive
 - About 1.27 GB of weights.
-- Apache-2.0 reported by the model repository.
+- Apache-2.0 reported by the model repository. The Q4_K_M file has a pinned SHA-256 in the app catalog.
 - Chosen only when Spark is absent or cannot be admitted.
 
 ### Low-memory fallback: LFM2.5-1.2B Abliterated Q4_K_M
