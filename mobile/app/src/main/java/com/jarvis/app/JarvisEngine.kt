@@ -539,13 +539,13 @@ object JarvisEngine {
             memoryConsolidationLoop.startIdleLoop()
             JarvisEngine.memoryConsolidationLoop = memoryConsolidationLoop
 
-            val phoneDecisionTool = com.jarvis.app.voice.FridayPhoneDecisionTool { utterance, description, risk ->
-                val key = com.jarvis.app.voice.JevApiKeyStore(appContext).read()
-                if (key == null) null else {
-                    com.jarvis.app.voice.JevDecisionClient(
-                        com.jarvis.app.voice.JevApiKeyProvider { key }
-                    ).judgePhoneAction(utterance, description, risk)
+            val jevDecisionClient = com.jarvis.app.voice.JevDecisionClient(
+                com.jarvis.app.voice.JevApiKeyProvider {
+                    com.jarvis.app.voice.JevApiKeyStore(appContext).read()
                 }
+            )
+            val phoneDecisionTool = com.jarvis.app.voice.FridayPhoneDecisionTool { utterance, description, risk ->
+                jevDecisionClient.judgePhoneAction(utterance, description, risk)
             }
             JarvisEngine.phoneDecisionTool = phoneDecisionTool
 
