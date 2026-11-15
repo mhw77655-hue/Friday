@@ -29,13 +29,13 @@ import org.junit.Test
 import java.io.File
 
 /**
- * FORGET-PROPAGATION — the PRODUCTION-path acceptance evidence.
+ * FORGET-PROPAGATION — JVM test-harness evidence, not Android production evidence.
  *
  * The subsystem semantics live in
  * [com.jarvis.app.memory.provenance.ForgetPropagationTest]; this class proves
- * forget runs through the REAL conversation composition — TermuxJarvisServer →
- * its LatencyPipeline → CognitiveEngine.process — on top of the REAL classes
- * (not test-only stubs) at every step:
+ * forget runs through the test-only JVM composition harness — TermuxJarvisServer →
+ * its LatencyPipeline → CognitiveEngine.process. It exercises real shared logic,
+ * but does not stand in for an Android device integration test:
  *
  *  - AC1: after the REAL English forget turn "forget Sara's locker code", a byte
  *    scan of EVERY memory/index/cache/queue/trace artifact (trace file, ledger
