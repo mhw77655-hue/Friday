@@ -416,16 +416,35 @@ class BodyCoordinator(
             // Run HumanCore perception
             val perception = humanCore.beginExchange(text, sessionContext)
 
-            // Route turn through CognitiveEngine -> ModelManager
+            // Route turn through CognitiveEngine -> ModelManager and feed the
+            // actual organ outcome back into Nano Liquid Symbiosis.
+            val inferenceStartedAt = android.os.SystemClock.elapsedRealtime()
             val engine = cognitiveEngine
-            val modelResponse = if (engine != null) {
-                runBlocking {
-                    val turnResult = engine.process(text, sessionContext, memoryItems)
-                    turnResult.responseText ?: modelManager.sendWithContext(text, memoryItems)
+            val modelResponse = try {
+                if (engine != null) {
+                    runBlocking {
+                        val turnResult = engine.process(text, sessionContext, memoryItems)
+                        turnResult.responseText ?: modelManager.sendWithContext(text, memoryItems)
+                    }
+                } else {
+                    modelManager.sendWithContext(text, memoryItems)
                 }
-            } else {
-                modelManager.sendWithContext(text, memoryItems)
+            } catch (failure: Throwable) {
+                JarvisEngine.nanoSymbiosis?.recordOutcome(
+                    organ = "reasoning",
+                    succeeded = false,
+                    latencyMs = android.os.SystemClock.elapsedRealtime() - inferenceStartedAt
+                )
+                scope.launch {
+                    emitEvent(BodyEvent.ErrorOccurred(failure.message ?: "Reasoning organ failed"))
+                }
+                return@execute
             }
+            JarvisEngine.nanoSymbiosis?.recordOutcome(
+                organ = "reasoning",
+                succeeded = true,
+                latencyMs = android.os.SystemClock.elapsedRealtime() - inferenceStartedAt
+            )
 
             // Run expression pass with memory context
             val styled = humanCore.express(modelResponse, sessionContext)
@@ -476,6 +495,7 @@ class BodyCoordinator(
             val clean = text?.trim().orEmpty()
             if (clean.isNotBlank()) {
                 SpeechBridge.recordResult(clean)
+                JarvisEngine.nanoSymbiosis?.recordOutcome("speech_input", true, 0L)
                 emitEvent(
                     BodyEvent.SttResult(
                         clean,
@@ -483,6 +503,8 @@ class BodyCoordinator(
                         languageRouter.currentLanguage.value.code
                     )
                 )
+            } else {
+                JarvisEngine.nanoSymbiosis?.recordOutcome("speech_input", false, 0L)
             }
         }
     }
