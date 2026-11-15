@@ -134,11 +134,30 @@ class FridayAccessibilityService : AccessibilityService() {
 
     private fun tapText(text: String): PhoneControlResult {
         val root = rootInActiveWindow ?: return PhoneControlResult.Unavailable("No accessible screen is active.")
-        val nodes = root.findAccessibilityNodeInfosByText(text)
+        val nodes = root.findAccessibilityNodeInfosByText(text).toMutableList()
+        fun collectSemanticMatches(node: AccessibilityNodeInfo, depth: Int) {
+            if (depth > 12) return
+            val description = node.contentDescription?.toString().orEmpty()
+            val resourceId = node.viewIdResourceName.orEmpty()
+            val matches = description.equals(text, ignoreCase = true) ||
+                resourceId.equals(text, ignoreCase = true) ||
+                resourceId.endsWith("/$text", ignoreCase = true)
+            if (matches && node.isVisibleToUser && nodes.none { it == node }) {
+                nodes += AccessibilityNodeInfo.obtain(node)
+            }
+            for (index in 0 until node.childCount) {
+                val child = node.getChild(index) ?: continue
+                collectSemanticMatches(child, depth + 1)
+                child.recycle()
+            }
+        }
+        collectSemanticMatches(root, 0)
         val target = nodes.firstOrNull { it.isVisibleToUser && it.isEnabled }
-            ?: return PhoneControlResult.NotFound(text)
-        val clickable = generateSequence(target) { it.parent }.firstOrNull { it.isClickable }
-            ?: target
+        if (target == null) {
+            nodes.forEach { it.recycle() }
+            return PhoneControlResult.NotFound(text)
+        }
+        val clickable = generateSequence(target) { it.parent }.firstOrNull { it.isClickable } ?: target
         val ok = clickable.performAction(AccessibilityNodeInfo.ACTION_CLICK)
         nodes.forEach { it.recycle() }
         return if (ok) PhoneControlResult.Success else PhoneControlResult.Unavailable("The control could not be activated.")
