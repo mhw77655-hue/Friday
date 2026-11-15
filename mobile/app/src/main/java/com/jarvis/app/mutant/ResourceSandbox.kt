@@ -9,15 +9,14 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
 /**
- * In-process execution sandbox for generated specs (§4 resource limits).
+ * In-process bounded executor for generated pure synth programs.
  *
- * Enforces a real time budget (watchdog via a bounded executor + timeout
- * future — effective even if the spec ignores cancellation), captures
- * crashes as loud results (never silent), and measures latency. Memory is
- * not hard-enforced in-process (the process shares one heap); the resource
- * governor's admission control is the memory guard instead. Any hard
- * process/thread limits are enforced by the environment backend (Termux /
- * container), not here.
+ * Enforces a wall-clock wait budget, captures execution failures, and measures
+ * latency. This is NOT an OS security sandbox: it does not provide a separate
+ * process, memory isolation, filesystem/network isolation, or a hard kill for
+ * code that ignores interruption. Generated programs must stay inside the
+ * restricted SynthProgram interpreter; do not execute arbitrary model output
+ * as Kotlin, Java, shell, or reflective code. Memory admission is advisory.
  *
  * The sandbox holds one daemon executor per instance; it is created lazily
  * and stays idle (no polling) when unused.
