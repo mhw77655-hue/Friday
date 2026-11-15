@@ -212,7 +212,8 @@ class JarvisSpeechRecognizer(
     fun recognize(locale: Locale, onResult: (String?) -> Unit) {
         if (!isAvailable()) {
             status = "unavailable"
-            Telemetry.logSignal("stt_outcome", "unavailable")
+            // The status observer records this state once the app telemetry
+            // store is initialized; keep this wrapper independent of Android I/O.
             onStatusChanged(status)
             onResult(null)
             return
