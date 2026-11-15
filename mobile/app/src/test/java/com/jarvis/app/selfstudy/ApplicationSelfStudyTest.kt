@@ -59,7 +59,20 @@ class ApplicationSelfStudyTest {
                         knownLimitations = mapOf("streaming_voice" to "not yet complete")
                     )
                 },
-                hostSnapshot = { HostStudyRecord(fingerprint, sampleCount = 7) },
+                hostSnapshot = {
+                    HostStudyRecord(
+                        fingerprint = fingerprint,
+                        sampleCount = 7,
+                        minimumAvailableMemoryMb = 1200,
+                        averageCpuLoadEmaPercent = 31.5,
+                        thermalPressureSamples = 2,
+                        lowMemorySamples = 3,
+                        memoryPressureEma = 0.3,
+                        thermalPressureEma = 0.2,
+                        minimumBatteryPercent = 28,
+                        maximumObservedProcessPssMb = 1900
+                    )
+                },
                 liquidSnapshot = {
                     LiquidSymbiosisSnapshot(
                         generation = 1,
@@ -86,6 +99,18 @@ class ApplicationSelfStudyTest {
             assertEquals(listOf("local_decision_tool"), report.declaredMissingCapabilities)
             assertEquals(listOf("streaming_voice"), report.knownLimitationIds)
             assertEquals(7L, report.hostSamples)
+            assertEquals(fingerprint.stableKey, report.hostFingerprint)
+            assertEquals(1200L, report.minimumAvailableMemoryMb)
+            assertEquals(31.5, report.averageCpuLoadEmaPercent, 0.001)
+            assertEquals(2L, report.thermalPressureSamples)
+            assertEquals(3L, report.lowMemorySamples)
+            assertEquals(512L, report.additionalMemoryReserveMb)
+            assertEquals(1900L, report.maximumObservedProcessPssMb)
+            assertEquals(28, report.minimumBatteryPercent)
+            assertEquals(1L, report.liquidGeneration)
+            assertEquals("test", report.liquidLastAdaptation)
+            assertEquals(0.1, report.liquidPredictionError, 0.001)
+            assertTrue(report.organStrategies["REASONING"]!!.contains("failure=2"))
             assertEquals(2L, report.organFailureCounts["REASONING"])
             assertEquals("test-revision", report.sourceRevision)
             assertEquals(42, report.sourceFileCount)
