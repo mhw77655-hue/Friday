@@ -158,18 +158,9 @@ object JarvisEngine {
     @Volatile var androidDeviceControlRouter: com.jarvis.app.android.DeviceControlRouter? = null
         private set
 
-    // Builder stack (TOOLBUILDER-RESEARCH-CONSUMER-WIRING) — the ToolBuilder,
-    // constructed in init() via ToolBuilderComposition with the real
-    // UniversalResearchEngine as its research consumer seam. Hosted via
-    // requestBuild() when a capability gap surfaces.
-    @Volatile var toolBuilder: com.jarvis.app.builder.ToolBuilder? = null
-        private set
-
     @Volatile var systemGraph: com.jarvis.app.selfreconfig.SystemGraph? = null
         private set
     @Volatile var applicationSelfStudy: com.jarvis.app.selfstudy.ApplicationSelfStudy? = null
-        private set
-    @Volatile var selfStudyCapabilityBuilder: com.jarvis.app.selfstudy.SelfStudyCapabilityBuilder? = null
         private set
     @Volatile var phoneDecisionTool: com.jarvis.app.voice.FridayPhoneDecisionTool? = null
         private set
@@ -416,24 +407,6 @@ object JarvisEngine {
                 store = com.jarvis.app.research.universal.InMemoryMechanismsStore()
             )
 
-            // ── TOOLBUILDER-RESEARCH-CONSUMER-WIRING: Builder stack ─────────
-            // The ToolBuilder is the UniversalResearchEngine's only designed
-            // consumer. It is constructed through ToolBuilderComposition — the
-            // single production construction point for the gap→design→build→test
-            // →promote→register→rollback stack — with the real engine handed to
-            // its research seam. Dormant until a capability gap invokes
-            // requestBuild(); never writes production code, everything inside the
-            // mutant habitat (§15, §22).
-            val builderStack = com.jarvis.app.builder.ToolBuilderComposition.build(
-                research = universalResearchEngine,
-                failureSurface = failureSurface,
-                fileStorage = fileStorage,
-                scope = scope,
-                workspacesDir = java.io.File(appContext.filesDir, "builder-workspaces"),
-                llmSynthesisProvider = com.jarvis.app.mutation.LlmSynthesisProvider(modelManager),
-                cognitiveCapabilityFabric = assembly.capabilityFabric
-            )
-
             // ── Phase B: Owner-binding chain ─────────────────────────────────
             // The real owner-binding entry point over the REAL HumanCore
             // relationship store. The app binds after a successful platform
@@ -505,12 +478,6 @@ object JarvisEngine {
             JarvisEngine.ownerBiometricBinder = ownerBiometricBinder
             JarvisEngine.androidRiskGate = androidRiskGate
             JarvisEngine.androidDeviceControlRouter = androidDeviceControlRouter
-            JarvisEngine.toolBuilder = builderStack.builder
-            JarvisEngine.selfStudyCapabilityBuilder =
-                com.jarvis.app.selfstudy.SelfStudyCapabilityBuilder(
-                    stateFile = java.io.File(appContext.filesDir, "self-study/build-attempt.properties"),
-                    build = { spec -> builderStack.builder.build(spec) }
-                )
             JarvisEngine.anchorEngine = anchorEngine
             // The anchor establishes the resident tier as the runtime's stable
             // base at boot (the tier the cooldown sweep never auto-unloads).
@@ -754,11 +721,10 @@ object JarvisEngine {
                     afterAnchor.thermalLevel < 2 &&
                     (afterAnchor.batteryPercent >= 20 || afterAnchor.isCharging)
                 ) {
-                    val reflection = study.reflect(report, manager)
-                    if (reflection != null) {
-                        val afterReflection = governor.resourceSnapshot()
-                        selfStudyCapabilityBuilder?.buildIfUseful(reflection, afterReflection)
-                    }
+                    // Reflection is advisory evidence only. Source changes,
+                    // code execution, tests and builds belong to the connected
+                    // repository development environment, never this APK.
+                    study.reflect(report, manager)
                 }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
@@ -891,22 +857,6 @@ object JarvisEngine {
             "JarvisEngine.init() must run first"
         }
         return engine.researchPersist(gapDescription, targetDomains, maxResults)
-    }
-
-    /**
-     * Hosted ToolBuilder call path (§15 "CreateTool"): builds (or retrieves)
-     * a tool for [spec] through the real ToolBuilder — which runs the full
-     * persisted §7 research sweep through the UniversalResearchEngine and its
-     * real channels before evolving a candidate inside the mutant habitat.
-     * Suspend; call when a capability gap surfaces.
-     */
-    suspend fun requestBuild(
-        spec: com.jarvis.app.builder.ToolSpecification
-    ): com.jarvis.app.builder.BuildResult {
-        val builder = checkNotNull(toolBuilder) {
-            "JarvisEngine.init() must run first"
-        }
-        return builder.build(spec)
     }
 
     /**
