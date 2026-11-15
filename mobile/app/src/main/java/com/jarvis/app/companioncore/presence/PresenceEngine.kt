@@ -34,11 +34,11 @@ import kotlinx.coroutines.flow.asStateFlow
  * (a stale signal must not yank an orderly shutdown).
  *
  * ## Action derivation (spec §2.1)
- * Reads `current_action` each tick to infer Listening/Thinking/Idle boundaries
- * when no explicit request is pending. A dwell prevents 30Hz flapping.
+ * Reads `current_action` each tick to infer when Friday is attending to input;
+ * generation and completed work leave her in PRESENT. A dwell prevents 30Hz flapping.
  *
  * Pure-JVM: the clock is injectable; [tick] is deterministic and exhaustively
- * testable (7×7 transition table, priority races, staleness).
+ * testable (canonical-mode transitions, priority races, staleness and legacy normalization).
  */
 class PresenceEngine(
     private val nowMs: () -> Long = { System.currentTimeMillis() },
