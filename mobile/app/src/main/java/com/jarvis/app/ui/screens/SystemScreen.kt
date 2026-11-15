@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -23,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jarvis.app.DiagnosticsViewModel
-import com.jarvis.app.JarvisEngine
 import com.jarvis.app.ui.components.StateChip
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
@@ -31,11 +31,8 @@ import com.jarvis.app.ui.theme.JarvisType
 private data class SystemRow(val name: String, val stateLabel: String, val dotColor: Color, val detail: String)
 
 /**
- * All rows now read real per-signal StateFlows exposed from
- * DiagnosticsViewModel (networkText/shizukuText/micText/sttText/
- * hotwordText/ttsText/screenText) instead of hardcoded "not yet
- * reporting" placeholders. Brain and Battery were already real and are
- * unchanged.
+ * System health and evidence export. The Reporter creates a ZIP in the
+ * Downloads folder so device observations can be uploaded with a GitHub issue.
  */
 @Composable
 fun SystemScreen() {
@@ -52,6 +49,7 @@ fun SystemScreen() {
     val voiceSubstrateText by diagnosticsViewModel.voiceSubstrateText.collectAsStateWithLifecycle()
     val screenText by diagnosticsViewModel.screenText.collectAsStateWithLifecycle()
     val failureText by diagnosticsViewModel.failureText.collectAsStateWithLifecycle()
+    val reportStatus by diagnosticsViewModel.reportExportStatus.collectAsStateWithLifecycle()
 
     val rows = listOf(
         SystemRow("Brain", brainStatus, brainDotColor(brainStatus), brainStatus),
@@ -83,9 +81,23 @@ fun SystemScreen() {
             .background(JarvisColors.SurfaceBase)
             .padding(16.dp)
     ) {
-        LazyColumn {
+        LazyColumn(modifier = Modifier.weight(1f)) {
             items(rows) { row -> SystemRowView(row) }
         }
+        Text("REPORTER", style = JarvisType.Label, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
+        Text(
+            "Collects device, resource, audio, model, telemetry, and failure evidence. It does not export conversations or recordings.",
+            style = JarvisType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Button(
+            onClick = { diagnosticsViewModel.exportDiagnosticReport() },
+            enabled = !reportStatus.startsWith("Preparing"),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(if (reportStatus.startsWith("Preparing")) "Preparing report..." else "Export diagnostics to Downloads")
+        }
+        Text(reportStatus, style = JarvisType.Label, modifier = Modifier.padding(vertical = 6.dp))
         Button(
             onClick = { diagnosticsViewModel.crashVoiceSubstrate() },
             modifier = Modifier.fillMaxWidth()
@@ -136,12 +148,6 @@ private fun batteryDotColor(text: String): Color {
     }
 }
 
-/**
- * Keyword-based color mapping for the newly-wired rows, which report
- * free-form status strings rather than a fixed enum. Negative/offline
- * patterns are checked first so e.g. "not granted" doesn't fall through
- * to the "granted" success match.
- */
 private fun genericDotColor(text: String): Color {
     val t = text.lowercase()
     return when {
@@ -163,7 +169,6 @@ private fun genericDotColor(text: String): Color {
     }
 }
 
-/** Failures row: green when clean, amber when degraded/warning, red on error. */
 private fun failureDotColor(text: String): Color {
     val t = text.lowercase()
     return when {

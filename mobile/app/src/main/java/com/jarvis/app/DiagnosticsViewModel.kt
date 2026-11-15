@@ -12,14 +12,15 @@ import android.net.NetworkRequest
 import android.os.BatteryManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.jarvis.app.diagnostics.DeviceReporter
 import com.jarvis.app.humancore.HumanCore
-import com.jarvis.app.JarvisEngine
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class DiagnosticsViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -59,12 +60,16 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     private val _failureText = MutableStateFlow("Failures: none")
     val failureText: StateFlow<String> = _failureText.asStateFlow()
 
+    private val _reportExportStatus = MutableStateFlow("No report exported in this session")
+    val reportExportStatus: StateFlow<String> = _reportExportStatus.asStateFlow()
+
     private var lastBatteryText = ""
     private var lastNetworkText = "Net: checking..."
     private var lastNotifText = "Notif: checking..."
     private var lastShizukuText = "Shizuku: checking..."
     private var lastMicText = "Mic: checking..."
     private var lastSttText = "STT: idle"
+    private var lastSttReportText = "STT: idle"
     private var lastHotwordText = "Hotword: unknown"
     private var lastBrainText = "Brain: idle"
     private var lastTtsText = "Tts: idle"
@@ -85,7 +90,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 status == BatteryManager.BATTERY_STATUS_FULL
 
             lastBatteryText = if (pct >= 0) {
-                "Battery: $pct%${if (charging) " (charging)" else ""}"
+                "Battery: $pct% ${if (charging) " (charging)" else ""}"
             } else {
                 "Battery level unavailable"
             }
@@ -104,6 +109,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
 
         override fun onLost(network: Network) {
             lastNetworkText = "Net: offline"
+            Telemetry.logSignal("network", "offline")
             publishHealthText()
         }
 
@@ -121,6 +127,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             else -> "other"
         }
         lastNetworkText = "Net: $type"
+        Telemetry.logSignal("network", type)
         publishHealthText()
     }
 
@@ -131,6 +138,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             "restarts=${state.restartCount}" +
             (state.lastRestartMs?.let { " lastRestart=${it}ms" } ?: "")
         _voiceSubstrateText.value = lastVoiceSubstrateText
+        Telemetry.logSignal("voice_substrate", state.state.toString())
         publishHealthText()
     }
 
@@ -146,6 +154,48 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             val rebuiltMs = host.runCrashRestartCycle()
             lastVoiceSubstrateText += if (rebuiltMs >= 0) " cycle=OK (${rebuiltMs}ms)" else " cycle=FAILED"
             _voiceSubstrateText.value = lastVoiceSubstrateText
+        }
+    }
+
+    /** Export a point-in-time device and runtime evidence bundle to Downloads. */
+    fun exportDiagnosticReport() {
+        viewModelScope.launch {
+            _reportExportStatus.value = "Preparing diagnostic bundle..."
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    val signals = linkedMapOf(
+                        "battery" to lastBatteryText,
+                        "network" to lastNetworkText,
+                        "notifications" to lastNotifText,
+                        "shizuku" to lastShizukuText,
+                        "microphone" to lastMicText,
+                        // The visible STT row may show recognized words. Export
+                        // only the status label, never the recognized text.
+                        "speech_to_text" to lastSttReportText,
+                        "hotword" to lastHotwordText,
+                        "text_to_speech" to lastTtsText,
+                        "model" to lastBrainText,
+                        "voice_substrate" to lastVoiceSubstrateText,
+                        "failure_summary" to lastFailureText
+                    )
+                    val failureSnapshot = runCatching { JarvisEngine.getFailureSurface().snapshot() }.getOrNull()
+                    val persistedFailures = runCatching {
+                        JarvisEngine.getFailureStore().loadRecent(100)
+                    }.getOrDefault(emptyList())
+                    DeviceReporter.export(
+                        getApplication<Application>(),
+                        signals,
+                        failureSnapshot,
+                        persistedFailures
+                    )
+                }
+            }
+            result.onSuccess { export ->
+                _reportExportStatus.value =
+                    "Saved ${export.fileName} (${export.byteCount / 1024} KB) to ${export.location}"
+            }.onFailure { error ->
+                _reportExportStatus.value = "Export failed: ${error.message ?: error::class.java.simpleName}"
+            }
         }
     }
 
@@ -178,13 +228,11 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             NotificationBridge.isConnected.collect { connected ->
                 if (!connected) {
                     lastNotifText = "Notif: access not granted"
+                    Telemetry.logSignal("notification_listener", "not_granted")
                     publishHealthText()
                 }
             }
         }
-        // R1 voice substrate: stream the :voice habitat state into the row.
-        // The host is created asynchronously by JarvisEngine.init, so read it
-        // defensively — the row stays "initializing..." until it appears.
         viewModelScope.launch {
             val host = runCatching { JarvisEngine.getVoiceOrganismHost() }.getOrNull() ?: return@launch
             host.state.collect { publishVoiceSubstrate(it) }
@@ -193,6 +241,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             NotificationBridge.notificationCount.collect { count ->
                 if (NotificationBridge.isConnected.value) {
                     lastNotifText = "Notif: connected, $count seen"
+                    Telemetry.logSignal("notification_listener", "connected")
                     publishHealthText()
                 }
             }
@@ -204,6 +253,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                     ShizukuBridge.isGranted.value -> "Shizuku: running, granted"
                     else -> "Shizuku: running, not granted"
                 }
+                Telemetry.logSignal("shizuku", lastShizukuText.substringAfter(": "))
                 publishHealthText()
             }
         }
@@ -211,6 +261,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             ShizukuBridge.isGranted.collect { granted ->
                 if (ShizukuBridge.isAvailable.value) {
                     lastShizukuText = if (granted) "Shizuku: running, granted" else "Shizuku: running, not granted"
+                    Telemetry.logSignal("shizuku_permission", if (granted) "granted" else "not_granted")
                     publishHealthText()
                 }
                 if (granted) {
@@ -221,12 +272,16 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             ScreenBridge.lastScreenText.collect { text ->
                 lastScreenText = "Screen: $text"
+                // Screen contents stay in the live UI, but only the status of
+                // the bridge (never the screen text) enters the telemetry file.
+                Telemetry.logSignal("screen_bridge", "status_updated")
                 publishHealthText()
             }
         }
         viewModelScope.launch {
             JarvisMic.isRecording.collect { recording ->
                 lastMicText = if (recording) "Mic: capturing" else "Mic: not capturing"
+                Telemetry.logSignal("microphone", if (recording) "capturing" else "not_capturing")
                 publishHealthText()
             }
         }
@@ -241,12 +296,15 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             TtsBridge.status.collect { s ->
                 lastTtsText = "Tts: $s"
+                Telemetry.logSignal("tts_status", s)
                 publishHealthText()
             }
         }
         viewModelScope.launch {
             SpeechBridge.status.collect { s ->
                 lastSttText = "STT: $s"
+                lastSttReportText = "STT: $s"
+                Telemetry.logSignal("stt_status", s)
                 publishHealthText()
             }
         }
@@ -254,6 +312,8 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             SpeechBridge.lastResult.collect { heard ->
                 if (heard.isNotBlank()) {
                     lastSttText = "STT: heard \"$heard\""
+                    lastSttReportText = "STT: recognized (transcript excluded)"
+                    Telemetry.logSignal("stt_result", "recognized")
                     publishHealthText()
                 }
             }
@@ -261,20 +321,20 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         viewModelScope.launch {
             com.jarvis.app.voice.HotwordAvailabilityProbe.availability.collect { a ->
                 lastHotwordText = "Hotword: $a"
+                Telemetry.logSignal("hotword", a.toString())
                 publishHealthText()
             }
         }
         viewModelScope.launch {
             JarvisEngine.modelManager?.status?.collect { s ->
                 lastBrainText = s
+                Telemetry.logSignal("model_status", s)
                 publishHealthText()
             }
         }
 
-        // Nervous-system failure surface: live summary of active failures +
-        // subsystem health, recomputed whenever either changes.
         viewModelScope.launch {
-            val surface = try { JarvisEngine.getFailureSurface() } catch (e: IllegalStateException) { null }
+            val surface = try { JarvisEngine.getFailureSurface() } catch (_: IllegalStateException) { null }
             if (surface != null) {
                 combine(surface.worstSeverity, surface.currentFailures, surface.subsystemHealth) {
                     worst, failures, health ->
@@ -287,7 +347,12 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
-    /** Deterministic human-readable summary of the nervous-system failure state. */
+    override fun onCleared() {
+        runCatching { getApplication<Application>().unregisterReceiver(batteryReceiver) }
+        runCatching { connectivityManager.unregisterNetworkCallback(networkCallback) }
+        super.onCleared()
+    }
+
     private fun summarizeFailures(
         worst: com.jarvis.app.failure.FailureSeverity,
         failures: List<com.jarvis.app.failure.FailureAggregate>,
