@@ -133,7 +133,30 @@ class ExpectationStateEngine(
     private val reflexEvidence: Int = 12,
     private val reflexConfidence: Double = 0.82,
     private val reflexMargin: Double = 0.12
-) {
+ ) {
+    private val lastSituationByPerson = mutableMapOf<String, SituationState>()
+    private val pendingPredictionByPerson = mutableMapOf<String, SituationPrediction>()
+
+    /** Update the local predictive state once per real owner turn. */
+    @Synchronized
+    fun observeTurn(current: SituationState): SituationPrediction? {
+        pendingPredictionByPerson.remove(current.personKey)?.let { settle(it, current) }
+        lastSituationByPerson[current.personKey]?.let { recordTransition(it, current) }
+        lastSituationByPerson[current.personKey] = current
+        val prediction = predict(current)
+        if (prediction != null) pendingPredictionByPerson[current.personKey] = prediction
+        return prediction
+    }
+
+    /** Clear this person's predictive history as part of a broad forget/reset operation. */
+    @Synchronized
+    fun clearPerson(personKey: String) {
+        store.saveTransitions(store.loadTransitions().filterNot { it.personKey == personKey })
+        store.clearCalibration(personKey)
+        lastSituationByPerson.remove(personKey)
+        pendingPredictionByPerson.remove(personKey)
+    }
+
     @Synchronized
     fun recordTransition(before: SituationState, after: SituationState) {
         require(before.personKey.isNotBlank()) { "A verified person key is required." }
