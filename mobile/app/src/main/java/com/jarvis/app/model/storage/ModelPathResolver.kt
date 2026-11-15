@@ -32,8 +32,9 @@ class ModelPathResolver(
             "fallback" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
             "jarvis-reasoning:latest" to "Spark-X2.6-4B-Abliterated-Q4_K_M.gguf",
             "spark-x2.6-4b-abliterated" to "Spark-X2.6-4B-Abliterated-Q4_K_M.gguf",
-            "qwen3.5-2b-abliterated" to "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf",
-            "qwen3.5-2b" to "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf"
+            "qwen3.5-2b-abliterated" to "Qwen3.5-2B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf",
+            "qwen3.5-2b-uncensored" to "Qwen3.5-2B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf",
+            "qwen3.5-2b" to "Qwen3.5-2B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf"
         )
 
         fun modelFileName(modelId: String?): String {
