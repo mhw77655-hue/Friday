@@ -38,6 +38,16 @@ This replaces the old tiny LFM model as the normal resident candidate. It is not
 
 The ladder is therefore **MiniCPM5 2B → LFM2.5 1.2B** for ordinary resident turns and **Spark 4B → Qwen3.5 2B** for reasoning turns. A reasoning request is never silently downgraded to the tiny resident model.
 
+## Visual models for the TikTok/video organ
+
+These are separate perception candidates, not replacements for Friday's language/reasoning models:
+
+- **Qwen2.5-VL-3B-Instruct-Abliterated GGUF** — strongest low-refusal visual candidate found. Its author says abliteration was applied to the text component only, leaving the image component unchanged. The published GGUF path uses a Q4_K_M language file plus a separate `mmproj` file, and llama.cpp multimodal support is documented from b6907 onward. Friday's pinned llama.cpp is newer, but its current JNI request path is text-only; the model must not be offered as installable until the multimodal JNI path and both-file download/verification are implemented. https://huggingface.co/huihui-ai/Qwen2.5-VL-3B-Instruct-abliterated
+- **SmolVLM2-2.2B-Instruct GGUF** — lighter open visual/video alternative. Q4_K_M language weights are listed around 1.11 GB, with a separate F16 multimodal projector around 872 MB. Apache-2.0; llama.cpp support is documented. It is not an abliterated derivative, so it is an alternative for quality/size benchmarking, not the low-refusal choice. https://huggingface.co/second-state/SmolVLM2-2.2B-Instruct-GGUF
+- **V-JEPA 2** — the non-LLM world-model direction. Meta describes it as a self-supervised video model for understanding, anticipating and planning; the paper reports strong motion understanding and action anticipation. Treat it as a teacher/research model for distilling a compact predictive visual student, not a phone-ready model to install directly. https://ai.meta.com/research/vjepa/
+
+The video intake currently stores shared media and extracts keyframes. It does not yet run these visual models, transcribe video audio, or answer questions about the clip. The next implementation gate is a multimodal JNI interface that accepts sampled frames and an `mmproj` file, followed by NAE admission of the combined memory footprint.
+
 ## How Friday avoids hurting the phone
 
 NAE is the admission and adaptation authority. It uses live Android host measurements and learned workload evidence to:
