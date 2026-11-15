@@ -170,21 +170,29 @@ class HunchEngine(
         ) 40 else 0
 
     override fun contribute(workspace: Workspace, task: WorkspaceTask) {
-        observeTurn(workspace, task.nowMillis, task.episodeId)
+        observeTurn(workspace, task.nowMillis, task.episodeId, task.taskKind)
     }
 
     @Synchronized
     fun observeTurn(
         workspace: Workspace,
         now: Long = System.currentTimeMillis(),
-        episodeId: String = "turn:$now"
+        episodeId: String = "turn:$now",
+        taskKind: String = "GENERAL"
     ): Hunch? {
-        val claims = ClaimKind.values()
-            .filter { it != ClaimKind.PREDICTION }
-            .mapNotNull { workspace.current(it) }
+        // The initial encoder uses relatively stable shared state claims.
+        // CONTEXT_WINDOW is intentionally excluded because its raw turn text
+        // changes constantly; a Forge-trained JEPA encoder will replace this
+        // exact-match bootstrap fingerprint with semantic latent state.
+        val claims = listOf(
+            ClaimKind.MENTAL_STATE,
+            ClaimKind.SELF_MODEL,
+            ClaimKind.PERSONA_TRAIT,
+            ClaimKind.TRUST_TIER
+        ).mapNotNull { workspace.current(it) }
         if (claims.isEmpty()) return null
 
-        val stateKey = fingerprint(claims)
+        val stateKey = fingerprint(claims, taskKind)
         var snapshot = store.load()
 
         snapshot.pending?.let { pending ->
@@ -223,8 +231,6 @@ class HunchEngine(
         val total = stateCounts.values.sum()
         val best = stateCounts.maxByOrNull { it.value }
         val confidence = if (total == 0 || best == null) 0.0 else best.value.toDouble() / total
-        val baselineConfidence = if (globalCounts.values.sum() == 0 || baseline == null) 0.0
-            else (globalCounts[baseline] ?: 0).toDouble() / globalCounts.values.sum()
         val performance = snapshot.performance
         val validated = performance.evaluated >= 20 &&
             performance.modelAccuracy > performance.baselineAccuracy + validationMargin
@@ -281,8 +287,8 @@ class HunchEngine(
         return hunch
     }
 
-    private fun fingerprint(claims: List<Claim>): String {
-        val canonical = claims
+    private fun fingerprint(claims: List<Claim>, taskKind: String): String {
+        val canonical = "task:$taskKind|" + claims
             .sortedWith(compareBy<Claim> { it.kind.name }.thenBy { it.personId ?: "" })
             .joinToString("|") { claim ->
                 val payloadHash = sha256(claim.payload)
