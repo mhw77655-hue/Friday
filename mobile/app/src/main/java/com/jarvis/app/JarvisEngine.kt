@@ -71,7 +71,7 @@ object JarvisEngine {
         private set
     @Volatile var ollamaModelBackend: com.jarvis.app.model.OllamaModelBackend? = null
         private set
-    @Volatile var offlineModelBackend: com.jarvis.app.model.InAppLlamaModelBackend? = null
+    @Volatile var offlineModelBackend: com.jarvis.app.model.ProcessIsolatedModelBackend? = null
         private set
     // VOICE-FORGE-EGYPTIAN-KAREN-TTS: the spoken-reply speech backend, built at
     // the SAME composition point as the other model backends (see init()). The
@@ -202,11 +202,9 @@ object JarvisEngine {
             failureSurface = failureSurface,
             dispatcher = Dispatchers.Main
         )
-        // Friday's one production model backend runs GGUF inference inside
-        // this Android app through llama.cpp JNI. It has no Termux/Ollama or
-        // localhost service dependency; model weights are installed privately
-        // by the Model Manager screen.
-        val offlineModelBackend = com.jarvis.app.model.InAppLlamaModelBackend(appContext)
+        // The app process never loads llama.cpp JNI. It proxies model lifecycle
+        // to :inference, which owns the native runtime and its own NAE governor.
+        val offlineModelBackend = com.jarvis.app.model.ProcessIsolatedModelBackend(appContext)
         // ADAPTER-MANIFEST: the real adapter manifest, constructed here — before
         // the ModelManager — so the ONE model-loading path carries the load gate
         // from its first load. JSON Lines under filesDir/memory/adapters.jsonl.
