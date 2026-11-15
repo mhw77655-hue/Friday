@@ -84,6 +84,27 @@ class JepaLatentPredictor(
 
     @Synchronized fun predictionErrorEma(): Double = errorEma
     @Synchronized fun sampleCount(): Long = samples
+
+    @Synchronized
+    fun exportState(): Map<String, String> = buildMap {
+        put("samples", samples.toString())
+        put("errorEma", errorEma.toString())
+        put("target", target.joinToString(","))
+        weights.forEachIndexed { row, values -> put("weights.$row", values.joinToString(",")) }
+    }
+
+    @Synchronized
+    fun restoreState(state: Map<String, String>) {
+        samples = state["samples"]?.toLongOrNull()?.coerceAtLeast(0L) ?: 0L
+        errorEma = state["errorEma"]?.toDoubleOrNull()?.takeIf { it.isFinite() } ?: 0.0
+        state["target"]?.split(",")?.mapNotNull { it.toDoubleOrNull() }?.takeIf { it.size == dimensions }
+            ?.forEachIndexed { i, value -> target[i] = value }
+        weights.indices.forEach { row ->
+            state["weights.$row"]?.split(",")?.mapNotNull { it.toDoubleOrNull() }
+                ?.takeIf { it.size == dimensions + 1 }
+                ?.forEachIndexed { col, value -> weights[row][col] = value }
+        }
+    }
 }
 
 /** Persistent online adaptation driven by real host observations and organ outcomes. */
@@ -212,6 +233,9 @@ class LiquidSymbiosisEngine(private val persistenceFile: File? = null) {
             file.inputStream().use(p::load)
             generation = p.getProperty("generation")?.toLongOrNull() ?: 0L
             lastAdaptation = p.getProperty("lastAdaptation") ?: lastAdaptation
+            predictor.restoreState(p.stringPropertyNames()
+                .filter { it.startsWith("jepa.") }
+                .associate { it.removePrefix("jepa.") to p.getProperty(it) })
             SymbioticOrgan.entries.forEach { organ ->
                 val prefix = "organ.${organ.name}."
                 val base = strategies.getValue(organ)
@@ -237,6 +261,7 @@ class LiquidSymbiosisEngine(private val persistenceFile: File? = null) {
             val p = Properties()
             p.setProperty("generation", generation.toString())
             p.setProperty("lastAdaptation", lastAdaptation)
+            predictor.exportState().forEach { (key, value) -> p.setProperty("jepa.$key", value) }
             strategies.forEach { (organ, value) ->
                 val prefix = "organ.${organ.name}."
                 p.setProperty(prefix + "context", value.contextBudget.toString())
