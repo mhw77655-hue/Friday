@@ -49,12 +49,14 @@ object ApplicationSourceIndex {
                         packageName = entry.optString("package"),
                         declarations = buildList {
                             if (declarations != null) for (i in 0 until declarations.length()) {
-                                declarations.optString(i).takeIf(String::isNotBlank)?.let(::add)
+                                val symbol = declarations.optString(i)
+                                if (symbol.isNotBlank()) add(symbol)
                             }
                         },
                         imports = buildList {
                             if (imports != null) for (i in 0 until imports.length()) {
-                                imports.optString(i).takeIf(String::isNotBlank)?.let(::add)
+                                val imported = imports.optString(i)
+                                if (imported.isNotBlank()) add(imported)
                             }
                         }
                     )
