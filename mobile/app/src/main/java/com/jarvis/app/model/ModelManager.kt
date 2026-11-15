@@ -63,7 +63,10 @@ class ModelManager(
     private val failureSurface: com.jarvis.app.failure.FailureSurface? = null,
     // Launch the background cooldown sweep on this manager's scope. Tests run
     // sweeps manually (autoSweep = false) to stay deterministic.
-    private val autoSweep: Boolean = true
+    private val autoSweep: Boolean = true,
+    // NAE learns from real model-load outcomes; this callback stores aggregate
+    // evidence only and cannot influence the current load's result.
+    private val workloadOutcomeRecorder: ((String, Boolean, Long, Long) -> Unit)? = null
 ) {
     // One down-episode, one entry: the flag is what makes "not one per retry"
     // true by construction rather than a property of the surface's dedupe.
@@ -477,6 +480,7 @@ class ModelManager(
             }
             is LoadOutcome.InFlight -> return outcome.deferred.await()
             is LoadOutcome.Lead -> {
+                val loadStartedAt = clock()
                 val handle = try {
                     modelBackend.loadModel(
                         ModelBackendConfig(
@@ -485,11 +489,13 @@ class ModelManager(
                         )
                     )
                 } catch (e: Exception) {
+                    workloadOutcomeRecorder?.invoke(tier.name, false, (clock() - loadStartedAt).coerceAtLeast(0L), 0L)
                     synchronized(lifecycleLock) { inflight.remove(tier) }
                     outcome.deferred.completeExceptionally(e)
                     throw e
                 }
                 if (!modelBackend.isAvailable(handle)) {
+                    workloadOutcomeRecorder?.invoke(tier.name, false, (clock() - loadStartedAt).coerceAtLeast(0L), 0L)
                     // A typed gap, not a warm tier: announce it once and do NOT
                     // cache it, so the next request genuinely retries and the
                     // anchor reports honestly that it is not held.
@@ -498,6 +504,7 @@ class ModelManager(
                     outcome.deferred.complete(handle)
                     return handle
                 }
+                workloadOutcomeRecorder?.invoke(tier.name, true, (clock() - loadStartedAt).coerceAtLeast(0L), 0L)
                 reportRecovered()
                 synchronized(lifecycleLock) {
                     cachedByTier[tier] = handle
