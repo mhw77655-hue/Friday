@@ -17,10 +17,9 @@ import java.util.concurrent.ConcurrentHashMap
  * implementation id; a task is `run:<specId>:<jsonInput>` and returns the
  * JSON form of the spec's loud [SpecOutput].
  *
- * This is the "process" backend the [com.jarvis.app.mutation.EnvironmentFactory]
- * ships with. Termux / container / remote backends plug in behind the same
- * [EnvironmentBackend] contract — the factory does not assume every
- * environment runs inside the app process.
+ * This is the Android "process" backend registered by the production
+ * composition root. It runs inside Friday's own app; no external shell host
+ * or second runtime environment is required.
  */
 class ProcessLocalBackend(
     private val sandbox: ResourceSandbox = ResourceSandbox(),
