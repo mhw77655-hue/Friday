@@ -14,24 +14,23 @@ import kotlinx.coroutines.flow.asStateFlow
 /**
  * §2.1 — Presence Engine.
  *
- * Root coordinator of the Companion Core. Owns the single 7-state
- * `presence_mode` (ASLEEP, WAKING, IDLE, LISTENING, THINKING, SPEAKING,
- * SHUTTING_DOWN) and arbitrates which ONE is active at any moment — exactly
- * one mode system-wide (spec §3 invariant 1). No other subsystem sets
+ * Root coordinator of the Companion Core. Owns one continuous PRESENT baseline
+ * with transient body interactions (LISTENING, SPEAKING, SHUTTING_DOWN). Legacy
+ * ASLEEP/WAKING/IDLE/THINKING labels are normalized to PRESENT; work is an
+ * activity of the same individual, never a separate existence mode. No other subsystem sets
  * `presence_mode` directly; they enqueue a [TransitionRequest] and this engine
  * resolves it once per [tick] against the priority table.
  *
  * ## Arbitration (spec §2.1)
- * Priority: Shutdown > Wake > user-interrupt > Listening > Speaking >
- * Thinking > Idle (ASLEEP is the lowest / boot state). Of simultaneous
+ * Priority: Shutdown > user-interrupt > Listening > Speaking > PRESENT. Of simultaneous
  * requests the highest-priority wins; on a tie the most-recently-queued wins
  * and the loser is surfaced through [onRejected] — never silently dropped
  * (spec §2.1 failure handling). A single FIFO of pending requests is drained
  * once per tick.
  *
  * ## Stale-signal fallback (audit M-15)
- * If the §2.30 signal is stale, the engine falls back to IDLE rather than
- * freezing in a stale mode — unless a hard shutdown is already in progress
+ * If the §2.30 signal is stale, the engine returns to PRESENT rather than
+ * freezing in a stale interaction — unless a hard shutdown is already in progress
  * (a stale signal must not yank an orderly shutdown).
  *
  * ## Action derivation (spec §2.1)
@@ -116,7 +115,7 @@ class PresenceEngine(
     /**
      * One tick — driven by the Engine Tick Lane (Phase 2 / plan §1.6).
      * 1. Resolve the best pending explicit request (priority arbitration).
-     * 2. Stale signal → IDLE fallback (unless shutting down).
+     * 2. Stale signal → PRESENT fallback (unless shutting down).
      * 3. Otherwise derive Listening/Thinking/Idle from [signal.currentAction]
      *    once the suggestion has dwelled [ACTION_DWELL_TICKS] ticks.
      * Then emit a fresh [CompanionState].
