@@ -33,19 +33,10 @@ class FridayPhoneDecisionTool(
         val description = PhoneCommandInterpreter.describe(command)
         val risk = PhoneCommandInterpreter.risk(command)
 
-        // This is a local invariant: a remote model cannot waive explicit
-        // confirmation for free-form taps or text entry.
-        if (PhoneCommandInterpreter.requiresExplicitConfirmation(command)) {
-            return Result(
-                Verdict.CONFIRM,
-                Source.FRIDAY_LOCAL_POLICY,
-                1.0,
-                "This screen interaction requires your spoken confirmation."
-            )
-        }
+        val requiresLocalConfirmation = PhoneCommandInterpreter.requiresExplicitConfirmation(command)
 
         if (!remoteConfigured) {
-            return if (risk == "low") {
+            return if (!requiresLocalConfirmation && risk == "low") {
                 Result(
                     Verdict.EXECUTE,
                     Source.FRIDAY_LOCAL_POLICY,
@@ -63,10 +54,9 @@ class FridayPhoneDecisionTool(
         }
 
         val decision = remoteJudge(utterance, description, risk)
-            ?: return if (risk == "low") {
+            ?: return if (!requiresLocalConfirmation && risk == "low") {
                 // Jev is an optional decision organ, not a runtime dependency.
-                // An exact recognized command from Friday's bounded allowlist
-                // remains usable offline under Friday's own local policy.
+                // Exact allowlisted commands remain available under local policy.
                 Result(
                     Verdict.EXECUTE,
                     Source.FRIDAY_LOCAL_POLICY,
@@ -86,6 +76,9 @@ class FridayPhoneDecisionTool(
             JevPhoneActionPolicy.shouldReject(decision) ->
                 Result(Verdict.REJECT, Source.TYPESAFE_JEV, decision.confidence,
                     "The decision service rejected this action.")
+            JevPhoneActionPolicy.mayExecute(decision) && requiresLocalConfirmation ->
+                Result(Verdict.CONFIRM, Source.FRIDAY_LOCAL_POLICY, decision.confidence,
+                    "Jev evaluated the action, but Android screen interaction still requires your spoken confirmation.")
             JevPhoneActionPolicy.mayExecute(decision) ->
                 Result(Verdict.EXECUTE, Source.TYPESAFE_JEV, decision.confidence,
                     "The decision service approved this bounded action.")
