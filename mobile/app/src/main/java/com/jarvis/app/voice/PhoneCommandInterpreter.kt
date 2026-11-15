@@ -63,7 +63,7 @@ object PhoneCommandInterpreter {
 
     fun risk(command: PhoneControlCommand): String = when (command) {
         is PhoneControlCommand.TapText, is PhoneControlCommand.TypeText -> "high"
-        is PhoneControlCommand.OpenApp -> "medium"
+        is PhoneControlCommand.OpenApp -> "low"
         else -> "low"
     }
 
