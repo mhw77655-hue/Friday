@@ -74,13 +74,12 @@ class ApplicationSelfStudy(
         val summary: String,
         val findings: List<String>,
         val nextActions: List<String>,
-        val candidateCapability: String?,
-        val candidateDescription: String?,
+        val developmentRequest: String?,
         val constraints: List<String>,
         val evidenceGaps: List<String>
     ) {
-        val hasBuildableCandidate: Boolean
-            get() = candidateCapability != null && candidateDescription != null
+        val hasDevelopmentRequest: Boolean
+            get() = !developmentRequest.isNullOrBlank()
     }
 
     @Volatile private var latestReflection: Reflection? = readReflection()
@@ -96,18 +95,15 @@ class ApplicationSelfStudy(
         return runCatching {
             val props = Properties()
             file.inputStream().use { props.load(it) }
-            val capability = props.getProperty("candidateCapability").orEmpty()
-                .takeIf { it.matches(Regex("[a-z][a-z0-9_]{2,63}")) }
-            val description = props.getProperty("candidateDescription").orEmpty()
-                .takeIf { capability != null && it.isNotBlank() && it.length <= 500 }
+            val developmentRequest = props.getProperty("developmentRequest").orEmpty()
+                .takeIf { it.isNotBlank() && it.length <= 1600 }
             Reflection(
                 createdAtMs = props.getProperty("createdAtMs").toLong(),
                 sourceRevision = props.getProperty("sourceRevision").orEmpty(),
                 summary = props.getProperty("summary").orEmpty(),
                 findings = parseStoredList(props.getProperty("findings").orEmpty()),
                 nextActions = parseStoredList(props.getProperty("nextActions").orEmpty()),
-                candidateCapability = capability.takeIf { description != null },
-                candidateDescription = description,
+                developmentRequest = developmentRequest,
                 constraints = parseStoredList(props.getProperty("constraints").orEmpty()),
                 evidenceGaps = parseStoredList(props.getProperty("evidenceGaps").orEmpty())
             )
@@ -156,12 +152,12 @@ class ApplicationSelfStudy(
             appendLine("Analyze only this evidence. Do not pretend you read source text; the source index is structural metadata.")
             appendLine("Identify the most important mismatch between this architecture and Friday's canonical vision:")
             appendLine("one persistent individual, Android as her body, one intelligence, Jev as an optional decision faculty,")
-            appendLine("continuous presence, phone-specific liquid symbiosis, experience-driven learning, and safe self-building.")
-            appendLine("If evidence is insufficient, say so and propose no build candidate.")
-            appendLine("A build candidate must be a small, pure, self-contained capability expressible in Friday's current synth language.")
-            appendLine("Never propose device-control, permission, security, network, or self-modification code in this lane.")
-            appendLine("Return exactly JSON with fields: summary, findings[], next_actions[], candidate_capability,")
-            appendLine("candidate_description, constraints[], evidence_gaps[]. Use null for candidate fields when none is justified.")
+            appendLine("continuous presence, phone-specific liquid symbiosis, experience-driven learning, and repository-native self-development.")
+            appendLine("The Android app is not a development environment. Do not propose executable code or an in-app tool.")
+            appendLine("If evidence justifies source-level work, write a concise repository development request: desired outcome, affected area if known, evidence, acceptance criteria, risks and unresolved questions.")
+            appendLine("Do not invent source details; explicitly name missing evidence and uncertainty.")
+            appendLine("Return exactly JSON with fields: summary, findings[], next_actions[], development_request, constraints[], evidence_gaps[].")
+            appendLine("Use null for development_request when no source-level change is justified.")
         }
         val result = try {
             complete(
@@ -181,18 +177,15 @@ class ApplicationSelfStudy(
         }
         if (result.finishReason == FinishReason.ERROR || result.content.isBlank()) return null
         val json = extractJson(result.content) ?: return null
-        val candidateName = json.optString("candidate_capability").trim()
-            .takeIf { it.matches(Regex("[a-z][a-z0-9_]{2,63}")) }
-        val candidateDescription = json.optString("candidate_description").trim()
-            .takeIf { candidateName != null && it.isNotBlank() && it.length <= 500 }
+        val developmentRequest = json.optString("development_request").trim()
+            .takeIf { it.isNotBlank() && it.length <= 1600 }
         val reflection = Reflection(
             createdAtMs = nowMs,
             sourceRevision = report.sourceRevision,
             summary = json.optString("summary").trim().take(1200),
             findings = jsonArrayStrings(json.optJSONArray("findings"), 8),
             nextActions = jsonArrayStrings(json.optJSONArray("next_actions"), 8),
-            candidateCapability = candidateName.takeIf { candidateDescription != null },
-            candidateDescription = candidateDescription,
+            developmentRequest = developmentRequest,
             constraints = jsonArrayStrings(json.optJSONArray("constraints"), 8),
             evidenceGaps = jsonArrayStrings(json.optJSONArray("evidence_gaps"), 8)
         )
@@ -233,8 +226,7 @@ class ApplicationSelfStudy(
             setProperty("summary", reflection.summary)
             setProperty("findings", JSONArray(reflection.findings).toString())
             setProperty("nextActions", JSONArray(reflection.nextActions).toString())
-            setProperty("candidateCapability", reflection.candidateCapability.orEmpty())
-            setProperty("candidateDescription", reflection.candidateDescription.orEmpty())
+            setProperty("developmentRequest", reflection.developmentRequest.orEmpty())
             setProperty("constraints", JSONArray(reflection.constraints).toString())
             setProperty("evidenceGaps", JSONArray(reflection.evidenceGaps).toString())
         }
