@@ -132,8 +132,8 @@ class BodyCoordinator(
         onFailure = { r -> failureSurface.report(r) })
 
     // ── Model lifecycle ──
-    private val modelIdleTimer = AtomicLong(0)
-    private val isModelWarm = AtomicBoolean(false)
+    private val reasoningLastUsedAtMs = AtomicLong(0)
+    private val isReasoningWarm = AtomicBoolean(false)
     private val executor = Executors.newSingleThreadExecutor { r ->
         Thread(r, "jarvis-body-coordinator").apply { isDaemon = true }
     }
@@ -400,7 +400,7 @@ class BodyCoordinator(
                 handleError(trigger as? BodyEvent.ErrorOccurred)
             }
             BodyState.IDLE -> {
-                resetIdleTimer()
+                scheduleReasoningRelease()
             }
             BodyState.USER_PRESENT -> {
                 companionIntegration.sendUserPresenceEvent(
@@ -765,8 +765,8 @@ class BodyCoordinator(
         executor.execute {
             try {
                 modelManager.send("") // Warm ping
-                isModelWarm.set(true)
-                modelIdleTimer.set(System.currentTimeMillis())
+                isReasoningWarm.set(true)
+                reasoningLastUsedAtMs.set(System.currentTimeMillis())
                 Log.i(TAG, "Model warmed")
             } catch (e: Exception) {
                 Log.w(TAG, "Model warm failed: ${e.message}")
@@ -788,26 +788,25 @@ class BodyCoordinator(
         }
     }
 
-    /** Reset idle timer for model unload. */
-    private fun resetIdleTimer() {
-        modelIdleTimer.set(System.currentTimeMillis())
+    /** Start a resource grace period for the on-demand reasoning organ; Friday remains present on the resident anchor. */
+    private fun scheduleReasoningRelease() {
+        reasoningLastUsedAtMs.set(System.currentTimeMillis())
         scope.launch {
-            delay(BodyConfig.MODEL_IDLE_UNLOAD_MS)
-            checkModelIdle()
+            delay(BodyConfig.REASONING_RELEASE_GRACE_MS)
+            releaseReasoningIfQuiet()
         }
     }
 
     /**
-     * Idle conversational organ: release the reasoning tier so ModelManager's
-     * cooldown sweep unloads it from memory (RAM strategy: idle models leave
-     * memory). Model lifecycle is owned by ModelManager — this is a release,
-     * not a direct unload.
+     * Release only the on-demand reasoning organ after its grace period.
+     * The RESIDENT organ remains anchored, so Friday's continuous identity and
+     * lightweight cognition are not unloaded. ModelManager owns the actual cooldown/unload.
      */
-    private fun checkModelIdle() {
-        if (System.currentTimeMillis() - modelIdleTimer.get() >= BodyConfig.MODEL_IDLE_UNLOAD_MS) {
-            if (isModelWarm.getAndSet(false)) {
+    private fun releaseReasoningIfQuiet() {
+        if (System.currentTimeMillis() - reasoningLastUsedAtMs.get() >= BodyConfig.REASONING_RELEASE_GRACE_MS) {
+            if (isReasoningWarm.getAndSet(false)) {
                 modelManager.release(OrganRole.REASONING)
-                Log.i(TAG, "Model idle timeout - released reasoning tier")
+                Log.i(TAG, "Reasoning organ released after quiet grace period; resident anchor remains loaded")
             }
         }
     }
