@@ -21,7 +21,8 @@ class ApplicationSelfStudy(
     private val reportFile: File,
     private val capabilitySnapshot: () -> CapabilityManifest?,
     private val hostSnapshot: () -> HostStudyRecord?,
-    private val liquidSnapshot: () -> LiquidSymbiosisSnapshot?
+    private val liquidSnapshot: () -> LiquidSymbiosisSnapshot?,
+    private val sourceIndexSnapshot: () -> ApplicationSourceIndex.Summary? = { null }
 ) {
     data class Report(
         val createdAtMs: Long,
@@ -33,6 +34,10 @@ class ApplicationSelfStudy(
         val declaredMissingCapabilities: List<String>,
         val knownLimitationIds: List<String>,
         val hostSamples: Long,
+        val sourceRevision: String,
+        val sourceFileCount: Int,
+        val sourceSymbolCount: Int,
+        val sourcePackageCount: Int,
         val organFailureCounts: Map<String, Long>,
         val nextFocus: List<String>
     ) {
@@ -50,6 +55,7 @@ class ApplicationSelfStudy(
         val manifest = capabilitySnapshot()
         val host = hostSnapshot()
         val liquid = liquidSnapshot()
+        val sourceIndex = sourceIndexSnapshot()
         val missingCapabilities = manifest?.capabilities
             ?.filterValues { !it }?.keys?.sorted().orEmpty()
         val limitations = manifest?.knownLimitations?.keys?.sorted().orEmpty()
@@ -63,6 +69,7 @@ class ApplicationSelfStudy(
             if (missingCapabilities.isNotEmpty()) add("Prioritize missing capabilities: ${missingCapabilities.take(8).joinToString()}")
             if (limitations.isNotEmpty()) add("Review known limitations: ${limitations.take(5).joinToString()}")
             if (failures.isNotEmpty()) add("Study organ failures: ${failures.entries.joinToString { "${it.key}=${it.value}" }}")
+            if (sourceIndex == null) add("Source architecture index unavailable; verify generated build metadata")
             if ((host?.sampleCount ?: 0L) < 20L) add("Continue observing this phone before changing resource strategy")
             if (isEmpty()) add("No structural issue detected; compare measured organ quality and cost before proposing changes")
         }
@@ -77,6 +84,10 @@ class ApplicationSelfStudy(
             declaredMissingCapabilities = missingCapabilities,
             knownLimitationIds = limitations,
             hostSamples = host?.sampleCount ?: 0L,
+            sourceRevision = sourceIndex?.sourceRevision.orEmpty(),
+            sourceFileCount = sourceIndex?.sourceFileCount ?: 0,
+            sourceSymbolCount = sourceIndex?.declaredSymbolCount ?: 0,
+            sourcePackageCount = sourceIndex?.packageCount ?: 0,
             organFailureCounts = failures,
             nextFocus = focus
         )
@@ -97,6 +108,10 @@ class ApplicationSelfStudy(
             setProperty("declaredMissingCapabilities", report.declaredMissingCapabilities.joinToString("|"))
             setProperty("knownLimitationIds", report.knownLimitationIds.joinToString("|"))
             setProperty("hostSamples", report.hostSamples.toString())
+            setProperty("sourceRevision", report.sourceRevision)
+            setProperty("sourceFileCount", report.sourceFileCount.toString())
+            setProperty("sourceSymbolCount", report.sourceSymbolCount.toString())
+            setProperty("sourcePackageCount", report.sourcePackageCount.toString())
             setProperty("organFailureCounts", report.organFailureCounts.entries.joinToString("|") { "${it.key}:${it.value}" })
             setProperty("nextFocus", report.nextFocus.joinToString("\n"))
         }
