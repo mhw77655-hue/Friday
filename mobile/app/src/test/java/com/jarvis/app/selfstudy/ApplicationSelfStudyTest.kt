@@ -155,10 +155,12 @@ class ApplicationSelfStudyTest {
             )
             val study = createStudy()
             val report = study.study(nowMs = 100L)
+            var systemPrompt = ""
             var prompt = ""
             val reflection = study.reflect(
                 report = report,
                 complete = { request: GenerateRequest ->
+                    systemPrompt = request.messages.first().content
                     prompt = request.messages.last().content
                     GenerateResult(
                         content = """
@@ -176,8 +178,13 @@ class ApplicationSelfStudyTest {
                 nowMs = 200L
             )
 
+            assertTrue(systemPrompt.contains("Android is the deployed body"))
+            assertTrue(systemPrompt.contains("repository development request"))
+            assertTrue(systemPrompt.contains("proposal only"))
+            assertFalse(systemPrompt.contains("pure synth-language"))
             assertTrue(prompt.contains("source_revision=revision-42"))
             assertTrue(prompt.contains("Analyze only this evidence"))
+            assertTrue(prompt.contains("repository-native self-development"))
             assertTrue(reflection!!.hasDevelopmentRequest)
             assertTrue(reflection.developmentRequest!!.contains("repository-side"))
             assertEquals(1, reflection.findings.size)
