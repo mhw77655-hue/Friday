@@ -73,6 +73,13 @@ timeout -k 15 3000 opencode run -m "$MODEL" "$(cat "$PROMPT_FILE")"
 # all paths and applies this artifact in a separate, trusted job.
 git add -N . 2>/dev/null || true
 python3 tools/friday-builder/validate_patch_paths.py "$BASE_SHA"
+git diff --check "$BASE_SHA"
 git diff --binary "$BASE_SHA" > proposal.patch
 test -s proposal.patch
-echo "Proposal patch created ($(wc -c < proposal.patch) bytes)."
+PATCH_BYTES="$(wc -c < proposal.patch)"
+if [ "$PATCH_BYTES" -gt 2097152 ]; then
+  rm -f proposal.patch
+  echo "Proposal patch exceeds the 2 MiB transfer limit." >&2
+  exit 6
+fi
+echo "Proposal patch created ($PATCH_BYTES bytes)."
