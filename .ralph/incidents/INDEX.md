@@ -20,3 +20,4 @@ This file tracks all build/runtime incidents. Each incident has a file under
 
 | [LAUNCH-WAKE-ORDER.md](LAUNCH-WAKE-ORDER.md) | 2026-10-24 | Launch crash: UI asking half-built engine getters before wiring completes | fixed |
 | [2026-11-10_tts_cold_start_readiness.md](2026-11-10_tts_cold_start_readiness.md) | 2026-11-10 | TTS engine cold-start readiness, duplicate owners, and missing cache playback | fixed |
+| [2026-11-15_tts_synthesis_completion.md](2026-11-15_tts_synthesis_completion.md) | 2026-11-15 | TTS file synthesis promoted before asynchronous completion; callback-gated cache and playback | implementation pending CI and phone verification |
