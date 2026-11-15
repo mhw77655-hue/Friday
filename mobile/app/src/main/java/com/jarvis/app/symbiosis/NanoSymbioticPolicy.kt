@@ -123,7 +123,8 @@ class NanoSymbioticPolicy {
             contexts.firstOrNull { host.availableMemoryMb >= required(it) }
         } else null
         val allowed = selectedContext != null
-        val requiredMb = selectedContext?.let(::required) ?: contexts.lastOrNull()?.let(::required) ?: Long.MAX_VALUE
+        val requiredMb = if (selectedContext != null) required(selectedContext)
+            else contexts.lastOrNull()?.let { required(it) } ?: Long.MAX_VALUE
         val reason = when {
             blockedReason != null -> blockedReason
             selectedContext != null && selectedContext < requestedContextTokens ->
