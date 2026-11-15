@@ -21,7 +21,7 @@ class PhoneCommandOrchestratorTest {
 
         val result = router.handle("go home")
 
-        assertTrue(result is PhoneCommandOrchestrator.Outcome.Executed)
+        assertTrue(result is PhoneCommandOrchestrator.Outcome.ActionResult)
         assertEquals(1, executions)
     }
 
@@ -36,7 +36,7 @@ class PhoneCommandOrchestratorTest {
 
         val result = router.handle("open settings")
 
-        assertTrue(result is PhoneCommandOrchestrator.Outcome.Executed)
+        assertTrue(result is PhoneCommandOrchestrator.Outcome.ActionResult)
         assertEquals(1, executions)
     }
 
@@ -57,7 +57,7 @@ class PhoneCommandOrchestratorTest {
         assertTrue(router.hasPendingConfirmation())
 
         val confirmed = router.handle("yes")
-        assertTrue(confirmed is PhoneCommandOrchestrator.Outcome.Executed)
+        assertTrue(confirmed is PhoneCommandOrchestrator.Outcome.ActionResult)
         assertEquals(1, executions)
         assertFalse(router.hasPendingConfirmation())
     }
@@ -128,7 +128,7 @@ class PhoneCommandOrchestratorTest {
         val second = router.handle("go back")
         assertTrue(second is PhoneCommandOrchestrator.Outcome.Unavailable)
         release.complete(Unit)
-        assertTrue(first.await() is PhoneCommandOrchestrator.Outcome.Executed)
+        assertTrue(first.await() is PhoneCommandOrchestrator.Outcome.ActionResult)
     }
 
     @Test fun `Android execution exception becomes a contained unavailable result`() = runBlocking {
@@ -140,9 +140,9 @@ class PhoneCommandOrchestratorTest {
 
         val result = router.handle("go home")
 
-        assertTrue(result is PhoneCommandOrchestrator.Outcome.Executed)
+        assertTrue(result is PhoneCommandOrchestrator.Outcome.ActionResult)
         assertTrue(
-            (result as PhoneCommandOrchestrator.Outcome.Executed).result is PhoneControlResult.Unavailable
+            (result as PhoneCommandOrchestrator.Outcome.ActionResult).result is PhoneControlResult.Unavailable
         )
     }
 
