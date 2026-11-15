@@ -34,7 +34,7 @@ import java.io.File
  * implementations the platform can offer. Everything else — the claim
  * workspace, the identity/emotion/social/continuity stack, the cognitive engine,
  * the admission governor's policy, the Human Core wiring — is decided ONCE, in
- * [TurnPathAssembly], for every host.
+ * [TurnPathAssembly] in the Android app; JVM fixtures are test-only.
  *
  * It is an adapter, not an owner: nothing here decides a cognitive outcome, and
  * nothing here is a cognitive role (VISION.md Section 4 / Section 13).
