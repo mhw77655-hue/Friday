@@ -44,6 +44,8 @@ import com.jarvis.app.memory.EmbeddingProvider
 import com.jarvis.app.memory.MemoryGraphStore
 import com.jarvis.app.memory.MemoryImportanceScorer
 import com.jarvis.app.memory.SignalSplitScorer
+import com.jarvis.app.prediction.ExpectationStateEngine
+import com.jarvis.app.prediction.JsonFileExpectationStore
 import com.jarvis.app.model.CognitiveAdmissionPolicy
 import com.jarvis.app.model.ModelBackend
 import com.jarvis.app.model.ModelManager
@@ -303,6 +305,11 @@ class TurnPathAssembly private constructor(
                 mentalStateEstimator = mentalStateEstimator
             )
 
+            // ── Predictive state: compact JEPA-inspired successor learning ───────
+            val expectationEngine = ExpectationStateEngine(
+                JsonFileExpectationStore(ports.storageDir.resolve("cognition/expectation_state.json"))
+            )
+
             // ── The cognitive engine: the one route a turn takes ───────────────
             val memoryStore = stores.memoryStore()
             val engine = CognitiveEngine(
@@ -322,7 +329,8 @@ class TurnPathAssembly private constructor(
                 provenanceLedger = stores.provenanceLedger(),
                 memoryForgetter = ports.memoryForgetter(),
                 signalScorer = signalScorer,
-                workspace = workspace
+                workspace = workspace,
+                expectationEngine = expectationEngine
             )
 
             // ── The entry point ────────────────────────────────────────────────
