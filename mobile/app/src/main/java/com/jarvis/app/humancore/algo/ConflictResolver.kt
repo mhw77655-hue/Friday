@@ -42,6 +42,9 @@ object ConflictResolver {
             StoreKind.RELATIONSHIP -> mergeRelationship(local, remote)
             StoreKind.ADAPTATION -> mergeAdaptation(local, remote)
             StoreKind.DIALOGUE -> unionJsonLines(local, remote)
+            // The evolutionary archive is device-local technical state, not a
+            // Human Core sync domain; local wins if a sync envelope includes it.
+            StoreKind.GENOME_ARCHIVE -> local
             // Failure history is append-only JSONL like DIALOGUE — merge by
             // union of lines (dedup by id is handled at read time).
             StoreKind.FAILURES -> unionJsonLines(local, remote)
