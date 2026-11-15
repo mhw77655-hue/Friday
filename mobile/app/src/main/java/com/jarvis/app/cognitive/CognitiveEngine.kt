@@ -215,7 +215,9 @@ class CognitiveEngine(
      * names the other. Null keeps the pre-workspace behavior byte-for-byte (the
      * assembler simply has no workspace to publish into or read from).
      */
-    private val workspace: com.jarvis.app.cognition.workspace.Workspace? = null
+    private val workspace: com.jarvis.app.cognition.workspace.Workspace? = null,
+    /** Predictive state learns from the same shared claims; it does not own person or identity data. */
+    private val hunchEngine: com.jarvis.app.cognition.prediction.HunchEngine? = null
 ) : PlanDriver {
 
     private val intentInference = IntentInference(scope)
@@ -455,6 +457,15 @@ class CognitiveEngine(
             } else {
                 emptyList()
             }
+        // OUTCOME-WITHOUT-PROCESS: record this turn's shared situation claims,
+        // settle the previous forecast, and publish the next evidence-backed
+        // prediction. The predictor never bypasses deliberation until its
+        // held-out performance beats the naive baseline.
+        hunchEngine?.observeTurn(
+            now = System.currentTimeMillis(),
+            episodeId = "turn:${cognitiveResult.turnIndex}"
+        )
+
         val galaxyContext = if (galaxyMems.isNotEmpty()) {
             "\n\n[Cross-session memory]:\n" + galaxyMems.joinToString("\n") { "- ${it.content}" }
         } else {
