@@ -37,10 +37,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         handleSharedVideoIntent(intent)
-        if (intent.getBooleanExtra(
+        if (
+            intent.getBooleanExtra(
                 com.jarvis.app.voice.FridayVoiceInteractionSession.EXTRA_FRIDAY_VOICE_INVOCATION,
                 false
-            )
+            ) && ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+                PackageManager.PERMISSION_GRANTED
         ) beginAssistantListening()
         ShizukuBridge.init()
         // End the Human Core session when the app goes to the background so
