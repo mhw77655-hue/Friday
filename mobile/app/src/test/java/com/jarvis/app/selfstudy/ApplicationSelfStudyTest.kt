@@ -40,7 +40,7 @@ class ApplicationSelfStudyTest {
     }
 
     @Test fun `study reports live graph gaps and persists a bounded report`() {
-        val dir = createTempDir(prefix = "friday-study-")
+        val dir = java.nio.file.Files.createTempDirectory("friday-study-").toFile()
         try {
             val fingerprint = HostFingerprint(
                 manufacturer = "test", model = "test", device = "test",
