@@ -9,6 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # localhost inference server exists on the user's phone.
 include(FetchContent)
 set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
+set(GGML_CPU_KLEIDIAI ON CACHE BOOL "" FORCE)
 set(GGML_OPENMP OFF CACHE BOOL "" FORCE)
 set(GGML_LLAMAFILE OFF CACHE BOOL "" FORCE)
 set(GGML_VULKAN OFF CACHE BOOL "" FORCE)
@@ -20,7 +21,7 @@ set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
     llama_cpp
     GIT_REPOSITORY https://github.com/ggml-org/llama.cpp.git
-    GIT_TAG b2960
+    GIT_TAG b10486
     GIT_SHALLOW TRUE
 )
 FetchContent_MakeAvailable(llama_cpp)
