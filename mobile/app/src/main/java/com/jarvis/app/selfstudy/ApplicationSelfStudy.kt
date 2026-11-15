@@ -12,6 +12,7 @@ import com.jarvis.app.model.Message
 import com.jarvis.app.model.MessageRole
 import com.jarvis.app.model.ModelManager
 import org.json.JSONObject
+import org.json.JSONArray
 import java.io.File
 import java.util.Properties
 
@@ -103,12 +104,12 @@ class ApplicationSelfStudy(
                 createdAtMs = props.getProperty("createdAtMs").toLong(),
                 sourceRevision = props.getProperty("sourceRevision").orEmpty(),
                 summary = props.getProperty("summary").orEmpty(),
-                findings = props.getProperty("findings").orEmpty().split('|').filter(String::isNotBlank),
-                nextActions = props.getProperty("nextActions").orEmpty().split('|').filter(String::isNotBlank),
+                findings = parseStoredList(props.getProperty("findings").orEmpty()),
+                nextActions = parseStoredList(props.getProperty("nextActions").orEmpty()),
                 candidateCapability = capability.takeIf { description != null },
                 candidateDescription = description,
-                constraints = props.getProperty("constraints").orEmpty().split('|').filter(String::isNotBlank),
-                evidenceGaps = props.getProperty("evidenceGaps").orEmpty().split('|').filter(String::isNotBlank)
+                constraints = parseStoredList(props.getProperty("constraints").orEmpty()),
+                evidenceGaps = parseStoredList(props.getProperty("evidenceGaps").orEmpty())
             )
         }.getOrNull()
     }
@@ -214,6 +215,15 @@ class ApplicationSelfStudy(
             }
         }
 
+    private fun parseStoredList(raw: String): List<String> = runCatching {
+        val array = JSONArray(raw)
+        buildList {
+            for (index in 0 until minOf(array.length(), 8)) {
+                array.optString(index).takeIf(String::isNotBlank)?.let { add(it.take(400)) }
+            }
+        }
+    }.getOrDefault(emptyList())
+
     private fun persistReflection(reflection: Reflection) {
         val file = reflectionFile()
         file.parentFile?.mkdirs()
@@ -221,12 +231,12 @@ class ApplicationSelfStudy(
             setProperty("createdAtMs", reflection.createdAtMs.toString())
             setProperty("sourceRevision", reflection.sourceRevision)
             setProperty("summary", reflection.summary)
-            setProperty("findings", reflection.findings.joinToString("|"))
-            setProperty("nextActions", reflection.nextActions.joinToString("|"))
+            setProperty("findings", JSONArray(reflection.findings).toString())
+            setProperty("nextActions", JSONArray(reflection.nextActions).toString())
             setProperty("candidateCapability", reflection.candidateCapability.orEmpty())
             setProperty("candidateDescription", reflection.candidateDescription.orEmpty())
-            setProperty("constraints", reflection.constraints.joinToString("|"))
-            setProperty("evidenceGaps", reflection.evidenceGaps.joinToString("|"))
+            setProperty("constraints", JSONArray(reflection.constraints).toString())
+            setProperty("evidenceGaps", JSONArray(reflection.evidenceGaps).toString())
         }
         file.outputStream().use { props.store(it, "Friday self-study reflection; proposals only") }
     }
