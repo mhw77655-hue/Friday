@@ -27,14 +27,15 @@ class FridayPhoneDecisionToolTest {
         assertEquals(FridayPhoneDecisionTool.Source.FRIDAY_LOCAL_POLICY, result.source)
     }
 
-    @Test fun `configured but unavailable Jev fails closed`() = runBlocking {
+    @Test fun `configured but unavailable Jev falls back to local allowlist for low risk actions`() = runBlocking {
         val tool = FridayPhoneDecisionTool { _, _, _ -> null }
         val result = tool.judge(
             utterance = "open settings",
             command = PhoneCommandInterpreter.parse("open settings")!!,
             remoteConfigured = true
         )
-        assertEquals(FridayPhoneDecisionTool.Verdict.UNAVAILABLE, result.verdict)
+        assertEquals(FridayPhoneDecisionTool.Verdict.EXECUTE, result.verdict)
+        assertEquals(FridayPhoneDecisionTool.Source.FRIDAY_LOCAL_POLICY, result.source)
     }
 
     @Test fun `Jev rejection is preserved`() = runBlocking {
