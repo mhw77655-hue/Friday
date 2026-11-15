@@ -22,7 +22,9 @@ object PhoneCommandInterpreter {
             "previous track", "last track", "previous song" -> PhoneControlCommand.PreviousTrack
             "turn up the volume", "increase volume", "volume up", "louder" -> PhoneControlCommand.VolumeUp
             "turn down the volume", "decrease volume", "volume down", "quieter" -> PhoneControlCommand.VolumeDown
-            "open internet settings", "open wifi settings", "connectivity settings" -> PhoneControlCommand.OpenInternetPanel
+            "open internet settings", "open wifi settings", "connectivity settings",
+            "turn on wifi", "turn off wifi", "enable wifi", "disable wifi",
+            "connect to wifi", "disconnect wifi" -> PhoneControlCommand.OpenInternetPanel
             "scroll down", "move down" -> PhoneControlCommand.ScrollForward
             "scroll up", "move up" -> PhoneControlCommand.ScrollBackward
             else -> when {
