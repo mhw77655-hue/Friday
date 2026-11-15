@@ -10,7 +10,6 @@ import com.jarvis.app.model.FakeModelBackend
 import com.jarvis.app.model.ModelTier
 import com.jarvis.app.model.OrganRole
 import com.jarvis.app.model.ResourceSnapshot
-import com.jarvis.app.termux.TermuxJarvisServer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
