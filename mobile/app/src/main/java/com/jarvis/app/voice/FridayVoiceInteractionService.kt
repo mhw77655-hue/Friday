@@ -16,7 +16,6 @@ import com.jarvis.app.MainActivity
 class FridayVoiceInteractionService : VoiceInteractionService() {
     override fun onReady() {
         super.onReady()
-        setInvocationEffectEnabled(true)
     }
 }
 
