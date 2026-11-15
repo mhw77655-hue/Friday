@@ -9,10 +9,9 @@ import java.io.File
  * JARVIS keeps large GGUF models outside the APK.
  *
  * Resolution order:
- * 1. Explicit absolute filesystem path.
- * 2. Friday's app-private files/models/ (the owned, default model vault).
- * 3. App-specific external files/models/ (migration fallback).
- * 4. Canonical shared JARVIS model vault (legacy migration fallback).
+ * 1. Explicit path only when it resolves inside app-owned storage.
+ * 2. Friday's app-private files/models/ (the authoritative model vault).
+ * 3. App-specific external files/models/ (scoped-storage migration fallback).
  *
  * IMPORTANT:
  * - Model IDs may be aliases rather than filenames.
@@ -23,8 +22,6 @@ class ModelPathResolver(
 ) {
 
     companion object {
-        const val CANONICAL_MODEL_ROOT = "/sdcard/jarvis-repo/models"
-
         private val MODEL_FILENAMES = mapOf(
             "lfm2.5-1.2b-abliterated" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
             "lfm2.5-1.2b-instruct-abliterated" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
@@ -32,7 +29,8 @@ class ModelPathResolver(
             "lfm" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
             "resident" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
             "jarvis-resident:latest" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
-            "jarvis-reasoning:latest" to "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf",
+            "jarvis-reasoning:latest" to "Spark-X2.6-4B-Abliterated-Q4_K_M.gguf",
+            "spark-x2.6-4b-abliterated" to "Spark-X2.6-4B-Abliterated-Q4_K_M.gguf",
             "qwen3.5-2b-abliterated" to "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf",
             "qwen3.5-2b" to "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf",
             "qwen3-1.7b" to "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf",
@@ -56,9 +54,11 @@ class ModelPathResolver(
             return "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf"
         }
 
-        private fun looksLikeAbsoluteFilePath(value: String): Boolean {
-            return value.startsWith("/") || value.startsWith("file://")
-        }
+        private fun looksLikeAbsoluteFilePath(value: String): Boolean =
+            value.startsWith("/") || value.startsWith("file://")
+
+        private fun isInside(child: File, parent: File): Boolean =
+            child == parent || child.path.startsWith(parent.path + File.separator)
     }
 
     /**
@@ -81,11 +81,14 @@ class ModelPathResolver(
             ?.let { configured ->
                 if (looksLikeAbsoluteFilePath(configured)) {
                     val normalized = configured.removePrefix("file://")
-                    val explicit = File(normalized)
-
-                    if (explicit.isFile && explicit.canRead()) {
-                        return explicit
-                    }
+                    val explicit = runCatching { File(normalized).canonicalFile }.getOrNull()
+                    val privateRoot = runCatching { context.filesDir.canonicalFile }.getOrNull()
+                    val externalAppRoot = runCatching { context.getExternalFilesDir(null)?.canonicalFile }.getOrNull()
+                    val appOwned = explicit != null && (
+                        (privateRoot != null && isInside(explicit, privateRoot)) ||
+                        (externalAppRoot != null && isInside(explicit, externalAppRoot))
+                    )
+                    if (explicit != null && appOwned && explicit.isFile && explicit.canRead()) return explicit
                 }
             }
 
@@ -101,10 +104,6 @@ class ModelPathResolver(
             val external = File(externalRoot, "models/$fileName")
             if (external.isFile && external.canRead()) return external
         }
-
-        // 4. Legacy shared model vault, retained only to migrate old installs.
-        val canonical = File(CANONICAL_MODEL_ROOT, fileName)
-        if (canonical.isFile && canonical.canRead()) return canonical
 
         return null
     }
