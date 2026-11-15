@@ -14,14 +14,11 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * THREAD-OBJECTS (Gate 3a, priority 2) — the PRODUCTION-path half of the
- * acceptance evidence.
+ * THREAD-OBJECTS (Gate 3a, priority 2) — JVM test-harness evidence only.
  *
- * AC6 demands proof against the REAL entry point, not a mock/test-only path.
- * This drives the REAL JVM-executable composition root (TermuxJarvisServer —
- * the mirror of JarvisEngine.init with only the Android-bound stores swapped)
- * through its REAL LatencyPipeline down to CognitiveEngine.process, i.e. the
- * exact call path
+ * This drives the test-only JVM composition harness through its real
+ * LatencyPipeline down to CognitiveEngine.process. It exercises shared logic,
+ * but it is not proof of the Android app entry point or device lifecycle:
  *
  *   /api/chat -> LatencyPipeline.onUserInput
  *            -> CognitiveEngine.process(text, ctx, sendBlock = bridgeSend)
