@@ -42,9 +42,9 @@ The ladder is therefore **MiniCPM5 2B → LFM2.5 1.2B** for ordinary resident tu
 
 These are separate perception candidates, not replacements for Friday's language/reasoning models:
 
-- **Qwen2.5-VL-3B-Instruct-Abliterated GGUF** — strongest low-refusal visual candidate found. Its author says abliteration was applied to the text component only, leaving the image component unchanged. The published GGUF path uses a Q4_K_M language file plus a separate `mmproj` file, and llama.cpp multimodal support is documented from b6907 onward. Friday's pinned llama.cpp is newer, but its current JNI request path is text-only; the model must not be offered as installable until the multimodal JNI path and both-file download/verification are implemented. https://huggingface.co/huihui-ai/Qwen2.5-VL-3B-Instruct-abliterated
+- **Qwen2.5-VL-3B-Instruct-Abliterated GGUF** — strongest low-refusal visual candidate found. Its author says abliteration was applied to the text component only, leaving the image component unchanged. The static Q4_K_M language file is listed around 1.93 GB, plus a separate `mmproj` file. llama.cpp multimodal support is documented from b6907 onward. Friday's pinned llama.cpp is newer, but its current JNI request path is text-only; the model must not be offered as installable until the multimodal JNI path and both-file download/verification are implemented. https://huggingface.co/mradermacher/Qwen2.5-VL-3B-Instruct-abliterated-GGUF
 - **SmolVLM2-2.2B-Instruct GGUF** — lighter open visual/video alternative. Q4_K_M language weights are listed around 1.11 GB, with a separate F16 multimodal projector around 872 MB. Apache-2.0; llama.cpp support is documented. It is not an abliterated derivative, so it is an alternative for quality/size benchmarking, not the low-refusal choice. https://huggingface.co/second-state/SmolVLM2-2.2B-Instruct-GGUF
-- **V-JEPA 2** — the non-LLM world-model direction. Meta describes it as a self-supervised video model for understanding, anticipating and planning; the paper reports strong motion understanding and action anticipation. Treat it as a teacher/research model for distilling a compact predictive visual student, not a phone-ready model to install directly. https://ai.meta.com/research/vjepa/
+- **V-JEPA 2.1** — the non-LLM world-model direction and the actual JEPA-family video predictor. Meta's official repository lists ViT-B/16 80M, ViT-L/16 300M, ViT-g/16 1B and ViT-G/16 2B variants; 2.1 adds denser, more temporally consistent features. The 80M variant is the first mobile-feasibility candidate, but no Android/TFLite/ONNX runtime or phone benchmark has been validated. Treat the larger models as teachers and distill a compact student rather than loading a 1B/2B teacher on the phone. https://github.com/facebookresearch/vjepa2
 
 The video intake currently stores shared media and extracts keyframes. It does not yet run these visual models, transcribe video audio, or answer questions about the clip. The next implementation gate is a multimodal JNI interface that accepts sampled frames and an `mmproj` file, followed by NAE admission of the combined memory footprint.
 
@@ -71,7 +71,7 @@ Friday now has a production successor-state learner in the same CognitiveEngine 
 - The compact history is persisted locally and can be cleared for a person on a broad forget/reset operation.
 - Predictions are added to turn diagnostics; they do not currently bypass deliberation or trigger actions.
 
-This is a JEPA-inspired predictive substrate, **not Meta's V-JEPA 2 model**. The future reflex path must only activate after sufficient evidence, calibrated advantage over baseline, low risk, and a verified lower cost than deliberation. It must remain reversible and explainable.
+This is a JEPA-inspired symbolic successor-state substrate, **not the neural V-JEPA 2.1 model**. The future reflex path must only activate after sufficient evidence, calibrated advantage over baseline, low risk, and a verified lower cost than deliberation. It must remain reversible and explainable.
 
 ## Video understanding and TikTok
 
