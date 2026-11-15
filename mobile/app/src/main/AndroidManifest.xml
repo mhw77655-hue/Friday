@@ -60,6 +60,7 @@
         <!-- Android system assistant entry point; user selects Friday as default assistant. -->
         <service
             android:name=".voice.FridayVoiceInteractionService"
+            android:process=":assistant"
             android:label="Friday"
             android:permission="android.permission.BIND_VOICE_INTERACTION"
             android:exported="true">
@@ -72,6 +73,7 @@
         </service>
         <service
             android:name=".voice.FridayVoiceInteractionSessionService"
+            android:process=":voiceassistant"
             android:permission="android.permission.BIND_VOICE_INTERACTION"
             android:exported="true" />
 
