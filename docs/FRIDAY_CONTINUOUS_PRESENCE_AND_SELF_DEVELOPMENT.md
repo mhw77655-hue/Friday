@@ -41,15 +41,19 @@ An installed APK does not contain the Kotlin source tree. Friday currently studi
 
 The next build should generate a versioned source/architecture index at build time and package it as read-only metadata. Friday can then inspect class/module descriptions, dependency edges, known limitations, test coverage and build provenance without shipping the entire source tree or exposing secrets.
 
-## What “rebuild her own tools” means
+## Where source-level development happens
 
-The current on-device ToolBuilder can create, execute, test and compare bounded declarative algorithms in an isolated mutant habitat. It does not yet compile arbitrary Kotlin/Android source. Friday must not overwrite her installed APK or bypass Android package signing.
+The Android app is Friday's deployed body, not her IDE or build machine. It may observe its own runtime, collect privacy-minimized technical evidence, study a packaged structural source index, and formulate a development request. It must not edit source code, synthesize executable code, run a code builder/compiler, execute generated programs, run tests, sign packages, or replace its own APK.
+
+All source-level development happens in Friday's connected repository environment. Repository workers read the actual source and Vision, research alternatives, modify version-controlled branches, run tests and CI, and produce provenance-linked build artifacts. The Android runtime receives only reviewed, signed updates through the normal authorized installation path.
+
+The phone-side self-study is therefore an evidence and feedback organ, not a construction organ. A reflection or candidate is not a built capability. It must become a durable, privacy-reviewed development request for the repository environment; the external worker then performs the actual reconstruction and validation. The repository handoff and durable synchronization are not yet complete.
 
 The intended development loop is:
 
-`observe → identify a real capability gap → research mechanisms → design a candidate → build in isolation → test against fixtures and adversarial cases → benchmark on this phone → compare quality/cost → promote with provenance → retain rollback`
+`experience → observe a real limitation → preserve bounded evidence → create a durable development request → repository reconstruction → isolated source change → independent CI and evaluation → authorized release → device validation → learn from the outcome`
 
-For pure tool changes, promotion can update a versioned declarative capability through the guarded registry. For Android-native code or manifest changes, the output must be a new signed app build, verified and installed through Android's normal update mechanism. The currently installed process remains intact until that update is accepted.
+The current production composition no longer constructs ToolBuilder or connects self-study to a builder. The old ToolBuilder implementation remains in the Android source tree as legacy code and must be removed or relocated into the repository-side development environment before the architecture is considered clean. It is not an approved runtime capability.
 
 ## Resource and scheduling rules
 
