@@ -215,7 +215,10 @@ class CognitiveEngine(
      * names the other. Null keeps the pre-workspace behavior byte-for-byte (the
      * assembler simply has no workspace to publish into or read from).
      */
-    private val workspace: com.jarvis.app.cognition.workspace.Workspace? = null
+    private val workspace: com.jarvis.app.cognition.workspace.Workspace? = null,
+
+    /** Replaceable predictive-state organ; it stores only coarse situation features, never message text. */
+    private val expectationEngine: com.jarvis.app.prediction.ExpectationStateEngine? = null
 ) : PlanDriver {
 
     private val intentInference = IntentInference(scope)
@@ -308,7 +311,8 @@ class CognitiveEngine(
          * context for this turn (formatted prompt suffix), when an
          * [IdentityContext] is wired. Null when Stage-03 identity is not wired.
          */
-        val identityContextSuffix: String? = null
+        val identityContextSuffix: String? = null,
+        val predictiveState: com.jarvis.app.prediction.SituationPrediction? = null
     )
 
     /**
@@ -372,6 +376,15 @@ class CognitiveEngine(
         // half-finished one marked TRAILING_OFF, tangents anchored to the main
         // task. A null/disabled tracker is a no-op (AC7).
         threadTracker?.ingestTurn(cognitiveResult.turnIndex, userText)
+
+        // THINKING-WITHOUT-THINKING: update the cheap predictive state from
+        // coarse interaction features. Owner history is not mixed with an
+        // explicitly named third-party interlocutor. Raw message text is not stored.
+        val predictiveState = if (interlocutor == null) {
+            expectationEngine?.observeTurn(buildSituationState(userText, sessionContext))
+        } else {
+            null
+        }
 
         // Classify intent via LLM seam and route accordingly
         val intentCategory = classifyIntent(userText)
@@ -568,7 +581,11 @@ class CognitiveEngine(
             outputText = responseText,
             generationPayload = fullContextMessage,
             crossSessionMemories = galaxyMems.map { it.content },
-            stageTimingsMs = traceTimings(embedMs, retrieveMs, promptBuildMs, generateMs, postProcessMs)
+            stageTimingsMs = traceTimings(embedMs, retrieveMs, promptBuildMs, generateMs, postProcessMs),
+            predictions = predictiveState?.let { listOf(
+                "successor=${it.likelyNext}; confidence=${"%.3f".format(it.confidence)}; " +
+                "baseline=${"%.3f".format(it.baselineConfidence)}; reflexEligible=${it.reflexEligible}"
+            ) } ?: emptyList()
         )
 
         return CognitiveTurnResult(
@@ -578,7 +595,8 @@ class CognitiveEngine(
             servedDegraded = admissionOutcome?.degraded,
             crossSessionMemories = if (blendedRetriever != null) galaxyMems else null,
             assembledMentalState = assembledMentalState,
-            identityContextSuffix = identitySuffix
+            identityContextSuffix = identitySuffix,
+            predictiveState = predictiveState
         )
     }
 
@@ -597,6 +615,7 @@ class CognitiveEngine(
         generationPayload: String?,
         crossSessionMemories: List<String>,
         stageTimingsMs: Map<String, Long>,
+        predictions: List<String> = emptyList(),
         // FORGET-PROPAGATION (AC6): when true the text-bearing fields are
         // blanked AT WRITE so the forget turn's own trace never carries the
         // forgotten content — the record still exists, with id, turn index,
@@ -614,7 +633,7 @@ class CognitiveEngine(
                 inputText = if (redactText) "" else inputText,
                 decision = decision.name,
                 retrievedMemoryIds = retrievedMemoryIds,
-                predictions = emptyList(),
+                predictions = predictions,
                 promptSections = if (redactText) promptSections.map { it.copy(preview = "") } else promptSections,
                 outputText = if (redactText) null else outputText,
                 generationPayload = if (redactText) null else generationPayload,
@@ -1773,4 +1792,41 @@ class DecompositionException(
 class ReplanLimitExceededException(
     message: String,
     val history: List<TaskWorkingMemory.ResultEntry>
-) : RuntimeException(message)
+) : RuntimeException(message    private fun buildSituationState(
+        userText: String,
+        context: SessionContext?
+    ): com.jarvis.app.prediction.SituationState {
+        val trimmed = userText.trim()
+        val firstWord = trimmed.lowercase().split(Regex("\\s+")).firstOrNull().orEmpty()
+        val messageKind = when {
+            trimmed.endsWith("?") || firstWord in setOf("what", "why", "how", "when", "where", "who", "can", "could", "is", "are", "do", "does") -> "question"
+            firstWord in setOf("build", "create", "make", "write", "find", "search", "check", "show", "tell", "explain", "fix", "implement", "compare", "research") -> "request"
+            else -> "statement"
+        }
+        val wordCount = trimmed.split(Regex("\\s+")).count { it.isNotBlank() }
+        val lengthBucket = when {
+            wordCount <= 8 -> "short"
+            wordCount <= 35 -> "medium"
+            else -> "long"
+        }
+        val gapSeconds = context?.secondsSinceLastContact
+        val gapBucket = when {
+            gapSeconds == null -> "unknown"
+            gapSeconds < 300 -> "recent"
+            gapSeconds < 3600 -> "hour"
+            else -> "long"
+        }
+        return com.jarvis.app.prediction.SituationState(
+            personKey = com.jarvis.app.identity.WorldModelService.USER_NODE_NAME,
+            fields = mapOf(
+                "channel" to (context?.channel?.name ?: "unknown"),
+                "hourBand" to (context?.localHour?.div(4)?.toString() ?: "unknown"),
+                "wasAway" to (context?.wasAway?.toString() ?: "unknown"),
+                "gapBand" to gapBucket,
+                "messageKind" to messageKind,
+                "lengthBand" to lengthBucket
+            )
+        )
+    }
+
+)
