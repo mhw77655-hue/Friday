@@ -33,8 +33,33 @@ object PhoneCommandInterpreter {
         }
     }
 
+    fun describe(command: PhoneControlCommand): String = when (command) {
+        PhoneControlCommand.Back -> "Navigate back one screen"
+        PhoneControlCommand.Home -> "Return to the Android home screen"
+        PhoneControlCommand.Recents -> "Show recent applications"
+        PhoneControlCommand.Notifications -> "Open the notification shade"
+        PhoneControlCommand.QuickSettings -> "Open Android quick settings"
+        PhoneControlCommand.ScrollForward -> "Scroll the active screen down"
+        PhoneControlCommand.ScrollBackward -> "Scroll the active screen up"
+        is PhoneControlCommand.OpenApp -> "Launch installed application named ${command.label}"
+        is PhoneControlCommand.TapText -> "Tap an accessible UI control labelled ${command.text}"
+        is PhoneControlCommand.TypeText -> "Enter user-provided text into the currently focused field"
+    }
+
+    fun risk(command: PhoneControlCommand): String = when (command) {
+        is PhoneControlCommand.TapText, is PhoneControlCommand.TypeText -> "high"
+        is PhoneControlCommand.OpenApp -> "medium"
+        else -> "low"
+    }
+
+    fun requiresExplicitConfirmation(command: PhoneControlCommand): Boolean =
+        command is PhoneControlCommand.TapText || command is PhoneControlCommand.TypeText
+
     fun dispatch(utterance: String): PhoneControlResult? {
         val command = parse(utterance) ?: return null
-        return FridayAccessibilityService.execute(command)
+        return dispatch(command)
     }
+
+    fun dispatch(command: PhoneControlCommand): PhoneControlResult =
+        FridayAccessibilityService.execute(command)
 }
