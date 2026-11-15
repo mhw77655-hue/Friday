@@ -119,7 +119,7 @@ class VideoIntakeRepository(context: Context) {
             height = metadata.third,
             framePaths = framePaths,
             importedAt = System.currentTimeMillis(),
-            status = if (framePaths.isEmpty()) "imported; visual extraction needs retry" else "imported; keyframes ready for interpretation"
+            status = if (framePaths.isEmpty()) "imported; visual extraction needs retry" else "imported; keyframes extracted; visual model interpretation is not yet wired"
         )
         save(item)
         item
