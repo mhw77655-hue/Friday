@@ -72,7 +72,7 @@ class SherpaTtsVoiceProvider(
                 id = "speaker_$i",
                 name = if (id == "piper") "Amy · English US" else "Kokoro speaker ${i + 1}",
                 language = entry.languages.firstOrNull() ?: "en",
-                quality = VoiceQuality.HIGH
+                quality = entry.quality
             )
         }
     }
@@ -172,7 +172,7 @@ class SherpaTtsVoiceProvider(
             dictDir = "",
             ruleFsts = "",
             ruleFars = "",
-            numThreads = 2,
+            numThreads = if (id == "piper") 4 else 2,
             isKitten = false
         )
         Log.i(TAG, "loading ${entry.id} into :voice habitat")
