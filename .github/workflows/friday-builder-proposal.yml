@@ -1,0 +1,158 @@
+name: Friday repository builder proposal
+
+on:
+  workflow_dispatch:
+    inputs:
+      request_id:
+        description: "Approved request id from development-requests/inbox"
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: friday-builder-${{ inputs.request_id }}
+  cancel-in-progress: false
+
+jobs:
+  build_proposal:
+    name: Build proposal (untrusted worker, read-only repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository without persisting credentials
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate request before starting a model
+        env:
+          REQUEST_ID: ${{ inputs.request_id }}
+        run: |
+          python3 tools/friday-builder/validate_request.py \
+            "development-requests/inbox/$REQUEST_ID.json" \
+            --expected-id "$REQUEST_ID"
+          python3 -m unittest discover -s tools/friday-builder -p 'test_*.py' -v
+
+      - name: Set up Node for OpenCode
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pinned OpenCode worker
+        run: npm install --global opencode-ai@1.19.5
+
+      - name: Run bounded proposal without repository write credentials
+        env:
+          REQUEST_ID: ${{ inputs.request_id }}
+        run: |
+          env -u GITHUB_TOKEN -u GH_TOKEN -u NVIDIA_API_KEY \
+            bash tools/friday-builder/run_proposal.sh "$REQUEST_ID"
+
+      - name: Upload untrusted proposal patch
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-proposal-${{ inputs.request_id }}
+          path: proposal.patch
+          if-no-files-found: error
+          retention-days: 7
+
+  publish_draft_pr:
+    name: Publish draft PR (trusted, no automatic merge or release)
+    needs: build_proposal
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    steps:
+      - name: Checkout trusted main without persisting credentials
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Download untrusted patch artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: friday-proposal-${{ inputs.request_id }}
+          path: proposal-artifact
+
+      - name: Apply and validate proposal without executing it
+        run: |
+          set -euo pipefail
+          test -s proposal-artifact/proposal.patch
+          test "$(wc -c < proposal-artifact/proposal.patch)" -le 2097152
+          git apply --index --check proposal-artifact/proposal.patch
+          git apply --index proposal-artifact/proposal.patch
+          python3 tools/friday-builder/validate_patch_paths.py HEAD
+          git diff --cached --check
+          git status --short
+
+      - name: Create an isolated proposal branch and draft PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUEST_ID: ${{ inputs.request_id }}
+          REPOSITORY: ${{ github.repository }}
+          SOURCE_RUN: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          BRANCH="friday-proposals/$REQUEST_ID"
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            echo "Proposal branch already exists: $BRANCH. Refusing to overwrite it." >&2
+            exit 5
+          fi
+          git config user.name "friday-proposal-publisher"
+          git config user.email "friday-proposal-publisher@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git commit -m "proposal: Friday development request $REQUEST_ID"
+          git remote set-url origin "https://github.com/$REPOSITORY.git"
+          gh auth setup-git
+          git push origin "$BRANCH"
+          gh pr create \
+            --repo "$REPOSITORY" \
+            --base main \
+            --head "$BRANCH" \
+            --draft \
+            --title "Friday development proposal: $REQUEST_ID" \
+            --body "## Friday repository development proposal
+
+          Request id: `$REQUEST_ID`
+          Worker run: $SOURCE_RUN
+
+          This is an untrusted worker proposal. It has not been merged, released,
+          signed or installed. Review the diff, CI result, security impact and
+          Vision fidelity before any merge. The agent job had repository read
+          permission only; this separate publisher created the draft PR.
+
+          No automatic merge, release, signing or deployment is performed."
+
+          # GITHUB_TOKEN-authenticated pushes do not trigger push workflows.
+          # Explicitly dispatch the build workflow for this proposal branch.
+          gh workflow run build.yml --repo "$REPOSITORY" --ref "$BRANCH"
+
+      - name: Publish boundary summary
+        if: always()
+        run: |
+          {
+            echo "## Friday proposal"
+            echo
+            echo "Request: ${{ inputs.request_id }}"
+            echo "This workflow creates a draft PR only. It never merges, signs, releases or installs."
+          } >> "$GITHUB_STEP_SUMMARY"
