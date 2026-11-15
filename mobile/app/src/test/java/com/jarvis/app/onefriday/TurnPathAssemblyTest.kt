@@ -16,6 +16,10 @@ import com.jarvis.app.model.OrganRole
 import com.jarvis.app.model.OrganWakeRequest
 import com.jarvis.app.model.ResourceSnapshot
 import com.jarvis.app.termux.TermuxJarvisServer
+import com.jarvis.app.voice.VoiceForgeHealth
+import com.jarvis.app.voice.VoiceForgeSynthesisRequest
+import com.jarvis.app.voice.VoiceForgeSynthesisResponse
+import com.jarvis.app.voice.VoiceForgeSynthesizer
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,6 +41,16 @@ import org.junit.Test
  * Termux host construct.
  */
 class TurnPathAssemblyTest {
+
+    private class SilentSpeech : VoiceForgeSynthesizer {
+        override suspend fun synthesize(
+            request: VoiceForgeSynthesisRequest
+        ): VoiceForgeSynthesisResponse =
+            throw UnsupportedOperationException("test-only server speech is not exercised")
+
+        override suspend fun health(): VoiceForgeHealth =
+            throw UnsupportedOperationException("test-only server health is not exercised")
+    }
 
     private class NoMemories : MemoryStorePort {
         override fun queryMemories(query: String, limit: Int): List<MemoryItem> = emptyList()
@@ -107,7 +121,6 @@ class TurnPathAssemblyTest {
         assertNotNull("the single model loading authority", assembly.modelManager)
         assertNotNull("the single admission governor", assembly.resourceGovernor)
         assertNotNull("the real anchor engine", assembly.anchorEngine)
-        assertNotNull("the real spoken-reply backend", assembly.voiceForgeBackend)
         assertNotNull("the real capability registry", assembly.capabilityRegistry)
         assertNotNull("the real cloud router around this Friday", assembly.cloudModelRouter)
     }
