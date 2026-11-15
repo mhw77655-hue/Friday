@@ -605,6 +605,43 @@ class CognitiveEngine(
      * enabled. Null/disabled ⇒ no-op — the trace file provably stays the same
      * size across the turn (AC5 negative control).
      */
+    private fun buildSituationState(
+        userText: String,
+        context: SessionContext?
+    ): com.jarvis.app.prediction.SituationState {
+        val trimmed = userText.trim()
+        val firstWord = trimmed.lowercase().split(Regex("\\s+")).firstOrNull().orEmpty()
+        val messageKind = when {
+            trimmed.endsWith("?") || firstWord in setOf("what", "why", "how", "when", "where", "who", "can", "could", "is", "are", "do", "does") -> "question"
+            firstWord in setOf("build", "create", "make", "write", "find", "search", "check", "show", "tell", "explain", "fix", "implement", "compare", "research") -> "request"
+            else -> "statement"
+        }
+        val wordCount = trimmed.split(Regex("\\s+")).count { it.isNotBlank() }
+        val lengthBucket = when {
+            wordCount <= 8 -> "short"
+            wordCount <= 35 -> "medium"
+            else -> "long"
+        }
+        val gapSeconds = context?.secondsSinceLastContact
+        val gapBucket = when {
+            gapSeconds == null -> "unknown"
+            gapSeconds < 300 -> "recent"
+            gapSeconds < 3600 -> "hour"
+            else -> "long"
+        }
+        return com.jarvis.app.prediction.SituationState(
+            personKey = com.jarvis.app.identity.WorldModelService.USER_NODE_NAME,
+            fields = mapOf(
+                "channel" to (context?.channel?.name ?: "unknown"),
+                "hourBand" to (context?.localHour?.div(4)?.toString() ?: "unknown"),
+                "wasAway" to (context?.wasAway?.toString() ?: "unknown"),
+                "gapBand" to gapBucket,
+                "messageKind" to messageKind,
+                "lengthBand" to lengthBucket
+            )
+        )
+    }
+
     private fun recordTurnTrace(
         turnIndex: Long,
         inputText: String,
@@ -1792,41 +1829,4 @@ class DecompositionException(
 class ReplanLimitExceededException(
     message: String,
     val history: List<TaskWorkingMemory.ResultEntry>
-) : RuntimeException(message    private fun buildSituationState(
-        userText: String,
-        context: SessionContext?
-    ): com.jarvis.app.prediction.SituationState {
-        val trimmed = userText.trim()
-        val firstWord = trimmed.lowercase().split(Regex("\\s+")).firstOrNull().orEmpty()
-        val messageKind = when {
-            trimmed.endsWith("?") || firstWord in setOf("what", "why", "how", "when", "where", "who", "can", "could", "is", "are", "do", "does") -> "question"
-            firstWord in setOf("build", "create", "make", "write", "find", "search", "check", "show", "tell", "explain", "fix", "implement", "compare", "research") -> "request"
-            else -> "statement"
-        }
-        val wordCount = trimmed.split(Regex("\\s+")).count { it.isNotBlank() }
-        val lengthBucket = when {
-            wordCount <= 8 -> "short"
-            wordCount <= 35 -> "medium"
-            else -> "long"
-        }
-        val gapSeconds = context?.secondsSinceLastContact
-        val gapBucket = when {
-            gapSeconds == null -> "unknown"
-            gapSeconds < 300 -> "recent"
-            gapSeconds < 3600 -> "hour"
-            else -> "long"
-        }
-        return com.jarvis.app.prediction.SituationState(
-            personKey = com.jarvis.app.identity.WorldModelService.USER_NODE_NAME,
-            fields = mapOf(
-                "channel" to (context?.channel?.name ?: "unknown"),
-                "hourBand" to (context?.localHour?.div(4)?.toString() ?: "unknown"),
-                "wasAway" to (context?.wasAway?.toString() ?: "unknown"),
-                "gapBand" to gapBucket,
-                "messageKind" to messageKind,
-                "lengthBand" to lengthBucket
-            )
-        )
-    }
-
-)
+) : RuntimeException(message)
