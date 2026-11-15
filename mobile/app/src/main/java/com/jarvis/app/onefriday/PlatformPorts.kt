@@ -15,7 +15,6 @@ import com.jarvis.app.model.ModelBackend
 import com.jarvis.app.model.ResourceSnapshot
 import com.jarvis.app.threads.ThreadTracker
 import com.jarvis.app.trace.TurnTraceStore
-import com.jarvis.app.voice.VoiceForgeSynthesizer
 import kotlinx.coroutines.CoroutineScope
 import java.io.File
 
@@ -145,9 +144,6 @@ interface PlatformStores {
 
     /** The single model backend the one loading authority uses. */
     fun modelBackend(): ModelBackend
-
-    /** The speech synthesizer the spoken-reply backend drives. */
-    fun voiceSynthesizer(): VoiceForgeSynthesizer
 
     /** Optional per-turn trace store; null disables tracing honestly. */
     fun turnTraceStore(): TurnTraceStore?
