@@ -137,7 +137,7 @@ class ProcessIsolatedModelBackend(context: Context) : ModelBackend {
     }
 
     override suspend fun generate(handle: ModelHandle, prompt: String): String {
-        if (handle !in knownHandles) throw IllegalStateException("Inference handle is not loaded.")
+        if (!knownHandles.containsKey(handle)) throw IllegalStateException("Inference handle is not loaded.")
         return request(InferenceService.MSG_GENERATE, Bundle().apply {
             putLong(InferenceService.KEY_HANDLE_ID, handle.id)
             putString(InferenceService.KEY_PROMPT, prompt)
