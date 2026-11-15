@@ -586,19 +586,25 @@ class StreamingTts(
             // SUCCESS means only that Android accepted the queued request. The
             // completion gate waits for onDone before cache promotion or playback.
             val result = activeEng.synthesizeToFile(ssml, null, ticket.temporaryFile, id)
+            var fallbackRequested = shouldPlay
             synchronized(synthesisLifecycleLock) {
                 val outcome = synthesisCompletionGate.markAccepted(
                     id,
                     accepted = result == TextToSpeech.SUCCESS,
                     failureReason = "synthesizeToFile returned $result"
                 )
+                if (outcome is SynthesisOutcome.Failed) {
+                    // A spoken request may have joined an in-flight preload.
+                    // Respect the merged intent rather than only the first caller.
+                    fallbackRequested = outcome.shouldPlay
+                }
                 if (outcome != null) handleSynthesisOutcome(outcome)
             }
 
             // Preserve direct TTS as a fallback when the queue rejects the
             // synthesis request synchronously. Async onError/onStop is reported
             // and cleaned separately; it must never expose a partial cache file.
-            if (result != TextToSpeech.SUCCESS && shouldPlay) {
+            if (result != TextToSpeech.SUCCESS && fallbackRequested) {
                 val fallbackId = "fallback_" + currentUtteranceId.incrementAndGet()
                 val speakResult = activeEng.speak(ssml, TextToSpeech.QUEUE_ADD, null, fallbackId)
                 if (speakResult != TextToSpeech.SUCCESS) {
