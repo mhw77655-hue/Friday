@@ -40,6 +40,7 @@ import com.jarvis.app.ui.screens.HomeScreen
 import com.jarvis.app.ui.screens.MemoryScreen
 import com.jarvis.app.ui.screens.MissionsScreen
 import com.jarvis.app.ui.screens.ModelScreen
+import com.jarvis.app.ui.screens.ModelSimulationScreen
 import com.jarvis.app.ui.screens.MoreSheet
 import com.jarvis.app.ui.screens.SandboxScreen
 import com.jarvis.app.ui.screens.SettingsScreen
@@ -74,6 +75,7 @@ private const val ROUTE_SESSIONS = "sessions"
 private const val ROUTE_BOOTSTRAP = "bootstrap"
 private const val ROUTE_ENVIRONMENT = "environment"
 private const val ROUTE_MODEL = "model"
+private const val ROUTE_MODEL_SIMULATION = "model_simulation"
 private const val ROUTE_VISION = "vision"
 private const val ROUTE_VIDEO_KNOWLEDGE = "video_knowledge"
 
@@ -171,6 +173,7 @@ fun JarvisNavHost() {
             composable(ROUTE_SESSIONS) { SessionsScreen(sessionManager = getSessionManager()!!, onNavigate = ::navigateToTab) }
             composable(ROUTE_ENVIRONMENT) { EnvironmentScreen(environmentManager = getEnvironmentManager()!!, onNavigate = ::navigateToTab) }
             composable(ROUTE_MODEL) { ModelScreen(modelManager = getModelManager()!!, onNavigate = ::navigateToTab) }
+            composable(ROUTE_MODEL_SIMULATION) { ModelSimulationScreen() }
             composable(ROUTE_VISION) { VisionScreen() }
             composable(ROUTE_VIDEO_KNOWLEDGE) { VideoKnowledgeScreen() }
             composable(ROUTE_BOOTSTRAP) { BootstrapScreen(bootstrapManager = getBootstrapManager()!!, onComplete = { navigateToTab(ROUTE_HOME) }) }
