@@ -34,6 +34,7 @@ fun MoreSheet(
                 "Sessions" to "sessions",
                 "Environment" to "environment",
                 "Model Manager" to "model",
+                "Model-Free Device Lab" to "model_simulation",
                 "Visual Presence" to "vision",
                 "Video Experience" to "video_knowledge",
                 "Memory" to "memory",
