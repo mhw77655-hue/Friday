@@ -1,6 +1,7 @@
 package com.jarvis.app.symbiosis
 
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
 
@@ -36,6 +37,14 @@ data class WorkloadEvidence(
     val successRate: Double
         get() = if (samples == 0) 1.0 else successes.toDouble() / samples
 }
+
+data class ModelAdmission(
+    val allowed: Boolean,
+    val contextTokens: Int,
+    val requiredMemoryMb: Long,
+    val reason: String,
+    val plan: SymbioticPlan
+)
 
 /**
  * NAE's first adaptive policy.
@@ -82,6 +91,53 @@ class NanoSymbioticPolicy {
         records.forEach { (key, value) ->
             if (key.isNotBlank()) evidence[key.lowercase()] = value
         }
+    }
+
+    /**
+     * Admit an actual GGUF load against current host measurements and NAE's
+     * learned operating envelope. Weight size is not treated as runtime RAM.
+     */
+    fun admitModel(
+        host: HostResourceState,
+        modelBytes: Long,
+        requestedContextTokens: Int
+    ): ModelAdmission {
+        val currentPlan = plan(host)
+        val blockedReason = when {
+            modelBytes <= 0L -> "Model file size is invalid."
+            host.thermalLevel >= 2 -> "Thermal pressure is high; wait for the phone to cool."
+            host.availableMemoryMb < 650L -> "Available RAM is critically low."
+            host.cpuLoadPercent >= 92.0 -> "The phone is already under heavy CPU load."
+            host.availableStorageMb in 0L..255L -> "Free storage is too low to preserve a safe reserve."
+            else -> null
+        }
+        val baseContext = min(requestedContextTokens.coerceAtLeast(512), currentPlan.contextTokenBudget)
+        val contexts = listOf(baseContext, min(baseContext, 2048), min(baseContext, 1024), min(baseContext, 768), 512)
+            .distinct().filter { it > 0 }.sortedDescending()
+        val weightWorkingSetMb = ceil(modelBytes.toDouble() / (1024.0 * 1024.0) * 1.12).toLong()
+        val reserveMb = max(900L, currentPlan.memoryReserveMb)
+        fun required(context: Int): Long =
+            weightWorkingSetMb + ceil(context * 0.06).toLong() + 256L + reserveMb
+
+        val selectedContext = if (blockedReason == null) {
+            contexts.firstOrNull { host.availableMemoryMb >= required(it) }
+        } else null
+        val allowed = selectedContext != null
+        val requiredMb = selectedContext?.let(::required) ?: contexts.lastOrNull()?.let(::required) ?: Long.MAX_VALUE
+        val reason = when {
+            blockedReason != null -> blockedReason
+            selectedContext != null && selectedContext < requestedContextTokens ->
+                "Admitted with a reduced context of $selectedContext tokens to protect phone headroom."
+            allowed -> "Admitted within NAE's current ${currentPlan.mode} resource envelope."
+            else -> "The model working set plus Android reserve exceeds available RAM."
+        }
+        return ModelAdmission(
+            allowed = allowed,
+            contextTokens = selectedContext ?: 0,
+            requiredMemoryMb = requiredMb,
+            reason = reason,
+            plan = currentPlan
+        )
     }
 
     fun plan(host: HostResourceState): SymbioticPlan {
