@@ -17,15 +17,15 @@ import org.json.JSONObject
  * evaluates the proposed action and Android's own service executes it.
  */
 class PhoneActionPlanner(
-    private val complete: suspend (GenerateRequest) -> GenerateResult,
-    private val localModelReady: suspend () -> Boolean = { true }
+    private val localModelReady: suspend () -> Boolean = { true },
+    private val complete: suspend (GenerateRequest) -> GenerateResult
 ) {
     constructor(modelManager: ModelManager) : this(
-        complete = { request -> modelManager.generate(request) },
         localModelReady = {
             modelManager.activeProvider.value.providerType ==
                 com.jarvis.app.env.ModelProviderType.LLAMA_CPP
-        }
+        },
+        complete = { request -> modelManager.generate(request) }
     )
 
     sealed interface Result {
