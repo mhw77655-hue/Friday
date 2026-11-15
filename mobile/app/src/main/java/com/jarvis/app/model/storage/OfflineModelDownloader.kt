@@ -12,6 +12,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
+import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
 data class OfflineDownloadState(
@@ -43,7 +44,7 @@ class OfflineModelDownloader(context: Context) {
 
     suspend fun download(asset: OfflineModelAsset): File = withContext(Dispatchers.IO) {
         val target = installedFile(asset)
-        if (target.isFile && target.length() >= asset.expectedMinimumBytes && hasGgufHeader(target)) {
+        if (target.isFile && target.length() >= asset.expectedMinimumBytes && hasGgufHeader(target) && matchesSha256(target, asset.sha256)) {
             mutableState.value = OfflineDownloadState(
                 modelId = asset.id,
                 downloadedBytes = target.length(),
@@ -106,6 +107,7 @@ class OfflineModelDownloader(context: Context) {
         }
 
         check(hasGgufHeader(partial)) { "The downloaded file is not a valid GGUF asset." }
+        check(matchesSha256(partial, asset.sha256)) { "The downloaded model SHA-256 did not match the pinned asset." }
         if (target.exists()) target.delete()
         check(partial.renameTo(target)) { "Could not move the completed model into private storage." }
 
@@ -124,6 +126,21 @@ class OfflineModelDownloader(context: Context) {
         val removed = !target.exists() || target.delete()
         if (mutableState.value.modelId == asset.id) mutableState.value = OfflineDownloadState()
         return removed
+    }
+
+    private fun matchesSha256(file: File, expected: String?): Boolean {
+        if (expected.isNullOrBlank()) return true
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().buffered().use { input ->
+            val buffer = ByteArray(1024 * 1024)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                digest.update(buffer, 0, count)
+            }
+        }
+        val actual = digest.digest().joinToString("") { "%02x".format(it) }
+        return actual.equals(expected, ignoreCase = true)
     }
 
     private fun hasGgufHeader(file: File): Boolean {
