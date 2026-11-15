@@ -39,11 +39,14 @@ class LocalModelBackend(context: Context) : ModelBackend {
         val engine = providers.computeIfAbsent(modelId) {
             LocalInferenceEngine(appContext)
         }
+        val hostGovernor = LiquidHostGovernor(appContext)
+        val admission = hostGovernor.admit(modelId, config.modelPath)
+        check(admission.allowed) { admission.reason }
         engine.configure(
             ModelSource.Local(path = config.modelPath.orEmpty()),
             ProviderConfig(
                 modelId = modelId,
-                parameters = config.params + mapOf("context_window" to "4096")
+                parameters = config.params + hostGovernor.inferenceParameters(modelId)
             )
         )
         val loaded = engine.load(LoadRequest(modelId))
