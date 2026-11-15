@@ -83,7 +83,7 @@ fun ModelSimulationScreen() {
         snapshot?.let { device ->
             Card(colors = CardDefaults.cardColors(containerColor = JarvisColors.SurfacePanel)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(device.device, style = JarvisType.Title)
+                    Text(device.device, style = JarvisType.Label)
                     Text("SoC: ${device.soc}", style = JarvisType.Body)
                     Text("Android API ${device.androidApi} · ${device.cpuCores} CPU cores · ${device.abi}", style = JarvisType.Technical)
                     Text("RAM available: ${device.availableRamMb} MB / ${device.totalRamMb} MB", style = JarvisType.Body)
@@ -95,7 +95,7 @@ fun ModelSimulationScreen() {
             }
         }
 
-        Text("Synthetic hardware benchmark", style = JarvisType.Title)
+        Text("Synthetic hardware benchmark", style = JarvisType.Label)
         Text(
             "Optional short CPU, 16 MB memory-touch and 4 MB storage test. No model is loaded. It does not measure LLM tokens/second.",
             style = JarvisType.Technical
@@ -128,7 +128,7 @@ fun ModelSimulationScreen() {
         benchmark?.let { result ->
             Card(colors = CardDefaults.cardColors(containerColor = JarvisColors.SurfacePanel)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text("Measured synthetic workload", style = JarvisType.Title)
+                    Text("Measured synthetic workload", style = JarvisType.Label)
                     Text("CPU operations/sec: ${result.cpuOperationsPerSecond}", style = JarvisType.Body)
                     Text("Memory touch: ${"%.1f".format(result.memoryTouchMbPerSecond)} MB/s", style = JarvisType.Body)
                     Text("Storage write/read: ${"%.1f".format(result.storageWriteMbPerSecond)} MB/s", style = JarvisType.Body)
@@ -138,7 +138,7 @@ fun ModelSimulationScreen() {
             }
         }
 
-        Text("Candidate context", style = JarvisType.Title)
+        Text("Candidate context", style = JarvisType.Label)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(1024, 2048, 4096).forEach { tokens ->
                 Button(onClick = {
@@ -148,7 +148,7 @@ fun ModelSimulationScreen() {
             }
         }
 
-        Text("Model screening", style = JarvisType.Title)
+        Text("Model screening", style = JarvisType.Label)
         Text(
             "These are estimates from measured RAM and conservative model-size assumptions. A likely fit is not a verified model load.",
             style = JarvisType.Technical
@@ -161,7 +161,7 @@ fun ModelSimulationScreen() {
             }
             Card(colors = CardDefaults.cardColors(containerColor = JarvisColors.SurfacePanel)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text(result.candidate.name, style = JarvisType.Title)
+                    Text(result.candidate.name, style = JarvisType.Label)
                     Text("${result.candidate.parameterLabel} · ${result.candidate.weightMb} MB weights · ${result.candidate.quantization}", style = JarvisType.Technical)
                     Text("${result.candidate.runtime} · ${result.candidate.modalities}", style = JarvisType.Technical)
                     Text(status, style = JarvisType.Label)
