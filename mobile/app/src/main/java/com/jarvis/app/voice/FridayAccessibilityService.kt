@@ -67,7 +67,7 @@ class FridayAccessibilityService : AccessibilityService() {
             Intent(Settings.ACTION_WIRELESS_SETTINGS)
         }.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         startActivity(intent)
-        PhoneControlResult.Success
+        PhoneControlResult.UserActionRequired("I opened Android connectivity settings. Please switch Wi-Fi there; Android does not let ordinary apps toggle it directly.")
     }.getOrElse { PhoneControlResult.Unavailable("Android connectivity settings could not be opened.") }
 
     private fun adjustVolume(direction: Int): PhoneControlResult = runCatching {
@@ -185,4 +185,5 @@ sealed interface PhoneControlResult {
     data object Success : PhoneControlResult
     data class NotFound(val target: String) : PhoneControlResult
     data class Unavailable(val reason: String) : PhoneControlResult
+    data class UserActionRequired(val reason: String) : PhoneControlResult
 }
