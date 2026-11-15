@@ -260,6 +260,19 @@ The 2026-11-16 scorecard estimates total end-state implementation at **25%**, us
 
 A first complete release requires current-head green CI, native/model-load checks, Life Tests, security/provenance/rollback evidence, exact-phone behaviour tests, model/voice/presence measurements and a traceable signed artifact. CI alone is insufficient. Do not hand over an APK before those gates pass and the owner requests the artifact.
 
+## Checked-in stage PRD — six open gates
+
+The existing `.ralph/prd.json` is a **Stage 3 / Gate 3c** plan, not a full Friday end-state plan. At this branch snapshot it has 16 stories: 10 marked passed and 6 still open. Keep the PRD's acceptance evidence authoritative; do not mark stories passed merely because an implementation was written.
+
+1. **LAUNCH-WAKE-ORDER (priority 8.2):** finish typed engine-readiness/accessor semantics, concurrent access and failed-wiring tests. The first-launch race remains a physical-device check.
+2. **ONE-2-COMPOSITION (priority 9):** prove one Android production composition, injected time, AndroidPlatformPorts-only production host, no Termux dependency and production integration. Important conflict: its current AC2 demands a live legacy Human Core facade, but the canonical Vision quarantines Human Core as a permanent cognitive authority. Rewrite AC2 to preserve any necessary temporary adapter only when a real Life Test proves its contribution; do not restore Human Core merely to satisfy a stale PRD sentence.
+3. **ONE-3-LIFETEST (priority 10):** real-composition runner, restart and model-replacement scenario, expected-fail handling, replay-blocked/mechanism-off controls and JSON/Markdown evidence pack.
+4. **ONE-4-RECORDER-LEDGER (priority 11):** one structured record per turn, append-only developmental ledger integrated through the Continuity Law, provenance, restart tests and an in-app Mirror/share surface.
+5. **ONE-5-IDENTITY-SYNC-FLOOR (priority 12):** owner-authorized Friday/she identity record, matching repo/phone sync checks and immutable-floor hash tripwire.
+6. **ONE-6-SEED-REPORT (priority 13):** report all required evidence, DEV-1 expected-fail developmental test, full CI, APK artifact and evidence links. It is the end of this PRD stage, not the end of Friday's full vision.
+
+The stage order is dependency-driven: close launch readiness, reconcile and prove the production composition, create the Life Test and recording/ledger surfaces, then identity/floor sync, and finally the Seed report. A stage-complete result must not be represented as full Friday completion.
+
 ## Closure rule
 
 The plan is complete only when Friday can remain the same functioning individual offline, develop from experience, direct repository-side construction through a real secure handoff, independently judge the resulting change, integrate verified work, and demonstrate it on the target phone. Until then, the scorecard remains an honest partial-completion estimate.
