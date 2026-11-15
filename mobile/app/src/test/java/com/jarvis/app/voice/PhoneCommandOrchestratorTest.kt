@@ -157,6 +157,41 @@ class PhoneCommandOrchestratorTest {
         )
     }
 
+    @Test fun `Friday model planned action uses the same Jev and confirmation gate`() = runBlocking {
+        var executions = 0
+        var jevCalls = 0
+        val router = PhoneCommandOrchestrator(
+            decisionTool = {
+                FridayPhoneDecisionTool { _, _, _ ->
+                    jevCalls++
+                    JevActionDecision(
+                        choice = "execute",
+                        confidence = 0.99,
+                        probabilities = mapOf("execute" to 0.99),
+                        riskScore = 0.1,
+                        riskConfidence = 0.99,
+                        explicitAuthorization = 0.99,
+                        targetClarity = 0.99
+                    )
+                }
+            },
+            remoteConfigured = { true },
+            execute = { executions++; PhoneControlResult.Success }
+        )
+
+        val planned = router.handlePlanned(
+            "Please tap Send",
+            PhoneControlCommand.TapText("Send")
+        )
+
+        assertTrue(planned is PhoneCommandOrchestrator.Outcome.ConfirmationNeeded)
+        assertEquals(1, jevCalls)
+        assertEquals(0, executions)
+        val confirmed = router.handle("yes")
+        assertTrue(confirmed is PhoneCommandOrchestrator.Outcome.ActionResult)
+        assertEquals(1, executions)
+    }
+
     @Test fun `Jev rejection blocks action execution`() = runBlocking {
         var executions = 0
         val router = PhoneCommandOrchestrator(
