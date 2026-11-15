@@ -88,6 +88,10 @@ fun SettingsScreen() {
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+    val phoneControlConnected = remember(resumeSignal) {
+        com.jarvis.app.voice.FridayAccessibilityService.isEnabled()
+    }
+
     val hasStorageAccess = remember(resumeSignal) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             Environment.isExternalStorageManager()
@@ -164,6 +168,19 @@ fun SettingsScreen() {
             style = JarvisType.Technical
         )
 
+        SectionLabel("PHONE CONTROL")
+        Text(
+            text = "Friday uses Android Accessibility only for the phone actions you explicitly request. Android keeps this permission under your control.",
+            style = JarvisType.Label,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        PhoneControlAccessRow(
+            enabled = phoneControlConnected,
+            onTapEnable = {
+                context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            }
+        )
+
         SectionLabel("PERMISSIONS")
         Text(text = "Shizuku, mic, notifications — not yet wired to a real permission check", style = JarvisType.Label)
 
@@ -198,6 +215,34 @@ fun SettingsScreen() {
                 focusedBorderColor = JarvisColors.SurfaceHairline,
                 unfocusedBorderColor = JarvisColors.SurfaceHairline
             )
+        )
+    }
+}
+
+@Composable
+private fun PhoneControlAccessRow(enabled: Boolean, onTapEnable: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .let { base -> if (enabled) base else base.pressScale(onTapEnable) },
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column {
+            Text(text = "Friday phone-control access", style = JarvisType.Body)
+            Text(
+                text = if (enabled) {
+                    "Accessibility service connected — spoken phone actions are available"
+                } else {
+                    "Not connected — tap to open Android Accessibility settings and enable Friday"
+                },
+                style = JarvisType.Label
+            )
+        }
+        StateChip(
+            label = if (enabled) "connected" else "enable",
+            dotColor = if (enabled) JarvisColors.CoreSuccess else JarvisColors.CoreWarning
         )
     }
 }
