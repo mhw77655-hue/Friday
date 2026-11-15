@@ -461,18 +461,17 @@ class CognitiveEngine(
         // settle the previous forecast, and publish the next evidence-backed
         // prediction. The predictor never bypasses deliberation until its
         // held-out performance beats the naive baseline.
-        liquidTaskComposer?.compose(
-            workspace = workspace ?: return@process CognitiveTurnResult(
-                cognitiveResult = cognitiveResult,
-                decision = decision
-            ),
-            task = com.jarvis.app.cognition.workspace.WorkspaceTask(
-                episodeId = "turn:${cognitiveResult.turnIndex}",
-                taskKind = decision.name,
-                riskLevel = com.jarvis.app.cognition.workspace.RiskLevel.NORMAL,
-                nowMillis = System.currentTimeMillis()
+        workspace?.let { sharedWorkspace ->
+            liquidTaskComposer?.compose(
+                workspace = sharedWorkspace,
+                task = com.jarvis.app.cognition.workspace.WorkspaceTask(
+                    episodeId = "turn:${cognitiveResult.turnIndex}",
+                    taskKind = decision.name,
+                    riskLevel = com.jarvis.app.cognition.workspace.RiskLevel.NORMAL,
+                    nowMillis = System.currentTimeMillis()
+                )
             )
-        )
+        }
 
         val galaxyContext = if (galaxyMems.isNotEmpty()) {
             "\n\n[Cross-session memory]:\n" + galaxyMems.joinToString("\n") { "- ${it.content}" }
