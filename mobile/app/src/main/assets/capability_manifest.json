@@ -26,7 +26,8 @@
     "jev_optional_remote_decision_provider": true,
     "application_self_study": true,
     "persistent_self_study_schedule": true,
-    "on_device_android_source_rebuild": false
+    "on_device_android_source_rebuild": false,
+    "packaged_source_architecture_index": true
   },
   "known_limitations": {
     "grammar_constrained_vosk": "primitive by design, not resolved",
@@ -35,7 +36,7 @@
     "voice_organism_v1": "R2: sherpa-onnx Kokoro (English, 11 speakers) + Android system TTS (Arabic/fallback) live inside the :voice habitat, downloaded on first use (~103MB, no network after). STT still in-app legacy; multilingual Kokoro + streaming are R3",
     "human_core_memory_substrate": "annotations only — no queryable memory subsystem yet (Memory Interface §16 is a port)",
     "jev_independence": "Friday owns a native phone-action decision contract and local allowlist policy; the official Jev model remains a hosted optional provider because TypeSafe has not released its weights.",
-    "application_self_study": "The installed app studies its packaged organ graph, capability manifest, wiring and measured resource outcomes; Kotlin source files are not packaged in the APK.",
-    "self_rebuild": "The on-device builder currently creates and validates bounded declarative tools; it cannot compile, sign or silently replace the installed Android application. Native app upgrades require a verified signed update."
+    "application_self_study": "Friday now reads a generated, read-only source symbol index (file paths, packages, declarations and source revision) alongside the packaged organ graph, capability manifest, wiring and measured runtime outcomes. The index does not contain source code or prove semantic understanding.",
+    "self_rebuild": "The on-device builder currently creates and validates bounded declarative tools inside an isolated mutant habitat. Friday can inspect a build-generated source symbol index but cannot yet rewrite arbitrary Kotlin/Android source, compile, sign or silently replace the installed application. Native upgrades require a verified signed update."
   }
 }
