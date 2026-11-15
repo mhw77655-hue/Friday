@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Persistent genome archive. Stores every genome that was ever created,
  * preserving the full lineage. Uses the existing [FileStorage] and
- * [StoreKind.DIALOGUE] (JSONL append-only) — no second persistence system.
+ * [StoreKind.GENOME_ARCHIVE] (JSONL append-only) — no second persistence system.
  *
  * The archive is the evolutionary memory. Queryable, append-only, never
  * prunes successful or informative failed candidates.
@@ -67,7 +67,7 @@ class GenomeArchive(
             try {
                 val arr = JSONArray()
                 for (g in store.values) arr.put(toJson(g))
-                fileStorage.append(StoreKind.DIALOGUE, arr.toString())
+                fileStorage.append(StoreKind.GENOME_ARCHIVE, arr.toString())
             } catch (t: Throwable) {
                 android.util.Log.w("GenomeArchive", "persist failed", t)
             }
@@ -76,7 +76,7 @@ class GenomeArchive(
 
     fun loadFromDisk(): Int {
         return try {
-            val content = fileStorage.read(StoreKind.DIALOGUE) ?: return 0
+            val content = fileStorage.read(StoreKind.GENOME_ARCHIVE) ?: return 0
             val lines = content.lines().filter { it.isNotBlank() }
             var loaded = 0
             for (line in lines) {
