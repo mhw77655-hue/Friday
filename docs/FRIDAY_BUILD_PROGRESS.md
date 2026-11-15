@@ -33,6 +33,22 @@ This is an equal-weight, 16-outcome engineering estimate. Each outcome contribut
 
 ## What exists in the current foundation branch
 
+## Existing stage PRD status (separate from the end-state score)
+
+The checked-in `.ralph/prd.json` contains 16 stories for the older Stage 3 / Gate 3c scope. At this snapshot, **10 are marked passed and 6 remain open**. Those six are still acceptance gates and must not be inferred complete from the overall 25% score:
+
+| Priority | Open story | What must be demonstrated |
+|---:|---|---|
+| 8.2 | `LAUNCH-WAKE-ORDER` | Typed engine readiness; safe access while wiring, failed wiring and concurrent screen access; CI tests and incident prevention. Real first-launch race still requires the phone. |
+| 9 | `ONE-2-COMPOSITION` | Exactly one Android production composition, injected time, test-only fakes, no Termux dependency and Android integration proof. Its current AC2 requires legacy Human Core to be live, which conflicts with the Vision's Human Core quarantine; revise that criterion before closing the story. |
+| 10 | `ONE-3-LIFETEST` | Real-composition scenario runner, restart/model replacement, expected-fail controls and evidence packs. |
+| 11 | `ONE-4-RECORDER-LEDGER` | Structured flight recorder, append-only developmental ledger, continuity-law enforcement and a visible Mirror screen. |
+| 12 | `ONE-5-IDENTITY-SYNC-FLOOR` | Friday/she identity through owner-authorized admin revision, repository/phone sync checks and protected-floor file tripwires. |
+| 13 | `ONE-6-SEED-REPORT` | Final stage report, DEV-1 replay-blocked/mechanism-off developmental evidence, full CI/APK and evidence-pack links. |
+
+These six are the remaining stories in the *current stage PRD*, not the whole Friday vision. Voice/hearing, full model validation, semantic video, JEPA, the secure Builder, the wider Life Test and exact-phone release validation remain broader end-state work.
+
+
 The following are present in source on `audit/friday-offline-runtime`; presence in source is not the same as verified device behaviour:
 
 - Android-native app and production composition work, including an isolated `:inference` process boundary and an in-app llama.cpp/JNI model path.
