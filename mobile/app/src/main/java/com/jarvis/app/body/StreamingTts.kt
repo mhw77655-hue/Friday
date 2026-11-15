@@ -8,6 +8,10 @@ import android.speech.tts.Voice
 import android.util.Log
 import com.jarvis.app.body.VocabularyStore
 import com.jarvis.app.failure.FailureReport
+import com.jarvis.app.tts.CompletedAudioCache
+import com.jarvis.app.tts.SynthesisCompletionGate
+import com.jarvis.app.tts.SynthesisOutcome
+import com.jarvis.app.tts.SynthesisReservation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -23,7 +27,6 @@ import java.io.File
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicReference
 
 private const val TAG = "StreamingTts"
 private const val CACHE_DIR = "jarvis_tts_stream_cache"
@@ -61,10 +64,13 @@ class StreamingTts(
     private var playbackJob: Job? = null
 
     private val cacheDir = File(context.cacheDir, CACHE_DIR)
+    private val completedAudioCache = CompletedAudioCache(cacheDir)
+    private val synthesisCompletionGate = SynthesisCompletionGate()
+    private val synthesisLifecycleLock = Any()
     private val synthesisCache = ConcurrentHashMap<String, File>()
     private val activePlayer = AtomicBoolean(false)
     private var currentPlayer: MediaPlayer? = null
-    private var currentUtteranceId = 0
+    private val currentUtteranceId = java.util.concurrent.atomic.AtomicInteger(0)
 
     init {
         cacheDir.mkdirs()
@@ -171,39 +177,148 @@ class StreamingTts(
     private fun attachProgressListener() {
         engine?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) {
-                if (utteranceId != null && !utteranceId.startsWith("preload_")) {
-                    activePlayer.set(true)
-                    _isSpeaking.value = true
-                }
+                if (utteranceId == null) return
+                if (synthesisCompletionGate.isPending(utteranceId) || isSynthesisUtterance(utteranceId)) return
+                activePlayer.set(true)
+                _isSpeaking.value = true
             }
 
             override fun onDone(utteranceId: String?) {
-                if (utteranceId != null && !utteranceId.startsWith("preload_")) {
-                    activePlayer.set(false)
-                    _isSpeaking.value = false
+                if (utteranceId == null) return
+                synchronized(synthesisLifecycleLock) {
+                    val wasSynthesis = synthesisCompletionGate.isPending(utteranceId) ||
+                        isSynthesisUtterance(utteranceId)
+                    val outcome = synthesisCompletionGate.markCompleted(utteranceId)
+                    if (outcome != null) {
+                        handleSynthesisOutcome(outcome)
+                    } else if (!wasSynthesis) {
+                        activePlayer.set(false)
+                        _isSpeaking.value = false
+                    }
                 }
             }
 
             override fun onError(utteranceId: String?) {
-                if (utteranceId != null && !utteranceId.startsWith("preload_")) {
-                    activePlayer.set(false)
-                    _isSpeaking.value = false
+                if (utteranceId == null) return
+                synchronized(synthesisLifecycleLock) {
+                    val wasSynthesis = synthesisCompletionGate.isPending(utteranceId) ||
+                        isSynthesisUtterance(utteranceId)
+                    val outcome = synthesisCompletionGate.markFailed(
+                        utteranceId,
+                        "Android TextToSpeech reported an utterance error"
+                    )
+                    if (outcome != null) {
+                        handleSynthesisOutcome(outcome)
+                    } else if (!wasSynthesis) {
+                        activePlayer.set(false)
+                        _isSpeaking.value = false
+                        onFailure(
+                            FailureReport(
+                                subsystem = "STREAMING_TTS",
+                                operation = "speak",
+                                severity = com.jarvis.app.failure.FailureSeverity.RECOVERABLE,
+                                category = com.jarvis.app.failure.FailureCategory.TTS,
+                                message = "Streaming TTS utterance error",
+                                source = "StreamingTts",
+                                cause = "utteranceId=$utteranceId",
+                                recoverability = com.jarvis.app.failure.Recoverability.RETRYABLE,
+                                recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY
+                            )
+                        )
+                    }
+                }
+            }
+
+            override fun onStop(utteranceId: String?, interrupted: Boolean) {
+                if (utteranceId == null) return
+                synchronized(synthesisLifecycleLock) {
+                    val wasSynthesis = synthesisCompletionGate.isPending(utteranceId) ||
+                        isSynthesisUtterance(utteranceId)
+                    val reason = if (interrupted) {
+                        "TTS synthesis was interrupted before its output completed"
+                    } else {
+                        "TTS synthesis was flushed before it started"
+                    }
+                    val outcome = synthesisCompletionGate.markFailed(utteranceId, reason)
+                    if (outcome != null) {
+                        handleSynthesisOutcome(outcome)
+                    } else if (!wasSynthesis) {
+                        activePlayer.set(false)
+                        _isSpeaking.value = false
+                    }
+                }
+            }
+        })
+    }
+
+    private fun isSynthesisUtterance(utteranceId: String): Boolean =
+        utteranceId.startsWith("tts_") || utteranceId.startsWith("preload_")
+
+    private fun handleSynthesisOutcome(outcome: SynthesisOutcome) {
+        when (outcome) {
+            is SynthesisOutcome.Completed -> {
+                val ticket = outcome.ticket
+                if (!completedAudioCache.promote(ticket)) {
+                    completedAudioCache.discard(ticket)
                     onFailure(
-                        com.jarvis.app.failure.FailureReport(
+                        FailureReport(
                             subsystem = "STREAMING_TTS",
-                            operation = "speak",
-                            severity = com.jarvis.app.failure.FailureSeverity.RECOVERABLE,
+                            operation = "synthesize-completion",
+                            severity = com.jarvis.app.failure.FailureSeverity.ERROR,
                             category = com.jarvis.app.failure.FailureCategory.TTS,
-                            message = "Streaming TTS utterance error",
+                            message = "TTS completion callback arrived without a complete audio file",
                             source = "StreamingTts",
-                            cause = "utteranceId=$utteranceId",
+                            cause = "onDone did not produce a promotable file for ${ticket.cacheKey}",
+                            dependency = ticket.cacheKey,
                             recoverability = com.jarvis.app.failure.Recoverability.RETRYABLE,
                             recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY
                         )
                     )
+                    if (outcome.shouldPlay) {
+                        activePlayer.set(false)
+                        _isSpeaking.value = false
+                    }
+                    return
+                }
+
+                val completedFile = completedAudioCache.completedFile(ticket.cacheKey)
+                synthesisCache[ticket.cacheKey] = completedFile
+                trimCache()
+                if (outcome.shouldPlay) playCached(completedFile, outcome.isFinal)
+            }
+
+            is SynthesisOutcome.Failed -> {
+                completedAudioCache.discard(outcome.ticket)
+                onFailure(
+                    FailureReport(
+                        subsystem = "STREAMING_TTS",
+                        operation = "synthesize-completion",
+                        severity = if (outcome.reason.contains("interrupted") ||
+                            outcome.reason.contains("flushed") ||
+                            outcome.reason.contains("preempted")
+                        ) com.jarvis.app.failure.FailureSeverity.WARNING
+                        else com.jarvis.app.failure.FailureSeverity.ERROR,
+                        category = com.jarvis.app.failure.FailureCategory.TTS,
+                        message = "TTS synthesis did not complete; partial output was discarded",
+                        source = "StreamingTts",
+                        cause = outcome.reason,
+                        dependency = outcome.ticket.cacheKey,
+                        recoverability = com.jarvis.app.failure.Recoverability.RETRYABLE,
+                        recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY
+                    )
+                )
+                if (outcome.shouldPlay) {
+                    activePlayer.set(false)
+                    _isSpeaking.value = false
                 }
             }
-        })
+        }
+    }
+
+    private fun cancelPendingSynthesis(reason: String) {
+        synchronized(synthesisLifecycleLock) {
+            synthesisCompletionGate.cancelAll(reason).forEach(::handleSynthesisOutcome)
+        }
     }
 
     private fun selectBestVoiceForLanguage(language: LanguageRouter.Language) {
@@ -256,6 +371,8 @@ class StreamingTts(
 
     /** Drop any queued-but-unspoken segments (new reply preempts the old one). */
     private fun flushPending() {
+        engine?.stop()
+        cancelPendingSynthesis("preempted by a newer reply")
         while (pendingSynthesis.tryReceive().isSuccess) { }
         currentPlayer?.stop()
         currentPlayer?.release()
@@ -292,7 +409,7 @@ class StreamingTts(
             return
         }
         val ssml = toSsml(text)
-        val id = "immediate_${currentUtteranceId++}"
+        val id = "immediate_${currentUtteranceId.incrementAndGet()}"
         slot.value.speak(ssml, TextToSpeech.QUEUE_FLUSH, null, id)
         activePlayer.set(true)
         _isSpeaking.value = true
@@ -301,6 +418,7 @@ class StreamingTts(
     /** Interrupt current speech immediately. */
     fun interrupt() {
         engine?.stop()
+        cancelPendingSynthesis("interrupted by the user")
         activePlayer.set(false)
         _isSpeaking.value = false
         // Clear pending synthesis
@@ -374,24 +492,42 @@ class StreamingTts(
         val cacheKey = "${segment.text.hashCode()}_${segment.language}"
         val cachedFile = synthesisCache[cacheKey]
 
-        if (cachedFile != null && cachedFile.exists()) {
+        if (cachedFile != null && completedAudioCache.isComplete(cacheKey)) {
             playCached(cachedFile, segment.isFinal)
         } else {
-            // Synthesize and play
+            // A leftover file without the completion marker is never a cache hit.
+            // Keep it quarantined until a newly completed synthesis atomically
+            // replaces it; never delete another in-flight request's result.
+            synthesisCache.remove(cacheKey)
             synthesizeAndPlay(ssml, lang, segment.isFinal, cacheKey)
         }
     }
 
-    private fun synthesizeAndPlay(ssml: String, language: LanguageRouter.Language, isFinal: Boolean, cacheKey: String) {
+    private fun synthesizeAndPlay(
+        ssml: String,
+        language: LanguageRouter.Language,
+        isFinal: Boolean,
+        cacheKey: String
+    ) {
+        requestSynthesis(ssml, language, cacheKey, shouldPlay = true, isFinal = isFinal)
+    }
+
+    private fun requestSynthesis(
+        ssml: String,
+        language: LanguageRouter.Language,
+        cacheKey: String,
+        shouldPlay: Boolean,
+        isFinal: Boolean
+    ) {
         val slot = com.jarvis.app.tts.ProcessTtsHolder.gate.slot { engine }
         if (!slot.isReady || slot.value == null) {
             onFailure(
-                com.jarvis.app.failure.FailureReport(
+                FailureReport(
                     subsystem = "STREAMING_TTS",
                     operation = "synthesize",
                     severity = com.jarvis.app.failure.FailureSeverity.RECOVERABLE,
                     category = com.jarvis.app.failure.FailureCategory.TTS,
-                    message = "Streaming TTS synthesizeAndPlay called before engine ready",
+                    message = "Streaming TTS synthesis requested before engine ready",
                     source = "StreamingTts",
                     cause = "engine not ready: ${slot.readiness}",
                     dependency = language.name,
@@ -405,34 +541,96 @@ class StreamingTts(
         val activeEng = slot.value
         selectBestVoiceForLanguage(language)
 
-        val id = "tts_${currentUtteranceId++}"
-        val cacheFile = File(cacheDir, "$cacheKey.wav")
+        if (completedAudioCache.isComplete(cacheKey)) {
+            val completeFile = completedAudioCache.completedFile(cacheKey)
+            synthesisCache[cacheKey] = completeFile
+            if (shouldPlay) playCached(completeFile, isFinal)
+            return
+        }
 
-        // Use synthesizeToFile for caching
-        val result = activeEng.synthesizeToFile(ssml, null, cacheFile, id)
-        if (result == TextToSpeech.SUCCESS) {
-            synthesisCache[cacheKey] = cacheFile
-            trimCache()
-            // Play via MediaPlayer for better control
-            playCached(cacheFile, isFinal)
-        } else {
-            // Fallback to direct speak
-            val speakResult = activeEng.speak(ssml, TextToSpeech.QUEUE_ADD, null, id)
-            if (speakResult != TextToSpeech.SUCCESS) {
-                onFailure(
-                    com.jarvis.app.failure.FailureReport(
-                        subsystem = "STREAMING_TTS",
-                        operation = "synthesize",
-                        severity = com.jarvis.app.failure.FailureSeverity.ERROR,
-                        category = com.jarvis.app.failure.FailureCategory.TTS,
-                        message = "Streaming TTS synthesis + speak fallback failed",
-                        source = "StreamingTts",
-                        cause = "synthesize=$result speak=$speakResult",
-                        dependency = language.name,
-                        recoverability = com.jarvis.app.failure.Recoverability.RECOVERABLE,
-                        recoveryAction = com.jarvis.app.failure.RecoveryAction.REINITIALIZE
-                    )
+        synthesisCache.remove(cacheKey)
+        completedAudioCache.invalidate(cacheKey)
+
+        val id = (if (shouldPlay) "tts_" else "preload_") +
+            currentUtteranceId.incrementAndGet()
+        val ticket = completedAudioCache.ticket(cacheKey, id)
+        var cacheHit: File? = null
+        var shouldStart = false
+
+        synchronized(synthesisLifecycleLock) {
+            val reservation = synthesisCompletionGate.reserve(ticket, shouldPlay, isFinal)
+            if (reservation is SynthesisReservation.Joined) return
+
+            // Re-check AFTER reserving. A previous first request may have
+            // completed between the initial cache lookup and this admission.
+            // The same lock serializes this check with callback-driven promotion.
+            if (completedAudioCache.isComplete(cacheKey)) {
+                synthesisCompletionGate.forget(id)
+                cacheHit = completedAudioCache.completedFile(cacheKey)
+                cacheHit?.let { synthesisCache[cacheKey] = it }
+            } else {
+                synthesisCache.remove(cacheKey)
+                ticket.temporaryFile.delete()
+                shouldStart = true
+            }
+        }
+
+        val completedHit = cacheHit
+        if (completedHit != null) {
+            if (shouldPlay) playCached(completedHit, isFinal)
+            return
+        }
+        if (!shouldStart) return
+
+        try {
+            // SUCCESS means only that Android accepted the queued request. The
+            // completion gate waits for onDone before cache promotion or playback.
+            val result = activeEng.synthesizeToFile(ssml, null, ticket.temporaryFile, id)
+            var fallbackRequested = shouldPlay
+            synchronized(synthesisLifecycleLock) {
+                val outcome = synthesisCompletionGate.markAccepted(
+                    id,
+                    accepted = result == TextToSpeech.SUCCESS,
+                    failureReason = "synthesizeToFile returned $result"
                 )
+                if (outcome is SynthesisOutcome.Failed) {
+                    // A spoken request may have joined an in-flight preload.
+                    // Respect the merged intent rather than only the first caller.
+                    fallbackRequested = outcome.shouldPlay
+                }
+                if (outcome != null) handleSynthesisOutcome(outcome)
+            }
+
+            // Preserve direct TTS as a fallback when the queue rejects the
+            // synthesis request synchronously. Async onError/onStop is reported
+            // and cleaned separately; it must never expose a partial cache file.
+            if (result != TextToSpeech.SUCCESS && fallbackRequested) {
+                val fallbackId = "fallback_" + currentUtteranceId.incrementAndGet()
+                val speakResult = activeEng.speak(ssml, TextToSpeech.QUEUE_ADD, null, fallbackId)
+                if (speakResult != TextToSpeech.SUCCESS) {
+                    onFailure(
+                        FailureReport(
+                            subsystem = "STREAMING_TTS",
+                            operation = "synthesize",
+                            severity = com.jarvis.app.failure.FailureSeverity.ERROR,
+                            category = com.jarvis.app.failure.FailureCategory.TTS,
+                            message = "Streaming TTS synthesis and direct-speak fallback both failed",
+                            source = "StreamingTts",
+                            cause = "synthesize=$result speak=$speakResult",
+                            dependency = language.name,
+                            recoverability = com.jarvis.app.failure.Recoverability.RETRYABLE,
+                            recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            synchronized(synthesisLifecycleLock) {
+                val outcome = synthesisCompletionGate.markFailed(
+                    id,
+                    "${e.javaClass.simpleName}: ${e.message}"
+                )
+                if (outcome != null) handleSynthesisOutcome(outcome)
             }
         }
     }
@@ -511,28 +709,22 @@ class StreamingTts(
     }
 
     private fun synthesizeToCache(text: String, language: LanguageRouter.Language) {
-        val slot = com.jarvis.app.tts.ProcessTtsHolder.gate.slot { engine }
-        if (!slot.isReady || slot.value == null) return
-
-        selectBestVoiceForLanguage(language)
-        val ssml = toSsml(text)
         val cacheKey = "${text.hashCode()}_${language.code}"
-        val cacheFile = File(cacheDir, "$cacheKey.wav")
-
-        if (cacheFile.exists()) {
-            synthesisCache[cacheKey] = cacheFile
+        if (completedAudioCache.isComplete(cacheKey)) {
+            synthesisCache[cacheKey] = completedAudioCache.completedFile(cacheKey)
             return
         }
-
-        slot.value.synthesizeToFile(ssml, null, cacheFile, "preload_$cacheKey")
-        synthesisCache[cacheKey] = cacheFile
-        trimCache()
+        val ssml = toSsml(text)
+        requestSynthesis(ssml, language, cacheKey, shouldPlay = false, isFinal = false)
     }
 
     private fun trimCache() {
         if (synthesisCache.size > MAX_CACHE_SIZE) {
             val oldest = synthesisCache.entries.minByOrNull { it.value.lastModified() }
-            oldest?.let { synthesisCache.remove(it.key); it.value.delete() }
+            oldest?.let {
+                synthesisCache.remove(it.key)
+                completedAudioCache.remove(it.key)
+            }
         }
     }
 
