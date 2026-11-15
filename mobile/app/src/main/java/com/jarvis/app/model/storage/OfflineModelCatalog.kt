@@ -18,18 +18,32 @@ data class OfflineModelAsset(
 }
 
 object OfflineModelCatalog {
-    // Community refusal-ablated LFM2.5 1.2B. Q4_K_M is ~731 MB.
-    // Kept as the low-memory resident so ordinary turns stay light.
+    // Primary resident candidate: MiniCPM5 2B Heretic. The model card reports
+    // 4/100 refusals and KL divergence 0.0646; those are creator-reported tests,
+    // not independent benchmarks. Q4_K_M is listed at ~1.3-1.56 GB.
     val resident = OfflineModelAsset(
+        id = "minicpm5-2b-heretic",
+        displayName = "MiniCPM5 2B Heretic · Q4_K_M",
+        repository = "saidutta69/MiniCPM5-2B-heretic",
+        revision = "178a9e6",
+        filename = "MiniCPM5-2B-heretic-Q4_K_M.gguf",
+        license = "Apache-2.0",
+        description = "Primary English resident candidate. GGUF/llama.cpp supported; creator reports 4/100 refusals. NAE admits it only when live resources allow.",
+        expectedMinimumBytes = 1_200L * 1024L * 1024L,
+        resident = true
+    )
+
+    // Low-memory fallback retained for resource-constrained phones.
+    val fallback = OfflineModelAsset(
         id = "lfm2.5-1.2b-abliterated",
         displayName = "Huihui LFM2.5 1.2B Abliterated · Q4_K_M",
         repository = "mradermacher/Huihui-LFM2.5-1.2B-Instruct-abliterated-GGUF",
         revision = "7f2f76e",
         filename = "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
         license = "LFM 1.0",
-        description = "Low-memory English resident candidate with reduced refusal behaviour. About 731 MB; inference memory is higher.",
+        description = "Small low-memory fallback only. Not Friday's preferred intelligence model.",
         expectedMinimumBytes = 600L * 1024L * 1024L,
-        resident = true
+        resident = false
     )
 
     // Community refusal-ablated Qwen3.5 2B. Q4_K_M is ~1.27 GB.
@@ -62,5 +76,5 @@ object OfflineModelCatalog {
         sha256 = "cd1afa19048ba58b09bee406aaa6865b1d91ca3e2cd66409c779cbc45ec1fbcb"
     )
 
-    val all: List<OfflineModelAsset> = listOf(resident, reasoning, advanced)
+    val all: List<OfflineModelAsset> = listOf(resident, fallback, reasoning, advanced)
 }
