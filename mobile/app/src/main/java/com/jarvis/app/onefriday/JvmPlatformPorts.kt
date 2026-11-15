@@ -14,7 +14,6 @@ import com.jarvis.app.model.ModelBackend
 import com.jarvis.app.model.ResourceSnapshot
 import com.jarvis.app.threads.ThreadTracker
 import com.jarvis.app.trace.TurnTraceStore
-import com.jarvis.app.voice.VoiceForgeSynthesizer
 import kotlinx.coroutines.CoroutineScope
 import java.io.File
 
@@ -110,7 +109,6 @@ class JvmPlatformStores(
     private val embeddingProvider: EmbeddingProvider,
     private val memoryStore: MemoryStorePort,
     private val backend: ModelBackend,
-    private val voiceSynthesizer: VoiceForgeSynthesizer,
     private val capabilityRegistry: CapabilityRegistry = CapabilityRegistry(),
     private val turnTraceStore: TurnTraceStore? = null,
     private val threadTracker: ThreadTracker? = null,
@@ -127,8 +125,6 @@ class JvmPlatformStores(
     override fun capabilityRegistry(): CapabilityRegistry = capabilityRegistry
 
     override fun modelBackend(): ModelBackend = backend
-
-    override fun voiceSynthesizer(): VoiceForgeSynthesizer = voiceSynthesizer
 
     override fun turnTraceStore(): TurnTraceStore? = turnTraceStore
 
