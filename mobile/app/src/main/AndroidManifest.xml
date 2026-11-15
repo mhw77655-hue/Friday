@@ -50,6 +50,20 @@
             android:process=":inference"
             android:exported="false" />
 
+        <!-- User-enabled phone-wide semantic control for Friday's voice router. -->
+        <service
+            android:name=".voice.FridayAccessibilityService"
+            android:label="Friday phone control"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/friday_accessibility_service" />
+        </service>
+
         <service
             android:name=".JarvisNotificationListener"
             android:label="JARVIS Notification Access"
