@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -89,7 +90,26 @@ class BodyCoordinator(
     private var tts: JarvisTts? = null
     private var ttsRetryCount = 0
     private var modelRetryCount = 0
-    @Volatile private var pendingPhoneCommand: com.jarvis.app.voice.PhoneControlCommand? = null
+    private val phoneCommandOrchestrator by lazy {
+        com.jarvis.app.voice.PhoneCommandOrchestrator(
+            decisionTool = {
+                phoneDecisionTool ?: com.jarvis.app.voice.FridayPhoneDecisionTool { utterance, description, risk ->
+                    val key = com.jarvis.app.voice.JevApiKeyStore(context).read()
+                    if (key == null) null else {
+                        com.jarvis.app.voice.JevDecisionClient(
+                            com.jarvis.app.voice.JevApiKeyProvider { key }
+                        ).judgePhoneAction(utterance, description, risk)
+                    }
+                }
+            },
+            remoteConfigured = { com.jarvis.app.voice.JevApiKeyStore(context).read() != null },
+            execute = { command ->
+                withContext(Dispatchers.Main.immediate) {
+                    com.jarvis.app.voice.PhoneCommandInterpreter.dispatch(command)
+                }
+            }
+        )
+    }
 
     /** Result of the always-on-hotword availability probe (AC1); drives the
      *  wake strategy. [HotwordAvailability.UNKNOWN]/[UNSUPPORTED] → the manual
@@ -264,64 +284,36 @@ class BodyCoordinator(
             is BodyEvent.SttResult ->
                 if (event.text.isNotBlank() && newState == BodyState.THINKING) {
                     val spoken = event.text.trim()
-                    val pending = pendingPhoneCommand
-                    if (pending != null && spoken.equals("confirm", ignoreCase = true)) {
-                        pendingPhoneCommand = null
+                    val hasPhoneIntent =
+                        com.jarvis.app.voice.PhoneCommandInterpreter.parse(spoken) != null ||
+                            phoneCommandOrchestrator.hasPendingConfirmation()
+                    if (hasPhoneIntent) {
                         scope.launch {
-                            val result = com.jarvis.app.voice.PhoneCommandInterpreter.dispatch(pending)
-                            val feedback = phoneActionFeedback(result)
+                            val outcome = phoneCommandOrchestrator.handle(spoken)
+                            val feedback = when (outcome) {
+                                is com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.Executed ->
+                                    phoneActionFeedback(outcome.result)
+                                is com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.ConfirmationNeeded ->
+                                    "I need your confirmation to ${outcome.description}. Say yes to proceed, or say cancel."
+                                com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.Cancelled ->
+                                    "Cancelled."
+                                is com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.Rejected ->
+                                    "I won't perform that phone action. ${outcome.explanation}"
+                                is com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.Unavailable ->
+                                    outcome.explanation
+                                null -> {
+                                    beginTurn(spoken)
+                                    emitEvent(BodyEvent.UserInput(spoken))
+                                    return@launch
+                                }
+                            }
                             tts?.speak(feedback)
                             emitEvent(BodyEvent.Reset)
                         }
-                    } else if (pending != null && spoken.equals("cancel", ignoreCase = true)) {
-                        pendingPhoneCommand = null
-                        tts?.speak("Cancelled.")
-                        emitEvent(BodyEvent.Reset)
                     } else {
-                        // A new request replaces any stale confirmation candidate.
-                        pendingPhoneCommand = null
-                        val command = com.jarvis.app.voice.PhoneCommandInterpreter.parse(spoken)
-                        if (command != null) {
-                            scope.launch {
-                                val apiKey = com.jarvis.app.voice.JevApiKeyStore(context).read()
-                                val decisionTool = phoneDecisionTool ?: com.jarvis.app.voice.FridayPhoneDecisionTool { utterance, description, risk ->
-                                    val configuredKey = apiKey
-                                    if (configuredKey == null) null else {
-                                        com.jarvis.app.voice.JevDecisionClient(
-                                            com.jarvis.app.voice.JevApiKeyProvider { configuredKey }
-                                        ).judgePhoneAction(utterance, description, risk)
-                                    }
-                                }
-                                val judgement = decisionTool.judge(
-                                    utterance = spoken,
-                                    command = command,
-                                    remoteConfigured = apiKey != null
-                                )
-                                val actionResult = when (judgement.verdict) {
-                                    com.jarvis.app.voice.FridayPhoneDecisionTool.Verdict.EXECUTE ->
-                                        com.jarvis.app.voice.PhoneCommandInterpreter.dispatch(command)
-                                    com.jarvis.app.voice.FridayPhoneDecisionTool.Verdict.CONFIRM -> {
-                                        pendingPhoneCommand = command
-                                        com.jarvis.app.voice.PhoneControlResult.UserActionRequired(
-                                            "${judgement.explanation} Say confirm to proceed, or cancel."
-                                        )
-                                    }
-                                    com.jarvis.app.voice.FridayPhoneDecisionTool.Verdict.REJECT ->
-                                        com.jarvis.app.voice.PhoneControlResult.Unavailable(
-                                            "I won't perform that phone action."
-                                        )
-                                    com.jarvis.app.voice.FridayPhoneDecisionTool.Verdict.UNAVAILABLE ->
-                                        com.jarvis.app.voice.PhoneControlResult.Unavailable(judgement.explanation)
-                                }
-                                tts?.speak(phoneActionFeedback(actionResult))
-                                emitEvent(BodyEvent.Reset)
-                            }
-                        } else {
-                            beginTurn(spoken)
-                            emitEvent(BodyEvent.UserInput(spoken))
-                        }
-                    }
-                }
+                        beginTurn(spoken)
+                        emitEvent(BodyEvent.UserInput(spoken))
+                    }                }
             is BodyEvent.UserInput ->
                 if (currentState == BodyState.SPEAKING) {
                     beginTurn(event.text)
