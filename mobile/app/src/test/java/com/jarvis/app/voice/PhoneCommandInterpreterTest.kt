@@ -38,11 +38,19 @@ class PhoneCommandInterpreterTest {
             PhoneCommandInterpreter.parse("tap Delete")!!
         ))
         assertTrue(PhoneCommandInterpreter.requiresExplicitConfirmation(
+            PhoneCommandInterpreter.parse("type my password 1234")!!
+        ))
+        assertFalse(PhoneCommandInterpreter.requiresExplicitConfirmation(
             PhoneCommandInterpreter.parse("type hello")!!
+        ))
+        assertFalse(PhoneCommandInterpreter.requiresExplicitConfirmation(
+            PhoneCommandInterpreter.parse("tap Settings")!!
         ))
         assertFalse(PhoneCommandInterpreter.requiresExplicitConfirmation(
             PhoneCommandInterpreter.parse("go home")!!
         ))
+        assertEquals("high", PhoneCommandInterpreter.risk(PhoneCommandInterpreter.parse("tap Send")!!))
+        assertEquals("low", PhoneCommandInterpreter.risk(PhoneCommandInterpreter.parse("tap Settings")!!))
     }
 
     @Test fun `recognizes natural polite voice phrasing`() {
