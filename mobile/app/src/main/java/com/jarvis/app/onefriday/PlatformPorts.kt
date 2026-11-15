@@ -56,6 +56,9 @@ interface PlatformPorts {
      */
     fun resourceSnapshot(): ResourceSnapshot
 
+    /** Aggregate outcome feedback for NAE; hosts without an adaptive observer may ignore it. */
+    fun recordWorkloadOutcome(organ: String, succeeded: Boolean, latencyMs: Long, peakMemoryMb: Long = 0L) = Unit
+
     /** The turn clock. Injected so a host (or a harness) owns time. */
     fun nowMs(): Long
 
