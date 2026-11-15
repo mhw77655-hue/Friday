@@ -105,7 +105,7 @@ object PhoneCommandInterpreter {
 
     fun risk(command: PhoneControlCommand): String = when (command) {
         is PhoneControlCommand.TapText ->
-            if (consequentialTarget.containsMatchIn(command.text)) "high" else "low"
+            if (consequentialTarget.containsMatchIn(command.text)) "high" else "medium"
         is PhoneControlCommand.TypeText ->
             if (sensitiveText.containsMatchIn(command.text)) "high" else "medium"
         else -> "low"
