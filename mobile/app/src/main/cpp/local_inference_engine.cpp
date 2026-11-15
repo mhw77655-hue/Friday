@@ -124,7 +124,7 @@ static void prewarm_thread_func(LlamaModel* model) {
     ctx_params.type_k = GGML_TYPE_F16;
     ctx_params.type_v = GGML_TYPE_F16;
     ctx_params.offload_kqv = model->config.n_gpu_layers > 0;
-    ctx_params.flash_attn = model->config.flash_attn;
+    ctx_params.flash_attn_type = model->config.flash_attn ? LLAMA_FLASH_ATTN_TYPE_ENABLED : LLAMA_FLASH_ATTN_TYPE_DISABLED;
 
     model->ctx = llama_init_from_model(model->model, ctx_params);
 
@@ -170,7 +170,7 @@ LlamaModel* llama_model_create(const LlamaModelConfig* config) {
     model_params.n_gpu_layers = config->n_gpu_layers;
     model_params.vocab_only = false;
     model_params.progress_callback = nullptr;
-    model_params.progress_user_data = nullptr;
+    model_params.progress_callback_user_data = nullptr;
 
     LOGI("Loading model from %s", config->model_path);
     model->model = llama_model_load_from_file(config->model_path, model_params);
