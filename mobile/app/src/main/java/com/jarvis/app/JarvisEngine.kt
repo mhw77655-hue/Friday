@@ -167,6 +167,7 @@ object JarvisEngine {
         if (bootstrapStarted) return
         bootstrapStarted = true
         readinessGate.markWaking()
+        try {
         val appContext = context.applicationContext
         this.appContext = appContext
 
@@ -658,6 +659,25 @@ object JarvisEngine {
                         userMessage = "Failed to wake engine"
                     )
                 )
+            }
+        }
+        } catch (t: Throwable) {
+            readinessGate.markFailed(t)
+            val report = com.jarvis.app.failure.FailureReport(
+                subsystem = "JarvisEngine",
+                operation = "init-synchronous-bootstrap",
+                severity = com.jarvis.app.failure.FailureSeverity.CRITICAL,
+                category = com.jarvis.app.failure.FailureCategory.LIFECYCLE,
+                message = "Engine bootstrap failed before asynchronous wiring: ${t.message}",
+                cause = "${t.javaClass.name}: ${t.message}",
+                userMessage = "Failed to wake engine"
+            )
+            val surface = failureSurface
+            if (surface != null) {
+                runCatching { surface.report(report) }
+                    .onFailure { android.util.Log.e("JarvisEngine", "Could not publish bootstrap failure", it) }
+            } else {
+                android.util.Log.e("JarvisEngine", report.message, t)
             }
         }
     }
