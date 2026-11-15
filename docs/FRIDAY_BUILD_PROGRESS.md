@@ -29,9 +29,7 @@ This is an equal-weight, 16-outcome engineering estimate. Each outcome contribut
 | 15 | Target-device validation (Realme 9 Pro 5G) | 0% | No current evidence pack or verified model/voice/video/thermal soak from the exact handset |
 | 16 | First complete Friday release | 0% | No release-candidate acceptance, signed production artifact or owner-authorized handoff |
 
-**Arithmetic:** the 16 milestone scores sum to 400 percentage points; divided by 16 gives 25%. The score is rounded to the nearest whole percentage point.
-
-## What exists in the current foundation branch
+**Arithmetic:** the 16 milestone scores sum to 405 percentage points; divided by 16 gives 25.3125%, rounded to 25%.
 
 ## Existing stage PRD status (separate from the end-state score)
 
@@ -48,6 +46,8 @@ The checked-in `.ralph/prd.json` contains 16 stories for the older Stage 3 / Gat
 
 These six are the remaining stories in the *current stage PRD*, not the whole Friday vision. Voice/hearing, full model validation, semantic video, JEPA, the secure Builder, the wider Life Test and exact-phone release validation remain broader end-state work.
 
+
+## What exists in the current foundation branch
 
 The following are present in source on `audit/friday-offline-runtime`; presence in source is not the same as verified device behaviour:
 
@@ -69,8 +69,9 @@ The following are present in source on `audit/friday-offline-runtime`; presence 
 - PR [#14](https://github.com/mhw77655-hue/Friday/pull/14) contains additional English-model and Nano Liquid Symbiosis work, but is a separate unmerged draft with a stale/non-mergeable base. It is not counted as integrated.
 - PR [#16](https://github.com/mhw77655-hue/Friday/pull/16) contains video intake and a symbolic predictive-cognition bootstrap, but is a separate unmerged draft with a stale/non-mergeable base. Video import/keyframe sampling is not semantic video understanding; its Hunch Engine is not a trained JEPA model.
 - PR [#12](https://github.com/mhw77655-hue/Friday/pull/12) is another separate offline-runtime draft based on a different audit branch. Its overlapping runtime/model/voice changes require a source-level comparison before any part is selected.
-- The last observed run #680 was still at the Android debug-APK build step on older head `e0556fef2ec85612effc40e93844f353c7bc1cc3`. It had not reached unit tests. That run is not evidence for later commits. New commits trigger fresh verification; the latest run must be checked before any APK is considered available.
-- No green current-head CI result, completed current-head unit-test result, exact-phone model smoke test, target-phone thermal/energy report, or release acceptance is claimed.
+- Latest workflow run [#709](https://github.com/mhw77655-hue/Friday/actions/runs/43775048804) is on current head `e34877b08c1e420e91c8ca743c2c2f382306b6c2`. Checkout, SDK setup and the Python Builder contract-test step have succeeded; the Android debug-APK build step is still running. Kotlin unit tests have not started yet.
+- Earlier runs were cancelled when later commits superseded them; those cancellations are not compile failures and are not passes.
+- No green current-head Android build, completed current-head Kotlin unit-test result, exact-phone model smoke test, target-phone thermal/energy report, or release acceptance is claimed.
 - `main` is not intentionally modified by this work. No APK is being handed off in this stage.
 
 ## Hard boundary: Friday does not build source inside Android
