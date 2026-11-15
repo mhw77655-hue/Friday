@@ -169,6 +169,8 @@ object JarvisEngine {
         private set
     @Volatile var applicationSelfStudy: com.jarvis.app.selfstudy.ApplicationSelfStudyLoop? = null
         private set
+    @Volatile var phoneDecisionTool: com.jarvis.app.voice.FridayPhoneDecisionTool? = null
+        private set
 
     fun init(context: Context) {
         if (started) return
@@ -541,6 +543,15 @@ object JarvisEngine {
             memoryConsolidationLoop.startIdleLoop()
             JarvisEngine.memoryConsolidationLoop = memoryConsolidationLoop
 
+            val phoneDecisionTool = com.jarvis.app.voice.FridayPhoneDecisionTool { utterance, description, risk ->
+                val key = com.jarvis.app.voice.JevApiKeyStore(appContext).read()
+                    ?: return@FridayPhoneDecisionTool null
+                com.jarvis.app.voice.JevDecisionClient(
+                    com.jarvis.app.voice.JevApiKeyProvider { key }
+                ).judgePhoneAction(utterance, description, risk)
+            }
+            JarvisEngine.phoneDecisionTool = phoneDecisionTool
+
             val bodyCoordinator = BodyCoordinator(
                 context = appContext,
                 modelManager = modelManager,
@@ -551,7 +562,8 @@ object JarvisEngine {
                 failureSurface = failureSurface,
                 recoveryController = recoveryController,
                 scope = scope,
-                cognitiveEngine = cognitiveEngine
+                cognitiveEngine = cognitiveEngine,
+                phoneDecisionTool = phoneDecisionTool
             )
 
             val visualStateBridge = VisualStateBridge(
