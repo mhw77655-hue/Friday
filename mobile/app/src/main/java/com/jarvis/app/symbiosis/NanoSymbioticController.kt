@@ -29,6 +29,7 @@ class NanoSymbioticController(
     private val policy = NanoSymbioticPolicy()
     private val evidenceFile = File(storageDir, "symbiosis/workload-evidence.properties")
     private var monitor: Job? = null
+    @Volatile private var workerScope: CoroutineScope? = null
 
     private val mutablePlan = MutableStateFlow(
         SymbioticPlan(
@@ -50,6 +51,7 @@ class NanoSymbioticController(
     /** Start low-frequency observation; safe to call more than once. */
     fun start(scope: CoroutineScope) {
         if (monitor?.isActive == true) return
+        workerScope = scope
         monitor = scope.launch(Dispatchers.IO) {
             while (isActive) {
                 refresh()
@@ -83,9 +85,15 @@ class NanoSymbioticController(
         latencyMs: Long,
         peakMemoryMb: Long = 0L
     ) {
-        policy.recordOutcome(organ, succeeded, latencyMs, peakMemoryMb)
-        persistEvidence()
-        refresh()
+        // PSS is a process-wide estimate, not a per-model allocation. Use it
+        // only as a coarse upper bound when the caller has no native peak metric.
+        val observedMemory = if (peakMemoryMb > 0L) peakMemoryMb
+            else android.os.Debug.getPss().toLong().coerceAtLeast(0L) / 1024L
+        policy.recordOutcome(organ, succeeded, latencyMs, observedMemory)
+        workerScope?.launch(Dispatchers.IO) {
+            persistEvidence()
+            refresh()
+        }
     }
 
     private fun refresh() {
@@ -109,7 +117,7 @@ class NanoSymbioticController(
         if (!evidenceFile.isFile) return
         runCatching {
             val properties = Properties()
-            evidenceFile.inputStream().use(properties::load)
+            evidenceFile.inputStream().use { properties.load(it) }
             val records = mutableMapOf<String, WorkloadEvidence>()
             properties.stringPropertyNames().mapNotNull { key ->
                 val parts = properties.getProperty(key).split(',')
