@@ -11,6 +11,7 @@ import com.jarvis.app.identity.MentalStateHypothesis
 import com.jarvis.app.latency.LatencyPipeline
 import com.jarvis.app.model.AdmissionDecision
 import com.jarvis.app.model.FakeModelBackend
+import com.jarvis.app.memory.TestEmbeddingProvider
 import com.jarvis.app.model.ModelTier
 import com.jarvis.app.model.OrganRole
 import com.jarvis.app.model.OrganWakeRequest
