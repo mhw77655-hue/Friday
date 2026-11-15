@@ -168,7 +168,11 @@ class SystemGraphTest {
             "android.riskGate",
             "android.deviceControlRouter",
             "android.mediaSessionBackend",
-            "android.screenBridgeBackend"
+            "android.screenBridgeBackend",
+            "capability.phoneDecisionTool",
+            "symbiosis.nanoSymbioticController",
+            "selfstudy.applicationSelfStudy",
+            "selfstudy.workManager"
         )
 
         for (id in expectedIds) {
