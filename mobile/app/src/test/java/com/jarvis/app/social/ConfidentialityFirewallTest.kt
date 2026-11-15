@@ -1,7 +1,7 @@
 package com.jarvis.app.social
 
 import com.jarvis.app.identity.WorldModelService
-import com.jarvis.app.termux.TermuxJarvisServer
+import com.jarvis.app.jvmtest.JvmCompositionHarness
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertEquals
@@ -18,8 +18,8 @@ import org.junit.Test
  */
 class ConfidentialityFirewallTest {
 
-    private fun freshFirewall(): Triple<TermuxJarvisServer.InMemoryGraph, WorldModelService, ConfidentialityFirewall> {
-        val graphStore = TermuxJarvisServer.InMemoryGraph()
+    private fun freshFirewall(): Triple<JvmCompositionHarness.InMemoryGraph, WorldModelService, ConfidentialityFirewall> {
+        val graphStore = JvmCompositionHarness.InMemoryGraph()
         val worldModel = WorldModelService(graphStore)
         return Triple(graphStore, worldModel, ConfidentialityFirewall(graphStore, worldModel))
     }
