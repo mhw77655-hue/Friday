@@ -90,7 +90,8 @@ class ApplicationSelfStudy(
         val file = reflectionFile()
         if (!file.isFile) return null
         return runCatching {
-            val props = Properties().apply { file.inputStream().use(::load) }
+            val props = Properties()
+            file.inputStream().use { props.load(it) }
             val capability = props.getProperty("candidateCapability").orEmpty()
                 .takeIf { it.matches(Regex("[a-z][a-z0-9_]{2,63}")) }
             val description = props.getProperty("candidateDescription").orEmpty()
