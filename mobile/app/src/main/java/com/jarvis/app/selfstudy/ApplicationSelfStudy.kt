@@ -34,6 +34,18 @@ class ApplicationSelfStudy(
         val declaredMissingCapabilities: List<String>,
         val knownLimitationIds: List<String>,
         val hostSamples: Long,
+        val hostFingerprint: String,
+        val minimumAvailableMemoryMb: Long,
+        val averageCpuLoadEmaPercent: Double,
+        val thermalPressureSamples: Long,
+        val lowMemorySamples: Long,
+        val additionalMemoryReserveMb: Long,
+        val maximumObservedProcessPssMb: Long,
+        val minimumBatteryPercent: Int,
+        val liquidGeneration: Long,
+        val liquidLastAdaptation: String,
+        val liquidPredictionError: Double,
+        val organStrategies: Map<String, String>,
         val sourceRevision: String,
         val sourceFileCount: Int,
         val sourceSymbolCount: Int,
@@ -71,6 +83,9 @@ class ApplicationSelfStudy(
             if (failures.isNotEmpty()) add("Study organ failures: ${failures.entries.joinToString { "${it.key}=${it.value}" }}")
             if (sourceIndex == null) add("Source architecture index unavailable; verify generated build metadata")
             if ((host?.sampleCount ?: 0L) < 20L) add("Continue observing this phone before changing resource strategy")
+            if ((host?.lowMemorySamples ?: 0L) > 0L) add("Preserve the learned memory reserve; low-memory pressure has been observed")
+            if ((host?.thermalPressureSamples ?: 0L) > 0L) add("Keep background work subordinate to thermal headroom")
+            if ((liquid?.lastPredictionError ?: 0.0) > 0.25) add("Collect more host transitions before trusting the current predictive model")
             if (isEmpty()) add("No structural issue detected; compare measured organ quality and cost before proposing changes")
         }
 
@@ -84,6 +99,23 @@ class ApplicationSelfStudy(
             declaredMissingCapabilities = missingCapabilities,
             knownLimitationIds = limitations,
             hostSamples = host?.sampleCount ?: 0L,
+            hostFingerprint = host?.fingerprint?.stableKey.orEmpty(),
+            minimumAvailableMemoryMb = host?.minimumAvailableMemoryMb ?: -1L,
+            averageCpuLoadEmaPercent = host?.averageCpuLoadEmaPercent ?: 0.0,
+            thermalPressureSamples = host?.thermalPressureSamples ?: 0L,
+            lowMemorySamples = host?.lowMemorySamples ?: 0L,
+            additionalMemoryReserveMb = host?.additionalMemoryReserveMb ?: 0L,
+            maximumObservedProcessPssMb = host?.maximumObservedProcessPssMb ?: 0L,
+            minimumBatteryPercent = host?.minimumBatteryPercent ?: 100,
+            liquidGeneration = liquid?.generation ?: 0L,
+            liquidLastAdaptation = liquid?.lastAdaptation.orEmpty(),
+            liquidPredictionError = liquid?.lastPredictionError ?: 0.0,
+            organStrategies = liquid?.organs?.mapKeys { it.key.name }?.mapValues { (_, strategy) ->
+                "context=${strategy.contextBudget};concurrency=${strategy.concurrency};chunk=${strategy.chunkSize};" +
+                    "background=${strategy.backgroundWeight};success=${strategy.successfulRuns};" +
+                    "failure=${strategy.failedRuns};latencyEmaMs=${strategy.latencyEmaMs};" +
+                    "memoryPeakMb=${strategy.memoryPeakMb};rewardEma=${strategy.rewardEma}"
+            }?.toSortedMap().orEmpty(),
             sourceRevision = sourceIndex?.sourceRevision.orEmpty(),
             sourceFileCount = sourceIndex?.sourceFileCount ?: 0,
             sourceSymbolCount = sourceIndex?.declaredSymbolCount ?: 0,
@@ -108,6 +140,20 @@ class ApplicationSelfStudy(
             setProperty("declaredMissingCapabilities", report.declaredMissingCapabilities.joinToString("|"))
             setProperty("knownLimitationIds", report.knownLimitationIds.joinToString("|"))
             setProperty("hostSamples", report.hostSamples.toString())
+            setProperty("hostFingerprint", report.hostFingerprint)
+            setProperty("minimumAvailableMemoryMb", report.minimumAvailableMemoryMb.toString())
+            setProperty("averageCpuLoadEmaPercent", report.averageCpuLoadEmaPercent.toString())
+            setProperty("thermalPressureSamples", report.thermalPressureSamples.toString())
+            setProperty("lowMemorySamples", report.lowMemorySamples.toString())
+            setProperty("additionalMemoryReserveMb", report.additionalMemoryReserveMb.toString())
+            setProperty("maximumObservedProcessPssMb", report.maximumObservedProcessPssMb.toString())
+            setProperty("minimumBatteryPercent", report.minimumBatteryPercent.toString())
+            setProperty("liquidGeneration", report.liquidGeneration.toString())
+            setProperty("liquidLastAdaptation", report.liquidLastAdaptation)
+            setProperty("liquidPredictionError", report.liquidPredictionError.toString())
+            report.organStrategies.forEach { (organ, summary) ->
+                setProperty("organStrategy.$organ", summary)
+            }
             setProperty("sourceRevision", report.sourceRevision)
             setProperty("sourceFileCount", report.sourceFileCount.toString())
             setProperty("sourceSymbolCount", report.sourceSymbolCount.toString())
