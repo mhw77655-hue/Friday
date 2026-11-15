@@ -202,8 +202,7 @@ class TurnPathAssembly private constructor(
                 hypothesisProvider = { text ->
                     MentalStateHypothesis.fromEmotion(emotionFusion.estimate(text))
                 },
-                workspace = workspace,
-                hunchEngine = hunchEngine
+                workspace = workspace
             )
 
             // ── Social: per-person relationship, then the confidentiality firewall ──
@@ -329,7 +328,8 @@ class TurnPathAssembly private constructor(
                 provenanceLedger = stores.provenanceLedger(),
                 memoryForgetter = ports.memoryForgetter(),
                 signalScorer = signalScorer,
-                workspace = workspace
+                workspace = workspace,
+                hunchEngine = hunchEngine
             )
 
             // ── The entry point ────────────────────────────────────────────────
