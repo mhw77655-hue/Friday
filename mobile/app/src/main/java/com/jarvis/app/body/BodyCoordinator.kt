@@ -283,50 +283,32 @@ class BodyCoordinator(
                         if (command != null) {
                             scope.launch {
                                 val apiKey = com.jarvis.app.voice.JevApiKeyStore(context).read()
-                                val decision = if (apiKey != null) {
+                                val decisionTool = com.jarvis.app.voice.FridayPhoneDecisionTool { utterance, description, risk ->
+                                    val configuredKey = apiKey ?: return@FridayPhoneDecisionTool null
                                     com.jarvis.app.voice.JevDecisionClient(
-                                        com.jarvis.app.voice.JevApiKeyProvider { apiKey }
-                                    ).judgePhoneAction(
-                                        utterance = spoken,
-                                        actionDescription = com.jarvis.app.voice.PhoneCommandInterpreter.describe(command),
-                                        risk = com.jarvis.app.voice.PhoneCommandInterpreter.risk(command)
-                                    )
-                                } else null
-
-                                val actionResult = when {
-                                    apiKey != null && decision == null ->
-                                        com.jarvis.app.voice.PhoneControlResult.Unavailable(
-                                            "I couldn't reach Jev, so I haven't changed anything. Try again when connected."
+                                        com.jarvis.app.voice.JevApiKeyProvider { configuredKey }
+                                    ).judgePhoneAction(utterance, description, risk)
+                                }
+                                val judgement = decisionTool.judge(
+                                    utterance = spoken,
+                                    command = command,
+                                    remoteConfigured = apiKey != null
+                                )
+                                val actionResult = when (judgement.verdict) {
+                                    com.jarvis.app.voice.FridayPhoneDecisionTool.Verdict.EXECUTE ->
+                                        com.jarvis.app.voice.PhoneCommandInterpreter.dispatch(command)
+                                    com.jarvis.app.voice.FridayPhoneDecisionTool.Verdict.CONFIRM -> {
+                                        pendingPhoneCommand = command
+                                        com.jarvis.app.voice.PhoneControlResult.UserActionRequired(
+                                            "${judgement.explanation} Say confirm to proceed, or cancel."
                                         )
-                                    decision != null &&
-                                        com.jarvis.app.voice.JevPhoneActionPolicy.shouldReject(decision) ->
+                                    }
+                                    com.jarvis.app.voice.FridayPhoneDecisionTool.Verdict.REJECT ->
                                         com.jarvis.app.voice.PhoneControlResult.Unavailable(
                                             "I won't perform that phone action."
                                         )
-                                    com.jarvis.app.voice.PhoneCommandInterpreter.requiresExplicitConfirmation(command) -> {
-                                        pendingPhoneCommand = command
-                                        com.jarvis.app.voice.PhoneControlResult.UserActionRequired(
-                                            "I heard ${com.jarvis.app.voice.PhoneCommandInterpreter.describe(command)}. Say confirm to proceed, or cancel."
-                                        )
-                                    }
-                                    decision != null &&
-                                        com.jarvis.app.voice.JevPhoneActionPolicy.requiresConfirmation(decision) -> {
-                                        pendingPhoneCommand = command
-                                        com.jarvis.app.voice.PhoneControlResult.UserActionRequired(
-                                            "Jev recommends confirmation. Say confirm to proceed, or cancel."
-                                        )
-                                    }
-                                    decision != null &&
-                                        com.jarvis.app.voice.JevPhoneActionPolicy.mayExecute(decision) ->
-                                        com.jarvis.app.voice.PhoneCommandInterpreter.dispatch(command)
-                                    decision != null -> {
-                                        pendingPhoneCommand = command
-                                        com.jarvis.app.voice.PhoneControlResult.UserActionRequired(
-                                            "I need your confirmation before doing that. Say confirm or cancel."
-                                        )
-                                    }
-                                    else ->
-                                        com.jarvis.app.voice.PhoneCommandInterpreter.dispatch(command)
+                                    com.jarvis.app.voice.FridayPhoneDecisionTool.Verdict.UNAVAILABLE ->
+                                        com.jarvis.app.voice.PhoneControlResult.Unavailable(judgement.explanation)
                                 }
                                 tts?.speak(phoneActionFeedback(actionResult))
                                 emitEvent(BodyEvent.Reset)
