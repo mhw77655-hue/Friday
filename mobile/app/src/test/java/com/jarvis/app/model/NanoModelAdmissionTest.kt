@@ -15,7 +15,8 @@ class NanoModelAdmissionTest {
         isCharging = false,
         cpuCores = 8,
         lowMemory = lowMemory,
-        appPssMb = 500
+        appPssMb = 500,
+        cpuLoadPercent = cpu
     )
 
     @Test fun blocksModelWhenSystemReserveCannotBePreserved() {
@@ -39,5 +40,11 @@ class NanoModelAdmissionTest {
         val result = NanoLiquidPolicy.admitModel(host(5000), 1_000_000_000L, 4096)
         assertTrue(result.allowed)
         assertTrue(result.suggestedContextTokens == 4096)
+    }
+
+    @Test fun defersWhenThePhoneIsAlreadyBusyWithForegroundCpuWork() {
+        val result = NanoLiquidPolicy.admitModel(host(6000, cpu = 94.0), 1_000_000_000L, 2048)
+        assertFalse(result.allowed)
+        assertTrue(result.reason.contains("CPU"))
     }
 }
