@@ -8,7 +8,8 @@ data class NanoHostState(
     val batteryPercent: Int,
     val isCharging: Boolean,
     val cpuCores: Int,
-    val lowMemory: Boolean = false
+    val lowMemory: Boolean = false,
+    val appPssMb: Long = 0L
 )
 
 data class NanoLiquidProfile(
@@ -19,11 +20,45 @@ data class NanoLiquidProfile(
     val reason: String
 )
 
+data class NanoModelAdmission(
+    val allowed: Boolean,
+    val requiredFreeMemoryMb: Long,
+    val availableFreeMemoryMb: Long,
+    val reason: String
+)
+
 /**
  * Deterministic NAE policy. It protects the host first, then uses learned
  * per-device measurements to choose the least costly thread count.
  */
 object NanoLiquidPolicy {
+    /**
+     * Conservative preflight: estimate quantized weights + KV cache + native
+     * buffers while preserving a system reserve. This is a guard, not a
+     * promise that every model will load; native allocation can still fail.
+     */
+    fun admitModel(
+        host: NanoHostState,
+        modelBytes: Long,
+        contextTokens: Int,
+        systemReserveMb: Long = 900L
+    ): NanoModelAdmission {
+        val modelMb = (modelBytes.coerceAtLeast(0L) + 1_048_575L) / 1_048_576L
+        val weightWorkingSet = (modelMb * 1.12).toLong()
+        val kvReserve = (contextTokens.coerceAtLeast(0) * 0.06).toLong()
+        val nativeBuffers = 256L
+        val required = weightWorkingSet + kvReserve + nativeBuffers + systemReserveMb
+        val blockedByPressure = host.lowMemory || host.thermalLevel >= 2
+        val allowed = !blockedByPressure && host.availableMemoryMb >= required
+        val reason = when {
+            host.lowMemory -> "Android reports low memory; model load was blocked to protect the phone."
+            host.thermalLevel >= 2 -> "Thermal pressure is high; model load was deferred."
+            allowed -> "Model fits the conservative free-memory budget."
+            else -> "Model needs about $required MB free including context and system reserve; only ${host.availableMemoryMb} MB is available."
+        }
+        return NanoModelAdmission(allowed, required, host.availableMemoryMb, reason)
+    }
+
     fun recommend(
         host: NanoHostState,
         throughputTokensPerSecond: Map<Int, Float> = emptyMap(),
