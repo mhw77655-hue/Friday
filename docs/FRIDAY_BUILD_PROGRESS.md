@@ -21,7 +21,7 @@ This is an equal-weight, 16-outcome engineering estimate. Each outcome contribut
 | 7 | Experience-driven developmental learning | 20% | One durable later-behaviour change with restart, replay-blocked and mechanism-off controls |
 | 8 | Predictive cognition / JEPA-inspired mechanisms | 15% | Train/validate learned representations and prediction error; useful prediction-led compute; do not label symbolic transition counts as JEPA |
 | 9 | Self-model and individuality | 25% | Evidence-calibrated self-knowledge and persistent preference/strategy development |
-| 10 | Capability Foundry / Builder | 10% | Remove or relocate dormant Android builder/evolution execution code; implement repository-side worker orchestration, isolated workspaces and independent gates |
+| 10 | Capability Foundry / Builder | 15% | Remove or relocate dormant Android builder/evolution execution code; harden Cloud Ralph into a branch-only, credential-isolated worker; add per-request intake, independent gates and owner-controlled promotion |
 | 11 | Native phone capabilities | 45% | Reliable multi-step workflows, visible permissions, recovery and exact-device validation |
 | 12 | Autonomous self-development | 10% | Durable request envelope and synchronization, connected repository worker, independent Vision gate, approval, deployment feedback and Life Test |
 | 13 | Security, provenance and rollback | 35% | Complete end-to-end authorization model, auditable worker provenance, signed update and tested rollback |
@@ -57,7 +57,7 @@ The following are present in source on `audit/friday-offline-runtime`; presence 
 
 Android is Friday's deployed body and local evidence source. Repository source edits, code execution, tests, CI, artifact construction and signing belong in the connected repository development environment. No Git write token, signing key or arbitrary source-execution environment belongs in the APK.
 
-The Android self-study change now creates a proposal only. It does not synchronize that proposal, assign a worker, read arbitrary repository source, edit code or verify a build. The repository-side request transport and durable worker handoff are not implemented.
+The Android self-study change now creates a proposal only. It does not synchronize that proposal, assign a worker, read arbitrary repository source, edit code or verify a build. The basic repo-side worker exists, but the durable request transport and safe worker handoff are not implemented. Cloud Ralph is manually PRD-driven and currently has unsafe direct-main/write-credential behaviour; do not connect self-generated requests to it until hardened.
 
 Dormant legacy `ToolBuilder`, evolution and mutant-environment source files still exist under the Android module. They are not constructed by the current production composition, but their location and executable implementation still conflict with the desired architecture. Removing or relocating them requires dependency and test audit; simply leaving them uncalled is not the final architecture.
 
