@@ -48,6 +48,7 @@ import com.jarvis.app.ui.screens.SystemScreen
 import com.jarvis.app.ui.screens.TaskInboxScreen
 import com.jarvis.app.ui.screens.ToolsScreen
 import com.jarvis.app.ui.screens.VisionScreen
+import com.jarvis.app.ui.screens.VideoKnowledgeScreen
 import com.jarvis.app.ui.screens.getAlertStore
 import com.jarvis.app.ui.screens.getApprovalQueue
 import com.jarvis.app.ui.screens.getBootstrapManager
@@ -74,6 +75,7 @@ private const val ROUTE_BOOTSTRAP = "bootstrap"
 private const val ROUTE_ENVIRONMENT = "environment"
 private const val ROUTE_MODEL = "model"
 private const val ROUTE_VISION = "vision"
+private const val ROUTE_VIDEO_KNOWLEDGE = "video_knowledge"
 
 /**
  * Living-UI pass: real screen transitions. Design spec §25/§6 rule out
@@ -170,6 +172,7 @@ fun JarvisNavHost() {
             composable(ROUTE_ENVIRONMENT) { EnvironmentScreen(environmentManager = getEnvironmentManager()!!, onNavigate = ::navigateToTab) }
             composable(ROUTE_MODEL) { ModelScreen(modelManager = getModelManager()!!, onNavigate = ::navigateToTab) }
             composable(ROUTE_VISION) { VisionScreen() }
+            composable(ROUTE_VIDEO_KNOWLEDGE) { VideoKnowledgeScreen() }
             composable(ROUTE_BOOTSTRAP) { BootstrapScreen(bootstrapManager = getBootstrapManager()!!, onComplete = { navigateToTab(ROUTE_HOME) }) }
         }
 
