@@ -17,6 +17,7 @@ class ExpectationStateEngineTest {
         override fun saveCalibration(personKey: String, calibration: PredictionCalibration) {
             this.calibration[personKey] = calibration
         }
+        override fun clearCalibration(personKey: String) { calibration.remove(personKey) }
     }
 
     @Test fun predictsRepeatedSuccessorSituationFromObservedTransitions() {
@@ -89,5 +90,34 @@ class ExpectationStateEngineTest {
         )
         assertEquals(1, store.transitions.size)
         assertEquals(mapOf("topic" to "work"), store.transitions.single().before)
+    }
+
+    @Test fun observeTurnRecordsActualTransitions() {
+        val store = MemoryStore()
+        val engine = ExpectationStateEngine(store, minimumEvidence = 2)
+        val before = SituationState("person-a", mapOf("channel" to "chat", "kind" to "question"))
+        val after = SituationState("person-a", mapOf("channel" to "chat", "kind" to "request"))
+        engine.observeTurn(before)
+        engine.observeTurn(after)
+        assertEquals(1, store.transitions.size)
+        assertEquals(before.fields, store.transitions.single().before)
+        assertEquals(after.fields, store.transitions.single().after)
+    }
+
+    @Test fun clearPersonRemovesOnlyThatPersonsPredictiveHistory() {
+        val store = MemoryStore()
+        val engine = ExpectationStateEngine(store)
+        engine.recordTransition(
+            SituationState("person-a", mapOf("kind" to "question")),
+            SituationState("person-a", mapOf("kind" to "request"))
+        )
+        engine.recordTransition(
+            SituationState("person-b", mapOf("kind" to "question")),
+            SituationState("person-b", mapOf("kind" to "statement"))
+        )
+        store.calibration["person-a"] = PredictionCalibration(3, 0.8, 0.4)
+        engine.clearPerson("person-a")
+        assertEquals(listOf("person-b"), store.transitions.map { it.personKey })
+        assertEquals(0, engine.calibration("person-a").settledSamples)
     }
 }
