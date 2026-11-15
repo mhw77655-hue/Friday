@@ -54,10 +54,6 @@ jobs:
             "cmake;3.22.1" \
             --sdk_root="$ANDROID_HOME"
 
-      # at a Termux-only /data/data/com.termux/... binary that does not exist
-      # here; AGP falls back to the Maven aapt2 for this platform.
-      - name: Neutralize Termux-only gradle.properties override
-        run: sed -i '/^android\.aapt2FromMavenOverride=/d' gradle.properties
 
       - name: Make gradlew executable
         run: chmod +x gradlew
