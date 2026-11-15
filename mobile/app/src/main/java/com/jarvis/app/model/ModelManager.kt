@@ -144,6 +144,7 @@ class ModelManager(
                         config.copy(modelId = config.modelId ?: LocalModelBackend.RESIDENT_MODEL_ID)
                     )
                     is LlamaCppAdapter -> provider.configure(modelSource, config)
+                    else -> throw IllegalStateException("Unsupported local inference provider: ${provider::class.java.name}")
                 }
                 llamaCppAdapter
             }
@@ -195,6 +196,7 @@ class ModelManager(
                     config.copy(modelId = config.modelId ?: LocalModelBackend.RESIDENT_MODEL_ID)
                 )
                 is LlamaCppAdapter -> provider.configure(defaultModelSource(type), config)
+                else -> throw IllegalStateException("Unsupported local inference provider: ${provider::class.java.name}")
             }
             ModelProviderType.OLLAMA -> ollamaAdapter.configure(defaultModelSource(type), config)
             ModelProviderType.REMOTE_JARVIS -> remoteJarvisAdapter.configure(defaultModelSource(type), config)
