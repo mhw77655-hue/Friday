@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
@@ -81,7 +80,7 @@ fun VideoKnowledgeScreen() {
         modifier = Modifier.fillMaxSize().padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("FRIDAY · VIDEO EXPERIENCE", style = JarvisType.Title)
+        Text("FRIDAY · VIDEO EXPERIENCE", style = JarvisType.Display)
         Text(
             "Show her videos from TikTok or another app. Friday stores shared media privately, extracts a small set of keyframes, and keeps the source linked to her experience history.",
             style = JarvisType.Body
