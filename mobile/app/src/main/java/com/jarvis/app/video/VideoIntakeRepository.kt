@@ -48,6 +48,10 @@ class VideoIntakeRepository(context: Context) {
     suspend fun importUri(uri: Uri): VideoKnowledgeItem = withContext(Dispatchers.IO) {
         val displayName = queryDisplayName(uri) ?: "Shared video"
         val declaredSize = querySize(uri)
+        val existingBytes = currentMediaBytes()
+        require(declaredSize < 0 || existingBytes + declaredSize <= MAX_LIBRARY_BYTES) {
+            "The private video library has reached its 2 GB media budget."
+        }
         require(declaredSize <= MAX_VIDEO_BYTES || declaredSize < 0) {
             "This video exceeds Friday's current 500 MB import limit."
         }
@@ -66,6 +70,9 @@ class VideoIntakeRepository(context: Context) {
                     val read = input.read(buffer)
                     if (read < 0) break
                     copied += read
+                    require(existingBytes + copied <= MAX_LIBRARY_BYTES) {
+                        "The private video library has reached its 2 GB media budget."
+                    }
                     require(copied <= MAX_VIDEO_BYTES) {
                         "This video exceeds Friday's current 500 MB import limit."
                     }
@@ -110,16 +117,22 @@ class VideoIntakeRepository(context: Context) {
         item
     }
 
+    private fun currentMediaBytes(): Long =
+        root.listFiles().orEmpty().filter { it.isFile && !it.name.endsWith(".part") }
+            .sumOf { it.length() }
+
     suspend fun importSharedIntent(intent: Intent): List<VideoKnowledgeItem> {
         val uris = when (intent.action) {
             Intent.ACTION_SEND -> listOfNotNull(
                 intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM),
-                intent.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.uri
+                intent.clipData?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.uri,
+                intent.data
             ).distinct()
             Intent.ACTION_SEND_MULTIPLE -> {
                 @Suppress("DEPRECATION")
                 (intent.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM) ?: arrayListOf())
                     .plus((0 until (intent.clipData?.itemCount ?: 0)).mapNotNull { intent.clipData?.getItemAt(it)?.uri })
+                    .plus(listOfNotNull(intent.data))
                     .distinct()
             }
             else -> emptyList()
@@ -148,6 +161,7 @@ class VideoIntakeRepository(context: Context) {
                     val name = entry.name.lowercase()
                     val relevantName = name.contains("favorite") || name.contains("favourite") || name.endsWith(".json")
                     if (!entry.isDirectory && relevantName) {
+                        if (entry.size > MAX_EXPORT_ENTRY_BYTES) break
                         val bytes = readLimited(zip, MAX_EXPORT_ENTRY_BYTES)
                         totalRead += bytes.size
                         val text = bytes.toString(Charsets.UTF_8)
@@ -320,6 +334,7 @@ class VideoIntakeRepository(context: Context) {
     companion object {
         private const val KEY_ENTRIES = "entries"
         private const val MAX_VIDEO_BYTES = 500L * 1024L * 1024L
+        private const val MAX_LIBRARY_BYTES = 2L * 1024L * 1024L * 1024L
         private const val MIN_FREE_BYTES = 64L * 1024L * 1024L
         private const val MAX_KEYFRAMES = 12
         private const val FRAME_INTERVAL_MS = 5_000L
