@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
 /**
- * In-process bounded executor for generated pure synth programs.
+ * In-process single-thread executor for generated pure synth programs.
  *
  * Enforces a wall-clock wait budget, captures execution failures, and measures
  * latency. This is NOT an OS security sandbox: it does not provide a separate
