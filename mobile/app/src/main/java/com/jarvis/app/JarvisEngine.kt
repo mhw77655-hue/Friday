@@ -167,7 +167,7 @@ object JarvisEngine {
 
     @Volatile var systemGraph: com.jarvis.app.selfreconfig.SystemGraph? = null
         private set
-    @Volatile var applicationSelfStudy: com.jarvis.app.selfstudy.ApplicationSelfStudyLoop? = null
+    @Volatile var applicationSelfStudy: com.jarvis.app.selfstudy.ApplicationSelfStudy? = null
         private set
     @Volatile var phoneDecisionTool: com.jarvis.app.voice.FridayPhoneDecisionTool? = null
         private set
@@ -479,18 +479,10 @@ object JarvisEngine {
                 hostSnapshot = { nanoSymbiosis.hostStudySnapshot() },
                 liquidSnapshot = { nanoSymbiosis.liquidSnapshot() }
             )
-            val selfStudyLoop = com.jarvis.app.selfstudy.ApplicationSelfStudyLoop(
-                study = selfStudy,
-                scope = scope,
-                resourceBudgetAllows = {
-                    val resources = nanoSymbiosis.resourceSnapshot()
-                    resources.availableMemoryMb >= 900L &&
-                        resources.thermalLevel < 2 &&
-                        (resources.batteryPercent >= 20 || resources.isCharging)
-                }
-            )
-            selfStudyLoop.start()
-            JarvisEngine.applicationSelfStudy = selfStudyLoop
+            JarvisEngine.applicationSelfStudy = selfStudy
+            // WorkManager keeps this small study lane scheduled across process
+            // recreation and reboot; Android still chooses the exact run window.
+            com.jarvis.app.selfstudy.ApplicationSelfStudyScheduler.schedule(appContext)
 
             // Store process-scoped singletons before anything else so they are
             // accessible to any subsystem that needs them.
@@ -717,6 +709,19 @@ object JarvisEngine {
             // Manifest missing/corrupt is not fatal — JARVIS just can't self-describe yet.
             capabilities = null
         }
+    }
+
+    /** Execute one self-study slice only when this phone has safe headroom. */
+    fun runApplicationSelfStudySlice(): Boolean {
+        val study = applicationSelfStudy ?: return false
+        val governor = nanoSymbiosis ?: return false
+        val resources = governor.resourceSnapshot()
+        if (resources.availableMemoryMb < 900L ||
+            resources.thermalLevel >= 2 ||
+            (resources.batteryPercent < 20 && !resources.isCharging)
+        ) return false
+        study.study()
+        return true
     }
 
     fun run(block: () -> Unit) {
