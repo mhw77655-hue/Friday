@@ -8,6 +8,7 @@ import com.jarvis.app.evolution.RollbackController
 import com.jarvis.app.failure.FailureCategory
 import com.jarvis.app.failure.FailureSurface
 import com.jarvis.app.genome.GenomeArchive
+import com.jarvis.app.genome.GenomeBuilder
 import com.jarvis.app.genome.GenomeHealth
 import com.jarvis.app.genome.GenomeRegistry
 import com.jarvis.app.humancore.store.FileStorage
@@ -187,6 +188,13 @@ class ToolBuilderTest {
             cognitiveCapabilityFabric = cognitiveFabric
         )
 
+        val priorGenome = GenomeBuilder("prior-existing-tool")
+            .capability("existing_tool")
+            .build()
+            .copy(healthState = com.jarvis.app.genome.GenomeHealth.HEALTHY)
+        stack.archive.put(priorGenome)
+        stack.genomeRegistry.register(priorGenome)
+
         val spec = ToolSpecification(
             capability = "word_count",
             description = "count whitespace-separated words in text",
@@ -227,6 +235,10 @@ class ToolBuilderTest {
         )
         assertTrue(rolledBack.success)
         assertTrue(cognitiveFabric.registry.lookupByOperation("word_count").isEmpty())
+        assertTrue(
+            "rollback must preserve unrelated existing capability mappings",
+            "existing_tool" in stack.genomeRegistry.allBest()
+        )
         scope.cancel()
     }
 
