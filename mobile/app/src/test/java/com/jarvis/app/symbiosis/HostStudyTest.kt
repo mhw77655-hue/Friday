@@ -46,6 +46,29 @@ class HostStudyTest {
     }
 
     @Test
+    fun `recurring host pressure raises a bounded reserve and recovery lets it decay`() {
+        val study = HostStudy(fingerprint)
+        repeat(5) {
+            study.observe(
+                HostResourceState(availableMemoryMb = 900, cpuLoadPercent = 40.0,
+                    thermalLevel = 2, batteryPercent = 60, isCharging = false),
+                processPssMb = 700,
+                observedAtMs = it.toLong() + 1L
+            )
+        }
+        assertTrue(study.snapshot().additionalMemoryReserveMb in 256L..512L)
+        repeat(20) {
+            study.observe(
+                HostResourceState(availableMemoryMb = 4000, cpuLoadPercent = 10.0,
+                    thermalLevel = 0, batteryPercent = 80, isCharging = true),
+                processPssMb = 500,
+                observedAtMs = it.toLong() + 10L
+            )
+        }
+        assertEquals(0L, study.snapshot().additionalMemoryReserveMb)
+    }
+
+    @Test
     fun `restored study is accepted only for the same host fingerprint`() {
         val original = HostStudy(fingerprint)
         original.observe(
