@@ -164,17 +164,15 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
             else -> null
         }
 
+        // Defer file resolution until load so first-run environment selection
+        // succeeds before the user has downloaded any model weights.
         val resolvedModel = modelPathResolver.resolve(
             configuredPath = configuredPath,
             modelId = config.modelId
-        ) ?: throw IllegalStateException(
-            "Local GGUF model not found. " +
-                "modelId=${config.modelId}, " +
-                "configuredPath=$configuredPath"
         )
 
         currentConfig = NativeConfig(
-            modelPath = resolvedModel.absolutePath,
+            modelPath = resolvedModel?.absolutePath.orEmpty(),
             nCtx = params["context_window"]?.toIntOrNull() ?: 4096,
             nThreads = params["threads"]?.toIntOrNull() ?: 4,
             nGpuLayers = params["gpu_layers"]?.toIntOrNull() ?: 0,
@@ -186,7 +184,7 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
 
     /** Get the model path for loading */
     private fun getModelPath(): String {
-        return currentConfig?.modelPath
+        return currentConfig?.modelPath?.takeIf { it.isNotBlank() }
             ?: modelPathResolver.resolve(
                 configuredPath = null,
                 modelId = providerConfig?.modelId
