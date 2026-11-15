@@ -1,10 +1,14 @@
 package com.jarvis.app.modelsim
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
+import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -20,7 +24,7 @@ class ModelHubCatalog(
 ) {
     suspend fun discover(search: String = "instruct", limit: Int = 30): List<ModelCandidate> =
         withContext(Dispatchers.IO) {
-            val safeLimit = limit.coerceIn(1, 50)
+            val safeLimit = limit.coerceIn(1, 20)
             val url = okhttp3.HttpUrl.Builder()
                 .scheme("https")
                 .host("huggingface.co")
@@ -31,7 +35,6 @@ class ModelHubCatalog(
                 .addQueryParameter("direction", "-1")
                 .addQueryParameter("limit", safeLimit.toString())
                 .addQueryParameter("full", "true")
-                .addQueryParameter("blobs", "true")
                 .build()
             val request = Request.Builder()
                 .url(url)
@@ -44,9 +47,46 @@ class ModelHubCatalog(
                 }
                 val body = response.body?.string()
                     ?: throw IOException("Model catalog returned an empty response.")
-                parse(body)
+                val listing = JSONArray(body)
+                val repoIds = (0 until listing.length()).mapNotNull { index ->
+                    listing.optJSONObject(index)?.optString("id")
+                        ?.takeIf { it.contains("/") }
+                }.distinct().take(safeLimit)
+
+                // The listing endpoint supplies repository discovery. File byte
+                // sizes require per-repository blob metadata; do not infer them
+                // from names or total repository storage.
+                val detailed = coroutineScope {
+                    repoIds.map { repoId ->
+                        async(Dispatchers.IO) { fetchRepositoryMetadata(repoId) }
+                    }.awaitAll().filterNotNull()
+                }
+                val detailedArray = JSONArray().apply {
+                    detailed.forEach { put(JSONObject(it)) }
+                }
+                parse(detailedArray.toString())
             }
         }
+
+    private fun fetchRepositoryMetadata(repoId: String): String? {
+        val url = okhttp3.HttpUrl.Builder()
+            .scheme("https")
+            .host("huggingface.co")
+            .addPathSegments("api/models/$repoId")
+            .addQueryParameter("blobs", "true")
+            .build()
+        val request = Request.Builder()
+            .url(url)
+            .header("User-Agent", "Friday-Model-Free-Device-Lab/1.0")
+            .get()
+            .build()
+        return runCatching {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@use null
+                response.body?.string()
+            }
+        }.getOrNull()
+    }
 
     internal fun parse(json: String): List<ModelCandidate> {
         val repos = JSONArray(json)
