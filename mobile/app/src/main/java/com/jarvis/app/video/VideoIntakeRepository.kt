@@ -179,6 +179,8 @@ class VideoIntakeRepository(context: Context) {
                                 collected += match.value.trimEnd('.', ',', ')', ']', '}', '"')
                             }
                         }
+                        // Do not drain an oversized unknown-length ZIP entry.
+                        if (bytes.size >= MAX_EXPORT_ENTRY_BYTES || totalRead >= MAX_EXPORT_BYTES) break
                     }
                     zip.closeEntry()
                     entry = zip.nextEntry
