@@ -169,6 +169,8 @@ object JarvisEngine {
         private set
     @Volatile var applicationSelfStudy: com.jarvis.app.selfstudy.ApplicationSelfStudy? = null
         private set
+    @Volatile var selfStudyCapabilityBuilder: com.jarvis.app.selfstudy.SelfStudyCapabilityBuilder? = null
+        private set
     @Volatile var phoneDecisionTool: com.jarvis.app.voice.FridayPhoneDecisionTool? = null
         private set
 
@@ -504,6 +506,11 @@ object JarvisEngine {
             JarvisEngine.androidRiskGate = androidRiskGate
             JarvisEngine.androidDeviceControlRouter = androidDeviceControlRouter
             JarvisEngine.toolBuilder = builderStack.builder
+            JarvisEngine.selfStudyCapabilityBuilder =
+                com.jarvis.app.selfstudy.SelfStudyCapabilityBuilder(
+                    stateFile = java.io.File(appContext.filesDir, "self-study/build-attempt.properties"),
+                    build = { spec -> builderStack.builder.build(spec) }
+                )
             JarvisEngine.anchorEngine = anchorEngine
             // The anchor establishes the resident tier as the runtime's stable
             // base at boot (the tier the cooldown sweep never auto-unloads).
@@ -718,10 +725,10 @@ object JarvisEngine {
     }
 
     /**
-     * Execute one self-study slice only with safe host headroom. Friday first
-     * records measured architecture/device evidence, then lets her existing
-     * local model reason over it. No second model is loaded and no code is
-     * modified or promoted by this reflection step.
+     * Run one bounded self-study cycle alongside Friday's continuous presence.
+     * The same local model reflects on her installed architecture and phone;
+     * a safe pure-tool proposal may enter her existing isolated Capability
+     * Foundry when the phone has enough headroom.
      */
     suspend fun runApplicationSelfStudySlice(): Boolean {
         val study = applicationSelfStudy ?: return false
@@ -735,21 +742,29 @@ object JarvisEngine {
         val report = study.study()
         val manager = modelManager
         val anchor = anchorEngine
-        // Self-study reflection is deliberately local-only. If the configured
-        // provider is not Friday's on-device llama.cpp organ, retain the factual
-        // report and wait for a local model rather than silently using cloud.
+        // Reflection stays local-only. No second model is loaded and no screen,
+        // conversation or private user data is sent to a cloud model.
         if (manager?.activeProvider?.value?.providerType == com.jarvis.app.env.ModelProviderType.LLAMA_CPP &&
             anchor != null
         ) {
-            runCatching {
+            try {
                 if (!anchor.anchorHeld()) anchor.anchor()
                 val afterAnchor = governor.resourceSnapshot()
                 if (afterAnchor.availableMemoryMb >= 1100L &&
                     afterAnchor.thermalLevel < 2 &&
                     (afterAnchor.batteryPercent >= 20 || afterAnchor.isCharging)
                 ) {
-                    study.reflect(report, manager)
+                    val reflection = study.reflect(report, manager)
+                    if (reflection != null) {
+                        val afterReflection = governor.resourceSnapshot()
+                        selfStudyCapabilityBuilder?.buildIfUseful(reflection, afterReflection)
+                    }
                 }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // The factual study report remains useful if reflection or a
+                // candidate build fails. The next scheduled slice can retry.
             }
         }
         return true
