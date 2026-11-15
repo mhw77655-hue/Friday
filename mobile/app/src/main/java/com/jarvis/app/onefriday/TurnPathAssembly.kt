@@ -49,6 +49,8 @@ import com.jarvis.app.model.ModelBackend
 import com.jarvis.app.model.ModelManager
 import com.jarvis.app.model.OllamaModelBackend
 import com.jarvis.app.model.ResourceGovernor
+import com.jarvis.app.prediction.ExpectationStateEngine
+import com.jarvis.app.prediction.JsonFileExpectationStore
 import com.jarvis.app.model.adapters.OllamaAdapter
 import com.jarvis.app.model.config.ProviderConfig
 import com.jarvis.app.resolution.CapabilityMemoryIndex
@@ -261,6 +263,12 @@ class TurnPathAssembly private constructor(
             val cognitiveAdmissionPolicy = CognitiveAdmissionPolicy()
             val anchorEngine = AnchorEngine(modelManager, cognitiveAdmissionPolicy)
 
+            // Predictive-state learning is part of this same cognitive turn path,
+            // persisted in the shared workspace directory for both phone/workshop hosts.
+            val expectationEngine = ExpectationStateEngine(
+                JsonFileExpectationStore(ports.storageDir.resolve("cognition/expectation_state.json"))
+            )
+
             // ── Continuity: the change gate, and a replay check only if real ───
             val changeLog = FileChangeLog(ports.storageDir.resolve("identity/change_log.jsonl"))
             // The SLOW layer's rate limit is an ELAPSED-TIME rule, so it reads the
@@ -318,6 +326,7 @@ class TurnPathAssembly private constructor(
                 threadTracker = stores.threadTracker(),
                 provenanceLedger = stores.provenanceLedger(),
                 memoryForgetter = ports.memoryForgetter(),
+                expectationEngine = expectationEngine,
                 signalScorer = signalScorer,
                 workspace = workspace
             )
