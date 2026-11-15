@@ -54,7 +54,7 @@ object PhoneCommandInterpreter {
         PhoneControlCommand.PreviousTrack -> "Skip to the previous media track"
         PhoneControlCommand.VolumeUp -> "Increase media volume by one step"
         PhoneControlCommand.VolumeDown -> "Decrease media volume by one step"
-        PhoneCommandInterpreter -> "Scroll the active screen down"
+        PhoneControlCommand.ScrollForward -> "Scroll the active screen down"
         PhoneControlCommand.ScrollBackward -> "Scroll the active screen up"
         is PhoneControlCommand.OpenApp -> "Launch installed application named ${command.label}"
         is PhoneControlCommand.TapText -> "Tap an accessible UI control labelled ${command.text}"
