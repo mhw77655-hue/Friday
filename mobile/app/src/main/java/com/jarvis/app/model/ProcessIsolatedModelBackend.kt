@@ -145,14 +145,14 @@ class ProcessIsolatedModelBackend(context: Context) : ModelBackend {
     }
 
     override suspend fun unloadModel(handle: ModelHandle) {
-        if (handle !in knownHandles) return
+        if (!knownHandles.containsKey(handle)) return
         request(InferenceService.MSG_UNLOAD, Bundle().apply {
             putLong(InferenceService.KEY_HANDLE_ID, handle.id)
         })
         knownHandles.remove(handle)
     }
 
-    override fun isLoaded(handle: ModelHandle): Boolean = handle in knownHandles
+    override fun isLoaded(handle: ModelHandle): Boolean = knownHandles.containsKey(handle)
 
     override fun isAvailable(handle: ModelHandle): Boolean = knownHandles[handle] == true
 }
