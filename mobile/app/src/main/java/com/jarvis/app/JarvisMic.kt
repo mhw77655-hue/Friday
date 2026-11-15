@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.os.SystemClock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -71,6 +72,7 @@ object JarvisMic {
 
         val minBufSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
         if (minBufSize <= 0) {
+            Telemetry.logSignal("mic_init", "invalid_min_buffer_size")
             _lastLevel.value = -1
             return
         }
@@ -84,16 +86,27 @@ object JarvisMic {
         )
 
         if (record.state != AudioRecord.STATE_INITIALIZED) {
+            Telemetry.logSignal("mic_init", "audio_record_not_initialized")
             _lastLevel.value = -1
             return
         }
 
         audioRecord = record
-        record.startRecording()
+        runCatching { record.startRecording() }.onFailure {
+            Telemetry.logSignal("mic_init", "start_recording_failed")
+            runCatching { record.release() }
+            _lastLevel.value = -1
+            return
+        }
         _isRecording.value = true
+        Telemetry.logSignal("mic_capture", "started_16000hz_mono_pcm16")
 
         job = scope.launch(Dispatchers.Default) {
             val buffer = ShortArray(minBufSize)
+            var sampleWindowStartedAt = SystemClock.elapsedRealtime()
+            var rmsTotal = 0.0
+            var rmsChunks = 0
+            var rmsPeak = 0
             while (isActive) {
                 val read = record.read(buffer, 0, buffer.size)
                 if (read > 0) {
@@ -102,7 +115,11 @@ object JarvisMic {
                         sum += buffer[i] * buffer[i].toDouble()
                     }
                     val rms = sqrt(sum / read)
-                    _lastLevel.value = rms.toInt()
+                    val rmsInt = rms.toInt()
+                    _lastLevel.value = rmsInt
+                    rmsTotal += rms
+                    rmsChunks++
+                    rmsPeak = maxOf(rmsPeak, rmsInt)
 
                     val now = System.currentTimeMillis()
                     synchronized(bufferLock) {
@@ -114,6 +131,7 @@ object JarvisMic {
                         } else if (speechStartPos != null && now - lastSpeechAtMs > SILENCE_HANG_MS) {
                             speechStartPos = null // utterance closed; next speech opens a new one
                             _speechEnded.tryEmit(Unit)
+                            Telemetry.logSignal("mic_endpoint", "speech_end")
                         }
 
                         for (i in 0 until read) {
@@ -122,8 +140,22 @@ object JarvisMic {
                             if (writePos == 0) filled = true
                         }
                     }
+
+                    val elapsed = SystemClock.elapsedRealtime() - sampleWindowStartedAt
+                    if (elapsed >= 5_000L) {
+                        val avg = if (rmsChunks > 0) (rmsTotal / rmsChunks).toInt() else 0
+                        Telemetry.logSignal("mic_rms_window", "avg=$avg,peak=$rmsPeak,chunks=$rmsChunks")
+                        rmsTotal = 0.0
+                        rmsChunks = 0
+                        rmsPeak = 0
+                        sampleWindowStartedAt = SystemClock.elapsedRealtime()
+                    }
+                } else if (read < 0) {
+                    Telemetry.logSignal("mic_read_error", read.toString())
+                    if (read == AudioRecord.ERROR_DEAD_OBJECT) break
                 }
             }
+            Telemetry.logSignal("mic_capture", "capture_loop_ended")
         }
     }
 
@@ -159,6 +191,7 @@ object JarvisMic {
     }
 
     fun stop() {
+        val wasRecording = _isRecording.value
         job?.cancel()
         job = null
         audioRecord?.stop()
@@ -166,5 +199,6 @@ object JarvisMic {
         audioRecord = null
         _isRecording.value = false
         speechStartPos = null
+        if (wasRecording) Telemetry.logSignal("mic_capture", "stopped")
     }
 }

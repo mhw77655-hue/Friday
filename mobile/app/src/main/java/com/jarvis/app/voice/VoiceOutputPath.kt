@@ -4,7 +4,9 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.os.SystemClock
 import android.util.Log
+import com.jarvis.app.Telemetry
 import com.jarvis.app.body.StreamingTts
 import com.jarvis.app.body.VocabularyStore
 import com.jarvis.app.voice.provider.VoiceSynthesisParams
@@ -53,20 +55,38 @@ class VoiceOutputPath(
     fun speak(text: String, language: String? = null, voiceId: String? = null, vocabulary: VocabularyStore? = null) {
         if (text.isBlank()) return
         interrupt()
+        val requestStartedAt = SystemClock.elapsedRealtime()
         val profile = profileStore.get(DefaultJarvisVoiceProfile.id) ?: DefaultJarvisVoiceProfile
         val lang = language ?: profile.language
+        val segments = segment(text)
+        Telemetry.logSignal("voice_output", "requested")
+        Telemetry.logSignal("voice_output_language", lang)
+        Telemetry.logSignal("voice_output_segments", segments.size.toString())
         val myJob = scope.launch {
             _isSpeaking.value = true
             cancelled = false
+            var habitatSegments = 0
+            var fallbackSegments = 0
             try {
-                for (segment in segment(text)) {
+                for (segment in segments) {
                     if (cancelled) break
                     val spoken = habitatSpeak(segment, lang, voiceId ?: profile.preferredVoice, profile, vocabulary)
-                    if (!spoken && fallback != null) {
+                    if (spoken) {
+                        habitatSegments++
+                    } else if (fallback != null) {
+                        fallbackSegments++
+                        Telemetry.logSignal("voice_output_route", "legacy_fallback")
                         runCatching { fallback.speakStreaming(segment, vocabulary ?: emptyVocabulary()) }
+                    } else {
+                        Telemetry.logSignal("voice_output_route", "no_available_output")
                     }
                 }
+                Telemetry.logSignal("voice_output_outcome", if (cancelled) "interrupted" else "finished")
+                Telemetry.logSignal("voice_output_duration_ms", (SystemClock.elapsedRealtime() - requestStartedAt).toString())
+                Telemetry.logSignal("voice_output_habitat_segments", habitatSegments.toString())
+                Telemetry.logSignal("voice_output_fallback_segments", fallbackSegments.toString())
             } catch (e: Throwable) {
+                Telemetry.logSignal("voice_output_outcome", "exception_${e::class.java.simpleName}")
                 Log.w(TAG, "voice output failed: ${e.message}")
             } finally {
                 // Only this utterance may clear the speaking flag — an earlier
@@ -96,9 +116,16 @@ class VoiceOutputPath(
         // Only route through the habitat when it is bound and not failed; else
         // the caller falls through to the legacy path without blocking.
         val substrate = host.state.value
-        if (substrate.state != VoiceOrganismHost.State.BOUND) return false
-        if (host.voiceState.value == VoiceOrganismHost.VoiceState.FAILED) return false
+        if (substrate.state != VoiceOrganismHost.State.BOUND) {
+            Telemetry.logSignal("voice_habitat", "not_bound")
+            return false
+        }
+        if (host.voiceState.value == VoiceOrganismHost.VoiceState.FAILED) {
+            Telemetry.logSignal("voice_habitat", "failed")
+            return false
+        }
 
+        val synthesisStartedAt = SystemClock.elapsedRealtime()
         val params = VoiceSynthesisParams(
             speechRate = profile.speechRate,
             pitch = profile.pitch,
@@ -112,7 +139,17 @@ class VoiceOutputPath(
                 voiceId = voiceId,
                 params = params
             )
-        } ?: return false
+        }
+        if (audio == null) {
+            Telemetry.logSignal("voice_habitat_synthesis", "no_audio_returned")
+            Telemetry.logSignal("voice_synthesis_latency_ms", (SystemClock.elapsedRealtime() - synthesisStartedAt).toString())
+            return false
+        }
+        Telemetry.logSignal("voice_habitat_synthesis", "audio_returned")
+        Telemetry.logSignal("voice_synthesis_latency_ms", (SystemClock.elapsedRealtime() - synthesisStartedAt).toString())
+        Telemetry.logSignal("voice_audio_sample_rate", audio.sampleRate.toString())
+        Telemetry.logSignal("voice_audio_channels", audio.channels.toString())
+        Telemetry.logSignal("voice_audio_bytes", runCatching { audio.audioFile.length().toString() }.getOrDefault("unavailable"))
 
         return withContext(Dispatchers.IO) {
             playWav(audio.audioFile, audio.sampleRate, audio.channels)
@@ -123,7 +160,11 @@ class VoiceOutputPath(
 
     private fun playWav(file: File, sampleRate: Int, channels: Int): Boolean {
         if (cancelled) return true
-        val pcm = readWavPcm16(file, channels) ?: return false
+        val pcm = readWavPcm16(file, channels)
+        if (pcm == null) {
+            Telemetry.logSignal("voice_playback_outcome", "invalid_wav")
+            return false
+        }
         val encoding = AudioFormat.ENCODING_PCM_16BIT
         val channelMask = if (channels >= 2) AudioFormat.CHANNEL_OUT_STEREO else AudioFormat.CHANNEL_OUT_MONO
         val minBuf = AudioTrack.getMinBufferSize(sampleRate, channelMask, encoding).coerceAtLeast(pcm.size)
@@ -142,15 +183,25 @@ class VoiceOutputPath(
             .setBufferSizeInBytes(minBuf)
             .setTransferMode(AudioTrack.MODE_STATIC)
             .build()
+        val playbackStartedAt = SystemClock.elapsedRealtime()
         return try {
-            track.write(pcm, 0, pcm.size)
-            track.play()
-            while (track.playState == AudioTrack.PLAYSTATE_PLAYING && !cancelled) {
-                Thread.sleep(20)
+            val writtenBytes = track.write(pcm, 0, pcm.size)
+            Telemetry.logSignal("voice_playback_written_bytes", writtenBytes.toString())
+            if (writtenBytes <= 0) {
+                Telemetry.logSignal("voice_playback_outcome", "write_failed")
+                false
+            } else {
+                track.play()
+                while (track.playState == AudioTrack.PLAYSTATE_PLAYING && !cancelled) {
+                    Thread.sleep(20)
+                }
+                runCatching { track.stop() }
+                Telemetry.logSignal("voice_playback_outcome", if (cancelled) "interrupted" else "completed")
+                Telemetry.logSignal("voice_playback_duration_ms", (SystemClock.elapsedRealtime() - playbackStartedAt).toString())
+                true
             }
-            runCatching { track.stop() }
-            true
         } catch (e: Throwable) {
+            Telemetry.logSignal("voice_playback_outcome", "exception_${e::class.java.simpleName}")
             Log.w(TAG, "playback failed: ${e.message}")
             false
         } finally {

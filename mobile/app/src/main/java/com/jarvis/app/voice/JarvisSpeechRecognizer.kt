@@ -4,6 +4,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.Locale
+import android.os.SystemClock
+import com.jarvis.app.Telemetry
 
 /**
  * Injectable platform seam for speech recognition — the single STT entry point
@@ -50,17 +52,30 @@ class PlatformSpeechRecognizerPort(
 
     override fun recognize(locale: Locale, onResult: (String?) -> Unit) {
         cancel()
+        val sessionStartedAt = SystemClock.elapsedRealtime()
+        var peakRmsDb = Float.NEGATIVE_INFINITY
+        Telemetry.logSignal("stt_session", "started_${locale.language}")
         val sr = android.speech.SpeechRecognizer.createSpeechRecognizer(context)
         activeRecognizer = sr
         var delivered = false
 
         val listener = object : android.speech.RecognitionListener {
-            override fun onReadyForSpeech(params: android.os.Bundle?) {}
-            override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onReadyForSpeech(params: android.os.Bundle?) {
+                Telemetry.logSignal("stt_stage", "ready")
+            }
+            override fun onBeginningOfSpeech() {
+                Telemetry.logSignal("stt_stage", "begin_speech")
+            }
+            override fun onRmsChanged(rmsdB: Float) {
+                if (rmsdB.isFinite()) peakRmsDb = maxOf(peakRmsDb, rmsdB)
+            }
             override fun onBufferReceived(buffer: ByteArray?) {}
-            override fun onEndOfSpeech() {}
-            override fun onPartialResults(partialResults: android.os.Bundle?) {}
+            override fun onEndOfSpeech() {
+                Telemetry.logSignal("stt_stage", "end_speech")
+            }
+            override fun onPartialResults(partialResults: android.os.Bundle?) {
+                Telemetry.logSignal("stt_stage", "partial_result_available")
+            }
 
             override fun onResults(results: android.os.Bundle?) {
                 if (delivered) return
@@ -69,6 +84,12 @@ class PlatformSpeechRecognizerPort(
                     ?.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION)
                     .orEmpty()
                 val text = matches.firstOrNull { !it.isBlank() }
+                val elapsed = SystemClock.elapsedRealtime() - sessionStartedAt
+                Telemetry.logSignal("stt_outcome", if (text.isNullOrBlank()) "empty_result" else "recognized")
+                Telemetry.logSignal("stt_latency_ms", elapsed.toString())
+                if (peakRmsDb.isFinite()) {
+                    Telemetry.logSignal("stt_peak_rms_db", String.format(Locale.US, "%.1f", peakRmsDb))
+                }
                 finish()
                 onResult(text)
             }
@@ -76,6 +97,11 @@ class PlatformSpeechRecognizerPort(
             override fun onError(error: Int) {
                 if (delivered) return
                 delivered = true
+                Telemetry.logSignal("stt_outcome", "error_$error")
+                Telemetry.logSignal("stt_latency_ms", (SystemClock.elapsedRealtime() - sessionStartedAt).toString())
+                if (peakRmsDb.isFinite()) {
+                    Telemetry.logSignal("stt_peak_rms_db", String.format(Locale.US, "%.1f", peakRmsDb))
+                }
                 onFailure(
                     com.jarvis.app.failure.FailureReport(
                         subsystem = "STT_PLATFORM",
@@ -113,6 +139,8 @@ class PlatformSpeechRecognizerPort(
             .onFailure { t ->
                 if (delivered) return@onFailure
                 delivered = true
+                Telemetry.logSignal("stt_outcome", "start_failed")
+                Telemetry.logSignal("stt_latency_ms", (SystemClock.elapsedRealtime() - sessionStartedAt).toString())
                 onFailure(
                     com.jarvis.app.failure.FailureReport(
                         subsystem = "STT_PLATFORM",
@@ -184,6 +212,7 @@ class JarvisSpeechRecognizer(
     fun recognize(locale: Locale, onResult: (String?) -> Unit) {
         if (!isAvailable()) {
             status = "unavailable"
+            Telemetry.logSignal("stt_outcome", "unavailable")
             onStatusChanged(status)
             onResult(null)
             return
@@ -192,7 +221,9 @@ class JarvisSpeechRecognizer(
         onStatusChanged(status)
         port.recognize(locale) { text ->
             val clean = text?.trim().orEmpty()
-            status = if (clean.isNotBlank()) "heard: $clean" else "no result"
+            // Never place recognized words in a status string: status is also
+            // observed by diagnostics and must remain safe to export.
+            status = if (clean.isNotBlank()) "recognized" else "no_result"
             onStatusChanged(status)
             onResult(clean.ifBlank { null })
         }
