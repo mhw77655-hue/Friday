@@ -92,6 +92,7 @@ class EvolutionEngine(
     ): EvolutionRunResult {
         _state.value = EvolutionState.GENERATING
         appendLog("Evolution for ${parent.id} — capability '${requirement.capability}' (${requirement.behavior.capabilityName})")
+        candidateGenerator.beginGeneration()
 
         // GENOME → MUTATE → GENERATE
         val baseGenomes = if (mutateFirst && parent.mutationOperators.isNotEmpty()) {
@@ -118,6 +119,8 @@ class EvolutionEngine(
                 }
             }
         }.distinctBy { it.first.id }.take(maxCandidates)
+
+        candidateGenerator.lastFailures().forEach { appendLog("SYNTHESIS FAILED: $it") }
 
         if (candidates.isEmpty()) {
             appendLog("No candidate could be generated")
