@@ -122,7 +122,7 @@ class WallClockAllowlistTest {
     private val ALLOWED: Map<String, Int> = buildMap {
         // ── body: the keyword memory port, presence and context assembly ──────
         put("body/AdaptiveContextBuilder.kt", 4)
-        put("body/BodyCoordinator.kt", 9)
+        put("body/BodyCoordinator.kt", 12)
         put("body/MemoryPromotion.kt", 1)
         put("body/MemoryStore.kt", 6)
         put("body/PresenceMonitor.kt", 5)
@@ -218,7 +218,7 @@ class WallClockAllowlistTest {
     /** Why each file is allowed to keep exactly that many reads. */
     private val REASONS: Map<String, String> = buildMap {
         put("body/AdaptiveContextBuilder.kt", "context-build latency pair plus the prompt's own current-time line; the age read is the recency sort key")
-        put("body/BodyCoordinator.kt", "session/model-idle bookkeeping and the Human Core exchange timestamp; no turn decision depends on the value")
+        put("body/BodyCoordinator.kt", "session/model-idle bookkeeping and the Human Core exchange timestamp; plus three monotonic elapsed-time reads around reasoning inference to feed latency telemetry, never wall-clock turn decisions")
         put("body/MemoryPromotion.kt", "id suffix for a promoted preference record")
         put("body/MemoryStore.kt", "keyword-memory record timestamps, id counter seed and the hours-ago recency column")
         put("body/PresenceMonitor.kt", "device presence sampling: last-interaction stamps and the away-gap read, which is a physical observation")
