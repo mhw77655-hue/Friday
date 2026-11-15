@@ -23,6 +23,7 @@ import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
+import java.security.MessageDigest
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
@@ -221,6 +222,22 @@ class VoiceModelManager(
                 }
             }
             conn.disconnect()
+
+            entry.archiveSha256?.let { expected ->
+                val digest = MessageDigest.getInstance("SHA-256")
+                FileInputStream(tmpArchive).use { input ->
+                    val buffer = ByteArray(128 * 1024)
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n < 0) break
+                        digest.update(buffer, 0, n)
+                    }
+                }
+                val actual = digest.digest().joinToString("") { "%02x".format(it) }
+                check(actual.equals(expected, ignoreCase = true)) {
+                    "SHA-256 mismatch for voice model archive ${entry.id}"
+                }
+            }
 
             // Extract tar.bz2 into the extract dir, then rename atomically.
             // The archive root is one top-level directory (e.g. "kokoro-int8-en-v0_19/")

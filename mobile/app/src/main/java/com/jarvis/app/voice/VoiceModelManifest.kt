@@ -84,7 +84,8 @@ object VoiceModelManifest {
         speakerCount = 1,
         quality = com.jarvis.app.voice.provider.VoiceQuality.HIGH,
         startupCostMs = 4_000,
-        latencyMs = 500
+        latencyMs = 500,
+        archiveSha256 = "e7c644fabb1529190de9a2f7d6044f88c26bf6d9b717ad41ef5d2b748e01459b"
     )
 
     val ALL: List<VoiceModelEntry> = listOf(kokoroEnInt8, kokoroEnFp32, kokoroMultiLangInt8, nabraArabicInt8)
@@ -113,5 +114,7 @@ data class VoiceModelEntry(
     val speakerCount: Int,
     val quality: com.jarvis.app.voice.provider.VoiceQuality,
     val startupCostMs: Long,
-    val latencyMs: Long
+    val latencyMs: Long,
+    /** Optional SHA-256 of the downloaded archive, verified before extraction. */
+    val archiveSha256: String? = null
 )
