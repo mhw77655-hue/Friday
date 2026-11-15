@@ -33,6 +33,9 @@ class NanoSymbioticController(
     private val hostStudyFile = File(storageDir, "symbiosis/host-study.properties")
     private val fingerprint = readHostFingerprint()
     private val hostStudy = HostStudy(fingerprint, loadHostStudy())
+    private val liquidSymbiosis = LiquidSymbiosisEngine(
+        File(storageDir, "symbiosis/liquid-organ-strategies.properties")
+    )
     private var monitor: Job? = null
     @Volatile private var workerScope: CoroutineScope? = null
     @Volatile private var lastHostStudyPersistAtMs: Long = 0L
@@ -51,6 +54,9 @@ class NanoSymbioticController(
 
     /** Read-only view of what NAE has learned about this exact host profile. */
     fun hostStudySnapshot(): HostStudyRecord = hostStudy.snapshot()
+
+    /** Persistent adaptive strategy shared with the cognitive/voice runtime. */
+    fun liquidSnapshot(): LiquidSymbiosisSnapshot = liquidSymbiosis.snapshot()
 
     init {
         loadEvidence()
@@ -107,6 +113,20 @@ class NanoSymbioticController(
         val observedMemory = if (peakMemoryMb > 0L) peakMemoryMb
             else android.os.Debug.getPss().toLong().coerceAtLeast(0L) / 1024L
         policy.recordOutcome(organ, succeeded, latencyMs, observedMemory)
+        val liquidOrgan = when (organ.trim().lowercase()) {
+            "reasoning", "model", "inference", "llm" -> SymbioticOrgan.REASONING
+            "speech_input", "stt", "recognition" -> SymbioticOrgan.SPEECH_INPUT
+            "speech_output", "tts", "voice" -> SymbioticOrgan.SPEECH_OUTPUT
+            "memory", "retrieval", "consolidation" -> SymbioticOrgan.MEMORY
+            "vision", "camera" -> SymbioticOrgan.VISION
+            else -> SymbioticOrgan.BACKGROUND
+        }
+        liquidSymbiosis.recordOutcome(
+            organ = liquidOrgan,
+            succeeded = succeeded,
+            latencyMs = latencyMs,
+            peakMemoryMb = observedMemory
+        )
         workerScope?.launch(Dispatchers.IO) {
             persistEvidence()
             refresh()
@@ -118,6 +138,15 @@ class NanoSymbioticController(
         val now = System.currentTimeMillis()
         val processPssMb = android.os.Debug.getPss().toLong().coerceAtLeast(0L) / 1024L
         hostStudy.observe(host, processPssMb, now)
+        liquidSymbiosis.observeHost(
+            LiquidHostState(
+                availableMemoryMb = host.availableMemoryMb,
+                cpuLoad = host.cpuLoadPercent,
+                thermalPressure = (host.thermalLevel / 2.0).coerceIn(0.0, 1.0),
+                batteryPercent = host.batteryPercent,
+                charging = host.isCharging
+            )
+        )
         mutablePlan.value = policy.plan(applyLearnedHostReserve(host))
         // Avoid turning a 15-second observer into a continuous flash-write loop.
         // Persist immediately on first sample, then at most once per minute.
