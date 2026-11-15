@@ -45,7 +45,7 @@ class PhoneActionPlannerTest {
 
         val result = planner.plan(
             "Tap Send",
-            "package=com.example.chat\\nnode=Send message;clickable=true;editable=false;focused=false"
+            "package=com.example.chat\nnode=Send message;clickable=true;editable=false;focused=false"
         )
 
         assertTrue(result is PhoneActionPlanner.Result.Unavailable)
