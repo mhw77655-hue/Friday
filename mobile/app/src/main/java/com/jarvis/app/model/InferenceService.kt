@@ -71,9 +71,12 @@ class InferenceService : Service() {
                         else -> error("Unknown inference service operation.")
                     }
                     response.putBoolean(KEY_OK, true)
-                } catch (error: Throwable) {
+                } catch (error: Exception) {
                     response.putBoolean(KEY_OK, false)
                     response.putString(KEY_ERROR, error.message ?: error.javaClass.simpleName)
+                } catch (error: LinkageError) {
+                    response.putBoolean(KEY_OK, false)
+                    response.putString(KEY_ERROR, error.message ?: "Native inference library failed to load.")
                 }
                 runCatching {
                     replyTo?.send(Message.obtain(null, MSG_RESPONSE).apply {
