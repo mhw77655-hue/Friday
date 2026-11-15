@@ -57,6 +57,23 @@ fun VideoKnowledgeScreen() {
         }
     }
 
+
+    val exportPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                status = "Reading TikTok export and collecting favourite-video links…"
+                runCatching { repository.importTikTokExport(uri) }
+                    .onSuccess {
+                        status = "Imported ${it.size} favourite-video links. Links are saved; media still needs to be shared or otherwise made available."
+                        refresh()
+                    }
+                    .onFailure { status = it.message ?: "TikTok export import failed." }
+            }
+        }
+    }
+
     LaunchedEffect(repository) { refresh() }
 
     Column(
@@ -70,6 +87,11 @@ fun VideoKnowledgeScreen() {
         )
         Button(onClick = { picker.launch(arrayOf("video/*")) }) {
             Text("Import a downloaded video")
+        }
+        Button(onClick = {
+            exportPicker.launch(arrayOf("application/zip", "application/json", "text/plain", "application/octet-stream"))
+        }) {
+            Text("Import TikTok data export")
         }
         Text(status, style = JarvisType.Technical)
         Text("VIDEO LIBRARY · ${entries.size}", style = JarvisType.Label)
