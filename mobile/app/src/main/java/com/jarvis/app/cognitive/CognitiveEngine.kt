@@ -584,7 +584,10 @@ class CognitiveEngine(
             crossSessionMemories = galaxyMems.map { it.content },
             stageTimingsMs = traceTimings(embedMs, retrieveMs, promptBuildMs, generateMs, postProcessMs),
             predictions = predictiveState?.let {
-                listOf("successor=${it.likelyNext}; confidence=${"%.3f".format(it.confidence)}; baseline=${"%.3f".format(it.baselineConfidence)}; reflexEligible=${it.reflexEligible}")
+                listOf(com.jarvis.app.trace.TurnTrace.TracePrediction(
+                    description = "successor=${it.likelyNext}; baseline=${"%.3f".format(it.baselineConfidence)}; reflexEligible=${it.reflexEligible}",
+                    confidence = it.confidence
+                ))
             } ?: emptyList()
         )
 
