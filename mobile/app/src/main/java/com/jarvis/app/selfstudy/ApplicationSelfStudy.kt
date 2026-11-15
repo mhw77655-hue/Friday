@@ -79,9 +79,35 @@ class ApplicationSelfStudy(
             get() = candidateCapability != null && candidateDescription != null
     }
 
-    @Volatile private var latestReflection: Reflection? = null
+    @Volatile private var latestReflection: Reflection? = readReflection()
 
     fun latestReflection(): Reflection? = latestReflection
+
+    private fun reflectionFile(): File =
+        File(reportFile.parentFile ?: File("."), "latest-reflection.properties")
+
+    private fun readReflection(): Reflection? {
+        val file = reflectionFile()
+        if (!file.isFile) return null
+        return runCatching {
+            val props = Properties().apply { file.inputStream().use(::load) }
+            val capability = props.getProperty("candidateCapability").orEmpty()
+                .takeIf { it.matches(Regex("[a-z][a-z0-9_]{2,63}")) }
+            val description = props.getProperty("candidateDescription").orEmpty()
+                .takeIf { capability != null && it.isNotBlank() && it.length <= 500 }
+            Reflection(
+                createdAtMs = props.getProperty("createdAtMs").toLong(),
+                sourceRevision = props.getProperty("sourceRevision").orEmpty(),
+                summary = props.getProperty("summary").orEmpty(),
+                findings = props.getProperty("findings").orEmpty().split('|').filter(String::isNotBlank),
+                nextActions = props.getProperty("nextActions").orEmpty().split('|').filter(String::isNotBlank),
+                candidateCapability = capability.takeIf { description != null },
+                candidateDescription = description,
+                constraints = props.getProperty("constraints").orEmpty().split('|').filter(String::isNotBlank),
+                evidenceGaps = props.getProperty("evidenceGaps").orEmpty().split('|').filter(String::isNotBlank)
+            )
+        }.getOrNull()
+    }
 
     /**
      * Ask Friday's existing model authority to reason over her own measured
@@ -176,7 +202,7 @@ class ApplicationSelfStudy(
         }
 
     private fun persistReflection(reflection: Reflection) {
-        val file = File(reportFile.parentFile ?: File("."), "latest-reflection.properties")
+        val file = reflectionFile()
         file.parentFile?.mkdirs()
         val props = Properties().apply {
             setProperty("createdAtMs", reflection.createdAtMs.toString())
