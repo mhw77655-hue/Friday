@@ -55,7 +55,7 @@ Friday remains the same individual when disconnected. Her local cognition, conti
 
 The Android app already has useful self-observation foundations: a packaged structural source index, architecture graph, capability manifest, host/resource observations and a local reflection path. These are evidence-gathering mechanisms, not repository access or source comprehension.
 
-**The current PR #11 head still contains an on-device ToolBuilder and a self-study-to-ToolBuilder bridge. Those conflict with this contract and must be removed from the production Android composition before release.** The existing code can inform the repository-side design, but must not be described as the final development architecture.
+**The current PR #11 head no longer constructs ToolBuilder in the Android production composition and the self-study-to-ToolBuilder bridge has been deleted.** Legacy ToolBuilder/evolution source files still remain under the Android module and must be removed or relocated into the repository-side development environment before the architecture is considered clean. They are not an approved runtime capability.
 
 The repository-side request transport/worker handoff, durable task reconciliation, source reconstruction workflow, independent Vision gate and release-to-device update path are not yet proven end-to-end. Do not claim Friday can already modify her repository autonomously.
 
