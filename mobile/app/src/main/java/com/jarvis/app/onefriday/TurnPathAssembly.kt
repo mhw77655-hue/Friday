@@ -250,7 +250,10 @@ class TurnPathAssembly private constructor(
                 // LAUNCH-OLLAMA-DOWN: an absent model server is a typed gap that
                 // is announced once per down-episode on the ONE failure surface,
                 // and the recovery is recorded when the server answers again.
-                failureSurface = failureSurface
+                failureSurface = failureSurface,
+                workloadOutcomeRecorder = { organ, succeeded, latencyMs, peakMemoryMb ->
+                    ports.recordWorkloadOutcome(organ, succeeded, latencyMs, peakMemoryMb)
+                }
             )
             // The legacy Human Core's model port reads this at call time, so
             // binding it here is enough. It is a dependency direction (this root
