@@ -17,7 +17,7 @@ This is a milestone-weighted engineering estimate, not a line-count metric and n
 | 7 | Experience-driven developmental learning | 25% | Demonstrate durable behaviour changes caused by real experience, not just stored memories |
 | 8 | Predictive cognition / JEPA-inspired mechanisms | 20% | Mature prediction-error learning and evidence of useful low-cost predictive behaviour |
 | 9 | Self-model and individuality | 30% | Calibrated self-knowledge and stable preference/strategy evolution |
-| 10 | Capability Foundry | 35% | Broader safe tool synthesis, outcome learning and stronger validation coverage |
+| 10 | Capability Foundry | 40% | Broader safe tool synthesis, outcome learning and stronger validation coverage |
 | 11 | Native phone capabilities | 45% | Complete voice-to-action coverage, permissions, device-specific reliability |
 | 12 | Autonomous self-development | 22% | Source index generation and runtime reading are implemented; still need a persistent objective queue and guarded tool-improvement cycle |
 | 13 | Security, provenance and rollback | 40% | Full self-modification authorization, signed native update and rollback proof |
@@ -27,9 +27,13 @@ This is a milestone-weighted engineering estimate, not a line-count metric and n
 
 ## Implemented in this development session
 
-- Friday-owned phone-action decision contract with optional TypeSafe Jev provider and local policy. Low-risk allowlisted commands remain usable when Jev is offline; screen taps and text entry still require confirmation.
+- Friday-owned phone-action decision contract with optional TypeSafe Jev provider and local policy. Jev evaluates consequential proposed actions when configured, but Friday's local confirmation gate still controls screen taps and text entry. Low-risk allowlisted commands remain usable when Jev is offline.
 - Connected speech-recognition results to a persistent phone-command orchestrator. It supports natural polite command phrasing, short-lived spoken confirmation, cancellation, and invalidation of stale confirmation requests.
-- Added tests for local fallback, Jev rejection, confirmation, cancellation, expiry and natural spoken phrasing.
+- Added tests for local fallback, Jev rejection, consequential-action evaluation, confirmation, cancellation, expiry, natural spoken phrasing, overlapping commands and contained Android execution failures.
+- Reused one process-scoped Jev HTTP client so requests share the connection pool instead of constructing a new client for each command.
+- Wired the production ToolBuilder to Friday's existing ModelManager through LlmSpecSynthesizer. A custom typed capability contract now lets the model synthesize tools outside the five deterministic examples; a production-composition integration test builds and routes a model-generated word_count tool.
+- Research-first is now opt-in. When requested, evidence-labeled research hypotheses are passed into the synthesis constraints; a verified-research requirement blocks promotion unless a VERIFIED mechanism is actually present.
+- Candidate synthesis now propagates coroutine cancellation rather than swallowing it as an ordinary failed candidate.
 - Persistent, resource-gated self-study scheduled with Android WorkManager.
 - Self-study reports architecture reachability, fixed invariants, declared missing capabilities, known limitations, host observations and organ failure evidence.
 - Self-study now persists the actual learned host profile: minimum available memory, CPU EMA, thermal/low-memory sample counts, additional memory reserve, maximum process PSS, minimum battery, liquid-symbiosis generation/prediction error, and each organ's learned strategy.
@@ -39,12 +43,13 @@ This is a milestone-weighted engineering estimate, not a line-count metric and n
 
 ## Release blockers
 
-1. The latest full CI run must finish successfully; earlier runs failed first on stale Termux fixture references, then on the newly added Gradle source-index task syntax. Those errors have been patched, but the newest run is not yet verified in this snapshot.
+1. Functional integration commit `24e236f0` passed Android debug assembly and the full baseline unit-test task in CI. Subsequent changes on the branch only corrected comments/documentation; their CI runs are still completing.
 2. A green CI build does not prove the app works on the target phone.
 3. The source index enables metadata-level self-inspection, not arbitrary Kotlin source comprehension or self-rewriting.
-4. TypeSafe Jev remains an optional hosted decision provider. Friday combines Jev Choice, Score and Noul judgments for phone-action disposition, consequence severity, explicit authorization and target clarity. Friday owns the local decision interface and policy; she has not recreated Jev's proprietary model.
+4. TypeSafe Jev remains an optional hosted decision faculty, not a downloadable model or Friday's primary intelligence. Friday calls the System One API for typed Choice, Score and Noul evaluations; the local Android action layer remains responsible for execution and confirmation.
 5. Native app changes still require a signed, verified Android update. Friday must not silently replace her installed package.
+6. Promoted DSL tools are currently registered in process-local registries; complete executable-artifact persistence and verified startup rehydration are still required for them to survive process death.
 
 ## Percentage method
 
-Each of the 16 milestones contributes 6.25 percentage points to the overall estimate. The individual completion values above sum to 497 percentage points; divided by 16 gives 31%. Scores are deliberately partial where code exists but the acceptance proof is missing. Physical-device validation and the first complete release remain at zero.
+Each of the 16 milestones contributes 6.25 percentage points to the overall estimate. The individual completion values above sum to 502 percentage points; divided by 16 gives 31%. Scores are deliberately partial where code exists but the acceptance proof is missing. Physical-device validation and the first complete release remain at zero.
