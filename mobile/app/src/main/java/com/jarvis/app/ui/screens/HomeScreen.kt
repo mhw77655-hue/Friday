@@ -29,6 +29,7 @@ import com.jarvis.app.companioncore.render.OrbRenderParams
 import com.jarvis.app.companioncore.resource.MobileResourceManagement
 import com.jarvis.app.companioncore.ui.PresenceOrb
 import com.jarvis.app.JarvisEngine
+import com.jarvis.app.ui.components.CameraAwarenessPanel
 import com.jarvis.app.ui.components.HorizonArc
 import com.jarvis.app.ui.components.pressScale
 import com.jarvis.app.ui.components.rememberCapabilitySnapshot
@@ -117,7 +118,7 @@ fun HomeScreen(onOpenTools: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(14.dp))
             Text(
-                text = "JARVIS — ${presenceLabel(mode)}",
+                text = "FRIDAY — ${presenceLabel(mode)}",
                 style = JarvisType.Display,
                 textAlign = TextAlign.Center
             )
@@ -128,6 +129,8 @@ fun HomeScreen(onOpenTools: () -> Unit) {
                 textAlign = TextAlign.Center
             )
         }
+
+        CameraAwarenessPanel(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
 
         CapabilitySummaryBar(
             active = activeCount,
