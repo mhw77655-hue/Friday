@@ -23,7 +23,7 @@ class EnvironmentFactory(
     private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) {
 
-    // Backends registered by the host (Termux, subprocess, etc.)
+    // Backends registered by the Android host.
     private val backends = ConcurrentHashMap<String, EnvironmentBackend>()
 
     fun registerBackend(name: String, backend: EnvironmentBackend) {
@@ -169,7 +169,6 @@ data class EnvironmentManifest(
 enum class RuntimeSelection {
     PROCESS_LOCAL,
     SEPARATE_PROCESS,
-    TERMUX,
     CONTAINER,
     REMOTE,
     CLOUD
