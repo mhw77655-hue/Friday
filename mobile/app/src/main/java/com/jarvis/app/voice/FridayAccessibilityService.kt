@@ -55,6 +55,42 @@ class FridayAccessibilityService : AccessibilityService() {
         is PhoneControlCommand.OpenApp -> openApp(command.label)
     }
 
+    private fun describeActiveWindow(): String {
+        val root = rootInActiveWindow ?: return "No accessible active window."
+        val output = StringBuilder()
+        output.append("package=").append(root.packageName ?: "unknown").append('\\n')
+        var visited = 0
+
+        fun visit(node: AccessibilityNodeInfo, depth: Int) {
+            if (visited >= 80 || depth > 12 || !node.isVisibleToUser) return
+            visited++
+            val text = if (node.isEditable || node.isPassword) "" else node.text?.toString().orEmpty()
+            val description = node.contentDescription?.toString().orEmpty()
+            val resourceId = node.viewIdResourceName.orEmpty()
+            if (text.isNotBlank() || description.isNotBlank() || resourceId.isNotBlank() ||
+                node.isClickable || node.isEditable || node.isScrollable || node.isFocused
+            ) {
+                output.append("node=")
+                    .append(listOf(text, description, resourceId).filter { it.isNotBlank() }
+                        .joinToString(" | ") { it.replace('\\n', ' ').take(90) })
+                    .append(";clickable=").append(node.isClickable)
+                    .append(";editable=").append(node.isEditable)
+                    .append(";focused=").append(node.isFocused)
+                    .append(";scrollable=").append(node.isScrollable)
+                    .append('\\n')
+            }
+            for (index in 0 until node.childCount) {
+                if (visited >= 80) break
+                val child = node.getChild(index) ?: continue
+                visit(child, depth + 1)
+                child.recycle()
+            }
+        }
+
+        visit(root, 0)
+        return output.toString().take(7000).ifBlank { "The active screen exposes no readable controls." }
+    }
+
     private fun openSettings(): PhoneControlResult = runCatching {
         startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         PhoneControlResult.Success
@@ -157,6 +193,10 @@ class FridayAccessibilityService : AccessibilityService() {
                 ?: PhoneControlResult.Unavailable("Enable Friday's accessibility control in Android Settings first.")
 
         fun isEnabled(): Boolean = active.get() != null
+
+        /** A short-lived local-only description; editable/password values are never copied. */
+        fun activeScreenSummary(): String =
+            active.get()?.describeActiveWindow() ?: "Friday Accessibility service is not connected."
     }
 }
 
