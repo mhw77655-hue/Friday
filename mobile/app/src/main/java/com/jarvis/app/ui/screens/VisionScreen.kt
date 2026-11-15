@@ -68,7 +68,7 @@ fun VisionScreen() {
             .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text("FRIDAY · VISUAL PRESENCE", style = JarvisType.Title)
+        Text("FRIDAY · VISUAL PRESENCE", style = JarvisType.Display)
         Text(
             "Camera perception runs on this phone. Frames are not saved and Friday does not identify people. You control when the camera is active.",
             style = JarvisType.Body
