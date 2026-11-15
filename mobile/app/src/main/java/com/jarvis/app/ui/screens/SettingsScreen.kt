@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -30,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.jarvis.app.ui.components.StateChip
@@ -68,6 +71,8 @@ fun SettingsScreen() {
     var personaText by remember { mutableStateOf(prefs.getString(KEY_PERSONA, "") ?: "") }
     var offlineMode by remember { mutableStateOf(prefs.getBoolean(KEY_OFFLINE_MODE, true)) }
     var recallLimit by remember { mutableStateOf(prefs.getString(KEY_RECALL_LIMIT, "") ?: "") }
+    var jevApiKey by remember { mutableStateOf("") }
+    var jevConfigured by remember { mutableStateOf(com.jarvis.app.voice.JevApiKeyStore(context).read() != null) }
 
     // Bumped on ON_RESUME so the storage-permission row re-checks after
     // the user comes back from the system "All files access" screen --
@@ -119,6 +124,45 @@ fun SettingsScreen() {
 
         SectionLabel("VOICE")
         Text(text = "TTS voice: en-GB (system)", style = JarvisType.Technical)
+
+        SectionLabel("JEV DEVICE-DECISION ENGINE")
+        Text(
+            text = "Optional TypeSafe Jev connection. The key is encrypted with Android Keystore and is never stored in plain SharedPreferences.",
+            style = JarvisType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        OutlinedTextField(
+            value = jevApiKey,
+            onValueChange = { jevApiKey = it },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("TypeSafe API key", style = JarvisType.Body) },
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = JarvisColors.SurfaceHairline,
+                unfocusedBorderColor = JarvisColors.SurfaceHairline
+            )
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Button(
+                onClick = {
+                    if (jevApiKey.isNotBlank()) {
+                        runCatching { com.jarvis.app.voice.JevApiKeyStore(context).save(jevApiKey) }
+                            .onSuccess { jevConfigured = true; jevApiKey = "" }
+                    }
+                },
+                enabled = jevApiKey.isNotBlank()
+            ) { Text("Save Jev key") }
+            TextButton(onClick = {
+                com.jarvis.app.voice.JevApiKeyStore(context).clear()
+                jevConfigured = false
+                jevApiKey = ""
+            }) { Text("Remove key") }
+        }
+        Text(
+            text = if (jevConfigured) "Jev credential stored securely; decision calls require internet." else "Jev not configured — Friday uses local deterministic command handling.",
+            style = JarvisType.Technical
+        )
 
         SectionLabel("PERMISSIONS")
         Text(text = "Shizuku, mic, notifications — not yet wired to a real permission check", style = JarvisType.Label)
