@@ -57,6 +57,22 @@ class PhoneCommandOrchestrator(
         }
     }
 
+    /** Execute a plan produced by Friday's own model through the same Jev/policy/Android path. */
+    suspend fun handlePlanned(utterance: String, command: PhoneControlCommand): Outcome? {
+        val acquired = synchronized(lock) {
+            if (inFlight || pending != null) false else {
+                inFlight = true
+                true
+            }
+        }
+        if (!acquired) return Outcome.Unavailable("A phone action or confirmation is already in progress.")
+        return try {
+            evaluateAndExecute(utterance, command)
+        } finally {
+            synchronized(lock) { inFlight = false }
+        }
+    }
+
     private suspend fun handleExclusive(utterance: String): Outcome? {
         val normalized = utterance.trim().lowercase()
         val waiting = synchronized(lock) {
@@ -83,6 +99,13 @@ class PhoneCommandOrchestrator(
         }
 
         val command = PhoneCommandInterpreter.parse(utterance) ?: return null
+        return evaluateAndExecute(utterance, command)
+    }
+
+    private suspend fun evaluateAndExecute(
+        utterance: String,
+        command: PhoneControlCommand
+    ): Outcome {
         val description = PhoneCommandInterpreter.describe(command)
         val tool = decisionTool() ?: return Outcome.Unavailable(
             "Friday's phone-action organ is not ready. Nothing was changed."
