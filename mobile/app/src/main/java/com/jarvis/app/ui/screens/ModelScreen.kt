@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jarvis.app.JarvisEngine
 import com.jarvis.app.env.ModelProviderType
@@ -45,6 +46,8 @@ import com.jarvis.app.model.ModelManager
 import com.jarvis.app.model.ModelProvider
 import com.jarvis.app.model.OrganRole
 import com.jarvis.app.model.ProviderHealth
+import com.jarvis.app.model.storage.OfflineModelCatalog
+import com.jarvis.app.model.storage.OfflineModelDownloader
 import com.jarvis.app.model.config.ProviderConfig
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
@@ -94,6 +97,8 @@ fun ModelScreen(
                 Icon(Icons.Filled.Refresh, contentDescription = "Refresh health", tint = JarvisColors.TextSecondary)
             }
         }
+
+        OfflineModelDownloads()
 
         ActiveProviderCard(
             provider = activeProvider,
@@ -155,6 +160,68 @@ fun ModelScreen(
                 selectedProvider = null
             }
         )
+    }
+}
+
+
+@Composable
+private fun OfflineModelDownloads() {
+    val context = LocalContext.current
+    val downloader = remember(context) { OfflineModelDownloader(context) }
+    val scope = rememberCoroutineScope()
+    var activeId by remember { mutableStateOf<String?>(null) }
+    var progress by remember { mutableStateOf(0f) }
+    var message by remember { mutableStateOf("") }
+
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = JarvisColors.SurfacePanel),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("FRIDAY OFFLINE INTELLIGENCE", style = JarvisType.Label)
+            Text("Download model weights into Friday's private storage. Installed weights remain available offline.",
+                style = JarvisType.Technical.copy(fontSize = 11.sp, color = JarvisColors.TextSecondary))
+            OfflineModelCatalog.all.forEach { asset ->
+                val installed = remember(asset.id) { downloader.isInstalled(asset) }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(asset.displayName, style = JarvisType.Body.copy(fontWeight = FontWeight.SemiBold))
+                    Text(asset.role + " · " + asset.licenseName,
+                        style = JarvisType.Technical.copy(fontSize = 10.sp, color = JarvisColors.TextSecondary))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(if (installed) "Installed" else "Download about " + (asset.expectedBytes / (1024 * 1024)) + " MB",
+                            modifier = Modifier.weight(1f),
+                            style = JarvisType.Technical.copy(fontSize = 10.sp, color = JarvisColors.TextSecondary))
+                        Button(
+                            enabled = activeId == null && !installed,
+                            onClick = {
+                                activeId = asset.id
+                                progress = 0f
+                                message = "Starting download…"
+                                scope.launch {
+                                    runCatching {
+                                        downloader.download(asset) { downloaded, total ->
+                                            progress = if (total > 0L) downloaded.toFloat() / total else 0f
+                                        }
+                                    }.onSuccess {
+                                        message = asset.displayName + " downloaded. Runtime activation is a separate step."
+                                    }.onFailure {
+                                        message = "Download paused/failed: " + (it.message ?: "unknown error") + ". Retry to resume."
+                                    }
+                                    activeId = null
+                                }
+                            }
+                        ) { Text(if (installed) "Installed" else if (activeId == asset.id) "Downloading" else "Download") }
+                    }
+                    if (activeId == asset.id) {
+                        androidx.compose.material3.LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                    }
+                }
+            }
+            if (message.isNotBlank()) Text(message, style = JarvisType.Technical.copy(fontSize = 10.sp, color = JarvisColors.TextSecondary))
+            Text("Models are replaceable workers, not Friday's identity. Downloading weights alone does not activate inference.",
+                style = JarvisType.Technical.copy(fontSize = 10.sp, color = JarvisColors.TextSecondary))
+        }
     }
 }
 
