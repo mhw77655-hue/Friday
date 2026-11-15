@@ -49,6 +49,12 @@ object VideoInboxRepository {
         }
     }
 
+    suspend fun importUri(context: Context, uri: Uri): FridayVideo? = withContext(Dispatchers.IO) {
+        val imported = runCatching { importOne(context, uri) }.getOrNull() ?: return@withContext null
+        persist(context, list(context) + imported)
+        imported
+    }
+
     suspend fun importFromIntent(context: Context, intent: Intent?): List<FridayVideo> =
         withContext(Dispatchers.IO) {
             if (intent == null) return@withContext emptyList()
@@ -93,19 +99,24 @@ object VideoInboxRepository {
             else -> "video"
         }
         val destination = File(directory, "$id.$extension")
-        resolver.openInputStream(uri)?.use { input ->
-            destination.outputStream().use { output ->
-                val buffer = ByteArray(64 * 1024)
-                var total = 0L
-                while (true) {
-                    val count = input.read(buffer)
-                    if (count < 0) break
-                    total += count
-                    require(total <= MAX_VIDEO_BYTES) { "Video exceeds the 1 GB import limit." }
-                    output.write(buffer, 0, count)
+        try {
+            resolver.openInputStream(uri)?.use { input ->
+                destination.outputStream().use { output ->
+                    val buffer = ByteArray(64 * 1024)
+                    var total = 0L
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        total += count
+                        require(total <= MAX_VIDEO_BYTES) { "Video exceeds the 1 GB import limit." }
+                        output.write(buffer, 0, count)
+                    }
                 }
-            }
-        } ?: return null
+            } ?: return null
+        } catch (error: Exception) {
+            destination.delete()
+            throw error
+        }
 
         val duration = runCatching {
             val retriever = MediaMetadataRetriever()
