@@ -13,9 +13,9 @@ import java.util.concurrent.ConcurrentHashMap
  * Mutant Environment Factory: constructs isolated execution environments
  * for generated micro-systems.
  *
- * The factory layer ships in the APK. Actual runtime backends (Termux,
- * isolated process, container, cloud) are pluggable — the factory does not
- * assume every environment can run inside the Android app process.
+ * The factory ships inside Friday's Android APK. Production registers the
+ * Android process-local backend; no external shell host or Termux setup is
+ * required. Additional isolated backends are future extensions, not dependencies.
  */
 class EnvironmentFactory(
     private val failureSurface: FailureSurface,
