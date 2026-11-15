@@ -1,5 +1,6 @@
 package com.jarvis.app.evolution
 
+import com.jarvis.app.cognitive.capability.CapabilityFabric
 import com.jarvis.app.failure.FailureCategory
 import com.jarvis.app.failure.FailureReport
 import com.jarvis.app.failure.FailureSeverity
@@ -28,11 +29,13 @@ class RollbackController(
     private val registry: MicroSystemRegistry,
     private val archive: GenomeArchive,
     private val genomeRegistry: GenomeRegistry,
-    private val failureSurface: FailureSurface
+    private val failureSurface: FailureSurface,
+    private val cognitiveCapabilityFabric: CapabilityFabric? = null
 ) {
 
     suspend fun rollback(receipt: PromotionReceipt, reason: String): RollbackResult {
         // 1. the promoted organism is no longer callable
+        cognitiveCapabilityFabric?.unregister(receipt.systemId)
         registry.unregister(receipt.systemId)
 
         // 2. the promoted genome is archived REJECTED (history preserved)
