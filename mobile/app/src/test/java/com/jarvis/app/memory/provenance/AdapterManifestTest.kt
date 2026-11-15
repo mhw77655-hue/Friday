@@ -16,7 +16,7 @@ import com.jarvis.app.model.ModelHandle
 import com.jarvis.app.model.ModelManager
 import com.jarvis.app.model.OrganWakeRequest
 import com.jarvis.app.model.ResourceGovernor
-import com.jarvis.app.termux.TermuxJarvisServer
+import com.jarvis.app.jvmtest.JvmCompositionHarness
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -39,7 +39,7 @@ import java.util.Collections
  * files are byte blobs, and what is under test is the CONTRACT around them.
  *
  * AC1/AC3 are driven through the REAL conversation composition
- * (TermuxJarvisServer → LatencyPipeline → CognitiveEngine.handleMemoryDirective
+ * (JvmCompositionHarness → LatencyPipeline → CognitiveEngine.handleMemoryDirective
  * → MemoryForgetter → ProvenanceLedger → AdapterManifest), so the taint is caused
  * by a user saying "forget …", not by a direct call into the manifest. AC2 is the
  * file-reload proof, AC4 is the real ModelManager load seam with a real
@@ -48,7 +48,7 @@ import java.util.Collections
  */
 class AdapterManifestTest {
 
-    private val servers = mutableListOf<TermuxJarvisServer>()
+    private val servers = mutableListOf<JvmCompositionHarness>()
     private val tempDirs = mutableListOf<File>()
 
     @After
@@ -109,7 +109,7 @@ class AdapterManifestTest {
         }
     }
 
-    private fun recordingPipeline(server: TermuxJarvisServer): LatencyPipeline = LatencyPipeline(
+    private fun recordingPipeline(server: JvmCompositionHarness): LatencyPipeline = LatencyPipeline(
         dispatch = { it() },
         scheduleDelayed = { _, _ -> },
         bridgeSend = { },
@@ -128,7 +128,7 @@ class AdapterManifestTest {
         val manifest: JsonlAdapterManifest,
         val graph: MemoryGraphStore,
         val forgetter: MemoryForgetter,
-        val server: TermuxJarvisServer
+        val server: JvmCompositionHarness
     )
 
     private fun fixture(registerAdapters: Boolean = true): Fixture {
@@ -151,7 +151,7 @@ class AdapterManifestTest {
             graphStore = graph,
             adapterManifest = manifest
         )
-        val server = TermuxJarvisServer(
+        val server = JvmCompositionHarness(
             port = 0,
             backendOverride = FakeModelBackend(),
             memoryStoreOverride = memoryStoreWithAllSources(),
