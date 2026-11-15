@@ -50,7 +50,7 @@ class PhoneCommandInterpreterTest {
             PhoneCommandInterpreter.parse("go home")!!
         ))
         assertEquals("high", PhoneCommandInterpreter.risk(PhoneCommandInterpreter.parse("tap Send")!!))
-        assertEquals("low", PhoneCommandInterpreter.risk(PhoneCommandInterpreter.parse("tap Settings")!!))
+        assertEquals("medium", PhoneCommandInterpreter.risk(PhoneCommandInterpreter.parse("tap Settings")!!))
     }
 
     @Test fun `recognizes natural polite voice phrasing`() {
