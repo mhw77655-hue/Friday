@@ -3,7 +3,7 @@ package com.jarvis.app.cognition.workspace
 import com.jarvis.app.humancore.protocol.StyledResponse
 import com.jarvis.app.latency.LatencyPipeline
 import com.jarvis.app.model.FakeModelBackend
-import com.jarvis.app.termux.TermuxJarvisServer
+import com.jarvis.app.jvmtest.JvmCompositionHarness
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -18,7 +18,7 @@ import org.junit.Test
  * acceptance evidence.
  *
  * Everything below runs against the real JVM-executable composition root,
- * [TermuxJarvisServer] — the mirror of `JarvisEngine.init` with only the
+ * [JvmCompositionHarness] — the mirror of `JarvisEngine.init` with only the
  * Android-bound stores swapped. The law, the durable log, the workspace and the
  * replay check are the objects the composition itself built, over a real data
  * directory on disk, and a real turn goes through the real [LatencyPipeline]
@@ -36,9 +36,9 @@ class ContinuityLawProductionWiringTest {
      * The data directory is deliberately NOT a JUnit TemporaryFolder, and must
      * never become one.
      *
-     * `TermuxJarvisServer` hands the FIRST data directory it is given to the
+     * `JvmCompositionHarness` hands the FIRST data directory it is given to the
      * process-wide HumanCore singleton (`HumanCore.init` runs only while that
-     * singleton is uninitialised, TermuxJarvisServer.kt:153), and the singleton
+     * singleton is uninitialised, JvmCompositionHarness.kt:153), and the singleton
      * keeps writing to that directory for the rest of the JVM. A TemporaryFolder
      * is DELETED when its test class finishes, so every later test that touches
      * the real HumanCore then fails on
@@ -54,7 +54,7 @@ class ContinuityLawProductionWiringTest {
      */
     private lateinit var dataDir: java.io.File
 
-    private val servers = mutableListOf<TermuxJarvisServer>()
+    private val servers = mutableListOf<JvmCompositionHarness>()
 
     @Before
     fun setUp() {
@@ -70,8 +70,8 @@ class ContinuityLawProductionWiringTest {
         servers.forEach { it.stop() }
     }
 
-    private fun newServer(dir: java.io.File = dataDir): TermuxJarvisServer =
-        TermuxJarvisServer(
+    private fun newServer(dir: java.io.File = dataDir): JvmCompositionHarness =
+        JvmCompositionHarness(
             port = 0,
             backendOverride = FakeModelBackend(),
             dataDir = dir
