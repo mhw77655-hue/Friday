@@ -118,6 +118,12 @@ class ApplicationSelfStudy(
         report: Report,
         modelManager: ModelManager,
         nowMs: Long = System.currentTimeMillis()
+    ): Reflection? = reflect(report, { request -> modelManager.generate(request) }, nowMs)
+
+    suspend fun reflect(
+        report: Report,
+        complete: suspend (GenerateRequest) -> GenerateResult,
+        nowMs: Long = System.currentTimeMillis()
     ): Reflection? {
         val prompt = buildString {
             appendLine("FRIDAY SELF-STUDY EVIDENCE")
@@ -150,7 +156,7 @@ class ApplicationSelfStudy(
             appendLine("candidate_description, constraints[], evidence_gaps[]. Use null for candidate fields when none is justified.")
         }
         val result = try {
-            modelManager.generate(
+            complete(
                 GenerateRequest(
                     messages = listOf(
                         Message(MessageRole.SYSTEM, REFLECTION_SYSTEM_PROMPT),
