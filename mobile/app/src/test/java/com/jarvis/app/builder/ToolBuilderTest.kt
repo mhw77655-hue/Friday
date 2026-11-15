@@ -8,6 +8,9 @@ import com.jarvis.app.genome.GenomeArchive
 import com.jarvis.app.genome.GenomeHealth
 import com.jarvis.app.genome.GenomeRegistry
 import com.jarvis.app.humancore.store.FileStorage
+import com.jarvis.app.model.GenerateRequest
+import com.jarvis.app.model.GenerateResult
+import com.jarvis.app.mutation.LlmSynthesisProvider
 import com.jarvis.app.microsystem.MicroSystemRegistry
 import com.jarvis.app.nervous.GlobalNervousSystem
 import com.jarvis.app.research.universal.UniversalResearchEngine
@@ -150,6 +153,49 @@ class ToolBuilderTest {
         assertFalse(h.gns.hasCapability("reverse_words"))
         assertFalse(h.registry.has(result.providerId!!))
         h.scope.cancel()
+    }
+
+    @Test
+    fun `production composition uses Friday model to synthesize a custom capability`() = runBlocking {
+        val root = tmpDir()
+        val scope = CoroutineScope(Dispatchers.IO)
+        val response = """
+            ```synth
+            # capability: word_count
+            words = split(trim(text), " ")
+            result = size(words)
+            TEST two_words | input text="hello world" | expect result=2
+            TEST missing_input | input | error undefined variable 'text'
+            ```
+        """.trimIndent()
+        var modelCalls = 0
+        val provider = LlmSynthesisProvider { _: GenerateRequest ->
+            modelCalls++
+            GenerateResult(content = response)
+        }
+        val stack = ToolBuilderComposition.build(
+            research = UniversalResearchEngine(),
+            failureSurface = FailureSurface(),
+            fileStorage = FileStorage(root),
+            scope = scope,
+            workspacesDir = File(root, "workspaces"),
+            llmSynthesisProvider = provider
+        )
+
+        val spec = ToolSpecification(
+            capability = "word_count",
+            description = "count whitespace-separated words in text",
+            behavior = Behavior.Custom(capability = "word_count", port = "text", type = "String"),
+            constraints = listOf("pure function", "no side effects")
+        )
+        val result = stack.builder.build(spec)
+
+        assertTrue("build status=${result.status}; ${result.message}", result.built)
+        assertTrue("the live model-backed synthesizer must be called", modelCalls > 0)
+        val routed = stack.gns.route("word_count", mapOf("text" to "one two three"))
+        assertTrue("route failed: ${routed.lastError}", routed.success)
+        assertEquals(3.0, (routed.result?.data as? Map<*, *>)?.get("result"))
+        scope.cancel()
     }
 
     @Test
