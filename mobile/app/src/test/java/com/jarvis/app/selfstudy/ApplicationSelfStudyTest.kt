@@ -69,6 +69,15 @@ class ApplicationSelfStudyTest {
                         lastAdaptation = "test",
                         lastPredictionError = 0.1
                     )
+                },
+                sourceIndexSnapshot = {
+                    ApplicationSourceIndex.Summary(
+                        schemaVersion = 1,
+                        sourceRevision = "test-revision",
+                        sourceFileCount = 42,
+                        declaredSymbolCount = 120,
+                        packageCount = 9
+                    )
                 }
             )
             val report = study.study(nowMs = 1234L)
@@ -78,6 +87,10 @@ class ApplicationSelfStudyTest {
             assertEquals(listOf("streaming_voice"), report.knownLimitationIds)
             assertEquals(7L, report.hostSamples)
             assertEquals(2L, report.organFailureCounts["REASONING"])
+            assertEquals("test-revision", report.sourceRevision)
+            assertEquals(42, report.sourceFileCount)
+            assertEquals(120, report.sourceSymbolCount)
+            assertEquals(9, report.sourcePackageCount)
             assertFalse(report.structurallyHealthy)
             assertTrue(File(dir, "self-study/latest.properties").isFile)
             assertEquals(report, study.latestReport())
