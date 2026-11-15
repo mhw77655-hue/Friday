@@ -57,6 +57,9 @@ class ApplicationSelfStudy(
         val sourceFileCount: Int,
         val sourceSymbolCount: Int,
         val sourcePackageCount: Int,
+        val sourceDependencyEdgeCount: Int,
+        val sourcePackageDependencies: Map<String, List<String>>,
+        val sourceFilePaths: List<String>,
         val organFailureCounts: Map<String, Long>,
         val nextFocus: List<String>
     ) {
@@ -130,6 +133,9 @@ class ApplicationSelfStudy(
             appendLine("FRIDAY SELF-STUDY EVIDENCE")
             appendLine("source_revision=${report.sourceRevision}")
             appendLine("source_files=${report.sourceFileCount}; declared_symbols=${report.sourceSymbolCount}; packages=${report.sourcePackageCount}")
+            appendLine("source_dependency_edges=${report.sourceDependencyEdgeCount}")
+            appendLine("source_package_dependencies=${report.sourcePackageDependencies.entries.take(30).joinToString { "${it.key}->${it.value.joinToString()}" }}")
+            appendLine("source_file_paths=${report.sourceFilePaths.take(60).joinToString()}")
             appendLine("runtime_graph_nodes=${report.nodeCount}; edges=${report.edgeCount}; reachable=${report.reachableCount}")
             appendLine("unreachable_nodes=${report.unreachableNodeIds.joinToString()}")
             appendLine("missing_invariants=${report.missingInvariantIds.joinToString()}")
@@ -250,6 +256,7 @@ class ApplicationSelfStudy(
             if (limitations.isNotEmpty()) add("Review known limitations: ${limitations.take(5).joinToString()}")
             if (failures.isNotEmpty()) add("Study organ failures: ${failures.entries.joinToString { "${it.key}=${it.value}" }}")
             if (sourceIndex == null) add("Source architecture index unavailable; verify generated build metadata")
+            if (sourceIndex != null && sourceIndex.dependencyEdgeCount == 0) add("Source dependency graph is empty; inspect generated import metadata before architectural conclusions")
             if ((host?.sampleCount ?: 0L) < 20L) add("Continue observing this phone before changing resource strategy")
             if ((host?.lowMemorySamples ?: 0L) > 0L) add("Preserve the learned memory reserve; low-memory pressure has been observed")
             if ((host?.thermalPressureSamples ?: 0L) > 0L) add("Keep background work subordinate to thermal headroom")
@@ -288,6 +295,9 @@ class ApplicationSelfStudy(
             sourceFileCount = sourceIndex?.sourceFileCount ?: 0,
             sourceSymbolCount = sourceIndex?.declaredSymbolCount ?: 0,
             sourcePackageCount = sourceIndex?.packageCount ?: 0,
+            sourceDependencyEdgeCount = sourceIndex?.dependencyEdgeCount ?: 0,
+            sourcePackageDependencies = sourceIndex?.packageDependencies.orEmpty(),
+            sourceFilePaths = sourceIndex?.files?.map { it.path }.orEmpty(),
             organFailureCounts = failures,
             nextFocus = focus
         )
@@ -337,6 +347,9 @@ class ApplicationSelfStudy(
             setProperty("sourceFileCount", report.sourceFileCount.toString())
             setProperty("sourceSymbolCount", report.sourceSymbolCount.toString())
             setProperty("sourcePackageCount", report.sourcePackageCount.toString())
+            setProperty("sourceDependencyEdgeCount", report.sourceDependencyEdgeCount.toString())
+            setProperty("sourcePackageDependencies", report.sourcePackageDependencies.entries.joinToString("|") { "${it.key}:${it.value.joinToString(",")}" })
+            setProperty("sourceFilePaths", report.sourceFilePaths.joinToString("|"))
             setProperty("organFailureCounts", report.organFailureCounts.entries.joinToString("|") { "${it.key}:${it.value}" })
             setProperty("nextFocus", report.nextFocus.joinToString("\n"))
         }
