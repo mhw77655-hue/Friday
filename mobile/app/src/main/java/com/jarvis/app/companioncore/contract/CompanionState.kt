@@ -29,7 +29,7 @@ data class CompanionState(
     companion object {
         /** A safe, all-neutral initial state. */
         fun initial(): CompanionState = CompanionState(
-            presenceMode = PresenceMode.IDLE,
+            presenceMode = PresenceMode.PRESENT,
             emotionVector = EmotionVector(valence = 0.0, arousal = 0.5, confidence = 0.0),
             attentionTarget = AttentionTarget.NONE,
             activeTheme = null,
@@ -40,7 +40,14 @@ data class CompanionState(
 }
 
 /** The seven presence modes (§1) — owned exclusively by the Presence Engine. */
-enum class PresenceMode { ASLEEP, WAKING, IDLE, LISTENING, THINKING, SPEAKING, SHUTTING_DOWN }
+enum class PresenceMode {
+    PRESENT, LISTENING, SPEAKING, SHUTTING_DOWN,
+    /** Legacy activity labels are normalized to PRESENT by PresenceEngine. */
+    @Deprecated("Friday is continuously present; use PRESENT") ASLEEP,
+    @Deprecated("Friday is continuously present; use PRESENT") WAKING,
+    @Deprecated("Friday is continuously present; use PRESENT") IDLE,
+    @Deprecated("Processing is an activity, not a presence mode; use PRESENT") THINKING
+}
 
 /** Where JARVIS's attention is aimed (§1). */
 enum class AttentionTarget { USER, NONE, NOTIFICATION, SELF_TASK }
