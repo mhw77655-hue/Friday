@@ -17,7 +17,7 @@ This is a milestone-weighted engineering estimate, not a line-count metric and n
 | 7 | Experience-driven developmental learning | 25% | Demonstrate durable behaviour changes caused by real experience, not just stored memories |
 | 8 | Predictive cognition / JEPA-inspired mechanisms | 20% | Mature prediction-error learning and evidence of useful low-cost predictive behaviour |
 | 9 | Self-model and individuality | 30% | Calibrated self-knowledge and stable preference/strategy evolution |
-| 10 | Capability Foundry | 45% | Broader safe tool synthesis, outcome learning and stronger validation coverage |
+| 10 | Capability Foundry | 30% | Legacy builder/evolution code remains in the Android source tree but is no longer constructed by the production composition; relocate it to repository-side workers and rebuild the full external validation/promotion path |
 | 11 | Native phone capabilities | 50% | Multi-step voice workflows, broader Android APIs, permissions and device-specific reliability |
 | 12 | Autonomous self-development | 15% | Phone-side evidence collection exists, but repository-native development request transport, external worker orchestration, durable synchronization, independent Vision gate and deployment feedback loop are not implemented. The current in-app builder path conflicts with the owner's explicit architecture and must be removed from production |
 | 13 | Security, provenance and rollback | 40% | Full self-modification authorization, signed native update and rollback proof |
@@ -56,7 +56,7 @@ This is a milestone-weighted engineering estimate, not a line-count metric and n
 3. The source index enables structural self-inspection (file paths, declarations and package imports), not arbitrary Kotlin source comprehension or self-rewriting. The local model's reflection is bounded to this evidence.
 4. TypeSafe Jev remains an optional hosted decision faculty, not a downloadable model or Friday's primary intelligence. Friday calls the System One API for typed Choice, Score and Noul evaluations; Friday's local model forms the action plan and the Android body executes it under local policy.
 5. Native app changes still require a signed, verified Android update. Friday must not silently replace her installed package.
-6. The in-app ToolBuilder and self-study-to-builder bridge are architectural blockers under the owner's 2026-11-16 instruction. Replace them with a durable development-request handoff to connected repository workers; keep all source edits, code execution, tests, builds and artifact signing outside Android.
+6. The self-study-to-builder bridge and production ToolBuilder construction have been removed. Legacy builder source still exists in the Android module and must be relocated or deleted. The durable development-request handoff to connected repository workers is not yet implemented; keep all source edits, code execution, tests, builds and artifact signing outside Android.
 
 ## Percentage method
 
