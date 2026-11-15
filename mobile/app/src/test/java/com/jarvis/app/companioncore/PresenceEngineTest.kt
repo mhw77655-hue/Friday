@@ -1,5 +1,6 @@
 package com.jarvis.app.companioncore
 
+import com.jarvis.app.companioncore.contract.AttentionTarget
 import com.jarvis.app.companioncore.contract.CompanionSignal
 import com.jarvis.app.companioncore.contract.CurrentAction
 import com.jarvis.app.companioncore.contract.PresenceMode
@@ -217,5 +218,17 @@ class PresenceEngineTest {
             com.jarvis.app.companioncore.contract.AttentionTarget.NONE,
             e.state.value.attentionTarget
         )
+    }
+
+    @Test
+    fun `camera presence changes attention without changing identity or storing frames`() {
+        val e = engine(PresenceMode.IDLE)
+        e.reportUserPresence(true)
+        e.tick(signal = signal(CurrentAction.IDLE))
+        assertEquals(AttentionTarget.USER, e.state.value.attentionTarget)
+
+        e.reportUserPresence(false)
+        e.tick(signal = signal(CurrentAction.IDLE))
+        assertEquals(AttentionTarget.NONE, e.state.value.attentionTarget)
     }
 }
