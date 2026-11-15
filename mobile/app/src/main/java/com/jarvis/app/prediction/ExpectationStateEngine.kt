@@ -49,6 +49,7 @@ interface ExpectationStore {
     fun saveTransitions(transitions: List<ExpectationTransition>)
     fun loadCalibration(personKey: String): PredictionCalibration
     fun saveCalibration(personKey: String, calibration: PredictionCalibration)
+    fun clearCalibration(personKey: String) {}
 }
 
 /** Private persistent store; only compact situation features are retained. */
@@ -102,6 +103,11 @@ class SharedPreferencesExpectationStore(context: Context) : ExpectationStore {
             .putFloat("${key}_p", calibration.predictorAccuracyEma.toFloat())
             .putFloat("${key}_b", calibration.baselineAccuracyEma.toFloat())
             .apply()
+    }
+
+    override fun clearCalibration(personKey: String) {
+        val key = calibrationKey(personKey)
+        prefs.edit().remove("${key}_n").remove("${key}_p").remove("${key}_b").apply()
     }
 
     private fun calibrationKey(personKey: String) =
@@ -223,10 +229,6 @@ class ExpectationStateEngine(
                 else old.baselineAccuracyEma * (1.0 - alpha) + baselineScore * alpha
         )
         store.saveCalibration(prediction.personKey, next)
-        recordTransition(
-            SituationState(prediction.personKey, prediction.likelyNext),
-            actualNext
-        )
     }
 
     fun calibration(personKey: String): PredictionCalibration =
@@ -246,7 +248,9 @@ class ExpectationStateEngine(
     }
 
     private fun signature(fields: Map<String, String>): String =
-        fields.toSortedMap().entries.joinToString("|") { "${it.key}=${it.value}" }
+        fields.toSortedMap().entries.joinToString("|") {
+            "${it.key.length}:${it.key}=${it.value.length}:${it.value}"
+        }
 
     companion object {
         private const val DAY_MS = 86_400_000L
