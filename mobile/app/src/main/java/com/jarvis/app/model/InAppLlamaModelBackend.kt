@@ -33,7 +33,15 @@ class InAppLlamaModelBackend(context: Context) : ModelBackend {
         }
 
         try {
-            val profile = nano.recommend()
+            val host = nano.observeHost()
+            val recommended = nano.recommend(host)
+            val admission = NanoLiquidPolicy.admitModel(host, modelFile.length(), recommended.contextTokens)
+            if (!admission.allowed) {
+                unavailable[handle] = "Not loaded to protect your phone. ${admission.reason}"
+                return handle
+            }
+            val profile = admission.suggestedContextTokens?.let { recommended.copy(contextTokens = it) }
+                ?: recommended
             val engine = LocalInferenceEngine(appContext)
             configure(engine, modelFile, config, profile)
             val result = engine.load(LoadRequest(config.modelId))
@@ -79,10 +87,15 @@ class InAppLlamaModelBackend(context: Context) : ModelBackend {
      */
     private suspend fun adaptIfNeeded(handle: ModelHandle, engine: LocalInferenceEngine) {
         val previous = profiles[handle] ?: return
-        val latest = nano.recommend()
-        if (latest.threads == previous.threads && latest.contextTokens == previous.contextTokens && latest.batchTokens == previous.batchTokens) return
         val file = modelFiles[handle] ?: return
         val config = backendConfigs[handle] ?: return
+        val host = nano.observeHost()
+        val recommended = nano.recommend(host)
+        val admission = NanoLiquidPolicy.admitModel(host, file.length(), recommended.contextTokens)
+        if (!admission.allowed) return
+        val latest = admission.suggestedContextTokens?.let { recommended.copy(contextTokens = it) }
+            ?: recommended
+        if (latest.threads == previous.threads && latest.contextTokens == previous.contextTokens && latest.batchTokens == previous.batchTokens) return
 
         engine.unload(UnloadRequest(handle.modelId))
         configure(engine, file, config, latest)
