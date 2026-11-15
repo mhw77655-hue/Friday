@@ -36,7 +36,7 @@ class ModelPathResolver(
             "qwen3.5-2b" to "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf"
         )
 
-        private fun modelFileName(modelId: String?): String {
+        fun modelFileName(modelId: String?): String {
             val id = modelId?.trim()?.lowercase().orEmpty()
             return MODEL_FILENAMES[id] ?: if (id.endsWith(".gguf")) id else ""
         }
