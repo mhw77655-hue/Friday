@@ -19,6 +19,21 @@ import kotlinx.coroutines.CancellationException
  */
 class CandidateGenerator(private val synthesizers: List<SpecSynthesizer>) {
 
+    private val failureLock = Any()
+    @Volatile private var synthesisFailures: List<String> = emptyList()
+
+    /** Failures from the most recent generation cycle, retained for diagnosis. */
+    fun lastFailures(): List<String> = synthesisFailures
+
+    /** Begin a fresh objective without discarding failures from the prior objective elsewhere. */
+    fun beginGeneration() {
+        synchronized(failureLock) { synthesisFailures = emptyList() }
+    }
+
+    private fun recordFailure(message: String) {
+        synchronized(failureLock) { synthesisFailures = synthesisFailures + message }
+    }
+
     /** Every strategy flavor that participated in the last generation. */
     val strategies: List<AlgorithmSpec.Strategy> get() = synthesizers.map { it.strategy }.distinct()
 
@@ -31,8 +46,9 @@ class CandidateGenerator(private val synthesizers: List<SpecSynthesizer>) {
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                // A failed synthesis is recorded as a miss; cancellation and
-                // fatal VM errors must never be swallowed as ordinary misses.
+                // Preserve the failure as evidence. A missing candidate must
+                // never look like a synthesizer that was not even attempted.
+                recordFailure("${synth.name}: ${failure.javaClass.simpleName}: ${failure.message.orEmpty()}")
                 return@mapNotNull null
             }
             GeneratedCandidate(
