@@ -268,6 +268,25 @@ class LiquidSymbiosisEngine(private val persistenceFile: File? = null) {
 
     @Synchronized fun strategy(organ: SymbioticOrgan): OrganStrategy = strategies.getValue(organ)
 
+    /**
+     * Converts learned reasoning failures/context contraction into a bounded
+     * extra admission reserve. This makes the learned organ strategy affect
+     * the real ModelManager wake gate instead of remaining display-only data.
+     */
+    @Synchronized
+    fun additionalAdmissionReserveMb(organ: SymbioticOrgan): Long {
+        val learned = strategies.getValue(organ)
+        val contextPenalty = (2048 - learned.contextBudget).coerceAtLeast(0) / 4
+        val failurePressure = (learned.failedRuns - learned.successfulRuns)
+            .coerceAtLeast(0L) * 64L
+        return (contextPenalty.toLong() + failurePressure).coerceIn(0L, 512L)
+    }
+
+    /** True only while the learned background strategy grants non-zero budget. */
+    @Synchronized
+    fun backgroundWorkAllowed(): Boolean =
+        strategies.getValue(SymbioticOrgan.BACKGROUND).backgroundWeight > 0.0
+
     @Synchronized
     fun snapshot() = LiquidSymbiosisSnapshot(generation, host, strategies.toMap(), lastAdaptation, predictionError)
 
