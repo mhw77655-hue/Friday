@@ -174,10 +174,12 @@ class TurnPathAssembly private constructor(
             // ── The shared claim store: one instance, handed to every organ ────
             val workspace = InMemoryWorkspace()
             val hunchEngine = com.jarvis.app.cognition.prediction.HunchEngine(
-                workspace = workspace,
                 store = com.jarvis.app.cognition.prediction.FileExpectationTableStore(
                     ports.storageDir.resolve("cognition/expectations.json")
                 )
+            )
+            val liquidTaskComposer = com.jarvis.app.cognition.workspace.LiquidTaskComposer(
+                organs = listOf(hunchEngine)
             )
 
             // ── Identity: self, user, world, persona ──────────────────────────
@@ -329,7 +331,7 @@ class TurnPathAssembly private constructor(
                 memoryForgetter = ports.memoryForgetter(),
                 signalScorer = signalScorer,
                 workspace = workspace,
-                hunchEngine = hunchEngine
+                liquidTaskComposer = liquidTaskComposer
             )
 
             // ── The entry point ────────────────────────────────────────────────
