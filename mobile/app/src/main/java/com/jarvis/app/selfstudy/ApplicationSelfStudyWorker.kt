@@ -19,7 +19,9 @@ class ApplicationSelfStudyWorker(
     override suspend fun doWork(): Result = try {
         if (JarvisEngine.runApplicationSelfStudySlice()) Result.success()
         else Result.retry()
-    } catch (_: Throwable) {
+    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
         Result.retry()
     }
 }
