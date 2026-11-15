@@ -70,7 +70,9 @@ class ModelManager(
     private val gapLock = Any()
     private var gapReported = false
     // Provider adapters
-    private val llamaCppAdapter = LlamaCppAdapter(context)
+    // Share the production native resident engine with the tiered backend.
+    private val llamaCppAdapter: ModelProvider =
+        (backend as? LocalModelBackend)?.residentProvider ?: LlamaCppAdapter(context)
     private val ollamaAdapter = OllamaAdapter(context)
     private val remoteJarvisAdapter = RemoteJarvisAdapter(context)
     private val heuristicAdapter = HeuristicAdapter()
@@ -107,7 +109,7 @@ class ModelManager(
     val availableProviders = _availableProviders.asStateFlow()
 
     // Active provider state
-    private val _activeProvider = MutableStateFlow<ModelProvider>(heuristicAdapter)
+    private val _activeProvider = MutableStateFlow<ModelProvider>(if (backend is LocalModelBackend) llamaCppAdapter else heuristicAdapter)
     val activeProvider = _activeProvider.asStateFlow()
 
     // Health aggregation
@@ -136,7 +138,13 @@ class ModelManager(
     ): Result<Unit> = try {
         val newProvider = when (type) {
             ModelProviderType.LLAMA_CPP -> {
-                llamaCppAdapter.configure(modelSource, config)
+                when (val provider = llamaCppAdapter) {
+                    is com.jarvis.app.model.adapters.LocalInferenceEngine -> provider.configure(
+                        modelSource,
+                        config.copy(modelId = config.modelId ?: LocalModelBackend.RESIDENT_MODEL_ID)
+                    )
+                    is LlamaCppAdapter -> provider.configure(modelSource, config)
+                }
                 llamaCppAdapter
             }
             ModelProviderType.OLLAMA -> {
@@ -181,7 +189,13 @@ class ModelManager(
     /** Reconfigure a provider without switching to it (Model Manager UI). */
     suspend fun configureProvider(type: ModelProviderType, config: ProviderConfig): Result<Unit> = try {
         when (type) {
-            ModelProviderType.LLAMA_CPP -> llamaCppAdapter.configure(defaultModelSource(type), config)
+            ModelProviderType.LLAMA_CPP -> when (val provider = llamaCppAdapter) {
+                is com.jarvis.app.model.adapters.LocalInferenceEngine -> provider.configure(
+                    defaultModelSource(type),
+                    config.copy(modelId = config.modelId ?: LocalModelBackend.RESIDENT_MODEL_ID)
+                )
+                is LlamaCppAdapter -> provider.configure(defaultModelSource(type), config)
+            }
             ModelProviderType.OLLAMA -> ollamaAdapter.configure(defaultModelSource(type), config)
             ModelProviderType.REMOTE_JARVIS -> remoteJarvisAdapter.configure(defaultModelSource(type), config)
             else -> return Result.failure(IllegalArgumentException("Provider $type is not configurable"))
