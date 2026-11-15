@@ -89,14 +89,25 @@ object PhoneCommandInterpreter {
         is PhoneControlCommand.TypeText -> "Enter user-provided text into the currently focused field"
     }
 
+    private val consequentialTarget = Regex(
+        "\\b(delete|remove|erase|send|submit|pay|purchase|buy|transfer|call|post|publish|confirm|allow|grant|install|uninstall|reset|sign out|log out|share|forward|block|report|wipe|factory reset)\\b",
+        RegexOption.IGNORE_CASE
+    )
+    private val sensitiveText = Regex(
+        "\\b(password|passcode|pin|cvv|private key|recovery phrase|one.time code|otp|card number|bank account)\\b",
+        RegexOption.IGNORE_CASE
+    )
+
     fun risk(command: PhoneControlCommand): String = when (command) {
-        is PhoneControlCommand.TapText, is PhoneControlCommand.TypeText -> "high"
-        is PhoneControlCommand.OpenApp -> "low"
+        is PhoneControlCommand.TapText ->
+            if (consequentialTarget.containsMatchIn(command.text)) "high" else "low"
+        is PhoneControlCommand.TypeText ->
+            if (sensitiveText.containsMatchIn(command.text)) "high" else "medium"
         else -> "low"
     }
 
     fun requiresExplicitConfirmation(command: PhoneControlCommand): Boolean =
-        command is PhoneControlCommand.TapText || command is PhoneControlCommand.TypeText
+        risk(command) == "high"
 
     fun dispatch(utterance: String): PhoneControlResult? {
         val command = parse(utterance) ?: return null
