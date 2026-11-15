@@ -145,6 +145,7 @@ class ModelFreeDeviceSimulator(private val context: Context) {
             iterations++
         }
         if (value == 0) iterations++
+        val cpuElapsedNs = (System.nanoTime() - cpuStart).coerceAtLeast(1L)
 
         // Touch at most 16 MiB and release it immediately.
         val memoryStart = System.nanoTime()
@@ -181,8 +182,7 @@ class ModelFreeDeviceSimulator(private val context: Context) {
         val pssAfter = Debug.getPss().toLong() / 1024L
 
         SyntheticBenchmark(
-            cpuOperationsPerSecond = (iterations * 1_000_000_000.0 /
-                (System.nanoTime() - cpuStart).coerceAtLeast(1L)).roundToInt().toLong(),
+            cpuOperationsPerSecond = (iterations * 1_000_000_000.0 / cpuElapsedNs).roundToInt().toLong(),
             memoryTouchMbPerSecond = touchedMb * 1000.0 / memoryMs,
             storageWriteMbPerSecond = 4.0 * 1000.0 / storageMs,
             processPssBeforeMb = pssBefore,
@@ -206,7 +206,13 @@ class ModelFreeDeviceSimulator(private val context: Context) {
                 candidate.parameterLabel.contains("2B") -> 420L
                 else -> 320L
             }
-            val contextMemory = (safeContext * candidate.kvMbPerToken).roundToInt().toLong()
+            val kvMbPerToken = when {
+                candidate.parameterLabel.contains("4B") -> 0.035
+                candidate.parameterLabel.contains("2B") -> 0.024
+                candidate.parameterLabel.contains("1.2B") -> 0.014
+                else -> 0.020
+            }
+            val contextMemory = (safeContext * kvMbPerToken).roundToInt().toLong()
             val workingSet = weightsAndMapping + runtimeScratch + contextMemory
             val verdict = when {
                 snapshot.thermalStatus >= 3 || snapshot.availableRamMb < 700L ->
@@ -260,14 +266,5 @@ class ModelFreeDeviceSimulator(private val context: Context) {
             )
         )
 
-        // Conservative architecture-independent cache estimate, intentionally
-        // surfaced as an uncertainty rather than pretending to know exact KV shape.
-        private val ModelCandidate.kvMbPerToken: Double
-            get() = when {
-                parameterLabel.contains("4B") -> 0.035
-                parameterLabel.contains("2B") -> 0.024
-                parameterLabel.contains("1.2B") -> 0.014
-                else -> 0.020
-            }
     }
 }
