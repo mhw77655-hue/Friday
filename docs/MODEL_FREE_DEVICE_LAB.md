@@ -23,7 +23,7 @@ The Android host adapter now records a device-specific, content-free study along
 
 The study accumulates sample count, minimum observed available RAM, maximum and exponentially smoothed CPU load, thermal-pressure sample count, low-memory sample count, minimum observed battery level, maximum observed process PSS, and last observation time. It is restored only when the current hardware/software fingerprint matches; a different host starts a clean profile.
 
-Sampling is bounded to the existing 15-second observer, with persistence throttled to at most once per minute. PSS is explicitly a process-wide footprint estimate, not a per-model allocation. These statistics are observations for later calibration; they do not yet constitute an inference benchmark or automatically prove that a model/backend is faster.
+Sampling is bounded to the existing 15-second observer, with persistence throttled to at most once per minute. PSS is explicitly a process-wide footprint estimate, not a per-model allocation. Repeated low-memory and thermal-pressure observations feed decaying pressure EMAs; once sustained pressure crosses the policy threshold, NAE adds 256–512 MiB of conservative admission headroom. That extra reserve decays again as healthy observations arrive, so a single bad moment does not permanently cripple the device profile. This is a bounded self-reconfiguration of model admission and scheduling, not a claim that Friday can alter Android's kernel, clocks, or hardware. These statistics are observations for calibration; they do not yet constitute an inference benchmark or automatically prove that a model/backend is faster.
 
 ## What it does not do
 
