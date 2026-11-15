@@ -167,6 +167,8 @@ object JarvisEngine {
 
     @Volatile var systemGraph: com.jarvis.app.selfreconfig.SystemGraph? = null
         private set
+    @Volatile var applicationSelfStudy: com.jarvis.app.selfstudy.ApplicationSelfStudyLoop? = null
+        private set
 
     fun init(context: Context) {
         if (started) return
@@ -464,6 +466,29 @@ object JarvisEngine {
             // reflect the genuinely-wired reality.
             val systemGraph = com.jarvis.app.selfreconfig.JarvisOrganGraph.build()
             JarvisEngine.systemGraph = systemGraph
+
+            // Friday studies her own installed architecture continuously in
+            // bounded slices. This is not an "idle mode": the study lane is a
+            // separate background activity alongside presence and conversation.
+            val selfStudy = com.jarvis.app.selfstudy.ApplicationSelfStudy(
+                graph = systemGraph,
+                reportFile = java.io.File(appContext.filesDir, "self-study/latest.properties"),
+                capabilitySnapshot = { capabilities },
+                hostSnapshot = { nanoSymbiosis.hostStudySnapshot() },
+                liquidSnapshot = { nanoSymbiosis.liquidSnapshot() }
+            )
+            val selfStudyLoop = com.jarvis.app.selfstudy.ApplicationSelfStudyLoop(
+                study = selfStudy,
+                scope = scope,
+                resourceBudgetAllows = {
+                    val resources = nanoSymbiosis.resourceSnapshot()
+                    resources.availableMemoryMb >= 900L &&
+                        resources.thermalLevel < 2 &&
+                        (resources.batteryPercent >= 20 || resources.isCharging)
+                }
+            )
+            selfStudyLoop.start()
+            JarvisEngine.applicationSelfStudy = selfStudyLoop
 
             // Store process-scoped singletons before anything else so they are
             // accessible to any subsystem that needs them.
