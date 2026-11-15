@@ -19,7 +19,7 @@ TypeSafe Jev is an optional cloud decision faculty, not a replacement brain, loc
 
 **Changed:** Production composition now accepts the LLM synthesis provider; `JarvisEngine` supplies `LlmSynthesisProvider(modelManager)` using Friday's existing model authority. The same candidate-generator instance is shared by the evolution engine and builder. A new explicit `Behavior.Custom` contract carries a capability name, typed input port, and type so custom capabilities are not disguised as one of the five toy operations. Tool validation accepts that contract only for supported input types. A production-composition integration test builds and routes a model-synthesized `word_count` capability.
 
-**Still unproven:** The model's output is not guaranteed to be correct because it was generated. It must pass the existing sandbox and promotion gate. The new integration test uses a deterministic fake completion; it proves production wiring and execution contract, not the quality of the resident model on the phone.
+**Still unproven:** The model's output is not guaranteed to be correct because it was generated. It must pass the existing restricted interpreter tests and promotion gate. The integration test uses a deterministic fake completion; it proves production wiring and execution contract, not the quality of the resident model on the phone. The capability is currently process-local and is not yet rehydrated after process death.
 
 ### 2. Candidate synthesis must not swallow cancellation
 
