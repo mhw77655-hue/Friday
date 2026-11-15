@@ -717,8 +717,13 @@ object JarvisEngine {
         }
     }
 
-    /** Execute one self-study slice only when this phone has safe headroom. */
-    fun runApplicationSelfStudySlice(): Boolean {
+    /**
+     * Execute one self-study slice only with safe host headroom. Friday first
+     * records measured architecture/device evidence, then lets her existing
+     * local model reason over it. No second model is loaded and no code is
+     * modified or promoted by this reflection step.
+     */
+    suspend fun runApplicationSelfStudySlice(): Boolean {
         val study = applicationSelfStudy ?: return false
         val governor = nanoSymbiosis ?: return false
         val resources = governor.resourceSnapshot()
@@ -726,7 +731,27 @@ object JarvisEngine {
             resources.thermalLevel >= 2 ||
             (resources.batteryPercent < 20 && !resources.isCharging)
         ) return false
-        study.study()
+
+        val report = study.study()
+        val manager = modelManager
+        val anchor = anchorEngine
+        // Self-study reflection is deliberately local-only. If the configured
+        // provider is not Friday's on-device llama.cpp organ, retain the factual
+        // report and wait for a local model rather than silently using cloud.
+        if (manager?.activeProvider?.value?.providerType == com.jarvis.app.env.ModelProviderType.LLAMA_CPP &&
+            anchor != null
+        ) {
+            runCatching {
+                if (!anchor.anchorHeld()) anchor.anchor()
+                val afterAnchor = governor.resourceSnapshot()
+                if (afterAnchor.availableMemoryMb >= 1100L &&
+                    afterAnchor.thermalLevel < 2 &&
+                    (afterAnchor.batteryPercent >= 20 || afterAnchor.isCharging)
+                ) {
+                    study.reflect(report, manager)
+                }
+            }
+        }
         return true
     }
 
