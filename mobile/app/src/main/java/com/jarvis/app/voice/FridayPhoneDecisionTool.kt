@@ -53,7 +53,12 @@ class FridayPhoneDecisionTool(
             }
         }
 
-        val decision = remoteJudge(utterance, description, risk)
+        // Never send the literal text the user wants typed into another app.
+        // Jev needs the action and risk, not the private payload.
+        val decisionContext = if (command is PhoneControlCommand.TypeText) {
+            "The user explicitly requested text entry into the currently focused field."
+        } else utterance
+        val decision = remoteJudge(decisionContext, description, risk)
             ?: return if (!requiresLocalConfirmation && risk == "low") {
                 // Jev is an optional decision organ, not a runtime dependency.
                 // Exact allowlisted commands remain available under local policy.
