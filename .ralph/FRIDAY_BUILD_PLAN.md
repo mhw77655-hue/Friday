@@ -81,7 +81,7 @@ Earlier project conversations mention a Shadow Company with two distinct ambitio
 | PR #3, merged 2026-11-10 | Engine readiness state, typed access, UI waking surface, pure Kotlin tests | A meaningful launch-order repair. It does not close the PRD story's real-process/device and full Life Test evidence. |
 | PR #4, merged 2026-11-11 | Foundation audit: eight Builder seats, failure-chain trace, legacy inventory, conflicts and worker dispatch | The bottlenecks and disconnected paths were documented. Documentation is not integration. |
 | PR #5, merged 2026-11-11 | TTS initialization gate, per-process TTS owner and guarded call sites | TTS no longer assumes the Android engine is ready. The asynchronous file-synthesis completion race remains. |
-| Existing source | `TurnPathAssembly`, Android/JVM platform ports, cognitive engine, identity/world/social components, memory graph and retrieval, continuity law, provenance, consolidation, capability registry, research and ToolBuilder | Substantial substrate exists. It has not yet demonstrated the complete living/developmental behaviour on one real composition. |
+| Existing source | `TurnPathAssembly`, the Android production adapter, JVM-only test doubles, cognitive engine, identity/world/social components, memory graph and retrieval, continuity law, provenance, consolidation, capability registry, research and ToolBuilder | Substantial substrate exists. It has not yet demonstrated the complete living/developmental behaviour on one real composition. |
 
 ### Partial, disconnected or not demonstrated
 
@@ -90,15 +90,19 @@ Earlier project conversations mention a Shadow Company with two distinct ambitio
 | One continuing individual | IdentityContext, SelfModel, UserProfile, WorldModelService, relationship model and persistent stores exist. VISION §12 still records identity as JARVIS/he; ONE-5 is open. | Partial; identity has mechanisms but the required Friday/she identity and continuity test are not complete. |
 | Development, not storage | Workspace, RecordedTurns, ReplayCheck, ContinuityLaw, change log and memory consolidation exist. | Partial; no complete Life Test currently demonstrates experience-driven persistent behavioural change with both controls. |
 | Open-ended cognition | VISION §12 identifies closed `ClaimKind`, fixed `ChangeLayer`, flat slow-change thresholds, intent always STATEMENT and no live prediction. | Active vision conflicts, not minor cleanup. Mechanisms must be evaluated and revised without replacing them with another fixed ontology. |
-| One shared turn composition | `TurnPathAssembly`, `AndroidPlatformPorts`, `JvmPlatformPorts`, and parity/clock tests exist. ONE-2 remains open. `TurnPathAssembly` still initializes and calls legacy Human Core paths. | Partial and internally conflicted. The PRD asks for Human Core execution on both hosts; VISION §12 quarantines it. The Vision wins. Reconcile ONE-2 before executing it. |
+| One shared turn composition | `TurnPathAssembly` and `AndroidPlatformPorts` exist. A JVM adapter remains only as a test harness and is not a production host. ONE-2 remains open. `TurnPathAssembly` still initializes and calls legacy Human Core paths. | Partial and internally conflicted. The PRD asks for Human Core execution on both hosts; VISION §12 quarantines it. The Vision wins. Reconcile ONE-2 before executing it. |
 | Memory and continuity | Memory graph, retrieval, consolidation daemon/loop, provenance and forget propagation exist. ONE-4 remains open. | Storage and derived-artifact provenance are real mechanisms; the Development Ledger, flight recorder, Mirror and proven developmental effects are not complete. |
 | Capability acquisition | CapabilityGapDetector, ToolBuilder, ToolBuilderComposition, EvolutionEngine and UniversalResearchEngine exist. | A builder for registered micro-systems exists, not a demonstrated general code-building capability. |
 | Failure → gap → construction | FailureSurface records failures and degraded capabilities; the audit found no live bridge to CognitiveEngine, no production callers of `updateCapabilityState`, and no runtime callers of `requestBuild`. | Disconnected. Friday can report a failure without autonomously turning it into a tested construction request. |
-| Real resident intelligence | The current composition still names an Ollama endpoint at `127.0.0.1:8080`; the Termux service was removed from the phone. | No verified in-app offline resident inference path in the evidence reviewed. A model adapter or config is not proof that a model is running on the phone. |
+| Real resident intelligence | The current composition still names an Ollama endpoint at `127.0.0.1:8080`; that is a separate local-server dependency to eliminate from the Android production path. The owner has removed the Termux app from the phone. | No verified in-app offline resident inference path in the evidence reviewed. A model adapter or config is not proof that a model is running on the phone. |
 | Voice as one presence | Native TTS readiness and voice-organism code exist. PR #5 still registers a file before its TTS completion callback. | Partial. Complete the async lifecycle, then test audio on the phone. Egyptian Arabic quality is unproven without recordings and an evaluation set. |
 | Resource symbiosis / NAE | ResourceGovernor, environment and device observations exist. | No measured hardware-in-the-loop search yet proving better cognition per RAM, heat, latency and battery on the target phone. |
 | Life Test | ONE-3 is open; ordinary unit tests exist. | No complete test harness found that drives the real composition through learning, restart, replay-blocked and mechanism-off controls. |
 | Development partnership | Build and research mechanisms exist, but the human still owns gap detection, specification, device evidence and integration. | Friday is not yet a co-builder. She needs a visible workshop where she can inspect evidence, formulate a need, direct workers and explain the result. |
+
+### Android-only product correction (2026-11-15)
+
+The owner explicitly corrected the architecture: Friday lives and runs inside her Android application; Termux has been removed from the phone and is not part of her product runtime. Treat Android as the only production host. A JVM implementation may exist solely as a test fixture for platform-neutral code and must not be packaged, launched, or required by the app. The previous Android/JVM-Termux parity framing is retired. The audit branch still contains a legacy Termux server source and some test fixtures; their presence is not evidence of an Android runtime dependency, but they must be isolated from production and removed or migrated where they impose build/runtime coupling. The Termux-specific AAPT2 path and Gradle launcher task have now been removed from this branch.
 
 ## 3. Decisions that must not be made by accident
 
@@ -106,7 +110,7 @@ Earlier project conversations mention a Shadow Company with two distinct ambitio
 2. **Do not treat ToolBuilder as the whole Builder.** Its current mutant-habitat evolution of registered micro-systems is one construction instrument. Friday's broader Builder must also be able to research, direct external coding workers, inspect diffs, run independent tests, learn from failed attempts and safely request approval.
 3. **Do not mistake a failure log for a capability gap.** A runtime bridge must carry the actual incident and affected outcome into an inspectable proposal, not merely copy a subsystem label into a fixed capability enum.
 4. **Do not treat stored memories as development.** A lasting change must alter later behaviour under the Vision's two controls.
-5. **Do not make Ollama, Termux, one model, one worker, or one device a condition of Friday's existence.** Each is replaceable infrastructure.
+5. **Do not make Ollama, a shell environment, one model, one worker, or one device a condition of Friday's existence.** Each is replaceable infrastructure.
 6. **Do not silently mark PRD stories passed because code merged.** Keep implementation, CI, real-composition Life Test and phone evidence distinct.
 7. **Do not put long-lived credentials in chat or grant a builder unrestricted repository/production access.** Use narrowly scoped protected secrets, disposable workspaces, an independent judge and owner approval for consequential integration.
 
@@ -118,7 +122,7 @@ Earlier project conversations mention a Shadow Company with two distinct ambitio
 - Capture a fresh phone evidence pack after the next green APK: cold starts, one TTS owner per process, zero premature TTS errors, successful completed audio, and no hidden local-server dependency.
 
 ### B. Make one real Friday turn path
-- Complete the Android/JVM composition parity story against the Vision, not against legacy Human Core acceptance criteria.
+- Complete the Android-only production composition story against the Vision, not against legacy Human Core acceptance criteria. Desktop JVM fakes may test platform-neutral logic, but they are not a second production host.
 - Keep platform differences in replaceable adapters (storage, sensors, model supply, clock, speech output); keep decisions about meaning and identity in the shared turn behaviour.
 - Inject time wherever elapsed time changes cognition. Use a fake clock for deterministic tests.
 - Confirm the same identity, memory, relationship and developmental state through app restart and model replacement.
