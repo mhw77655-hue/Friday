@@ -5,7 +5,7 @@ import java.io.File
 
 /**
  * Canonical local-model resolver. Friday's app-private files/models vault is
- * authoritative; legacy external paths remain migration-only fallbacks.
+ * authoritative; configured paths are accepted only inside app-owned storage.
  */
 class ModelPathResolver(private val context: Context) {
     companion object {
