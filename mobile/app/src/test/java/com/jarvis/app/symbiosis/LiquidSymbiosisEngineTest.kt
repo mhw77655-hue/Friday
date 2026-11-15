@@ -72,6 +72,59 @@ class LiquidSymbiosisEngineTest {
     }
 
     @Test
+    fun `action conditioned JEPA distinguishes operating actions`() {
+        val predictor = JepaLatentPredictor(replayCapacity = 24)
+        val state = doubleArrayOf(0.5, 0.4, 0.2, 0.8, 1.0, 0.5)
+        val reduceLoad = doubleArrayOf(-0.8, -0.2, -0.5)
+        val increaseCapacity = doubleArrayOf(0.8, 0.2, 0.5)
+        val lowTarget = doubleArrayOf(0.3, 0.2, 0.1, 0.8, 1.0, 0.4)
+        val highTarget = doubleArrayOf(0.8, 0.6, 0.1, 0.8, 1.0, 0.8)
+        repeat(30) {
+            predictor.observe(state, reduceLoad, lowTarget)
+            predictor.observe(state, increaseCapacity, highTarget)
+        }
+        val low = predictor.predict(state, reduceLoad)
+        val high = predictor.predict(state, increaseCapacity)
+        assertTrue("different actions should produce different latent futures",
+            low.indices.any { kotlin.math.abs(low[it] - high[it]) > 0.01 })
+        assertEquals(24, predictor.replaySize())
+    }
+
+    @Test
+    fun `JEPA latent rollout is bounded and predicts a sequence`() {
+        val predictor = JepaLatentPredictor()
+        val state = doubleArrayOf(0.5, 0.4, 0.2, 0.8, 1.0, 0.5)
+        predictor.observe(state, doubleArrayOf(0.1, 0.0, 0.1),
+            doubleArrayOf(0.6, 0.4, 0.2, 0.8, 1.0, 0.6))
+        val rollout = predictor.rollout(state, listOf(
+            doubleArrayOf(0.1, 0.0, 0.1),
+            doubleArrayOf(0.1, 0.0, 0.1)
+        ))
+        assertEquals(2, rollout.size)
+        assertEquals(6, rollout.last().size)
+        val rejected = runCatching {
+            predictor.rollout(state, List(9) { doubleArrayOf(0.0, 0.0, 0.0) })
+        }
+        assertTrue(rejected.isFailure)
+    }
+
+    @Test
+    fun `JEPA replay window persists with predictor parameters`() {
+        val first = JepaLatentPredictor()
+        val state = doubleArrayOf(0.8, 0.2, 0.1, 0.8, 1.0, 0.5)
+        first.observe(state, doubleArrayOf(0.2, -0.1, 0.0),
+            doubleArrayOf(0.6, 0.5, 0.4, 0.7, 1.0, 0.4))
+        val restored = JepaLatentPredictor()
+        restored.restoreState(first.exportState())
+        assertEquals(first.replaySize(), restored.replaySize())
+        assertEquals(first.sampleCount(), restored.sampleCount())
+        val action = doubleArrayOf(0.2, -0.1, 0.0)
+        val a = first.predict(state, action)
+        val b = restored.predict(state, action)
+        assertTrue(a.indices.all { kotlin.math.abs(a[it] - b[it]) < 1e-9 })
+    }
+
+    @Test
     fun `predictive latent model learns from consecutive host states`() {
         val predictor = JepaLatentPredictor()
         val start = doubleArrayOf(0.8, 0.2, 0.1, 0.8, 1.0, 0.5)
