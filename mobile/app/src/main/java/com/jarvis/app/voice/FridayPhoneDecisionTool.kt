@@ -63,12 +63,24 @@ class FridayPhoneDecisionTool(
         }
 
         val decision = remoteJudge(utterance, description, risk)
-            ?: return Result(
-                Verdict.UNAVAILABLE,
-                Source.TYPESAFE_JEV,
-                0.0,
-                "Jev could not be reached. Friday has not changed anything."
-            )
+            ?: return if (risk == "low") {
+                // Jev is an optional decision organ, not a runtime dependency.
+                // An exact recognized command from Friday's bounded allowlist
+                // remains usable offline under Friday's own local policy.
+                Result(
+                    Verdict.EXECUTE,
+                    Source.FRIDAY_LOCAL_POLICY,
+                    1.0,
+                    "Jev is unavailable; Friday's deterministic low-risk command policy handled this action locally."
+                )
+            } else {
+                Result(
+                    Verdict.CONFIRM,
+                    Source.FRIDAY_LOCAL_POLICY,
+                    0.5,
+                    "Jev is unavailable; this action needs your explicit confirmation."
+                )
+            }
 
         return when {
             JevPhoneActionPolicy.shouldReject(decision) ->
