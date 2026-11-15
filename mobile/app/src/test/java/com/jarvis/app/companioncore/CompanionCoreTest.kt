@@ -26,7 +26,7 @@ import org.junit.Test
  * §2.1/§1.6 — Companion Core coordinator tests.
  *
  * The Engine Tick Lane fan-out (integration → presence engine → orb state
- * machine → render intent/params), the wake→idle handoff, alert override →
+ * machine → render intent/params), continuous presence attachment, alert override →
  * render params, the voice/visualization hook, lifecycle background presence
  * handling, and the frame-budget watchdog inbound channel. All driven
  * deterministically via [CompanionCore.tick].
