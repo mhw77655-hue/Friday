@@ -197,7 +197,7 @@
       "verifyCommand": "cd /sdcard/jarvis-repo && bash .ralph/ci_verify.sh 'com.jarvis.app.onefriday.*' '*SystemGraphTest*' && bash .ralph/ci_verify.sh --build-status",
       "priority": 9,
       "passes": false,
-      "notes": "Correction from owner: Friday is a standalone Android application; Termux was removed from the phone and is not a production dependency. The prior EntryParityTest incorrectly asserted Android/JVM-Termux production parity and must not be used as acceptance evidence. CI may use JVM test doubles only."
+      "notes": "Owner correction: Friday is a standalone Android application; Termux was removed from the phone and is not a production dependency. The prior EntryParityTest incorrectly asserted Android/JVM-Termux production parity and was replaced with Android-only production composition/runtime guards. The standalone JVM server, JVM platform adapter, and legacy VoiceForge/Chatterbox adapter/backend now live under src/test only. The Termux-specific AAPT2 override and Gradle launcher task were removed. Production speech is routed through the in-app :voice service (Piper-first English, Kokoro optional); production inference is isolated in Friday's own :inference process. Remaining: full CI suite, actual Android integration proof, and physical Realme runtime validation."
     },
     {
       "id": "ONE-3-LIFETEST",
