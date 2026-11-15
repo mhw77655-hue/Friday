@@ -314,7 +314,7 @@ class TurnPathAssemblyTest {
             "the legacy Human Core must have been consulted for real: the pipeline's " +
                 "own slow path calls beginExchange before the engine does",
             "com.jarvis.app.latency.LatencyPipeline",
-            server.pipeline.javaClass.name
+            assembly.pipeline.javaClass.name
         )
     }
 
