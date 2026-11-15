@@ -4,7 +4,7 @@
 **Working branch:** `audit/friday-offline-runtime`  
 **Estimated end-state implementation progress:** **about 31%**
 
-This is a milestone-weighted engineering estimate, not a line-count metric and not a claim that 30% of the app is production-ready. The project has 16 equally weighted outcome milestones. Each score estimates how much of that milestone's required outcome is implemented, not merely planned. The rounded total is 31%.
+This is a milestone-weighted engineering estimate, not a line-count metric and not a claim that 30% of the app is production-ready. The project has 16 equally weighted outcome milestones. Each score estimates how much of that milestone's required outcome is implemented, not merely planned. The rounded total is 32%.
 
 | # | Outcome milestone | Estimated completion | Remaining proof / work |
 |---:|---|---:|---|
@@ -17,7 +17,7 @@ This is a milestone-weighted engineering estimate, not a line-count metric and n
 | 7 | Experience-driven developmental learning | 25% | Demonstrate durable behaviour changes caused by real experience, not just stored memories |
 | 8 | Predictive cognition / JEPA-inspired mechanisms | 20% | Mature prediction-error learning and evidence of useful low-cost predictive behaviour |
 | 9 | Self-model and individuality | 30% | Calibrated self-knowledge and stable preference/strategy evolution |
-| 10 | Capability Foundry | 40% | Broader safe tool synthesis, outcome learning and stronger validation coverage |
+| 10 | Capability Foundry | 42% | Broader safe tool synthesis, outcome learning and stronger validation coverage |
 | 11 | Native phone capabilities | 45% | Complete voice-to-action coverage, permissions, device-specific reliability |
 | 12 | Autonomous self-development | 22% | Source index generation and runtime reading are implemented; still need a persistent objective queue and guarded tool-improvement cycle |
 | 13 | Security, provenance and rollback | 40% | Full self-modification authorization, signed native update and rollback proof |
@@ -31,7 +31,8 @@ This is a milestone-weighted engineering estimate, not a line-count metric and n
 - Connected speech-recognition results to a persistent phone-command orchestrator. It supports natural polite command phrasing, short-lived spoken confirmation, cancellation, and invalidation of stale confirmation requests.
 - Added tests for local fallback, Jev rejection, consequential-action evaluation, confirmation, cancellation, expiry, natural spoken phrasing, overlapping commands and contained Android execution failures.
 - Reused one process-scoped Jev HTTP client so requests share the connection pool instead of constructing a new client for each command.
-- Wired the production ToolBuilder to Friday's existing ModelManager through LlmSpecSynthesizer. A custom typed capability contract now lets the model synthesize tools outside the five deterministic examples; a production-composition integration test builds and routes a model-generated word_count tool.
+- Wired the production ToolBuilder to Friday's existing ModelManager through LlmSpecSynthesizer. A custom typed capability contract now lets the model synthesize tools outside the five deterministic examples.
+- Promoted generated tools now register into the same CapabilityFabric used by Friday's primary CognitiveEngine; rollback unregisters the capability. Integration coverage invokes a generated word_count tool through both the builder's legacy route and the primary cognitive fabric.
 - Research-first is now opt-in. When requested, evidence-labeled research hypotheses are passed into the synthesis constraints; a verified-research requirement blocks promotion unless a VERIFIED mechanism is actually present.
 - Candidate synthesis now propagates coroutine cancellation rather than swallowing it as an ordinary failed candidate.
 - Persistent, resource-gated self-study scheduled with Android WorkManager.
@@ -52,4 +53,4 @@ This is a milestone-weighted engineering estimate, not a line-count metric and n
 
 ## Percentage method
 
-Each of the 16 milestones contributes 6.25 percentage points to the overall estimate. The individual completion values above sum to 502 percentage points; divided by 16 gives 31%. Scores are deliberately partial where code exists but the acceptance proof is missing. Physical-device validation and the first complete release remain at zero.
+Each of the 16 milestones contributes 6.25 percentage points to the overall estimate. The individual completion values above sum to 504 percentage points; divided by 16 gives 32%. Scores are deliberately partial where code exists but the acceptance proof is missing. Physical-device validation and the first complete release remain at zero.
