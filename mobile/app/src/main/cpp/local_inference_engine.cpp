@@ -11,6 +11,7 @@
 #include <vector>
 #include <mutex>
 #include <thread>
+#include <sys/resource.h>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -87,6 +88,13 @@ static int64_t elapsed_ms(std::chrono::steady_clock::time_point start) {
         std::chrono::steady_clock::now() - start).count();
 }
 
+// Process peak RSS is an Android-wide process signal, not a per-model allocation.
+static int64_t process_peak_rss_bytes() {
+    struct rusage usage {};
+    if (getrusage(RUSAGE_SELF, &usage) != 0) return 0;
+    return static_cast<int64_t>(usage.ru_maxrss) * 1024LL;
+}
+
 // ------------------------------------------------------------------
 // llama.cpp logging callback
 // ------------------------------------------------------------------
@@ -137,7 +145,7 @@ static void prewarm_thread_func(LlamaModel* model) {
     }
 
     model->metrics.load_time_ms = elapsed_ms(model->load_start);
-    model->metrics.peak_ram_bytes = ggml_used_mem(model->ctx);
+    model->metrics.peak_ram_bytes = process_peak_rss_bytes();
     model->metrics.current_ram_bytes = model->metrics.peak_ram_bytes;
 
     set_state_locked(model, LLAMA_STATE_READY);
@@ -449,7 +457,7 @@ const char* llama_model_generate(
 
     auto gen_time = elapsed_ms(model->generation_start);
     model->metrics.tokens_per_sec = model->completion_tokens / (gen_time / 1000.0f);
-    model->metrics.current_ram_bytes = ggml_used_mem(model->ctx);
+    model->metrics.current_ram_bytes = process_peak_rss_bytes();
     if (model->metrics.current_ram_bytes > model->metrics.peak_ram_bytes) {
         model->metrics.peak_ram_bytes = model->metrics.current_ram_bytes;
     }
@@ -586,7 +594,7 @@ int llama_tokenizer_count(LlamaTokenizer* tokenizer, const char* text) {
 // Utility functions
 // ------------------------------------------------------------------
 const char* llama_version() {
-    static std::string version = "llama.cpp " + std::string(llama_version_string());
+    static std::string version = "llama.cpp b12248";
     return version.c_str();
 }
 

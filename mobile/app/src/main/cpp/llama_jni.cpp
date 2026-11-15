@@ -133,15 +133,15 @@ JNI_CLASS(nativeGetHealth)(JNIEnv* env, jobject thiz, jlong handle) {
         health.context_ready,
         errorMsg,
         health.last_activity_ms,
-        health.load_time_ms,
-        health.first_token_ms,
-        health.tokens_per_sec,
-        health.peak_ram_bytes,
-        health.current_ram_bytes,
-        health.prompt_tokens,
-        health.completion_tokens,
-        health.total_tokens,
-        health.cpu_percent
+        health.metrics.load_time_ms,
+        health.metrics.first_token_ms,
+        health.metrics.tokens_per_sec,
+        health.metrics.peak_ram_bytes,
+        health.metrics.current_ram_bytes,
+        health.metrics.prompt_tokens,
+        health.metrics.completion_tokens,
+        health.metrics.total_tokens,
+        health.metrics.cpu_percent
     );
 
     if (errorMsg) env->DeleteLocalRef(errorMsg);
