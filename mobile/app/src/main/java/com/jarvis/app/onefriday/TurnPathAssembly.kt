@@ -61,16 +61,12 @@ import com.jarvis.app.social.PersonRelationshipModel
 /**
  * ONE-2-COMPOSITION: the ONE composition root for the turn path.
  *
- * Before this there were two. The phone built one Friday inside
- * `JarvisEngine.init`; the Termux/plain-JVM host built a second, different one
- * inside `TermuxJarvisServer` — same organs on paper, different behaviour in
- * practice: the JVM host stubbed the legacy Human Core's three turn calls to
- * no-ops, reported an all-clear resource snapshot, and skipped the emotion tier
- * on the per-turn mental-state reading. Evidence gathered on one did not speak
- * for the other, which is the deviation VISION.md Section 12 discloses.
+ * A historical standalone JVM/Termux experiment built a second composition
+ * and diverged from the phone. It is retained only as a test fixture; it is not
+ * a production host and is not packaged in Friday.
  *
  * This class builds the turn path ONCE. Everything that decides a cognitive
- * outcome is decided here, for every host:
+ * outcome is decided here for Friday's Android production runtime:
  *
  *   storage dir / device reading / clock / speech sinks / stores -> [PlatformPorts]
  *   claim workspace, memory, identity, emotion, social, continuity,
@@ -85,8 +81,8 @@ import com.jarvis.app.social.PersonRelationshipModel
  * pipelines and permanent cognitive ownership.
  *
  * Not an ORGAN (no cognitive role, per Section 4). A composition root is the
- * order of construction, and it is replaceable: both hosts construct this exact
- * class, so replacing it replaces both.
+ * order of construction. Desktop tests may assemble this same root with test
+ * doubles, but AndroidPlatformPorts is the only production adapter.
  */
 class TurnPathAssembly private constructor(
     /** The claim store every migrated organ publishes into and reads from. */
@@ -194,17 +190,15 @@ class TurnPathAssembly private constructor(
          * Build the whole turn path for [ports].
          *
          * There is exactly ONE ModelManager, ONE ResourceGovernor and ONE
-         * LatencyPipeline per Friday, and both hosts get them from here — that
-         * sameness is the whole point, since the two old compositions differed
-         * in exactly this wiring.
+         * LatencyPipeline per Friday. The Android app obtains all three from
+         * this root; test fixtures may assemble it without becoming product hosts.
          */
         fun assemble(ports: PlatformPorts): TurnPathAssembly {
             val stores = ports.stores()
 
             // ── The legacy Human Core, exactly as the app wires it ─────────────
-            // Quarantined scaffolding (VISION.md Section 12): constructed here so
-            // every host reaches the same singleton, and called below through
-            // the real facade on every host. Nothing is added to it.
+            // Quarantined legacy scaffolding (VISION.md Section 12): constructed
+            // here and called through its real facade. Nothing is added to it.
             HumanCore.init(
                 storage = ports.humanCoreStorage(),
                 memorySink = ports.humanCoreMemorySink()
@@ -238,7 +232,7 @@ class TurnPathAssembly private constructor(
             )
 
             // ── Emotion: the Tier-1 reader feeds the ONE estimator seam ────────
-            // One estimator, one hypothesis per turn, for every host. The emotion
+            // One estimator and one hypothesis per turn in the Android runtime. The emotion
             // reading rides the existing identity path instead of opening a
             // second one.
             val emotionFusion = FusionLayerTier1()
@@ -382,10 +376,9 @@ class TurnPathAssembly private constructor(
             )
 
             // ── The entry point ────────────────────────────────────────────────
-            // Wired identically for every host: the real Human Core facade, the
-            // host's speech/UI sinks, and the host's clock. The JVM host used to
-            // hand this constructor three no-op lambdas; it now gets the same
-            // calls the phone gets.
+            // Wired once for Android: the real Human Core facade, the app's
+            // speech/UI sinks, and the app's clock. Test adapters exercise this
+            // same path without defining another production host.
             val humanCoreTurnPort = HumanCoreTurnPort()
             val pipeline = LatencyPipeline(
                 dispatch = { block -> ports.runTurnWork(block) },
@@ -470,9 +463,8 @@ class TurnPathAssembly private constructor(
         }
 
         /**
-         * The real local-model backend, over the shared local Ollama host. The
-         * phone and the JVM host both reach a local model the same way; the phone
-         * passes its process Context in through its own adapter instead.
+         * Legacy local-model adapter retained for explicit tests/tools. The
+         * Android production path uses ProcessIsolatedModelBackend instead.
          */
         fun localModelBackend(
             host: String = OLLAMA_HOST,
@@ -493,7 +485,7 @@ class TurnPathAssembly private constructor(
  * A port, not a mechanism: it adds nothing to [HumanCore] and decides nothing.
  * It exists so the three turn calls the entry pipeline makes are one named,
  * inspectable seam instead of three lambdas written separately per host — which
- * is exactly how the JVM host ended up with no-ops no test could see.
+ * is exactly how the former test host ended up with no-ops no test could see.
  */
 class HumanCoreTurnPort(
     private val humanCore: HumanCore = HumanCore
