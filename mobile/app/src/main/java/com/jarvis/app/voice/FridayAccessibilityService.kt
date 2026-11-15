@@ -58,7 +58,7 @@ class FridayAccessibilityService : AccessibilityService() {
     private fun describeActiveWindow(): String {
         val root = rootInActiveWindow ?: return "No accessible active window."
         val output = StringBuilder()
-        output.append("package=").append(root.packageName ?: "unknown").append('\\n')
+        output.append("package=").append(root.packageName ?: "unknown").append('\n')
         var visited = 0
 
         fun visit(node: AccessibilityNodeInfo, depth: Int) {
@@ -72,12 +72,12 @@ class FridayAccessibilityService : AccessibilityService() {
             ) {
                 output.append("node=")
                     .append(listOf(text, description, resourceId).filter { it.isNotBlank() }
-                        .joinToString(" | ") { it.replace('\\n', ' ').take(90) })
+                        .joinToString(" | ") { it.replace('\n', ' ').take(90) })
                     .append(";clickable=").append(node.isClickable)
                     .append(";editable=").append(node.isEditable)
                     .append(";focused=").append(node.isFocused)
                     .append(";scrollable=").append(node.isScrollable)
-                    .append('\\n')
+                    .append('\n')
             }
             for (index in 0 until node.childCount) {
                 if (visited >= 80) break
