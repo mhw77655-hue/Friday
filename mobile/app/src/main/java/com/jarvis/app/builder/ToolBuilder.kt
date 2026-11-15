@@ -1,6 +1,7 @@
 package com.jarvis.app.builder
 
 import com.jarvis.app.evolution.EvolutionEngine
+import com.jarvis.app.evolution.PromotionReceipt
 import com.jarvis.app.evolution.GenomeFactory
 import com.jarvis.app.failure.FailureCategory
 import com.jarvis.app.failure.FailureReport
@@ -167,6 +168,7 @@ class ToolBuilder(
             strategy = best.implementation.spec.strategy.name,
             fitness = best.decision.score,
             rollbackPoint = receipt.rollbackPoint?.previousGenomeId,
+            promotionReceipt = receipt,
             candidates = run.candidates,
             message = "built + promoted '${spec.capability}' (${best.implementation.spec.strategy.name}) — callable=${discovered}",
             researchNote = researchNote,
@@ -201,6 +203,8 @@ data class BuildResult(
     val strategy: String? = null,
     val fitness: Double? = null,
     val rollbackPoint: String? = null,
+    /** Full rollback receipt; the previous capability index cannot be reconstructed from an id alone. */
+    val promotionReceipt: PromotionReceipt? = null,
     val candidates: List<com.jarvis.app.evolution.EvaluatedCandidate> = emptyList(),
     val message: String,
     val researchNote: String? = null,
