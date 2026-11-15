@@ -73,16 +73,6 @@ object JarvisEngine {
         private set
     @Volatile var offlineModelBackend: com.jarvis.app.model.ProcessIsolatedModelBackend? = null
         private set
-    // VOICE-FORGE-EGYPTIAN-KAREN-TTS: the spoken-reply speech backend, built at
-    // the SAME composition point as the other model backends (see init()). The
-    // live reply sink routes full replies through it; the platform TTS path is
-    // only the failure fallback.
-    @Volatile var voiceForgeBackend: com.jarvis.app.voice.VoiceForgeBackend? = null
-        private set
-    // ONE-2-COMPOSITION: the adapter the ONE composition root builds that single
-    // backend from. Exposed so the adapter exists before the turn path does.
-    @Volatile var voiceForgeSynthesizer: com.jarvis.app.voice.VoiceForgeSynthesizer? = null
-        private set
     @Volatile var runtimeBinder: RuntimeBinder? = null
         private set
     @Volatile var sessionManager: com.jarvis.app.session.SessionManager? = null
@@ -221,24 +211,6 @@ object JarvisEngine {
         JarvisEngine.offlineModelBackend = offlineModelBackend
         JarvisEngine.adapterManifest = adapterManifest
 
-        // VOICE-FORGE-EGYPTIAN-KAREN-TTS (AC2): VoiceForgeAdapter +
-        // VoiceForgeBackend constructed HERE — the SAME composition point as
-        // the other model backends (OllamaAdapter/OllamaModelBackend above).
-        // Same local-server + thin-adapter pattern: a real Python Chatterbox
-        // Multilingual server in Termux (voiceforge/voiceforge_server.py, base
-        // weights = Egyptian fine-tune) behind a real okhttp Kotlin adapter.
-        // The platform-TTS fallback is supplied per-reply by the live speech
-        // sink (see setStreamingSpeak below), so this file owns the primary
-        // voice and never recurses into it.
-        val voiceForgeAdapter = com.jarvis.app.voice.VoiceForgeAdapter(appContext)
-        voiceForgeAdapter.configure(
-            com.jarvis.app.voice.VoiceForgeConfig(authToken = com.jarvis.app.voice.VoiceForgeConfig.DEFAULT_AUTH_TOKEN)
-        )
-        // ONE-2-COMPOSITION: the VoiceForgeBackend is built by the ONE
-        // composition root from this adapter, so there is one of them; the
-        // public handle below is bound to that one inside init.
-        JarvisEngine.voiceForgeSynthesizer = voiceForgeAdapter
-
         val sessionManager = com.jarvis.app.session.SessionManager(appContext, fileStorage, scope)
         val taskInbox = com.jarvis.app.inbox.LocalTaskInbox(fileStorage, scope)
         val approvalQueue = com.jarvis.app.approvals.LocalApprovalQueue(fileStorage, scope)
@@ -366,7 +338,6 @@ object JarvisEngine {
                     },
                     failureSurface = failureSurface,
                     modelBackend = offlineModelBackend,
-                    voiceSynthesizer = JarvisEngine.voiceForgeSynthesizer!!,
                     turnTraceStore = turnTraceStore,
                     threadTracker = threadTracker,
                     provenanceLedger = provenanceLedger,
@@ -379,7 +350,6 @@ object JarvisEngine {
             // init, so the layer adopts this one instead of building a second.
             val modelManager = assembly.modelManager
             this.modelManager = modelManager
-            this.voiceForgeBackend = assembly.voiceForgeBackend
             com.jarvis.app.latency.LatencyLayer.installPipeline(assembly.pipeline)
 
             val graphStore = assembly.graphStore
