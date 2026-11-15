@@ -2,9 +2,9 @@
 
 **Snapshot:** 2026-11-16  
 **Working branch:** `audit/friday-offline-runtime`  
-**Estimated end-state implementation progress:** **about 33%**
+**Estimated end-state implementation progress:** **about 31% (provisional)**
 
-This is a milestone-weighted engineering estimate, not a line-count metric and not a claim that 30% of the app is production-ready. The project has 16 equally weighted outcome milestones. Each score estimates how much of that milestone's required outcome is implemented, not merely planned. The rounded total is 33%.
+This is a milestone-weighted engineering estimate, not a line-count metric and not a claim that 30% of the app is production-ready. The project has 16 equally weighted outcome milestones. Each score estimates how much of that milestone's required outcome is implemented, not merely planned. The rounded total is 31%. This score is reduced to reflect the unverified and vision-conflicting in-app self-build lane.
 
 | # | Outcome milestone | Estimated completion | Remaining proof / work |
 |---:|---|---:|---|
@@ -19,7 +19,7 @@ This is a milestone-weighted engineering estimate, not a line-count metric and n
 | 9 | Self-model and individuality | 30% | Calibrated self-knowledge and stable preference/strategy evolution |
 | 10 | Capability Foundry | 45% | Broader safe tool synthesis, outcome learning and stronger validation coverage |
 | 11 | Native phone capabilities | 50% | Multi-step voice workflows, broader Android APIs, permissions and device-specific reliability |
-| 12 | Autonomous self-development | 30% | Guarded local self-study proposals now enter the existing pure-tool builder; still need executable rehydration, deeper source comprehension and restart-proof promotion |
+| 12 | Autonomous self-development | 15% | Phone-side evidence collection exists, but repository-native development request transport, external worker orchestration, durable synchronization, independent Vision gate and deployment feedback loop are not implemented. The current in-app builder path conflicts with the owner's explicit architecture and must be removed from production |
 | 13 | Security, provenance and rollback | 40% | Full self-modification authorization, signed native update and rollback proof |
 | 14 | Life tests | 20% | Full replay/disable/restart/model-replacement suite demonstrating genuine learning |
 | 15 | Real-device validation on the target phone | 0% | No verified test evidence from the owner's Realme 9 Pro 5G yet |
@@ -42,7 +42,7 @@ This is a milestone-weighted engineering estimate, not a line-count metric and n
 - Self-study now persists the actual learned host profile: minimum available memory, CPU EMA, thermal/low-memory sample counts, additional memory reserve, maximum process PSS, minimum battery, liquid-symbiosis generation/prediction error, and each organ's learned strategy.
 - Build-time source symbol index generation: source paths, package names, declaration names and a source revision digest are packaged as metadata. The index does not ship Kotlin source text.
 - The source index now includes internal package-import edges and file paths, not just symbol counts. Self-study passes this structural evidence, runtime wiring and measured host/organ data to Friday's existing local llama.cpp model for a short reflection.
-- Self-study reflections and one bounded pure-tool proposal are persisted across process restarts. A new guarded bridge can pass that proposal to the existing ToolBuilder as a pure String-to-String synth capability, only with at least 1.4 GB available headroom, normal thermal state, and battery headroom; it applies a six-hour retry cooldown and persists the build outcome. The existing isolated sandbox, generated tests, fitness gate, promotion and rollback still own the actual build. No native code, Android permission, phone-control or APK mutation is allowed in this lane.
+- Self-study reflections are persisted locally. The current head also contains a self-study-to-in-app-ToolBuilder bridge; this is now explicitly rejected by the owner's 2026-11-16 correction. It is not the intended self-development architecture and must be removed from production. Repository-side development request transport and external worker execution remain unimplemented.
 - PresenceEngine now uses PRESENT as Friday's canonical base state. Processing and tool use no longer become a THINKING presence mode; startup no longer transitions through ASLEEP/WAKING, and stale signals return to PRESENT. BodyState IDLE/THINKING remain internal event-pipeline stages, not existence states.
 - The on-demand reasoning organ retains a resource grace period while the resident anchor remains loaded; the resource cooldown is not a Friday idle mode.
 - Removed the Termux runtime-selection entry and the Termux backend test stub. The production app remains Android-native; no Termux host or setup path is required.
@@ -56,8 +56,8 @@ This is a milestone-weighted engineering estimate, not a line-count metric and n
 3. The source index enables structural self-inspection (file paths, declarations and package imports), not arbitrary Kotlin source comprehension or self-rewriting. The local model's reflection is bounded to this evidence.
 4. TypeSafe Jev remains an optional hosted decision faculty, not a downloadable model or Friday's primary intelligence. Friday calls the System One API for typed Choice, Score and Noul evaluations; Friday's local model forms the action plan and the Android body executes it under local policy.
 5. Native app changes still require a signed, verified Android update. Friday must not silently replace her installed package.
-6. Self-study proposals can now be built and promoted inside the running process through the guarded pure-tool lane. Promoted DSL tools are still registered in process-local registries; verified executable-artifact restoration and re-registration after process death remain release blockers.
+6. The in-app ToolBuilder and self-study-to-builder bridge are architectural blockers under the owner's 2026-11-16 instruction. Replace them with a durable development-request handoff to connected repository workers; keep all source edits, code execution, tests, builds and artifact signing outside Android.
 
 ## Percentage method
 
-Each of the 16 milestones contributes 6.25 percentage points to the overall estimate. The individual completion values above sum to 528 percentage points; divided by 16 gives 33%. Scores are deliberately partial where code exists but the acceptance proof is missing. Physical-device validation and the first complete release remain at zero.
+Each of the 16 milestones contributes 6.25 percentage points to the overall estimate. The individual completion values above must be recalculated after the self-development milestone correction; the 31% headline is a provisional judgment, not an exact sum. Scores are deliberately partial where code exists but the acceptance proof is missing. Physical-device validation and the first complete release remain at zero.
