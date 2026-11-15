@@ -171,17 +171,20 @@ object JarvisEngine {
         val appContext = context.applicationContext
         this.appContext = appContext
 
+        // Create the failure surface before other fallible bootstrap work so
+        // even storage/backend construction failures can be recorded.
+        val failureSurface = com.jarvis.app.failure.FailureSurface()
+        this.failureSurface = failureSurface
+
         // Synchronous section: pure object-graph construction (no network, no
         // disk beyond mkdirs, no coroutine launches beyond each store's lazy
-        // load). Runs on the main thread before any screen composes, so every
-        // getX() helper can assume these singletons are non-null.
+        // load). Readiness remains WAKING until every required organ is wired.
         val fileStorage = FileStorage(appContext.filesDir)
         // LAUNCH-OLLAMA-DOWN: the failure surface exists BEFORE the scope, so
         // the ONE engine scope can record an uncaught organ failure into it.
         // The scope is built by the shared containment factory — never a bare
         // CoroutineScope, which has no supervisor and no exception handler (the
         // shape that killed main and :voice when the model server was down).
-        val failureSurface = com.jarvis.app.failure.FailureSurface()
         val scope = com.jarvis.app.failure.EngineContainment.scope(
             name = "jarvis-engine",
             failureSurface = failureSurface,
@@ -222,7 +225,6 @@ object JarvisEngine {
         val failureStore = com.jarvis.app.failure.FailureStore(fileStorage, scope)
         val recoveryController = com.jarvis.app.failure.RecoveryController(failureSurface, scope)
         failureStore.attach(failureSurface)
-        this.failureSurface = failureSurface
         this.failureStore = failureStore
         this.recoveryController = recoveryController
         this.selfDiagnosis = com.jarvis.app.failure.SelfDiagnosis(failureSurface)
