@@ -1,6 +1,8 @@
 package com.jarvis.app.symbiosis
 
+import android.app.ActivityManager
 import android.content.Context
+import android.os.Build
 import com.jarvis.app.model.AndroidResourceSnapshot
 import com.jarvis.app.model.ResourceSnapshot
 import kotlinx.coroutines.CoroutineScope
@@ -9,7 +11,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Properties
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +19,8 @@ import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Android host adapter for NAE. It observes the host and learns bounded
- * workload statistics. It never requests root or changes other applications.
+ * workload statistics plus a content-free, persistent profile of this device.
+ * It never requests root or changes other applications.
  */
 class NanoSymbioticController(
     context: Context,
@@ -28,8 +30,12 @@ class NanoSymbioticController(
     private val device = AndroidResourceSnapshot(appContext)
     private val policy = NanoSymbioticPolicy()
     private val evidenceFile = File(storageDir, "symbiosis/workload-evidence.properties")
+    private val hostStudyFile = File(storageDir, "symbiosis/host-study.properties")
+    private val fingerprint = readHostFingerprint()
+    private val hostStudy = HostStudy(fingerprint, loadHostStudy())
     private var monitor: Job? = null
     @Volatile private var workerScope: CoroutineScope? = null
+    @Volatile private var lastHostStudyPersistAtMs: Long = 0L
 
     private val mutablePlan = MutableStateFlow(
         SymbioticPlan(
@@ -42,6 +48,9 @@ class NanoSymbioticController(
         )
     )
     val plan: StateFlow<SymbioticPlan> = mutablePlan.asStateFlow()
+
+    /** Read-only view of what NAE has learned about this exact host profile. */
+    fun hostStudySnapshot(): HostStudyRecord = hostStudy.snapshot()
 
     init {
         loadEvidence()
@@ -105,19 +114,47 @@ class NanoSymbioticController(
     }
 
     private fun refresh() {
-        mutablePlan.value = policy.plan(readHost())
+        val host = readHost()
+        mutablePlan.value = policy.plan(host)
+        val now = System.currentTimeMillis()
+        val processPssMb = android.os.Debug.getPss().toLong().coerceAtLeast(0L) / 1024L
+        hostStudy.observe(host, processPssMb, now)
+        // Avoid turning a 15-second observer into a continuous flash-write loop.
+        // Persist immediately on first sample, then at most once per minute.
+        if (lastHostStudyPersistAtMs == 0L || now - lastHostStudyPersistAtMs >= 60_000L) {
+            persistHostStudy()
+            lastHostStudyPersistAtMs = now
+        }
     }
 
     private fun readHost(): HostResourceState {
-        val snapshot = device
         val storage = android.os.StatFs(storageDir.absolutePath).availableBytes / (1024L * 1024L)
         return HostResourceState(
-            availableMemoryMb = snapshot.availableMemoryMb,
-            cpuLoadPercent = snapshot.cpuLoadPercent,
-            thermalLevel = snapshot.thermalLevel,
-            batteryPercent = snapshot.batteryPercent,
-            isCharging = snapshot.isCharging,
+            availableMemoryMb = device.availableMemoryMb,
+            cpuLoadPercent = device.cpuLoadPercent,
+            thermalLevel = device.thermalLevel,
+            batteryPercent = device.batteryPercent,
+            isCharging = device.isCharging,
             availableStorageMb = storage
+        )
+    }
+
+    private fun readHostFingerprint(): HostFingerprint {
+        val manager = appContext.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val memory = ActivityManager.MemoryInfo()
+        manager.getMemoryInfo(memory)
+        val soc = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) Build.SOC_MODEL else ""
+        return HostFingerprint(
+            manufacturer = Build.MANUFACTURER.orEmpty(),
+            model = Build.MODEL.orEmpty(),
+            device = Build.DEVICE.orEmpty(),
+            socModel = soc,
+            board = Build.BOARD.orEmpty(),
+            androidApi = Build.VERSION.SDK_INT,
+            totalMemoryMb = memory.totalMem / (1024L * 1024L),
+            appMemoryClassMb = manager.memoryClass,
+            cpuCoreCount = Runtime.getRuntime().availableProcessors(),
+            primaryAbi = Build.SUPPORTED_ABIS.firstOrNull().orEmpty()
         )
     }
 
@@ -140,6 +177,71 @@ class NanoSymbioticController(
                 key to value
             }.forEach { (key, value) -> records[key] = value }
             policy.restore(records)
+        }
+    }
+
+    private fun loadHostStudy(): HostStudyRecord? {
+        if (!hostStudyFile.isFile) return null
+        return runCatching {
+            val p = Properties()
+            hostStudyFile.inputStream().use { p.load(it) }
+            val savedFingerprint = HostFingerprint(
+                manufacturer = p.getProperty("manufacturer", ""),
+                model = p.getProperty("model", ""),
+                device = p.getProperty("device", ""),
+                socModel = p.getProperty("socModel", ""),
+                board = p.getProperty("board", ""),
+                androidApi = p.getProperty("androidApi")?.toIntOrNull() ?: -1,
+                totalMemoryMb = p.getProperty("totalMemoryMb")?.toLongOrNull() ?: -1L,
+                appMemoryClassMb = p.getProperty("appMemoryClassMb")?.toIntOrNull() ?: -1,
+                cpuCoreCount = p.getProperty("cpuCoreCount")?.toIntOrNull() ?: -1,
+                primaryAbi = p.getProperty("primaryAbi", "")
+            )
+            if (savedFingerprint != fingerprint) return@runCatching null
+            HostStudyRecord(
+                fingerprint = savedFingerprint,
+                sampleCount = p.getProperty("sampleCount")?.toLongOrNull() ?: 0L,
+                minimumAvailableMemoryMb = p.getProperty("minimumAvailableMemoryMb")?.toLongOrNull() ?: Long.MAX_VALUE,
+                maximumCpuLoadPercent = p.getProperty("maximumCpuLoadPercent")?.toDoubleOrNull() ?: 0.0,
+                averageCpuLoadEmaPercent = p.getProperty("averageCpuLoadEmaPercent")?.toDoubleOrNull() ?: 0.0,
+                thermalPressureSamples = p.getProperty("thermalPressureSamples")?.toLongOrNull() ?: 0L,
+                lowMemorySamples = p.getProperty("lowMemorySamples")?.toLongOrNull() ?: 0L,
+                minimumBatteryPercent = p.getProperty("minimumBatteryPercent")?.toIntOrNull() ?: 100,
+                maximumObservedProcessPssMb = p.getProperty("maximumObservedProcessPssMb")?.toLongOrNull() ?: 0L,
+                lastObservedAtMs = p.getProperty("lastObservedAtMs")?.toLongOrNull() ?: 0L
+            )
+        }.getOrNull()
+    }
+
+    private fun persistHostStudy() {
+        runCatching {
+            val r = hostStudy.snapshot()
+            hostStudyFile.parentFile?.mkdirs()
+            val p = Properties().apply {
+                setProperty("manufacturer", r.fingerprint.manufacturer)
+                setProperty("model", r.fingerprint.model)
+                setProperty("device", r.fingerprint.device)
+                setProperty("socModel", r.fingerprint.socModel)
+                setProperty("board", r.fingerprint.board)
+                setProperty("androidApi", r.fingerprint.androidApi.toString())
+                setProperty("totalMemoryMb", r.fingerprint.totalMemoryMb.toString())
+                setProperty("appMemoryClassMb", r.fingerprint.appMemoryClassMb.toString())
+                setProperty("cpuCoreCount", r.fingerprint.cpuCoreCount.toString())
+                setProperty("primaryAbi", r.fingerprint.primaryAbi)
+                setProperty("sampleCount", r.sampleCount.toString())
+                setProperty("minimumAvailableMemoryMb", r.minimumAvailableMemoryMb.toString())
+                setProperty("maximumCpuLoadPercent", r.maximumCpuLoadPercent.toString())
+                setProperty("averageCpuLoadEmaPercent", r.averageCpuLoadEmaPercent.toString())
+                setProperty("thermalPressureSamples", r.thermalPressureSamples.toString())
+                setProperty("lowMemorySamples", r.lowMemorySamples.toString())
+                setProperty("minimumBatteryPercent", r.minimumBatteryPercent.toString())
+                setProperty("maximumObservedProcessPssMb", r.maximumObservedProcessPssMb.toString())
+                setProperty("lastObservedAtMs", r.lastObservedAtMs.toString())
+            }
+            val temp = File(hostStudyFile.parentFile, hostStudyFile.name + ".tmp")
+            temp.outputStream().use { p.store(it, "NAE host study; technical aggregates only") }
+            if (hostStudyFile.exists()) hostStudyFile.delete()
+            temp.renameTo(hostStudyFile)
         }
     }
 
