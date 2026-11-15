@@ -95,14 +95,36 @@ class ToolBuilder(
                 "cross-domain research surfaced ${result.candidates.size} mechanism(s) (stored=${result.storedCount})"
         }
         val researchCandidates = researchPersisted?.candidates.orEmpty()
+        if (spec.requireVerifiedResearch && researchCandidates.none { it.evidence.isProof }) {
+            return BuildResult(
+                spec = spec,
+                built = false,
+                gapDetected = true,
+                status = "RESEARCH_NOT_VERIFIED",
+                message = "verified research was required, but no VERIFIED mechanism with sufficient evidence was found",
+                researchNote = researchNote,
+                researchCandidates = researchCandidates
+            )
+        }
 
-        // DESIGN: derive the child genome from the behavior
-        val parent = GenomeFactory.genomeFor(spec.toRequirement())
+        // Research output is passed into synthesis as evidence-labeled hypotheses,
+        // rather than being merely logged beside the generated capability.
+        val usableResearch = if (spec.requireVerifiedResearch) researchCandidates.filter { it.evidence.isProof } else researchCandidates
+        val enrichedRequirement = spec.toRequirement().copy(
+            constraints = spec.constraints + usableResearch.take(3).map { candidate ->
+                "Research ${candidate.evidence.status} (confidence=${candidate.confidence}): " +
+                    "${candidate.principle}. Sketch: ${candidate.implementationSketch}. " +
+                    "Treat this as an experiment input, not established truth."
+            }
+        )
+
+        // DESIGN: derive the child genome from the enriched behavioral requirement.
+        val parent = GenomeFactory.genomeFor(enrichedRequirement)
 
         // EVOLVE through the full loop inside the mutant habitat
         val run = evolution.evolve(
             parent = parent,
-            requirement = spec.toRequirement(),
+            requirement = enrichedRequirement,
             mutateFirst = true
         )
 
