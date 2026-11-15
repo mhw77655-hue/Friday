@@ -396,9 +396,13 @@ const char* llama_model_generate(
         }
 
         // Decode token to text
-        char token_str[256];
+        char token_str[1024];
         int n = llama_token_to_piece(vocab, token, token_str, sizeof(token_str), 0, true);
         if (n > 0) {
+            if (n >= static_cast<int>(sizeof(token_str))) {
+                LOGW("Token piece exceeded the decode buffer");
+                continue;
+            }
             token_str[n] = '\0';
             generated_text += token_str;
             generated_tokens.push_back(token);
