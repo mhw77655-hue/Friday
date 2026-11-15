@@ -54,8 +54,6 @@ jobs:
             "cmake;3.22.1" \
             --sdk_root="$ANDROID_HOME"
 
-      # Device-only settings that break a clean Linux runner (AC4, no Kotlin
-      # source edited): gradle.properties points android.aapt2FromMavenOverride
       # at a Termux-only /data/data/com.termux/... binary that does not exist
       # here; AGP falls back to the Maven aapt2 for this platform.
       - name: Neutralize Termux-only gradle.properties override
