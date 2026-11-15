@@ -28,8 +28,8 @@ The Jev service is hosted. It requires internet and a TypeSafe account/API key; 
 - Media: play, pause, next track, previous track through an accessible media session
 - Volume: increase/decrease media volume
 - Screen: scroll up/down
-- Semantic UI: Friday's existing model can select a visible text label, content description or Android view ID from the current screen snapshot, then tap it after spoken confirmation
-- Text entry: type the exact user-requested text into a verified focused editable field, with spoken confirmation and a 1000-character per-action limit
+- Semantic UI: Friday's existing model can select a visible text label, content description or Android view ID from the current screen snapshot. Jev-approved low-risk navigation can execute directly; consequential targets such as Send, Delete, Pay, Transfer, Install or Reset still require spoken confirmation.
+- Text entry: type the exact user-requested text into a verified focused editable field, with a 1000-character per-action limit. Ordinary text is medium risk and may execute when Jev approves; password/PIN/card/recovery-key-like content is high risk and always requires local confirmation. The literal typed payload is redacted before Jev evaluation.
 - Natural device requests: one bounded action is planned at a time using the existing Friday model; if the target is missing or ambiguous, Friday asks a clarification rather than inventing a control
 
 Media control requires Android notification/media-session access. Accessibility actions require the user to enable Friday's accessibility service. Some apps expose little or no semantic accessibility information.
