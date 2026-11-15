@@ -26,6 +26,11 @@ class MainActivity : ComponentActivity() {
     ) { granted ->
         if (granted) {
             JarvisMic.start(lifecycleScope)
+            if (intent.getBooleanExtra(
+                    com.jarvis.app.voice.FridayVoiceInteractionSession.EXTRA_FRIDAY_VOICE_INVOCATION,
+                    false
+                )
+            ) beginAssistantListening()
         }
     }
 
