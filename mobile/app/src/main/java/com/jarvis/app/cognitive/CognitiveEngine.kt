@@ -655,7 +655,7 @@ class CognitiveEngine(
         generationPayload: String?,
         crossSessionMemories: List<String>,
         stageTimingsMs: Map<String, Long>,
-        predictions: List<String> = emptyList(),
+        predictions: List<com.jarvis.app.trace.TurnTrace.TracePrediction> = emptyList(),
         // FORGET-PROPAGATION (AC6): when true the text-bearing fields are
         // blanked AT WRITE so the forget turn's own trace never carries the
         // forgotten content — the record still exists, with id, turn index,
