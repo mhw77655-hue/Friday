@@ -42,6 +42,10 @@ The following are present in source on `audit/friday-offline-runtime`; presence 
 - Nano Liquid Symbiosis mechanisms that observe host constraints, learn workload outcomes, contribute a bounded reasoning-memory reserve to model admission, and suppress background self-study when its learned budget is exhausted.
 - A structural source index, runtime graph, host observations and local reflection. The source index is metadata, not Kotlin-source comprehension.
 - A self-study reflection now produces a bounded repository-development request proposal. A regression test protects the rule that Android is not a source-development environment.
+- Added a strict versioned request-envelope schema/validator, privacy approval requirement and credential screening.
+- Added patch-path validation and tests to block edits to workflow/security control files and signing/release artifacts.
+- Added a read-only OpenCode proposal worker and a separate owner-restricted publisher workflow that can create draft PRs only. The Android build workflow now runs Builder contract tests with a read-only token and checkout credentials disabled.
+- These Builder changes are still in the unmerged foundation branch and have not passed a full current-head CI run. The example request is deliberately unapproved; the worker workflow has not been dispatched.
 
 ## Repository and verification state
 
