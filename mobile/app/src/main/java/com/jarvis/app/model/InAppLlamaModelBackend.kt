@@ -5,6 +5,7 @@ import com.jarvis.app.env.ModelSource
 import com.jarvis.app.model.adapters.LocalInferenceEngine
 import com.jarvis.app.model.config.ProviderConfig
 import com.jarvis.app.model.storage.ModelPathResolver
+import com.jarvis.app.model.storage.OfflineModelCatalog
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
@@ -26,22 +27,73 @@ class InAppLlamaModelBackend(context: Context) : ModelBackend {
 
     override suspend fun loadModel(config: ModelBackendConfig): ModelHandle {
         val handle = ModelHandle(ids.incrementAndGet(), config.modelId)
-        val modelFile = paths.resolve(config.modelPath, config.modelId)
-        if (modelFile == null) {
-            unavailable[handle] = "Model '${config.modelId}' is not installed in Friday's private model storage."
-            return handle
-        }
-
         try {
             val host = nano.observeHost()
             val recommended = nano.recommend(host)
-            val admission = NanoLiquidPolicy.admitModel(host, modelFile.length(), recommended.contextTokens)
-            if (!admission.allowed) {
-                unavailable[handle] = "Not loaded to protect your phone. ${admission.reason}"
-                return handle
+            val reasoningAlias = config.modelId.equals("jarvis-reasoning:latest", ignoreCase = true) &&
+                config.modelPath.isNullOrBlank()
+
+            var selectedFile: File? = null
+            var selectedProfile: NanoLiquidProfile? = null
+            var selectedModelId = config.modelId
+            var selectionReason = ""
+
+            if (reasoningAlias) {
+                var lastReason = "No installed reasoning candidate was found."
+                // Quality-first order: try the 4B reasoning candidate, then the 2B fallback.
+                // The tiny resident model is deliberately not used as a silent reasoning downgrade.
+                val candidates = listOf(OfflineModelCatalog.advanced, OfflineModelCatalog.reasoning)
+                for (asset in candidates) {
+                    val candidate = paths.resolve(null, asset.id) ?: continue
+                    val admission = NanoLiquidPolicy.admitModel(
+                        host,
+                        candidate.length(),
+                        recommended.contextTokens
+                    )
+                    if (!admission.allowed) {
+                        lastReason = admission.reason
+                        continue
+                    }
+                    selectedFile = candidate
+                    selectedProfile = admission.suggestedContextTokens?.let {
+                        recommended.copy(contextTokens = it)
+                    } ?: recommended
+                    selectedModelId = asset.id
+                    selectionReason = admission.reason
+                    break
+                }
+                if (selectedFile == null) {
+                    unavailable[handle] =
+                        "No installed reasoning model fits the phone's current resource budget. $lastReason " +
+                        "Friday did not load a smaller model silently; install a candidate or retry when the phone has more headroom."
+                    return handle
+                }
+            } else {
+                val candidate = paths.resolve(config.modelPath, config.modelId)
+                if (candidate == null) {
+                    unavailable[handle] =
+                        "Model '${config.modelId}' is not installed in Friday's private model storage."
+                    return handle
+                }
+                val admission = NanoLiquidPolicy.admitModel(
+                    host,
+                    candidate.length(),
+                    recommended.contextTokens
+                )
+                if (!admission.allowed) {
+                    unavailable[handle] = "Not loaded to protect your phone. ${admission.reason}"
+                    return handle
+                }
+                selectedFile = candidate
+                selectedProfile = admission.suggestedContextTokens?.let {
+                    recommended.copy(contextTokens = it)
+                } ?: recommended
+                selectionReason = admission.reason
             }
-            val profile = admission.suggestedContextTokens?.let { recommended.copy(contextTokens = it) }
-                ?: recommended
+
+            val modelFile = checkNotNull(selectedFile)
+            val profile = checkNotNull(selectedProfile)
+            nano.recordModelSelection(selectedModelId, selectionReason, profile.contextTokens)
             val engine = LocalInferenceEngine(appContext)
             configure(engine, modelFile, config, profile)
             val result = engine.load(LoadRequest(config.modelId))
