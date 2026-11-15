@@ -109,6 +109,14 @@ class SynthesisCompletionGate {
     @Synchronized
     fun isPending(utteranceId: String): Boolean = flightsById.containsKey(utteranceId)
 
+    /** Releases a reservation when a completed cache entry won the race. */
+    @Synchronized
+    fun forget(utteranceId: String): Boolean {
+        val flight = flightsById[utteranceId] ?: return false
+        remove(flight)
+        return true
+    }
+
     /** Cancel any outstanding work when a reply is interrupted or superseded. */
     @Synchronized
     fun cancelAll(reason: String): List<SynthesisOutcome.Failed> {
