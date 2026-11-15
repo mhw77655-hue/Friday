@@ -108,6 +108,7 @@ class InAppLlamaModelBackend(context: Context) : ModelBackend {
             val latencyMs = ((System.nanoTime() - startedAt) / 1_000_000L).coerceAtLeast(0L)
             controller.recordOutcome("model_load:$selectedModelId", result.success, latencyMs)
             if (!result.success) {
+                runCatching { engine.unload(UnloadRequest(config.modelId)) }
                 unavailable[handle] = result.error ?: "The local GGUF runtime could not load the model."
             } else {
                 engines[handle] = engine
@@ -203,7 +204,13 @@ class InAppLlamaModelBackend(context: Context) : ModelBackend {
                 modelId = config.modelId,
                 parameters = config.params + mapOf(
                     "context_window" to admission.contextTokens.toString(),
-                    "threads" to threadCount.toString()
+                    "threads" to threadCount.toString(),
+                    "batch_size" to when (admission.plan.mode) {
+                        SymbioticMode.CRITICAL -> "64"
+                        SymbioticMode.ECO -> "128"
+                        SymbioticMode.BALANCED -> "256"
+                        SymbioticMode.PERFORMANCE -> "512"
+                    }
                 )
             )
         )
