@@ -36,6 +36,7 @@ data class PredictionCalibration(
 data class SituationPrediction(
     val personKey: String,
     val likelyNext: Map<String, String>,
+    val baselineNext: Map<String, String>,
     val confidence: Double,
     val baselineConfidence: Double,
     val evidenceCount: Int,
@@ -181,7 +182,9 @@ class ExpectationStateEngine(
         val totalWeight = candidates.values.sumOf { it.weight }.coerceAtLeast(0.000001)
         val confidence = (best.weight / totalWeight).coerceIn(0.0, 1.0)
         val totalBaseline = baselineCounts.values.sumOf { it.first }.coerceAtLeast(1)
-        val baselineConfidence = (baselineCounts.values.maxOfOrNull { it.first } ?: 0).toDouble() / totalBaseline
+        val baselineEntry = baselineCounts.values.maxByOrNull { it.first }
+        val baselineConfidence = (baselineEntry?.first ?: 0).toDouble() / totalBaseline
+        val baselineNext = baselineEntry?.second ?: emptyMap()
         val calibration = store.loadCalibration(current.personKey)
         val cost = System.nanoTime() - started
         val eligible = calibration.settledSamples >= reflexEvidence &&
@@ -193,6 +196,7 @@ class ExpectationStateEngine(
         return SituationPrediction(
             personKey = current.personKey,
             likelyNext = best.fields,
+            baselineNext = baselineNext,
             confidence = confidence,
             baselineConfidence = baselineConfidence,
             evidenceCount = best.evidence,
@@ -210,7 +214,7 @@ class ExpectationStateEngine(
         val old = store.loadCalibration(prediction.personKey)
         val alpha = if (old.settledSamples < 8) 0.25 else 0.08
         val predictedScore = similarity(prediction.likelyNext, sanitize(actualNext.fields))
-        val baselineScore = prediction.baselineConfidence
+        val baselineScore = similarity(prediction.baselineNext, sanitize(actualNext.fields))
         val next = PredictionCalibration(
             settledSamples = old.settledSamples + 1,
             predictorAccuracyEma = if (old.settledSamples == 0) predictedScore
