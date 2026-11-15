@@ -61,9 +61,9 @@ import com.jarvis.app.social.PersonRelationshipModel
 /**
  * ONE-2-COMPOSITION: the ONE composition root for the turn path.
  *
- * A historical standalone JVM/Termux experiment built a second composition
- * and diverged from the phone. It is retained only as a test fixture; it is not
- * a production host and is not packaged in Friday.
+ * A plain-JVM harness exists only in test sources to exercise this same root
+ * with deterministic doubles. It is not a product host and is never packaged
+ * in Friday. Android is the only production host.
  *
  * This class builds the turn path ONCE. Everything that decides a cognitive
  * outcome is decided here for Friday's Android production runtime:
@@ -180,10 +180,10 @@ class TurnPathAssembly private constructor(
 
     companion object {
 
-        /** The local model host both platforms talk to today. */
+        /** The local model endpoint configured by the Android app today. */
         const val OLLAMA_HOST: String = "127.0.0.1:8080"
 
-        /** The resident model both platforms load today. */
+        /** The resident model configured by the Android app today. */
         const val RESIDENT_MODEL: String = "jarvis-resident:latest"
 
         /**
