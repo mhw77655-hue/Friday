@@ -72,7 +72,6 @@
         </service>
         <service
             android:name=".voice.FridayVoiceInteractionSessionService"
-            android:process=":voiceassistant"
             android:permission="android.permission.BIND_VOICE_INTERACTION"
             android:exported="true" />
 
