@@ -700,6 +700,12 @@ object JarvisEngine {
     suspend fun runApplicationSelfStudySlice(): Boolean {
         val study = applicationSelfStudy ?: return false
         val governor = nanoSymbiosis ?: return false
+        // The learned background-organ budget is a real scheduling input:
+        // when host pressure drives it to zero, self-study yields completely.
+        if (!governor.liquidSnapshot().organs
+                .getValue(com.jarvis.app.symbiosis.SymbioticOrgan.BACKGROUND)
+                .let { it.backgroundWeight > 0.0 }
+        ) return false
         val resources = governor.resourceSnapshot()
         if (resources.availableMemoryMb < 900L ||
             resources.thermalLevel >= 2 ||
