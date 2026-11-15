@@ -47,10 +47,22 @@ class AndroidCompositionContractTest {
     }
 
     @Test
+    fun `Android build configuration has no Termux toolchain dependency`() {
+        val gradleProperties = source("gradle.properties")
+        val appBuild = source("mobile/app/build.gradle.kts")
+
+        assertFalse(gradleProperties.contains("/data/data/com.termux"))
+        assertFalse(gradleProperties.contains("android.aapt2FromMavenOverride"))
+        assertFalse(appBuild.contains("runTermuxJarvisServer"))
+    }
+
+    @Test
     fun `Android production entry does not invoke an external host process`() {
         val productionFiles = listOf(
             "src/main/java/com/jarvis/app/JarvisEngine.kt",
             "src/main/java/com/jarvis/app/onefriday/AndroidPlatformPorts.kt",
+            "src/main/java/com/jarvis/app/onefriday/PlatformPorts.kt",
+            "src/main/java/com/jarvis/app/onefriday/TurnPathAssembly.kt",
             "src/main/java/com/jarvis/app/voice/VoiceService.kt",
             "src/main/java/com/jarvis/app/voice/VoiceOrganismHost.kt",
             "src/main/java/com/jarvis/app/model/InferenceService.kt"
@@ -58,6 +70,9 @@ class AndroidCompositionContractTest {
 
         productionFiles.forEach { source ->
             assertFalse(source.contains("TermuxJarvisServer"))
+            assertFalse(source.contains("JvmPlatformPorts"))
+            assertFalse(source.contains("VoiceForgeAdapter"))
+            assertFalse(source.contains("VoiceForgeBackend"))
             assertFalse(source.contains("ProcessBuilder("))
             assertFalse(source.contains("Runtime.getRuntime().exec("))
         }
