@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
@@ -35,13 +36,13 @@ fun VideoLibraryScreen() {
     var status by remember { mutableStateOf<String?>(null) }
     fun refresh() { videos = VideoInboxRepository.list(context) }
 
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (uris.isNotEmpty()) {
             scope.launch {
-                status = "Importing video…"
-                val imported = runCatching { VideoInboxRepository.importUri(context, uri) }.getOrNull()
+                status = "Importing ${uris.size} video(s)…"
+                val imported = runCatching { VideoInboxRepository.importUris(context, uris) }.getOrNull().orEmpty()
                 refresh()
-                status = if (imported != null) "Imported video successfully." else "Could not import this video. Check that it is a readable video file."
+                status = "Imported ${imported.size} of ${uris.size} selected video(s)."
             }
         }
     }
@@ -54,15 +55,20 @@ fun VideoLibraryScreen() {
     ) {
         Text("Video Library", style = MaterialTheme.typography.headlineSmall)
         Text(
-            "Share a saved TikTok to Friday, or choose a video file below. Friday copies it into private app storage; nothing is uploaded.",
+            "Share saved TikToks to Friday, or select multiple video files. Friday keeps imports in private app storage; nothing is uploaded.",
             style = MaterialTheme.typography.bodyMedium
         )
         Button(onClick = { picker.launch(arrayOf("video/*")) }) {
-            Text("Choose video")
+            Text("Choose videos")
         }
         status?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+        Text(
+            "Storage budget: up to 10% of device storage, capped at 8 GB. Friday preserves 512 MB free space. Delete clips below to reclaim storage.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         if (videos.isEmpty()) {
-            Text("No videos yet. In TikTok choose Share → Friday, or save/download the clip and choose it here.", style = MaterialTheme.typography.bodyLarge)
+            Text("No videos yet. In TikTok choose Share → Friday, or save/download clips and select them here.", style = MaterialTheme.typography.bodyLarge)
         } else {
             Text("${videos.size} imported video(s)", style = MaterialTheme.typography.labelLarge)
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -81,6 +87,15 @@ fun VideoLibraryScreen() {
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                        TextButton(onClick = {
+                            scope.launch {
+                                VideoInboxRepository.delete(context, video.id)
+                                refresh()
+                                status = "Deleted video and its sampled frames."
+                            }
+                        }) {
+                            Text("Delete")
+                        }
                     }
                 }
             }
