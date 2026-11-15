@@ -79,9 +79,15 @@ object ToolBuilderComposition {
         val mutantEnv = MutantEnvironment(factory, backend, sandbox, ArtifactManager(fileStorage))
 
         val registry = MicroSystemRegistry()
-        val genomeRegistry = GenomeRegistry()
         val governor = ResourceGovernor()
         val archive = GenomeArchive(fileStorage, scope)
+        // Restore evolutionary metadata before gap detection so a known genome
+        // is never mistaken for a never-seen capability. Executable tools still
+        // require a verified artifact/rehydration path before they are callable.
+        archive.loadFromDisk()
+        val genomeRegistry = GenomeRegistry().apply {
+            archive.allAccepted().forEach(::register)
+        }
         val router = CapabilityRouter(registry, failureSurface)
         val gns = GlobalNervousSystem(
             router = router,
