@@ -5,14 +5,14 @@ Friday uses TypeSafe Jev as a bounded decision organ, not as the conversational 
 ## Runtime loop
 
 1. Android speech recognition produces a transcript.
-2. Friday's deterministic parser maps only explicit, supported commands to a typed `PhoneControlCommand`.
-3. If a TypeSafe key is configured, `JevDecisionClient` sends the utterance, proposed action and risk tier to `POST https://api.typesafe.ai/v1/systemone` using `jev-latest`.
-4. Jev returns a typed `choice` plus confidence/probabilities: execute, confirm or reject.
-5. `JevPhoneActionPolicy` requires at least 0.90 confidence and execute probability.
-6. Android-side code still checks the actual permission/capability and executes the action. Jev cannot grant permissions or bypass Android restrictions.
-7. Friday reports the observed outcome; unsupported or unverified actions are not claimed as successful.
+2. Friday's deterministic parser handles simple, exact commands without an extra model call.
+3. For natural device requests outside that small vocabulary, Friday's existing `ModelManager` (the same brain used for conversation) receives the utterance plus a short-lived accessibility snapshot and emits one bounded typed `PhoneControlCommand`. This is not a second model. Password and editable-field contents are excluded from the screen snapshot.
+4. Friday's phone-action organ sends the proposed action to TypeSafe Jev's official `POST https://api.typesafe.ai/v1/systemone` endpoint using `jev-latest`, when the user has configured a key. Jev evaluates the same action through Choice, Score and Noul questions.
+5. Friday interprets those judgments through local thresholds and policy. Jev cannot execute Android actions, grant permissions, or override local confirmation.
+6. Android's accessibility service re-resolves the target against the current active screen and attempts the action only if the service and target are available.
+7. Friday reports the observed result; unsupported or unverified actions are not claimed as successful.
 
-If no Jev key is configured, Friday's offline fallback allows only the deterministic low-risk commands. If a key is configured but the Jev service cannot be reached, the action is held rather than silently bypassing the decision gate.
+If no Jev key is configured, Friday's local policy allows only recognized low-risk actions without confirmation; screen taps and text entry still require a short-lived spoken confirmation. If Jev is unavailable, the same local policy remains authoritative: low-risk allowlisted actions can proceed, while consequential actions require confirmation.
 
 ## Credential handling
 
@@ -28,7 +28,9 @@ The Jev service is hosted. It requires internet and a TypeSafe account/API key; 
 - Media: play, pause, next track, previous track through an accessible media session
 - Volume: increase/decrease media volume
 - Screen: scroll up/down
-- Semantic UI: tap visible text or type into the focused field (held pending a real confirmation flow)
+- Semantic UI: Friday's existing model can select a visible text label, content description or Android view ID from the current screen snapshot, then tap it after spoken confirmation
+- Text entry: type the exact user-requested text into a verified focused editable field, with spoken confirmation and a 1000-character per-action limit
+- Natural device requests: one bounded action is planned at a time using the existing Friday model; if the target is missing or ambiguous, Friday asks a clarification rather than inventing a control
 
 Media control requires Android notification/media-session access. Accessibility actions require the user to enable Friday's accessibility service. Some apps expose little or no semantic accessibility information.
 
@@ -37,8 +39,8 @@ Media control requires Android notification/media-session access. Accessibility 
 - Android restricts direct Wi-Fi toggling by ordinary third-party apps on modern versions. Friday opens the system connectivity panel rather than pretending it can toggle protected settings.
 - Secure windows, permission prompts and protected app surfaces remain inaccessible.
 - A typed Jev result is schema-safe, not guaranteed true. Confidence is a decision signal, not proof. High-impact actions need local checks and explicit user confirmation.
-- Arbitrary multi-step tasks, sending messages, purchases, deleting data and changing security settings are not auto-executed by this command layer.
+- The planner deliberately emits one action at a time. Multi-step workflows, message sending, purchases, deletion, and security changes are not silently chained or auto-executed; each consequential interaction remains visible and confirmation-gated.
 
 ## Validation
 
-Unit tests cover the Jev execute/confirm/reject policy, confidence threshold, and command parsing. Build and unit-test CI is required before this integration is considered verified on the development branch. Real device validation is still needed for the user's Android firmware, installed speech recognizer, accessibility semantics and media-session permissions.
+Unit tests cover the Jev execute/confirm/reject policy, Friday-model screen-action planning, refusal to invent targets, focused-field checks, confirmation, and command parsing. Build and unit-test CI is required before this integration is considered verified on the development branch. Real device validation is still needed for the user's Android firmware, installed speech recognizer, accessibility semantics and media-session permissions.
