@@ -122,8 +122,7 @@ class ToolBuilder(
         // EVOLVE through the full loop inside the mutant habitat
         val run = evolution.evolve(
             parent = parent,
-            requirement = enrichedRequirement,
-            mutateFirst = true
+            requirement = enrichedRequirement
         )
 
         if (!run.promoted || run.receipt == null || run.best == null) {
