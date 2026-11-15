@@ -70,7 +70,7 @@ class JepaLatentPredictor(
 
     @Synchronized
     fun observe(current: DoubleArray, action: Double, next: DoubleArray): Double =
-        observe(current, doubleArrayOf(action, 0.0, 0.0).take(actionDimensions).toDoubleArray(), next)
+        observe(current, DoubleArray(actionDimensions) { if (it == 0) action else 0.0 }, next)
 
     @Synchronized
     fun observe(current: DoubleArray, action: DoubleArray, next: DoubleArray): Double {
@@ -107,7 +107,7 @@ class JepaLatentPredictor(
 
     @Synchronized
     fun predict(current: DoubleArray, action: Double): DoubleArray =
-        predict(current, doubleArrayOf(action, 0.0, 0.0).take(actionDimensions).toDoubleArray())
+        predict(current, DoubleArray(actionDimensions) { if (it == 0) action else 0.0 })
 
     @Synchronized
     fun predict(current: DoubleArray, action: DoubleArray): DoubleArray {
