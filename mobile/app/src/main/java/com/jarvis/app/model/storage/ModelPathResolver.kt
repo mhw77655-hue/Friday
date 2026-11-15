@@ -53,7 +53,7 @@ class ModelPathResolver(
                 return id
             }
 
-            return "LFM2.5-1.2B-Instruct-Q4_K_M.gguf"
+            return "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf"
         }
 
         private fun looksLikeAbsoluteFilePath(value: String): Boolean {
