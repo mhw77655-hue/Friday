@@ -15,7 +15,7 @@ class PhoneCommandOrchestrator(
     private val confirmationWindowMs: Long = 15_000L
 ) {
     sealed interface Outcome {
-        data class Executed(val command: PhoneControlCommand, val result: PhoneControlResult) : Outcome
+        data class ActionResult(val command: PhoneControlCommand, val result: PhoneControlResult) : Outcome
         data class ConfirmationNeeded(val description: String) : Outcome
         data object Cancelled : Outcome
         data class Rejected(val explanation: String) : Outcome
@@ -71,7 +71,7 @@ class PhoneCommandOrchestrator(
         if (waiting != null) {
             if (normalized in CONFIRM_WORDS) {
                 synchronized(lock) { pending = null }
-                return Outcome.Executed(waiting.command, executeSafely(waiting.command))
+                return Outcome.ActionResult(waiting.command, executeSafely(waiting.command))
             }
             if (normalized in CANCEL_WORDS) {
                 synchronized(lock) { pending = null }
@@ -94,7 +94,7 @@ class PhoneCommandOrchestrator(
         )
         return when (decision.verdict) {
             FridayPhoneDecisionTool.Verdict.EXECUTE ->
-                Outcome.Executed(command, executeSafely(command))
+                Outcome.ActionResult(command, executeSafely(command))
             FridayPhoneDecisionTool.Verdict.CONFIRM -> {
                 synchronized(lock) {
                     pending = PendingConfirmation(
