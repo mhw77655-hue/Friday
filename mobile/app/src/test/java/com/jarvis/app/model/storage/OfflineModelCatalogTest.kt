@@ -27,8 +27,8 @@ class OfflineModelCatalogTest {
 
     @Test fun reasoningModelIsSeparateAndApacheLicensed() {
         val model = OfflineModelCatalog.reasoning
-        assertEquals("qwen3.5-2b-abliterated", model.id)
-        assertEquals("mradermacher/Huihui-Qwen3.5-2B-abliterated-GGUF", model.repository)
+        assertEquals("qwen3.5-2b-uncensored", model.id)
+        assertEquals("HauhauCS/Qwen3.5-2B-Uncensored-HauhauCS-Aggressive", model.repository)
         assertEquals("Apache-2.0", model.license)
         assertTrue(model.revision.matches(Regex("[0-9a-f]{7,40}")))
         assertFalse(model.resident)
@@ -58,7 +58,7 @@ class OfflineModelCatalogTest {
             ModelPathResolver.modelFileName(OfflineModelCatalog.fallback.id)
         )
         assertEquals(
-            "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf",
+            "Qwen3.5-2B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf",
             ModelPathResolver.modelFileName(OfflineModelCatalog.reasoning.id)
         )
         assertEquals(
