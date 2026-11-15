@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.gradle.api.tasks.testing.Test
 import java.util.Properties
 import java.io.FileInputStream
+import java.security.MessageDigest
 
 // BUG FIX (JV-TOKEN-01): JarvisBrainBridge.kt had the live HF Space bearer
 // token hardcoded as a plaintext string literal, committed to git/GitHub.
@@ -121,7 +122,7 @@ val generateFridaySourceIndex = tasks.register("generateFridaySourceIndex") {
             .filter { it.isFile && it.extension == "kt" }
             .sortedBy { it.relativeTo(root).invariantSeparatorsPath }
             .toList()
-        val digest = java.security.MessageDigest.getInstance("SHA-256")
+        val digest = MessageDigest.getInstance("SHA-256")
         val entries = files.map { source ->
             val relative = source.relativeTo(root).invariantSeparatorsPath
             val text = source.readText()
@@ -145,7 +146,7 @@ val generateFridaySourceIndex = tasks.register("generateFridaySourceIndex") {
                 append("\n    { \"path\": \"").append(entry.first)
                 append("\", \"package\": \"").append(entry.second)
                 append("\", \"declarations\": [")
-                append(entry.third.joinToString(", ") { "\""+it+"\"" })
+                append(entry.third.joinToString(", ") { symbol -> "${34.toChar()}$symbol${34.toChar()}" })
                 append("] }")
             }
             if (entries.isNotEmpty()) append("\n  ")
