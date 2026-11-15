@@ -142,7 +142,7 @@ class PresenceEngine(
             }
         }
 
-        val attention = if (signal.currentAction == CurrentAction.IDLE) {
+        val attention = if (signal.currentAction == CurrentAction.IDLE && !observedUserPresent) {
             AttentionTarget.NONE
         } else {
             AttentionTarget.USER
@@ -216,6 +216,13 @@ class PresenceEngine(
             applyTransition(suggested, "PresenceEngine", "current_action:$action")
             actionDwell = 0
         }
+    }
+
+    @Volatile private var observedUserPresent: Boolean = false
+
+    /** Update transient camera-derived presence; no identity or image is retained. */
+    fun reportUserPresence(present: Boolean) {
+        observedUserPresent = present
     }
 
     private var actionSuggestion: PresenceMode? = null

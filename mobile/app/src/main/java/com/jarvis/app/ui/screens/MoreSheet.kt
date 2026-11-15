@@ -34,6 +34,7 @@ fun MoreSheet(
                 "Sessions" to "sessions",
                 "Environment" to "environment",
                 "Model Manager" to "model",
+                "Visual Presence" to "vision",
                 "Memory" to "memory",
                 "Tools" to "tools",
                 "System" to "system",
