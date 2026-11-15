@@ -137,6 +137,23 @@ class FridayAccessibilityService : AccessibilityService() {
         val root = rootInActiveWindow
             ?: return PhoneControlResult.Unavailable("No accessible screen is active.")
         val targets = linkedMapOf<String, AccessibilityNodeInfo>()
+        val candidates = linkedMapOf<String, PhoneTargetCandidate>()
+
+        fun clickableTarget(node: AccessibilityNodeInfo): AccessibilityNodeInfo {
+            if (node.isClickable) return AccessibilityNodeInfo.obtain(node)
+            var ancestor = node.parent
+            while (ancestor != null) {
+                if (ancestor.isClickable) {
+                    val found = AccessibilityNodeInfo.obtain(ancestor)
+                    ancestor.recycle()
+                    return found
+                }
+                val parent = ancestor.parent
+                ancestor.recycle()
+                ancestor = parent
+            }
+            return AccessibilityNodeInfo.obtain(node)
+        }
 
         fun visit(node: AccessibilityNodeInfo, depth: Int) {
             if (depth > 12 || !node.isVisibleToUser || !node.isEnabled) return
@@ -149,16 +166,20 @@ class FridayAccessibilityService : AccessibilityService() {
                 resourceId.equals(text, ignoreCase = true) ||
                 resourceId.endsWith("/$text", ignoreCase = true)
             if (matches) {
-                val clickable = generateSequence(node) { it.parent }.firstOrNull { it.isClickable } ?: node
+                val clickable = clickableTarget(node)
                 val bounds = Rect()
                 clickable.getBoundsInScreen(bounds)
                 val key = listOf(
+                    clickable.packageName?.toString().orEmpty(),
                     clickable.viewIdResourceName.orEmpty(),
                     bounds.flattenToString(),
                     clickable.className?.toString().orEmpty()
                 ).joinToString("#")
                 if (!targets.containsKey(key)) {
-                    targets[key] = AccessibilityNodeInfo.obtain(clickable)
+                    targets[key] = clickable
+                    candidates[key] = PhoneTargetCandidate(key, label, description, resourceId)
+                } else {
+                    clickable.recycle()
                 }
             }
             for (index in 0 until node.childCount) {
@@ -169,28 +190,7 @@ class FridayAccessibilityService : AccessibilityService() {
         }
 
         visit(root, 0)
-        val candidates = targets.map { (key, node) ->
-            PhoneTargetCandidate(
-                targetKey = key,
-                text = if (node.isEditable || node.isPassword) "" else node.text?.toString().orEmpty(),
-                contentDescription = node.contentDescription?.toString().orEmpty(),
-                resourceId = node.viewIdResourceName.orEmpty()
-            )
-        }
-        // Resolve from the actual matching descendants, not just clickable
-        // ancestors: a parent button may carry no label of its own.
-        val matchingKeys = targets.filterValues { clickable ->
-            val bounds = Rect()
-            clickable.getBoundsInScreen(bounds)
-            val key = listOf(
-                clickable.viewIdResourceName.orEmpty(),
-                bounds.flattenToString(),
-                clickable.className?.toString().orEmpty()
-            ).joinToString("#")
-            key
-        }.keys
-        val descendantCandidates = collectTargetCandidates(root, text)
-        val resolution = PhoneTargetResolver.resolve(text, descendantCandidates)
+        val resolution = PhoneTargetResolver.resolve(text, candidates.values.toList())
         val result = when (resolution) {
             PhoneTargetResolver.Result.Missing -> PhoneControlResult.NotFound(text)
             is PhoneTargetResolver.Result.Ambiguous ->
@@ -204,44 +204,6 @@ class FridayAccessibilityService : AccessibilityService() {
         }
         targets.values.forEach { it.recycle() }
         return result
-    }
-
-    private fun collectTargetCandidates(
-        root: AccessibilityNodeInfo,
-        requested: String
-    ): List<PhoneTargetCandidate> {
-        val byClickableTarget = linkedMapOf<String, PhoneTargetCandidate>()
-        fun visit(node: AccessibilityNodeInfo, depth: Int) {
-            if (depth > 12 || !node.isVisibleToUser || !node.isEnabled) return
-            val label = if (node.isEditable || node.isPassword) "" else node.text?.toString().orEmpty()
-            val description = node.contentDescription?.toString().orEmpty()
-            val resourceId = node.viewIdResourceName.orEmpty()
-            val matches = label.equals(requested, ignoreCase = true) ||
-                description.equals(requested, ignoreCase = true) ||
-                resourceId.equals(requested, ignoreCase = true) ||
-                resourceId.endsWith("/$requested", ignoreCase = true)
-            if (matches) {
-                val clickable = generateSequence(node) { it.parent }.firstOrNull { it.isClickable } ?: node
-                val bounds = Rect()
-                clickable.getBoundsInScreen(bounds)
-                val key = listOf(
-                    clickable.viewIdResourceName.orEmpty(),
-                    bounds.flattenToString(),
-                    clickable.className?.toString().orEmpty()
-                ).joinToString("#")
-                byClickableTarget.putIfAbsent(
-                    key,
-                    PhoneTargetCandidate(key, label, description, resourceId)
-                )
-            }
-            for (index in 0 until node.childCount) {
-                val child = node.getChild(index) ?: continue
-                visit(child, depth + 1)
-                child.recycle()
-            }
-        }
-        visit(root, 0)
-        return byClickableTarget.values.toList()
     }
 
     private fun scroll(action: Int): PhoneControlResult {
