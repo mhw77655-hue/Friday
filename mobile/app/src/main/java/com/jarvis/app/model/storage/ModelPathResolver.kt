@@ -23,36 +23,18 @@ class ModelPathResolver(
 
     companion object {
         private val MODEL_FILENAMES = mapOf(
+            "minicpm5-2b-heretic" to "MiniCPM5-2B-heretic-Q4_K_M.gguf",
+            "resident" to "MiniCPM5-2B-heretic-Q4_K_M.gguf",
+            "jarvis-resident:latest" to "MiniCPM5-2B-heretic-Q4_K_M.gguf",
             "lfm2.5-1.2b-abliterated" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
             "lfm2.5-1.2b-instruct-abliterated" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
-            "lfm2.5-1.2b-instruct" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
             "lfm" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
-            "resident" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
-            "jarvis-resident:latest" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
+            "fallback" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
             "jarvis-reasoning:latest" to "Spark-X2.6-4B-Abliterated-Q4_K_M.gguf",
             "spark-x2.6-4b-abliterated" to "Spark-X2.6-4B-Abliterated-Q4_K_M.gguf",
             "qwen3.5-2b-abliterated" to "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf",
-            "qwen3.5-2b" to "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf",
-            "qwen3-1.7b" to "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf",
-            "qwen3-1.7b-q4" to "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf",
-            "qwen3-1.7b-q4_k_m" to "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf"
+            "qwen3.5-2b" to "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf"
         )
-
-        fun modelFileName(modelId: String?): String {
-            val id = modelId?.trim().orEmpty()
-
-            MODEL_FILENAMES[id.lowercase()]?.let { return it }
-
-            if (
-                id.endsWith(".gguf", ignoreCase = true) &&
-                !id.contains("/") &&
-                !id.contains("\\")
-            ) {
-                return id
-            }
-
-            return "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf"
-        }
 
         private fun looksLikeAbsoluteFilePath(value: String): Boolean =
             value.startsWith("/") || value.startsWith("file://")
@@ -91,6 +73,8 @@ class ModelPathResolver(
                     if (explicit != null && appOwned && explicit.isFile && explicit.canRead()) return explicit
                 }
             }
+
+        if (fileName.isBlank()) return null
 
         // 2. Friday's own private vault is authoritative. Offline inference
         // must not silently depend on a shared-storage or Termux-managed copy.
