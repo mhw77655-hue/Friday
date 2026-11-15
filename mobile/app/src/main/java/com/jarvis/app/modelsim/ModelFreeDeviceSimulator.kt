@@ -12,6 +12,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.util.Properties
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -83,6 +84,49 @@ class ModelFreeDeviceSimulator(private val context: Context) {
         appContext.getSystemService(Context.POWER_SERVICE) as PowerManager
     private val batteryManager =
         appContext.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+    private val profileFile = File(appContext.filesDir, "model-lab/device-profile.properties")
+
+    /** Persist only technical device/benchmark measurements, never user content. */
+    fun persistSnapshot(snapshot: DeviceSnapshot) = persist(mapOf(
+        "device" to snapshot.device,
+        "soc" to snapshot.soc,
+        "androidApi" to snapshot.androidApi.toString(),
+        "totalRamMb" to snapshot.totalRamMb.toString(),
+        "availableRamMb" to snapshot.availableRamMb.toString(),
+        "appMemoryClassMb" to snapshot.appMemoryClassMb.toString(),
+        "freeStorageMb" to snapshot.freeStorageMb.toString(),
+        "batteryPercent" to snapshot.batteryPercent.toString(),
+        "isCharging" to snapshot.isCharging.toString(),
+        "thermalStatus" to snapshot.thermalStatus.toString(),
+        "cpuCores" to snapshot.cpuCores.toString(),
+        "abi" to snapshot.abi
+    ))
+
+    fun persistBenchmark(result: SyntheticBenchmark) = persist(mapOf(
+        "cpuOperationsPerSecond" to result.cpuOperationsPerSecond.toString(),
+        "memoryTouchMbPerSecond" to result.memoryTouchMbPerSecond.toString(),
+        "storageWriteMbPerSecond" to result.storageWriteMbPerSecond.toString(),
+        "processPssBeforeMb" to result.processPssBeforeMb.toString(),
+        "processPssAfterMb" to result.processPssAfterMb.toString(),
+        "benchmarkElapsedMs" to result.elapsedMs.toString()
+    ))
+
+    private fun persist(values: Map<String, String>) {
+        runCatching {
+            profileFile.parentFile?.mkdirs()
+            val properties = Properties()
+            if (profileFile.isFile) profileFile.inputStream().use(properties::load)
+            values.forEach { (key, value) -> properties.setProperty(key, value) }
+            properties.setProperty("updatedAtEpochMs", System.currentTimeMillis().toString())
+            val temp = File(profileFile.parentFile, profileFile.name + ".tmp")
+            FileOutputStream(temp).use { output ->
+                properties.store(output, "Friday model-free device profile; technical metrics only")
+                output.fd.sync()
+            }
+            if (profileFile.exists()) profileFile.delete()
+            temp.renameTo(profileFile)
+        }
+    }
 
     fun snapshot(): DeviceSnapshot {
         val memory = ActivityManager.MemoryInfo().also(activityManager::getMemoryInfo)
