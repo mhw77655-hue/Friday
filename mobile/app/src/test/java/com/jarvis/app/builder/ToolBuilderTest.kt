@@ -169,10 +169,10 @@ class ToolBuilderTest {
             ```
         """.trimIndent()
         var modelCalls = 0
-        val provider = LlmSynthesisProvider { _: GenerateRequest ->
+        val provider = LlmSynthesisProvider(complete = { _: GenerateRequest ->
             modelCalls++
             GenerateResult(content = response)
-        }
+        })
         val stack = ToolBuilderComposition.build(
             research = UniversalResearchEngine(),
             failureSurface = FailureSurface(),
