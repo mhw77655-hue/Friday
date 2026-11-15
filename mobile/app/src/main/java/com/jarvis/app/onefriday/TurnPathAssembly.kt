@@ -57,8 +57,6 @@ import com.jarvis.app.resolution.CapabilityMemoryIndex
 import com.jarvis.app.resolution.FuzzyCommandResolver
 import com.jarvis.app.social.ConfidentialityFirewall
 import com.jarvis.app.social.PersonRelationshipModel
-import com.jarvis.app.voice.VoiceForgeBackend
-import com.jarvis.app.voice.VoiceForgeConfig
 
 /**
  * ONE-2-COMPOSITION: the ONE composition root for the turn path.
@@ -120,7 +118,6 @@ class TurnPathAssembly private constructor(
     val replayCheck: ReplayCheck?,
     val memoryStore: MemoryStorePort,
     val backend: ModelBackend,
-    val voiceForgeBackend: VoiceForgeBackend,
     val resourceGovernor: ResourceGovernor,
     val modelManager: ModelManager,
     val cognitiveAdmissionPolicy: CognitiveAdmissionPolicy,
@@ -461,10 +458,6 @@ class TurnPathAssembly private constructor(
                 replayCheck = replayCheck,
                 memoryStore = memoryStore,
                 backend = backend,
-                voiceForgeBackend = VoiceForgeBackend(
-                    synthesizer = stores.voiceSynthesizer(),
-                    audioPromptPath = VoiceForgeConfig.DEFAULT_ASSET_PATH
-                ),
                 resourceGovernor = resourceGovernor,
                 modelManager = modelManager,
                 cognitiveAdmissionPolicy = cognitiveAdmissionPolicy,
