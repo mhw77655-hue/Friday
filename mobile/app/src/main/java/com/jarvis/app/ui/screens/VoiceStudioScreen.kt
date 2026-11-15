@@ -43,7 +43,7 @@ import java.io.File
 /**
  * Voice Studio: manage Friday's persistent voice preference and a local
  * reference recording. The current production synthesis path remains the
- * isolated Sherpa/Kokoro habitat. LuxTTS is surfaced as an experimental
+ * isolated native speech habitat. Piper is the speed-first English default; LuxTTS is surfaced as an experimental
  * voice-cloning candidate, not falsely advertised as an Android provider:
  * its public ONNX implementation still depends on Python audio/tokenization
  * preprocessing that has not been ported to this app.
@@ -163,7 +163,7 @@ fun VoiceStudioScreen() {
                     profileStore.save(current.copy(
                         language = "en",
                         preferredProvider = "piper",
-                        preferredVoice = "speaker_${speakerIndex}",
+                        preferredVoice = "speaker_0",
                         speechRate = speechRate
                     ))
                     status = "Friday's active voice profile saved"
@@ -198,7 +198,7 @@ fun VoiceStudioScreen() {
                 Text("LuxTTS — experimental voice cloning", style = MaterialTheme.typography.titleMedium)
                 Text("Candidate: LuxTTS ONNX (English voice cloning, 48 kHz output, Apache-2.0).")
                 Text("Status: research/integration pending. The ONNX graphs are available, but the public ONNX pipeline still relies on Python audio loading, mel extraction, English phonemization/tokenization and NumPy post-processing. ONNX Runtime alone does not provide those pieces.")
-                Text("The reference clip and transcript above are now stored locally in the format needed for the next integration step. LuxTTS is not yet generating audio in this Android build, and Kokoro remains the active fallback.")
+                Text("The reference clip and transcript above are now stored locally in the format needed for the next integration step. LuxTTS is not yet generating audio in this Android build, and Piper remains the active default; Kokoro remains an optional higher-quality provider.")
                 Text("Device policy: do not load LuxTTS automatically. First benchmark peak RAM, thermal load, latency and quality on this phone; enable it only when the user explicitly selects it.")
                 OutlinedButton(onClick = {
                     status = "LuxTTS reference is prepared; Android inference adapter is not yet implemented"
