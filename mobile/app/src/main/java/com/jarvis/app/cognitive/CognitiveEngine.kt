@@ -215,7 +215,9 @@ class CognitiveEngine(
      * names the other. Null keeps the pre-workspace behavior byte-for-byte (the
      * assembler simply has no workspace to publish into or read from).
      */
-    private val workspace: com.jarvis.app.cognition.workspace.Workspace? = null
+    private val workspace: com.jarvis.app.cognition.workspace.Workspace? = null,
+    /** Lightweight successor-state learning inside the same cognitive turn. */
+    private val expectationEngine: com.jarvis.app.prediction.ExpectationStateEngine? = null
 ) : PlanDriver {
 
     private val intentInference = IntentInference(scope)
@@ -308,7 +310,8 @@ class CognitiveEngine(
          * context for this turn (formatted prompt suffix), when an
          * [IdentityContext] is wired. Null when Stage-03 identity is not wired.
          */
-        val identityContextSuffix: String? = null
+        val identityContextSuffix: String? = null,
+        val predictiveState: com.jarvis.app.prediction.SituationPrediction? = null
     )
 
     /**
@@ -341,7 +344,12 @@ class CognitiveEngine(
         // through the real propagation path BEFORE pronoun/clarification routing,
         // so a forget turn is never misrouted and never reaches the model bridge.
         val directiveResult = handleMemoryDirective(userText, cognitiveResult, embedMs)
-        if (directiveResult != null) return directiveResult
+        if (directiveResult != null) {
+            val broadForget = Regex("(?i)\\b(forget|erase|delete)\\b.*\\b(all|everything|entire history|all memories)\\b")
+                .containsMatchIn(userText)
+            if (broadForget) expectationEngine?.clearPerson(com.jarvis.app.identity.WorldModelService.USER_NODE_NAME)
+            return directiveResult
+        }
 
         // If pronoun resolution is ambiguous, short-circuit with NEEDS_CLARIFICATION
         if (cognitiveResult.pronounResolution.ambiguous) {
@@ -372,6 +380,12 @@ class CognitiveEngine(
         // half-finished one marked TRAILING_OFF, tangents anchored to the main
         // task. A null/disabled tracker is a no-op (AC7).
         threadTracker?.ingestTurn(cognitiveResult.turnIndex, userText)
+
+        // THINKING-WITHOUT-THINKING: learn from coarse interaction state, not raw
+        // content. Owner history is not mixed with an explicitly named person.
+        val predictiveState = if (interlocutor == null) {
+            expectationEngine?.observeTurn(buildSituationState(userText, sessionContext))
+        } else null
 
         // Classify intent via LLM seam and route accordingly
         val intentCategory = classifyIntent(userText)
@@ -568,7 +582,10 @@ class CognitiveEngine(
             outputText = responseText,
             generationPayload = fullContextMessage,
             crossSessionMemories = galaxyMems.map { it.content },
-            stageTimingsMs = traceTimings(embedMs, retrieveMs, promptBuildMs, generateMs, postProcessMs)
+            stageTimingsMs = traceTimings(embedMs, retrieveMs, promptBuildMs, generateMs, postProcessMs),
+            predictions = predictiveState?.let {
+                listOf("successor=${it.likelyNext}; confidence=${"%.3f".format(it.confidence)}; baseline=${"%.3f".format(it.baselineConfidence)}; reflexEligible=${it.reflexEligible}")
+            } ?: emptyList()
         )
 
         return CognitiveTurnResult(
@@ -578,7 +595,8 @@ class CognitiveEngine(
             servedDegraded = admissionOutcome?.degraded,
             crossSessionMemories = if (blendedRetriever != null) galaxyMems else null,
             assembledMentalState = assembledMentalState,
-            identityContextSuffix = identitySuffix
+            identityContextSuffix = identitySuffix,
+            predictiveState = predictiveState
         )
     }
 
@@ -587,6 +605,43 @@ class CognitiveEngine(
      * enabled. Null/disabled ⇒ no-op — the trace file provably stays the same
      * size across the turn (AC5 negative control).
      */
+    private fun buildSituationState(
+        userText: String,
+        context: SessionContext?
+    ): com.jarvis.app.prediction.SituationState {
+        val trimmed = userText.trim()
+        val firstWord = trimmed.lowercase().split(Regex("\\s+")).firstOrNull().orEmpty()
+        val messageKind = when {
+            trimmed.endsWith("?") || firstWord in setOf("what", "why", "how", "when", "where", "who", "can", "could", "is", "are", "do", "does") -> "question"
+            firstWord in setOf("build", "create", "make", "write", "find", "search", "check", "show", "tell", "explain", "fix", "implement", "compare", "research") -> "request"
+            else -> "statement"
+        }
+        val wordCount = trimmed.split(Regex("\\s+")).count { it.isNotBlank() }
+        val lengthBucket = when {
+            wordCount <= 8 -> "short"
+            wordCount <= 35 -> "medium"
+            else -> "long"
+        }
+        val gapSeconds = context?.secondsSinceLastContact
+        val gapBucket = when {
+            gapSeconds == null -> "unknown"
+            gapSeconds < 300 -> "recent"
+            gapSeconds < 3600 -> "hour"
+            else -> "long"
+        }
+        return com.jarvis.app.prediction.SituationState(
+            personKey = com.jarvis.app.identity.WorldModelService.USER_NODE_NAME,
+            fields = mapOf(
+                "channel" to (context?.channel?.name ?: "unknown"),
+                "hourBand" to (context?.localHour?.div(4)?.toString() ?: "unknown"),
+                "wasAway" to (context?.wasAway?.toString() ?: "unknown"),
+                "gapBand" to gapBucket,
+                "messageKind" to messageKind,
+                "lengthBand" to lengthBucket
+            )
+        )
+    }
+
     private fun recordTurnTrace(
         turnIndex: Long,
         inputText: String,
@@ -597,6 +652,7 @@ class CognitiveEngine(
         generationPayload: String?,
         crossSessionMemories: List<String>,
         stageTimingsMs: Map<String, Long>,
+        predictions: List<String> = emptyList(),
         // FORGET-PROPAGATION (AC6): when true the text-bearing fields are
         // blanked AT WRITE so the forget turn's own trace never carries the
         // forgotten content — the record still exists, with id, turn index,
@@ -614,7 +670,7 @@ class CognitiveEngine(
                 inputText = if (redactText) "" else inputText,
                 decision = decision.name,
                 retrievedMemoryIds = retrievedMemoryIds,
-                predictions = emptyList(),
+                predictions = predictions,
                 promptSections = if (redactText) promptSections.map { it.copy(preview = "") } else promptSections,
                 outputText = if (redactText) null else outputText,
                 generationPayload = if (redactText) null else generationPayload,
