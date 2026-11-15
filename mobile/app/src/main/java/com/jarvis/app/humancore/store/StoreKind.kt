@@ -26,6 +26,8 @@ enum class StoreKind(val fileName: String) {
     DIALOGUE("dialogue.jsonl"),
     /** Nervous-system failure history (JSONL, failure surface → disk). */
     FAILURES("failures.jsonl"),
+    /** Evolutionary genome history; isolated from Human Core dialogue records. */
+    GENOME_ARCHIVE("genome_archive.jsonl"),
     /** Cognitive continuity: consolidated memories with provenance and
      *  lifecycle state (survives process restart). */
     CONSOLIDATED_MEMORY("consolidated_memory.json"),
