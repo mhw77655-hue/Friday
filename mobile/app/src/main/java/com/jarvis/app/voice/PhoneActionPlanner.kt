@@ -116,7 +116,7 @@ class PhoneActionPlanner(
                 val text = json.optString("text")
                 require(text.isNotBlank()) { "requested text is blank" }
                 require(text.length <= 1000) { "text entry exceeds the 1000-character safety limit" }
-                require(Regex("focused=true;editable=true").containsMatchIn(screen)) {
+                require(Regex("editable=true;focused=true").containsMatchIn(screen)) {
                     "there is no verified focused editable field"
                 }
                 PhoneControlCommand.TypeText(text)
