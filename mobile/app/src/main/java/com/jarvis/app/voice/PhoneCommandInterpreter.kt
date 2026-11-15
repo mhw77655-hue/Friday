@@ -7,12 +7,13 @@ package com.jarvis.app.voice
  */
 object PhoneCommandInterpreter {
     fun parse(utterance: String): PhoneControlCommand? {
-        val text = utterance.trim().lowercase()
+        val cleaned = normalizeSpokenCommand(utterance)
+        val text = cleaned.lowercase()
         if (text.isBlank()) return null
         return when (text) {
-            "go back", "back", "previous screen" -> PhoneControlCommand.Back
-            "go home", "home screen", "open home" -> PhoneControlCommand.Home
-            "show recent apps", "open recents", "recent apps" -> PhoneControlCommand.Recents
+            "go back", "back", "previous screen", "navigate back", "take me back", "return to previous screen" -> PhoneControlCommand.Back
+            "go home", "home screen", "open home", "take me home", "return home", "return to home screen" -> PhoneControlCommand.Home
+            "show recent apps", "open recents", "recent apps", "show my recent apps" -> PhoneControlCommand.Recents
             "show notifications", "open notifications", "notifications" -> PhoneControlCommand.Notifications
             "open quick settings", "show quick settings", "quick settings" -> PhoneControlCommand.QuickSettings
             "open settings", "phone settings", "system settings" -> PhoneControlCommand.OpenSettings
@@ -29,18 +30,42 @@ object PhoneCommandInterpreter {
             "scroll up", "move up" -> PhoneControlCommand.ScrollBackward
             else -> when {
                 text.startsWith("open ") && text.length > 5 ->
-                    PhoneControlCommand.OpenApp(utterance.trim().substringAfter(' ', "").trim())
+                    PhoneControlCommand.OpenApp(cleaned.substringAfter(' ', "").trim())
                 text.startsWith("launch ") && text.length > 7 ->
-                    PhoneControlCommand.OpenApp(utterance.trim().substringAfter(' ', "").trim())
+                    PhoneControlCommand.OpenApp(cleaned.substringAfter(' ', "").trim())
                 text.startsWith("tap ") && text.length > 4 ->
-                    PhoneControlCommand.TapText(utterance.trim().substringAfter(' ', "").trim())
+                    PhoneControlCommand.TapText(cleaned.substringAfter(' ', "").trim())
                 text.startsWith("click ") && text.length > 6 ->
-                    PhoneControlCommand.TapText(utterance.trim().substringAfter(' ', "").trim())
+                    PhoneControlCommand.TapText(cleaned.substringAfter(' ', "").trim())
                 text.startsWith("type ") && text.length > 5 ->
-                    PhoneControlCommand.TypeText(utterance.trim().substringAfter(' ', "").trim())
+                    PhoneControlCommand.TypeText(cleaned.substringAfter(' ', "").trim())
                 else -> null
             }
         }
+    }
+
+    private fun normalizeSpokenCommand(raw: String): String {
+        var value = raw.trim().trimEnd('.', '!', '?', ',').trim()
+        val prefixes = listOf(
+            Regex("^hey\\s+friday[, :]?\\s*", RegexOption.IGNORE_CASE),
+            Regex("^friday[, :]?\\s*", RegexOption.IGNORE_CASE),
+            Regex("^would\\s+you\\s+please\\s+", RegexOption.IGNORE_CASE),
+            Regex("^(please|can\\s+you|could\\s+you|would\\s+you)\\s+", RegexOption.IGNORE_CASE)
+        )
+        var changed = true
+        while (changed) {
+            changed = false
+            for (prefix in prefixes) {
+                val next = value.replaceFirst(prefix, "")
+                if (next != value) {
+                    value = next.trim()
+                    changed = true
+                    break
+                }
+            }
+        }
+        return value.replace(Regex("\\s+please$", RegexOption.IGNORE_CASE), "")
+            .trim().trimEnd('.', '!', '?', ',').trim()
     }
 
     fun describe(command: PhoneControlCommand): String = when (command) {
