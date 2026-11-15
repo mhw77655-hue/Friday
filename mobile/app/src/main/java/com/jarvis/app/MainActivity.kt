@@ -1,6 +1,7 @@
 package com.jarvis.app
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -11,6 +12,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
+import android.widget.Toast
+import com.jarvis.app.video.VideoIntakeRepository
+import kotlinx.coroutines.launch
 import com.jarvis.app.humancore.HumanCore
 import com.jarvis.app.ui.navigation.JarvisNavHost
 import com.jarvis.app.ui.theme.JarvisTheme
@@ -26,6 +30,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handleSharedContent(intent)
         ShizukuBridge.init()
         // End the Human Core session when the app goes to the background so
         // session-boundary work (bond growth, baseline coupling, reflection)
@@ -68,6 +73,27 @@ class MainActivity : ComponentActivity() {
             JarvisTheme {
                 JarvisNavHost()
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleSharedContent(intent)
+    }
+
+    private fun handleSharedContent(incoming: Intent?) {
+        if (incoming?.action != Intent.ACTION_SEND && incoming?.action != Intent.ACTION_SEND_MULTIPLE) return
+        lifecycleScope.launch {
+            runCatching { VideoIntakeRepository(applicationContext).importSharedIntent(incoming) }
+                .onSuccess { imported ->
+                    val message = if (imported.isEmpty()) "No video or TikTok link was found in the shared item."
+                        else "Friday received ${imported.size} item(s). Open Video Experience to review them."
+                    Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+                }
+                .onFailure { error ->
+                    Toast.makeText(this@MainActivity, error.message ?: "Friday could not import this video.", Toast.LENGTH_LONG).show()
+                }
         }
     }
 
