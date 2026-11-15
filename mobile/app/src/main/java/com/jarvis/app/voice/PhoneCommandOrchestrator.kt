@@ -30,6 +30,7 @@ class PhoneCommandOrchestrator(
 
     private val lock = Any()
     private var pending: PendingConfirmation? = null
+    private var inFlight = false
 
     fun hasPendingConfirmation(): Boolean = synchronized(lock) {
         pending?.let {
@@ -42,6 +43,21 @@ class PhoneCommandOrchestrator(
     }
 
     suspend fun handle(utterance: String): Outcome? {
+        val acquired = synchronized(lock) {
+            if (inFlight) false else {
+                inFlight = true
+                true
+            }
+        }
+        if (!acquired) return Outcome.Unavailable("Friday is already handling a phone action.")
+        return try {
+            handleExclusive(utterance)
+        } finally {
+            synchronized(lock) { inFlight = false }
+        }
+    }
+
+    private suspend fun handleExclusive(utterance: String): Outcome? {
         val normalized = utterance.trim().lowercase()
         val waiting = synchronized(lock) {
             val current = pending
