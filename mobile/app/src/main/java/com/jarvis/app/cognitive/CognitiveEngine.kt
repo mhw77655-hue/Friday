@@ -217,7 +217,7 @@ class CognitiveEngine(
      */
     private val workspace: com.jarvis.app.cognition.workspace.Workspace? = null,
     /** Predictive state learns from the same shared claims; it does not own person or identity data. */
-    private val hunchEngine: com.jarvis.app.cognition.prediction.HunchEngine? = null
+    private val liquidTaskComposer: com.jarvis.app.cognition.workspace.LiquidTaskComposer? = null
 ) : PlanDriver {
 
     private val intentInference = IntentInference(scope)
@@ -461,9 +461,17 @@ class CognitiveEngine(
         // settle the previous forecast, and publish the next evidence-backed
         // prediction. The predictor never bypasses deliberation until its
         // held-out performance beats the naive baseline.
-        hunchEngine?.observeTurn(
-            now = System.currentTimeMillis(),
-            episodeId = "turn:${cognitiveResult.turnIndex}"
+        liquidTaskComposer?.compose(
+            workspace = workspace ?: return@process CognitiveTurnResult(
+                cognitiveResult = cognitiveResult,
+                decision = decision
+            ),
+            task = com.jarvis.app.cognition.workspace.WorkspaceTask(
+                episodeId = "turn:${cognitiveResult.turnIndex}",
+                taskKind = decision.name,
+                riskLevel = com.jarvis.app.cognition.workspace.RiskLevel.NORMAL,
+                nowMillis = System.currentTimeMillis()
+            )
         )
 
         val galaxyContext = if (galaxyMems.isNotEmpty()) {
