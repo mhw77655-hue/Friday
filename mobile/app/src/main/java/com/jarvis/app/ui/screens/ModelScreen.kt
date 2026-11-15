@@ -23,6 +23,11 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.ui.platform.LocalContext
+import com.jarvis.app.model.storage.OfflineModelCatalog
+import com.jarvis.app.model.storage.OfflineModelDownloader
+import kotlinx.coroutines.Job
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -94,6 +99,8 @@ fun ModelScreen(
                 Icon(Icons.Filled.Refresh, contentDescription = "Refresh health", tint = JarvisColors.TextSecondary)
             }
         }
+
+        OfflineModelLibrary()
 
         ActiveProviderCard(
             provider = activeProvider,
@@ -409,4 +416,96 @@ private fun ProviderConfigDialog(
 /** Factory function for nav graph injection */
 fun getModelManager(): ModelManager? {
     return com.jarvis.app.ui.EngineAccess.modelManager().value
+}
+
+
+/**
+ * Offline model installation is owned by Friday: weights are downloaded into
+ * app-private storage, not a Termux/Ollama directory or shared Downloads folder.
+ */
+@Composable
+private fun OfflineModelLibrary() {
+    val context = LocalContext.current
+    val downloader = remember(context) { OfflineModelDownloader(context) }
+    val downloadState by downloader.state.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    var downloadError by remember { mutableStateOf<String?>(null) }
+    var downloadJob by remember { mutableStateOf<Job?>(null) }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = JarvisColors.SurfacePanel),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text("FRIDAY'S OFFLINE MODELS", style = JarvisType.Label)
+            Text(
+                "Model weights are installed inside Friday's private app storage. They are not included in the APK.",
+                style = JarvisType.Technical.copy(fontSize = 11.sp, color = JarvisColors.TextSecondary)
+            )
+            OfflineModelCatalog.all.forEach { asset ->
+                val installed = remember(downloadState, asset.id) {
+                    val file = downloader.installedFile(asset)
+                    file.isFile && file.length() >= asset.expectedMinimumBytes
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(asset.displayName, style = JarvisType.Body.copy(fontWeight = FontWeight.SemiBold))
+                    Text(
+                        "${asset.license} · ${if (asset.resident) "Resident candidate" else "On-demand reasoning"}",
+                        style = JarvisType.Technical.copy(fontSize = 10.sp, color = JarvisColors.TextSecondary)
+                    )
+                    Text(asset.description, style = JarvisType.Technical.copy(fontSize = 11.sp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val active = downloadState.modelId == asset.id && !downloadState.complete
+                        when {
+                            installed -> Text("Installed", color = JarvisColors.CoreSuccess, style = JarvisType.Technical)
+                            active -> {
+                                Text(
+                                    downloadState.fraction?.let { "${(it * 100).toInt()}%" } ?: "Downloading",
+                                    style = JarvisType.Technical
+                                )
+                                Spacer(Modifier.weight(1f))
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                            }
+                            else -> {
+                                Button(
+                                    enabled = downloadJob == null,
+                                    onClick = {
+                                        downloadError = null
+                                        downloadJob = scope.launch {
+                                            try {
+                                                downloader.download(asset)
+                                            } catch (error: Exception) {
+                                                downloadError = error.message ?: "Download failed"
+                                            } finally {
+                                                downloadJob = null
+                                            }
+                                        }
+                                    }
+                                ) { Text("Download") }
+                            }
+                        }
+                    }
+                    if (downloadState.modelId == asset.id && !downloadState.complete && downloadState.fraction != null) {
+                        LinearProgressIndicator(
+                            progress = { downloadState.fraction ?: 0f },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
+            downloadError?.let {
+                Text(it, color = JarvisColors.CoreWarning, style = JarvisType.Technical)
+            }
+        }
+    }
 }
