@@ -5,6 +5,13 @@ import com.jarvis.app.selfreconfig.SystemGraph
 import com.jarvis.app.selfreconfig.WiringDiagnostics
 import com.jarvis.app.symbiosis.HostStudyRecord
 import com.jarvis.app.symbiosis.LiquidSymbiosisSnapshot
+import com.jarvis.app.model.GenerateRequest
+import com.jarvis.app.model.GenerateResult
+import com.jarvis.app.model.FinishReason
+import com.jarvis.app.model.Message
+import com.jarvis.app.model.MessageRole
+import com.jarvis.app.model.ModelManager
+import org.json.JSONObject
 import java.io.File
 import java.util.Properties
 
@@ -55,6 +62,134 @@ class ApplicationSelfStudy(
     ) {
         val structurallyHealthy: Boolean
             get() = unreachableNodeIds.isEmpty() && missingInvariantIds.isEmpty()
+    }
+
+    data class Reflection(
+        val createdAtMs: Long,
+        val sourceRevision: String,
+        val summary: String,
+        val findings: List<String>,
+        val nextActions: List<String>,
+        val candidateCapability: String?,
+        val candidateDescription: String?,
+        val constraints: List<String>,
+        val evidenceGaps: List<String>
+    ) {
+        val hasBuildableCandidate: Boolean
+            get() = candidateCapability != null && candidateDescription != null
+    }
+
+    @Volatile private var latestReflection: Reflection? = null
+
+    fun latestReflection(): Reflection? = latestReflection
+
+    /**
+     * Ask Friday's existing model authority to reason over her own measured
+     * architecture report. This produces a proposal only; it cannot mutate
+     * source, grant permissions, or promote a tool.
+     */
+    suspend fun reflect(
+        report: Report,
+        modelManager: ModelManager,
+        nowMs: Long = System.currentTimeMillis()
+    ): Reflection? {
+        val prompt = buildString {
+            appendLine("FRIDAY SELF-STUDY EVIDENCE")
+            appendLine("source_revision=${report.sourceRevision}")
+            appendLine("source_files=${report.sourceFileCount}; declared_symbols=${report.sourceSymbolCount}; packages=${report.sourcePackageCount}")
+            appendLine("runtime_graph_nodes=${report.nodeCount}; edges=${report.edgeCount}; reachable=${report.reachableCount}")
+            appendLine("unreachable_nodes=${report.unreachableNodeIds.joinToString()}")
+            appendLine("missing_invariants=${report.missingInvariantIds.joinToString()}")
+            appendLine("missing_capabilities=${report.declaredMissingCapabilities.joinToString()}")
+            appendLine("known_limitations=${report.knownLimitationIds.joinToString()}")
+            appendLine("host_fingerprint=${report.hostFingerprint}")
+            appendLine("host_samples=${report.hostSamples}; min_available_memory_mb=${report.minimumAvailableMemoryMb}")
+            appendLine("cpu_ema_percent=${report.averageCpuLoadEmaPercent}; max_process_pss_mb=${report.maximumObservedProcessPssMb}")
+            appendLine("thermal_samples=${report.thermalPressureSamples}; low_memory_samples=${report.lowMemorySamples}")
+            appendLine("memory_reserve_mb=${report.additionalMemoryReserveMb}; minimum_battery_percent=${report.minimumBatteryPercent}")
+            appendLine("liquid_generation=${report.liquidGeneration}; prediction_error=${report.liquidPredictionError}")
+            appendLine("liquid_last_adaptation=${report.liquidLastAdaptation}")
+            appendLine("organ_failures=${report.organFailureCounts}")
+            appendLine("organ_strategies=${report.organStrategies}")
+            appendLine("deterministic_next_focus=${report.nextFocus}")
+            appendLine()
+            appendLine("Analyze only this evidence. Do not pretend you read source text; the source index is structural metadata.")
+            appendLine("Identify the most important mismatch between this architecture and Friday's canonical vision:")
+            appendLine("one persistent individual, Android as her body, one intelligence, Jev as an optional decision faculty,")
+            appendLine("continuous presence, phone-specific liquid symbiosis, experience-driven learning, and safe self-building.")
+            appendLine("If evidence is insufficient, say so and propose no build candidate.")
+            appendLine("A build candidate must be a small, pure, self-contained capability expressible in Friday's current synth language.")
+            appendLine("Never propose device-control, permission, security, network, or self-modification code in this lane.")
+            appendLine("Return exactly JSON with fields: summary, findings[], next_actions[], candidate_capability,")
+            appendLine("candidate_description, constraints[], evidence_gaps[]. Use null for candidate fields when none is justified.")
+        }
+        val result = try {
+            modelManager.generate(
+                GenerateRequest(
+                    messages = listOf(
+                        Message(MessageRole.SYSTEM, REFLECTION_SYSTEM_PROMPT),
+                        Message(MessageRole.USER, prompt)
+                    ),
+                    maxTokens = 384,
+                    temperature = 0.15f
+                )
+            )
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            return null
+        }
+        if (result.finishReason == FinishReason.ERROR || result.content.isBlank()) return null
+        val json = extractJson(result.content) ?: return null
+        val candidateName = json.optString("candidate_capability").trim()
+            .takeIf { it.matches(Regex("[a-z][a-z0-9_]{2,63}")) }
+        val candidateDescription = json.optString("candidate_description").trim()
+            .takeIf { candidateName != null && it.isNotBlank() && it.length <= 500 }
+        val reflection = Reflection(
+            createdAtMs = nowMs,
+            sourceRevision = report.sourceRevision,
+            summary = json.optString("summary").trim().take(1200),
+            findings = jsonArrayStrings(json.optJSONArray("findings"), 8),
+            nextActions = jsonArrayStrings(json.optJSONArray("next_actions"), 8),
+            candidateCapability = candidateName.takeIf { candidateDescription != null },
+            candidateDescription = candidateDescription,
+            constraints = jsonArrayStrings(json.optJSONArray("constraints"), 8),
+            evidenceGaps = jsonArrayStrings(json.optJSONArray("evidence_gaps"), 8)
+        )
+        persistReflection(reflection)
+        latestReflection = reflection
+        return reflection
+    }
+
+    private fun extractJson(raw: String): JSONObject? {
+        val start = raw.indexOf('{')
+        val end = raw.lastIndexOf('}')
+        if (start < 0 || end <= start) return null
+        return runCatching { JSONObject(raw.substring(start, end + 1)) }.getOrNull()
+    }
+
+    private fun jsonArrayStrings(array: org.json.JSONArray?, limit: Int): List<String> =
+        if (array == null) emptyList() else buildList {
+            for (index in 0 until minOf(array.length(), limit)) {
+                array.optString(index).trim().takeIf { it.isNotBlank() }?.let { add(it.take(400)) }
+            }
+        }
+
+    private fun persistReflection(reflection: Reflection) {
+        val file = File(reportFile.parentFile ?: File("."), "latest-reflection.properties")
+        file.parentFile?.mkdirs()
+        val props = Properties().apply {
+            setProperty("createdAtMs", reflection.createdAtMs.toString())
+            setProperty("sourceRevision", reflection.sourceRevision)
+            setProperty("summary", reflection.summary)
+            setProperty("findings", reflection.findings.joinToString("|"))
+            setProperty("nextActions", reflection.nextActions.joinToString("|"))
+            setProperty("candidateCapability", reflection.candidateCapability.orEmpty())
+            setProperty("candidateDescription", reflection.candidateDescription.orEmpty())
+            setProperty("constraints", reflection.constraints.joinToString("|"))
+            setProperty("evidenceGaps", reflection.evidenceGaps.joinToString("|"))
+        }
+        file.outputStream().use { props.store(it, "Friday self-study reflection; proposals only") }
     }
 
     @Volatile private var latest: Report? = null
@@ -126,6 +261,17 @@ class ApplicationSelfStudy(
         persist(report)
         latest = report
         return report
+    }
+
+    companion object {
+        private const val REFLECTION_SYSTEM_PROMPT = """
+            You are Friday reviewing evidence from your own installed Android application.
+            You are the same individual and model authority that serves normal conversation.
+            Be skeptical: structural counts are not source comprehension, and a reported
+            capability is not proof that it works. Separate observed facts, inferences,
+            uncertainty and proposed work. Suggest at most one small pure synth-language
+            capability. Never claim to have changed code or executed a build. Output JSON only.
+        """
     }
 
     private fun persist(report: Report) {
