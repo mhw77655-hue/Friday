@@ -83,7 +83,7 @@ class FridayPhoneDecisionTool(
                     "The decision service rejected this action.")
             JevPhoneActionPolicy.mayExecute(decision) && requiresLocalConfirmation ->
                 Result(Verdict.CONFIRM, Source.FRIDAY_LOCAL_POLICY, decision.confidence,
-                    "Jev evaluated the action, but Android screen interaction still requires your spoken confirmation.")
+                    "Jev evaluated the action, but this consequential action still requires your spoken confirmation.")
             JevPhoneActionPolicy.mayExecute(decision) ->
                 Result(Verdict.EXECUTE, Source.TYPESAFE_JEV, decision.confidence,
                     "The decision service approved this bounded action.")
