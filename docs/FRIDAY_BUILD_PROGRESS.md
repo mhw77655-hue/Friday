@@ -19,7 +19,7 @@ This is a milestone-weighted engineering estimate, not a line-count metric and n
 | 9 | Self-model and individuality | 30% | Calibrated self-knowledge and stable preference/strategy evolution |
 | 10 | Capability Foundry | 35% | Broader safe tool synthesis, outcome learning and stronger validation coverage |
 | 11 | Native phone capabilities | 40% | Complete voice-to-action coverage, permissions, device-specific reliability |
-| 12 | Autonomous self-development | 20% | Source index is being added; still need a persistent objective queue and guarded tool-improvement cycle |
+| 12 | Autonomous self-development | 20% | Source index generation and runtime reading are implemented; still need a persistent objective queue and guarded tool-improvement cycle |
 | 13 | Security, provenance and rollback | 40% | Full self-modification authorization, signed native update and rollback proof |
 | 14 | Life tests | 20% | Full replay/disable/restart/model-replacement suite demonstrating genuine learning |
 | 15 | Real-device validation on the target phone | 0% | No verified test evidence from the owner's Realme 9 Pro 5G yet |
@@ -39,7 +39,7 @@ This is a milestone-weighted engineering estimate, not a line-count metric and n
 1. The latest full CI run must finish successfully; earlier runs failed first on stale Termux fixture references, then on the newly added Gradle source-index task syntax. Those errors have been patched, but the newest run is not yet verified in this snapshot.
 2. A green CI build does not prove the app works on the target phone.
 3. The source index enables metadata-level self-inspection, not arbitrary Kotlin source comprehension or self-rewriting.
-4. TypeSafe Jev remains an optional hosted decision provider. Friday owns the local decision interface and policy; she has not recreated Jev's proprietary model.
+4. TypeSafe Jev remains an optional hosted decision provider. Friday now combines Jev Choice, Score and Noul judgments for phone-action disposition, consequence severity, explicit authorization and target clarity. Friday owns the local decision interface and policy; she has not recreated Jev's proprietary model.
 5. Native app changes still require a signed, verified Android update. Friday must not silently replace her installed package.
 
 ## Percentage method
