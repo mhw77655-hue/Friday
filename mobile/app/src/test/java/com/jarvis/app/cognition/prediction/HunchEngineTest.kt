@@ -29,14 +29,14 @@ class HunchEngineTest {
     fun repeatedTransitionsProduceAnAuditablePredictionThatBeatsTheGlobalPrior() {
         val workspace = InMemoryWorkspace()
         val store = MemoryExpectationTableStore()
-        val hunch = HunchEngine(workspace, store)
+        val hunch = HunchEngine(store)
         val sequence = listOf("A", "B", "A", "B", "A", "B", "A", "B", "A", "B", "A", "B")
         var previousId: String? = null
         sequence.forEachIndexed { index, state ->
             val id = "state-$index"
             publishState(workspace, id, state, index.toLong() + 1, previousId)
             previousId = id
-            hunch.observeTurn(now = index.toLong() + 1, episodeId = "turn-$index")
+            hunch.observeTurn(workspace, now = index.toLong() + 1, episodeId = "turn-$index")
         }
 
         val prediction = workspace.current(ClaimKind.PREDICTION)
@@ -64,7 +64,7 @@ class HunchEngineTest {
         assertNotNull(pending)
 
         publishState(workspace, "state-final", "A", 99L, previousId)
-        hunch.observeTurn(now = 99L, episodeId = "turn-final")
+        hunch.observeTurn(workspace, now = 99L, episodeId = "turn-final")
 
         val resolved = workspace.claims(ClaimKind.PREDICTION).first { it.id == pending!!.id }
         assertTrue(resolved.isResolved)
