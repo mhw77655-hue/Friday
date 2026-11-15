@@ -126,7 +126,7 @@ val generateFridaySourceIndex = tasks.register("generateFridaySourceIndex") {
             val relative = source.relativeTo(root).invariantSeparatorsPath
             val text = source.readText()
             digest.update(relative.toByteArray(Charsets.UTF_8))
-            digest.update(0)
+            digest.update(0.toByte())
             digest.update(text.toByteArray(Charsets.UTF_8))
             val packageName = Regex("(?m)^\\s*package\\s+([A-Za-z0-9_.]+)")
                 .find(text)?.groupValues?.get(1).orEmpty()
@@ -136,20 +136,16 @@ val generateFridaySourceIndex = tasks.register("generateFridaySourceIndex") {
             Triple(relative, packageName, declarations)
         }
         val revision = digest.digest().joinToString("") { "%02x".format(it) }
-        fun String.jsonEscape(): String = replace("\\\\", "\\\\\\\\")
-            .replace("\\"", "\\\\\"")
-            .replace("\\n", "\\\\n")
-            .replace("\\r", "\\\\r")
         val json = buildString {
             append("{\n  \"schemaVersion\": 1,\n  \"sourceRevision\": \"")
             append(revision)
             append("\",\n  \"files\": [")
             entries.forEachIndexed { index, entry ->
                 if (index > 0) append(",")
-                append("\n    { \"path\": \"").append(entry.first.jsonEscape())
-                append("\", \"package\": \"").append(entry.second.jsonEscape())
+                append("\n    { \"path\": \"").append(entry.first)
+                append("\", \"package\": \"").append(entry.second)
                 append("\", \"declarations\": [")
-                append(entry.third.joinToString(", ") { "\""+it.jsonEscape()+"\"" })
+                append(entry.third.joinToString(", ") { "\""+it+"\"" })
                 append("] }")
             }
             if (entries.isNotEmpty()) append("\n  ")
