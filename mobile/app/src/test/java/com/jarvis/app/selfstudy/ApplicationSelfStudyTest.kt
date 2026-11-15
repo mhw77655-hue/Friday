@@ -91,7 +91,17 @@ class ApplicationSelfStudyTest {
                         sourceRevision = "test-revision",
                         sourceFileCount = 42,
                         declaredSymbolCount = 120,
-                        packageCount = 9
+                        packageCount = 9,
+                        files = listOf(
+                            ApplicationSourceIndex.FileEntry(
+                                "body/BodyCoordinator.kt",
+                                "com.jarvis.app.body",
+                                listOf("BodyCoordinator"),
+                                listOf("com.jarvis.app.voice.PhoneCommandOrchestrator")
+                            )
+                        ),
+                        packageDependencies = mapOf("com.jarvis.app.body" to listOf("com.jarvis.app.voice")),
+                        dependencyEdgeCount = 1
                     )
                 }
             )
@@ -118,6 +128,9 @@ class ApplicationSelfStudyTest {
             assertEquals(42, report.sourceFileCount)
             assertEquals(120, report.sourceSymbolCount)
             assertEquals(9, report.sourcePackageCount)
+            assertEquals(1, report.sourceDependencyEdgeCount)
+            assertEquals(mapOf("com.jarvis.app.body" to listOf("com.jarvis.app.voice")), report.sourcePackageDependencies)
+            assertEquals(listOf("body/BodyCoordinator.kt"), report.sourceFilePaths)
             assertFalse(report.structurallyHealthy)
             assertTrue(File(dir, "self-study/latest.properties").isFile)
             assertEquals(report, study.latestReport())
