@@ -45,6 +45,14 @@ class PhoneCommandInterpreterTest {
         ))
     }
 
+    @Test fun `recognizes natural polite voice phrasing`() {
+        assertEquals(PhoneControlCommand.Back, PhoneCommandInterpreter.parse("Hey Friday, could you take me back please?"))
+        assertEquals(PhoneControlCommand.Home, PhoneCommandInterpreter.parse("Friday, please take me home."))
+        assertEquals(PhoneControlCommand.OpenApp("Spotify"), PhoneCommandInterpreter.parse("Can you open Spotify please?"))
+        assertEquals(PhoneControlCommand.TapText("Send"), PhoneCommandInterpreter.parse("Hey Friday, tap Send please"))
+        assertEquals(PhoneControlCommand.TypeText("hello there"), PhoneCommandInterpreter.parse("Could you type hello there please?"))
+    }
+
     @Test fun `does not guess complex or ambiguous commands`() {
         assertNull(PhoneCommandInterpreter.parse("send the message to my friend"))
         assertNull(PhoneCommandInterpreter.parse("do something"))
