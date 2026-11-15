@@ -127,6 +127,7 @@ class ToolBuilder(
         )
 
         if (!run.promoted || run.receipt == null || run.best == null) {
+            val diagnostics = evolution.log.value.takeLast(16).joinToString(" | ") { it.message }
             failureSurface.report(
                 FailureReport(
                     subsystem = "BUILDER",
@@ -142,7 +143,7 @@ class ToolBuilder(
                 built = false,
                 gapDetected = true,
                 status = "EVOLUTION_REJECTED",
-                message = "evolution ran but the gate rejected all candidates",
+                message = "evolution ran but the gate rejected all candidates. Diagnostics: $diagnostics",
                 candidates = run.candidates,
                 researchNote = researchNote,
                 researchCandidates = researchCandidates
