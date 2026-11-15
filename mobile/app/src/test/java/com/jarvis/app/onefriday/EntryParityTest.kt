@@ -134,23 +134,10 @@ class EntryParityTest {
         )
     }
 
-    private fun fingerprint(assembly: TurnPathAssembly): List<String> {
-        val rootOwned = listOf(
-            "workspace", "retriever", "signalScorer", "worldModel", "userProfile",
-            "mentalStateEstimator", "emotionFusion", "selfModel", "personaTuner",
-            "identityContext", "personRelationshipModel", "confidentialityFirewall",
-            "capabilityFabric", "capabilityRouter", "fuzzyCommandResolver",
-            "capabilityMemoryIndex", "cloudModelRouter", "dialectDetector",
-            "continuityGate", "changeLog", "continuityLaw", "replayCheck",
-            "resourceGovernor", "modelManager", "cognitiveAdmissionPolicy",
-            "anchorEngine", "engine", "pipeline", "humanCoreTurnPort"
-        )
-        return rootOwned.map { name ->
-            val field = TurnPathAssembly::class.java.getDeclaredField(name).apply { isAccessible = true }
-            val value = field.get(assembly)
-            "$name=${value?.javaClass?.name ?: "null"}"
-        }.sorted()
-    }
+    private fun fingerprint(assembly: TurnPathAssembly): List<String> =
+        assembly.componentFingerprint.toSortedMap().map { (name, implementation) ->
+            "$name=$implementation"
+        }
 
     private fun source(relative: String): String {
         val cwd = File(System.getProperty("user.dir"))
