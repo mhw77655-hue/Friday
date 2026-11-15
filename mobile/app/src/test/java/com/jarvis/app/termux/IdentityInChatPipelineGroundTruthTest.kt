@@ -13,22 +13,22 @@ import org.junit.Test
  * IDENTITY-IN-CHAT-PIPELINE-GROUND-TRUTH-AND-FIX — asserts on the ACTUAL
  * OUTGOING REQUEST PAYLOAD, never on the model's (nondeterministic) reply text.
  *
- * Ground truth of the exact production call path:
+ * Ground truth of this test-only JVM harness call path (not the Android app path):
  *
  *   TermuxJarvisServer /api/chat -> pipeline.onUserInput
  *     -> LatencyPipeline.onUserInput (LatencyLayer.kt:278)
  *     -> CognitiveEngine.process(text, ctx, sendBlock = bridgeSend) (LatencyLayer.kt:312)
  *
- * In the production composition the bridgeSend lambda hands the built context
+ * In this harness the bridgeSend lambda hands the built context
  * message verbatim to ModelManager.send, which wraps it into
  * `Message(MessageRole.USER, <that text>)` inside the GenerateRequest the active
  * provider translates into the request sent to Ollama (ModelManager.kt:473-488).
  * So the text captured at bridgeSend IS the outgoing request payload content.
  *
- * Before the fix the Termux composition never initialized the REAL HumanCore
- * singleton (only JarvisEngine.init did, on Android), so HumanCoreIdentitySource
- * returned null and SelfModel reported "unknown v0" — the model literally never
- * received a name. This test drives the REAL server's engine/identity stack:
+ * This historical harness previously failed to initialize the REAL HumanCore
+ * singleton. This test now verifies the platform-neutral identity stack, while
+ * Android integration still requires a separate device-level proof. The test drives
+ * the harness engine/identity stack:
  *   AC1 - the real composition now resolves the real HumanCore identity name;
  *   AC2 - real identity/persona content is wired into the outgoing payload
  *         through the existing IdentityContext.formatForPrompt mechanism, with
