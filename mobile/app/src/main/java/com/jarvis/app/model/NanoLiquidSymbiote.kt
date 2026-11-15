@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.BatteryManager
+import android.os.Debug
 import android.os.Build
 import android.os.PowerManager
 import android.os.StatFs
@@ -56,7 +57,8 @@ class NanoLiquidSymbiote(context: Context) {
             batteryPercent = batteryPercent,
             isCharging = charging,
             cpuCores = Runtime.getRuntime().availableProcessors().coerceAtLeast(1),
-            lowMemory = memory.lowMemory
+            lowMemory = memory.lowMemory,
+            appPssMb = Debug.getPss().toLong() / 1024L
         )
     }
 
@@ -95,6 +97,7 @@ class NanoLiquidSymbiote(context: Context) {
                 .putInt("samples_$key", preferences.getInt("samples_$key", 0) + 1)
                 .putLong("last_observed_at", System.currentTimeMillis())
                 .putLong("last_available_memory_mb", host.availableMemoryMb)
+                .putLong("last_app_pss_mb", host.appPssMb)
                 .putInt("last_thermal_level", host.thermalLevel)
                 .putInt("last_battery_percent", host.batteryPercent)
                 .putBoolean("last_run_was_constrained", constrained)
@@ -126,6 +129,7 @@ class NanoLiquidSymbiote(context: Context) {
     fun learningSummary(): Map<String, Any> = mapOf(
         "samples" to (1..4).sumOf { preferences.getInt("samples_$it", 0) },
         "lastAvailableMemoryMb" to preferences.getLong("last_available_memory_mb", -1L),
+        "lastAppPssMb" to preferences.getLong("last_app_pss_mb", -1L),
         "lastThermalLevel" to preferences.getInt("last_thermal_level", -1),
         "lastBatteryPercent" to preferences.getInt("last_battery_percent", -1),
         "lastRunConstrained" to preferences.getBoolean("last_run_was_constrained", false)
