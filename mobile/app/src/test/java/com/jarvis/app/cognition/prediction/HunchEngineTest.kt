@@ -79,12 +79,14 @@ class HunchEngineTest {
         val store = FileExpectationTableStore(file)
         val snapshot = ExpectationSnapshot(
             transitions = mapOf("state-hash" to mapOf("next-hash" to 3)),
+            episodeIds = mapOf("state-hash" to mapOf("next-hash" to listOf("turn-1", "turn-2"))),
             performance = PredictionPerformance(evaluated = 4, modelCorrect = 3, baselineCorrect = 2),
             lastStateKey = "state-hash"
         )
         store.save(snapshot)
         val restored = store.load()
         assertEquals(3, restored.transitions["state-hash"]?.get("next-hash"))
+        assertEquals(listOf("turn-1", "turn-2"), restored.episodeIds["state-hash"]?.get("next-hash"))
         assertEquals(4, restored.performance.evaluated)
         assertEquals("state-hash", restored.lastStateKey)
         assertFalse(file.readText().contains("actual private text"))
