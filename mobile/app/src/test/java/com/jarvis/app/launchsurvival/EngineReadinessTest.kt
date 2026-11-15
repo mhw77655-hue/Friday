@@ -76,6 +76,81 @@ class EngineReadinessTest {
     }
 
     @Test
+    fun `multiple organ accessors remain unavailable until the same gate is ready`() {
+        val gate = EngineReadinessGate()
+        val body = TestTarget("body")
+        val voice = TestTarget("voice")
+        val model = TestTarget("model")
+
+        var bodyTarget: TestTarget? = null
+        var voiceTarget: TestTarget? = null
+        var modelTarget: TestTarget? = null
+
+        gate.markWaking()
+        val bodySlotWhileWaking = gate.slot { bodyTarget }
+        val voiceSlotWhileWaking = gate.slot { voiceTarget }
+        val modelSlotWhileWaking = gate.slot { modelTarget }
+
+        assertFalse(bodySlotWhileWaking.isReady)
+        assertFalse(voiceSlotWhileWaking.isReady)
+        assertFalse(modelSlotWhileWaking.isReady)
+        assertEquals(EngineReadinessState.Waking, bodySlotWhileWaking.readiness)
+        assertEquals(EngineReadinessState.Waking, voiceSlotWhileWaking.readiness)
+        assertEquals(EngineReadinessState.Waking, modelSlotWhileWaking.readiness)
+
+        bodyTarget = body
+        voiceTarget = voice
+        modelTarget = model
+        gate.markReady()
+
+        assertEquals(body, gate.slot { bodyTarget }.value)
+        assertEquals(voice, gate.slot { voiceTarget }.value)
+        assertEquals(model, gate.slot { modelTarget }.value)
+    }
+
+    @Test
+    fun `ready gate converts a missing required organ into a failed slot`() {
+        val gate = EngineReadinessGate()
+        gate.markReady()
+
+        val slot = gate.slot<TestTarget> { null }
+
+        assertFalse(slot.isReady)
+        assertNull(slot.value)
+        assertTrue(slot.readiness is EngineReadinessState.FailedToWake)
+        assertTrue(
+            (slot.readiness as EngineReadinessState.FailedToWake)
+                .error.message.orEmpty()
+                .contains("organ is unavailable")
+        )
+    }
+
+    @Test
+    fun `ready gate preserves provider failure instead of swallowing it`() {
+        val gate = EngineReadinessGate()
+        gate.markReady()
+        val expected = IllegalStateException("organ accessor failure")
+
+        val slot = gate.slot<TestTarget> { throw expected }
+
+        assertFalse(slot.isReady)
+        assertNull(slot.value)
+        assertTrue(slot.readiness is EngineReadinessState.FailedToWake)
+        assertEquals(expected, (slot.readiness as EngineReadinessState.FailedToWake).error)
+    }
+
+    @Test
+    fun `not started gate answers with a typed not ready slot`() {
+        val gate = EngineReadinessGate()
+
+        val slot = gate.slot { TestTarget("not-ready") }
+
+        assertFalse(slot.isReady)
+        assertNull(slot.value)
+        assertEquals(EngineReadinessState.NotStarted, slot.readiness)
+    }
+
+    @Test
     fun `wiring throwing midway records failed-to-wake and accessors do not throw`() {
         val gate = EngineReadinessGate()
         val harness = TestAccessorHarness(gate)
