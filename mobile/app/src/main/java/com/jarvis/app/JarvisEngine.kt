@@ -66,6 +66,9 @@ object JarvisEngine {
         private set
     @Volatile var modelManager: ModelManager? = null
         private set
+    /** NAE's live host-adaptation organ. */
+    @Volatile var nanoSymbiosis: com.jarvis.app.symbiosis.NanoSymbioticController? = null
+        private set
     @Volatile var ollamaModelBackend: com.jarvis.app.model.OllamaModelBackend? = null
         private set
     @Volatile var offlineModelBackend: com.jarvis.app.model.InAppLlamaModelBackend? = null
@@ -328,6 +331,15 @@ object JarvisEngine {
             )
             JarvisEngine.provenanceLedger = provenanceLedger
 
+            // NAE starts observing this host before the turn path is assembled.
+            // Its monitor is low-frequency and stores aggregate workload metrics only.
+            val nanoSymbiosis = com.jarvis.app.symbiosis.NanoSymbioticController(
+                context = appContext,
+                storageDir = appContext.filesDir
+            )
+            nanoSymbiosis.start(scope)
+            this.nanoSymbiosis = nanoSymbiosis
+
             // ── The ONE turn path ─────────────────────────────────────────────
             val assembly = com.jarvis.app.onefriday.TurnPathAssembly.assemble(
                 com.jarvis.app.onefriday.AndroidPlatformPorts(
@@ -360,7 +372,8 @@ object JarvisEngine {
                     turnTraceStore = turnTraceStore,
                     threadTracker = threadTracker,
                     provenanceLedger = provenanceLedger,
-                    adapterManifest = adapterManifest
+                    adapterManifest = adapterManifest,
+                    nanoSymbiosis = nanoSymbiosis
                 )
             )
             // ONE ModelManager, ONE ResourceGovernor, ONE LatencyPipeline per
