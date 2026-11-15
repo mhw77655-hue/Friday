@@ -13,6 +13,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import com.jarvis.app.modelsim.DeviceSnapshot
 import com.jarvis.app.modelsim.FitVerdict
 import com.jarvis.app.modelsim.ModelFreeDeviceSimulator
+import com.jarvis.app.modelsim.ModelHubCatalog
+import com.jarvis.app.modelsim.ModelCandidate
 import com.jarvis.app.modelsim.ModelSimulation
 import com.jarvis.app.modelsim.SyntheticBenchmark
 import com.jarvis.app.ui.theme.JarvisColors
@@ -41,11 +44,15 @@ import kotlinx.coroutines.withContext
 fun ModelSimulationScreen() {
     val context = LocalContext.current
     val simulator = remember(context) { ModelFreeDeviceSimulator(context) }
+    val hubCatalog = remember { ModelHubCatalog() }
     val scope = rememberCoroutineScope()
     var snapshot by remember { mutableStateOf<DeviceSnapshot?>(null) }
     var benchmark by remember { mutableStateOf<SyntheticBenchmark?>(null) }
     var simulations by remember { mutableStateOf<List<ModelSimulation>>(emptyList()) }
     var contextTokens by remember { mutableIntStateOf(2048) }
+    var searchQuery by remember { mutableStateOf("instruct") }
+    var discoveredCandidates by remember { mutableStateOf<List<ModelCandidate>>(emptyList()) }
+    var discovering by remember { mutableStateOf(false) }
     var running by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
@@ -57,11 +64,36 @@ fun ModelSimulationScreen() {
                 val measured = withContext(Dispatchers.IO) { simulator.snapshot() }
                 simulator.persistSnapshot(measured)
                 snapshot = measured
-                simulations = simulator.simulate(measured, contextTokens)
+                simulations = simulator.simulate(measured, contextTokens, discoveredCandidates.ifEmpty { ModelFreeDeviceSimulator.CANDIDATES })
             } catch (failure: Exception) {
                 error = failure.message ?: "Could not read device resources."
             } finally {
                 running = false
+            }
+        }
+    }
+
+    fun discoverModels() {
+        scope.launch {
+            discovering = true
+            error = null
+            try {
+                val found = hubCatalog.discover(searchQuery)
+                discoveredCandidates = found
+                snapshot?.let {
+                    simulations = simulator.simulate(
+                        it,
+                        contextTokens,
+                        found.ifEmpty { ModelFreeDeviceSimulator.CANDIDATES }
+                    )
+                }
+                if (found.isEmpty()) {
+                    error = "No sized GGUF files were returned. Try another search term; unknown file sizes are intentionally not guessed."
+                }
+            } catch (failure: Exception) {
+                error = failure.message ?: "Could not reach the public model catalog."
+            } finally {
+                discovering = false
             }
         }
     }
@@ -152,9 +184,32 @@ fun ModelSimulationScreen() {
             }
         }
 
+        Text("Discover models from Hugging Face", style = JarvisType.Label)
+        Text(
+            "Searches public GGUF repositories and reads published file sizes. It does not download weights or run a model. Repository metadata is not an independent quality or license audit.",
+            style = JarvisType.Technical
+        )
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Model search") },
+            singleLine = true
+        )
+        Button(
+            onClick = { discoverModels() },
+            enabled = !running && !discovering && searchQuery.isNotBlank()
+        ) { Text(if (discovering) "Searching catalog…" else "Discover GGUF models") }
+        if (discovering) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        Text(
+            if (discoveredCandidates.isEmpty()) "Showing the built-in screening set until discovery returns results."
+            else "Discovered ${discoveredCandidates.size} quantized GGUF file candidates. File size is exact only when Hub metadata provides it.",
+            style = JarvisType.Technical
+        )
+
         Text("Model screening", style = JarvisType.Label)
         Text(
-            "These are estimates from measured RAM and conservative model-size assumptions. A likely fit is not a verified model load.",
+            "These are resource estimates based on live RAM, exact listed weight-file size where available, and conservative overhead assumptions. They are not model performance tests.",
             style = JarvisType.Technical
         )
         simulations.forEach { result ->
@@ -178,7 +233,7 @@ fun ModelSimulationScreen() {
         }
 
         Text(
-            "The device profile and synthetic results are saved privately on this phone. This lab does not download models, infer exact architecture-specific KV cache, or predict tokens/second. It screens candidates. A later real inference test will calibrate the estimates.",
+            "The device profile and synthetic results are saved privately on this phone. Discovery reads public catalog metadata only. This lab does not download model weights, infer exact architecture-specific KV cache, or predict tokens/second. Actual model loading and sustained inference are separate, later tests.",
             style = JarvisType.Technical
         )
     }
