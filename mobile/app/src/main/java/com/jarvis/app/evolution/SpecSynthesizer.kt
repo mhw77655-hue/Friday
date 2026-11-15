@@ -14,11 +14,9 @@ import kotlin.math.roundToInt
  * synthesizer turns into a real executable spec (§5: generation operates on
  * structured system specifications, not raw source text).
  *
- * A future LLM/coding-agent synthesizer plugs in behind the same
- * [SpecSynthesizer] interface; this foundation demonstrates the loop with
- * harmless local capabilities whose logic the descriptor fully determines.
- * Nothing here pretends to be general code synthesis — it is the *contract*,
- * exercised end-to-end with real execution.
+ * Deterministic descriptors cover a small set of cheap primitives. Arbitrary
+ * declared capabilities use the model-backed [LlmSpecSynthesizer] and execute
+ * in the restricted synth interpreter; neither path compiles arbitrary Kotlin.
  */
 sealed interface Behavior {
 
