@@ -38,6 +38,19 @@ class PhoneActionPlannerTest {
         assertTrue(result is PhoneActionPlanner.Result.Unavailable)
     }
 
+    @Test fun `does not accept a substring as proof of a visible tap target`() = runBlocking {
+        val planner = PhoneActionPlanner { _: GenerateRequest ->
+            GenerateResult(content = """{"kind":"action","type":"tap_text","target":"Send"}""")
+        }
+
+        val result = planner.plan(
+            "Tap Send",
+            "package=com.example.chat\\nnode=Send message;clickable=true;editable=false;focused=false"
+        )
+
+        assertTrue(result is PhoneActionPlanner.Result.Unavailable)
+    }
+
     @Test fun `text entry requires a verified focused editable field`() = runBlocking {
         val planner = PhoneActionPlanner { _: GenerateRequest ->
             GenerateResult(content = """{"kind":"action","type":"type_text","text":"hello"}""")
