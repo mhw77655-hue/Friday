@@ -122,8 +122,7 @@ object ToolBuilderComposition {
             archive = archive,
             governor = governor,
             failureSurface = failureSurface,
-            nervousSystem = gns,
-            candidateGenerator = candidateGenerator
+            nervousSystem = gns
         )
 
         return Stack(builder, registry, genomeRegistry, archive, governor, failureSurface, gns, rollback, sandbox, scope)
