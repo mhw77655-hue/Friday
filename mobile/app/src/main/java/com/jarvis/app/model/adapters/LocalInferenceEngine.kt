@@ -176,6 +176,7 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
         currentConfig = NativeConfig(
             modelPath = resolvedModel.absolutePath,
             nCtx = params["context_window"]?.toIntOrNull() ?: 4096,
+            nBatch = params["batch_size"]?.toIntOrNull() ?: 512,
             nThreads = params["threads"]?.toIntOrNull() ?: 4,
             nGpuLayers = params["gpu_layers"]?.toIntOrNull() ?: 0,
             temp = params["temperature"]?.toFloatOrNull() ?: 0.7f,

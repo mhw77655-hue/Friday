@@ -65,7 +65,8 @@ class InAppLlamaModelBackend(context: Context) : ModelBackend {
                 modelId = config.modelId,
                 parameters = config.params + mapOf(
                     "context_window" to profile.contextTokens.toString(),
-                    "threads" to profile.threads.toString()
+                    "threads" to profile.threads.toString(),
+                    "batch_size" to profile.batchTokens.toString()
                 )
             )
         )
@@ -79,7 +80,7 @@ class InAppLlamaModelBackend(context: Context) : ModelBackend {
     private suspend fun adaptIfNeeded(handle: ModelHandle, engine: LocalInferenceEngine) {
         val previous = profiles[handle] ?: return
         val latest = nano.recommend()
-        if (latest.threads == previous.threads && latest.contextTokens == previous.contextTokens) return
+        if (latest.threads == previous.threads && latest.contextTokens == previous.contextTokens && latest.batchTokens == previous.batchTokens) return
         val file = modelFiles[handle] ?: return
         val config = backendConfigs[handle] ?: return
 
