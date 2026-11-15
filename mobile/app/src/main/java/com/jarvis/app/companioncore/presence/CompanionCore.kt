@@ -12,7 +12,6 @@ import com.jarvis.app.companioncore.render.OrbRenderParams
 import com.jarvis.app.companioncore.render.OrbStateMachine
 import com.jarvis.app.companioncore.resource.MobileResourceManagement
 import com.jarvis.app.companioncore.resource.MobileResourceManagement.DeviceConditions
-import com.jarvis.app.vf.motion.MotionEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
