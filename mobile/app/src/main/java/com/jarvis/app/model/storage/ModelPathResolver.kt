@@ -15,7 +15,7 @@ class ModelPathResolver(private val context: Context) {
             "spark-x2.6-4b-abliterated" to "Spark-X2.6-4B-Abliterated-Q4_K_M.gguf",
             "resident" to "Qwen3.5-0.8B-abliterated-Q4_K_M.gguf",
             "jarvis-resident:latest" to "Qwen3.5-0.8B-abliterated-Q4_K_M.gguf",
-            "jarvis-reasoning:latest" to "Qwen3.5-2B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf",
+            "jarvis-reasoning:latest" to "Spark-X2.6-4B-Abliterated-Q4_K_M.gguf",
             // Retained only so older installs can still resolve existing files.
             "lfm2.5-1.2b-instruct" to "LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
             "lfm" to "LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
