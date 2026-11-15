@@ -24,12 +24,11 @@ import java.io.File
  *
  * This file deliberately imports NO android.* type. That is the whole point of
  * the split: the turn path is platform-free, so the thing that names the
- * platform is this interface and its two implementations
- * ([JvmPlatformPorts] for the Termux/plain-JVM host, `AndroidPlatformPorts` for
- * the phone), never the organs.
+ * platform is this interface and its sole production implementation
+ * (`AndroidPlatformPorts` for the phone), never the organs. JVM adapters are test-only.
  *
- * What belongs here is only what genuinely differs between two hosts running
- * the SAME individual: where durable files go, what the device looks like right
+ * What belongs here is only what genuinely differs between the Android host
+ * and a test fixture: where durable files go, what the device looks like right
  * now, what time it is, where speech and turn-state go, and which store
  * implementations the platform can offer. Everything else — the claim
  * workspace, the identity/emotion/social/continuity stack, the cognitive engine,
