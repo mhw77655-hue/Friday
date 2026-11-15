@@ -88,9 +88,11 @@ class NanoSymbioticController(
         val raw = readHost()
         val currentPlan = policy.plan(applyLearnedHostReserve(raw))
         mutablePlan.value = currentPlan
+        val learnedReasoningReserve = liquidSymbiosis.additionalAdmissionReserveMb(SymbioticOrgan.REASONING)
         return object : ResourceSnapshot {
             override val availableMemoryMb: Long =
-                (raw.availableMemoryMb - currentPlan.memoryReserveMb - hostStudy.snapshot().additionalMemoryReserveMb).coerceAtLeast(0L)
+                (raw.availableMemoryMb - currentPlan.memoryReserveMb -
+                    hostStudy.snapshot().additionalMemoryReserveMb - learnedReasoningReserve).coerceAtLeast(0L)
             override val cpuLoadPercent: Double = raw.cpuLoadPercent
             override val thermalLevel: Int = raw.thermalLevel
             override val batteryPercent: Int = raw.batteryPercent
@@ -113,12 +115,17 @@ class NanoSymbioticController(
         val observedMemory = if (peakMemoryMb > 0L) peakMemoryMb
             else android.os.Debug.getPss().toLong().coerceAtLeast(0L) / 1024L
         policy.recordOutcome(organ, succeeded, latencyMs, observedMemory)
-        val liquidOrgan = when (organ.trim().lowercase()) {
-            "reasoning", "model", "inference", "llm" -> SymbioticOrgan.REASONING
-            "speech_input", "stt", "recognition" -> SymbioticOrgan.SPEECH_INPUT
-            "speech_output", "tts", "voice" -> SymbioticOrgan.SPEECH_OUTPUT
-            "memory", "retrieval", "consolidation" -> SymbioticOrgan.MEMORY
-            "vision", "camera" -> SymbioticOrgan.VISION
+        val normalizedOrgan = organ.trim().lowercase()
+        val liquidOrgan = when {
+            normalizedOrgan.contains("reason") || normalizedOrgan.contains("model") ||
+                normalizedOrgan.contains("infer") || normalizedOrgan == "llm" -> SymbioticOrgan.REASONING
+            normalizedOrgan.contains("speech_input") || normalizedOrgan == "stt" ||
+                normalizedOrgan.contains("recognition") || normalizedOrgan == "voice_input" -> SymbioticOrgan.SPEECH_INPUT
+            normalizedOrgan.contains("speech_output") || normalizedOrgan == "tts" ||
+                normalizedOrgan == "voice" || normalizedOrgan == "voice_output" -> SymbioticOrgan.SPEECH_OUTPUT
+            normalizedOrgan.contains("memory") || normalizedOrgan.contains("retrieval") ||
+                normalizedOrgan.contains("consolidation") -> SymbioticOrgan.MEMORY
+            normalizedOrgan.contains("vision") || normalizedOrgan.contains("camera") -> SymbioticOrgan.VISION
             else -> SymbioticOrgan.BACKGROUND
         }
         liquidSymbiosis.recordOutcome(
