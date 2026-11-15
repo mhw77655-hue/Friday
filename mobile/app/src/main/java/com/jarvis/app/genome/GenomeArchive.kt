@@ -242,17 +242,17 @@ class GenomeArchive(
             toolRequirements = ModelTools.read(tools),
             environmentRequirements = EnvironmentRequirements(
                 networkAccess = environment.optBoolean("networkAccess", false),
-                fileAccess = stringList(environment, "fileAccess"),
-                sensors = stringList(environment, "sensors"),
-                permissions = stringList(environment, "permissions"),
+                fileAccess = stringList(environment, "fileAccess").toSet(),
+                sensors = stringList(environment, "sensors").toSet(),
+                permissions = stringList(environment, "permissions").toSet(),
                 batteryMinPercent = environment.optInt("batteryMinPercent", 0),
                 thermalOk = environment.optBoolean("thermalOk", true)
             ),
             communicationContract = CommunicationContract(
-                inputTopics = stringList(communication, "inputTopics"),
-                outputTopics = stringList(communication, "outputTopics"),
-                requestTopics = stringList(communication, "requestTopics"),
-                resultTopics = stringList(communication, "resultTopics"),
+                inputTopics = stringList(communication, "inputTopics").toSet(),
+                outputTopics = stringList(communication, "outputTopics").toSet(),
+                requestTopics = stringList(communication, "requestTopics").toSet(),
+                resultTopics = stringList(communication, "resultTopics").toSet(),
                 confidenceThreshold = communication.optDouble("confidenceThreshold", 0.5).toFloat(),
                 priority = communication.optInt("priority", 0),
                 maxInflight = communication.optInt("maxInflight", 1)
@@ -330,9 +330,8 @@ class GenomeArchive(
         return (0 until array.length()).map { array.getString(it) }
     }
 
-    private fun enumValue(value: String?, default: RuntimeRequirements.IsolationLevel): RuntimeRequirements.IsolationLevel {
-        return try { RuntimeRequirements.IsolationLevel.valueOf(value.orEmpty()) } catch (_: Exception) { default }
-    }
+    private fun enumValue(value: String?, default: IsolationLevel): IsolationLevel =
+        try { IsolationLevel.valueOf(value.orEmpty()) } catch (_: Exception) { default }
 
     private fun enumValue(value: String?, default: TestType): TestType =
         try { TestType.valueOf(value.orEmpty()) } catch (_: Exception) { default }
