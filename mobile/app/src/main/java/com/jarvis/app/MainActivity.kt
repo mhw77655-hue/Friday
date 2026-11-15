@@ -1,6 +1,8 @@
 package com.jarvis.app
 
 import android.Manifest
+import android.content.Intent
+import android.widget.Toast
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -14,6 +16,8 @@ import androidx.lifecycle.lifecycleScope
 import com.jarvis.app.humancore.HumanCore
 import com.jarvis.app.ui.navigation.JarvisNavHost
 import com.jarvis.app.ui.theme.JarvisTheme
+import com.jarvis.app.video.VideoIntakeRepository
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     private val micPermissionLauncher = registerForActivityResult(
@@ -26,6 +30,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        handleSharedVideoIntent(intent)
         ShizukuBridge.init()
         // End the Human Core session when the app goes to the background so
         // session-boundary work (bond growth, baseline coupling, reflection)
@@ -68,6 +73,32 @@ class MainActivity : ComponentActivity() {
             JarvisTheme {
                 JarvisNavHost()
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleSharedVideoIntent(intent)
+    }
+
+    private fun handleSharedVideoIntent(intent: Intent?) {
+        if (intent?.action != Intent.ACTION_SEND && intent?.action != Intent.ACTION_SEND_MULTIPLE) return
+        lifecycleScope.launch {
+            runCatching { VideoIntakeRepository(applicationContext).importSharedIntent(intent) }
+                .onSuccess { items ->
+                    val mediaCount = items.count { it.localPath != null }
+                    val linkCount = items.count { it.sharedUrl != null }
+                    val message = when {
+                        items.isEmpty() -> "Friday could not find a video or TikTok link in that share."
+                        mediaCount > 0 -> "Imported $mediaCount video(s). Open More → Video Experience for their status."
+                        else -> "Saved $linkCount video link(s). Share the actual video file when you want Friday to analyze it."
+                    }
+                    Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+                }
+                .onFailure {
+                    Toast.makeText(this@MainActivity, it.message ?: "Video import failed.", Toast.LENGTH_LONG).show()
+                }
         }
     }
 
