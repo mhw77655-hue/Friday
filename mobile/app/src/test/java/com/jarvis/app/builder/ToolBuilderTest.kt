@@ -1,5 +1,8 @@
 package com.jarvis.app.builder
 
+import com.jarvis.app.cognitive.capability.CapabilityFabric
+import com.jarvis.app.cognitive.execution.ActionRequest
+import com.jarvis.app.cognitive.immune.ImmuneSystem
 import com.jarvis.app.evolution.Behavior
 import com.jarvis.app.evolution.RollbackController
 import com.jarvis.app.failure.FailureCategory
@@ -173,13 +176,15 @@ class ToolBuilderTest {
             modelCalls++
             GenerateResult(content = response)
         })
+        val cognitiveFabric = CapabilityFabric(ImmuneSystem(surface = FailureSurface()))
         val stack = ToolBuilderComposition.build(
             research = UniversalResearchEngine(),
             failureSurface = FailureSurface(),
             fileStorage = FileStorage(root),
             scope = scope,
             workspacesDir = File(root, "workspaces"),
-            llmSynthesisProvider = provider
+            llmSynthesisProvider = provider,
+            cognitiveCapabilityFabric = cognitiveFabric
         )
 
         val spec = ToolSpecification(
@@ -193,8 +198,23 @@ class ToolBuilderTest {
         assertTrue("build status=${result.status}; ${result.message}", result.built)
         assertTrue("the live model-backed synthesizer must be called", modelCalls > 0)
         val routed = stack.gns.route("word_count", mapOf("text" to "one two three"))
-        assertTrue("route failed: ${routed.lastError}", routed.success)
+        assertTrue("legacy nervous-system route failed: ${routed.lastError}", routed.success)
         assertEquals(3.0, (routed.result?.data as? Map<*, *>)?.get("result"))
+
+        // The same promoted implementation is also exposed to the primary
+        // CognitiveEngine fabric; Friday does not build tools into a parallel,
+        // unreachable registry.
+        val cognitiveCall = cognitiveFabric.invoker.invoke(
+            ActionRequest(
+                planId = "self-build-integration",
+                stepId = "word-count",
+                action = "word_count",
+                description = "Count the words in the supplied text",
+                context = mapOf("text" to "one two three")
+            )
+        )
+        assertTrue("cognitive fabric could not invoke the promoted tool: ${cognitiveCall.resolution}", cognitiveCall.success)
+        assertEquals("3.0", cognitiveCall.result?.output?.get("result"))
         scope.cancel()
     }
 
