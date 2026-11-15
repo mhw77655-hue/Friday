@@ -179,7 +179,7 @@ class CompletedAudioCache(
         SynthesisTicket(
             utteranceId = utteranceId,
             cacheKey = cacheKey,
-            temporaryFile = File(directory, "$cacheKey.$utteranceId.partial"),
+            temporaryFile = File(directory, "$cacheKey.$utteranceId.partial.wav"),
             completedFile = completedFile(cacheKey)
         )
 
