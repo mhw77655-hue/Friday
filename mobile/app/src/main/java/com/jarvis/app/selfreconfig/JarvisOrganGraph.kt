@@ -770,6 +770,49 @@ object JarvisOrganGraph {
         g.addEdge("memory.blendedRetriever", "continuity.continuityGate", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("model.reasoningTier", "continuity.continuityGate", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
 
+        // FRIDAY-OWNED DECISION TOOL: TypeSafe Jev is an optional provider behind
+        // a native Friday contract; the local policy remains available offline.
+        g.registerNode(SystemGraph.SystemNode(
+            id = "capability.phoneDecisionTool",
+            name = "FridayPhoneDecisionTool",
+            organType = SystemGraph.OrganType.CAPABILITY,
+            qualifiedClassName = "com.jarvis.app.voice.FridayPhoneDecisionTool",
+            description = "Friday-owned typed phone-action decision contract; Jev is an optional hosted provider, never the Android executor."
+        ))
+        // HOST STUDY / NANO LIQUID SYMBIOSIS: this is the Android host adapter
+        // that observes device resources and learns bounded organ strategies.
+        g.registerNode(SystemGraph.SystemNode(
+            id = "symbiosis.nanoSymbioticController",
+            name = "NanoSymbioticController",
+            organType = SystemGraph.OrganType.ANDROID,
+            qualifiedClassName = "com.jarvis.app.symbiosis.NanoSymbioticController",
+            description = "Studies this Android host and gates organ resource use using observed memory, CPU, thermal and battery outcomes."
+        ))
+        // APPLICATION SELF-STUDY: periodic WorkManager slices inspect this same
+        // graph, the capability manifest and the host/organ evidence.
+        g.registerNode(SystemGraph.SystemNode(
+            id = "selfstudy.applicationSelfStudy",
+            name = "ApplicationSelfStudy",
+            organType = SystemGraph.OrganType.INFRA,
+            qualifiedClassName = "com.jarvis.app.selfstudy.ApplicationSelfStudy",
+            description = "Read-only study of the installed architecture graph, declared capabilities, wiring and measured organ outcomes."
+        ))
+        g.registerNode(SystemGraph.SystemNode(
+            id = "selfstudy.workManager",
+            name = "ApplicationSelfStudyWorker",
+            organType = SystemGraph.OrganType.INFRA,
+            qualifiedClassName = "com.jarvis.app.selfstudy.ApplicationSelfStudyWorker",
+            description = "Android persistent background scheduling for bounded, resource-gated self-study slices."
+        ))
+        g.addEdge("entry.compositionRoot", "capability.phoneDecisionTool", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        g.addEdge("core.bodyCoordinator", "capability.phoneDecisionTool", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        g.addEdge("entry.compositionRoot", "symbiosis.nanoSymbioticController", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        g.addEdge("entry.compositionRoot", "selfstudy.applicationSelfStudy", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        g.addEdge("selfstudy.applicationSelfStudy", "symbiosis.nanoSymbioticController", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
+        g.addEdge("selfstudy.applicationSelfStudy", "entry.compositionRoot", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
+        g.addEdge("entry.compositionRoot", "selfstudy.workManager", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
+        g.addEdge("selfstudy.workManager", "selfstudy.applicationSelfStudy", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+
         return g
     }
 }
