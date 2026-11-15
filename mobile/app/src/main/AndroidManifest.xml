@@ -44,6 +44,12 @@
             android:process=":voice"
             android:exported="false" />
 
+        <!-- Native GGUF inference runs outside the UI/identity process. -->
+        <service
+            android:name=".model.InferenceService"
+            android:process=":inference"
+            android:exported="false" />
+
         <service
             android:name=".JarvisNotificationListener"
             android:label="JARVIS Notification Access"
