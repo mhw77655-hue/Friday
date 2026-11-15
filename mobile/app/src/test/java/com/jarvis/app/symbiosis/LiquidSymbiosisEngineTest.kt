@@ -1,6 +1,7 @@
 package com.jarvis.app.symbiosis
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -41,6 +42,45 @@ class LiquidSymbiosisEngineTest {
         assertEquals(1, strategy.concurrency)
         assertEquals(0.0, strategy.backgroundWeight, 0.0)
         assertEquals(320L, strategy.memoryPeakMb)
+    }
+
+    @Test
+    fun `learned reasoning failures tighten real admission and host pressure pauses background work`() {
+        val engine = LiquidSymbiosisEngine()
+        val initialReserve = engine.additionalAdmissionReserveMb(SymbioticOrgan.REASONING)
+        assertTrue(engine.backgroundWorkAllowed())
+
+        repeat(2) {
+            engine.recordOutcome(
+                organ = SymbioticOrgan.REASONING,
+                succeeded = false,
+                latencyMs = 2400,
+                peakMemoryMb = 900
+            )
+        }
+        assertTrue(engine.additionalAdmissionReserveMb(SymbioticOrgan.REASONING) > initialReserve)
+
+        engine.observeHost(
+            LiquidHostState(
+                availableMemoryMb = 900,
+                cpuLoad = 92.0,
+                thermalPressure = 0.8,
+                batteryPercent = 30,
+                charging = false
+            )
+        )
+        assertFalse(engine.backgroundWorkAllowed())
+
+        engine.observeHost(
+            LiquidHostState(
+                availableMemoryMb = 3200,
+                cpuLoad = 20.0,
+                thermalPressure = 0.1,
+                batteryPercent = 80,
+                charging = true
+            )
+        )
+        assertTrue(engine.backgroundWorkAllowed())
     }
 
     @Test
