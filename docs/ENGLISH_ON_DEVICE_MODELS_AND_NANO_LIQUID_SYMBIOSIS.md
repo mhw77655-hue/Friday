@@ -15,6 +15,11 @@ Research snapshot: 2026-11-15. All model choices below are candidates until the 
 
 This replaces the old tiny LFM model as the normal resident candidate. It is not automatically loaded: NAE must admit it first.
 
+The refusal result is a model-card result, not a promise of zero refusals: the published Heretic harness reports 4/100 refusals (the original base reports 99/100). MiniCPM5's published same-size comparison reports a substantially stronger aggregate score than Qwen3.5-2B, but those benchmark figures are model-author-reported and must be reproduced locally. The choice is therefore a capability-first, low-refusal resident—not a claim that it is perfectly uncensored. See https://huggingface.co/saidutta69/MiniCPM5-2B-heretic and https://huggingface.co/YourIdentity/MiniCPM5-2B-heretic.
+
+Qwen3.5-2B Uncensored remains the more explicitly no-refusal reasoning fallback candidate, but its publisher's refusal claims are also not independent verification. It must pass the same prompt suite and Android load/quality tests before Friday treats it as a better default. See https://huggingface.co/HauhauCS/Qwen3.5-2B-Uncensored-HauhauCS-Aggressive.
+
+
 ### Reasoning: Spark X2.6 4B Abliterated Q4_K_M
 
 - Repository: https://huggingface.co/alexwkleung/Spark-X2.6-4B-Abliterated-GGUF
@@ -60,7 +65,7 @@ NAE is the admission and adaptation authority. It uses live Android host measure
 6. Record model-load and inference outcomes back into NAE so future operating decisions improve.
 7. Keep model files in app-owned storage; no all-files-storage permission is needed.
 
-This is a conservative admission system, not a promise of zero impact. Real RAM, thermal, latency and battery measurements on the actual phone are still required. The phone's exact model and RAM have not yet been supplied.
+This is a conservative admission system, not a promise of zero impact. Real RAM, thermal, latency and battery measurements on the actual phone are still required. The target handset is the realme 9 Pro 5G (Snapdragon 695, 8 GB RAM, 128 GB storage); see [the device profile](REALME_9_PRO_5G_DEVICE_PROFILE.md). Actual sustained model performance still requires measurement on that handset.
 
 ## JEPA and thinking without thinking
 
