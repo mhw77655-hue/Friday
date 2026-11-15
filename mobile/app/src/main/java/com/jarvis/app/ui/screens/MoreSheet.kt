@@ -37,6 +37,7 @@ fun MoreSheet(
                 "Model-Free Device Lab" to "model_simulation",
                 "Visual Presence" to "vision",
                 "Video Experience" to "video_knowledge",
+                "Voice Studio" to "voice_studio",
                 "Memory" to "memory",
                 "Tools" to "tools",
                 "System" to "system",
