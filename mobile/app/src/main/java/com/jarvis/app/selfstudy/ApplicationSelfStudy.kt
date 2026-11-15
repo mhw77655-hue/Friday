@@ -5,13 +5,6 @@ import com.jarvis.app.selfreconfig.SystemGraph
 import com.jarvis.app.selfreconfig.WiringDiagnostics
 import com.jarvis.app.symbiosis.HostStudyRecord
 import com.jarvis.app.symbiosis.LiquidSymbiosisSnapshot
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Properties
 
@@ -109,44 +102,4 @@ class ApplicationSelfStudy(
         }
         reportFile.outputStream().use { props.store(it, "Friday self-study; no user conversation content") }
     }
-}
-
-/**
- * Process-lifetime scheduler, deliberately unrelated to conversation/visual
- * states such as listening, speaking or responding. A missed slice is retried
- * on the next cycle; Android process death simply restarts the scheduler.
- */
-class ApplicationSelfStudyLoop(
-    private val study: ApplicationSelfStudy,
-    private val scope: CoroutineScope,
-    private val resourceBudgetAllows: () -> Boolean,
-    private val initialDelayMs: Long = 90_000L,
-    private val intervalMs: Long = 30 * 60 * 1000L
-) {
-    @Volatile private var job: Job? = null
-
-    @Synchronized
-    fun start(): Boolean {
-        if (job?.isActive == true) return false
-        job = scope.launch {
-            delay(initialDelayMs.coerceAtLeast(0L))
-            while (isActive) {
-                if (runCatching(resourceBudgetAllows).getOrDefault(false)) {
-                    withContext(Dispatchers.Default) {
-                        runCatching { study.study() }
-                    }
-                }
-                delay(intervalMs.coerceAtLeast(60_000L))
-            }
-        }
-        return true
-    }
-
-    @Synchronized
-    fun stop() {
-        job?.cancel()
-        job = null
-    }
-
-    fun isRunning(): Boolean = job?.isActive == true
 }
