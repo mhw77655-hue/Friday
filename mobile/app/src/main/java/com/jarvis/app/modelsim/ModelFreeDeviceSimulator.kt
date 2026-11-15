@@ -235,33 +235,41 @@ class ModelFreeDeviceSimulator(private val context: Context) {
         )
     }
 
-    fun simulate(snapshot: DeviceSnapshot, contextTokens: Int = 2048): List<ModelSimulation> {
+    fun simulate(
+        snapshot: DeviceSnapshot,
+        contextTokens: Int = 2048,
+        candidates: List<ModelCandidate> = CANDIDATES
+    ): List<ModelSimulation> {
         val safeContext = contextTokens.coerceIn(512, 8192)
         // Keep at least 900 MiB for Android, the app, voice and normal foreground work.
         val reserveMb = max(900L, (snapshot.totalRamMb * 0.14).roundToInt().toLong())
         val availableForModel = (snapshot.availableRamMb - reserveMb).coerceAtLeast(0L)
-        return CANDIDATES.map { candidate ->
+        return candidates.map { candidate ->
             // Weight pages + runtime scratch + approximate KV/attention state.
             // This is a screening estimate, not a model-specific allocator measurement.
             val weightsAndMapping = (candidate.weightMb * 1.12).roundToInt().toLong()
+            val parameterKnown = candidate.parameterLabel != "Unknown parameters"
             val runtimeScratch = when {
                 candidate.parameterLabel.contains("4B") -> 620L
                 candidate.parameterLabel.contains("3B") -> 520L
                 candidate.parameterLabel.contains("2B") -> 420L
-                else -> 320L
+                parameterKnown -> 320L
+                else -> 900L // unknown architecture: deliberately conservative
             }
             val kvMbPerToken = when {
                 candidate.parameterLabel.contains("4B") -> 0.035
+                candidate.parameterLabel.contains("3B") -> 0.030
                 candidate.parameterLabel.contains("2B") -> 0.024
                 candidate.parameterLabel.contains("1.2B") -> 0.014
-                else -> 0.020
+                parameterKnown -> 0.020
+                else -> 0.060 // unknown architecture/cache: never present as a confident fit
             }
             val contextMemory = (safeContext * kvMbPerToken).roundToInt().toLong()
             val workingSet = weightsAndMapping + runtimeScratch + contextMemory
             val verdict = when {
                 snapshot.thermalStatus >= 3 || snapshot.availableRamMb < 700L ->
                     FitVerdict.NOT_RECOMMENDED
-                workingSet + 350L <= availableForModel -> FitVerdict.LIKELY_FIT
+                parameterKnown && workingSet + 350L <= availableForModel -> FitVerdict.LIKELY_FIT
                 workingSet <= availableForModel + 350L -> FitVerdict.CONDITIONAL
                 else -> FitVerdict.NOT_RECOMMENDED
             }
@@ -269,7 +277,8 @@ class ModelFreeDeviceSimulator(private val context: Context) {
                 FitVerdict.LIKELY_FIT ->
                     "Estimated working set fits with reserve. Still requires a real model load test."
                 FitVerdict.CONDITIONAL ->
-                    "Borderline: try a shorter context or unload other workloads before downloading."
+                    if (parameterKnown) "Borderline: try a shorter context or unload other workloads before downloading."
+                    else "Architecture/parameter count is unknown. Treat this as an unverified upper-bound estimate, not a fit verdict."
                 FitVerdict.NOT_RECOMMENDED ->
                     "Estimated working set exceeds safe headroom, or current device conditions are poor."
             }
