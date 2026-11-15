@@ -19,8 +19,8 @@ import kotlin.math.min
  * inference and background work to the phone's current condition.
  *
  * It learns operational preferences from measured outcomes. It does not
- * train or rewrite model weights. Persist the profile through a DataStore or
- * Room-backed SymbiosisProfileStore implementation supplied by the app.
+ * train or rewrite model weights. Persist the profile through the included
+ * private SharedPreferences store (or replace it with DataStore/Room).
  */
 data class HostCondition(
     val availableRamMb: Long,
@@ -77,6 +77,31 @@ data class SymbiosisProfile(
 interface SymbiosisProfileStore {
     fun load(): SymbiosisProfile
     fun save(profile: SymbiosisProfile)
+}
+
+/** Private, persistent local experience profile; no network or special permission. */
+class SharedPreferencesSymbiosisProfileStore(context: Context) : SymbiosisProfileStore {
+    private val prefs = context.getSharedPreferences("friday_symbiosis_profile", Context.MODE_PRIVATE)
+
+    override fun load() = SymbiosisProfile(
+        sampleCount = prefs.getLong("sample_count", 0L),
+        latencyEmaMs = prefs.getFloat("latency_ema_ms", 0f).toDouble(),
+        successEma = prefs.getFloat("success_ema", 0.75f).toDouble(),
+        correctionEma = prefs.getFloat("correction_ema", 0f).toDouble(),
+        preferredThreadCount = prefs.getInt("preferred_threads", 2),
+        preferredContextTokens = prefs.getInt("preferred_context", 4096)
+    )
+
+    override fun save(profile: SymbiosisProfile) {
+        prefs.edit()
+            .putLong("sample_count", profile.sampleCount)
+            .putFloat("latency_ema_ms", profile.latencyEmaMs.toFloat())
+            .putFloat("success_ema", profile.successEma.toFloat())
+            .putFloat("correction_ema", profile.correctionEma.toFloat())
+            .putInt("preferred_threads", profile.preferredThreadCount)
+            .putInt("preferred_context", profile.preferredContextTokens)
+            .apply()
+    }
 }
 
 /**
