@@ -61,6 +61,12 @@ class PhoneCommandInterpreterTest {
         assertEquals(PhoneControlCommand.TypeText("hello there"), PhoneCommandInterpreter.parse("Could you type hello there please?"))
     }
 
+    @Test fun `compound app requests are deferred to the contextual Friday planner`() {
+        val request = "open WhatsApp and send a message"
+        assertNull(PhoneCommandInterpreter.parse(request))
+        assertTrue(PhoneActionPlanner.isLikelyDeviceRequest(request))
+    }
+
     @Test fun `does not guess complex or ambiguous commands`() {
         assertNull(PhoneCommandInterpreter.parse("send the message to my friend"))
         assertNull(PhoneCommandInterpreter.parse("do something"))
