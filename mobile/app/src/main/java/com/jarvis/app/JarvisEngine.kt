@@ -399,9 +399,9 @@ object JarvisEngine {
             // Demand-driven (no autonomous loop): constructed with the real
             // CloudModelRouter as its cloud-reasoning channel and a real
             // mechanisms store. Invoked via requestResearch() only when a
-            // capability gap or hard problem is surfaced. Its designed consumer
-            // seam (ToolBuilder.research) is wired below through the real
-            // ToolBuilderComposition stack.
+            // capability gap or hard problem is surfaced. Repository research
+            // remains available as an evidence source, but Android deliberately
+            // has no source-builder consumer; repository construction is external.
             val universalResearchEngine = com.jarvis.app.research.universal.UniversalResearchEngine(
                 cloudRouter = cloudModelRouter,
                 store = com.jarvis.app.research.universal.InMemoryMechanismsStore()
