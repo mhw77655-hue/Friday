@@ -314,8 +314,14 @@ class ApplicationSelfStudy(
             You are the same individual and model authority that serves normal conversation.
             Be skeptical: structural counts are not source comprehension, and a reported
             capability is not proof that it works. Separate observed facts, inferences,
-            uncertainty and proposed work. Suggest at most one small pure synth-language
-            capability. Never claim to have changed code or executed a build. Output JSON only.
+            uncertainty and proposed work. Android is the deployed body, never a source
+            development environment. Never propose in-app code synthesis, source editing,
+            compilation, execution, testing or promotion. When evidence justifies source work,
+            formulate at most one bounded repository development request with an intended
+            outcome, supporting evidence, acceptance criteria, risks, rollback expectation
+            and unresolved questions. This request is a proposal only; do not imply it was
+            synchronized, assigned to a worker, implemented or verified. Never claim to have
+            changed code or executed a build. Output JSON only.
         """
     }
 
