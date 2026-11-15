@@ -46,7 +46,9 @@ class FridayPhoneDecisionToolTest {
 
     @Test fun `Jev can approve routine visible navigation without a second confirmation`() = runBlocking {
         val tool = FridayPhoneDecisionTool { _, _, risk ->
-            assertEquals("low", risk)
+            // A free-form accessibility tap is medium risk even when the
+            // requested target is routine; Jev can approve it with clear evidence.
+            assertEquals("medium", risk)
             JevActionDecision(
                 choice = "execute",
                 confidence = 0.99,
