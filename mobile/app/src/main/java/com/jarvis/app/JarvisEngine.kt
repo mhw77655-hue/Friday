@@ -428,7 +428,8 @@ object JarvisEngine {
                 fileStorage = fileStorage,
                 scope = scope,
                 workspacesDir = java.io.File(appContext.filesDir, "builder-workspaces"),
-                llmSynthesisProvider = com.jarvis.app.mutation.LlmSynthesisProvider(modelManager)
+                llmSynthesisProvider = com.jarvis.app.mutation.LlmSynthesisProvider(modelManager),
+                cognitiveCapabilityFabric = assembly.capabilityFabric
             )
 
             // ── Phase B: Owner-binding chain ─────────────────────────────────
