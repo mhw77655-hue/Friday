@@ -86,7 +86,7 @@ enum class IsolationLevel {
     PROCESS_LOCAL,
     /** Runs in a separate Android process. */
     SEPARATE_PROCESS,
-    /** Runs in Termux or an external environment. */
+    /** Runs in an external host; not used by Friday's Android production body. */
     EXTERNAL
 }
 
