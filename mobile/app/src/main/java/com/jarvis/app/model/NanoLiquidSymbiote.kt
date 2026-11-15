@@ -126,8 +126,20 @@ class NanoLiquidSymbiote(context: Context) {
         }
     }
 
+    fun recordModelSelection(modelId: String, reason: String, contextTokens: Int) {
+        preferences.edit()
+            .putString("last_selected_model_id", modelId)
+            .putString("last_model_selection_reason", reason)
+            .putInt("last_selected_context_tokens", contextTokens)
+            .putLong("last_model_selected_at", System.currentTimeMillis())
+            .apply()
+    }
+
     fun learningSummary(): Map<String, Any> = mapOf(
         "samples" to (1..4).sumOf { preferences.getInt("samples_$it", 0) },
+        "lastSelectedModel" to (preferences.getString("last_selected_model_id", "not selected") ?: "not selected"),
+        "lastModelSelectionReason" to (preferences.getString("last_model_selection_reason", "no model loaded yet") ?: "no model loaded yet"),
+        "lastSelectedContextTokens" to preferences.getInt("last_selected_context_tokens", -1),
         "lastAvailableMemoryMb" to preferences.getLong("last_available_memory_mb", -1L),
         "lastAppPssMb" to preferences.getLong("last_app_pss_mb", -1L),
         "lastThermalLevel" to preferences.getInt("last_thermal_level", -1),
