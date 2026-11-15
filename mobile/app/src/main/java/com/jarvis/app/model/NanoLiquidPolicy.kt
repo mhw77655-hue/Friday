@@ -9,7 +9,8 @@ data class NanoHostState(
     val isCharging: Boolean,
     val cpuCores: Int,
     val lowMemory: Boolean = false,
-    val appPssMb: Long = 0L
+    val appPssMb: Long = 0L,
+    val cpuLoadPercent: Double = 0.0
 )
 
 data class NanoLiquidProfile(
@@ -50,7 +51,7 @@ object NanoLiquidPolicy {
         fun required(context: Int): Long =
             weightWorkingSet + (context.coerceAtLeast(0) * 0.06).toLong() + nativeBuffers + systemReserveMb
 
-        val blockedByPressure = host.lowMemory || host.thermalLevel >= 2
+        val blockedByPressure = host.lowMemory || host.thermalLevel >= 2 || host.cpuLoadPercent >= 92.0
         val requestedRequired = required(contextTokens)
         val contextFallback = listOf(4096, 2048).firstOrNull { it < contextTokens && required(it) <= host.availableMemoryMb }
         val allowed = !blockedByPressure &&
@@ -64,6 +65,7 @@ object NanoLiquidPolicy {
         val reason = when {
             host.lowMemory -> "Android reports low memory; model load was blocked to protect the phone."
             host.thermalLevel >= 2 -> "Thermal pressure is high; model load was deferred."
+            host.cpuLoadPercent >= 92.0 -> "The phone is already under heavy CPU load; inference was deferred to protect foreground work."
             !allowed -> "Model needs about $requestedRequired MB free including context and system reserve; only ${host.availableMemoryMb} MB is available."
             selectedContext != contextTokens -> "Model admitted with context reduced from $contextTokens to $selectedContext tokens to protect phone memory."
             else -> "Model fits the conservative free-memory budget."
@@ -90,8 +92,10 @@ object NanoLiquidPolicy {
         }
 
         val safeThreadCeiling = when {
+            host.cpuLoadPercent >= 85.0 -> 1
+            host.cpuLoadPercent >= 70.0 -> 2
             host.availableMemoryMb < 1024 || host.thermalLevel == 1 -> 2
-            host.availableMemoryMb < 2048 -> 3
+            host.availableMemoryMb < 2048 || host.cpuLoadPercent >= 50.0 -> 3
             else -> 4
         }.coerceAtMost(host.cpuCores.coerceAtLeast(1))
 
