@@ -24,6 +24,7 @@ data class NanoModelAdmission(
     val allowed: Boolean,
     val requiredFreeMemoryMb: Long,
     val availableFreeMemoryMb: Long,
+    val suggestedContextTokens: Int?,
     val reason: String
 )
 
@@ -45,18 +46,29 @@ object NanoLiquidPolicy {
     ): NanoModelAdmission {
         val modelMb = (modelBytes.coerceAtLeast(0L) + 1_048_575L) / 1_048_576L
         val weightWorkingSet = (modelMb * 1.12).toLong()
-        val kvReserve = (contextTokens.coerceAtLeast(0) * 0.06).toLong()
         val nativeBuffers = 256L
-        val required = weightWorkingSet + kvReserve + nativeBuffers + systemReserveMb
+        fun required(context: Int): Long =
+            weightWorkingSet + (context.coerceAtLeast(0) * 0.06).toLong() + nativeBuffers + systemReserveMb
+
         val blockedByPressure = host.lowMemory || host.thermalLevel >= 2
-        val allowed = !blockedByPressure && host.availableMemoryMb >= required
+        val requestedRequired = required(contextTokens)
+        val contextFallback = listOf(4096, 2048).firstOrNull { it < contextTokens && required(it) <= host.availableMemoryMb }
+        val allowed = !blockedByPressure &&
+            (host.availableMemoryMb >= requestedRequired || contextFallback != null)
+        val selectedContext = when {
+            !allowed -> null
+            host.availableMemoryMb >= requestedRequired -> contextTokens
+            else -> contextFallback
+        }
+        val requiredSelected = selectedContext?.let(::required) ?: requestedRequired
         val reason = when {
             host.lowMemory -> "Android reports low memory; model load was blocked to protect the phone."
             host.thermalLevel >= 2 -> "Thermal pressure is high; model load was deferred."
-            allowed -> "Model fits the conservative free-memory budget."
-            else -> "Model needs about $required MB free including context and system reserve; only ${host.availableMemoryMb} MB is available."
+            !allowed -> "Model needs about $requestedRequired MB free including context and system reserve; only ${host.availableMemoryMb} MB is available."
+            selectedContext != contextTokens -> "Model admitted with context reduced from $contextTokens to $selectedContext tokens to protect phone memory."
+            else -> "Model fits the conservative free-memory budget."
         }
-        return NanoModelAdmission(allowed, required, host.availableMemoryMb, reason)
+        return NanoModelAdmission(allowed, requiredSelected, host.availableMemoryMb, selectedContext, reason)
     }
 
     fun recommend(
