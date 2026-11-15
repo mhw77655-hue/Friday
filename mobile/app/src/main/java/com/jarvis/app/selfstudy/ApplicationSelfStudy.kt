@@ -297,7 +297,7 @@ class ApplicationSelfStudy(
             sourcePackageCount = sourceIndex?.packageCount ?: 0,
             sourceDependencyEdgeCount = sourceIndex?.dependencyEdgeCount ?: 0,
             sourcePackageDependencies = sourceIndex?.packageDependencies.orEmpty(),
-            sourceFilePaths = sourceIndex?.files?.map { it.path }.orEmpty(),
+            sourceFilePaths = sourceIndex?.files?.take(500)?.map { it.path }.orEmpty(),
             organFailureCounts = failures,
             nextFocus = focus
         )
