@@ -2,62 +2,110 @@
 
 **Snapshot:** 2026-11-16  
 **Working branch:** `audit/friday-offline-runtime`  
-**Estimated end-state implementation progress:** **about 31% (provisional)**
+**Overall end-state build completion:** **25%**
 
-This is a milestone-weighted engineering estimate, not a line-count metric and not a claim that 30% of the app is production-ready. The project has 16 equally weighted outcome milestones. Each score estimates how much of that milestone's required outcome is implemented, not merely planned. The rounded total is 31%. This score is reduced to reflect the unverified and vision-conflicting in-app self-build lane.
+This is an equal-weight, 16-outcome engineering estimate. Each outcome contributes 6.25 percentage points; the table shows the estimated fraction of that outcome implemented. Code that has not passed current CI, Life Tests or target-phone validation is discounted. Separate draft branches are not counted as integrated functionality.
 
-| # | Outcome milestone | Estimated completion | Remaining proof / work |
+25% does **not** mean a quarter of a finished app is ready to install. It means the repository contains meaningful foundations across several areas, while the end-to-end individual, developer, and real-device acceptance gates remain largely open.
+
+## Outcome scorecard
+
+| # | Outcome | Completion | What still blocks closure |
 |---:|---|---:|---|
-| 1 | Independent Android foundation | 55% | Green full CI, lifecycle/process recovery validation, final release hardening |
-| 2 | Persistent identity, history and experience | 45% | Full restart/model-replacement continuity proof and protected recovery |
-| 3 | Lightweight English intelligence and model routing | 40% | Real on-device inference benchmarks, quality-gated admission wired into serving |
-| 4 | Voice, hearing and interruption | 50% | Reliable end-to-end streaming, interruption, multi-step phone workflows and real-device validation |
-| 5 | Continuous presence and environmental awareness | 38% | Background/foreground continuity and real-device camera/presence validation |
-| 6 | Nano Liquid Symbiosis host adaptation | 40% | Calibrated resource learning and measured quality-preserving model adaptation |
-| 7 | Experience-driven developmental learning | 25% | Demonstrate durable behaviour changes caused by real experience, not just stored memories |
-| 8 | Predictive cognition / JEPA-inspired mechanisms | 20% | Mature prediction-error learning and evidence of useful low-cost predictive behaviour |
-| 9 | Self-model and individuality | 30% | Calibrated self-knowledge and stable preference/strategy evolution |
-| 10 | Capability Foundry | 30% | Legacy builder/evolution code remains in the Android source tree but is no longer constructed by the production composition; relocate it to repository-side workers and rebuild the full external validation/promotion path |
-| 11 | Native phone capabilities | 50% | Multi-step voice workflows, broader Android APIs, permissions and device-specific reliability |
-| 12 | Autonomous self-development | 15% | Phone-side evidence collection exists, but repository-native development request transport, external worker orchestration, durable synchronization, independent Vision gate and deployment feedback loop are not implemented. The current in-app builder path conflicts with the owner's explicit architecture and must be removed from production |
-| 13 | Security, provenance and rollback | 40% | Full self-modification authorization, signed native update and rollback proof |
-| 14 | Life tests | 20% | Full replay/disable/restart/model-replacement suite demonstrating genuine learning |
-| 15 | Real-device validation on the target phone | 0% | No verified test evidence from the owner's Realme 9 Pro 5G yet |
-| 16 | First complete Friday release | 0% | Release gate intentionally not started; no interim APK handoff |
+| 1 | Independent Android foundation | 48% | Green current-head build and tests; process-death recovery; exact-phone lifecycle validation; release hardening |
+| 2 | Persistent identity, history and experience | 35% | Demonstrate identity and developmental state across restart, offline use and model replacement; protected recovery |
+| 3 | Lightweight English intelligence and model routing | 30% | Pin and benchmark candidate models on the exact handset; verify quality, memory, speed, thermal and battery behaviour; prove safe routing |
+| 4 | Voice, hearing and interruption | 42% | Reliable end-to-end speech lifecycle, interruption and recovery; offline English ASR; real-device audio tests |
+| 5 | Continuous presence and environmental awareness | 35% | Prove lifecycle continuity and camera/presence behaviour on the handset; broaden perception beyond presence signals |
+| 6 | Nano Liquid Symbiosis host adaptation | 35% | Calibrate learned strategies against measured quality and energy; broader runtime adaptation and long-run tests |
+| 7 | Experience-driven developmental learning | 20% | One durable later-behaviour change with restart, replay-blocked and mechanism-off controls |
+| 8 | Predictive cognition / JEPA-inspired mechanisms | 15% | Train/validate learned representations and prediction error; useful prediction-led compute; do not label symbolic transition counts as JEPA |
+| 9 | Self-model and individuality | 25% | Evidence-calibrated self-knowledge and persistent preference/strategy development |
+| 10 | Capability Foundry / Builder | 10% | Remove or relocate dormant Android builder/evolution execution code; implement repository-side worker orchestration, isolated workspaces and independent gates |
+| 11 | Native phone capabilities | 45% | Reliable multi-step workflows, visible permissions, recovery and exact-device validation |
+| 12 | Autonomous self-development | 10% | Durable request envelope and synchronization, connected repository worker, independent Vision gate, approval, deployment feedback and Life Test |
+| 13 | Security, provenance and rollback | 35% | Complete end-to-end authorization model, auditable worker provenance, signed update and tested rollback |
+| 14 | Life Tests | 15% | Real-composition harness proving continuity and one experience-driven developmental change under controls |
+| 15 | Target-device validation (Realme 9 Pro 5G) | 0% | No current evidence pack or verified model/voice/video/thermal soak from the exact handset |
+| 16 | First complete Friday release | 0% | No release-candidate acceptance, signed production artifact or owner-authorized handoff |
 
-## Implemented in this development session
+**Arithmetic:** the 16 milestone scores sum to 400 percentage points; divided by 16 gives 25%. The score is rounded to the nearest whole percentage point.
 
-- Friday remains the intelligence; Jev is an optional TypeSafe cloud decision faculty. Friday's own existing ModelManager now plans one bounded Android action from the spoken request and a privacy-minimized live accessibility snapshot. Screen context stays on-device and is never sent to Jev or a remote phone planner.
-- Jev evaluates the proposed action through Choice, Score and Noul when configured. Friday's local policy remains authoritative: routine navigation may execute after Jev approval; consequential targets and sensitive text still require spoken confirmation. Typed text payloads are redacted before Jev evaluation.
-- The phone-action path now accepts Friday-model plans as well as deterministic phrases, requires exact screen evidence, refuses ambiguous duplicate controls rather than tapping the first match, serializes actions, and contains Android execution failures. Arbitrary UI taps are medium-risk and require confirmation when Jev is unavailable. It deliberately executes one bounded action at a time; multi-step workflows are not yet complete.
-- Added planner and policy tests for screen-target evidence, focused editable fields, local-only screen context, Jev approval, confirmation, cancellation, expiry, natural spoken phrasing, overlapping commands and contained Android execution failures.
-- Reused one process-scoped Jev HTTP client so requests share the connection pool instead of constructing a new client for each command.
-- Wired the production ToolBuilder to Friday's existing ModelManager through LlmSpecSynthesizer. A custom typed capability contract now lets the model synthesize tools outside the five deterministic examples.
-- Promoted generated tools now register into the same CapabilityFabric used by Friday's primary CognitiveEngine; rollback unregisters the capability. Integration coverage invokes a generated word_count tool through both the builder's legacy route and the primary cognitive fabric.
-- Promotion rollback now snapshots/restores the full genome capability index rather than clearing unrelated capabilities. The archive persists complete genome contracts/provenance in a dedicated atomic store, loads genome metadata on startup, and no longer writes into Human Core dialogue JSONL. Archived metadata without an executable artifact triggers recovery/rebuild instead of being falsely treated as a live capability.
-- Research-first is now opt-in. When requested, evidence-labeled research hypotheses are passed into the synthesis constraints; a verified-research requirement blocks promotion unless a VERIFIED mechanism is actually present.
-- Candidate synthesis now propagates coroutine cancellation rather than swallowing it as an ordinary failed candidate.
-- Persistent, resource-gated self-study scheduled with Android WorkManager.
-- Self-study reports architecture reachability, fixed invariants, declared missing capabilities, known limitations, host observations and organ failure evidence.
-- Self-study now persists the actual learned host profile: minimum available memory, CPU EMA, thermal/low-memory sample counts, additional memory reserve, maximum process PSS, minimum battery, liquid-symbiosis generation/prediction error, and each organ's learned strategy.
-- Build-time source symbol index generation: source paths, package names, declaration names and a source revision digest are packaged as metadata. The index does not ship Kotlin source text.
-- The source index now includes internal package-import edges and file paths, not just symbol counts. Self-study passes this structural evidence, runtime wiring and measured host/organ data to Friday's existing local llama.cpp model for a short reflection.
-- Self-study reflections are persisted locally. The current head also contains a self-study-to-in-app-ToolBuilder bridge; this is now explicitly rejected by the owner's 2026-11-16 correction. It is not the intended self-development architecture and must be removed from production. Repository-side development request transport and external worker execution remain unimplemented.
-- PresenceEngine now uses PRESENT as Friday's canonical base state. Processing and tool use no longer become a THINKING presence mode; startup no longer transitions through ASLEEP/WAKING, and stale signals return to PRESENT. BodyState IDLE/THINKING remain internal event-pipeline stages, not existence states.
-- The on-demand reasoning organ retains a resource grace period while the resident anchor remains loaded; the resource cooldown is not a Friday idle mode.
-- Removed the Termux runtime-selection entry and the Termux backend test stub. The production app remains Android-native; no Termux host or setup path is required.
-- CI now cancels superseded branch builds and prints exact JUnit failures, making the next regression easier to diagnose.
-- Candidate synthesis failures are retained in evolution diagnostics, and initial capability creation synthesizes directly before later mutation cycles. This change is under CI verification.
+## What exists in the current foundation branch
 
-## Release blockers
+The following are present in source on `audit/friday-offline-runtime`; presence in source is not the same as verified device behaviour:
 
-1. Commit `6a64f121` passed Android debug assembly and the baseline unit-test task. A later run exposed one failing ToolBuilder integration test; candidate-generation diagnostics and a simpler first-build path have been added. The current branch head still requires a fresh green build and test run.
-2. A green CI build does not prove the app works on the target phone.
-3. The source index enables structural self-inspection (file paths, declarations and package imports), not arbitrary Kotlin source comprehension or self-rewriting. The local model's reflection is bounded to this evidence.
-4. TypeSafe Jev remains an optional hosted decision faculty, not a downloadable model or Friday's primary intelligence. Friday calls the System One API for typed Choice, Score and Noul evaluations; Friday's local model forms the action plan and the Android body executes it under local policy.
-5. Native app changes still require a signed, verified Android update. Friday must not silently replace her installed package.
-6. The self-study-to-builder bridge and production ToolBuilder construction have been removed. Legacy builder source still exists in the Android module and must be relocated or deleted. The durable development-request handoff to connected repository workers is not yet implemented; keep all source edits, code execution, tests, builds and artifact signing outside Android.
+- Android-native app and production composition work, including an isolated `:inference` process boundary and an in-app llama.cpp/JNI model path.
+- App-private model catalogue/download infrastructure and conservative host-aware model admission. Candidate model descriptions are not proof of capability, accuracy or refusal behaviour.
+- Voice output infrastructure, voice process work and lifecycle-aware Android integrations; full speech quality and interruption are not yet proven.
+- Camera-based local presence signals; this is not full visual understanding or identity recognition.
+- Nano Liquid Symbiosis mechanisms that observe host constraints, learn workload outcomes, contribute a bounded reasoning-memory reserve to model admission, and suppress background self-study when its learned budget is exhausted.
+- A structural source index, runtime graph, host observations and local reflection. The source index is metadata, not Kotlin-source comprehension.
+- A self-study reflection now produces a bounded repository-development request proposal. A regression test protects the rule that Android is not a source-development environment.
 
-## Percentage method
+## Repository and verification state
 
-Each of the 16 milestones contributes 6.25 percentage points to the overall estimate. The individual completion values above must be recalculated after the self-development milestone correction; the 31% headline is a provisional judgment, not an exact sum. Scores are deliberately partial where code exists but the acceptance proof is missing. Physical-device validation and the first complete release remain at zero.
+- PR [#11](https://github.com/mhw77655-hue/Friday/pull/11) is the foundation branch targeting `main`. It remains an open draft and must not be merged until its current-head CI and acceptance gates pass.
+- PR [#14](https://github.com/mhw77655-hue/Friday/pull/14) contains additional English-model and Nano Liquid Symbiosis work, but is a separate unmerged draft with a stale/non-mergeable base. It is not counted as integrated.
+- PR [#16](https://github.com/mhw77655-hue/Friday/pull/16) contains video intake and a symbolic predictive-cognition bootstrap, but is a separate unmerged draft with a stale/non-mergeable base. Video import/keyframe sampling is not semantic video understanding; its Hunch Engine is not a trained JEPA model.
+- PR [#12](https://github.com/mhw77655-hue/Friday/pull/12) is another separate offline-runtime draft based on a different audit branch. Its overlapping runtime/model/voice changes require a source-level comparison before any part is selected.
+- The last observed run #680 was still at the Android debug-APK build step on older head `e0556fef2ec85612effc40e93844f353c7bc1cc3`. It had not reached unit tests. That run is not evidence for later commits. New commits trigger fresh verification; the latest run must be checked before any APK is considered available.
+- No green current-head CI result, completed current-head unit-test result, exact-phone model smoke test, target-phone thermal/energy report, or release acceptance is claimed.
+- `main` is not intentionally modified by this work. No APK is being handed off in this stage.
+
+## Hard boundary: Friday does not build source inside Android
+
+Android is Friday's deployed body and local evidence source. Repository source edits, code execution, tests, CI, artifact construction and signing belong in the connected repository development environment. No Git write token, signing key or arbitrary source-execution environment belongs in the APK.
+
+The Android self-study change now creates a proposal only. It does not synchronize that proposal, assign a worker, read arbitrary repository source, edit code or verify a build. The repository-side request transport and durable worker handoff are not implemented.
+
+Dormant legacy `ToolBuilder`, evolution and mutant-environment source files still exist under the Android module. They are not constructed by the current production composition, but their location and executable implementation still conflict with the desired architecture. Removing or relocating them requires dependency and test audit; simply leaving them uncalled is not the final architecture.
+
+## Remaining build sequence
+
+### Gate 1 — prove the foundation branch
+1. Finish a fresh current-head Android debug build.
+2. Run the full baseline JVM unit-test task and fix every failure.
+3. Inspect APK artifact contents and confirm no development worker, repository credential or source-build environment is packaged.
+4. Exercise native library load, inference IPC, service death/rebind and process isolation with tests. CI green is a code gate, not phone validation.
+
+### Gate 2 — reconcile the competing implementation branches
+1. Compare PR #12 against PR #11 and record which changes are unique, duplicated, obsolete or incompatible with the Vision.
+2. Rebase PR #14 and PR #16 onto the verified foundation head one at a time.
+3. Resolve conflicts by preserving the strongest coherent implementation, not by blindly accepting either branch.
+4. Run independent CI for each integrated workstream. Keep each PR draft until its own acceptance criteria pass.
+
+### Gate 3 — make the repository Builder real
+1. Remove or relocate legacy Android builder/evolution/mutant-execution source and update dependency/test boundaries.
+2. Define a versioned, privacy-reviewed development-request envelope with stable identity, source revision, evidence, acceptance criteria, risk, rollback expectation and unresolved questions.
+3. Persist and deduplicate requests locally while offline; synchronize them through an authenticated development gateway when available.
+4. Keep GitHub App credentials server-side with least privilege. Never put a PAT, signing key or broad repository token in the APK.
+5. Give each request an isolated, resumable repository workspace and replaceable worker adapter.
+6. Require independent compile/test/security/Vision evaluation. High-impact changes remain behind explicit owner approval.
+7. Return commit, CI, artifact digest and deployment outcome to Friday as evidence. The loop is not complete until she observes the resulting behaviour and learns from it.
+
+### Gate 4 — prove one continuing individual who develops
+1. Complete the shared Android production turn path without restoring legacy Human Core as a fixed cognitive authority.
+2. Build a real-composition Life Test harness with deterministic time and observable traces.
+3. Demonstrate one narrow change caused by actual experience or correction; prove it changes a later choice, survives restart, remains after original-episode replay is blocked, and disappears with the learning mechanism disabled.
+4. Add a Development Ledger/Mirror view that distinguishes observed evidence, inference, confidence, reversibility and uncertainty.
+
+### Gate 5 — grow intelligence, senses and symbiosis by measurement
+1. Select an English resident model and an on-demand reasoning model using the same task set; verify license, architecture, tokenizer/chat template, checksum and actual runtime support.
+2. Benchmark real quality, refusal profile, factuality, cold start, peak process memory, tokens/second, thermal stability and battery cost on the Realme 9 Pro 5G.
+3. Extend Nano Liquid Symbiosis only where controlled tests show a quality-preserving improvement; do not equate a learned resource profile with full self-optimization.
+4. Complete voice and offline hearing, then local visual/audio understanding and semantic video reasoning.
+5. Develop JEPA/successor representations and reflex compilation as separate measurable work. Do not call rule counts or exact-match transitions neural JEPA.
+6. Test phone actions as visible, permissioned and reversible multi-step workflows.
+
+### Gate 6 — release and handoff
+1. Pass current-head CI, native tests, Life Tests, security/provenance checks and release checks.
+2. Produce a traceable signed artifact in CI and document its exact source commit and digest.
+3. Install only through the authorized update path, then capture real-device startup, memory, model, voice, battery and thermal evidence.
+4. Deliver the APK only after the release gates pass and the owner asks for the handoff.
+
+## Definition of finished
+
+Friday is not finished when code compiles or when a large APK exists. The first complete build is finished only when the same individual remains present across offline/restart/model replacement, can use the phone's supported senses and actions, develops from experience, can direct repository-side construction safely, can judge the resulting work independently, and has passed the target-device and release acceptance gates.
+
+Until then, percentages remain estimates of engineering completion, not claims of sentience or production readiness.
