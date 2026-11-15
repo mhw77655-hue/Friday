@@ -43,7 +43,7 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 class PresenceEngine(
     private val nowMs: () -> Long = { System.currentTimeMillis() },
-    initialMode: PresenceMode = PresenceMode.ASLEEP
+    initialMode: PresenceMode = PresenceMode.PRESENT
 ) {
 
     /** One queued request to change the presence mode. */
@@ -64,11 +64,11 @@ class PresenceEngine(
     private val pending = ArrayDeque<TransitionRequest>()
 
     @Volatile
-    private var currentMode: PresenceMode = initialMode
+    private var currentMode: PresenceMode = canonicalMode(initialMode)
     private var modeEnteredAtMs: Long = nowMs()
 
     private val _state: MutableStateFlow<CompanionState> =
-        MutableStateFlow(CompanionState.initial().copy(presenceMode = initialMode))
+        MutableStateFlow(CompanionState.initial().copy(presenceMode = canonicalMode(initialMode)))
     /** The current CompanionState — broadcast to all subsystems each tick. */
     val state: StateFlow<CompanionState> = _state.asStateFlow()
 
@@ -90,23 +90,27 @@ class PresenceEngine(
         reason: String,
         priority: Int = priorityOf(mode)
     ) {
-        pending.addLast(TransitionRequest(mode, requester, reason, priority, nowMs()))
+        pending.addLast(TransitionRequest(canonicalMode(mode), requester, reason, priority, nowMs()))
     }
 
-    /** User-interrupt: an explicit user action preempts Listening/Speaking/Thinking. */
-    fun interruptToIdle(requester: String, reason: String) {
+    /** User-interrupt changes attention while Friday remains continuously present. */
+    fun interruptToPresent(requester: String, reason: String) {
         requestTransition(
-            mode = PresenceMode.IDLE,
+            mode = PresenceMode.PRESENT,
             requester = requester,
             reason = reason,
             priority = PRIORITY_USER_INTERRUPT
         )
     }
 
+    /** Compatibility alias; the target is PRESENT, never an idle/existence state. */
+    @Deprecated("Use interruptToPresent")
+    fun interruptToIdle(requester: String, reason: String) = interruptToPresent(requester, reason)
+
     /** Blocking, immediate transition — used only by boot/init (no request FIFO). */
     fun force(mode: PresenceMode, requester: String, reason: String) {
         pending.clear()
-        applyTransition(mode, requester, reason)
+        applyTransition(canonicalMode(mode), requester, reason)
     }
 
     /**
@@ -131,11 +135,10 @@ class PresenceEngine(
                 // Never freeze in a stale mode; never yank an orderly shutdown;
                 // and never cut the WAKING bloom — the CompanionCore startup
                 // handoff owns WAKING→IDLE once the §12 window elapses (audit F7).
-                if (currentMode != PresenceMode.IDLE &&
-                    currentMode != PresenceMode.SHUTTING_DOWN &&
-                    currentMode != PresenceMode.WAKING
+                if (currentMode != PresenceMode.PRESENT &&
+                    currentMode != PresenceMode.SHUTTING_DOWN
                 ) {
-                    applyTransition(PresenceMode.IDLE, "PresenceEngine", "stale-signal-fallback")
+                    applyTransition(PresenceMode.PRESENT, "PresenceEngine", "stale-signal-fallback")
                 }
             } else {
                 deriveFromAction(signal.currentAction)
@@ -188,19 +191,22 @@ class PresenceEngine(
     }
 
     private fun applyTransition(mode: PresenceMode, requester: String, reason: String) {
+        val canonical = canonicalMode(mode)
         val from = currentMode
-        if (from == mode) return
-        currentMode = mode
+        if (from == canonical) return
+        currentMode = canonical
         modeEnteredAtMs = nowMs()
-        onTransition(from, mode, reason)
+        onTransition(from, canonical, reason)
     }
 
     /** Dwell-guarded action → mode suggestion (spec §2.1 "infer ... boundaries"). */
     private fun deriveFromAction(action: CurrentAction) {
         val suggested = when (action) {
             CurrentAction.RECEIVING_INPUT -> PresenceMode.LISTENING
-            CurrentAction.GENERATING, CurrentAction.TOOL_CALL -> PresenceMode.THINKING
-            CurrentAction.IDLE, CurrentAction.DONE -> PresenceMode.IDLE
+            // Generating, tool use and completed work are activities of the
+            // same continuously present individual, not separate existence modes.
+            CurrentAction.GENERATING, CurrentAction.TOOL_CALL,
+            CurrentAction.IDLE, CurrentAction.DONE -> PresenceMode.PRESENT
         }
         if (suggested == currentMode) {
             actionDwell = 0
@@ -239,18 +245,26 @@ class PresenceEngine(
         const val PRIORITY_IDLE = 100
         const val PRIORITY_ASLEEP = 0
 
-        /** Canonical arbitration table (spec §2.1): Shutdown > Wake > user-interrupt > Listening > Speaking > Thinking > Idle. */
+        /** Legacy modes are mapped to the persistent presence baseline. */
+        fun canonicalMode(mode: PresenceMode): PresenceMode = when (mode) {
+            PresenceMode.ASLEEP, PresenceMode.WAKING, PresenceMode.IDLE, PresenceMode.THINKING ->
+                PresenceMode.PRESENT
+            else -> mode
+        }
+
+        /** Canonical arbitration table: shutdown > user interrupt > listening > speaking > present. */
         private val TABLE = mapOf(
-            PresenceMode.SHUTTING_DOWN to PRIORITY_SHUTTING_DOWN,
-            PresenceMode.WAKING to PRIORITY_WAKING,
+            PresenceMode.PRESENT to PRIORITY_IDLE,
             PresenceMode.LISTENING to PRIORITY_LISTENING,
             PresenceMode.SPEAKING to PRIORITY_SPEAKING,
-            PresenceMode.THINKING to PRIORITY_THINKING,
+            PresenceMode.SHUTTING_DOWN to PRIORITY_SHUTTING_DOWN,
+            PresenceMode.ASLEEP to PRIORITY_ASLEEP,
+            PresenceMode.WAKING to PRIORITY_WAKING,
             PresenceMode.IDLE to PRIORITY_IDLE,
-            PresenceMode.ASLEEP to PRIORITY_ASLEEP
+            PresenceMode.THINKING to PRIORITY_THINKING
         )
 
-        fun priorityOf(mode: PresenceMode): Int = TABLE.getValue(mode)
+        fun priorityOf(mode: PresenceMode): Int = TABLE.getValue(canonicalMode(mode))
 
         /** Consecutive ticks an action-derived suggestion must persist before applying. */
         const val ACTION_DWELL_TICKS = 3
