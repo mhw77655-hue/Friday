@@ -33,11 +33,22 @@ data class HostStudyRecord(
     val averageCpuLoadEmaPercent: Double = 0.0,
     val thermalPressureSamples: Long = 0L,
     val lowMemorySamples: Long = 0L,
+    val memoryPressureEma: Double = 0.0,
+    val thermalPressureEma: Double = 0.0,
     val minimumBatteryPercent: Int = 100,
     val maximumObservedProcessPssMb: Long = 0L,
     val lastObservedAtMs: Long = 0L
 ) {
     val hasSamples: Boolean get() = sampleCount > 0L
+
+    /** Additional headroom learned from recurring pressure on this host. */
+    val additionalMemoryReserveMb: Long
+        get() = when {
+            memoryPressureEma >= 0.20 && thermalPressureEma >= 0.20 -> 512L
+            memoryPressureEma >= 0.20 -> 384L
+            thermalPressureEma >= 0.20 -> 256L
+            else -> 0L
+        }
 }
 
 /**
@@ -69,6 +80,10 @@ class HostStudy(fingerprint: HostFingerprint, restored: HostStudyRecord? = null)
                 if (host.thermalLevel >= 1) 1L else 0L,
             lowMemorySamples = previous.lowMemorySamples +
                 if (host.availableMemoryMb < 1400L) 1L else 0L,
+            memoryPressureEma = previous.memoryPressureEma * 0.9 +
+                (if (host.availableMemoryMb < 1400L) 1.0 else 0.0) * 0.1,
+            thermalPressureEma = previous.thermalPressureEma * 0.9 +
+                (if (host.thermalLevel >= 1) 1.0 else 0.0) * 0.1,
             minimumBatteryPercent = if (host.batteryPercent in 0..100)
                 minOf(previous.minimumBatteryPercent, host.batteryPercent)
                 else previous.minimumBatteryPercent,
