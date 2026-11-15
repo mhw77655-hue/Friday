@@ -11,6 +11,7 @@ import com.jarvis.app.latency.LatencyLayer
 import com.jarvis.app.latency.WarmupEngine
 import com.jarvis.app.model.AndroidResourceSnapshot
 import com.jarvis.app.model.ResourceSnapshot
+import com.jarvis.app.symbiosis.NanoSymbioticController
 import kotlinx.coroutines.CoroutineScope
 import java.util.Calendar
 
@@ -39,7 +40,8 @@ class AndroidPlatformPorts(
     private val turnTraceStore: com.jarvis.app.trace.TurnTraceStore? = null,
     private val threadTracker: com.jarvis.app.threads.ThreadTracker? = null,
     private val provenanceLedger: com.jarvis.app.memory.provenance.ProvenanceLedger? = null,
-    private val adapterManifest: com.jarvis.app.memory.provenance.AdapterManifest? = null
+    private val adapterManifest: com.jarvis.app.memory.provenance.AdapterManifest? = null,
+    private val nanoSymbiosis: NanoSymbioticController? = null
 ) : PlatformPorts {
 
     override fun modelScope(): CoroutineScope = scope
@@ -49,7 +51,17 @@ class AndroidPlatformPorts(
      * time. The old app wiring built exactly this governor; nothing about it
      * changed — it just moved behind the port.
      */
-    override fun resourceSnapshot(): ResourceSnapshot = AndroidResourceSnapshot(context)
+    override fun resourceSnapshot(): ResourceSnapshot =
+        nanoSymbiosis?.resourceSnapshot() ?: AndroidResourceSnapshot(context)
+
+    override fun recordWorkloadOutcome(
+        organ: String,
+        succeeded: Boolean,
+        latencyMs: Long,
+        peakMemoryMb: Long
+    ) {
+        nanoSymbiosis?.recordOutcome(organ, succeeded, latencyMs, peakMemoryMb)
+    }
 
     override fun nowMs(): Long = clock()
 
