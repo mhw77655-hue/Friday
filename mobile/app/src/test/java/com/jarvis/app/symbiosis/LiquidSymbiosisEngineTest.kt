@@ -57,6 +57,21 @@ class LiquidSymbiosisEngineTest {
     }
 
     @Test
+    fun `JEPA predictor parameters can be restored after process death`() {
+        val first = JepaLatentPredictor()
+        val current = doubleArrayOf(0.8, 0.2, 0.1, 0.8, 1.0, 0.5)
+        val next = doubleArrayOf(0.6, 0.5, 0.4, 0.7, 1.0, 0.4)
+        first.observe(current, -0.5, next)
+        val restored = JepaLatentPredictor()
+        restored.restoreState(first.exportState())
+        assertEquals(first.sampleCount(), restored.sampleCount())
+        assertEquals(first.predictionErrorEma(), restored.predictionErrorEma(), 0.0)
+        val a = first.predict(current, -0.5)
+        val b = restored.predict(current, -0.5)
+        assertTrue(a.indices.all { kotlin.math.abs(a[it] - b[it]) < 1e-9 })
+    }
+
+    @Test
     fun `predictive latent model learns from consecutive host states`() {
         val predictor = JepaLatentPredictor()
         val start = doubleArrayOf(0.8, 0.2, 0.1, 0.8, 1.0, 0.5)
