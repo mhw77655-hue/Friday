@@ -16,7 +16,6 @@ import com.jarvis.app.model.ModelTier
 import com.jarvis.app.model.OrganRole
 import com.jarvis.app.model.OrganWakeRequest
 import com.jarvis.app.model.ResourceSnapshot
-import com.jarvis.app.termux.TermuxJarvisServer
 import com.jarvis.app.voice.VoiceForgeHealth
 import com.jarvis.app.voice.VoiceForgeSynthesisRequest
 import com.jarvis.app.voice.VoiceForgeSynthesisResponse
@@ -270,11 +269,11 @@ class TurnPathAssemblyTest {
         )
     }
 
-    // ── The JVM host gets this root, not a second one ────────────────────────
+    // ── A plain JVM fixture uses the same root; Android is the only product host ──
 
     @Test
-    fun `the JVM host is built by the same composition root as the phone`() {
-        val server = newServer("root")
+    fun `the JVM fixture is built by the same composition root as the Android app`() {
+        val assembly = newAssembly("root")
 
         assertTrue(
             "constructing the JVM host must go through the ONE root, which " +
@@ -284,23 +283,23 @@ class TurnPathAssemblyTest {
         assertEquals(
             "the JVM host's pipeline must be the real production pipeline",
             "com.jarvis.app.latency.LatencyPipeline",
-            server.pipeline.javaClass.name
+            assembly.pipeline.javaClass.name
         )
         assertEquals(
             "the JVM host's engine must be the real production engine",
             "com.jarvis.app.cognitive.CognitiveEngine",
-            server.engine.javaClass.name
+            assembly.engine.javaClass.name
         )
     }
 
     @Test
-    fun `a real turn through the JVM host runs the real composition`() {
-        val server = newServer("turn")
+    fun `a real turn through the JVM fixture runs the real composition`() {
+        val assembly = newAssembly("turn")
         val input = "I hate the slow weather"
 
-        server.pipeline.onUserInput(input)
+        assembly.pipeline.onUserInput(input)
 
-        val reading = MentalStateClaims.read(server.workspace)
+        val reading = MentalStateClaims.read(assembly.workspace)
         assertNotNull(
             "a real turn through the real entry point must reach the real engine and " +
                 "publish this turn's mental state into the one shared claim store",
@@ -319,12 +318,15 @@ class TurnPathAssemblyTest {
         )
     }
 
-    private fun newServer(name: String) = TermuxJarvisServer(
-        port = 0,
-        backendOverride = FakeModelBackend(),
-        voiceForgeSynthesizerOverride = SilentSpeech(),
-        dataDir = compositionDir(name)
-    )
+    private fun newAssembly(name: String): TurnPathAssembly {
+        val fixture = Fixture()
+        return TurnPathAssembly.assemble(
+            fixture.ports(
+                snapshot = { ResourceSnapshot.alwaysHealthy() },
+                clock = { 1_000L }
+            )
+        )
+    }
 
     private object StarvedSnapshot : ResourceSnapshot {
         override val availableMemoryMb = 8L
