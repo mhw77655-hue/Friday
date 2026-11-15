@@ -291,7 +291,7 @@ class BodyCoordinator(
                         scope.launch {
                             val outcome = phoneCommandOrchestrator.handle(spoken)
                             val feedback = when (outcome) {
-                                is com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.Executed ->
+                                is com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.ActionResult ->
                                     phoneActionFeedback(outcome.result)
                                 is com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.ConfirmationNeeded ->
                                     "I need your confirmation to ${outcome.description}. Say yes to proceed, or say cancel."
