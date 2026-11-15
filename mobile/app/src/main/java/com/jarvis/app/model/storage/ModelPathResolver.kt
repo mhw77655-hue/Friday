@@ -29,6 +29,9 @@ class ModelPathResolver(
         private val MODEL_FILENAMES = mapOf(
             "lfm2.5-1.2b-instruct" to "LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
             "lfm" to "LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
+            "resident" to "LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
+            "jarvis-resident:latest" to "LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
+            "jarvis-reasoning:latest" to "Qwen3-1.7B-Q4_K_M.gguf",
             "qwen3-1.7b" to "Qwen3-1.7B-Q8_0.gguf",
             "qwen3-1.7b-q8" to "Qwen3-1.7B-Q8_0.gguf",
             "qwen3-1.7b-q4" to "Qwen3-1.7B-Q4_K_M.gguf",

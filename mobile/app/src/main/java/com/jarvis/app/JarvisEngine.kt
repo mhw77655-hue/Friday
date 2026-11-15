@@ -68,6 +68,8 @@ object JarvisEngine {
         private set
     @Volatile var ollamaModelBackend: com.jarvis.app.model.OllamaModelBackend? = null
         private set
+    @Volatile var offlineModelBackend: com.jarvis.app.model.InAppLlamaModelBackend? = null
+        private set
     // VOICE-FORGE-EGYPTIAN-KAREN-TTS: the spoken-reply speech backend, built at
     // the SAME composition point as the other model backends (see init()). The
     // live reply sink routes full replies through it; the platform TTS path is
@@ -197,20 +199,11 @@ object JarvisEngine {
             failureSurface = failureSurface,
             dispatcher = Dispatchers.Main
         )
-        // LOCAL-MODEL-BACKEND-GROUND-TRUTH-AND-BUILD: the ONE production
-        // ModelBackend is the real OllamaModelBackend performing actual HTTP
-        // against the local Ollama server (127.0.0.1:8080, model
-        // 'jarvis-resident' — the imported LFM2.5-1.2B GGUF). ModelManager is
-        // wired to it via the backend ctor param; there is no second loader.
-        // The adapter is (re)configured here each init, so the backend and the
-        // sent/text path share the same real HTTP transport and model id.
-        val ollamaAdapter = com.jarvis.app.model.adapters.OllamaAdapter(appContext).apply {
-            configure(
-                com.jarvis.app.env.ModelSource.Local(OLLAMA_LOCAL_PATH_8080),
-                com.jarvis.app.model.config.ProviderConfig(modelId = OLLAMA_RESIDENT_MODEL)
-            )
-        }
-        val ollamaModelBackend = com.jarvis.app.model.OllamaModelBackend(ollamaAdapter)
+        // Friday's one production model backend runs GGUF inference inside
+        // this Android app through llama.cpp JNI. It has no Termux/Ollama or
+        // localhost service dependency; model weights are installed privately
+        // by the Model Manager screen.
+        val offlineModelBackend = com.jarvis.app.model.InAppLlamaModelBackend(appContext)
         // ADAPTER-MANIFEST: the real adapter manifest, constructed here — before
         // the ModelManager — so the ONE model-loading path carries the load gate
         // from its first load. JSON Lines under filesDir/memory/adapters.jsonl.
@@ -224,7 +217,7 @@ object JarvisEngine {
         // composition root builds it (with the ONE ResourceGovernor reading this
         // phone's live resource state) once the stores it needs exist; building a
         // second one here is exactly the duplication this story removes.
-        JarvisEngine.ollamaModelBackend = ollamaModelBackend
+        JarvisEngine.offlineModelBackend = offlineModelBackend
         JarvisEngine.adapterManifest = adapterManifest
 
         // VOICE-FORGE-EGYPTIAN-KAREN-TTS (AC2): VoiceForgeAdapter +
@@ -362,7 +355,7 @@ object JarvisEngine {
                         )
                     },
                     failureSurface = failureSurface,
-                    modelBackend = ollamaModelBackend,
+                    modelBackend = offlineModelBackend,
                     voiceSynthesizer = JarvisEngine.voiceForgeSynthesizer!!,
                     turnTraceStore = turnTraceStore,
                     threadTracker = threadTracker,
