@@ -454,7 +454,9 @@ class BodyCoordinator(
 
     private fun phoneActionFeedback(result: com.jarvis.app.voice.PhoneControlResult): String = when (result) {
         com.jarvis.app.voice.PhoneControlResult.Success -> "Done."
-        is com.jarvis.app.voice.PhoneControlResult.NotFound -> "I couldn't find ${result.target}."
+        is com.jarvis.app.voice.PhoneControlResult.NotFound -> "I couldn't find ${result.target} on the current screen."
+        is com.jarvis.app.voice.PhoneControlResult.Ambiguous ->
+            "I found ${result.matches} controls labelled ${result.target}. Which one do you mean?"
         is com.jarvis.app.voice.PhoneControlResult.Unavailable -> result.reason
         is com.jarvis.app.voice.PhoneControlResult.UserActionRequired -> result.reason
     }
