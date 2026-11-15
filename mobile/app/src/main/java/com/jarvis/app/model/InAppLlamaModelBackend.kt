@@ -46,17 +46,25 @@ class InAppLlamaModelBackend(context: Context) : ModelBackend {
 
         val reasoningAlias = config.modelId.equals("jarvis-reasoning:latest", ignoreCase = true) &&
             config.modelPath.isNullOrBlank()
+        val residentAlias = config.modelId.equals("jarvis-resident:latest", ignoreCase = true) &&
+            config.modelPath.isNullOrBlank()
         var selectedFile: File? = null
         var selectedModelId = config.modelId
         var admission: ModelAdmission? = null
 
-        if (reasoningAlias) {
-            var lastReason = "No installed reasoning model was found."
-            // Quality-first: 4B Spark, then the 2B Qwen fallback. Never use the
-            // 1.2B resident model as a hidden substitute for a reasoning request.
-            for (asset in listOf(OfflineModelCatalog.advanced, OfflineModelCatalog.reasoning)) {
+        if (reasoningAlias || residentAlias) {
+            var lastReason = "No installed candidate was found."
+            // Quality-first ladders: Spark 4B -> Qwen 2B for reasoning;
+            // MiniCPM5 2B -> LFM2.5 1.2B only as a resident-memory fallback.
+            val candidates = if (reasoningAlias) {
+                listOf(OfflineModelCatalog.advanced, OfflineModelCatalog.reasoning)
+            } else {
+                listOf(OfflineModelCatalog.resident, OfflineModelCatalog.fallback)
+            }
+            val requestedContext = if (residentAlias) 2048 else 4096
+            for (asset in candidates) {
                 val candidate = paths.resolve(null, asset.id) ?: continue
-                val gate = controller.admitModel(candidate.length(), 4096)
+                val gate = controller.admitModel(candidate.length(), requestedContext)
                 if (!gate.allowed) {
                     lastReason = gate.reason
                     continue
@@ -67,9 +75,11 @@ class InAppLlamaModelBackend(context: Context) : ModelBackend {
                 break
             }
             if (selectedFile == null) {
+                val tier = if (residentAlias) "resident" else "reasoning"
+                val candidatesText = if (residentAlias) "MiniCPM5 2B or its LFM2.5 low-memory fallback" else "Spark 4B or Qwen 2B"
                 unavailable[handle] =
-                    "No installed reasoning model fits the phone's current NAE resource budget. $lastReason " +
-                    "Friday did not load a smaller model silently; install Spark 4B or Qwen 2B, or retry when the phone has more headroom."
+                    "No installed $tier model fits the phone's current NAE resource budget. $lastReason " +
+                    "Friday did not load an unsuitable model silently; install $candidatesText or retry when the phone has more headroom."
                 return handle
             }
         } else {
