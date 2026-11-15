@@ -117,6 +117,7 @@ class LiquidSymbiosisEngine(private val persistenceFile: File? = null) {
     private var previousLatent: DoubleArray? = null
     private var previousAction = 0.0
     private var predictionError = 0.0
+    private var lastPersistAtMs = 0L
 
     init { restore() }
 
@@ -160,7 +161,7 @@ class LiquidSymbiosisEngine(private val persistenceFile: File? = null) {
         adaptOrgan(organ)
         generation++
         lastAdaptation = "$organ learned from ${if (succeeded) "success" else "failure"}"
-        persist()
+        persist(force = true)
         return snapshot()
     }
 
@@ -254,8 +255,10 @@ class LiquidSymbiosisEngine(private val persistenceFile: File? = null) {
         }
     }
 
-    private fun persist() {
+    private fun persist(force: Boolean = false) {
         val file = persistenceFile ?: return
+        val now = System.currentTimeMillis()
+        if (!force && lastPersistAtMs != 0L && now - lastPersistAtMs < 60_000L) return
         runCatching {
             file.parentFile?.mkdirs()
             val p = Properties()
@@ -278,6 +281,7 @@ class LiquidSymbiosisEngine(private val persistenceFile: File? = null) {
             temp.outputStream().use { p.store(it, "Friday Nano Liquid Symbiosis state") }
             if (file.exists()) file.delete()
             temp.renameTo(file)
+            lastPersistAtMs = now
         }
     }
 }
