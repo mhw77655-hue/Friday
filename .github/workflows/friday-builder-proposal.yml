@@ -22,6 +22,12 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Restrict dispatch to repository owner
+        if: github.actor != 'mhw77655-hue'
+        run: |
+          echo "Only the repository owner may dispatch a Friday development proposal." >&2
+          exit 1
+
       - name: Checkout repository without persisting credentials
         uses: actions/checkout@v4
         with:
@@ -76,6 +82,12 @@ jobs:
       pull-requests: write
       actions: write
     steps:
+      - name: Restrict publisher to repository owner
+        if: github.actor != 'mhw77655-hue'
+        run: |
+          echo "Only the repository owner may publish a Friday proposal draft." >&2
+          exit 1
+
       - name: Checkout trusted main without persisting credentials
         uses: actions/checkout@v4
         with:
