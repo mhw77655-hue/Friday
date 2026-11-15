@@ -1,6 +1,7 @@
 package com.jarvis.app.model
 
 import android.content.Context
+import java.io.File
 import com.jarvis.app.env.ModelSource
 import com.jarvis.app.model.adapters.LocalInferenceEngine
 import com.jarvis.app.model.config.ProviderConfig
