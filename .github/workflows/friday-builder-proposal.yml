@@ -145,7 +145,7 @@ jobs:
             --title "Friday development proposal: $REQUEST_ID" \
             --body "## Friday repository development proposal
 
-          Request id: `$REQUEST_ID`
+          Request id: $REQUEST_ID
           Worker run: $SOURCE_RUN
 
           This is an untrusted worker proposal. It has not been merged, released,
