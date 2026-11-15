@@ -68,6 +68,8 @@ object JarvisEngine {
         private set
     @Volatile var ollamaModelBackend: com.jarvis.app.model.OllamaModelBackend? = null
         private set
+    @Volatile var localModelBackend: com.jarvis.app.model.LocalModelBackend? = null
+        private set
     // VOICE-FORGE-EGYPTIAN-KAREN-TTS: the spoken-reply speech backend, built at
     // the SAME composition point as the other model backends (see init()). The
     // live reply sink routes full replies through it; the platform TTS path is
@@ -211,6 +213,10 @@ object JarvisEngine {
             )
         }
         val ollamaModelBackend = com.jarvis.app.model.OllamaModelBackend(ollamaAdapter)
+        // The production Android turn path uses this app-contained JNI backend.
+        // The Ollama object above is retained temporarily for legacy diagnostics
+        // only; no production inference request is routed through localhost.
+        val localModelBackend = com.jarvis.app.model.LocalModelBackend(appContext)
         // ADAPTER-MANIFEST: the real adapter manifest, constructed here — before
         // the ModelManager — so the ONE model-loading path carries the load gate
         // from its first load. JSON Lines under filesDir/memory/adapters.jsonl.
@@ -225,6 +231,7 @@ object JarvisEngine {
         // phone's live resource state) once the stores it needs exist; building a
         // second one here is exactly the duplication this story removes.
         JarvisEngine.ollamaModelBackend = ollamaModelBackend
+        JarvisEngine.localModelBackend = localModelBackend
         JarvisEngine.adapterManifest = adapterManifest
 
         // VOICE-FORGE-EGYPTIAN-KAREN-TTS (AC2): VoiceForgeAdapter +
@@ -362,7 +369,7 @@ object JarvisEngine {
                         )
                     },
                     failureSurface = failureSurface,
-                    modelBackend = ollamaModelBackend,
+                    modelBackend = localModelBackend,
                     voiceSynthesizer = JarvisEngine.voiceForgeSynthesizer!!,
                     turnTraceStore = turnTraceStore,
                     threadTracker = threadTracker,
