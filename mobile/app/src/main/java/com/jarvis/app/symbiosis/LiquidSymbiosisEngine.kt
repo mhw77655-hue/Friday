@@ -36,74 +36,167 @@ data class LiquidSymbiosisSnapshot(
 )
 
 /**
- * JEPA-inspired online predictive core. It predicts compact environment
- * representations rather than reconstructing raw audio, text or pixels.
- * This is a lightweight on-device predictor, not a pretrained neural JEPA.
+ * Lightweight action-conditioned latent world model for phone-state dynamics.
+ *
+ * It keeps a fixed, normalized host-state representation (so the target cannot
+ * collapse through a trainable encoder), an EMA-smoothed target representation,
+ * a bounded recent-transition replay buffer, and a small linear predictor.
+ * This borrows the latent-target, action-conditioning and persistent test-time
+ * adaptation ideas from JEPA/seq-JEPA/JEPA-TTT; it is not a vision-scale neural JEPA.
  */
 class JepaLatentPredictor(
     private val dimensions: Int = 6,
-    private val learningRate: Double = 0.035,
-    private val targetMomentum: Double = 0.98
+    private val actionDimensions: Int = 3,
+    private val learningRate: Double = 0.015,
+    private val targetMomentum: Double = 0.98,
+    private val replayCapacity: Int = 24,
+    private val replayPasses: Int = 2
 ) {
+    private data class Transition(val input: DoubleArray, val target: DoubleArray)
+
     private var target = DoubleArray(dimensions)
-    private var weights = Array(dimensions) { DoubleArray(dimensions + 1) }
+    private var targetInitialized = false
+    private var weights = Array(dimensions) { DoubleArray(dimensions + actionDimensions + 1) }
+    private val replay = ArrayDeque<Transition>()
     private var samples = 0L
     private var errorEma = 0.0
 
-    @Synchronized
-    fun observe(current: DoubleArray, action: Double, next: DoubleArray): Double {
-        require(current.size == dimensions && next.size == dimensions)
-        val x = current.copyOf() + doubleArrayOf(action.coerceIn(-1.0, 1.0))
-        val prediction = DoubleArray(dimensions) { row ->
-            weights[row].indices.sumOf { col -> weights[row][col] * x[col] }
-        }
-        for (i in 0 until dimensions) {
-            target[i] = if (samples == 0L) next[i]
-                else targetMomentum * target[i] + (1.0 - targetMomentum) * next[i]
-        }
-        var squaredError = 0.0
-        for (row in 0 until dimensions) {
-            val error = prediction[row] - target[row]
-            squaredError += error * error
-            for (col in x.indices) weights[row][col] -= learningRate * error * x[col]
-        }
-        val rmse = kotlin.math.sqrt(squaredError / dimensions)
-        errorEma = if (samples == 0L) rmse else errorEma * 0.9 + rmse * 0.1
-        samples++
-        return rmse
+    init {
+        require(dimensions > 0 && actionDimensions > 0)
+        require(learningRate > 0.0 && learningRate <= 0.1)
+        require(targetMomentum >= 0.0 && targetMomentum < 1.0)
+        require(replayCapacity > 0 && replayPasses > 0)
     }
 
     @Synchronized
-    fun predict(current: DoubleArray, action: Double): DoubleArray {
+    fun observe(current: DoubleArray, action: Double, next: DoubleArray): Double =
+        observe(current, doubleArrayOf(action, 0.0, 0.0).take(actionDimensions).toDoubleArray(), next)
+
+    @Synchronized
+    fun observe(current: DoubleArray, action: DoubleArray, next: DoubleArray): Double {
+        require(current.size == dimensions && next.size == dimensions)
+        require(action.size == actionDimensions)
+        require(current.all { it.isFinite() } && next.all { it.isFinite() } && action.all { it.isFinite() })
+
+        val input = features(current, action)
+        if (!targetInitialized) {
+            target = next.copyOf()
+            targetInitialized = true
+        } else {
+            for (i in 0 until dimensions) {
+                target[i] = targetMomentum * target[i] + (1.0 - targetMomentum) * next[i]
+            }
+        }
+
+        val teacherTarget = target.copyOf()
+        val beforeUpdate = forward(input)
+        val error = rootMeanSquare(beforeUpdate, teacherTarget)
+        replay.addLast(Transition(input, teacherTarget))
+        while (replay.size > replayCapacity) replay.removeFirst()
+
+        // Bounded online test-time training: only a small recent replay window,
+        // with a fixed number of passes, so work and memory cannot grow unbounded.
+        repeat(replayPasses) {
+            replay.forEach(::trainOne)
+        }
+
+        errorEma = if (samples == 0L) error else errorEma * 0.9 + error * 0.1
+        samples++
+        return error
+    }
+
+    @Synchronized
+    fun predict(current: DoubleArray, action: Double): DoubleArray =
+        predict(current, doubleArrayOf(action, 0.0, 0.0).take(actionDimensions).toDoubleArray())
+
+    @Synchronized
+    fun predict(current: DoubleArray, action: DoubleArray): DoubleArray {
+        require(current.size == dimensions && action.size == actionDimensions)
+        require(current.all { it.isFinite() } && action.all { it.isFinite() })
+        return forward(features(current, action))
+    }
+
+    /** Bounded latent rollout for comparing candidate operating-action sequences. */
+    @Synchronized
+    fun rollout(current: DoubleArray, actions: List<DoubleArray>): List<DoubleArray> {
         require(current.size == dimensions)
-        val x = current.copyOf() + doubleArrayOf(action.coerceIn(-1.0, 1.0))
-        return DoubleArray(dimensions) { row ->
-            weights[row].indices.sumOf { col -> weights[row][col] * x[col] }
+        require(actions.size <= 8) { "A phone-side rollout is capped at eight steps" }
+        var state = current.copyOf()
+        return actions.map { action ->
+            state = predict(state, action)
+            state.copyOf()
         }
     }
 
     @Synchronized fun predictionErrorEma(): Double = errorEma
     @Synchronized fun sampleCount(): Long = samples
+    @Synchronized fun replaySize(): Int = replay.size
 
     @Synchronized
     fun exportState(): Map<String, String> = buildMap {
         put("samples", samples.toString())
         put("errorEma", errorEma.toString())
+        put("targetInitialized", targetInitialized.toString())
         put("target", target.joinToString(","))
+        put("replaySize", replay.size.toString())
         weights.forEachIndexed { row, values -> put("weights.$row", values.joinToString(",")) }
+        replay.forEachIndexed { index, transition ->
+            put("replay.$index.input", transition.input.joinToString(","))
+            put("replay.$index.target", transition.target.joinToString(","))
+        }
     }
 
     @Synchronized
     fun restoreState(state: Map<String, String>) {
         samples = state["samples"]?.toLongOrNull()?.coerceAtLeast(0L) ?: 0L
-        errorEma = state["errorEma"]?.toDoubleOrNull()?.takeIf { it.isFinite() } ?: 0.0
-        state["target"]?.split(",")?.mapNotNull { it.toDoubleOrNull() }?.takeIf { it.size == dimensions }
-            ?.forEachIndexed { i, value -> target[i] = value }
+        errorEma = state["errorEma"]?.toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0.0 } ?: 0.0
+        targetInitialized = state["targetInitialized"]?.toBooleanStrictOrNull() ?: false
+        parseVector(state["target"], dimensions)?.copyInto(target)
         weights.indices.forEach { row ->
-            state["weights.$row"]?.split(",")?.mapNotNull { it.toDoubleOrNull() }
-                ?.takeIf { it.size == dimensions + 1 }
-                ?.forEachIndexed { col, value -> weights[row][col] = value }
+            parseVector(state["weights.$row"], dimensions + actionDimensions + 1)
+                ?.copyInto(weights[row])
         }
+        replay.clear()
+        val count = (state["replaySize"]?.toIntOrNull() ?: 0).coerceIn(0, replayCapacity)
+        repeat(count) { index ->
+            val input = parseVector(state["replay.$index.input"], dimensions + actionDimensions + 1)
+            val output = parseVector(state["replay.$index.target"], dimensions)
+            if (input != null && output != null) replay.addLast(Transition(input, output))
+        }
+    }
+
+    private fun features(current: DoubleArray, action: DoubleArray): DoubleArray =
+        current.copyOf() + action.map { it.coerceIn(-1.0, 1.0) }.toDoubleArray() + doubleArrayOf(1.0)
+
+    private fun forward(input: DoubleArray): DoubleArray =
+        DoubleArray(dimensions) { row ->
+            weights[row].indices.sumOf { col -> weights[row][col] * input[col] }.coerceIn(-2.0, 2.0)
+        }
+
+    private fun trainOne(sample: Transition) {
+        val prediction = forward(sample.input)
+        for (row in 0 until dimensions) {
+            val error = (prediction[row] - sample.target[row]).coerceIn(-0.25, 0.25)
+            for (col in sample.input.indices) {
+                val decay = if (col == sample.input.lastIndex) 0.0 else weights[row][col] * 0.0001
+                weights[row][col] = (weights[row][col] - learningRate *
+                    (error * sample.input[col] + decay)).coerceIn(-4.0, 4.0)
+            }
+        }
+    }
+
+    private fun rootMeanSquare(a: DoubleArray, b: DoubleArray): Double {
+        val sum = a.indices.sumOf { index ->
+            val delta = a[index] - b[index]
+            delta * delta
+        }
+        return kotlin.math.sqrt(sum / dimensions)
+    }
+
+    private fun parseVector(raw: String?, expectedSize: Int): DoubleArray? {
+        val values = raw?.split(",")?.mapNotNull { it.toDoubleOrNull() } ?: return null
+        if (values.size != expectedSize || values.any { !it.isFinite() }) return null
+        return values.toDoubleArray()
     }
 }
 
@@ -115,7 +208,7 @@ class LiquidSymbiosisEngine(private val persistenceFile: File? = null) {
     private var lastAdaptation = "Awaiting live phone observations"
     private val predictor = JepaLatentPredictor()
     private var previousLatent: DoubleArray? = null
-    private var previousAction = 0.0
+    private var previousAction = doubleArrayOf(0.0, 0.0, 0.0)
     private var predictionError = 0.0
     private var lastPersistAtMs = 0L
 
@@ -131,6 +224,7 @@ class LiquidSymbiosisEngine(private val persistenceFile: File? = null) {
         )
         val latent = encode(host!!)
         previousLatent?.let { previous -> predictionError = predictor.observe(previous, previousAction, latent) }
+        previousAction = doubleArrayOf(0.0, 0.0, 0.0)
         previousLatent = latent
         adaptToHost(host!!)
         persist()
@@ -157,8 +251,15 @@ class LiquidSymbiosisEngine(private val persistenceFile: File? = null) {
             memoryPeakMb = max(old.memoryPeakMb, peakMemoryMb.coerceAtLeast(0L)),
             rewardEma = nextReward
         )
-        previousAction = if (succeeded) 0.5 else -0.5
+        val oldContext = old.contextBudget
+        val oldBackground = old.backgroundWeight
         adaptOrgan(organ)
+        val updated = strategies.getValue(organ)
+        previousAction = doubleArrayOf(
+            reward,
+            ((updated.contextBudget - oldContext) / 4096.0).coerceIn(-1.0, 1.0),
+            (updated.backgroundWeight - oldBackground).coerceIn(-1.0, 1.0)
+        )
         generation++
         lastAdaptation = "$organ learned from ${if (succeeded) "success" else "failure"}"
         persist(force = true)
