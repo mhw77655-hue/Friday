@@ -26,14 +26,18 @@ class ModelPathResolver(
         const val CANONICAL_MODEL_ROOT = "/sdcard/jarvis-repo/models"
 
         private val MODEL_FILENAMES = mapOf(
-            "lfm2.5-1.2b-instruct" to "LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
-            "lfm" to "LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
-            "resident" to "LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
-            "jarvis-resident:latest" to "LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
-            "jarvis-reasoning:latest" to "Qwen3-1.7B-Q4_K_M.gguf",
-            "qwen3-1.7b" to "Qwen3-1.7B-Q4_K_M.gguf",
-            "qwen3-1.7b-q4" to "Qwen3-1.7B-Q4_K_M.gguf",
-            "qwen3-1.7b-q4_k_m" to "Qwen3-1.7B-Q4_K_M.gguf"
+            "lfm2.5-1.2b-abliterated" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
+            "lfm2.5-1.2b-instruct-abliterated" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
+            "lfm2.5-1.2b-instruct" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
+            "lfm" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
+            "resident" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
+            "jarvis-resident:latest" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
+            "jarvis-reasoning:latest" to "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf",
+            "qwen3.5-2b-abliterated" to "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf",
+            "qwen3.5-2b" to "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf",
+            "qwen3-1.7b" to "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf",
+            "qwen3-1.7b-q4" to "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf",
+            "qwen3-1.7b-q4_k_m" to "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf"
         )
 
         fun modelFileName(modelId: String?): String {
