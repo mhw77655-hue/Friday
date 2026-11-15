@@ -17,28 +17,30 @@ data class OfflineModelAsset(
 }
 
 object OfflineModelCatalog {
-    // Official Liquid AI GGUF, immutable HF revision. Q4_K_M is approximately 731 MB.
+    // Community refusal-ablated LFM2.5 1.2B. Q4_K_M is ~731 MB.
+    // Kept as the low-memory resident so ordinary turns stay light.
     val resident = OfflineModelAsset(
-        id = "lfm2.5-1.2b-instruct",
-        displayName = "LFM2.5 1.2B Instruct · Q4_K_M",
-        repository = "LiquidAI/LFM2.5-1.2B-Instruct-GGUF",
-        revision = "76022b8",
-        filename = "LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
+        id = "lfm2.5-1.2b-abliterated",
+        displayName = "Huihui LFM2.5 1.2B Abliterated · Q4_K_M",
+        repository = "mradermacher/Huihui-LFM2.5-1.2B-Instruct-abliterated-GGUF",
+        revision = "7f2f76e",
+        filename = "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
         license = "LFM 1.0",
-        description = "Compact on-device resident candidate. Approximately 731 MB; runtime memory is higher.",
+        description = "Low-memory English resident candidate with reduced refusal behaviour. About 731 MB; inference memory is higher.",
         expectedMinimumBytes = 600L * 1024L * 1024L,
         resident = true
     )
 
-    // Official ggml-org GGUF, immutable HF revision, Apache-2.0. Q4_K_M ~1.28 GB.
+    // Community refusal-ablated Qwen3.5 2B. Q4_K_M is ~1.27 GB.
+    // Loaded only when the resource governor admits the reasoning tier.
     val reasoning = OfflineModelAsset(
-        id = "qwen3-1.7b-q4",
-        displayName = "Qwen3 1.7B · Q4_K_M",
-        repository = "ggml-org/Qwen3-1.7B-GGUF",
-        revision = "daeb8e2",
-        filename = "Qwen3-1.7B-Q4_K_M.gguf",
+        id = "qwen3.5-2b-abliterated",
+        displayName = "Huihui Qwen3.5 2B Abliterated · Q4_K_M",
+        repository = "mradermacher/Huihui-Qwen3.5-2B-abliterated-GGUF",
+        revision = "f36848f",
+        filename = "Huihui-Qwen3.5-2B-abliterated.Q4_K_M.gguf",
         license = "Apache-2.0",
-        description = "Optional reasoning worker. Approximately 1.28 GB; load only with resource headroom.",
+        description = "Stronger English reasoning candidate, loaded on demand only when NAE reports enough headroom. About 1.27 GB; inference memory is higher.",
         expectedMinimumBytes = 1_000L * 1024L * 1024L,
         resident = false
     )
