@@ -14,13 +14,13 @@ Do not define Friday by a single LLM. Use a model portfolio with interchangeable
 - Model card advertises llama.cpp and image-text support. Its reported censorship evaluation is narrow: political-censorship prompts only, excludes capability gaps, and uses an LLM judge. Do not interpret that as a global zero-refusal or intelligence benchmark.
 - Alternative: privastudio/qwen3.5-abliterated, about 2.71 GB Q4_K_M plus a BF16 mmproj. It documents source lineage and image projector.
 
-This is the strongest immediate candidate for unified English reasoning + visual capability with an actual GGUF/llama.cpp path. It is not yet verified against Friday's Android JNI build, chat template, mmproj loading, or target phone.
+This is the strongest immediate candidate found for unified English reasoning + visual capability with an actual GGUF/llama.cpp path. Important honesty: this release removes most political censorship, not every refusal. Its card reports 93/100 harmful requests still refused on the BF16 release and reports a small increase in fabricated facts versus the base model. Its censorship test is a narrow Chinese-language political battery. It is therefore a low-political-refusal candidate, not a globally uncensored guarantee. It is not yet verified against Friday's Android JNI build, chat template, mmproj loading, or target phone.
 
 ### Mobile-optimized multimodal control candidate: Gemma 4 E2B / E4B
 
 Google positions E2B and E4B for mobile/edge. The family supports image, audio, video and function calling; E2B/E4B include native audio and video. Google's published mobile memory estimates are approximately 1.1 GB for E2B and 2.5 GB for E4B, with text-only estimates of 0.84 GB and 2.2 GB. These are runtime-specific estimates, not guarantees for this app/device.
 
-Use official Gemma 4 as a mobile runtime baseline and candidate sensory organ. It is not uncensored by default. A community abliterated derivative must be evaluated separately and cannot inherit official multimodal/runtime guarantees without validation.
+Use official Gemma 4 as a mobile runtime baseline and candidate sensory organ. It is not uncensored by default. A community abliterated derivative must be evaluated separately and cannot inherit official multimodal/runtime guarantees without validation. This is an unusually useful control: the model file is larger than its measured active memory footprint on the tested Android device, demonstrating why disk size is not RAM size.
 
 ### Research / server candidates, not assumed phone models
 
@@ -219,3 +219,29 @@ The liquid task composer should select only the mechanisms needed for each task.
 - Inner speech / corollary discharge evidence: Scott (2013), https://doi.org/10.1177/0956797613478614
 - Efference copies in inner speech: Whitford et al. (2017), https://doi.org/10.7554/eLife.28197
 
+
+ 
+## 13. Device impact: what the evidence actually says
+
+A model being installed does not mean it is resident. A model can sit in app-private storage without active inference memory cost. During inference, active memory depends on runtime mapping, KV cache, context length, encoders/projectors, compute buffers and the device backend. The Google LiteRT-LM table gives a concrete Android example: Gemma 4 E2B is listed as a 2.58 GB model, but the measured Galaxy S26 Ultra peak is 1,733 MB CPU or 676 MB GPU. That is a device/runtime benchmark, not a promise for every handset.
+
+The Qwen3.5-4B GGUF candidate is a different runtime path: 2.78 GB text weights plus 0.67 GB vision projector on disk. There is no verified Friday/Android peak-memory or tokens/sec measurement for it yet. Do not infer its RAM use from those file sizes.
+
+The production requirement should be stronger than "it does not crash":
+- Put heavy inference in a separate Android :inference process, mirroring the existing :voice habitat. A native inference crash should not take down Friday's UI/identity process.
+- Start inference only when requested; no background resident 4B/9B model by default.
+- Give the inference process a hard memory admission budget and a kill/unload path on TRIM_MEMORY, thermal rise, foreground audio/camera use, or OS pressure.
+- Use the supported accelerator runtime for each model. LiteRT-LM exposes CPU/GPU/NPU backends on Android; the current llama.cpp CMake build has Vulkan disabled, so its present GGUF path is CPU-only.
+- Keep context small at first and grow only if actual device PSS, tokens/sec, battery and temperature measurements pass.
+- Run a 5-10 minute soak test and 20-30 minute thermal test, not just one short prompt.
+- If the model cannot meet the phone's budget, keep it installed but do not load it; route to another supported backend only when the user has allowed that.
+
+Nano-liquid symbiosis can select and schedule; it cannot create physical RAM bandwidth or erase heat. It is a resource manager and learning controller, not a hardware miracle.
+
+## 14. Model selection decision, not a model-size ideology
+
+The 4B multimodal Qwen candidate is the current leading local reasoning/vision candidate. The broader Huihui abliterated derivative has a stronger refusal-removal claim but lacks a comparable published capability/factuality evaluation. The InterpreticAI Uncensored v2 has a more transparent, narrow benchmark and retains harmful-request refusals. Test both against the same English reasoning/coding/visual/factuality suite before choosing.
+
+Gemma 4 E2B via LiteRT-LM is the mobile performance baseline, not the low-refusal winner. If the phone has unusually high RAM and a capable SoC, add Qwen3.5-9B as an optional on-demand candidate; do not keep it resident. A 9B Q4 weight file around 5.6 GB is only a storage number, and its active memory footprint may be far higher.
+
+A larger model should win only if its measured quality improvement justifies its device cost. Do not install a 1B model merely because it is small; do not install a 9B model merely because it is larger.
