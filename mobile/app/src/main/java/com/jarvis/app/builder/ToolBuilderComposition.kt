@@ -3,6 +3,8 @@ package com.jarvis.app.builder
 import com.jarvis.app.evolution.CandidateGenerator
 import com.jarvis.app.evolution.DEFAULT_SYNTHESIZERS
 import com.jarvis.app.evolution.EvolutionEngine
+import com.jarvis.app.evolution.LlmSpecSynthesizer
+import com.jarvis.app.mutation.LlmSynthesisProvider
 import com.jarvis.app.evolution.PromotionController
 import com.jarvis.app.evolution.RollbackController
 import com.jarvis.app.failure.FailureSurface
@@ -65,7 +67,8 @@ object ToolBuilderComposition {
         failureSurface: FailureSurface,
         fileStorage: FileStorage,
         scope: CoroutineScope,
-        workspacesDir: File
+        workspacesDir: File,
+        llmSynthesisProvider: LlmSynthesisProvider? = null
     ): Stack {
         val sandbox = ResourceSandbox()
         val factory = EnvironmentFactory(failureSurface, workspacesDir)
@@ -88,6 +91,9 @@ object ToolBuilderComposition {
             failureSurface = failureSurface
         )
 
+        val synthesizers = DEFAULT_SYNTHESIZERS + listOfNotNull(llmSynthesisProvider?.let(::LlmSpecSynthesizer))
+        val candidateGenerator = CandidateGenerator(synthesizers)
+
         val promotion = PromotionController(registry, archive, genomeRegistry, failureSurface, sandbox)
         val rollback = RollbackController(registry, archive, genomeRegistry, failureSurface)
         val evolution = EvolutionEngine(
@@ -96,7 +102,7 @@ object ToolBuilderComposition {
             genomeRegistry = genomeRegistry,
             governor = governor,
             failureSurface = failureSurface,
-            candidateGenerator = CandidateGenerator(DEFAULT_SYNTHESIZERS),
+            candidateGenerator = candidateGenerator,
             mutantEnv = mutantEnv,
             testRunner = CandidateTestRunner(mutantEnv),
             failureRunner = FailureTestRunner(mutantEnv),
@@ -117,7 +123,7 @@ object ToolBuilderComposition {
             governor = governor,
             failureSurface = failureSurface,
             nervousSystem = gns,
-            candidateGenerator = CandidateGenerator(DEFAULT_SYNTHESIZERS)
+            candidateGenerator = candidateGenerator
         )
 
         return Stack(builder, registry, genomeRegistry, archive, governor, failureSurface, gns, rollback, sandbox, scope)
