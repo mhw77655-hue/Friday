@@ -47,6 +47,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jarvis.app.JarvisEngine
 import com.jarvis.app.env.ModelProviderType
 import com.jarvis.app.model.ModelManager
+import com.jarvis.app.model.NanoLiquidPolicy
+import com.jarvis.app.model.NanoLiquidSymbiote
 import com.jarvis.app.model.ModelProvider
 import com.jarvis.app.model.OrganRole
 import com.jarvis.app.model.ProviderHealth
@@ -100,6 +102,7 @@ fun ModelScreen(
             }
         }
 
+        NanoLiquidStatusCard()
         OfflineModelLibrary()
 
         ActiveProviderCard(
@@ -506,6 +509,47 @@ private fun OfflineModelLibrary() {
             downloadError?.let {
                 Text(it, color = JarvisColors.CoreWarning, style = JarvisType.Technical)
             }
+        }
+    }
+}
+
+/** Live NAE view: host conditions and the learned optimization history. */
+@Composable
+private fun NanoLiquidStatusCard() {
+    val context = LocalContext.current
+    val symbiote = remember(context) { NanoLiquidSymbiote(context) }
+    val host = remember { symbiote.observeHost() }
+    val profile = remember(host) { symbiote.recommend(host) }
+    val learning = remember { symbiote.learningSummary() }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = JarvisColors.SurfacePanel),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text("NANO LIQUID SYMBIOSIS", style = JarvisType.Label)
+            Text(
+                "Current host: ${host.availableMemoryMb} MB available RAM · ${host.freeStorageMb} MB free storage",
+                style = JarvisType.Technical.copy(fontSize = 11.sp, color = JarvisColors.TextSecondary)
+            )
+            Text(
+                "Adaptation: ${profile.mode} · ${profile.threads} threads · ${profile.contextTokens} context",
+                style = JarvisType.Body.copy(fontWeight = FontWeight.SemiBold)
+            )
+            Text(
+                profile.reason,
+                style = JarvisType.Technical.copy(fontSize = 11.sp, color = JarvisColors.TextSecondary)
+            )
+            Text(
+                "Observed inference runs: ${learning["samples"] ?: 0}",
+                style = JarvisType.Technical.copy(fontSize = 11.sp)
+            )
         }
     }
 }

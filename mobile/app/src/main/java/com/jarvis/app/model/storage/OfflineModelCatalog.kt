@@ -1,6 +1,5 @@
 package com.jarvis.app.model.storage
 
-/** Public GGUF assets installed into Friday's private model directory. */
 data class OfflineModelAsset(
     val id: String,
     val displayName: String,
@@ -10,37 +9,37 @@ data class OfflineModelAsset(
     val license: String,
     val description: String,
     val expectedMinimumBytes: Long,
-    val resident: Boolean
+    val resident: Boolean,
+    val sha256: String? = null
 ) {
     val downloadUrl: String
         get() = "https://huggingface.co/$repository/resolve/$revision/$filename?download=true"
 }
 
 object OfflineModelCatalog {
-    // Official Liquid AI GGUF, immutable HF revision. Q4_K_M is approximately 731 MB.
     val resident = OfflineModelAsset(
-        id = "lfm2.5-1.2b-instruct",
-        displayName = "LFM2.5 1.2B Instruct · Q4_K_M",
-        repository = "LiquidAI/LFM2.5-1.2B-Instruct-GGUF",
-        revision = "76022b8",
-        filename = "LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
-        license = "LFM 1.0",
-        description = "Compact on-device resident candidate. Approximately 731 MB; runtime memory is higher.",
-        expectedMinimumBytes = 600L * 1024L * 1024L,
+        id = "qwen3.5-0.8b-abliterated",
+        displayName = "Qwen3.5 0.8B Abliterated · Q4_K_M",
+        repository = "xdchinza/Qwen3.5-0.8B-abliterated-GGUF",
+        revision = "6cef073",
+        filename = "Qwen3.5-0.8B-abliterated-Q4_K_M.gguf",
+        license = "Apache-2.0",
+        description = "Low-memory reduced-refusal resident fallback. Approximately 517 MB; runtime memory is higher.",
+        expectedMinimumBytes = 450L * 1024L * 1024L,
         resident = true
     )
 
-    // Official ggml-org GGUF, immutable HF revision, Apache-2.0. Q4_K_M ~1.28 GB.
     val reasoning = OfflineModelAsset(
-        id = "qwen3-1.7b-q4",
-        displayName = "Qwen3 1.7B · Q4_K_M",
-        repository = "ggml-org/Qwen3-1.7B-GGUF",
-        revision = "daeb8e2",
-        filename = "Qwen3-1.7B-Q4_K_M.gguf",
+        id = "qwen3.5-2b-uncensored",
+        displayName = "Qwen3.5 2B Uncensored · Q4_K_M",
+        repository = "HauhauCS/Qwen3.5-2B-Uncensored-HauhauCS-Aggressive",
+        revision = "cafbddc",
+        filename = "Qwen3.5-2B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf",
         license = "Apache-2.0",
-        description = "Optional reasoning worker. Approximately 1.28 GB; load only with resource headroom.",
-        expectedMinimumBytes = 1_000L * 1024L * 1024L,
-        resident = false
+        description = "Primary reduced-refusal reasoning candidate. Approximately 1.27 GB; load only with NAE headroom.",
+        expectedMinimumBytes = 1_100L * 1024L * 1024L,
+        resident = false,
+        sha256 = "be3ccca13a9d1bc8b67165ea80bd103cd6151a37ad131183cc7ca388f78d9517"
     )
 
     val all: List<OfflineModelAsset> = listOf(resident, reasoning)
