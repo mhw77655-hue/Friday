@@ -134,19 +134,24 @@ val generateFridaySourceIndex = tasks.register("generateFridaySourceIndex") {
             val declarations = Regex(
                 "(?m)^\\s*(?:(?:public|internal|private|protected|abstract|open|data|sealed|enum|annotation|value|expect|actual|suspend|inline|infix|operator|override)\\s+)*(?:class|interface|object|typealias|fun)\\s+([A-Za-z_][A-Za-z0-9_]*)"
             ).findAll(text).map { it.groupValues[1] }.distinct().toList()
-            Triple(relative, packageName, declarations)
+            val imports = Regex("(?m)^\\s*import\\s+([A-Za-z0-9_.*]+)")
+                .findAll(text).map { it.groupValues[1] }.distinct().toList()
+            Triple(relative, packageName, declarations) to imports
         }
         val revision = digest.digest().joinToString("") { "%02x".format(it) }
         val json = buildString {
-            append("{\n  \"schemaVersion\": 1,\n  \"sourceRevision\": \"")
+            append("{\n  \"schemaVersion\": 2,\n  \"sourceRevision\": \"")
             append(revision)
             append("\",\n  \"files\": [")
-            entries.forEachIndexed { index, entry ->
+            entries.forEachIndexed { index, pair ->
                 if (index > 0) append(",")
+                val entry = pair.first
                 append("\n    { \"path\": \"").append(entry.first)
                 append("\", \"package\": \"").append(entry.second)
                 append("\", \"declarations\": [")
                 append(entry.third.joinToString(", ") { symbol -> "${34.toChar()}$symbol${34.toChar()}" })
+                append("], \"imports\": [")
+                append(pair.second.joinToString(", ") { imported -> "${34.toChar()}$imported${34.toChar()}" })
                 append("] }")
             }
             if (entries.isNotEmpty()) append("\n  ")
