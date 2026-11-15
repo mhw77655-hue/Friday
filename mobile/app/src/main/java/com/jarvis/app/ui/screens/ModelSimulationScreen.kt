@@ -55,6 +55,7 @@ fun ModelSimulationScreen() {
             error = null
             try {
                 val measured = withContext(Dispatchers.IO) { simulator.snapshot() }
+                simulator.persistSnapshot(measured)
                 snapshot = measured
                 simulations = simulator.simulate(measured, contextTokens)
             } catch (failure: Exception) {
@@ -108,8 +109,11 @@ fun ModelSimulationScreen() {
                         running = true
                         error = null
                         try {
-                            benchmark = simulator.runSyntheticBenchmark()
+                            val measuredBenchmark = simulator.runSyntheticBenchmark()
+                            benchmark = measuredBenchmark
+                            simulator.persistBenchmark(measuredBenchmark)
                             val measured = withContext(Dispatchers.IO) { simulator.snapshot() }
+                            simulator.persistSnapshot(measured)
                             snapshot = measured
                             simulations = simulator.simulate(measured, contextTokens)
                         } catch (failure: Exception) {
@@ -174,7 +178,7 @@ fun ModelSimulationScreen() {
         }
 
         Text(
-            "Important: this lab does not download models, infer exact architecture-specific KV cache, or predict tokens/second. It screens candidates. A later real inference test will calibrate the estimates.",
+            "The device profile and synthetic results are saved privately on this phone. This lab does not download models, infer exact architecture-specific KV cache, or predict tokens/second. It screens candidates. A later real inference test will calibrate the estimates.",
             style = JarvisType.Technical
         )
     }
