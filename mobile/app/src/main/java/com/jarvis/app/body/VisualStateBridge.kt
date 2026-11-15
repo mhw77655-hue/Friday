@@ -86,21 +86,17 @@ class VisualStateBridge(
         // the mode transition was already requested above.
     }
 
-    /** Body state → the Companion Core's 7-state presence mode. */
+    /** Body interaction → Friday's continuous presence plus transient body expression. */
     private fun mapToPresenceMode(bodyState: BodyState): PresenceMode = when (bodyState) {
-        BodyState.IDLE -> PresenceMode.IDLE
-        BodyState.WAKE -> PresenceMode.WAKING          // bloom toward idle
-        BodyState.LISTENING -> PresenceMode.LISTENING
-        BodyState.HEARING -> PresenceMode.LISTENING
-        BodyState.THINKING -> PresenceMode.THINKING
-        BodyState.RETRIEVING -> PresenceMode.THINKING
-        BodyState.RESPONDING -> PresenceMode.THINKING
+        BodyState.LISTENING, BodyState.HEARING, BodyState.INTERRUPTED ->
+            PresenceMode.LISTENING
         BodyState.SPEAKING -> PresenceMode.SPEAKING
-        BodyState.INTERRUPTED -> PresenceMode.LISTENING // cut speech, take the new command
-        BodyState.LEARNING -> PresenceMode.IDLE
-        BodyState.ERROR -> PresenceMode.IDLE             // alert carries the criticality
-        BodyState.USER_PRESENT -> PresenceMode.IDLE
-        BodyState.USER_ABSENT -> PresenceMode.ASLEEP
+        // Processing, recovery, learning and user-absence are activities or
+        // context changes of the same present individual, never ASLEEP/IDLE/
+        // THINKING existence modes.
+        BodyState.IDLE, BodyState.WAKE, BodyState.THINKING, BodyState.RETRIEVING,
+        BodyState.RESPONDING, BodyState.LEARNING, BodyState.ERROR,
+        BodyState.USER_PRESENT, BodyState.USER_ABSENT -> PresenceMode.PRESENT
     }
 
     private fun updateCompanionPresence(state: BodyState) {
