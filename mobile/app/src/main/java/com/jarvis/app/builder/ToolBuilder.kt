@@ -83,7 +83,7 @@ class ToolBuilder(
         // same path JarvisEngine.requestResearch() exposes. The candidates are
         // carried on the build record so the builder genuinely consumes — not
         // merely touches — the engine's output.
-        val researchPersisted = research?.let { engine ->
+        val researchPersisted = research?.takeIf { spec.researchFirst }?.let { engine ->
             engine.researchPersist(
                 spec.description,
                 targetDomains = emptySet(),
@@ -156,8 +156,18 @@ class ToolBuilder(
 
     /** Convenience: search-first, then build with the discovered principle. */
     suspend fun buildWithResearch(spec: ToolSpecification, research: UniversalResearchEngine): BuildResult {
-        val researchResult = research.research(spec.description)
-        return build(spec.copy(researchFirst = true, description = spec.description))
+        return ToolBuilder(
+            gapDetector = gapDetector,
+            research = research,
+            evolution = evolution,
+            registry = registry,
+            genomeRegistry = genomeRegistry,
+            archive = archive,
+            governor = governor,
+            failureSurface = failureSurface,
+            nervousSystem = nervousSystem,
+            candidateGenerator = candidateGenerator
+        ).build(spec.copy(researchFirst = true))
     }
 }
 
