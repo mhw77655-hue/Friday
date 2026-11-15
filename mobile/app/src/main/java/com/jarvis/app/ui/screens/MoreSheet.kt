@@ -35,6 +35,7 @@ fun MoreSheet(
                 "Environment" to "environment",
                 "Model Manager" to "model",
                 "Visual Presence" to "vision",
+                "Video Library" to "video_library",
                 "Memory" to "memory",
                 "Tools" to "tools",
                 "System" to "system",
