@@ -102,7 +102,7 @@ Earlier project conversations mention a Shadow Company with two distinct ambitio
 
 ### Android-only product correction (2026-11-15)
 
-The owner explicitly corrected the architecture: Friday lives and runs inside her Android application; Termux has been removed from the phone and is not part of her product runtime. Treat Android as the only production host. A JVM implementation may exist solely as a test fixture for platform-neutral code and must not be packaged, launched, or required by the app. The previous Android/JVM-Termux parity framing is retired. The audit branch still contains a legacy Termux server source and some test fixtures; their presence is not evidence of an Android runtime dependency, but they must be isolated from production and removed or migrated where they impose build/runtime coupling. The Termux-specific AAPT2 path and Gradle launcher task have now been removed from this branch.
+The owner explicitly corrected the architecture: Friday lives and runs inside her Android application; Termux has been removed from the phone and is not part of her product runtime. Treat Android as the only production host. A JVM implementation may exist solely as a test fixture for platform-neutral code and must not be packaged, launched, or required by the app. The previous Android/JVM-Termux parity framing is retired. The legacy standalone JVM server, JVM adapter and VoiceForge HTTP adapter have been moved under `src/test`; they are not packaged into the Android app. Their tests are explicitly test-harness evidence, not proof of Android device behaviour. The Termux-specific AAPT2 path and Gradle launcher task have now been removed from this branch.
 
 ## 3. Decisions that must not be made by accident
 
