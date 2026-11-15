@@ -109,6 +109,8 @@ The developmental loop is:
 
 The existing synth DSL is a safe starting habitat, not the final limit of what Friday may build. Native Android tools, model adapters and reusable organs need typed contracts, permission manifests, signing/provenance, isolated validation, and explicit promotion. Friday must not overwrite her installed APK or silently grant herself new permissions.
 
+**Current self-study boundary:** the packaged source index contains file paths, declarations and internal package-import edges, not Kotlin source text. The scheduled study lane combines that structural map with runtime wiring and measured phone/organ evidence. When the on-device llama.cpp provider is active and the host has headroom, Friday's existing model produces a persistent reflection and at most one small pure synth-capability proposal. It does not yet auto-build or promote that proposal. Durable executable-artifact rehydration across process restart is a prerequisite for that next step; archived genome metadata alone is not enough.
+
 ## 7. Android is the only production host
 
 - Friday is an independent Android app.
