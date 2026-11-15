@@ -68,14 +68,20 @@ class AndroidResourceSnapshot(private val context: Context) : ResourceSnapshot {
                 status == BatteryManager.BATTERY_STATUS_FULL
         }
 
+    // Delta against the previous sample; never sleep inside a model-admission
+    // call. The first sample seeds the counter and reports neutral load.
+    @Volatile private var previousCpuSample: ProcStat? = null
+
+    @Synchronized
     private fun readCpuLoad(): Double {
-        val a = readProcStat() ?: return 0.0
-        Thread.sleep(200)
-        val b = readProcStat() ?: return 0.0
-        val idleDelta = b.idle - a.idle
-        val totalDelta = b.total - a.total
-        if (totalDelta <= 0) return 0.0
-        return ((totalDelta - idleDelta) * 100.0) / totalDelta
+        val current = readProcStat() ?: return 0.0
+        val previous = previousCpuSample
+        previousCpuSample = current
+        if (previous == null) return 0.0
+        val idleDelta = current.idle - previous.idle
+        val totalDelta = current.total - previous.total
+        if (totalDelta <= 0 || idleDelta < 0) return 0.0
+        return (((totalDelta - idleDelta) * 100.0) / totalDelta).coerceIn(0.0, 100.0)
     }
 
     private data class ProcStat(val idle: Long, val total: Long)
