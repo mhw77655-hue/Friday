@@ -345,7 +345,16 @@ class CognitiveEngine(
         // through the real propagation path BEFORE pronoun/clarification routing,
         // so a forget turn is never misrouted and never reaches the model bridge.
         val directiveResult = handleMemoryDirective(userText, cognitiveResult, embedMs)
-        if (directiveResult != null) return directiveResult
+        if (directiveResult != null) {
+            // Predictive interaction patterns are memory too: broad forget requests
+            // clear the same person's learned transition history and calibration.
+            val broadForget = Regex("(?i)\\b(forget|erase|delete)\\b.*\\b(all|everything|entire history|all memories)\\b")
+                .containsMatchIn(userText)
+            if (broadForget) {
+                expectationEngine?.clearPerson(com.jarvis.app.identity.WorldModelService.USER_NODE_NAME)
+            }
+            return directiveResult
+        }
 
         // If pronoun resolution is ambiguous, short-circuit with NEEDS_CLARIFICATION
         if (cognitiveResult.pronounResolution.ambiguous) {
