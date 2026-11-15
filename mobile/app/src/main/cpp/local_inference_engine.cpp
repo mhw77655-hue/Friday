@@ -450,7 +450,7 @@ const char* llama_model_generate(
         model->metrics.peak_ram_bytes = model->metrics.current_ram_bytes;
     }
 
-    llama_sampling_free(ctx_sampling);
+    llama_sampler_free(sampler);
 
     // Final callback
     if (gc->stream && token_cb) {
