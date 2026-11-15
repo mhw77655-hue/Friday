@@ -90,6 +90,7 @@ class OrbStateMachine {
 
     /** The base reactor state a mode renders, absent an alert override. */
     private fun baseReactorState(mode: PresenceMode): ReactorEngine.ReactorSpecState = when (mode) {
+        PresenceMode.PRESENT -> ReactorEngine.ReactorSpecState.IDLE
         PresenceMode.ASLEEP -> ReactorEngine.ReactorSpecState.SLEEPING   // §9.12
         PresenceMode.WAKING -> ReactorEngine.ReactorSpecState.IDLE       // bloom toward idle
         PresenceMode.IDLE -> ReactorEngine.ReactorSpecState.IDLE         // §9.1
@@ -120,6 +121,7 @@ class OrbStateMachine {
     private fun clipFor(mode: PresenceMode, alert: AlertLevel): OrbClip = when {
         alert == AlertLevel.OFFLINE -> OrbClip.SHUTDOWN_FADE
         else -> when (mode) {
+            PresenceMode.PRESENT -> OrbClip.IDLE_BREATHE
             PresenceMode.ASLEEP -> OrbClip.SLEEP_DIM
             PresenceMode.WAKING -> OrbClip.WAKE_BLOOM
             PresenceMode.IDLE -> OrbClip.IDLE_BREATHE
@@ -135,6 +137,7 @@ class OrbStateMachine {
         AlertLevel.WARNING -> VisualIdentity.color(SemanticRole.WARNING)
         AlertLevel.OFFLINE -> VisualIdentity.color(SemanticRole.OFFLINE)
         AlertLevel.NONE -> when (mode) {
+            PresenceMode.PRESENT -> VisualIdentity.color(SemanticRole.IDLE)
             PresenceMode.ASLEEP -> VisualIdentity.color(SemanticRole.SLEEP)
             PresenceMode.WAKING -> VisualIdentity.color(SemanticRole.WAKE)
             PresenceMode.IDLE -> VisualIdentity.color(SemanticRole.IDLE)
@@ -170,6 +173,7 @@ class OrbStateMachine {
         AlertLevel.CRITICAL, AlertLevel.WARNING -> AudioState.NOTIFY_URGENT
         AlertLevel.OFFLINE -> AudioState.NONE
         AlertLevel.NONE -> when (mode) {
+            PresenceMode.PRESENT -> AudioState.NONE
             PresenceMode.WAKING -> AudioState.WAKE_EARCON
             PresenceMode.LISTENING -> AudioState.LISTENING_EARCON
             PresenceMode.SPEAKING -> AudioState.SPEAKING
