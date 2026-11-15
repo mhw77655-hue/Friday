@@ -88,4 +88,69 @@ class NanoSymbioticPolicyTest {
         assertEquals(0, evidence.failureStreak)
         assertTrue(evidence.peakMemoryMb >= 80)
     }
+
+    @Test
+    fun `model admission includes weights kv cache and Android reserve`() {
+        val host = HostResourceState(
+            availableMemoryMb = 4096,
+            cpuLoadPercent = 10.0,
+            thermalLevel = 0,
+            batteryPercent = 90,
+            isCharging = true,
+            availableStorageMb = 8192
+        )
+        val admission = policy.admitModel(host, 1_500L * 1024L * 1024L, 4096)
+        assertTrue(admission.allowed)
+        assertEquals(4096, admission.contextTokens)
+        assertTrue(admission.requiredMemoryMb > 2500L)
+    }
+
+    @Test
+    fun `context is reduced before a smaller resident model is rejected`() {
+        val host = HostResourceState(
+            availableMemoryMb = 2000,
+            cpuLoadPercent = 20.0,
+            thermalLevel = 0,
+            batteryPercent = 90,
+            isCharging = false,
+            availableStorageMb = 4096
+        )
+        val admission = policy.admitModel(host, 731L * 1024L * 1024L, 2048)
+        assertTrue(admission.allowed)
+        assertEquals(1024, admission.contextTokens)
+        assertTrue(admission.reason.contains("reduced context"))
+    }
+
+    @Test
+    fun `model admission refuses heavy foreground cpu and thermal pressure`() {
+        val cpuHot = policy.admitModel(
+            HostResourceState(availableMemoryMb = 6000, cpuLoadPercent = 95.0, thermalLevel = 0,
+                batteryPercent = 80, isCharging = true, availableStorageMb = 4096),
+            1_000L * 1024L * 1024L, 2048
+        )
+        val thermalHot = policy.admitModel(
+            HostResourceState(availableMemoryMb = 6000, cpuLoadPercent = 10.0, thermalLevel = 2,
+                batteryPercent = 80, isCharging = true, availableStorageMb = 4096),
+            1_000L * 1024L * 1024L, 2048
+        )
+        assertFalse(cpuHot.allowed)
+        assertTrue(cpuHot.reason.contains("CPU"))
+        assertFalse(thermalHot.allowed)
+        assertTrue(thermalHot.reason.contains("Thermal"))
+    }
+
+    @Test
+    fun `spark working set is rejected when no safe context fits`() {
+        val host = HostResourceState(
+            availableMemoryMb = 3500,
+            cpuLoadPercent = 20.0,
+            thermalLevel = 0,
+            batteryPercent = 80,
+            isCharging = false,
+            availableStorageMb = 4096
+        )
+        val admission = policy.admitModel(host, 2_600L * 1024L * 1024L, 4096)
+        assertFalse(admission.allowed)
+        assertEquals(0, admission.contextTokens)
+    }
 }
