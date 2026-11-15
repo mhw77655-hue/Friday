@@ -173,6 +173,12 @@ class TurnPathAssembly private constructor(
 
             // ── The shared claim store: one instance, handed to every organ ────
             val workspace = InMemoryWorkspace()
+            val hunchEngine = com.jarvis.app.cognition.prediction.HunchEngine(
+                workspace = workspace,
+                store = com.jarvis.app.cognition.prediction.FileExpectationTableStore(
+                    ports.storageDir.resolve("cognition/expectations.json")
+                )
+            )
 
             // ── Identity: self, user, world, persona ──────────────────────────
             val worldModel = WorldModelService(graphStore, retriever)
@@ -196,7 +202,8 @@ class TurnPathAssembly private constructor(
                 hypothesisProvider = { text ->
                     MentalStateHypothesis.fromEmotion(emotionFusion.estimate(text))
                 },
-                workspace = workspace
+                workspace = workspace,
+                hunchEngine = hunchEngine
             )
 
             // ── Social: per-person relationship, then the confidentiality firewall ──
