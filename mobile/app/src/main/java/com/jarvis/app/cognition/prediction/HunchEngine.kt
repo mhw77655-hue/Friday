@@ -105,7 +105,8 @@ class FileExpectationTableStore(private val file: File) : ExpectationTableStore 
         }.getOrDefault(ExpectationSnapshot())
     }
 
-    override fun save(snapshot: ExpectationSnapshot) = synchronized(lock) {
+    override fun save(snapshot: ExpectationSnapshot) {
+        synchronized(lock) {
         file.parentFile?.mkdirs()
         val transitions = JSONObject()
         snapshot.transitions.forEach { (from, nextMap) ->
@@ -146,6 +147,7 @@ class FileExpectationTableStore(private val file: File) : ExpectationTableStore 
             error("Cannot promote expectation table")
         }
         backup.delete()
+        }
     }
 }
 
