@@ -3,6 +3,7 @@ package com.jarvis.app.onefriday
 import com.jarvis.app.body.MemoryItem
 import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.failure.FailureSurface
+import com.jarvis.app.humancore.HumanCore
 import com.jarvis.app.humancore.store.FileStorage
 import com.jarvis.app.model.FakeModelBackend
 import com.jarvis.app.model.ResourceSnapshot
@@ -103,6 +104,33 @@ class EntryParityTest {
                 "must have the same concrete implementation on both hosts.",
             fingerprint(first),
             fingerprint(second)
+        )
+    }
+
+    @Test
+    fun `a completed JVM composition turn changes real Human Core interaction state`() {
+        val server = com.jarvis.app.termux.TermuxJarvisServer(
+            port = 0,
+            backendOverride = FakeModelBackend(),
+            voiceForgeSynthesizerOverride = SilentSpeech(),
+            dataDir = createTempDir(prefix = "friday-human-core-turn-")
+        )
+        val before = HumanCore.snapshot()?.totalInteractions ?: 0L
+
+        server.pipeline.onUserInput("I prefer concise answers.")
+        server.pipeline.onReplyReady("I will keep the answer concise.")
+
+        val deadline = System.nanoTime() + 3_000_000_000L
+        var after = HumanCore.snapshot()?.totalInteractions ?: 0L
+        while (after <= before && System.nanoTime() < deadline) {
+            Thread.sleep(10)
+            after = HumanCore.snapshot()?.totalInteractions ?: 0L
+        }
+
+        assertTrue(
+            "The JVM composition must run the real Human Core Integration Pass; " +
+                "a no-op completeExchange leaves totalInteractions unchanged (before=$before, after=$after).",
+            after > before
         )
     }
 
