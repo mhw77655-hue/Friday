@@ -47,7 +47,10 @@ class JarvisSpeechRecognizerTest {
         recognizer.recognize(Locale.US) { delivered = it }
         assertEquals("what time is it", delivered)
         assertEquals(Locale.US, port.lastLocale)
-        assertEquals("heard: what time is it", recognizer.status)
+        // The transcript is delivered to the conversation path, never copied
+        // into the diagnostic/status channel.
+        assertEquals("recognized", recognizer.status)
+        assertTrue(!recognizer.status.contains("what time is it"))
     }
 
     @Test
@@ -57,7 +60,7 @@ class JarvisSpeechRecognizerTest {
         var delivered: String? = "sentinel"
         recognizer.recognize(Locale.US) { delivered = it }
         assertNull(delivered)
-        assertEquals("no result", recognizer.status)
+        assertEquals("no_result", recognizer.status)
     }
 
     @Test
