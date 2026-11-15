@@ -39,5 +39,6 @@ object GenomeFactory {
     private fun inputType(behavior: Behavior): String = when (behavior) {
         is Behavior.Normalize, is Behavior.Clamp, is Behavior.Invert -> "Double"
         is Behavior.ReverseWords, is Behavior.Lookup -> "String"
+        is Behavior.Custom -> behavior.type
     }
 }
