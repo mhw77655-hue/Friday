@@ -1,5 +1,7 @@
 package com.jarvis.app.evolution
 
+import com.jarvis.app.cognitive.capability.CapabilityFabric
+import com.jarvis.app.cognitive.capability.CapabilityRegistry
 import com.jarvis.app.failure.FailureCategory
 import com.jarvis.app.failure.FailureReport
 import com.jarvis.app.failure.FailureSeverity
@@ -34,7 +36,8 @@ class PromotionController(
     private val archive: GenomeArchive,
     private val genomeRegistry: GenomeRegistry,
     private val failureSurface: FailureSurface,
-    private val sandbox: ResourceSandbox = ResourceSandbox()
+    private val sandbox: ResourceSandbox = ResourceSandbox(),
+    private val cognitiveCapabilityFabric: CapabilityFabric? = null
 ) {
 
     suspend fun promote(
@@ -74,9 +77,19 @@ class PromotionController(
             organism.initialize()
             organism.onPromoted()
             registry.register(organism)
+            val fabric = cognitiveCapabilityFabric
+            if (fabric != null) {
+                when (val result = fabric.register(com.jarvis.app.builder.SpecMicroSystemCapability(organism))) {
+                    is CapabilityRegistry.RegisterResult.Ok -> Unit
+                    is CapabilityRegistry.RegisterResult.Duplicate ->
+                        throw IllegalStateException("cognitive capability already registered: ${result.id}")
+                }
+            }
         } catch (t: Throwable) {
+            cognitiveCapabilityFabric?.unregister(systemId)
             registry.unregister(systemId)
             genomeRegistry.setCurrentBest(previousBest)
+            archive.put(healthy.copy(healthState = GenomeHealth.REJECTED))
             failureSurface.report(
                 FailureReport(
                     subsystem = "EVOLUTION",
