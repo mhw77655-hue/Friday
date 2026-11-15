@@ -50,6 +50,23 @@ class PhoneActionPlannerTest {
         assertEquals(PhoneActionPlanner.Result.Action(PhoneControlCommand.TypeText("hello")), allowed)
     }
 
+    @Test fun `screen context is never sent when Friday's local model is unavailable`() = runBlocking {
+        var calls = 0
+        val planner = PhoneActionPlanner(
+            complete = { _: GenerateRequest ->
+                calls++
+                GenerateResult(content = """{"kind":"action","type":"tap_text","target":"Send"}""")
+            },
+            localModelReady = { false }
+        )
+
+        val result = planner.plan("Tap Send", "private screen content")
+
+        assertEquals(0, calls)
+        assertTrue(result is PhoneActionPlanner.Result.Unavailable)
+        assertTrue((result as PhoneActionPlanner.Result.Unavailable).reason.contains("No screen context was sent"))
+    }
+
     @Test fun `ordinary conversation does not invoke the device planner`() = runBlocking {
         var calls = 0
         val planner = PhoneActionPlanner { _: GenerateRequest ->
