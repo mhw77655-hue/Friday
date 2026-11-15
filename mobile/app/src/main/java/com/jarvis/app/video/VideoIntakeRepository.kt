@@ -63,7 +63,8 @@ class VideoIntakeRepository(context: Context) {
         val temp = File(root, "${UUID.randomUUID()}.part")
         val digest = MessageDigest.getInstance("SHA-256")
         var copied = 0L
-        app.contentResolver.openInputStream(uri)?.use { input ->
+        try {
+            app.contentResolver.openInputStream(uri)?.use { input ->
             FileOutputStream(temp).use { output ->
                 val buffer = ByteArray(256 * 1024)
                 while (true) {
@@ -82,8 +83,12 @@ class VideoIntakeRepository(context: Context) {
                 output.fd.sync()
             }
         } ?: error("Android could not open the shared video.")
-        require(copied > 0L) { "The shared video was empty." }
-        require(root.usableSpace >= MIN_FREE_BYTES) { "Storage reserve reached during import." }
+            require(copied > 0L) { "The shared video was empty." }
+            require(root.usableSpace >= MIN_FREE_BYTES) { "Storage reserve reached during import." }
+        } catch (error: Throwable) {
+            temp.delete()
+            throw error
+        }
 
         val hash = digest.digest().joinToString("") { "%02x".format(it) }
         entries().firstOrNull { it.sha256 == hash }?.let {
@@ -95,7 +100,10 @@ class VideoIntakeRepository(context: Context) {
         val extension = displayName.substringAfterLast('.', "mp4")
             .lowercase().filter { it.isLetterOrDigit() }.take(8).ifBlank { "mp4" }
         val target = File(root, "$id.$extension")
-        check(temp.renameTo(target)) { "Could not safely promote the imported video." }
+        if (!temp.renameTo(target)) {
+            temp.delete()
+            error("Could not safely promote the imported video.")
+        }
 
         val frames = File(root, "$id-frames").apply { mkdirs() }
         val framePaths = extractKeyframes(target, frames)
