@@ -115,11 +115,10 @@ class NanoSymbioticController(
 
     private fun refresh() {
         val host = readHost()
-        hostStudy.observe(host, android.os.Debug.getPss().toLong().coerceAtLeast(0L) / 1024L, System.currentTimeMillis())
-        mutablePlan.value = policy.plan(applyLearnedHostReserve(host))
         val now = System.currentTimeMillis()
         val processPssMb = android.os.Debug.getPss().toLong().coerceAtLeast(0L) / 1024L
         hostStudy.observe(host, processPssMb, now)
+        mutablePlan.value = policy.plan(applyLearnedHostReserve(host))
         // Avoid turning a 15-second observer into a continuous flash-write loop.
         // Persist immediately on first sample, then at most once per minute.
         if (lastHostStudyPersistAtMs == 0L || now - lastHostStudyPersistAtMs >= 60_000L) {
