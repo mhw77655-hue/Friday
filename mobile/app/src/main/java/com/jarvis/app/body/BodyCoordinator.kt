@@ -285,10 +285,12 @@ class BodyCoordinator(
                             scope.launch {
                                 val apiKey = com.jarvis.app.voice.JevApiKeyStore(context).read()
                                 val decisionTool = phoneDecisionTool ?: com.jarvis.app.voice.FridayPhoneDecisionTool { utterance, description, risk ->
-                                    val configuredKey = apiKey ?: return@FridayPhoneDecisionTool null
-                                    com.jarvis.app.voice.JevDecisionClient(
-                                        com.jarvis.app.voice.JevApiKeyProvider { configuredKey }
-                                    ).judgePhoneAction(utterance, description, risk)
+                                    val configuredKey = apiKey
+                                    if (configuredKey == null) null else {
+                                        com.jarvis.app.voice.JevDecisionClient(
+                                            com.jarvis.app.voice.JevApiKeyProvider { configuredKey }
+                                        ).judgePhoneAction(utterance, description, risk)
+                                    }
                                 }
                                 val judgement = decisionTool.judge(
                                     utterance = spoken,
