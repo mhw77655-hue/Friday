@@ -72,8 +72,7 @@ object OfflineModelCatalog {
         license = "Apache-2.0",
         description = "Higher-capability English reasoning candidate. About 2.42 GiB of weights; NAE admits it only when live memory and thermal budgets allow.",
         expectedMinimumBytes = 2_200L * 1024L * 1024L,
-        resident = false,
-        sha256 = "cd1afa19048ba58b09bee406aaa6865b1d91ca3e2cd66409c779cbc45ec1fbcb"
+        resident = false
     )
 
     val all: List<OfflineModelAsset> = listOf(resident, fallback, reasoning, advanced)
