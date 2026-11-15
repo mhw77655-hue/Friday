@@ -65,6 +65,7 @@ class PromotionController(
 
         // 4. build + register the callable organism; on failure roll back the
         //    partial promotion instead of leaving a half-installed capability.
+        var cognitiveCapabilityRegistered = false
         try {
             val organism = SpecMicroSystem(
                 id = systemId,
@@ -80,13 +81,13 @@ class PromotionController(
             val fabric = cognitiveCapabilityFabric
             if (fabric != null) {
                 when (val result = fabric.register(com.jarvis.app.builder.SpecMicroSystemCapability(organism))) {
-                    is CapabilityRegistry.RegisterResult.Ok -> Unit
+                    is CapabilityRegistry.RegisterResult.Ok -> cognitiveCapabilityRegistered = true
                     is CapabilityRegistry.RegisterResult.Duplicate ->
                         throw IllegalStateException("cognitive capability already registered: ${result.id}")
                 }
             }
         } catch (t: Throwable) {
-            cognitiveCapabilityFabric?.unregister(systemId)
+            if (cognitiveCapabilityRegistered) cognitiveCapabilityFabric?.unregister(systemId)
             registry.unregister(systemId)
             genomeRegistry.setCurrentBest(previousBest)
             archive.put(healthy.copy(healthState = GenomeHealth.REJECTED))
