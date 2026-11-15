@@ -3,6 +3,10 @@ package com.jarvis.app
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.content.Intent
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -26,6 +30,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        receiveSharedVideos(intent)
         ShizukuBridge.init()
         // End the Human Core session when the app goes to the background so
         // session-boundary work (bond growth, baseline coupling, reflection)
@@ -68,6 +73,20 @@ class MainActivity : ComponentActivity() {
             JarvisTheme {
                 JarvisNavHost()
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        receiveSharedVideos(intent)
+    }
+
+    private fun receiveSharedVideos(source: Intent?) {
+        if (source?.action != Intent.ACTION_SEND && source?.action != Intent.ACTION_SEND_MULTIPLE) return
+        if (source.type?.startsWith("video/") != true) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            com.jarvis.app.video.VideoInboxRepository.importFromIntent(applicationContext, source)
         }
     }
 
