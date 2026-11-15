@@ -51,9 +51,9 @@ The next coherent direction is to give Friday a first-class, versioned capabilit
 
 ### Capability durability
 
-The active `MicroSystemRegistry` is process-local. The genome archive persists genome metadata, while candidate source and tests are collected in the mutant workspace. The current archive format does not itself persist a complete executable capability package and there is no verified startup rehydration path for promoted tools. Therefore a successful promotion must not yet be described as a capability proven to survive process death.
+The active `MicroSystemRegistry` and cognitive capability registry are process-local. The genome archive now has its own atomic store, is loaded at startup, and preserves the full genome contract/provenance; legacy genome snapshots are migrated out of the Human Core dialogue file without rewriting dialogue. An archived genome with no resident executable is now treated as a rebuild/recovery gap, not falsely marked satisfied. Candidate source and tests are still retained in mutant workspaces, but there is no complete promoted executable artifact store or verified startup rehydration path. Therefore a successful promotion must not yet be described as a capability proven to survive process death.
 
-This is a high-priority continuity gap: persist the executable DSL source, test suite, capability contract, dependency/permission manifest, quality evidence, and provenance as one atomic artifact; validate it on startup; rehydrate only after compatibility and integrity checks; retain the prior version for rollback.
+This remains a high-priority continuity gap: persist the executable DSL source, test suite, capability contract, dependency/permission manifest, quality evidence, and provenance as one atomic artifact; validate it on startup; rehydrate only after compatibility and integrity checks; retain the prior version for rollback.
 
 ### Mutant habitat
 
