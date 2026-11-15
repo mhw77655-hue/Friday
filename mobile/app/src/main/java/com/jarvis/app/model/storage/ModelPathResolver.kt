@@ -9,8 +9,6 @@ import java.io.File
  */
 class ModelPathResolver(private val context: Context) {
     companion object {
-        const val CANONICAL_MODEL_ROOT = "/sdcard/jarvis-repo/models"
-
         private val MODEL_FILENAMES = mapOf(
             "qwen3.5-0.8b-abliterated" to "Qwen3.5-0.8B-abliterated-Q4_K_M.gguf",
             "qwen3.5-2b-uncensored" to "Qwen3.5-2B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf",
@@ -36,14 +34,24 @@ class ModelPathResolver(private val context: Context) {
 
         private fun looksLikeAbsoluteFilePath(value: String): Boolean =
             value.startsWith("/") || value.startsWith("file://")
+
+        private fun isInside(child: File, parent: File): Boolean =
+            child == parent || child.path.startsWith(parent.path + File.separator)
+
     }
 
     fun resolve(configuredPath: String?, modelId: String?): File? {
         val fileName = modelFileName(modelId)
         configuredPath?.trim()?.takeIf { it.isNotBlank() }?.let { configured ->
             if (looksLikeAbsoluteFilePath(configured)) {
-                val explicit = File(configured.removePrefix("file://"))
-                if (explicit.isFile && explicit.canRead()) return explicit
+                val explicit = runCatching { File(configured.removePrefix("file://")).canonicalFile }.getOrNull()
+                val privateRoot = runCatching { context.filesDir.canonicalFile }.getOrNull()
+                val externalAppRoot = runCatching { context.getExternalFilesDir(null)?.canonicalFile }.getOrNull()
+                val appOwned = explicit != null && (
+                    (privateRoot != null && isInside(explicit, privateRoot)) ||
+                    (externalAppRoot != null && isInside(explicit, externalAppRoot))
+                )
+                if (explicit != null && appOwned && explicit.isFile && explicit.canRead()) return explicit
             }
         }
 
@@ -55,8 +63,6 @@ class ModelPathResolver(private val context: Context) {
             if (external.isFile && external.canRead()) return external
         }
 
-        val canonical = File(CANONICAL_MODEL_ROOT, fileName)
-        if (canonical.isFile && canonical.canRead()) return canonical
         return null
     }
 }
