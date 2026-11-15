@@ -37,7 +37,11 @@ class SherpaTtsVoiceProvider(
     override val id: String = modelEntry.providerId
 ) : VoiceProvider {
 
-    override val name = if (id == "sherpa-arabic") "sherpa-onnx Nabra Arabic" else "sherpa-onnx Kokoro"
+    override val name = when {
+        id == "piper" -> "Piper VITS (sherpa-onnx)"
+        id == "sherpa-arabic" -> "sherpa-onnx Nabra Arabic"
+        else -> "sherpa-onnx Kokoro"
+    }
 
     private val ttsCache = ConcurrentHashMap<String, OfflineTts>()
     private val cancelled = AtomicBoolean(false)
@@ -55,9 +59,9 @@ class SherpaTtsVoiceProvider(
             estimatedMemoryMb = entry.expectedRamMb,
             modelSizeMb = entry.sizeMb,
             startupCostMs = entry.startupCostMs,
-            quality = VoiceQuality.HIGH,
+            quality = entry.quality,
             interruptible = true,
-            needsPhonemizer = false
+            needsPhonemizer = id == "piper"
         )
     }
 
@@ -66,7 +70,7 @@ class SherpaTtsVoiceProvider(
         return (0 until entry.speakerCount).map { i ->
             VoiceInfo(
                 id = "speaker_$i",
-                name = "Kokoro speaker ${i + 1}",
+                name = if (id == "piper") "Amy · English US" else "Kokoro speaker ${i + 1}",
                 language = entry.languages.firstOrNull() ?: "en",
                 quality = VoiceQuality.HIGH
             )

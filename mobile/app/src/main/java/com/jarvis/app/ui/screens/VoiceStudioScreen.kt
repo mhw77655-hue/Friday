@@ -25,7 +25,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -62,12 +61,6 @@ fun VoiceStudioScreen() {
     var referenceTranscript by remember { mutableStateOf(prefs.getString("reference_transcript", "") ?: "") }
     var status by remember { mutableStateOf("Ready") }
     var speechRate by remember { mutableFloatStateOf(profileStore.get(DefaultJarvisVoiceProfile.id)?.speechRate ?: 1f) }
-    var speakerIndex by remember {
-        mutableIntStateOf(
-            profileStore.get(DefaultJarvisVoiceProfile.id)?.preferredVoice
-                ?.removePrefix("speaker_")?.toIntOrNull()?.coerceIn(0, 10) ?: 0
-        )
-    }
     var busy by remember { mutableStateOf(false) }
 
     val pickAudio = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -127,9 +120,9 @@ fun VoiceStudioScreen() {
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Friday's active voice", style = MaterialTheme.typography.titleMedium)
-                Text("Provider: Sherpa-ONNX / Kokoro English (int8)")
+                Text("Provider: Piper VITS / English US (Amy · Low)")
                 Text("Voice process: ${host?.state?.value?.state ?: "not ready"}")
-                Text("This is the currently wired production path; changes below update the profile used by normal spoken replies.")
+                Text("This is Friday’s speed-first on-device voice. Kokoro remains available as an optional higher-quality provider.")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(enabled = !busy && host != null, onClick = {
                         scope.launch {
@@ -138,7 +131,7 @@ fun VoiceStudioScreen() {
                             val audio = host?.synthesizeText(
                                 text = "Hello. I'm Friday. This is a preview of my current voice.",
                                 language = "en",
-                                voiceId = "speaker_${speakerIndex}"
+                                voiceId = "speaker_0"
                             )
                             if (audio != null) {
                                 status = "Playing Friday voice preview"
@@ -164,18 +157,12 @@ fun VoiceStudioScreen() {
                 Text("Voice identity settings", style = MaterialTheme.typography.titleMedium)
                 Text("Speech rate: ${"%.2f".format(speechRate)}×")
                 Slider(value = speechRate, onValueChange = { speechRate = it }, valueRange = 0.75f..1.25f)
-                Text("Kokoro speaker: ${speakerIndex + 1} of 11")
-                Slider(
-                    value = speakerIndex.toFloat(),
-                    onValueChange = { speakerIndex = it.toInt().coerceIn(0, 10) },
-                    valueRange = 0f..10f,
-                    steps = 9
-                )
+                Text("Voice: Amy · English US (Piper Low)")
                 Button(enabled = !busy, onClick = {
                     val current = profileStore.get(DefaultJarvisVoiceProfile.id) ?: DefaultJarvisVoiceProfile
                     profileStore.save(current.copy(
                         language = "en",
-                        preferredProvider = "sherpa",
+                        preferredProvider = "piper",
                         preferredVoice = "speaker_${speakerIndex}",
                         speechRate = speechRate
                     ))

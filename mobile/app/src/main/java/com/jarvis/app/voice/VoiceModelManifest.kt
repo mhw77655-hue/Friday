@@ -34,6 +34,27 @@ object VoiceModelManifest {
         latencyMs = 350
     )
 
+
+    /** Piper VITS Amy Low — compact, speed-first English US voice for phone CPU inference. */
+    val piperEnglishAmyLow = VoiceModelEntry(
+        id = "piper-en-us-amy-low",
+        providerId = "piper",
+        displayName = "Piper English US (Amy · Low)",
+        languages = setOf("en"),
+        sizeMb = 64,
+        expectedRamMb = 128,
+        expectedCpuPercent = 18.0,
+        downloadUrl = "$BASE_URL/vits-piper-en_US-amy-low.tar.bz2",
+        archiveFileName = "vits-piper-en_US-amy-low.tar.bz2",
+        modelFile = "en_US-amy-low.onnx",
+        tokensFile = "tokens.txt",
+        voicesFile = "",
+        speakerCount = 1,
+        quality = com.jarvis.app.voice.provider.VoiceQuality.MEDIUM,
+        startupCostMs = 2_500,
+        latencyMs = 180
+    )
+
     /** kokoro-en-v0_19 (fp32) — slightly higher quality, ~3x the download. */
     val kokoroEnFp32 = kokoroEnInt8.copy(
         id = "kokoro-en-v0_19",
@@ -88,7 +109,7 @@ object VoiceModelManifest {
         archiveSha256 = "e7c644fabb1529190de9a2f7d6044f88c26bf6d9b717ad41ef5d2b748e01459b"
     )
 
-    val ALL: List<VoiceModelEntry> = listOf(kokoroEnInt8, kokoroEnFp32, kokoroMultiLangInt8, nabraArabicInt8)
+    val ALL: List<VoiceModelEntry> = listOf(piperEnglishAmyLow, kokoroEnInt8, kokoroEnFp32, kokoroMultiLangInt8, nabraArabicInt8)
 
     fun byId(id: String): VoiceModelEntry? = ALL.firstOrNull { it.id == id }
 }

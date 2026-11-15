@@ -77,6 +77,18 @@ class VoiceProviderSelectorTest {
         assertEquals("sherpa", (sel as VoiceProviderSelector.Selection.Selected).provider.id)
     }
 
+
+    @Test
+    fun `default English voice prefers the speed-first Piper provider`() {
+        val piper = FakeProvider("piper", setOf("en"), VoiceQuality.MEDIUM, memoryMb = 128)
+        val kokoro = FakeProvider("sherpa", setOf("en"), VoiceQuality.HIGH, memoryMb = 220)
+        val sel = VoiceProviderSelector(registry(kokoro to 10, piper to 0)).select(
+            DefaultJarvisVoiceProfile.copy(language = "en")
+        )
+        assertTrue(sel is VoiceProviderSelector.Selection.Selected)
+        assertEquals("piper", (sel as VoiceProviderSelector.Selection.Selected).provider.id)
+    }
+
     @Test
     fun `routes ar to the arabic-capable provider`() {
         val system = FakeProvider("system", setOf("ar-EG"), VoiceQuality.MEDIUM)

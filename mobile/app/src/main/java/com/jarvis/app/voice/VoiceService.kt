@@ -80,9 +80,15 @@ class VoiceService : Service() {
             onFailure = { report -> Log.w(TAG, report.message) }
         )
         registry = VoiceProviderRegistry().apply {
+            // Speed-first English default: compact Piper VITS Low model.
+            register(
+                SherpaTtsVoiceProvider(modelManager, VoiceModelManifest.piperEnglishAmyLow, id = "piper"),
+                priority = VoiceProviderRegistry.HIGH_PRIORITY
+            )
+            // Keep Kokoro available as the higher-quality optional voice.
             register(
                 SherpaTtsVoiceProvider(modelManager, VoiceModelManifest.kokoroEnInt8, id = "sherpa"),
-                priority = VoiceProviderRegistry.HIGH_PRIORITY
+                priority = VoiceProviderRegistry.HIGH_PRIORITY + 10
             )
             register(
                 SherpaTtsVoiceProvider(modelManager, VoiceModelManifest.nabraArabicInt8, id = "sherpa-arabic"),
