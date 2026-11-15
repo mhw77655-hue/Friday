@@ -23,7 +23,10 @@ The file must then pass the local validity check before atomic promotion. Playba
 
 ## STATUS
 
-Implementation committed on `audit/vision-alignment-first-deliverable`. CI and physical-device verification are pending. This note does not claim the defect is fixed on the phone until a green build is installed and its TTS log/audio behaviour is checked there.
+- **Android build + JVM unit tests:** passed on code commit `6f129fa5b3eec8d1f6c20b717f2537767f68a0c2` in GitHub Actions run [#139](https://github.com/mhw77655-hue/Friday/actions/runs/43657072971).
+- **Test evidence:** 1,358 tests, 0 failures, 0 errors, 0 skipped. The 10 `SynthesisCompletionGateTest` cases and four existing `TtsReadinessTest` cases are present in the JUnit artifact and passed.
+- **APK:** `debug-apk` artifact was produced by that run.
+- **Physical-device verification:** still pending. This note does not claim the defect is fixed on the phone until the APK is installed and its TTS log/audio behaviour is checked there.
 
 ## PHONE EXAM
 
