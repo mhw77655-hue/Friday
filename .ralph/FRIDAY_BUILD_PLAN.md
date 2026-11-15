@@ -180,3 +180,82 @@ A milestone closes only with: passing code tests, automated Life Test evidence o
 **Next experiments, in order:** (1) prove asynchronous TTS completion in code and CI, then on the phone; (2) reconcile ONE-2 with the Vision and finish the shared composition; (3) build the real Life Test plus one development experiment; (4) make the workshop and capability proposal path live; (5) connect the Builder to replaceable workers and independent evaluation; (6) measure and grow the local brain, senses and agency.
 
 This is a living map. A result, a correction from Venon, or a failed experiment changes the next experiment—not the identity being built.
+
+
+---
+
+# 2026-11-16 owner-corrected execution plan (authoritative addendum)
+
+This addendum supersedes earlier statements in this file that describe an Android-hosted ToolBuilder, an active in-app source-construction loop, or JVM/Termux as a production host. Older sections remain historical evidence of how the repository evolved, not instructions to restore those designs.
+
+## Canonical architecture
+
+- Friday's Android app is the deployed body: cognition, identity, memory, voice, perception, supported phone actions and local resource observation.
+- All source reconstruction, editing, code execution, tests, CI, APK/AAB construction and signing happen in the connected repository development environment. No source-build environment or repository write credentials are shipped in Android.
+- Friday may identify a limitation and create a durable development request. The Android-side request is evidence and intent, not executable code and not a claim that a repository worker received it.
+- Repository workers are replaceable external tools. They inspect the actual repo, create isolated branches/workspaces, test changes independently, preserve checkpoints and return provenance.
+- Friday remains locally present when the repository connection is unavailable. Pending work is resumable; losing the Builder must never interrupt ordinary Friday operation.
+- Jev remains an optional cloud decision faculty. It is not a replacement for Friday's identity or primary model authority.
+
+## Current execution truth
+
+The foundation branch is `audit/friday-offline-runtime`, with PR #11 targeting `main`. Its current source removes production construction of ToolBuilder and removes the self-study-to-ToolBuilder bridge. The reflection prompt now explicitly prohibits in-app synthesis/building and asks only for a bounded repository development request. A regression test checks the prompt boundary.
+
+The following are **not complete**: safe durable request synchronization, connected worker orchestration, external isolated workspaces, independent Vision verification, durable worker checkpoint/reconciliation, release feedback into Friday, and the final developmental Life Test. Legacy ToolBuilder/evolution/mutant-environment files still live in the Android module as dormant legacy source; audit and relocate or delete them without breaking unrelated shared dependencies.
+
+The 2026-11-16 scorecard estimates total end-state implementation at **25%**, using 16 equally weighted outcome milestones. See `docs/FRIDAY_BUILD_PROGRESS.md` for the score formula, per-outcome scores, exact branch status and current release gates. This is an engineering estimate, not a production-readiness claim.
+
+## Dependency-ordered work
+
+### 1. Prove the foundation branch
+
+- Obtain a fresh current-head Android debug build and unit-test result.
+- Resolve every Kotlin, native CMake/JNI, Gradle and test failure on the latest head, not an older commit.
+- Test inference process lifecycle, IPC, process death/rebind, cancellation, OOM containment and UI/identity survival.
+- Inspect packaged contents and verify there is no repository token, signing key, source compiler, source editor or external worker inside the APK.
+- Do not merge PR #11 until source, CI and architecture acceptance all agree.
+
+### 2. Reconcile parallel branches without stacking stale bases
+
+- PR #12 is a competing offline-runtime implementation from a different audit base. Compare it against #11, classify unique/duplicate/conflicting changes, and select implementations by evidence rather than branch size.
+- Rebase PR #14 (English-model candidates and broader liquid symbiosis) onto the verified #11 head only after the base is stable. Validate the models' provenance, licensing, tokenizer, chat template, runtime compatibility, refusal profile, quality and exact-device resource cost.
+- Rebase PR #16 (video intake and predictive cognition bootstrap) separately. Keep video import/keyframe sampling distinct from semantic multimodal video understanding. Keep symbolic HunchEngine transition counts distinct from trained JEPA/successor representations.
+- Every resulting workstream receives its own current-head CI and acceptance report. Never count a non-mergeable draft as an integrated capability.
+
+### 3. Move the Builder out of Android and make the handoff real
+
+- Audit references to `ToolBuilder`, `EvolutionEngine`, `MutantEnvironment`, `ResourceSandbox`, `GenomeArchive` and the old promotion/rollback path. Identify what is exclusively builder code and what is shared, production-relevant infrastructure.
+- Relocate the source-construction stack to repository-side tooling or remove it. Keep only request formation and evidence collection in Android.
+- Define a versioned development-request envelope: stable request ID, creation time, source revision, desired outcome, observed evidence, acceptance criteria, risk, rollback expectation, privacy classification and unresolved questions. Reject private conversation payloads, credentials and unrelated user content.
+- Persist/deduplicate the envelope locally; allow offline queueing and idempotent synchronization.
+- Route requests through an authenticated gateway. Hold GitHub App credentials server-side and mint least-privilege, short-lived worker credentials. No GitHub PAT, signing key or broad token in the APK.
+- Assign requests to isolated, resumable repository workspaces. Workers return a branch, commit, changed-file manifest, test evidence, CI run, artifact digest, risk report and unresolved issues.
+- Use a separate evaluator for architecture, security, provenance, tests and Vision fidelity. Workers cannot approve their own work. Require explicit owner approval for identity/continuity migrations, permissions, private-data access, external actions and release deployment.
+- Feed deployment and device outcomes back to Friday as evidence; compare expected and observed results and retain failed experiments without destabilizing the installed app.
+
+### 4. Prove continuity and genuine development
+
+- Complete the single Android production composition without reinstating legacy Human Core as a permanent cognitive authority.
+- Drive the actual composition with deterministic time and traceable episode inputs.
+- Demonstrate a correction- or experience-caused change that affects a later decision, survives process restart, persists with the original episode replay blocked and disappears when the learning mechanism is disabled.
+- Show the mechanism, source episodes, strength of evidence, uncertainty, reversibility and counterfactual result in the Development Ledger/Mirror.
+- Do not call stored memory, a reflection, or a changed prompt a completed developmental capability by itself.
+
+### 5. Grow intelligence and body capabilities through measured experiments
+
+- English is the first model target. Select resident and on-demand models based on measured task quality and exact device cost, not creator marketing or parameter count alone.
+- Record model commit/revision, license, checksum, quantization, architecture support, tokenizer and chat template. Reduced-refusal derivatives are not guaranteed uncensored, truthful or safe.
+- Measure cold start, peak PSS/RAM, context/KV cost, sustained tokens per second, heat, interruptions, battery and task quality on the owner's Realme 9 Pro 5G.
+- Expand Nano Liquid Symbiosis from its current bounded reserve/background gates only when controlled tests prove quality-preserving improvement. Future variables include backend/placement, kernel/precision, context, batching, threads, prediction-gated compute and consolidation; each remains a testable hypothesis.
+- Finish speech output lifecycle and offline English hearing before claiming full voice presence. Egyptian Arabic quality requires native-speaker evaluation.
+- Build perception from local image/audio ingestion to semantic understanding and temporal video reasoning. Importing frames is not understanding them.
+- Train and evaluate JEPA/successor representations and a reflex compiler independently. No symbolic transition counter or hand-authored prediction shortcut may be relabelled as JEPA.
+- Keep phone-control actions explicit, visible, permissioned, interruptible and reversible.
+
+### 6. Release gate
+
+A first complete release requires current-head green CI, native/model-load checks, Life Tests, security/provenance/rollback evidence, exact-phone behaviour tests, model/voice/presence measurements and a traceable signed artifact. CI alone is insufficient. Do not hand over an APK before those gates pass and the owner requests the artifact.
+
+## Closure rule
+
+The plan is complete only when Friday can remain the same functioning individual offline, develop from experience, direct repository-side construction through a real secure handoff, independently judge the resulting change, integrate verified work, and demonstrate it on the target phone. Until then, the scorecard remains an honest partial-completion estimate.
