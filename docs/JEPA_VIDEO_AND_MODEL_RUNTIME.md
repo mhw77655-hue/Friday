@@ -145,3 +145,77 @@ A JEPA/world model could supply predictive state, but it is not itself the whole
 - V-JEPA 2: https://ai.meta.com/vjepa
 - I-JEPA: https://ai.meta.com/research/publications/self-supervised-learning-from-images-with-a-joint-embedding-predictive-architecture/
 - TikTok Data Portability API: https://developers.tiktok.com/docs/en/data-portability-api-download
+ 
+## 7. Correction from the original project conversations: this is not generic JEPA adoption
+
+The user's actual "thinking without thinking" design is more ambitious than deploying a video model. The core idea is cognition as a continuously evolving state, rather than a function that must be called for every decision.
+
+The repository already has important substrate that must be reused:
+- TurnPathAssembly constructs one InMemoryWorkspace and passes it to CognitiveEngine.
+- ContextWindowAssembler publishes the assembled CONTEXT_WINDOW and reads MENTAL_STATE claims from that same workspace.
+- ClaimKind.PREDICTION already requires a baseline and a one-time wasCorrect outcome. Workspace retains prediction claims and their outcomes.
+- The Person/Relationship model is already a distinct project organ. Predictive cognition must consume its claims through the workspace, not create a private person model or a named wire to PersonRelationshipModel.
+
+The new HunchEngine in this branch is the first connected predictive loop:
+- It is registered as a WorkspaceOrgan, not injected as a named dependency into another organ.
+- LiquidTaskComposer selects relevant organs from the claims available for the current task. It skips the hunch organ for CRITICAL-risk turns and when relevant state claims are absent.
+- The hunch organ fingerprints current claims (including person scope) into a one-way state key; it does not persist raw claim text.
+- It records state transitions, retains hashed turn/episode references, predicts a likely next state, publishes a PREDICTION claim with the naive global-majority baseline, and settles the claim when the next real turn arrives.
+- This first table is a small empirical successor-transition model, not a trained JEPA encoder. It is wired into the live CognitiveEngine path but does not bypass language-model deliberation. The validatedAgainstBaseline flag requires at least 20 settled predictions and a 5-point accuracy advantage over the naive baseline.
+
+This is deliberately a seed, not the finished "thinking without thinking" system. The remaining work is to add a Forge-trained representation predictor and a proper reflex compiler, then prove that a learned fast path is cheaper than consulting the model and still adapts when outcomes/rewards change.
+
+## 8. The actual JEPA + successor-representation path
+
+The project conversation gives the right engineering translation:
+1. Situation state is not a giant video or world model by default. It is a compact representation of what is happening now: app/environment, time, current person claims, topic, active task, unresolved threads and other claims available in the shared workspace.
+2. Turn traces plus the provenance ledger provide the sequence of observed states.
+3. The Forge trains two complementary predictors on those real sequences:
+   - successor representation: estimate which future situation states follow from the current state, preserving flexible value/reward updates;
+   - JEPA-style predictor: encode the current situation and predict the representation of the next situation, not raw text or pixels.
+4. Both produce the same predicted-next-state representation. The Forge compares them on held-out real turns, chooses or blends the better predictor, and distills the result into a compact expectation model.
+5. The phone runs only the compact forward pass and expectation lookup. Training can happen in the Forge on stronger available compute; the phone does not have to train a large world model.
+6. New model versions are delivered through the existing approved update/Continuity path, with lineage, replay, rollback and evidence.
+
+This is the user's intended use of JEPA: extract the predictive learning mechanism and train it on Friday's own structured history. Do not replace it with a requirement to run V-JEPA 2 on the phone.
+
+## 9. Outcome Without Process: the deeper fast-cognition loop
+
+- Laya-class fixed-answer prediction: when the decision has a fixed answer shape, use a non-generative encoder/classifier rather than generating prose.
+- Astra-style adaptive depth: for open-ended model work, repeatedly refine only while the answer is changing or uncertainty remains; stop when another pass is not worth its cost.
+- Hunch/expectation table: predict what is likely to happen next before deciding whether to spend model compute.
+- Reflex Compilation: repeatedly successful, low-risk, context-stable decisions become a compact fast path. A changed context, surprise, reward shift, low confidence or high consequence returns the task to deliberation.
+- Outcome Without Process: the strongest fast path is not a cheaper LLM call. It is a decision that no longer needs a process call because the relevant state already contains a validated expectation.
+
+The risk is routing overhead. The expectation lookup, update and confidence calculation must be measured against the model call it replaces. If the fast path costs more, it is not an optimization.
+
+The fast path must also be person-neutral in architecture: it reads whatever person/relationship claims are relevant from the shared workspace. It must not be Venon-specific or create a second Person Model.
+
+## 10. Inner speech: one production pipeline, silent output
+
+The archive also specifies that Friday's internal voice should not be a second narrator. It should be the same utterance-planning pipeline used for overt speech, with the final external speech/motor output suppressed. The internal draft remains available to the next cognitive update, memory, planning and self-correction.
+
+Peer-reviewed evidence supports a relevant biological mechanism, not a claim that an AI has human subjective experience:
+- Scott (2013), "Corollary Discharge Provides the Sensory Content of Inner Speech": https://doi.org/10.1177/0956797613478614
+- Whitford et al. (2017), "Neurophysiological evidence of efference copies to inner speech": https://doi.org/10.7554/eLife.28197
+
+The existing InternalDialogueEngine is currently a separate, trigger-based model call that writes reflective text to a dialogue log. That is not yet the shared production pipeline described above. Rework it so a single utterance plan can be internally consumed, externally spoken, or both, without creating a second independent voice generator.
+
+## 11. The chain-reaction engine already has its constituent systems
+
+Do not add a fourth disconnected discovery engine. Unify the existing three related mechanisms into one Global Discovery Engine:
+- Structural lens: Global Improvement Engine detectors over the SystemGraph (gaps, weakness, inefficiency, opportunities, redundancy, missing links, dead systems, authority conflicts and fragility).
+- Generative lens: Mechanism Recombination Engine plus the REM-analog cross-pairing pass over the Mechanism Genome.
+- Both lenses feed one Candidate Improvement Queue with the existing Generalization Score.
+- The queue feeds Universal Research; Universal Research feeds Builder/ToolBuilder.
+- Knowledge-to-Mechanism remains stage zero: it populates the Mechanism Genome. Partner Engine's Contradiction Detector remains separate because it reads goals/constraints rather than the system graph or mechanism library.
+
+The liquid task composer should select only the mechanisms needed for each task. No permanent point-to-point subsystem wiring and no fixed loop that forces every organ to run on every turn.
+
+## 12. Research evidence
+
+- Successor representations as an intermediate between model-free habit and model-based planning, including human evidence: Momennejad et al. (2017), https://doi.org/10.1038/s41562-017-0180-8
+- Review of predictive representations as building blocks of intelligence: Carvalho, Tomov & de Cothi (2024), https://doi.org/10.1162/neco_a_01705
+- Inner speech / corollary discharge evidence: Scott (2013), https://doi.org/10.1177/0956797613478614
+- Efference copies in inner speech: Whitford et al. (2017), https://doi.org/10.7554/eLife.28197
+
