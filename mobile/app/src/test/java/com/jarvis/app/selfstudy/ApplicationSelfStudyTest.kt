@@ -8,6 +8,8 @@ import com.jarvis.app.symbiosis.LiquidHostState
 import com.jarvis.app.symbiosis.LiquidSymbiosisSnapshot
 import com.jarvis.app.symbiosis.OrganStrategy
 import com.jarvis.app.symbiosis.SymbioticOrgan
+import com.jarvis.app.model.GenerateRequest
+import com.jarvis.app.model.GenerateResult
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -119,6 +121,58 @@ class ApplicationSelfStudyTest {
             assertFalse(report.structurallyHealthy)
             assertTrue(File(dir, "self-study/latest.properties").isFile)
             assertEquals(report, study.latestReport())
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test fun `Friday model reflection creates and restores a bounded self-build proposal`() = kotlinx.coroutines.runBlocking {
+        val dir = java.nio.file.Files.createTempDirectory("friday-reflection-").toFile()
+        try {
+            val reportFile = File(dir, "self-study/latest.properties")
+            fun createStudy() = ApplicationSelfStudy(
+                graph = graph(),
+                reportFile = reportFile,
+                capabilitySnapshot = { null },
+                hostSnapshot = { null },
+                liquidSnapshot = { null },
+                sourceIndexSnapshot = {
+                    ApplicationSourceIndex.Summary(1, "revision-42", 10, 30, 4)
+                }
+            )
+            val study = createStudy()
+            val report = study.study(nowMs = 100L)
+            var prompt = ""
+            val reflection = study.reflect(
+                report = report,
+                complete = { request: GenerateRequest ->
+                    prompt = request.messages.last().content
+                    GenerateResult(
+                        content = """
+                            {
+                              "summary":"The capability map shows a missing local host profile tool.",
+                              "findings":["Source index is structural metadata, not source comprehension."],
+                              "next_actions":["Inspect measured memory reserve before tuning."],
+                              "candidate_capability":"host_profile_summary",
+                              "candidate_description":"Summarize validated host resource observations without changing settings.",
+                              "constraints":["pure function","no device side effects"],
+                              "evidence_gaps":["No on-device benchmark is attached."]
+                            }
+                        """.trimIndent()
+                    )
+                },
+                nowMs = 200L
+            )
+
+            assertTrue(prompt.contains("source_revision=revision-42"))
+            assertTrue(prompt.contains("Analyze only this evidence"))
+            assertEquals("host_profile_summary", reflection!!.candidateCapability)
+            assertTrue(reflection.hasBuildableCandidate)
+            assertEquals(1, reflection.findings.size)
+            assertTrue(File(dir, "self-study/latest-reflection.properties").isFile)
+
+            val restored = createStudy().latestReflection()
+            assertEquals(reflection, restored)
         } finally {
             dir.deleteRecursively()
         }
