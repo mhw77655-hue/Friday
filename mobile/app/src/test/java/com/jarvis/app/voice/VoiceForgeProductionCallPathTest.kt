@@ -4,7 +4,7 @@ import com.jarvis.app.humancore.protocol.StyledResponse
 import com.jarvis.app.language.EgyptianArabicDialectDetector
 import com.jarvis.app.latency.LatencyPipeline
 import com.jarvis.app.model.FakeModelBackend
-import com.jarvis.app.termux.TermuxJarvisServer
+import com.jarvis.app.jvmtest.JvmCompositionHarness
 import com.jarvis.app.voice.VoiceForgeBackend.VoiceForgeOutcome
 import com.jarvis.app.voice.VoiceForgeSynthesisResponse.Audio
 import kotlinx.coroutines.flow.first
@@ -26,7 +26,7 @@ class VoiceForgeProductionCallPathTest {
     private var activeUserText = ""
 
     private fun recordingPipeline(
-        server: TermuxJarvisServer,
+        server: JvmCompositionHarness,
         outgoingPayloads: MutableList<String>,
         spoken: MutableList<String>,
         outcomes: MutableList<VoiceForgeOutcome>
@@ -56,7 +56,7 @@ class VoiceForgeProductionCallPathTest {
         cognitiveEngine = server.engine
     )
 
-    private suspend fun driveReply(pipeline: LatencyPipeline, server: TermuxJarvisServer, userText: String): String {
+    private suspend fun driveReply(pipeline: LatencyPipeline, server: JvmCompositionHarness, userText: String): String {
         activeUserText = userText
         pipeline.onUserInput(userText)
         val finalReply = server.modelManager.lastReply.first { it.isNotBlank() }
@@ -88,7 +88,7 @@ class VoiceForgeProductionCallPathTest {
     fun `egyptian flagged turn - final text reaches adapter with egyptian checkpoint and tuned params`(): Unit =
         runBlocking {
             val synth = RecordingVoiceForgeSynthesizer()
-            val server = TermuxJarvisServer(
+            val server = JvmCompositionHarness(
                 port = 0,
                 backendOverride = FakeModelBackend(),
                 voiceForgeSynthesizerOverride = synth
@@ -116,7 +116,7 @@ class VoiceForgeProductionCallPathTest {
     fun `english turn - final text reaches adapter with base checkpoint`(): Unit =
         runBlocking {
             val synth = RecordingVoiceForgeSynthesizer()
-            val server = TermuxJarvisServer(
+            val server = JvmCompositionHarness(
                 port = 0,
                 backendOverride = FakeModelBackend(),
                 voiceForgeSynthesizerOverride = synth
@@ -140,7 +140,7 @@ class VoiceForgeProductionCallPathTest {
     fun `synthesis failure falls back to platform speech instead of silence`(): Unit =
         runBlocking {
             val synth = RecordingVoiceForgeSynthesizer(RecordingVoiceForgeSynthesizer.Mode.FAIL)
-            val server = TermuxJarvisServer(
+            val server = JvmCompositionHarness(
                 port = 0,
                 backendOverride = FakeModelBackend(),
                 voiceForgeSynthesizerOverride = synth
