@@ -108,9 +108,12 @@ object VideoInboxRepository {
         } ?: return null
 
         val duration = runCatching {
-            MediaMetadataRetriever().use { retriever ->
+            val retriever = MediaMetadataRetriever()
+            try {
                 retriever.setDataSource(destination.absolutePath)
                 retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull() ?: 0L
+            } finally {
+                retriever.release()
             }
         }.getOrDefault(0L)
         val frames = sampleFrames(destination, File(directory, "$id-frames"), duration)
