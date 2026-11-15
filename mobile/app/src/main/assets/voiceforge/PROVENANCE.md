@@ -11,17 +11,15 @@ spoken replies.
 - Location the Kotlin backend points at:
   `assets/voiceforge/venon_voice_reference.wav` (resolved against app assets).
 
-## Current state — COMMITTED 2026-09-15 (VOICE-FORGE-ACTIVATION-REAL-SPEECH)
+## Current state — legacy experiment, not production
 
-`venon_voice_reference.wav` is LANDED (16-bit PCM mono, 24000 Hz). The Kotlin
-production composition roots wire `VoiceForgeConfig.DEFAULT_ASSET_PATH`
-(`assets/voiceforge/venon_voice_reference.wav`) into `VoiceForgeBackend`:
+This directory and the VoiceForge/Chatterbox adapter are retained as a historical
+experiment and test harness only. They are not part of Friday's Android runtime.
+The adapter and backend live under `src/test`, and the standalone JVM server is
+also test-only. The production app speaks through its in-app `:voice` service,
+`VoiceOrganismHost`, `VoiceOutputPath`, and the Sherpa-ONNX providers
+(Piper-first for English, Kokoro as an optional higher-quality voice).
 
-- `JarvisEngine.init` (JarvisEngine.kt:187-192)
-- `TermuxJarvisServer` (TermuxJarvisServer.kt:247-258)
-
-The audio_prompt_path sent to voiceforge_server.py is allow-listed against
-this exact directory (AC8), so voice cloning activates only for the committed
-reference clip. The checkpoints the story routes are the configured VoiceForge
-checkpoint ids (`chatterbox-multilingual` base + `NAMAA-Egyptian-TTS` Egyptian
-fine-tune); the cloned voice rides the `audio_prompt_path` parameter.
+No Termux installation, Python server, localhost TTS endpoint, or VoiceForge
+checkpoint is required for Friday to speak. Do not use this document as evidence
+that the old Chatterbox path is wired into the app.
