@@ -99,6 +99,32 @@ class SynthesisCompletionGateTest {
     }
 
     @Test
+    fun `a playback request joining a preload inherits playback intent even when synthesis fails`() {
+        val directory = Files.createTempDirectory("tts-join-failure").toFile()
+        try {
+            val gate = SynthesisCompletionGate()
+            val preload = ticket(directory, "shared_phrase", "preload_join")
+            val playback = ticket(directory, "shared_phrase", "tts_join")
+
+            gate.reserve(preload, shouldPlay = false, isFinal = false)
+            assertTrue(
+                gate.reserve(playback, shouldPlay = true, isFinal = true) is SynthesisReservation.Joined
+            )
+
+            val outcome = gate.markAccepted(
+                "preload_join",
+                accepted = false,
+                failureReason = "synchronous synthesis rejection"
+            )
+            assertTrue(outcome is SynthesisOutcome.Failed)
+            assertTrue((outcome as SynthesisOutcome.Failed).shouldPlay)
+            assertTrue(outcome.isFinal)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun `preload completes without requesting playback`() {
         val directory = Files.createTempDirectory("tts-preload").toFile()
         try {
