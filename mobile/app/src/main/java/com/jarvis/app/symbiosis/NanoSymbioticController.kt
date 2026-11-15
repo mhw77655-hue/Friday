@@ -60,6 +60,14 @@ class NanoSymbioticController(
         }
     }
 
+    /** Live admission gate for large model loads and subsequent inference turns. */
+    fun admitModel(modelBytes: Long, requestedContextTokens: Int): ModelAdmission {
+        val host = readHost()
+        val admission = policy.admitModel(host, modelBytes, requestedContextTokens)
+        mutablePlan.value = admission.plan
+        return admission
+    }
+
     /** Current real host reading, adjusted only by a learned safety reserve. */
     fun resourceSnapshot(): ResourceSnapshot {
         val raw = readHost()
