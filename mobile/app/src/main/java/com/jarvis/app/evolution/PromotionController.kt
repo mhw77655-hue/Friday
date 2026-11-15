@@ -45,6 +45,7 @@ class PromotionController(
         implementation: CandidateImplementation
     ): PromotionReceipt {
         val previousBest = genomeRegistry.currentBest.value
+        val previousCapabilityIndex = genomeRegistry.allBest()
         val previousSystemId = previousBest?.let { prev ->
             registry.all().firstOrNull { it.genome.id == prev.id }?.id
         }
@@ -89,7 +90,7 @@ class PromotionController(
         } catch (t: Throwable) {
             if (cognitiveCapabilityRegistered) cognitiveCapabilityFabric?.unregister(systemId)
             registry.unregister(systemId)
-            genomeRegistry.setCurrentBest(previousBest)
+            genomeRegistry.restoreBestByCapability(previousCapabilityIndex, previousBest)
             archive.put(healthy.copy(healthState = GenomeHealth.REJECTED))
             failureSurface.report(
                 FailureReport(
