@@ -18,7 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import java.io.File
 
 /**
- * ONE-2-COMPOSITION: the plain-JVM / Termux host's adapter.
+ * ONE-2-COMPOSITION: a test-only plain-JVM adapter. It is not a production host.
  *
  * This is the host with the least to offer — no sqlite, no process Context, no
  * battery — and that is exactly why it is worth doing carefully: when the
@@ -99,7 +99,7 @@ class JvmPlatformPorts(
  * ONE-2-COMPOSITION: the JVM host's stores.
  *
  * The graph store, embedder and memory port arrive from the caller — on the
- * Termux host those are in-memory implementations, in tests they are fixtures.
+ * host-side tests these are deterministic in-memory implementations.
  * The capability registry is created here rather than read from a holder,
  * because there is no process-wide holder outside Android; it is held here so
  * every organ in one Friday reads the same registry instance.
