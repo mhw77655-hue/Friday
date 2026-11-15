@@ -1,6 +1,5 @@
 package com.jarvis.app.builder
 
-import com.jarvis.app.evolution.CandidateGenerator
 import com.jarvis.app.evolution.EvolutionEngine
 import com.jarvis.app.evolution.GenomeFactory
 import com.jarvis.app.failure.FailureCategory
@@ -39,8 +38,7 @@ class ToolBuilder(
     private val archive: GenomeArchive,
     private val governor: ResourceGovernor,
     private val failureSurface: FailureSurface,
-    private val nervousSystem: GlobalNervousSystem? = null,
-    private val candidateGenerator: CandidateGenerator? = null
+    private val nervousSystem: GlobalNervousSystem? = null
 ) {
 
     /**
@@ -187,8 +185,7 @@ class ToolBuilder(
             archive = archive,
             governor = governor,
             failureSurface = failureSurface,
-            nervousSystem = nervousSystem,
-            candidateGenerator = candidateGenerator
+            nervousSystem = nervousSystem
         ).build(spec.copy(researchFirst = true))
     }
 }
