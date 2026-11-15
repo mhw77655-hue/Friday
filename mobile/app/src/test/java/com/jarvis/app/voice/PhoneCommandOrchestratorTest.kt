@@ -40,10 +40,20 @@ class PhoneCommandOrchestratorTest {
         assertEquals(1, executions)
     }
 
-    @Test fun `high risk command waits for exact spoken confirmation`() = runBlocking {
+    @Test fun `Jev evaluates high risk command but spoken confirmation remains mandatory`() = runBlocking {
         var executions = 0
+        var jevCalls = 0
         val tool = FridayPhoneDecisionTool { _, _, _ ->
-            error("High-risk commands must be held by local policy before remote Jev")
+            jevCalls++
+            JevActionDecision(
+                choice = "execute",
+                confidence = 0.99,
+                probabilities = mapOf("execute" to 0.99),
+                riskScore = 0.1,
+                riskConfidence = 0.99,
+                explicitAuthorization = 0.99,
+                targetClarity = 0.99
+            )
         }
         val router = PhoneCommandOrchestrator(
             decisionTool = { tool },
@@ -53,6 +63,7 @@ class PhoneCommandOrchestratorTest {
 
         val first = router.handle("tap Delete account")
         assertTrue(first is PhoneCommandOrchestrator.Outcome.ConfirmationNeeded)
+        assertEquals(1, jevCalls)
         assertEquals(0, executions)
         assertTrue(router.hasPendingConfirmation())
 
