@@ -31,7 +31,7 @@ import org.junit.Test
 class EntryParityTest {
     private class SilentSpeech : VoiceForgeSynthesizer {
         override suspend fun synthesize(request: VoiceForgeSynthesisRequest) =
-            VoiceForgeSynthesisResponse(success = false, error = "unused")
+            VoiceForgeSynthesisResponse.Failed("unused")
         override suspend fun health() = VoiceForgeHealth(healthy = false, error = "unused")
     }
 
