@@ -22,6 +22,10 @@ object ToolValidator {
             spec.behavior.capability.isNotBlank() &&
             spec.behavior.port.isNotBlank() &&
             spec.behavior.type in setOf("String", "Number", "Boolean", "Double", "Long", "Int")
+        if (spec.behavior is com.jarvis.app.evolution.Behavior.Custom &&
+            spec.behavior.capability != spec.capability) {
+            issues += "custom behavior capability must match the requested capability"
+        }
         if (!hasDeterministicSynthesizer && !hasModelSynthesisContract) {
             issues += "behavior '${spec.behavior.capabilityName}' has no valid synthesis contract"
         }
