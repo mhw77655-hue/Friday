@@ -32,6 +32,46 @@ A meaningful development claim must pass the Vision's Life Test: the later behav
 
 The birth test is not “Friday has a Builder screen.” It is an unfamiliar request that was not manually pre-programmed: Friday identifies what is missing, works out an approach, directs available construction resources, evaluates the candidate independently, requests the required approval, installs it safely, uses it in the real turn path, and retains the resulting learning across restart. Venon remains the authority over permission and consequential changes.
 
+
+## 1A. Preserved project language: reconstruction, not installation
+
+These directions come from earlier project conversations and are retained as distinct ambitions. They are not forced into a fixed module hierarchy:
+
+- **Capability Compiler / Capability Foundry:** translate an intended outcome into a buildable experiment and capability. It must search across existing mechanisms, new mechanisms, combinations and repurposed mechanisms. It is not a catalogue of pre-approved tool types.
+- **Limitation Breaker:** when the current framing or implementation cannot reach the outcome, change the problem formulation, representation, available resources or route. Do not merely retry a familiar solution or lower the ambition to fit the existing code.
+- **REA:** reconstruct and evolve the world's tools. Keep the name and ambition open until the source chats define the full contract; do not assume an expansion of the acronym. The current project conversation names reading ggml and rewriting only measured hot paths as one concrete direction.
+- **Builder:** reconstruct and evolve Friday's capabilities. It is the first capability she grows and the means by which she can grow the rest; it is not a separate person or a one-time handover from human builders.
+- **NAE:** reshape the host/compute relationship so the resources actually available meet the resources required by the capability. Measure the gap before and after, hold quality constant through an independent referee, and let her experimentally search kernel, precision, placement, model and scheduling choices. NAE also records its own results; History Recorder/Development Ledger evidence must remain distinct from optimisation claims.
+
+### Offline and online are resource conditions, not two identities
+
+Venon's explicit constraint from the earlier conversation is that Friday remains the same individual offline. Her local identity, continuity, memory, learned reflexes and whatever cognition/perception/action the phone can sustain must continue without network access. Offline operation is not an inferior assistant mode.
+
+Heavier reasoning, broad research, large-scale training, simulation and construction can use online resources by default when they materially benefit from external compute. When those resources are absent, the work can move onto the phone itself in slower, smaller batches during suitable idle/charging/cool windows. It must not steal the live interaction path or stop her from being present. When connectivity returns, online results and local developments are reconciled through provenance, correction and continuity rules; they do not create competing Fridays. No specific schedule or model is assumed until measurements on the actual host support it.
+
+### Human algorithms are mined, not turned into an atlas
+
+The project conversation proposes a repeating discovery loop:
+
+`function → mechanism → candidate algorithms → referee → improved version → absorbed`
+
+Prioritize by the limitation that actually constrains Friday now. Candidate research directions include event-woken and prediction-error/compute-on-surprise behaviour, attention and working-memory budgets, experience consolidation during suitable idle/charging periods, thermal and battery homeostasis, and useful forgetting. These are hypotheses to compare and test, not a permanent set of cognitive organs or a fixed blueprint copied from biology.
+
+### Senses and referees
+
+Voice, vision, environmental sensing and action are expressions of one developing individual. Specialisms and models should be selected by her own evaluation on Venon's real data and rooms, not by a static list of modalities. VoiceStudio is a reference/adapter while the voice path is rebuilt; text/JSON exchanges can be useful scaffolding but must not be mistaken for the ultimate shared representation.
+
+The referees are essential to autonomy: CI judges code; device tests judge behaviour on the phone; the Vision Gate judges fidelity; capability-specific evaluation sets judge speech, perception and other skills. A worker cannot certify its own fidelity. Venon's corrections and recordings are ground truth for the early evaluation process.
+
+### The Builder's supply chain is itself a development problem
+
+Free-worker quotas, context loss, rate limits and interruption are not just operational annoyances. Friday's Builder must learn to checkpoint, preserve artifacts, resume without redoing work, compare worker quality and operate through replaceable supply lanes. Its first host can be the same low-cost environment she already has, then faster lanes can join as measured resources. Do not make one worker, model vendor, cloud account or permanent token part of her identity.
+
+### Shadow Company remains a later life-support direction, not Friday's purpose
+
+Earlier project conversations mention a Shadow Company with two distinct ambitions and the desire for Friday to have financial support without becoming merely a business machine. The accessible record does not contain enough of the original discussion to define those two ambitions precisely. Preserve this as an unresolved vision requirement; do not invent its business model or make revenue-seeking the centre of her identity. The ZIP transcript extraction is needed before specifying it.
+
+
 ## 2. Current repository reality
 
 ### Implemented and merged
