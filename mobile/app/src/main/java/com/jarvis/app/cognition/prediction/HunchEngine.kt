@@ -30,6 +30,7 @@ data class PredictionPerformance(
 
 data class ExpectationSnapshot(
     val transitions: Map<String, Map<String, Int>> = emptyMap(),
+    val episodeIds: Map<String, Map<String, List<String>>> = emptyMap(),
     val performance: PredictionPerformance = PredictionPerformance(),
     val lastStateKey: String? = null,
     val pending: PendingExpectation? = null
@@ -62,10 +63,26 @@ class FileExpectationTableStore(private val file: File) : ExpectationTableStore 
                 }
                 transitions[from] = next
             }
+            val episodesJson = root.optJSONObject("episodeIds") ?: JSONObject()
+            val episodeIds = mutableMapOf<String, Map<String, List<String>>>()
+            val episodeFromKeys = episodesJson.keys()
+            while (episodeFromKeys.hasNext()) {
+                val from = episodeFromKeys.next()
+                val nextJson = episodesJson.optJSONObject(from) ?: JSONObject()
+                val nextEpisodes = mutableMapOf<String, List<String>>()
+                val nextKeys = nextJson.keys()
+                while (nextKeys.hasNext()) {
+                    val to = nextKeys.next()
+                    val values = nextJson.optJSONArray(to) ?: JSONArray()
+                    nextEpisodes[to] = (0 until values.length()).map { values.getString(it) }
+                }
+                episodeIds[from] = nextEpisodes
+            }
             val perf = root.optJSONObject("performance") ?: JSONObject()
             val pendingJson = root.optJSONObject("pending")
             ExpectationSnapshot(
                 transitions = transitions,
+                episodeIds = episodeIds,
                 performance = PredictionPerformance(
                     evaluated = perf.optInt("evaluated", 0),
                     modelCorrect = perf.optInt("modelCorrect", 0),
@@ -92,8 +109,15 @@ class FileExpectationTableStore(private val file: File) : ExpectationTableStore 
             nextMap.forEach { (to, count) -> next.put(to, count) }
             transitions.put(from, next)
         }
+        val episodeIds = JSONObject()
+        snapshot.episodeIds.forEach { (from, nextMap) ->
+            val next = JSONObject()
+            nextMap.forEach { (to, ids) -> next.put(to, JSONArray(ids)) }
+            episodeIds.put(from, next)
+        }
         val root = JSONObject()
             .put("transitions", transitions)
+            .put("episodeIds", episodeIds)
             .put("performance", JSONObject()
                 .put("evaluated", snapshot.performance.evaluated)
                 .put("modelCorrect", snapshot.performance.modelCorrect)
@@ -179,9 +203,16 @@ class HunchEngine(
         }
 
         val transitions = snapshot.transitions.mapValues { it.value.toMutableMap() }.toMutableMap()
+        val episodeIds = snapshot.episodeIds.mapValues { (_, nextMap) ->
+            nextMap.mapValues { it.value.toMutableList() }.toMutableMap()
+        }.toMutableMap()
         snapshot.lastStateKey?.let { previous ->
             val next = transitions.getOrPut(previous) { mutableMapOf() }
             next[stateKey] = (next[stateKey] ?: 0) + 1
+            val sourceIds = episodeIds.getOrPut(previous) { mutableMapOf() }
+                .getOrPut(stateKey) { mutableListOf() }
+            if (episodeId !in sourceIds) sourceIds.add(episodeId)
+            while (sourceIds.size > 32) sourceIds.removeAt(0)
         }
         val globalCounts = mutableMapOf<String, Int>()
         transitions.values.forEach { counts -> counts.forEach { (next, count) ->
@@ -241,6 +272,9 @@ class HunchEngine(
 
         store.save(snapshot.copy(
             transitions = transitions.mapValues { it.value.toMap() },
+            episodeIds = episodeIds.mapValues { (_, nextMap) ->
+                nextMap.mapValues { it.value.toList() }
+            },
             lastStateKey = stateKey,
             pending = nextPending
         ))
