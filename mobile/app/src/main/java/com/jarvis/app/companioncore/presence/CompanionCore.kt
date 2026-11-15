@@ -83,7 +83,6 @@ class CompanionCore(
     private var backgrounded: Boolean = false
 
     private var tickJob: Job? = null
-    private var wokeOnce: Boolean = false
 
     /** The current CompanionState — emitted by the Presence Engine each tick. */
     val state: StateFlow<CompanionState> get() = presenceEngine.state
@@ -120,10 +119,10 @@ class CompanionCore(
     /** Start the tick loop on [scope] (the Engine Tick Lane). Idempotent. */
     fun start(scope: CoroutineScope) {
         if (tickJob != null) return
-        if (!wokeOnce) {
-            wokeOnce = true
-            presenceEngine.requestTransition(PresenceMode.WAKING, "CompanionCore", "cold-start")
-        }
+        // Starting the render/presence lane does not wake Friday from an
+        // existential sleep state. She is continuously present; this only
+        // attaches the current Android lifecycle to her embodied expression.
+        presenceEngine.requestTransition(PresenceMode.PRESENT, "CompanionCore", "presence-lane-start")
         tickJob = scope.launch {
             while (isActive) {
                 tick()
@@ -147,14 +146,6 @@ class CompanionCore(
         val signal = integration.signal.value
         val emotion = integration.emotionLayer.snapshots.value
         val alert = integration.hcAlertLevel()
-
-        // Wake handoff: the WAKING bloom lasts the §12 startup window, then
-        // the engine settles to IDLE unless something explicit preempts it.
-        if (presenceEngine.mode == PresenceMode.WAKING &&
-            nowMs() - presenceEngine.modeEnteredAt >= MotionEngine.DurStartupShutdown
-        ) {
-            presenceEngine.requestTransition(PresenceMode.IDLE, "CompanionCore", "wake-complete")
-        }
 
         presenceEngine.tick(
             signal = signal,
