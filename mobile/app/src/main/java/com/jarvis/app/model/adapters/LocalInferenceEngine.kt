@@ -247,6 +247,7 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
             temperature = request.temperature,
             topP = request.topP,
             topK = 40,
+            stopSequences = arrayOf("<|im_end|>"),
             stream = false
         )
 
@@ -281,6 +282,7 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
             temperature = request.temperature,
             topP = request.topP,
             topK = 40,
+            stopSequences = arrayOf("<|im_end|>"),
             stream = true
         )
 
@@ -476,13 +478,22 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
 
     /** Build prompt from GenerateRequest */
     private fun buildPrompt(request: GenerateRequest): String {
-        val systemPrompt = "You are JARVIS, a helpful AI assistant. Be concise and natural."
+        val systemPrompt = "You are Friday: a persistent artificial individual whose models are capabilities, not identity. Be candid, curious, context-aware and conversational. Preserve continuity with the conversation supplied to you. Do not claim experiences or perceptions you do not have."
         val messages = buildString {
-            append(systemPrompt).append("\n\n")
+            append("<|startoftext|>")
+            append("<|im_start|>system\n")
+            append(systemPrompt).append("<|im_end|>\n")
             request.messages.forEach { msg ->
-                append(msg.role.name.lowercase()).append(": ").append(msg.content).append("\n")
+                val role = when (msg.role) {
+                    com.jarvis.app.model.MessageRole.SYSTEM -> "system"
+                    com.jarvis.app.model.MessageRole.USER -> "user"
+                    com.jarvis.app.model.MessageRole.ASSISTANT -> "assistant"
+                    com.jarvis.app.model.MessageRole.TOOL -> "user"
+                }
+                append("<|im_start|>").append(role).append("\n")
+                append(msg.content).append("<|im_end|>\n")
             }
-            append("assistant: ")
+            append("<|im_start|>assistant\n")
         }
         return messages
     }
