@@ -25,6 +25,20 @@ class PhoneCommandOrchestratorTest {
         assertEquals(1, executions)
     }
 
+    @Test fun `arbitrary screen tap requires confirmation when Jev is not configured`() = runBlocking {
+        var executions = 0
+        val router = PhoneCommandOrchestrator(
+            decisionTool = { FridayPhoneDecisionTool { _, _, _ -> null } },
+            remoteConfigured = { false },
+            execute = { executions++; PhoneControlResult.Success }
+        )
+
+        val result = router.handle("tap Continue")
+
+        assertTrue(result is PhoneCommandOrchestrator.Outcome.ConfirmationNeeded)
+        assertEquals(0, executions)
+    }
+
     @Test fun `Jev outage does not disable deterministic low risk command`() = runBlocking {
         var executions = 0
         val tool = FridayPhoneDecisionTool { _, _, _ -> null }
