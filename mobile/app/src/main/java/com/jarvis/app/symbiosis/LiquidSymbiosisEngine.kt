@@ -186,8 +186,10 @@ class LiquidSymbiosisEngine(private val persistenceFile: File? = null) {
             generation++
         } else if (healthy) {
             val reasoning = strategies.getValue(SymbioticOrgan.REASONING)
+            val canGrowReasoning = reasoning.successfulRuns >= 3 && reasoning.rewardEma > 0.15
             strategies[SymbioticOrgan.REASONING] = reasoning.copy(
-                contextBudget = min(4096, reasoning.contextBudget + 64),
+                contextBudget = if (canGrowReasoning) min(4096, reasoning.contextBudget + 64)
+                    else reasoning.contextBudget,
                 concurrency = if (state.charging && state.batteryPercent >= 60) 2 else 1
             )
             val speech = strategies.getValue(SymbioticOrgan.SPEECH_OUTPUT)
