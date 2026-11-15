@@ -477,7 +477,10 @@ object JarvisEngine {
                 reportFile = java.io.File(appContext.filesDir, "self-study/latest.properties"),
                 capabilitySnapshot = { capabilities },
                 hostSnapshot = { nanoSymbiosis.hostStudySnapshot() },
-                liquidSnapshot = { nanoSymbiosis.liquidSnapshot() }
+                liquidSnapshot = { nanoSymbiosis.liquidSnapshot() },
+                sourceIndexSnapshot = {
+                    com.jarvis.app.selfstudy.ApplicationSourceIndex.read(appContext.assets)
+                }
             )
             JarvisEngine.applicationSelfStudy = selfStudy
             // WorkManager keeps this small study lane scheduled across process
