@@ -199,6 +199,7 @@ class WallClockAllowlistTest {
 
         // ── model ─────────────────────────────────────────────────────────────
         put("model/ModelManager.kt", 1)
+        put("model/InAppLlamaModelBackend.kt", 5)
         put("model/ModelProvider.kt", 1)
         put("model/adapters/HeuristicAdapter.kt", 1)
         put("model/adapters/LlamaCppAdapter.kt", 3)
@@ -285,6 +286,7 @@ class WallClockAllowlistTest {
         put("memory/provenance/ForgetTombstone.kt", "tombstone forgotten-at stamp")
 
         put("model/ModelManager.kt", "the injected clock default; the ONE root passes the host clock, so the tier cooldown is host-time")
+        put("model/InAppLlamaModelBackend.kt", "monotonic elapsed-time measurements around native model load and generation; these are performance durations, not turn timestamps")
         put("model/ModelProvider.kt", "provider health check timestamp")
         put("model/adapters/HeuristicAdapter.kt", "the canned 'today's date' answer of a non-model fallback adapter")
         put("model/adapters/LlamaCppAdapter.kt", "request latency pair and the telemetry latency field")
