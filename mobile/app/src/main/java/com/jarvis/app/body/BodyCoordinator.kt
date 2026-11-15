@@ -313,7 +313,8 @@ class BodyCoordinator(
                     } else {
                         beginTurn(spoken)
                         emitEvent(BodyEvent.UserInput(spoken))
-                    }                }
+                    }
+                }
             is BodyEvent.UserInput ->
                 if (currentState == BodyState.SPEAKING) {
                     beginTurn(event.text)
