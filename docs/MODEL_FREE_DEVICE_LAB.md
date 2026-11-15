@@ -17,6 +17,14 @@ The lab screens model candidates on the actual handset before Friday downloads m
 
 Only these technical measurements are persisted to app-private files/model-lab/device-profile.properties. No prompts, user files, video frames, transcripts, app list, or personal content is read or uploaded.
 
+## Persistent host study (NAE)
+
+The Android host adapter now records a device-specific, content-free study alongside workload evidence. Its fingerprint uses manufacturer/model/device/board/SoC model, Android API, total RAM, app memory class, CPU core count and primary ABI. It deliberately does not read serial numbers, installed-app lists, user files, prompts or transcripts.
+
+The study accumulates sample count, minimum observed available RAM, maximum and exponentially smoothed CPU load, thermal-pressure sample count, low-memory sample count, minimum observed battery level, maximum observed process PSS, and last observation time. It is restored only when the current hardware/software fingerprint matches; a different host starts a clean profile.
+
+Sampling is bounded to the existing 15-second observer, with persistence throttled to at most once per minute. PSS is explicitly a process-wide footprint estimate, not a per-model allocation. These statistics are observations for later calibration; they do not yet constitute an inference benchmark or automatically prove that a model/backend is faster.
+
 ## What it does not do
 
 - It does not download, map, or load any model weights.
