@@ -261,19 +261,59 @@ class BodyCoordinator(
         when (event) {
             is BodyEvent.SttResult ->
                 if (event.text.isNotBlank() && newState == BodyState.THINKING) {
-                    val phoneAction = runCatching {
-                        com.jarvis.app.voice.PhoneCommandInterpreter.dispatch(event.text)
-                    }.getOrNull()
-                    if (phoneAction != null) {
-                        val feedback = when (phoneAction) {
-                            com.jarvis.app.voice.PhoneControlResult.Success -> "Okay."
-                            is com.jarvis.app.voice.PhoneControlResult.NotFound ->
-                                "I couldn't find ${phoneAction.target}."
-                            is com.jarvis.app.voice.PhoneControlResult.Unavailable ->
-                                phoneAction.reason
+                    val command = com.jarvis.app.voice.PhoneCommandInterpreter.parse(event.text)
+                    if (command != null) {
+                        // Jev supplies a fast typed judgment; Android policy remains
+                        // authoritative. If Jev is not configured, only low-risk,
+                        // deterministic navigation actions use the local fallback.
+                        scope.launch {
+                            val keyStore = com.jarvis.app.voice.JevApiKeyStore(context)
+                            val apiKey = keyStore.read()
+                            val decision = if (apiKey != null) {
+                                com.jarvis.app.voice.JevDecisionClient(
+                                    com.jarvis.app.voice.JevApiKeyProvider { apiKey }
+                                ).judgePhoneAction(
+                                    utterance = event.text,
+                                    actionDescription = com.jarvis.app.voice.PhoneCommandInterpreter.describe(command),
+                                    risk = com.jarvis.app.voice.PhoneCommandInterpreter.risk(command)
+                                )
+                            } else null
+
+                            val actionResult = when {
+                                com.jarvis.app.voice.PhoneCommandInterpreter.requiresExplicitConfirmation(command) ->
+                                    com.jarvis.app.voice.PhoneControlResult.Unavailable(
+                                        "I need an explicit confirmation flow before I can tap controls or enter text."
+                                    )
+                                apiKey != null && decision == null ->
+                                    com.jarvis.app.voice.PhoneControlResult.Unavailable(
+                                        "I couldn't reach Jev, so I haven't changed anything. Try again when connected."
+                                    )
+                                decision != null &&
+                                    com.jarvis.app.voice.JevPhoneActionPolicy.mayExecute(decision) ->
+                                    com.jarvis.app.voice.PhoneCommandInterpreter.dispatch(command)
+                                decision != null &&
+                                    com.jarvis.app.voice.JevPhoneActionPolicy.shouldReject(decision) ->
+                                    com.jarvis.app.voice.PhoneControlResult.Unavailable(
+                                        "I won't perform that phone action."
+                                    )
+                                decision != null ->
+                                    com.jarvis.app.voice.PhoneControlResult.Unavailable(
+                                        "I need confirmation before performing that action."
+                                    )
+                                else ->
+                                    com.jarvis.app.voice.PhoneCommandInterpreter.dispatch(command)
+                            }
+                            val feedback = when (actionResult) {
+                                com.jarvis.app.voice.PhoneControlResult.Success -> "Okay."
+                                is com.jarvis.app.voice.PhoneControlResult.NotFound ->
+                                    "I couldn't find ${actionResult.target}."
+                                is com.jarvis.app.voice.PhoneControlResult.Unavailable ->
+                                    actionResult.reason
+                                null -> "I couldn't perform that action."
+                            }
+                            tts?.speak(feedback)
+                            emitEvent(BodyEvent.Reset)
                         }
-                        tts?.speak(feedback)
-                        emitEvent(BodyEvent.Reset)
                     } else {
                         beginTurn(event.text)
                         emitEvent(BodyEvent.UserInput(event.text))
