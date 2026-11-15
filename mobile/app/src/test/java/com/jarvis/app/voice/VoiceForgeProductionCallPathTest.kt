@@ -14,16 +14,12 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * VOICE-FORGE-EGYPTIAN-KAREN-TTS AC3: the REAL production call path
- * (TermuxJarvisServer -> LatencyPipeline -> CognitiveEngine.process ->
- * model generation -> spoken-output seam) with a recording fake swapped in
- * ONLY at the final HTTP hop (the VoiceForgeSynthesizer seam).
+ * Legacy VoiceForge experiment: this test exercises a test-only JVM harness,
+ * not Friday's Android production speech path. Friday's live voice is provided
+ * by VoiceOrganismHost / VoiceService / VoiceOutputPath and Sherpa-ONNX.
  *
- * Every object between the server and the synthesizer is the real production
- * class — the same mirror-the-last-hop discipline as
- * ReasoningTierServeGroundTruthTest / DialectIntegrationTest. The reply-shaped
- * text that reaches [VoiceForgeBackend.synthesize] is the final assistant
- * text, verified against the one the model authority produced.
+ * Retained only to regression-test the retired VoiceForge adapter in isolation.
+ * It must never be used as evidence of the in-app voice capability.
  */
 class VoiceForgeProductionCallPathTest {
 
