@@ -177,7 +177,6 @@ object BehaviorSynthesizer {
             TestCase("reverse_missing_input_fails", emptyMap(), expectedError = "missing input", isFailureCase = true)
         )
         is Behavior.Custom -> emptyList()
-        is Behavior.Custom -> emptyList()
         is Behavior.Lookup -> listOf(
             TestCase(
                 "lookup_known",
