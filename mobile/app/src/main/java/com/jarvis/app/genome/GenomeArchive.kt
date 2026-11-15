@@ -98,18 +98,23 @@ class GenomeArchive(
 
     fun loadFromDisk(): Int {
         return try {
-            val content = fileStorage.read(StoreKind.GENOME_ARCHIVE) ?: return 0
+            val currentContent = fileStorage.read(StoreKind.GENOME_ARCHIVE)
+            val migratingLegacyDialogue = currentContent == null
+            val content = currentContent ?: fileStorage.read(StoreKind.DIALOGUE) ?: return 0
             var loaded = 0
             val snapshot = runCatching { JSONArray(content) }.getOrNull()
             if (snapshot != null) {
                 loaded += loadArray(snapshot)
             } else {
-                // Backward-compatible reader for earlier JSONL snapshot files.
+                // Backward-compatible reader for earlier JSONL genome snapshots.
+                // Ordinary dialogue objects are ignored; the dialogue file is
+                // never rewritten or deleted during this one-way migration.
                 content.lineSequence().filter { it.isNotBlank() }.forEach { line ->
                     runCatching { JSONArray(line) }.getOrNull()?.let { loaded += loadArray(it) }
                 }
             }
             _latestId.value = store.values.maxByOrNull { it.provenance.createdMs }?.id
+            if (migratingLegacyDialogue && loaded > 0) persistAsync()
             loaded
         } catch (t: Throwable) {
             android.util.Log.w("GenomeArchive", "load failed", t)
