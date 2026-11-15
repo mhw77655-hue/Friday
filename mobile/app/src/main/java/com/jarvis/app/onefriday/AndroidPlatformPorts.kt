@@ -35,7 +35,6 @@ class AndroidPlatformPorts(
     private val humanCoreMemorySink: (com.jarvis.app.humancore.mod.MemoryAnnotation) -> Unit,
     private val failureSurface: FailureSurface,
     private val modelBackend: com.jarvis.app.model.ModelBackend,
-    private val voiceSynthesizer: com.jarvis.app.voice.VoiceForgeSynthesizer,
     private val clock: () -> Long = { System.currentTimeMillis() },
     private val turnTraceStore: com.jarvis.app.trace.TurnTraceStore? = null,
     private val threadTracker: com.jarvis.app.threads.ThreadTracker? = null,
@@ -135,7 +134,6 @@ class AndroidPlatformPorts(
         context = context,
         memoryStore = memoryStore,
         backend = modelBackend,
-        voiceSynthesizer = voiceSynthesizer,
         traceStore = turnTraceStore,
         threads = threadTracker,
         provenance = provenanceLedger,
@@ -159,7 +157,6 @@ class AndroidPlatformStores(
     private val context: Context,
     private val memoryStore: com.jarvis.app.body.MemoryStorePort,
     private val backend: com.jarvis.app.model.ModelBackend,
-    private val voiceSynthesizer: com.jarvis.app.voice.VoiceForgeSynthesizer,
     private val traceStore: com.jarvis.app.trace.TurnTraceStore? = null,
     private val threads: com.jarvis.app.threads.ThreadTracker? = null,
     private val provenance: com.jarvis.app.memory.provenance.ProvenanceLedger? = null,
@@ -178,8 +175,6 @@ class AndroidPlatformStores(
         com.jarvis.app.capability.CapabilityRegistryHolder.get()
 
     override fun modelBackend(): com.jarvis.app.model.ModelBackend = backend
-
-    override fun voiceSynthesizer(): com.jarvis.app.voice.VoiceForgeSynthesizer = voiceSynthesizer
 
     override fun turnTraceStore(): com.jarvis.app.trace.TurnTraceStore? = traceStore
 
