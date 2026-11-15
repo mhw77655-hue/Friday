@@ -131,7 +131,7 @@ fun SettingsScreen() {
 
         SectionLabel("JEV DEVICE-DECISION ENGINE")
         Text(
-            text = "Optional TypeSafe Jev connection. The key is encrypted with Android Keystore and is never stored in plain SharedPreferences.",
+            text = "Optional TypeSafe Jev connection. When enabled, recognized low-risk command text, the proposed action and risk tier are sent to TypeSafe for a decision. Tap and text-entry actions stay behind Friday's local confirmation gate. The key is encrypted with Android Keystore and is never stored in plain SharedPreferences.",
             style = JarvisType.Label,
             modifier = Modifier.padding(bottom = 8.dp)
         )
