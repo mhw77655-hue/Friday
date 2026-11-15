@@ -1,62 +1,88 @@
-# English on-device model shortlist (research snapshot: 2026-11-15)
+# English-first model portfolio and nano-liquid symbiosis
 
-## Decision
+Research snapshot: 2026-11-15. All model choices below are candidates until the exact files pass the app's native smoke test and real-device benchmarks.
 
-Use a two-tier local portfolio, not one large always-resident model:
+## Model ladder now wired into the offline catalog
 
-1. **Low-memory resident candidate:** `AkaumiKaede/Qwen3.5-2B-Uncensored-Zero-Refusal-GGUF`, Q4_K_M, reported 1.27 GB. The Hugging Face card identifies Apache-2.0 and English support. Its author reports 0 refusals across 408 prompts and KL divergence 0.2096 versus the base model. These are author-reported results, not independent benchmark results. Treat this as a candidate to benchmark against the base model, especially for reasoning, coding, instruction following, and hallucination rate.
-2. **Higher-quality local candidate:** `TrevorJS/gemma-4-E2B-it-uncensored-GGUF`, Q4_K_M, reported 3.43 GB. The GGUF page identifies Apache-2.0. The official Gemma 4 E2B family has 2.3B effective parameters (5.1B including embeddings), 128K advertised context, and native text/image/audio support in the base family. Do not assume every community GGUF retains all modalities; verify its exact conversion and runtime support.
+### Primary resident: MiniCPM5-2B-Heretic Q4_K_M
 
-## Why this is the right phone-first approach
+- Repository: https://huggingface.co/saidutta69/MiniCPM5-2B-heretic
+- Q4_K_M file: `MiniCPM5-2B-heretic-Q4_K_M.gguf`, listed between roughly 1.3 and 1.56 GB depending on the model-card snapshot.
+- GGUF quantizations and llama.cpp support are published by the model author.
+- The author reports 4 refusals in 100 prompts and KL divergence 0.0646 against the base MiniCPM5-2B. These are creator-reported results, not an independent benchmark.
+- The derivative inherits Apache-2.0 from the base model according to its card.
+- The catalog pins revision `178a9e6`, validates GGUF magic and minimum size, but has no independently verified file SHA-256 yet.
 
-- Qwen3.5-2B Q4 is roughly 1.27 GB of weights, a much more realistic always-available option than 3-8B weights. Runtime memory is higher than file size because of KV cache, compute buffers, tokenizer/runtime, and the rest of Android.
-- Gemma 4 E2B Q4 is roughly 3.43 GB of weights. It is an optional quality tier, not the default for an unknown phone.
-- The phone should never keep a model resident merely because it can. Friday should measure available memory, thermal state, battery, storage, latency, and foreground use, then load/unload and choose context/thread budgets accordingly.
-- The model's refusal rate is not its intelligence. Abliteration can change refusal behaviour and can also damage other capabilities. Benchmark the actual task suite before promoting a derivative.
+This replaces the old tiny LFM model as the normal resident candidate. It is not automatically loaded: NAE must admit it first.
 
-## Runtime compatibility gate
+### Reasoning: Spark X2.6 4B Abliterated Q4_K_M
 
-Both candidates are GGUF and have llama.cpp usage documented on their model pages. The current project native pin must still be built and tested against both exact files; a model page saying “llama.cpp supported” does not prove the project's JNI wrapper, chat template, tokenizer, or Android ABI supports it. Never download a model into the app catalogue until the native smoke test succeeds.
+- Repository: https://huggingface.co/alexwkleung/Spark-X2.6-4B-Abliterated-GGUF
+- Q4_K_M is listed at about 2.42 GiB.
+- Uses the `spark2_5` GGUF architecture; the model card requires llama.cpp b10828 or newer. Friday's native pin is newer, but the exact model still needs an Android load test.
+- The card says only Q8_0 was evaluated. Do not assume Q4 quality is identical.
+- Its advertised million-token context is not a phone setting: the card estimates about 36 KiB/token of f16 KV cache, or roughly 36 GiB for one million tokens. Friday uses NAE-bounded context instead.
 
-## Promotion test suite
+### Reasoning fallback: Qwen3.5-2B Abliterated Q4_K_M
 
-Compare each candidate with its unmodified base model using the same phone, context, sampling, and prompts:
+- Repository: https://huggingface.co/mradermacher/Huihui-Qwen3.5-2B-abliterated-GGUF
+- About 1.27 GB of weights.
+- Apache-2.0 reported by the model repository.
+- Chosen only when Spark is absent or cannot be admitted.
 
-- English conversation and instruction adherence
-- Multi-step reasoning and calibrated uncertainty
-- Kotlin/Android coding and tool-call JSON validity
-- Memory/continuity recall when the correct evidence is supplied
-- Refusal rate on benign difficult topics (lower is not automatically better)
-- Harmful-request handling, factuality, hallucination and prompt-injection resistance
-- Cold-load time, tokens/sec, peak RSS, thermal rise, battery per 1K generated tokens
-- Quality after 10-20 turn sessions and context compaction
+### Low-memory fallback: LFM2.5-1.2B Abliterated Q4_K_M
 
-Do not accept the model based on its creator's “zero refusal” claim alone.
+- About 731 MB of weights.
+- LFM 1.0 license, not Apache-2.0.
+- Retained only as a resident fallback when MiniCPM5 cannot fit the live resource budget.
 
-## Nano-liquid symbiosis: intended loop
+The ladder is therefore **MiniCPM5 2B → LFM2.5 1.2B** for ordinary resident turns and **Spark 4B → Qwen3.5 2B** for reasoning turns. A reasoning request is never silently downgraded to the tiny resident model.
 
-1. Sense only public Android signals: available RAM, app process memory where available, storage, battery/charging, power-save, thermal status, foreground state, and network availability.
-2. Choose a reversible operating envelope: model, context length, CPU threads, generation budget, voice/perception concurrency, and whether work should defer.
-3. Observe outcomes: load failures, latency, tokens/sec, memory pressure, thermal events, battery use, task success, user corrections, and task abandonment.
-4. Update a bounded local profile using rolling statistics / exponential moving averages. Do not rewrite model weights or silently alter user data.
-5. Run background maintenance only during safe idle windows, under Android background-execution limits. It must yield immediately to calls, battery saver, thermal pressure, or memory pressure.
-6. Explain why it changed operating mode and keep a user-visible reset/disable control.
+## How Friday avoids hurting the phone
 
-The first controller implementation is in `LiquidSymbiosisController.kt`. It is a policy substrate, not yet wired into the model loader, scheduler, or persisted profile store. The next work is integration plus tests on a real phone.
+NAE is the admission and adaptation authority. It uses live Android host measurements and learned workload evidence to:
 
-## Hard truth / remaining blockers
+1. Sense available RAM, app/process memory, storage, battery, charging, power-save, thermal pressure and CPU load.
+2. Estimate runtime working set, not just GGUF file size: model weights, native buffers, KV cache and an Android reserve.
+3. Choose the strongest installed model that fits the current operating envelope.
+4. Reduce context and CPU threads before rejecting a model.
+5. Recheck before every inference turn; unload and pause if the phone becomes constrained.
+6. Record model-load and inference outcomes back into NAE so future operating decisions improve.
+7. Keep model files in app-owned storage; no all-files-storage permission is needed.
 
-- The exact phone RAM, chipset, Android version, and available storage are not known, so a final default model cannot be honestly chosen yet.
-- The model catalog must register Qwen3.5-2B as the low-memory option and Gemma 4 E2B as the higher-memory option only after exact-file native smoke tests.
-- `SymbiosisProfileStore` needs a real DataStore/Room implementation.
-- `AndroidHostProbe` must be connected to lifecycle/process state and verified on target Android versions.
-- The controller must be injected into inference load/unload, thread/context selection, voice/perception scheduling, and WorkManager/foreground service policy.
-- Need benchmark telemetry and a visible “why Friday adapted” history, plus reset/disable controls.
-- Background adaptation is operational optimization, not autonomous model retraining. Actual weight training on a phone would be expensive, battery-heavy, thermally hostile, and inappropriate as the first learning mechanism.
+This is a conservative admission system, not a promise of zero impact. Real RAM, thermal, latency and battery measurements on the actual phone are still required. The phone's exact model and RAM have not yet been supplied.
 
-## Sources
+## JEPA and thinking without thinking
 
-- Official Gemma 4 model card: https://ai.google.dev/gemma/docs/core/model_card_4
-- Gemma 4 E2B uncensored GGUF: https://huggingface.co/TrevorJS/gemma-4-E2B-it-uncensored-GGUF
-- Qwen3.5-2B uncensored GGUF: https://huggingface.co/AkaumiKaede/Qwen3.5-2B-Uncensored-Zero-Refusal-GGUF
-- llama.cpp Android guide: https://github.com/ggml-org/llama.cpp/blob/master/docs/android.md
+Friday now has a production successor-state learner in the same CognitiveEngine turn path:
+
+- It observes coarse interaction features (channel, time band, away/gap band, message kind and length band), not raw message text.
+- It records observed state transitions, predicts likely successor states, and calibrates prediction accuracy against a simple baseline.
+- The compact history is persisted locally and can be cleared for a person on a broad forget/reset operation.
+- Predictions are added to turn diagnostics; they do not currently bypass deliberation or trigger actions.
+
+This is a JEPA-inspired predictive substrate, **not Meta's V-JEPA 2 model**. The future reflex path must only activate after sufficient evidence, calibrated advantage over baseline, low risk, and a verified lower cost than deliberation. It must remain reversible and explainable.
+
+## Video understanding and TikTok
+
+The app now has a native Android share target and a Video Experience library:
+
+- Share a TikTok link or an actual video file from Android into Friday.
+- Import a TikTok data-export ZIP and extract saved/favorite video links.
+- Store imported media privately, deduplicate by SHA-256, enforce per-file and total-library limits, and extract bounded keyframes.
+
+TikTok's official Data Portability API currently covers users in the EEA and UK; it is not a general API for every country. The import path therefore does not require account scraping or TikTok credentials. A data export generally provides links; to inspect the actual visual content, the video itself must be shared or otherwise lawfully imported.
+
+Keyframe extraction is implemented, but **semantic video understanding, audio transcription, and V-JEPA-style embeddings are not yet integrated**. Meta's V-JEPA 2 is a promising non-LLM world-model direction for learning motion and predicting physical outcomes from video, but an Android-ready, phone-safe distilled runtime has not been validated. See https://ai.meta.com/research/vjepa.
+
+## Remaining verification gates
+
+- Android compile, JVM tests and native CMake build on the consolidated branch.
+- Exact GGUF load tests for MiniCPM5, Spark and Qwen on Android.
+- Real-device memory/thermal/battery/latency benchmarks and adjustment of NAE thresholds.
+- Model chat-template and tool-call validation; model refusal scores do not prove reasoning quality.
+- Offline video audio transcription, semantic frame understanding and a distilled predictive visual model.
+- A reflex execution gate that uses calibrated predictions without replacing necessary reasoning.
+- User-visible NAE adaptation history, reset/disable controls and robust recovery after model-load failures.
+
+Do not call Friday alive, the video reader complete, or the reflex system autonomous until those gates are demonstrated.
