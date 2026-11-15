@@ -60,6 +60,9 @@ object EngineAccess {
 
     fun failureSurface(): EngineSlot<com.jarvis.app.failure.FailureSurface> =
         JarvisEngine.failureSurfaceSlot()
+
+    fun voiceOrganismHost(): EngineSlot<com.jarvis.app.voice.VoiceOrganismHost> =
+        JarvisEngine.voiceOrganismHostSlot()
 }
 
 /**
