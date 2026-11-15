@@ -55,7 +55,7 @@ class PhoneCommandOrchestrator(
         if (waiting != null) {
             if (normalized in CONFIRM_WORDS) {
                 synchronized(lock) { pending = null }
-                return Outcome.Executed(waiting.command, execute(waiting.command))
+                return Outcome.Executed(waiting.command, executeSafely(waiting.command))
             }
             if (normalized in CANCEL_WORDS) {
                 synchronized(lock) { pending = null }
@@ -78,7 +78,7 @@ class PhoneCommandOrchestrator(
         )
         return when (decision.verdict) {
             FridayPhoneDecisionTool.Verdict.EXECUTE ->
-                Outcome.Executed(command, execute(command))
+                Outcome.Executed(command, executeSafely(command))
             FridayPhoneDecisionTool.Verdict.CONFIRM -> {
                 synchronized(lock) {
                     pending = PendingConfirmation(
@@ -94,6 +94,14 @@ class PhoneCommandOrchestrator(
             FridayPhoneDecisionTool.Verdict.UNAVAILABLE ->
                 Outcome.Unavailable(decision.explanation)
         }
+    }
+
+    private suspend fun executeSafely(command: PhoneControlCommand): PhoneControlResult = try {
+        execute(command)
+    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        PhoneControlResult.Unavailable("Android could not complete that phone action. Nothing further was attempted.")
     }
 
     companion object {
