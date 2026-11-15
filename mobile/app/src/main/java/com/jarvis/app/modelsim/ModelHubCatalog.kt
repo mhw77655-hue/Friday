@@ -5,7 +5,6 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONArray
-import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
@@ -32,6 +31,7 @@ class ModelHubCatalog(
                 .addQueryParameter("direction", "-1")
                 .addQueryParameter("limit", safeLimit.toString())
                 .addQueryParameter("full", "true")
+                .addQueryParameter("blobs", "true")
                 .build()
             val request = Request.Builder()
                 .url(url)
@@ -90,12 +90,12 @@ class ModelHubCatalog(
         return candidates.distinctBy { it.id }.sortedWith(
             compareBy<ModelCandidate> { quantizationRank(it.quantization) }
                 .thenBy { it.weightMb }
-        )
+        ).take(60)
     }
 
     private fun JSONArray?.toStringSet(): Set<String> {
         if (this == null) return emptySet()
-        return (0 until length()).mapNotNull { optString(it).takeIf(String::isNotBlank) }.toSet()
+        return (0 until length()).mapNotNull { optString(it).takeIf { value -> value.isNotBlank() } }.toSet()
     }
 
     private fun quantizationRank(value: String): Int = when {
