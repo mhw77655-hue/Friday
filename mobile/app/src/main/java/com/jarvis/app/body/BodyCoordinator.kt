@@ -90,6 +90,9 @@ class BodyCoordinator(
     private var tts: JarvisTts? = null
     private var ttsRetryCount = 0
     private var modelRetryCount = 0
+    private val phoneActionPlanner by lazy {
+        com.jarvis.app.voice.PhoneActionPlanner(modelManager)
+    }
     private val phoneCommandOrchestrator by lazy {
         com.jarvis.app.voice.PhoneCommandOrchestrator(
             decisionTool = {
@@ -289,30 +292,33 @@ class BodyCoordinator(
                             phoneCommandOrchestrator.hasPendingConfirmation()
                     if (hasPhoneIntent) {
                         scope.launch {
-                            val outcome = phoneCommandOrchestrator.handle(spoken)
-                            val feedback = when (outcome) {
-                                is com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.ActionResult ->
-                                    phoneActionFeedback(outcome.result)
-                                is com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.ConfirmationNeeded ->
-                                    "I need your confirmation to ${outcome.description}. Say yes to proceed, or say cancel."
-                                com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.Cancelled ->
-                                    "Cancelled."
-                                is com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.Rejected ->
-                                    "I won't perform that phone action. ${outcome.explanation}"
-                                is com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.Unavailable ->
-                                    outcome.explanation
-                                null -> {
-                                    beginTurn(spoken)
-                                    emitEvent(BodyEvent.UserInput(spoken))
-                                    return@launch
+                            handlePhoneOutcome(phoneCommandOrchestrator.handle(spoken), spoken)
+                        }
+                    } else if (com.jarvis.app.voice.PhoneActionPlanner.isLikelyDeviceRequest(spoken)) {
+                        scope.launch {
+                            val screen = withContext(Dispatchers.Main.immediate) {
+                                com.jarvis.app.voice.FridayAccessibilityService.activeScreenSummary()
+                            }
+                            when (val plan = phoneActionPlanner.plan(spoken, screen)) {
+                                is com.jarvis.app.voice.PhoneActionPlanner.Result.Action ->
+                                    handlePhoneOutcome(
+                                        phoneCommandOrchestrator.handlePlanned(spoken, plan.command),
+                                        spoken
+                                    )
+                                is com.jarvis.app.voice.PhoneActionPlanner.Result.Clarification -> {
+                                    tts?.speak(plan.question)
+                                    emitEvent(BodyEvent.Reset)
+                                }
+                                com.jarvis.app.voice.PhoneActionPlanner.Result.NotPhoneAction ->
+                                    routeSpokenText(spoken)
+                                is com.jarvis.app.voice.PhoneActionPlanner.Result.Unavailable -> {
+                                    tts?.speak(plan.reason)
+                                    emitEvent(BodyEvent.Reset)
                                 }
                             }
-                            tts?.speak(feedback)
-                            emitEvent(BodyEvent.Reset)
                         }
                     } else {
-                        beginTurn(spoken)
-                        emitEvent(BodyEvent.UserInput(spoken))
+                        routeSpokenText(spoken)
                     }
                 }
             is BodyEvent.UserInput ->
@@ -415,6 +421,35 @@ class BodyCoordinator(
                 )
             }
         }
+    }
+
+    private fun routeSpokenText(spoken: String) {
+        beginTurn(spoken)
+        emitEvent(BodyEvent.UserInput(spoken))
+    }
+
+    private fun handlePhoneOutcome(
+        outcome: com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome?,
+        spoken: String
+    ) {
+        val feedback = when (outcome) {
+            is com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.ActionResult ->
+                phoneActionFeedback(outcome.result)
+            is com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.ConfirmationNeeded ->
+                "I need your confirmation to ${outcome.description}. Say yes to proceed, or say cancel."
+            com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.Cancelled ->
+                "Cancelled."
+            is com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.Rejected ->
+                "I won't perform that phone action. ${outcome.explanation}"
+            is com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.Unavailable ->
+                outcome.explanation
+            null -> {
+                routeSpokenText(spoken)
+                return
+            }
+        }
+        tts?.speak(feedback)
+        emitEvent(BodyEvent.Reset)
     }
 
     private fun phoneActionFeedback(result: com.jarvis.app.voice.PhoneControlResult): String = when (result) {
