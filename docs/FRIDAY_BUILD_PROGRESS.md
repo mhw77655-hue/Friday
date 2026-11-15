@@ -2,7 +2,7 @@
 
 **Snapshot:** 2026-11-15  
 **Working branch:** `audit/friday-offline-runtime`  
-**Estimated end-state implementation progress:** **about 31%**
+**Estimated end-state implementation progress:** **about 32%**
 
 This is a milestone-weighted engineering estimate, not a line-count metric and not a claim that 30% of the app is production-ready. The project has 16 equally weighted outcome milestones. Each score estimates how much of that milestone's required outcome is implemented, not merely planned. The rounded total is 32%.
 
