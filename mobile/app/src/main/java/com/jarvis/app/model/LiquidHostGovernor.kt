@@ -41,7 +41,7 @@ class LiquidHostGovernor(private val context: Context) {
         val model = modelPath?.takeIf { it.isNotBlank() }?.let { File(it) } ?: File(context.filesDir, "models/$fileName")
         val modelMb = if (model.isFile) model.length() / MB else 0L
         val requiredMb = (modelMb * 1.35).toLong() + 500L
-        val deep = modelId.contains("qwen", true) || modelId.contains("reason", true)
+        val deep = modelId.contains("qwen", true) || modelId.contains("reason", true) || modelId.contains("dolphin", true)
         val thermalBlocked = host.thermalStatus >= PowerManager.THERMAL_STATUS_SEVERE && deep
         val batteryBlocked = host.batteryPercent in 1..8 && !host.charging && deep
         val allowed = host.availableRamMb >= requiredMb && !thermalBlocked && !batteryBlocked

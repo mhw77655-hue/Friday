@@ -28,5 +28,17 @@ object OfflineModelCatalog {
         licenseUrl = "https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF",
         role = "Deeper reasoning candidate"
     )
-    val all = listOf(resident, reasoning)
+
+    val advancedUncensored = OfflineModelAsset(
+        id = "dolphin3.0-llama3.1-8b-q4",
+        displayName = "Dolphin 3.0 Llama 3.1 8B · Q4_K_M",
+        fileName = "Dolphin3.0-Llama3.1-8B.Q4_K_M.gguf",
+        downloadUrl = "https://huggingface.co/mradermacher/Dolphin3.0-Llama3.1-8B-GGUF/resolve/main/Dolphin3.0-Llama3.1-8B.Q4_K_M.gguf?download=true",
+        expectedBytes = 4_920_000_000L,
+        licenseName = "Llama 3.1 Community License · lower-refusal fine-tune",
+        licenseUrl = "https://huggingface.co/dphn/Dolphin3.0-Llama3.1-8B-GGUF",
+        role = "Optional high-memory, uncensored-oriented reasoning worker"
+    )
+
+    val all = listOf(resident, reasoning, advancedUncensored)
 }

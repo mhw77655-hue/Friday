@@ -35,7 +35,14 @@ class LocalModelBackend(context: Context) : ModelBackend {
     }
 
     override suspend fun loadModel(config: ModelBackendConfig): ModelHandle {
-        val modelId = config.modelId.ifBlank { RESIDENT_MODEL_ID }
+        val requestedId = config.modelId.ifBlank { RESIDENT_MODEL_ID }
+        // Prefer the lower-refusal 8B worker only when installed and affordable.
+        val modelId = if (requestedId == "jarvis-reasoning:latest") {
+            val dolphinId = "dolphin3.0-llama3.1-8b-q4"
+            val dolphinFile = File(appContext.filesDir, "models/Dolphin3.0-Llama3.1-8B.Q4_K_M.gguf")
+            val host = LiquidHostGovernor(appContext)
+            if (dolphinFile.isFile && host.admit(dolphinId).allowed) dolphinId else "qwen3-1.7b-q4"
+        } else requestedId
         val engine = providers.computeIfAbsent(modelId) {
             LocalInferenceEngine(appContext)
         }

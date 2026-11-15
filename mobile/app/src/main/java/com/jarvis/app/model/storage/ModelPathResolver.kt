@@ -15,7 +15,8 @@ class ModelPathResolver(private val context: Context) {
             "qwen3-1.7b" to "Qwen3-1.7B-Q4_K_M.gguf",
             "qwen3-1.7b-q4" to "Qwen3-1.7B-Q4_K_M.gguf",
             "qwen3-1.7b-q4_k_m" to "Qwen3-1.7B-Q4_K_M.gguf",
-            "jarvis-reasoning:latest" to "Qwen3-1.7B-Q4_K_M.gguf"
+            "jarvis-reasoning:latest" to "Qwen3-1.7B-Q4_K_M.gguf",
+            "dolphin3.0-llama3.1-8b-q4" to "Dolphin3.0-Llama3.1-8B.Q4_K_M.gguf"
         )
         fun modelFileName(modelId: String?): String {
             val id = modelId?.trim().orEmpty()
