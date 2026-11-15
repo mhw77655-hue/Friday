@@ -65,11 +65,11 @@ class VoiceService : Service() {
         )
         registry = VoiceProviderRegistry().apply {
             register(
-                SherpaTtsVoiceProvider(modelManager, VoiceModelManifest.kokoroEnInt8, providerId = "sherpa"),
+                SherpaTtsVoiceProvider(modelManager, VoiceModelManifest.kokoroEnInt8, id = "sherpa"),
                 priority = VoiceProviderRegistry.HIGH_PRIORITY
             )
             register(
-                SherpaTtsVoiceProvider(modelManager, VoiceModelManifest.nabraArabicInt8, providerId = "sherpa-arabic"),
+                SherpaTtsVoiceProvider(modelManager, VoiceModelManifest.nabraArabicInt8, id = "sherpa-arabic"),
                 priority = VoiceProviderRegistry.HIGH_PRIORITY
             )
             register(SystemTtsVoiceProvider(this@VoiceService), priority = VoiceProviderRegistry.DEFAULT_PRIORITY)
