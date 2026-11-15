@@ -72,7 +72,14 @@ This is meaningful repository-side construction infrastructure. It means the wor
 
 Those properties are too powerful for an untrusted, model-generated request to trigger. Do not connect Friday's local reflection output directly to this workflow. First harden it into a proposal-only branch workflow: the agent job gets a read-only checkout and no repository-write or release credential; it builds in a disposable workspace and emits a validated patch/result artifact; a separate trusted job uses a narrowly scoped bot credential to create a draft PR on a dedicated branch; required CI and an independent Vision/security gate run; merge and release remain explicitly owner-approved. Protect `main` so neither the old nor new workflow can bypass review.
 
-The Android-side request transport, durable synchronization/reconciliation, per-request worker orchestration, independent Vision gate and release-to-device feedback path are not yet proven end-to-end. Do not claim Friday can already direct her own repository development autonomously.
+The branch now contains the first safe proposal-lane scaffold:
+- A strict versioned request schema and standard-library validator reject unknown fields, unreviewed requests, oversized input, unsupported IDs and common credential patterns.
+- Patch-path checks block edits to GitHub workflows, Ralph control files, Builder validators/inbox, credential/signing files and release artifacts.
+- A bounded OpenCode proposal script runs without a repository-write token and emits a patch artifact only.
+- `.github/workflows/friday-builder-proposal.yml` separates the read-only agent job from a trusted publisher job. The publisher validates the patch and creates a draft PR on `friday-proposals/<request_id>`; it does not merge, sign, release or install. Only the repository owner can dispatch/publish.
+- The Android build workflow now has `contents: read`, disables persisted checkout credentials, and runs Builder contract tests.
+
+This is still a proposal workflow, not an autonomous development loop. It is not yet merged into `main` or exercised end-to-end. The example request remains privacy-review pending. Android does not synchronize requests to the inbox, reconcile worker state, or display the eventual PR/CI/deployment result. The independent Vision gate, required status checks, branch protection and owner-approved merge/release are not yet implemented. The existing legacy Cloud Ralph workflow remains available separately and is still unsafe for Friday-generated requests. Do not claim Friday can already direct her own repository development autonomously.
 
 ## Acceptance tests
 
