@@ -261,8 +261,23 @@ class BodyCoordinator(
         when (event) {
             is BodyEvent.SttResult ->
                 if (event.text.isNotBlank() && newState == BodyState.THINKING) {
-                    beginTurn(event.text)
-                    emitEvent(BodyEvent.UserInput(event.text))
+                    val phoneAction = runCatching {
+                        com.jarvis.app.voice.PhoneCommandInterpreter.dispatch(event.text)
+                    }.getOrNull()
+                    if (phoneAction != null) {
+                        val feedback = when (phoneAction) {
+                            com.jarvis.app.voice.PhoneControlResult.Success -> "Okay."
+                            is com.jarvis.app.voice.PhoneControlResult.NotFound ->
+                                "I couldn't find ${phoneAction.target}."
+                            is com.jarvis.app.voice.PhoneControlResult.Unavailable ->
+                                phoneAction.reason
+                        }
+                        tts?.speak(feedback)
+                        emitEvent(BodyEvent.Reset)
+                    } else {
+                        beginTurn(event.text)
+                        emitEvent(BodyEvent.UserInput(event.text))
+                    }
                 }
             is BodyEvent.UserInput ->
                 if (currentState == BodyState.SPEAKING) {
