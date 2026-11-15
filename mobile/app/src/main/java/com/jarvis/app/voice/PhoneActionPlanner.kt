@@ -17,10 +17,15 @@ import org.json.JSONObject
  * evaluates the proposed action and Android's own service executes it.
  */
 class PhoneActionPlanner(
-    private val complete: suspend (GenerateRequest) -> GenerateResult
+    private val complete: suspend (GenerateRequest) -> GenerateResult,
+    private val localModelReady: suspend () -> Boolean = { true }
 ) {
     constructor(modelManager: ModelManager) : this(
-        complete = { request -> modelManager.generate(request) }
+        complete = { request -> modelManager.generate(request) },
+        localModelReady = {
+            modelManager.activeProvider.value.providerType ==
+                com.jarvis.app.env.ModelProviderType.LLAMA_CPP
+        }
     )
 
     sealed interface Result {
@@ -33,6 +38,11 @@ class PhoneActionPlanner(
     suspend fun plan(utterance: String, screenSnapshot: String): Result {
         if (!isLikelyDeviceRequest(utterance)) return Result.NotPhoneAction
         if (utterance.isBlank()) return Result.NotPhoneAction
+        if (!localModelReady()) {
+            return Result.Unavailable(
+                "Natural phone control needs Friday's on-device model. No screen context was sent to a cloud model."
+            )
+        }
 
         val prompt = buildString {
             appendLine("SPOKEN REQUEST:")
