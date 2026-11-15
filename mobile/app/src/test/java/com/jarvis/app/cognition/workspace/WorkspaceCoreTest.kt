@@ -40,6 +40,30 @@ class WorkspaceCoreTest {
         supersedes = supersedes
     )
 
+
+    @Test
+    fun `a settled prediction stops answering current but remains in retained history`() {
+        val workspace = InMemoryWorkspace()
+        val pending = Claim(
+            id = "prediction-1",
+            kind = ClaimKind.PREDICTION,
+            payload = "next=B",
+            confidence = 0.8,
+            sourceOrgan = "test.predictor",
+            createdAt = 100L,
+            baseline = "next=A"
+        )
+        workspace.publish(pending)
+        assertEquals("prediction-1", workspace.current(ClaimKind.PREDICTION)!!.id)
+
+        workspace.publish(pending.resolved(correct = true))
+
+        assertNull("a prediction is no longer a live forecast after its outcome is known",
+            workspace.current(ClaimKind.PREDICTION))
+        assertEquals("resolved predictions remain queryable for learning",
+            true, workspace.claims(ClaimKind.PREDICTION).single().wasCorrect)
+    }
+
     // ── AC2: three competing interpretations of one utterance ───────────────
 
     @Test
