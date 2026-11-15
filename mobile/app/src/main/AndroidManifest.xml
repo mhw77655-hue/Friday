@@ -57,6 +57,24 @@
             android:process=":inference"
             android:exported="false" />
 
+        <!-- Android system assistant entry point; user selects Friday as default assistant. -->
+        <service
+            android:name=".voice.FridayVoiceInteractionService"
+            android:label="Friday"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.voice.VoiceInteractionService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.voice_interaction"
+                android:resource="@xml/friday_voice_interaction" />
+        </service>
+        <service
+            android:name=".voice.FridayVoiceInteractionSessionService"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
+            android:exported="true" />
+
         <!-- User-enabled phone-wide semantic control for Friday's voice router. -->
         <service
             android:name=".voice.FridayAccessibilityService"
