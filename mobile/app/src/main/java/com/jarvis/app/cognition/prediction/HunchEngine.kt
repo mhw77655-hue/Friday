@@ -137,7 +137,7 @@ class HunchEngine(
     private val store: ExpectationTableStore,
     private val minimumStateObservations: Int = 3,
     private val validationMargin: Double = 0.05
-) {
+) : WorkspaceOrgan {
     override val organId: String = "cognition.hunch"
 
     override fun relevance(claims: List<Claim>, task: WorkspaceTask): Int =
