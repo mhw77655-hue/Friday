@@ -15,6 +15,14 @@ object PhoneCommandInterpreter {
             "show recent apps", "open recents", "recent apps" -> PhoneControlCommand.Recents
             "show notifications", "open notifications", "notifications" -> PhoneControlCommand.Notifications
             "open quick settings", "show quick settings", "quick settings" -> PhoneControlCommand.QuickSettings
+            "open settings", "phone settings", "system settings" -> PhoneControlCommand.OpenSettings
+            "play music", "resume music", "play" -> PhoneControlCommand.PlayMedia
+            "pause music", "pause playback", "pause" -> PhoneControlCommand.PauseMedia
+            "next track", "skip track", "next song" -> PhoneControlCommand.NextTrack
+            "previous track", "last track", "previous song" -> PhoneControlCommand.PreviousTrack
+            "turn up the volume", "increase volume", "volume up", "louder" -> PhoneControlCommand.VolumeUp
+            "turn down the volume", "decrease volume", "volume down", "quieter" -> PhoneControlCommand.VolumeDown
+            "open internet settings", "open wifi settings", "connectivity settings" -> PhoneControlCommand.OpenInternetPanel
             "scroll down", "move down" -> PhoneControlCommand.ScrollForward
             "scroll up", "move up" -> PhoneControlCommand.ScrollBackward
             else -> when {
@@ -39,7 +47,14 @@ object PhoneCommandInterpreter {
         PhoneControlCommand.Recents -> "Show recent applications"
         PhoneControlCommand.Notifications -> "Open the notification shade"
         PhoneControlCommand.QuickSettings -> "Open Android quick settings"
-        PhoneControlCommand.ScrollForward -> "Scroll the active screen down"
+        PhoneControlCommand.OpenSettings -> "Open Android system settings"
+        PhoneControlCommand.PlayMedia -> "Start playback in the active media session"
+        PhoneControlCommand.PauseMedia -> "Pause playback in the active media session"
+        PhoneControlCommand.NextTrack -> "Skip to the next media track"
+        PhoneControlCommand.PreviousTrack -> "Skip to the previous media track"
+        PhoneControlCommand.VolumeUp -> "Increase media volume by one step"
+        PhoneControlCommand.VolumeDown -> "Decrease media volume by one step"
+        PhoneCommandInterpreter -> "Scroll the active screen down"
         PhoneControlCommand.ScrollBackward -> "Scroll the active screen up"
         is PhoneControlCommand.OpenApp -> "Launch installed application named ${command.label}"
         is PhoneControlCommand.TapText -> "Tap an accessible UI control labelled ${command.text}"
