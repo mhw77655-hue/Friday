@@ -2,24 +2,24 @@
 
 **Snapshot:** 2026-11-16  
 **Working branch:** `audit/friday-offline-runtime`  
-**Estimated end-state implementation progress:** **about 32%**
+**Estimated end-state implementation progress:** **about 33%**
 
-This is a milestone-weighted engineering estimate, not a line-count metric and not a claim that 30% of the app is production-ready. The project has 16 equally weighted outcome milestones. Each score estimates how much of that milestone's required outcome is implemented, not merely planned. The rounded total is 32%.
+This is a milestone-weighted engineering estimate, not a line-count metric and not a claim that 30% of the app is production-ready. The project has 16 equally weighted outcome milestones. Each score estimates how much of that milestone's required outcome is implemented, not merely planned. The rounded total is 33%.
 
 | # | Outcome milestone | Estimated completion | Remaining proof / work |
 |---:|---|---:|---|
 | 1 | Independent Android foundation | 55% | Green full CI, lifecycle/process recovery validation, final release hardening |
 | 2 | Persistent identity, history and experience | 45% | Full restart/model-replacement continuity proof and protected recovery |
 | 3 | Lightweight English intelligence and model routing | 40% | Real on-device inference benchmarks, quality-gated admission wired into serving |
-| 4 | Voice, hearing and interruption | 48% | Reliable end-to-end streaming, interruption, multi-step phone workflows and real-device validation |
+| 4 | Voice, hearing and interruption | 50% | Reliable end-to-end streaming, interruption, multi-step phone workflows and real-device validation |
 | 5 | Continuous presence and environmental awareness | 38% | Background/foreground continuity and real-device camera/presence validation |
 | 6 | Nano Liquid Symbiosis host adaptation | 40% | Calibrated resource learning and measured quality-preserving model adaptation |
 | 7 | Experience-driven developmental learning | 25% | Demonstrate durable behaviour changes caused by real experience, not just stored memories |
 | 8 | Predictive cognition / JEPA-inspired mechanisms | 20% | Mature prediction-error learning and evidence of useful low-cost predictive behaviour |
 | 9 | Self-model and individuality | 30% | Calibrated self-knowledge and stable preference/strategy evolution |
 | 10 | Capability Foundry | 45% | Broader safe tool synthesis, outcome learning and stronger validation coverage |
-| 11 | Native phone capabilities | 48% | Multi-step voice workflows, broader Android APIs, permissions and device-specific reliability |
-| 12 | Autonomous self-development | 25% | Structural source graph and local-model reflection now persist; still need durable executable rehydration and a guarded build/promote cycle |
+| 11 | Native phone capabilities | 50% | Multi-step voice workflows, broader Android APIs, permissions and device-specific reliability |
+| 12 | Autonomous self-development | 30% | Guarded local self-study proposals now enter the existing pure-tool builder; still need executable rehydration, deeper source comprehension and restart-proof promotion |
 | 13 | Security, provenance and rollback | 40% | Full self-modification authorization, signed native update and rollback proof |
 | 14 | Life tests | 20% | Full replay/disable/restart/model-replacement suite demonstrating genuine learning |
 | 15 | Real-device validation on the target phone | 0% | No verified test evidence from the owner's Realme 9 Pro 5G yet |
@@ -29,7 +29,7 @@ This is a milestone-weighted engineering estimate, not a line-count metric and n
 
 - Friday remains the intelligence; Jev is an optional TypeSafe cloud decision faculty. Friday's own existing ModelManager now plans one bounded Android action from the spoken request and a privacy-minimized live accessibility snapshot. Screen context stays on-device and is never sent to Jev or a remote phone planner.
 - Jev evaluates the proposed action through Choice, Score and Noul when configured. Friday's local policy remains authoritative: routine navigation may execute after Jev approval; consequential targets and sensitive text still require spoken confirmation. Typed text payloads are redacted before Jev evaluation.
-- The phone-action path now accepts Friday-model plans as well as deterministic phrases, rechecks visible targets by text/content-description/view ID, serializes actions, and contains Android execution failures. It deliberately executes one bounded action at a time; multi-step workflows are not yet complete.
+- The phone-action path now accepts Friday-model plans as well as deterministic phrases, requires exact screen evidence, refuses ambiguous duplicate controls rather than tapping the first match, serializes actions, and contains Android execution failures. Arbitrary UI taps are medium-risk and require confirmation when Jev is unavailable. It deliberately executes one bounded action at a time; multi-step workflows are not yet complete.
 - Added planner and policy tests for screen-target evidence, focused editable fields, local-only screen context, Jev approval, confirmation, cancellation, expiry, natural spoken phrasing, overlapping commands and contained Android execution failures.
 - Reused one process-scoped Jev HTTP client so requests share the connection pool instead of constructing a new client for each command.
 - Wired the production ToolBuilder to Friday's existing ModelManager through LlmSpecSynthesizer. A custom typed capability contract now lets the model synthesize tools outside the five deterministic examples.
@@ -42,7 +42,7 @@ This is a milestone-weighted engineering estimate, not a line-count metric and n
 - Self-study now persists the actual learned host profile: minimum available memory, CPU EMA, thermal/low-memory sample counts, additional memory reserve, maximum process PSS, minimum battery, liquid-symbiosis generation/prediction error, and each organ's learned strategy.
 - Build-time source symbol index generation: source paths, package names, declaration names and a source revision digest are packaged as metadata. The index does not ship Kotlin source text.
 - The source index now includes internal package-import edges and file paths, not just symbol counts. Self-study passes this structural evidence, runtime wiring and measured host/organ data to Friday's existing local llama.cpp model for a short reflection.
-- Self-study reflections and one bounded pure-tool proposal are persisted across process restarts. This is a proposal lane only: it does not yet build or promote the proposed tool.
+- Self-study reflections and one bounded pure-tool proposal are persisted across process restarts. A new guarded bridge can pass that proposal to the existing ToolBuilder as a pure String-to-String synth capability, only with at least 1.4 GB available headroom, normal thermal state, and battery headroom; it applies a six-hour retry cooldown and persists the build outcome. The existing isolated sandbox, generated tests, fitness gate, promotion and rollback still own the actual build. No native code, Android permission, phone-control or APK mutation is allowed in this lane.
 - PresenceEngine now uses PRESENT as Friday's canonical base state. Processing and tool use no longer become a THINKING presence mode; startup no longer transitions through ASLEEP/WAKING, and stale signals return to PRESENT. BodyState IDLE/THINKING remain internal event-pipeline stages, not existence states.
 - The on-demand reasoning organ retains a resource grace period while the resident anchor remains loaded; the resource cooldown is not a Friday idle mode.
 - Removed the Termux runtime-selection entry and the Termux backend test stub. The production app remains Android-native; no Termux host or setup path is required.
@@ -56,8 +56,8 @@ This is a milestone-weighted engineering estimate, not a line-count metric and n
 3. The source index enables structural self-inspection (file paths, declarations and package imports), not arbitrary Kotlin source comprehension or self-rewriting. The local model's reflection is bounded to this evidence.
 4. TypeSafe Jev remains an optional hosted decision faculty, not a downloadable model or Friday's primary intelligence. Friday calls the System One API for typed Choice, Score and Noul evaluations; Friday's local model forms the action plan and the Android body executes it under local policy.
 5. Native app changes still require a signed, verified Android update. Friday must not silently replace her installed package.
-6. Promoted DSL tools are still registered in process-local registries. Workspace source/spec/test artifacts exist, but verified executable-artifact restoration and re-registration after process death are still required before autonomous self-build proposals can safely promote.
+6. Self-study proposals can now be built and promoted inside the running process through the guarded pure-tool lane. Promoted DSL tools are still registered in process-local registries; verified executable-artifact restoration and re-registration after process death remain release blockers.
 
 ## Percentage method
 
-Each of the 16 milestones contributes 6.25 percentage points to the overall estimate. The individual completion values above sum to 519 percentage points; divided by 16 gives 32%. Scores are deliberately partial where code exists but the acceptance proof is missing. Physical-device validation and the first complete release remain at zero.
+Each of the 16 milestones contributes 6.25 percentage points to the overall estimate. The individual completion values above sum to 528 percentage points; divided by 16 gives 33%. Scores are deliberately partial where code exists but the acceptance proof is missing. Physical-device validation and the first complete release remain at zero.
