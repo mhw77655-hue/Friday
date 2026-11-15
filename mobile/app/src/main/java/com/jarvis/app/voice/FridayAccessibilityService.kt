@@ -5,6 +5,12 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityEvent
+import android.media.AudioManager
+import android.provider.Settings
+import com.jarvis.app.android.ActionType
+import com.jarvis.app.android.ControlAction
+import com.jarvis.app.android.MediaSessionControlBackend
+import com.jarvis.app.android.PlatformMediaSessionControlPort
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -34,11 +40,56 @@ class FridayAccessibilityService : AccessibilityService() {
         PhoneControlCommand.Recents -> global(GLOBAL_ACTION_RECENTS)
         PhoneControlCommand.Notifications -> global(GLOBAL_ACTION_NOTIFICATIONS)
         PhoneControlCommand.QuickSettings -> global(GLOBAL_ACTION_QUICK_SETTINGS)
+        PhoneControlCommand.OpenSettings -> openSettings()
+        PhoneControlCommand.PlayMedia -> media(ActionType.PLAY)
+        PhoneControlCommand.PauseMedia -> media(ActionType.PAUSE)
+        PhoneControlCommand.NextTrack -> media(ActionType.NEXT_TRACK)
+        PhoneControlCommand.PreviousTrack -> media(ActionType.PREV_TRACK)
+        PhoneControlCommand.VolumeUp -> adjustVolume(AudioManager.ADJUST_RAISE)
+        PhoneControlCommand.VolumeDown -> adjustVolume(AudioManager.ADJUST_LOWER)
+        PhoneControlCommand.OpenInternetPanel -> openInternetPanel()
         PhoneControlCommand.ScrollForward -> scroll(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
         PhoneControlCommand.ScrollBackward -> scroll(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)
         is PhoneControlCommand.TapText -> tapText(command.text)
         is PhoneControlCommand.TypeText -> typeText(command.text)
         is PhoneControlCommand.OpenApp -> openApp(command.label)
+    }
+
+    private fun openSettings(): PhoneControlResult = runCatching {
+        startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        PhoneControlResult.Success
+    }.getOrElse { PhoneControlResult.Unavailable("Android Settings could not be opened.") }
+
+    private fun openInternetPanel(): PhoneControlResult = runCatching {
+        val intent = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY)
+        } else {
+            Intent(Settings.ACTION_WIRELESS_SETTINGS)
+        }.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        startActivity(intent)
+        PhoneControlResult.Success
+    }.getOrElse { PhoneControlResult.Unavailable("Android connectivity settings could not be opened.") }
+
+    private fun adjustVolume(direction: Int): PhoneControlResult = runCatching {
+        val audio = getSystemService(AUDIO_SERVICE) as AudioManager
+        val before = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+        audio.adjustStreamVolume(AudioManager.STREAM_MUSIC, direction, AudioManager.FLAG_SHOW_UI)
+        val after = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+        if (after != before) PhoneControlResult.Success
+        else PhoneControlResult.Unavailable("Media volume did not change; it may already be at its limit.")
+    }.getOrElse { PhoneControlResult.Unavailable("Android did not allow the volume change.") }
+
+    private fun media(type: ActionType): PhoneControlResult {
+        val backend = MediaSessionControlBackend(PlatformMediaSessionControlPort(this))
+        val evidence = backend.execute(
+            ControlAction(
+                id = "voice-${type.name.lowercase()}",
+                actionType = type,
+                riskTier = com.jarvis.app.android.RiskTier.LOW
+            )
+        )
+        return if (evidence.isComplete) PhoneControlResult.Success
+        else PhoneControlResult.Unavailable("No permitted media session confirmed that action.")
     }
 
     private fun global(action: Int): PhoneControlResult =
@@ -115,6 +166,14 @@ sealed interface PhoneControlCommand {
     data object Recents : PhoneControlCommand
     data object Notifications : PhoneControlCommand
     data object QuickSettings : PhoneControlCommand
+    data object OpenSettings : PhoneControlCommand
+    data object PlayMedia : PhoneControlCommand
+    data object PauseMedia : PhoneControlCommand
+    data object NextTrack : PhoneControlCommand
+    data object PreviousTrack : PhoneControlCommand
+    data object VolumeUp : PhoneControlCommand
+    data object VolumeDown : PhoneControlCommand
+    data object OpenInternetPanel : PhoneControlCommand
     data object ScrollForward : PhoneControlCommand
     data object ScrollBackward : PhoneControlCommand
     data class TapText(val text: String) : PhoneControlCommand
