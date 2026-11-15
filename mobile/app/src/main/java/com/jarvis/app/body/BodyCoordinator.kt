@@ -58,7 +58,8 @@ class BodyCoordinator(
     private val failureSurface: com.jarvis.app.failure.FailureSurface,
     private val recoveryController: com.jarvis.app.failure.RecoveryController,
     private val scope: CoroutineScope,
-    private val cognitiveEngine: com.jarvis.app.cognitive.CognitiveEngine? = null
+    private val cognitiveEngine: com.jarvis.app.cognitive.CognitiveEngine? = null,
+    private val phoneDecisionTool: com.jarvis.app.voice.FridayPhoneDecisionTool? = null
 ) {
 
     // ── State ──
@@ -283,7 +284,7 @@ class BodyCoordinator(
                         if (command != null) {
                             scope.launch {
                                 val apiKey = com.jarvis.app.voice.JevApiKeyStore(context).read()
-                                val decisionTool = com.jarvis.app.voice.FridayPhoneDecisionTool { utterance, description, risk ->
+                                val decisionTool = phoneDecisionTool ?: com.jarvis.app.voice.FridayPhoneDecisionTool { utterance, description, risk ->
                                     val configuredKey = apiKey ?: return@FridayPhoneDecisionTool null
                                     com.jarvis.app.voice.JevDecisionClient(
                                         com.jarvis.app.voice.JevApiKeyProvider { configuredKey }
