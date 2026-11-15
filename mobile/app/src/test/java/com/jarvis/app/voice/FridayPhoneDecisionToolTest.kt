@@ -44,6 +44,30 @@ class FridayPhoneDecisionToolTest {
         assertEquals(FridayPhoneDecisionTool.Source.FRIDAY_LOCAL_POLICY, result.source)
     }
 
+    @Test fun `Jev can approve routine visible navigation without a second confirmation`() = runBlocking {
+        val tool = FridayPhoneDecisionTool { _, _, risk ->
+            assertEquals("low", risk)
+            JevActionDecision(
+                choice = "execute",
+                confidence = 0.99,
+                probabilities = mapOf("execute" to 0.99),
+                riskScore = 0.1,
+                riskConfidence = 0.99,
+                explicitAuthorization = 0.99,
+                targetClarity = 0.99
+            )
+        }
+
+        val result = tool.judge(
+            utterance = "tap Settings",
+            command = PhoneCommandInterpreter.parse("tap Settings")!!,
+            remoteConfigured = true
+        )
+
+        assertEquals(FridayPhoneDecisionTool.Verdict.EXECUTE, result.verdict)
+        assertEquals(FridayPhoneDecisionTool.Source.TYPESAFE_JEV, result.source)
+    }
+
     @Test fun `typed private content is redacted before Jev evaluation`() = runBlocking {
         var sentText = ""
         val tool = FridayPhoneDecisionTool { utterance, _, _ ->
