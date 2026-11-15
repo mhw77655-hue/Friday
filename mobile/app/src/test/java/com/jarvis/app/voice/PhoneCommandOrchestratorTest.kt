@@ -108,6 +108,21 @@ class PhoneCommandOrchestratorTest {
         assertEquals(0, executions)
     }
 
+    @Test fun `Android execution exception becomes a contained unavailable result`() = runBlocking {
+        val router = PhoneCommandOrchestrator(
+            decisionTool = { FridayPhoneDecisionTool { _, _, _ -> null } },
+            remoteConfigured = { false },
+            execute = { throw IllegalStateException("platform bridge failure") }
+        )
+
+        val result = router.handle("go home")
+
+        assertTrue(result is PhoneCommandOrchestrator.Outcome.Executed)
+        assertTrue(
+            (result as PhoneCommandOrchestrator.Outcome.Executed).result is PhoneControlResult.Unavailable
+        )
+    }
+
     @Test fun `Jev rejection blocks action execution`() = runBlocking {
         var executions = 0
         val router = PhoneCommandOrchestrator(
