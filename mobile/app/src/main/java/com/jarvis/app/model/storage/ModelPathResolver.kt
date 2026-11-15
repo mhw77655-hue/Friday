@@ -10,10 +10,9 @@ import java.io.File
  *
  * Resolution order:
  * 1. Explicit absolute filesystem path.
- * 2. Canonical shared JARVIS model vault:
- *      /sdcard/jarvis-repo/models/
- * 3. App-specific external files/models/
- * 4. App-private files/models/
+ * 2. Friday's app-private files/models/ (the owned, default model vault).
+ * 3. App-specific external files/models/ (migration fallback).
+ * 4. Canonical shared JARVIS model vault (legacy migration fallback).
  *
  * IMPORTANT:
  * - Model IDs may be aliases rather than filenames.
@@ -32,8 +31,7 @@ class ModelPathResolver(
             "resident" to "LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
             "jarvis-resident:latest" to "LFM2.5-1.2B-Instruct-Q4_K_M.gguf",
             "jarvis-reasoning:latest" to "Qwen3-1.7B-Q4_K_M.gguf",
-            "qwen3-1.7b" to "Qwen3-1.7B-Q8_0.gguf",
-            "qwen3-1.7b-q8" to "Qwen3-1.7B-Q8_0.gguf",
+            "qwen3-1.7b" to "Qwen3-1.7B-Q4_K_M.gguf",
             "qwen3-1.7b-q4" to "Qwen3-1.7B-Q4_K_M.gguf",
             "qwen3-1.7b-q4_k_m" to "Qwen3-1.7B-Q4_K_M.gguf"
         )
@@ -51,7 +49,7 @@ class ModelPathResolver(
                 return id
             }
 
-            return "Qwen3-1.7B-Q4_K_M.gguf"
+            return "LFM2.5-1.2B-Instruct-Q4_K_M.gguf"
         }
 
         private fun looksLikeAbsoluteFilePath(value: String): Boolean {
@@ -87,38 +85,22 @@ class ModelPathResolver(
                 }
             }
 
-        // 2. Canonical shared JARVIS model vault.
-        val canonical = File(
-            CANONICAL_MODEL_ROOT,
-            fileName
-        )
-
-        if (canonical.isFile && canonical.canRead()) {
-            return canonical
+        // 2. Friday's own private vault is authoritative. Offline inference
+        // must not silently depend on a shared-storage or Termux-managed copy.
+        val privateFile = File(context.filesDir, "models/$fileName")
+        if (privateFile.isFile && privateFile.canRead()) {
+            return privateFile
         }
 
-        // 3. App-specific external storage.
-        context.getExternalFilesDir(null)
-            ?.let { externalRoot ->
-                val external = File(
-                    externalRoot,
-                    "models/$fileName"
-                )
-
-                if (external.isFile && external.canRead()) {
-                    return external
-                }
-            }
-
-        // 4. App-private storage.
-        val private = File(
-            context.filesDir,
-            "models/$fileName"
-        )
-
-        if (private.isFile && private.canRead()) {
-            return private
+        // 3. Legacy app-specific external storage, for migration only.
+        context.getExternalFilesDir(null)?.let { externalRoot ->
+            val external = File(externalRoot, "models/$fileName")
+            if (external.isFile && external.canRead()) return external
         }
+
+        // 4. Legacy shared model vault, retained only to migrate old installs.
+        val canonical = File(CANONICAL_MODEL_ROOT, fileName)
+        if (canonical.isFile && canonical.canRead()) return canonical
 
         return null
     }
