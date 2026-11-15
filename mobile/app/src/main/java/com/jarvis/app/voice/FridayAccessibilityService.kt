@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityEvent
+import android.graphics.Rect
 import android.media.AudioManager
 import android.provider.Settings
 import com.jarvis.app.android.ActionType
@@ -133,34 +134,114 @@ class FridayAccessibilityService : AccessibilityService() {
         else PhoneControlResult.Unavailable("Android rejected this system action.")
 
     private fun tapText(text: String): PhoneControlResult {
-        val root = rootInActiveWindow ?: return PhoneControlResult.Unavailable("No accessible screen is active.")
-        val nodes = root.findAccessibilityNodeInfosByText(text).toMutableList()
-        fun collectSemanticMatches(node: AccessibilityNodeInfo, depth: Int) {
-            if (depth > 12) return
+        val root = rootInActiveWindow
+            ?: return PhoneControlResult.Unavailable("No accessible screen is active.")
+        val targets = linkedMapOf<String, AccessibilityNodeInfo>()
+
+        fun visit(node: AccessibilityNodeInfo, depth: Int) {
+            if (depth > 12 || !node.isVisibleToUser || !node.isEnabled) return
+            // Never inspect editable/password contents while resolving a target.
+            val label = if (node.isEditable || node.isPassword) "" else node.text?.toString().orEmpty()
             val description = node.contentDescription?.toString().orEmpty()
             val resourceId = node.viewIdResourceName.orEmpty()
-            val matches = description.equals(text, ignoreCase = true) ||
+            val matches = label.equals(text, ignoreCase = true) ||
+                description.equals(text, ignoreCase = true) ||
                 resourceId.equals(text, ignoreCase = true) ||
                 resourceId.endsWith("/$text", ignoreCase = true)
-            if (matches && node.isVisibleToUser && nodes.none { it == node }) {
-                nodes += AccessibilityNodeInfo.obtain(node)
+            if (matches) {
+                val clickable = generateSequence(node) { it.parent }.firstOrNull { it.isClickable } ?: node
+                val bounds = Rect()
+                clickable.getBoundsInScreen(bounds)
+                val key = listOf(
+                    clickable.viewIdResourceName.orEmpty(),
+                    bounds.flattenToString(),
+                    clickable.className?.toString().orEmpty()
+                ).joinToString("#")
+                if (!targets.containsKey(key)) {
+                    targets[key] = AccessibilityNodeInfo.obtain(clickable)
+                }
             }
             for (index in 0 until node.childCount) {
                 val child = node.getChild(index) ?: continue
-                collectSemanticMatches(child, depth + 1)
+                visit(child, depth + 1)
                 child.recycle()
             }
         }
-        collectSemanticMatches(root, 0)
-        val target = nodes.firstOrNull { it.isVisibleToUser && it.isEnabled }
-        if (target == null) {
-            nodes.forEach { it.recycle() }
-            return PhoneControlResult.NotFound(text)
+
+        visit(root, 0)
+        val candidates = targets.map { (key, node) ->
+            PhoneTargetCandidate(
+                targetKey = key,
+                text = if (node.isEditable || node.isPassword) "" else node.text?.toString().orEmpty(),
+                contentDescription = node.contentDescription?.toString().orEmpty(),
+                resourceId = node.viewIdResourceName.orEmpty()
+            )
         }
-        val clickable = generateSequence(target) { it.parent }.firstOrNull { it.isClickable } ?: target
-        val ok = clickable.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-        nodes.forEach { it.recycle() }
-        return if (ok) PhoneControlResult.Success else PhoneControlResult.Unavailable("The control could not be activated.")
+        // Resolve from the actual matching descendants, not just clickable
+        // ancestors: a parent button may carry no label of its own.
+        val matchingKeys = targets.filterValues { clickable ->
+            val bounds = Rect()
+            clickable.getBoundsInScreen(bounds)
+            val key = listOf(
+                clickable.viewIdResourceName.orEmpty(),
+                bounds.flattenToString(),
+                clickable.className?.toString().orEmpty()
+            ).joinToString("#")
+            key
+        }.keys
+        val descendantCandidates = collectTargetCandidates(root, text)
+        val resolution = PhoneTargetResolver.resolve(text, descendantCandidates)
+        val result = when (resolution) {
+            PhoneTargetResolver.Result.Missing -> PhoneControlResult.NotFound(text)
+            is PhoneTargetResolver.Result.Ambiguous ->
+                PhoneControlResult.Ambiguous(text, resolution.count)
+            is PhoneTargetResolver.Result.Unique -> {
+                val target = targets[resolution.targetKey]
+                if (target == null) PhoneControlResult.NotFound(text)
+                else if (target.performAction(AccessibilityNodeInfo.ACTION_CLICK)) PhoneControlResult.Success
+                else PhoneControlResult.Unavailable("The control could not be activated.")
+            }
+        }
+        targets.values.forEach { it.recycle() }
+        return result
+    }
+
+    private fun collectTargetCandidates(
+        root: AccessibilityNodeInfo,
+        requested: String
+    ): List<PhoneTargetCandidate> {
+        val byClickableTarget = linkedMapOf<String, PhoneTargetCandidate>()
+        fun visit(node: AccessibilityNodeInfo, depth: Int) {
+            if (depth > 12 || !node.isVisibleToUser || !node.isEnabled) return
+            val label = if (node.isEditable || node.isPassword) "" else node.text?.toString().orEmpty()
+            val description = node.contentDescription?.toString().orEmpty()
+            val resourceId = node.viewIdResourceName.orEmpty()
+            val matches = label.equals(requested, ignoreCase = true) ||
+                description.equals(requested, ignoreCase = true) ||
+                resourceId.equals(requested, ignoreCase = true) ||
+                resourceId.endsWith("/$requested", ignoreCase = true)
+            if (matches) {
+                val clickable = generateSequence(node) { it.parent }.firstOrNull { it.isClickable } ?: node
+                val bounds = Rect()
+                clickable.getBoundsInScreen(bounds)
+                val key = listOf(
+                    clickable.viewIdResourceName.orEmpty(),
+                    bounds.flattenToString(),
+                    clickable.className?.toString().orEmpty()
+                ).joinToString("#")
+                byClickableTarget.putIfAbsent(
+                    key,
+                    PhoneTargetCandidate(key, label, description, resourceId)
+                )
+            }
+            for (index in 0 until node.childCount) {
+                val child = node.getChild(index) ?: continue
+                visit(child, depth + 1)
+                child.recycle()
+            }
+        }
+        visit(root, 0)
+        return byClickableTarget.values.toList()
     }
 
     private fun scroll(action: Int): PhoneControlResult {
@@ -243,6 +324,7 @@ sealed interface PhoneControlCommand {
 sealed interface PhoneControlResult {
     data object Success : PhoneControlResult
     data class NotFound(val target: String) : PhoneControlResult
+    data class Ambiguous(val target: String, val matches: Int) : PhoneControlResult
     data class Unavailable(val reason: String) : PhoneControlResult
     data class UserActionRequired(val reason: String) : PhoneControlResult
 }
