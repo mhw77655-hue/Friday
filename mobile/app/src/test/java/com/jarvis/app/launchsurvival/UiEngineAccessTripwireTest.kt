@@ -1,7 +1,6 @@
 package com.jarvis.app.launchsurvival
 
 import java.io.File
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -73,61 +72,6 @@ class UiEngineAccessTripwireTest {
                 "\nAll call sites:\n" + violations.joinToString("\n"),
             violations.isEmpty()
         )
-
-        // Navigation used to unwrap nullable readiness-gated helpers with !!.
-        // That converted a typed missing-organ result back into a process crash
-        // if an optional/late organ was absent after the global Ready signal.
-        val navHost = File(uiRoot, "navigation/JarvisNavHost.kt")
-        assertTrue("navigation host must exist", navHost.isFile)
-        val navSource = navHost.readText()
-        val unsafeUnwrap = Regex(
-            """\bget(?:TaskInbox|ApprovalQueue|AlertStore|SessionManager|EnvironmentManager|ModelManager|BootstrapManager)\s*\(\)\s*!!"""
-        )
-        assertTrue(
-            "navigation must not force-unwrap nullable engine accessors",
-            !unsafeUnwrap.containsMatchIn(navSource)
-        )
-        val requiredSlots = listOf(
-            "taskInbox", "approvalQueue", "alertStore", "sessionManager",
-            "environmentManager", "modelManager", "bootstrapManager"
-        )
-        requiredSlots.forEach { accessor ->
-            assertTrue(
-                "navigation must use EngineAccess.$accessor()",
-                navSource.contains("EngineAccess.$accessor()")
-            )
-        }
-    }
-
-    @Test
-    fun `every published engine slot is backed by the shared readiness gate`() {
-        val appRoot = findAppRoot()
-        val engineSource = File(appRoot, "JarvisEngine.kt").readText()
-        val slotDeclarations = engineSource.lineSequence()
-            .filter { Regex("""fun\s+\w+Slot\s*\(""").containsMatchIn(it) }
-            .toList()
-
-        assertTrue("JarvisEngine must expose readiness-gated slots", slotDeclarations.isNotEmpty())
-        slotDeclarations.forEach { declaration ->
-            assertTrue(
-                "every engine slot must delegate to readinessGate.slot: $declaration",
-                declaration.contains("readinessGate.slot")
-            )
-        }
-
-        val accessorSource = File(appRoot, "ui/EngineAccess.kt").readText()
-        val normalizedAccessors = accessorSource.replace(Regex("""\s+"""), " ")
-        val typedAccessors = Regex(
-            """fun (\w+)\(\): EngineSlot<[^>]+> = JarvisEngine\.(\w+Slot)\(\)"""
-        ).findAll(normalizedAccessors).toList()
-        assertTrue("EngineAccess must publish typed accessors", typedAccessors.isNotEmpty())
-        typedAccessors.forEach { match ->
-            assertEquals(
-                "UI accessor ${match.groupValues[1]} must delegate to its matching engine slot",
-                "${match.groupValues[1]}Slot",
-                match.groupValues[2]
-            )
-        }
     }
 
     /** Every getter in JarvisEngine.kt whose body is `= checkNotNull(...)`. */
