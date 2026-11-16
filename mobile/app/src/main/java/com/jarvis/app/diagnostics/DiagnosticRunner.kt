@@ -241,6 +241,35 @@ class DiagnosticRunner(private val app: Application) {
         cause: String, action: String
     ) = DiagnosticFinding(severity, title, observed, cause, action)
 
+    /**
+     * Structured OS-owned exit records, including the ANR/native trace when
+     * Android makes one available. This is the critical cross-process evidence
+     * that survives Friday's process being killed.
+     */
+    fun exitHistoryJson(): JSONArray {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return JSONArray()
+        val activity = app.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val exits = runCatching {
+            activity.getHistoricalProcessExitReasons(app.packageName, 0, 12)
+        }.getOrDefault(emptyList())
+        return JSONArray().apply {
+            exits.take(12).forEach { exit ->
+                val trace = runCatching {
+                    exit.traceInputStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText().take(12000) }
+                }.getOrNull()
+                put(JSONObject()
+                    .put("timestamp_ms", exit.timestamp)
+                    .put("reason_code", exit.reason)
+                    .put("status", exit.status)
+                    .put("process", exit.processName)
+                    .put("importance", exit.importance)
+                    .put("description", exit.description?.take(500) ?: JSONObject.NULL)
+                    .put("trace_available", !trace.isNullOrBlank())
+                    .put("trace_excerpt", trace ?: JSONObject.NULL))
+            }
+        }
+    }
+
     fun toJson(findings: List<DiagnosticFinding>) = JSONObject()
         .put("diagnostic_schema", "friday-active-diagnostics-v1")
         .put("finding_count", findings.size)
