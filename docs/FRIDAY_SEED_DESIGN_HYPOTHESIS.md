@@ -126,3 +126,21 @@ For each mechanism, record:
 - how continuity survives its removal.
 
 Do not merge this design document into main as authority. It is a working proposal subordinate to Venon's latest explicit direction.
+
+
+## Implementation slice committed on the repair branch (2026-11-16)
+
+The first experiment now exists in production source:
+
+- `cognitive/seed/FridaySeedSubstrate.kt`: app-private binary experience journal, arbitrary feature keys, online associative updates, explicit context→observed-outcome links, inference, bounded storage, and restart replay. It is a deliberately small adaptive substrate, not a claim of a complete mind.
+- `cognitive/seed/FridayModelFreeMind.kt`: limited local expression for identity/greeting/learned-association requests and explicit honesty for unsupported free-form language. It does not imitate an LLM.
+- `LatencyPipeline`: records each incoming experience and observed reply association; if the model bridge errors or the reply deadline expires, it attempts the independent local expression path before the generic model failure.
+- `TurnPathAssembly`: stores the seed journal under app-private `filesDir/friday/seed/experiences.bin` and wires the seed into the production turn pipeline.
+- `FridayAvatar.kt`: the previous human face was removed and replaced by an asymmetric, continuously evolving filament topology. It has no eyes, nose, mouth or human silhouette; it does not map a fixed list of psychological states to poses. Audio amplitude can influence the topology's energy when measured playback data exists.
+- Unit tests cover cross-context association, restart persistence, empty-evidence non-inference, input bounds, model-free self-description, honest unknown handling, bridge-error fallback and timeout fallback.
+
+### What this proves and does not prove
+
+This is the first real model-independent substrate and fallback path in the production composition. It demonstrates that the app can preserve feature-level experience and reuse learned associations without a language model. It does **not** yet demonstrate broad semantic understanding, general intelligence, open-ended self-development, autonomous goals, subjective consciousness, or full independence from every external capability. The model-free language path remains intentionally limited. The visual topology is a first procedural embodiment experiment, not a final identity design.
+
+CI and target-phone validation remain separate acceptance gates. Do not mark this slice complete until the current head's Android build and unit tests pass, then verify model-disabled operation on the actual handset.
