@@ -18,8 +18,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jarvis.app.DiagnosticsViewModel
-import com.jarvis.app.JarvisEngine
 import com.jarvis.app.ui.components.StateChip
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
@@ -59,8 +56,7 @@ fun SystemScreen() {
             Toast.makeText(context, message, Toast.LENGTH_LONG).show()
         }
     }
-    val brainStatus by remember { EngineAccess.modelManager().value?.status ?: MutableStateFlow("idle") }
-        .collectAsStateWithLifecycle()
+    val brainStatus by diagnosticsViewModel.modelRuntimeText.collectAsStateWithLifecycle()
     val networkText by diagnosticsViewModel.networkText.collectAsStateWithLifecycle()
     val batteryText by diagnosticsViewModel.batteryText.collectAsStateWithLifecycle()
     val shizukuText by diagnosticsViewModel.shizukuText.collectAsStateWithLifecycle()
@@ -145,10 +141,11 @@ private fun substrateDotColor(text: String): Color {
 }
 
 private fun brainDotColor(status: String) = when {
-    status == "sending (local)" -> JarvisColors.CoreThinking
-    status.startsWith("local brain unreachable") -> JarvisColors.CoreWarning
-    status == "ok (local)" -> JarvisColors.CoreSuccess
-    else -> JarvisColors.CoreIdle
+    status.startsWith("loaded:") -> JarvisColors.CoreSuccess
+    status.startsWith("model-free fallback") -> JarvisColors.CoreIdle
+    status.contains("no model confirmed loaded") -> JarvisColors.CoreWarning
+    status.contains("unavailable") -> JarvisColors.CoreWarning
+    else -> JarvisColors.CoreUnknown
 }
 
 private fun batteryDotColor(text: String): Color {
