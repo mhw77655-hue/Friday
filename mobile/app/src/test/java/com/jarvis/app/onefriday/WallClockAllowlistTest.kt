@@ -137,7 +137,7 @@ class WallClockAllowlistTest {
         put("capability/CapabilityRegistry.kt", 1)
 
         // ── cognitive: the turn itself ────────────────────────────────────────
-        put("cognitive/CognitiveEngine.kt", 1)
+        put("cognitive/CognitiveEngine.kt", 10)
         put("cognitive/CognitiveState.kt", 11)
         put("cognitive/AttentionEngine.kt", 6)
         put("cognitive/WorkingMemory.kt", 7)
@@ -231,7 +231,7 @@ class WallClockAllowlistTest {
 
         put("capability/CapabilityRegistry.kt", "a capability's last-activated stamp, so an idle capability can be recognised")
 
-        put("cognitive/CognitiveEngine.kt", "constructor fallback clock for isolated hosts/tests; Android injects PlatformPorts.nowMs, while elapsed stage timing uses System.nanoTime")
+        put("cognitive/CognitiveEngine.kt", "one constructor fallback for isolated hosts plus nine monotonic System.nanoTime measurements for stage durations, never cognitive timestamps")
         put("cognitive/CognitiveState.kt", "state-record createdAt/lastAccessed/timestamp defaults and the uncertainty-profile clock")
         put("cognitive/AttentionEngine.kt", "attention-event timestamps and the time-since-seen decay inputs")
         put("cognitive/WorkingMemory.kt", "working-memory access-order stamps and the age reads that evict an item")
