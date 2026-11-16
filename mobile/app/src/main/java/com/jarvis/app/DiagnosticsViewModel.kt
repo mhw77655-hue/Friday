@@ -108,6 +108,14 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             "associations=${individual.experience.associationCount()}"
     }
 
+    private fun safeLastModelTurnSummary(): String = when {
+        lastBrainText.startsWith("ok (local)") -> "last turn succeeded"
+        lastBrainText.startsWith("sending") -> "turn in progress"
+        lastBrainText.startsWith("retrying") -> "turn retrying"
+        lastBrainText.startsWith("local brain unreachable") -> "last turn failed"
+        else -> "no completed model turn recorded"
+    }
+
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
@@ -383,7 +391,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             .put("voice_process", voiceSubstrateText.value)
             .put("screen_context", "content intentionally omitted by privacy policy")
             .put("model_runtime", modelRuntimeDiagnosticText())
-            .put("last_model_turn_status", lastBrainText)
+            .put("last_model_turn_status", safeLastModelTurnSummary())
             .put("individual_memory", lastIndividualText)
             .put("failure_surface", failureText.value))
         val eventSnapshot = diagnosticEvents.snapshot()
@@ -398,6 +406,13 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                     .put("state", event.state))
             }
         })
+        val individual = JarvisEngine.fridayIndividual
+        report.put("individual", individual?.let {
+            JSONObject()
+                .put("identity_name", it.identity.name)
+                .put("experience_count", it.experience.experienceCount())
+                .put("association_count", it.experience.associationCount())
+        } ?: JSONObject.NULL)
         report.put("last_crash", CrashJournal.read(app) ?: JSONObject.NULL)
         report.put("telemetry_summary", Telemetry.summarize())
         report.put("privacy", JSONObject()
