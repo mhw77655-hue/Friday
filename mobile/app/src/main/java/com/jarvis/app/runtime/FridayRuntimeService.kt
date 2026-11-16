@@ -49,6 +49,7 @@ class FridayRuntimeService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        FridayRuntimeController.setMicrophoneServiceActive(this, false)
         createNotificationChannel()
     }
 
@@ -114,6 +115,7 @@ class FridayRuntimeService : Service() {
                 if (JarvisMic.isRecording.value) JarvisMic.stop()
                 JarvisMic.start(runtimeScope)
                 microphoneOwned = JarvisMic.isRecording.value
+                FridayRuntimeController.setMicrophoneServiceActive(this@FridayRuntimeService, microphoneOwned)
             }
         }
 
@@ -142,6 +144,7 @@ class FridayRuntimeService : Service() {
             JarvisMic.stop()
             microphoneOwned = false
         }
+        FridayRuntimeController.setMicrophoneServiceActive(this, false)
     }
 
     private fun buildNotification(microphone: Boolean): Notification {
@@ -206,6 +209,7 @@ object FridayRuntimeController {
     private const val PREFS = "friday_runtime"
     private const val KEY_ENABLED = "keep_alive_enabled"
     private const val KEY_START_FAILURE = "last_start_failure"
+    private const val KEY_MICROPHONE_ACTIVE = "microphone_service_active"
 
     fun isEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -248,6 +252,15 @@ object FridayRuntimeController {
             Intent(context, FridayRuntimeService::class.java)
                 .setAction(FridayRuntimeService.ACTION_STOP)
         )
+    }
+
+    fun isMicrophoneServiceActive(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_MICROPHONE_ACTIVE, false)
+
+    internal fun setMicrophoneServiceActive(context: Context, active: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_MICROPHONE_ACTIVE, active).apply()
     }
 
     fun lastStartFailure(context: Context): String =
