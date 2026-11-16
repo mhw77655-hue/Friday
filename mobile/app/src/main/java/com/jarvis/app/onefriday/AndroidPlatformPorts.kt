@@ -4,8 +4,7 @@ import android.content.Context
 import com.jarvis.app.ObsidianSync
 import com.jarvis.app.companioncore.presence.CompanionCoreHolder
 import com.jarvis.app.failure.FailureSurface
-import com.jarvis.app.humancore.HumanCore
-import com.jarvis.app.humancore.protocol.SessionContext
+import com.jarvis.app.turn.TurnContext
 import com.jarvis.app.latency.AckSpeech
 import com.jarvis.app.latency.LatencyLayer
 import com.jarvis.app.latency.WarmupEngine
@@ -85,16 +84,14 @@ class AndroidPlatformPorts(
      * The same per-turn session context the app built, now derived from the
      * injected clock so one Friday has exactly one notion of "now".
      */
-    override fun sessionContext(): SessionContext {
-        val snapshot = HumanCore.snapshot()
-        val presence = snapshot?.presence
-        val calendar = Calendar.getInstance()
+    override fun sessionContext(): TurnContext {
+                val calendar = Calendar.getInstance()
         calendar.timeInMillis = clock()
-        return SessionContext(
-            channel = SessionContext.Channel.MOBILE_APP,
+        return TurnContext(
+            channel = TurnContext.Channel.ANDROID_APP,
             localHour = calendar.get(Calendar.HOUR_OF_DAY),
-            secondsSinceLastContact = snapshot?.secondsSinceLastContact,
-            wasAway = presence?.mode != com.jarvis.app.humancore.protocol.PresenceState.Mode.ACTIVE,
+            secondsSinceLastContact = null,
+            wasAway = null,
             prosody = null
         )
     }
