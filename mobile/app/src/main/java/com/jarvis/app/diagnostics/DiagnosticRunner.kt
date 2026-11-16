@@ -220,20 +220,70 @@ class DiagnosticRunner(private val app: Application) {
     private fun classifySignal(name: String, raw: String): DiagnosticFinding {
         val value = raw.trim().ifBlank { "No status reported." }
         val lower = value.lowercase()
-        val error = listOf("failed", "unreachable", "crash", "down", "error", "unavailable", "not granted", "not running").any(lower::contains)
-        val warning = listOf("idle", "unknown", "initializing", "checking", "not loaded", "no model confirmed", "offline").any(lower::contains)
-        val severity = when { error -> DiagnosticSeverity.ERROR; warning -> DiagnosticSeverity.WARNING; else -> DiagnosticSeverity.INFO }
-        val action = when {
-            lower.contains("speech recognition") || name.contains("speech", true) ->
-                "Check RECORD_AUDIO permission, recognizer availability and the last recognition error; an idle recognizer is not a successful speech test."
-            name.contains("model", true) -> "Verify the selected provider, model load state and a real inference round-trip; selection alone is not proof of a loaded model."
-            name.contains("voice", true) -> "Check the voice process binding, PID, ping and restart history; then run a real synthesis playback test."
-            name.contains("microphone", true) -> "Check microphone permission and run a short capture-level test; energy monitoring is not speech recognition."
-            else -> "Inspect the subsystem's own error and run its feature-level test; a status label alone is not proof of end-to-end function."
+        val key = name.lowercase()
+        val (severity, assessment, action) = when (key) {
+            "failure_surface" -> when {
+                lower.contains("failures: none") || lower.contains("0 down, 0 degraded") ->
+                    Triple(DiagnosticSeverity.PASS, "FailureSurface reports no currently registered failures.", "No action required.")
+                Regex("\\b[1-9][0-9]* down\\b|\\b[1-9][0-9]* degraded\\b").containsMatchIn(lower) ->
+                    Triple(DiagnosticSeverity.ERROR, "FailureSurface reports one or more degraded or unavailable components.", "Open the component failure details and resolve the first causal failure.")
+                else -> Triple(DiagnosticSeverity.INFO, "FailureSurface returned a status that needs interpretation.", "Inspect the detailed failure registry; this status alone is not proof of health.")
+            }
+            "model_runtime" -> when {
+                lower.contains("no model confirmed") || lower.contains("not loaded") ->
+                    Triple(DiagnosticSeverity.WARNING, "A provider is selected, but no model is confirmed loaded.", "Load a compatible model and run a real prompt-to-response inference round-trip.")
+                listOf("failed", "crash", "error", "unavailable").any(lower::contains) ->
+                    Triple(DiagnosticSeverity.ERROR, "The model runtime reports a failure.", "Inspect model path, native library load, memory admission and inference-service crash history.")
+                else -> Triple(DiagnosticSeverity.INFO, "Model status was observed but end-to-end inference is not proven.", "Run a real inference round-trip and record its model ID, latency and result.")
+            }
+            "notifications" -> if (lower.contains("not granted") || lower.contains("not enabled"))
+                Triple(DiagnosticSeverity.WARNING, "Notification access is not granted; this is an optional integration, not a core-runtime crash.", "Grant notification access only if Friday is expected to read notifications.")
+            else Triple(DiagnosticSeverity.INFO, "Notification integration status observed.", "No action required unless notification features are part of the current test.")
+            "shizuku" -> if (lower.contains("running") && lower.contains("not granted"))
+                Triple(DiagnosticSeverity.INFO, "Shizuku is running but Friday has not been granted access; this optional bridge is unavailable.", "Grant Shizuku access only if a feature explicitly requires it.")
+            else if (lower.contains("failed") || lower.contains("unavailable"))
+                Triple(DiagnosticSeverity.WARNING, "Optional Shizuku integration is unavailable.", "Check Shizuku service and permission only if a dependent feature is needed.")
+            else Triple(DiagnosticSeverity.INFO, "Shizuku integration status observed.", "No action required for core Friday operation.")
+            "hotword" -> if (lower.contains("unknown") || lower.contains("manual tap"))
+                Triple(DiagnosticSeverity.WARNING, "Always-on hotword detection is not confirmed; manual tap-to-listen is available.", "Treat hotword as unimplemented until a real background wake-word test passes.")
+            else Triple(DiagnosticSeverity.INFO, "Hotword status observed.", "Run a wake-word test in foreground and background before marking it operational.")
+            "individual_memory" -> if (lower.contains("experiences=0") || lower.contains("associations=0"))
+                Triple(DiagnosticSeverity.WARNING, "Friday's identity exists but no persisted experience/association learning is evidenced yet.", "Run a conversation, persist an experience, restart Friday and verify retrieval.")
+            else Triple(DiagnosticSeverity.INFO, "Individual memory status observed.", "Verify a write, restart and retrieval cycle rather than relying on counters.")
+            "speech_recognition" -> when {
+                lower.contains("ready") && lower.contains("waiting") ->
+                    Triple(DiagnosticSeverity.INFO, "Speech recognition is ready but has not been asked to listen.", "Trigger a real microphone-to-transcript test and inspect recognition callbacks.")
+                lower.contains("failed") || lower.contains("error") ->
+                    Triple(DiagnosticSeverity.ERROR, "Speech recognition reports an error.", "Check RECORD_AUDIO, recognizer availability and the captured platform error.")
+                else -> Triple(DiagnosticSeverity.WARNING, "Speech recognition is not proven end-to-end.", "Run a real listen, recognize and stop cycle.")
+            }
+            "text_to_speech" -> when {
+                lower.contains("ready") -> Triple(DiagnosticSeverity.INFO, "A TTS engine is initialized; audible playback is not proven by initialization alone.", "Synthesize a short phrase, verify non-empty audio and confirm playback completion.")
+                lower.contains("failed") || lower.contains("error") -> Triple(DiagnosticSeverity.ERROR, "TTS reports a failure.", "Inspect engine initialization, synthesis result, audio focus and playback callbacks.")
+                else -> Triple(DiagnosticSeverity.WARNING, "TTS is not confirmed ready.", "Initialize the engine and run a real synthesis/playback test.")
+            }
+            "voice_process" -> when {
+                lower.contains("bound") -> Triple(DiagnosticSeverity.INFO, "Voice process is bound; actual capture and playback still require feature tests.", "Run microphone capture, recognition, synthesis and playback independently.")
+                lower.contains("failed") || lower.contains("unbound") || lower.contains("crash") ->
+                    Triple(DiagnosticSeverity.ERROR, "Voice process is not available.", "Inspect service startup, binding death and restart history.")
+                else -> Triple(DiagnosticSeverity.WARNING, "Voice process state is incomplete.", "Verify process binding and a real voice round-trip.")
+            }
+            "microphone" -> if (lower.contains("energy monitor active"))
+                Triple(DiagnosticSeverity.INFO, "Microphone energy monitor is active; this does not prove speech recognition.", "Run a real recording permission/capture test and inspect captured audio duration and level.")
+            else if (lower.contains("off") || lower.contains("denied"))
+                Triple(DiagnosticSeverity.WARNING, "Microphone capture is not active.", "Request RECORD_AUDIO and start an explicit capture session.")
+            else Triple(DiagnosticSeverity.INFO, "Microphone status observed.", "Run a real capture test.")
+            else -> {
+                val hardFailure = listOf("failed", "crash", "error", "unavailable").any(lower::contains)
+                val incomplete = listOf("idle", "unknown", "initializing", "checking", "offline").any(lower::contains)
+                when {
+                    hardFailure -> Triple(DiagnosticSeverity.ERROR, "The subsystem reports an explicit failure.", "Inspect its error details and run a feature-level reproduction.")
+                    incomplete -> Triple(DiagnosticSeverity.WARNING, "The subsystem is incomplete or idle; success is not established.", "Run its end-to-end feature test.")
+                    else -> Triple(DiagnosticSeverity.INFO, "A live status was observed; end-to-end function is not established.", "Run its feature-level test before marking it operational.")
+                }
+            }
         }
-        return finding(severity, "Subsystem: $name", value,
-            if (error) "The live status contains a failure indicator." else if (warning) "The status is incomplete, idle or degraded; success is not established." else "A live status value was observed, but this does not prove end-to-end feature operation.",
-            action)
+        return finding(severity, "Subsystem: $name", value, assessment, action)
     }
 
     private fun finding(
