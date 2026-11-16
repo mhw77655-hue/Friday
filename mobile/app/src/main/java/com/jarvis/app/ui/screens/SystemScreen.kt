@@ -10,6 +10,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,6 +44,21 @@ private data class SystemRow(val name: String, val stateLabel: String, val dotCo
 @Composable
 fun SystemScreen() {
     val diagnosticsViewModel: DiagnosticsViewModel = viewModel()
+    val context = LocalContext.current
+    val reportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            val result = runCatching {
+                context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use {
+                    it.write(diagnosticsViewModel.createExportReport())
+                } ?: error("Could not open the selected destination.")
+            }
+            val message = if (result.isSuccess) "Friday diagnostic report exported."
+                else "Report export failed: " + (result.exceptionOrNull()?.message ?: "unknown error")
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
+    }
     val brainStatus by remember { EngineAccess.modelManager().value?.status ?: MutableStateFlow("idle") }
         .collectAsStateWithLifecycle()
     val networkText by diagnosticsViewModel.networkText.collectAsStateWithLifecycle()
@@ -83,14 +102,20 @@ fun SystemScreen() {
             .background(JarvisColors.SurfaceBase)
             .padding(16.dp)
     ) {
-        LazyColumn {
-            items(rows) { row -> SystemRowView(row) }
-        }
         Button(
-            onClick = { diagnosticsViewModel.crashVoiceSubstrate() },
+            onClick = { reportLauncher.launch("friday-device-report.json") },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Crash voice process (R1 isolation demo)")
+            Text("Export full diagnostic report")
+        }
+        Text(
+            "Includes device, resource, model, voice, memory, network and failure state. " +
+                "Excludes chat messages, speech transcripts, notification contents and credentials.",
+            style = JarvisType.Technical,
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
+        LazyColumn(modifier = Modifier.weight(1f)) {
+            items(rows) { row -> SystemRowView(row) }
         }
     }
 }
