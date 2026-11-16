@@ -4,9 +4,8 @@ import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.capability.CapabilityRegistry
 import com.jarvis.app.failure.FailureReport
 import com.jarvis.app.failure.FailureSurface
-import com.jarvis.app.humancore.mod.MemoryAnnotation
 import com.jarvis.app.turn.TurnContext
-import com.jarvis.app.humancore.store.StoragePort
+import com.jarvis.app.identity.IdentitySource
 import com.jarvis.app.memory.EmbeddingProvider
 import com.jarvis.app.memory.MemoryGraphStore
 import com.jarvis.app.memory.provenance.AdapterManifest
@@ -78,7 +77,10 @@ interface PlatformPorts {
     /** Warm the model so the first real reply is not a cold load. */
     fun warmModel()
 
-    /** The per-turn session context, or null when the host has no session to describe. */
+    /** The read-only Friday identity record seeded by the owner/admin path. */
+    fun identitySource(): IdentitySource
+
+    /** The per-turn session evidence; unavailable fields remain null. */
     fun sessionContext(): TurnContext?
 
     /** Turn-state signals the host's UI/companion surface consumes. */
@@ -92,16 +94,6 @@ interface PlatformPorts {
 
     /** Where a turn-path failure is reported. Never swallowed inside the root. */
     fun reportFailure(report: FailureReport)
-
-    /** The legacy Human Core's durable storage for this host. */
-    fun humanCoreStorage(): StoragePort
-
-    /**
-     * Optional sink for the legacy Human Core's memory annotations. Null means
-     * this host does not mirror them anywhere — the Human Core itself is
-     * untouched either way.
-     */
-    fun humanCoreMemorySink(): ((MemoryAnnotation) -> Unit)? = null
 
     /** The store implementations this platform can actually offer. */
     fun stores(): PlatformStores
