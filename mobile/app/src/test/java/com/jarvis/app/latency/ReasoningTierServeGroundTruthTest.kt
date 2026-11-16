@@ -4,7 +4,6 @@ import com.jarvis.app.body.MemoryItem
 import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.cognitive.CognitiveEngine
 import com.jarvis.app.cognitive.UserModel
-import com.jarvis.app.humancore.HumanCore
 import com.jarvis.app.model.CognitiveAdmissionPolicy
 import com.jarvis.app.model.FakeModelBackend
 import com.jarvis.app.model.FakeResourceSnapshot
@@ -110,7 +109,6 @@ class ReasoningTierServeGroundTruthTest {
             val engine = CognitiveEngine(
                 scope = CoroutineScope(Dispatchers.IO),
                 memoryStore = EmptyMemoryStore(),
-                humanCore = HumanCore,
                 modelManager = mm,
                 cognitiveAdmissionPolicy = policy
             )

@@ -114,9 +114,6 @@ class AdapterManifestTest {
         scheduleDelayed = { _, _ -> },
         bridgeSend = { },
         bridgeStatus = { server.modelManager.status.value },
-        beginExchange = { _, _ -> null },
-        express = { reply, _ -> StyledResponse.Approved(reply) },
-        completeExchange = { _, _, _, _, _ -> },
         sessionContext = { null },
         cognitiveEngine = server.engine
     )
