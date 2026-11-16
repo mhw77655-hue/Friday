@@ -17,6 +17,7 @@ import android.widget.Toast
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jarvis.app.DiagnosticsViewModel
+import com.jarvis.app.DiagnosticLevel
 import com.jarvis.app.ui.components.StateChip
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
@@ -70,6 +72,9 @@ fun SystemScreen() {
     val individualMemoryText by diagnosticsViewModel.individualMemoryText.collectAsStateWithLifecycle()
     val diagnosticFindings by diagnosticsViewModel.diagnosticFindings.collectAsStateWithLifecycle()
     val diagnosticRunning by diagnosticsViewModel.diagnosticRunning.collectAsStateWithLifecycle()
+    val selfDiagnosticFindings by diagnosticsViewModel.selfDiagnosticFindings.collectAsStateWithLifecycle()
+    val selfDiagnosticAt by diagnosticsViewModel.selfDiagnosticAt.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { diagnosticsViewModel.runSelfDiagnosis() }
 
     val rows = listOf(
         SystemRow("Brain", brainStatus, brainDotColor(brainStatus), brainStatus),
@@ -121,6 +126,19 @@ fun SystemScreen() {
         ) {
             Text(if (diagnosticRunning) "Running active diagnostics..." else "Run full system diagnosis")
         }
+        Button(
+            onClick = { diagnosticsViewModel.runSelfDiagnosis() },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Run Friday architecture and autonomy diagnosis")
+        }
+        selfDiagnosticAt?.let { checkedAt ->
+            Text(
+                "Self-diagnosis: ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(checkedAt))} · ${selfDiagnosticFindings.count { it.level == DiagnosticLevel.FAILURE }} failures · ${selfDiagnosticFindings.count { it.level == DiagnosticLevel.WARNING }} warnings",
+                style = JarvisType.Technical,
+                modifier = Modifier.padding(vertical = 6.dp)
+            )
+        }
         LazyColumn(modifier = Modifier.weight(1f)) {
             items(rows) { row -> SystemRowView(row) }
             item {
@@ -145,6 +163,28 @@ fun SystemScreen() {
                     Text("Observed: ${finding.observed}", style = JarvisType.Technical)
                     Text("Assessment: ${finding.likelyCause}", style = JarvisType.Technical)
                     Text("Action: ${finding.recommendedAction}", style = JarvisType.Technical)
+                }
+            }
+            item {
+                Text(
+                    "FRIDAY SELF-DIAGNOSIS (${selfDiagnosticFindings.size})",
+                    style = JarvisType.Technical,
+                    modifier = Modifier.padding(top = 18.dp, bottom = 8.dp)
+                )
+            }
+            if (selfDiagnosticFindings.isEmpty()) {
+                item { Text("No Friday self-diagnosis has completed yet.", style = JarvisType.Technical) }
+            }
+            items(selfDiagnosticFindings, key = { it.id }) { finding ->
+                val color = when (finding.level) {
+                    DiagnosticLevel.PASS -> JarvisColors.CoreSuccess
+                    DiagnosticLevel.WARNING -> JarvisColors.CoreAttention
+                    DiagnosticLevel.FAILURE -> JarvisColors.CoreWarning
+                }
+                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                    Text("${finding.level.name} · ${finding.title}", color = color, style = JarvisType.Technical)
+                    Text(finding.detail, style = JarvisType.Technical)
+                    finding.recommendation?.let { Text("Action: $it", style = JarvisType.Technical) }
                 }
             }
         }
