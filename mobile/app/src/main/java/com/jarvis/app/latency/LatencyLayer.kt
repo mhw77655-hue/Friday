@@ -275,7 +275,11 @@ class LatencyPipeline(
     private val sessionContext: () -> TurnContext? = { null },
     private val replyDelivery: (String) -> String = FridayReplyDelivery::deliver,
     private val nowMs: () -> Long = { System.currentTimeMillis() },
-    private val cognitiveEngine: com.jarvis.app.cognitive.CognitiveEngine? = null
+    private val cognitiveEngine: com.jarvis.app.cognitive.CognitiveEngine? = null,
+    /** Local expression path used when no model can answer. */
+    private val modelFreeReply: ((String) -> String?)? = null,
+    /** Records an experience in Friday's app-local seed, independent of models. */
+    private val experienceObserver: (String) -> Unit = {}
 ) {
 
     private val _turns = MutableStateFlow<List<Turn>>(emptyList())
@@ -285,6 +289,7 @@ class LatencyPipeline(
     val phase: StateFlow<LatencyLayer.Phase> = _phase.asStateFlow()
 
     private val pending = ArrayDeque<Long>()
+    private val pendingInputs = LinkedHashMap<Long, String>()
     private val pendingLock = Any()
     private val turnsLock = Any()
     private val exchangeCounter = AtomicLong(0)
@@ -321,7 +326,11 @@ class LatencyPipeline(
         // Slow path — Friday-owned turn context, Obsidian write and cognitive send.
         dispatch {
             val ctx = sessionContext()
-            synchronized(pendingLock) { pending.addLast(id) }
+            synchronized(pendingLock) {
+                pending.addLast(id)
+                pendingInputs[id] = text
+            }
+            runCatching { experienceObserver(text) }
             logObsidian(false, text)
             if (_phase.value == LatencyLayer.Phase.ACKNOWLEDGING) {
                 _phase.value = LatencyLayer.Phase.THINKING
@@ -346,8 +355,10 @@ class LatencyPipeline(
         // A missing model/reply must not leave the UI in THINKING forever.
         // This is a bounded failure settlement, not a fabricated model answer.
         scheduleDelayed(RESPONSE_TIMEOUT_MS) {
-            val expired = synchronized(pendingLock) { pending.remove(id) }
-            if (expired) {
+            val expiredInput = synchronized(pendingLock) {
+                if (pending.remove(id)) pendingInputs.remove(id) else null
+            }
+            if (expiredInput != null) {
                 if (exchangeCounter.get() == id) _phase.value = LatencyLayer.Phase.IDLE
                 LatencyLayer.failureSink?.invoke(
                     com.jarvis.app.failure.FailureReport(
@@ -362,18 +373,17 @@ class LatencyPipeline(
                         recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY_WITH_BACKOFF
                     )
                 )
-                appendTurn(
-                    Turn(
-                        fromJarvis = true,
-                        text = "I couldn't get a response from a reasoning model. " +
-                            "No answer was generated. Check whether a model is selected, downloaded and loaded, then try again.",
-                        verified = false
+                val localReply = runCatching { modelFreeReply?.invoke(expiredInput) }.getOrNull()?.takeIf { it.isNotBlank() }
+                val settledText = localReply ?: (
+                    "I couldn't get a response from a reasoning model. " +
+                        "No answer was generated. Check whether a model is selected, downloaded and loaded, then try again."
                     )
-                )
-                logObsidian(
-                    true,
-                    "Model response timed out; no generated answer was received."
-                )
+                appendTurn(Turn(fromJarvis = true, text = settledText, verified = false))
+                logObsidian(true, if (localReply != null) settledText else "Model response timed out; no generated answer was received.")
+                if (localReply != null) {
+                    _phase.value = LatencyLayer.Phase.REPLYING
+                    fullSpeak(localReply)
+                }
                 reactorUtteranceDone()
             }
         }
@@ -416,8 +426,9 @@ class LatencyPipeline(
     fun onReplyReady(reply: String) {
         if (reply.isBlank()) return
         dispatch {
-            val matchedTurn = synchronized(pendingLock) { pending.removeFirstOrNull() }
-                ?: return@dispatch
+            val matchedTurn = synchronized(pendingLock) {
+                pending.removeFirstOrNull()?.also { pendingInputs.remove(it) }
+            } ?: return@dispatch
 
             _phase.value = LatencyLayer.Phase.REPLYING
             reactorFirstSegment()
@@ -467,10 +478,30 @@ class LatencyPipeline(
         )
 
         dispatch {
-            synchronized(pendingLock) { pending.clear() }
+            val unresolved = synchronized(pendingLock) {
+                val items = pending.mapNotNull { pendingId ->
+                    pendingInputs.remove(pendingId)?.let { pendingId to it }
+                }
+                pending.clear()
+                items
+            }
             _phase.value = LatencyLayer.Phase.IDLE
-            appendTurn(Turn(fromJarvis = true, text = SOFT_ERROR_TEXT, verified = false))
-            logObsidian(true, SOFT_ERROR_TEXT)
+            if (unresolved.isEmpty()) {
+                appendTurn(Turn(fromJarvis = true, text = SOFT_ERROR_TEXT, verified = false))
+                logObsidian(true, SOFT_ERROR_TEXT)
+            } else {
+                unresolved.forEach { (_, input) ->
+                    val localReply = runCatching { modelFreeReply?.invoke(input) }.getOrNull()?.takeIf { it.isNotBlank() }
+                    val settledText = localReply ?: SOFT_ERROR_TEXT
+                    appendTurn(Turn(fromJarvis = true, text = settledText, verified = false))
+                    logObsidian(true, settledText)
+                    if (localReply != null) {
+                        _phase.value = LatencyLayer.Phase.REPLYING
+                        fullSpeak(localReply)
+                    }
+                }
+                _phase.value = LatencyLayer.Phase.IDLE
+            }
             reactorUtteranceDone()
         }
     }
