@@ -72,7 +72,12 @@ class VoiceOutputPath(
                     val segmentLanguage = if (containsArabic(segment)) "ar-EG" else lang
                     val spoken = habitatSpeak(segment, segmentLanguage, voiceId ?: profile.preferredVoice, profile, vocabulary)
                     if (!spoken && fallback != null) {
-                        runCatching { fallback.speakStreaming(segment, vocabulary ?: emptyVocabulary()) }
+                        _isSpeaking.value = true
+                        try {
+                            fallback.speakStreaming(segment, vocabulary ?: emptyVocabulary())
+                        } finally {
+                            _isSpeaking.value = false
+                        }
                     }
                 }
             } catch (e: Throwable) {
@@ -92,6 +97,8 @@ class VoiceOutputPath(
     /** Stop playback and ask the habitat to cancel in-flight synthesis. */
     fun interrupt() {
         cancelled = true
+        _isSpeaking.value = false
+        _audioLevel.value = 0f
         runCatching { host.cancelVoice() }
         runCatching { fallback?.interrupt() }
         job?.cancel()
@@ -157,6 +164,7 @@ class VoiceOutputPath(
         return try {
             track.write(pcm, 0, pcm.size)
             track.play()
+            _isSpeaking.value = true
             val bytesPerFrame = channels.coerceAtLeast(1) * 2
             val totalFrames = pcm.size / bytesPerFrame
             val windowFrames = (sampleRate / 25).coerceAtLeast(1)
@@ -176,6 +184,7 @@ class VoiceOutputPath(
             false
         } finally {
             runCatching { track.release() }
+            _isSpeaking.value = false
             _audioLevel.value = 0f
         }
     }
