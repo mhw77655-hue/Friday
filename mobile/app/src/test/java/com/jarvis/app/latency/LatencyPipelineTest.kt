@@ -231,6 +231,23 @@ class LatencyPipelineTest {
     }
 
     @Test
+    fun `observed model reply becomes a local experience outcome`() {
+        val outcomes = mutableListOf<Pair<String, String>>()
+        val p = LatencyPipeline(
+            dispatch = { it() },
+            scheduleDelayed = { _, _ -> },
+            bridgeSend = {},
+            bridgeStatus = { "ok (local)" },
+            outcomeObserver = { input, output -> outcomes += input to output }
+        )
+
+        p.onUserInput("the unfamiliar lever")
+        p.onReplyReady("it opens the panel")
+
+        assertEquals(listOf("the unfamiliar lever" to "it opens the panel"), outcomes)
+    }
+
+    @Test
     fun `timeout uses local expression when no model reply ever arrives`() {
         val spoken = mutableListOf<String>()
         val scheduled = mutableListOf<Pair<Long, () -> Unit>>()
