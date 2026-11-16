@@ -18,7 +18,7 @@ import org.json.JSONObject
 import java.io.File
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.jarvis.app.humancore.HumanCore
+import com.jarvis.app.diagnostics.DiagnosticEventLog
 import com.jarvis.app.JarvisEngine
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -76,24 +76,33 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     private var lastTtsText = "Tts: idle"
     private var lastScreenText = "Screen: not read yet"
     private var lastSelfKnowledgeText = "Self: loading manifest..."
-    private var lastHumanCoreText = "Human Core: initializing..."
+    private var lastIndividualText = "Friday individual: initializing..."
     private var lastFailureText = "Failures: none"
     private var lastVoiceSubstrateText = "Voice Substrate: initializing..."
 
-    // Bounded technical event history for the exported support bundle.
-    // Only subsystem state labels are recorded; user content is never accepted.
-    private data class DiagnosticEvent(val at: String, val subsystem: String, val state: String)
-    private val eventLock = Any()
-    private val diagnosticEvents = ArrayDeque<DiagnosticEvent>()
-    private fun recordDiagnosticEvent(subsystem: String, state: String) {
-        synchronized(eventLock) {
-            val latest = diagnosticEvents.lastOrNull()
-            if (latest?.subsystem == subsystem && latest.state == state) return
-            diagnosticEvents.addLast(
-                DiagnosticEvent(java.time.Instant.now().toString(), subsystem, state.take(240))
-            )
-            while (diagnosticEvents.size > 250) diagnosticEvents.removeFirst()
+    // Only meaningful subsystem transitions are retained. Volatile microphone
+    // levels and screen contents are filtered by the pure diagnostic log.
+    private val diagnosticEvents = DiagnosticEventLog(capacity = 250)
+
+    private fun modelRuntimeDiagnosticText(): String {
+        val manager = JarvisEngine.modelManager ?: return "model manager unavailable"
+        val provider = manager.activeProvider.value
+        val health = manager.providerHealth.value
+        return when {
+            provider.providerType == com.jarvis.app.env.ModelProviderType.HEURISTIC ->
+                "model-free fallback; no language model loaded"
+            health.modelLoaded && health.isHealthy ->
+                "loaded: ${health.currentModel ?: provider.config?.modelId ?: provider.providerType.name}"
+            else ->
+                "provider selected (${provider.providerType.name}); no model confirmed loaded"
         }
+    }
+
+    private fun individualDiagnosticText(): String {
+        val individual = JarvisEngine.fridayIndividual
+            ?: return "Friday individual: unavailable"
+        return "Friday individual: present; experiences=${individual.experience.experienceCount()}; " +
+            "associations=${individual.experience.associationCount()}"
     }
 
     private val batteryReceiver = object : BroadcastReceiver() {
@@ -172,23 +181,23 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     private fun publishHealthText() {
-        recordDiagnosticEvent("battery", lastBatteryText)
-        recordDiagnosticEvent("network", lastNetworkText)
-        recordDiagnosticEvent("notifications", lastNotifText)
-        recordDiagnosticEvent("shizuku", lastShizukuText)
-        recordDiagnosticEvent("microphone", lastMicText)
-        recordDiagnosticEvent("speech_recognition", lastSttText)
-        recordDiagnosticEvent("hotword", lastHotwordText)
-        recordDiagnosticEvent("model_runtime", lastBrainText)
-        recordDiagnosticEvent("text_to_speech", lastTtsText)
-        recordDiagnosticEvent("voice_process", lastVoiceSubstrateText)
-        recordDiagnosticEvent("screen_context", lastScreenText)
-        recordDiagnosticEvent("failure_surface", lastFailureText)
+        diagnosticEvents.record("battery", lastBatteryText)
+        diagnosticEvents.record("network", lastNetworkText)
+        diagnosticEvents.record("notifications", lastNotifText)
+        diagnosticEvents.record("shizuku", lastShizukuText)
+        diagnosticEvents.record("microphone", lastMicText)
+        diagnosticEvents.record("speech_recognition", lastSttText)
+        diagnosticEvents.record("hotword", lastHotwordText)
+        diagnosticEvents.record("model_runtime", modelRuntimeDiagnosticText())
+        diagnosticEvents.record("text_to_speech", lastTtsText)
+        diagnosticEvents.record("voice_process", lastVoiceSubstrateText)
+        diagnosticEvents.record("screen_context", lastScreenText)
+        diagnosticEvents.record("failure_surface", lastFailureText)
         val battery = if (lastBatteryText.isNotEmpty()) lastBatteryText else "Reading battery state..."
-        lastHumanCoreText = if (HumanCore.isInitialized()) HumanCore.describe() else "Human Core: offline"
-        _humanCoreText.value = lastHumanCoreText
+        lastIndividualText = individualDiagnosticText()
+        _humanCoreText.value = lastIndividualText
         _failureText.value = lastFailureText
-        _healthText.value = "$battery. $lastNetworkText. $lastNotifText. $lastShizukuText. $lastMicText. $lastSttText. $lastHotwordText. $lastBrainText. $lastTtsText. $lastScreenText. $lastSelfKnowledgeText. $lastHumanCoreText. $lastFailureText. $lastVoiceSubstrateText. Real device signal — body coordinator handles voice. Telemetry: ${Telemetry.summarize()}"
+        _healthText.value = "$battery. $lastNetworkText. $lastNotifText. $lastShizukuText. $lastMicText. $lastSttText. $lastHotwordText. ${modelRuntimeDiagnosticText()}. $lastTtsText. Screen context content is excluded. $lastSelfKnowledgeText. $lastIndividualText. $lastFailureText. $lastVoiceSubstrateText. Telemetry: ${Telemetry.summarize()}"
 
         _networkText.value = lastNetworkText
         _shizukuText.value = lastShizukuText
@@ -332,7 +341,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         val memory = ActivityManager.MemoryInfo().also(activityManager::getMemoryInfo)
         val storage = StatFs(app.filesDir.absolutePath)
         val report = JSONObject()
-        report.put("report_schema", "friday-device-report-v1")
+        report.put("report_schema", "friday-device-report-v2")
         report.put("generated_at_utc", java.time.Instant.now().toString())
         report.put("app", JSONObject()
             .put("application_id", app.packageName)
@@ -367,18 +376,19 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             .put("hotword", hotwordText.value)
             .put("text_to_speech", ttsText.value)
             .put("voice_process", voiceSubstrateText.value)
-            .put("screen_context", screenText.value)
-            .put("model_runtime", lastBrainText)
-            .put("memory_subsystem", lastHumanCoreText)
+            .put("screen_context", "content intentionally omitted by privacy policy")
+            .put("model_runtime", modelRuntimeDiagnosticText())
+            .put("last_model_turn_status", lastBrainText)
+            .put("individual_memory", lastIndividualText)
             .put("failure_surface", failureText.value))
-        val eventSnapshot = synchronized(eventLock) { diagnosticEvents.toList() }
+        val eventSnapshot = diagnosticEvents.snapshot()
         report.put("event_history_complete", false)
         report.put("event_history_capacity", 250)
         report.put("event_history_count", eventSnapshot.size)
         report.put("events", org.json.JSONArray().apply {
             eventSnapshot.forEach { event ->
                 put(JSONObject()
-                    .put("at_utc", event.at)
+                    .put("at_utc", event.atUtc)
                     .put("subsystem", event.subsystem)
                     .put("state", event.state))
             }
