@@ -172,9 +172,6 @@ class PhaseAIntegrationTest {
             scheduleDelayed = { _, _ -> },
             bridgeSend = { sentThroughBridge.add(it) },
             bridgeStatus = { "idle" },
-            beginExchange = { _, _ -> null },
-            express = { reply, _ -> com.jarvis.app.humancore.protocol.StyledResponse.Approved(reply) },
-            completeExchange = { _, _, _, _, _ -> },
             sessionContext = { null },
             cognitiveEngine = engine
         )
