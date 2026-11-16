@@ -1,6 +1,5 @@
 package com.jarvis.app.latency
 
-import com.jarvis.app.humancore.protocol.StyledResponse
 import com.jarvis.app.ui.viewmodel.Turn
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -24,7 +23,7 @@ class LatencyPipelineTest {
         var fastAck = 0
         var firstSegment = 0
         var utteranceDone = 0
-        var completeCount = 0
+        var deliveryCount = 0
         var status = "ok (local)"
 
         fun pipeline(): LatencyPipeline = LatencyPipeline(
@@ -40,10 +39,11 @@ class LatencyPipelineTest {
             reactorUtteranceDone = { utteranceDone++ },
             bridgeSend = { sent += it },
             bridgeStatus = { status },
-            beginExchange = { _, _ -> null },
-            express = { reply, _ -> StyledResponse.Approved(reply) },
-            completeExchange = { _, _, _, _, _ -> completeCount++ },
             sessionContext = { null },
+            replyDelivery = { reply ->
+                deliveryCount++
+                reply.trim()
+            },
             nowMs = { 0L }
         )
     }
@@ -97,12 +97,42 @@ class LatencyPipelineTest {
         assertEquals(listOf("hi there"), r.fullSpoken)
         assertEquals(1, r.firstSegment)
         assertEquals(1, r.utteranceDone)
-        assertEquals(1, r.completeCount)
+        assertEquals(1, r.deliveryCount)
         assertEquals(
             listOf(Turn(fromJarvis = true, text = "hi there", verified = true)),
             p.turns.value.filter { it.fromJarvis }
         )
         assertTrue(r.logged.contains(true to "hi there"))
+    }
+
+    @Test
+    fun `reply delivery boundary normalizes the reply before recording and speech`() {
+        val r = Recorder()
+        val p = r.pipeline()
+
+        p.onUserInput("hello")
+        p.onReplyReady("  hello from Friday  ")
+
+        assertEquals(listOf("hello from Friday"), r.fullSpoken)
+        assertEquals(
+            listOf(Turn(fromJarvis = true, text = "hello from Friday", verified = true)),
+            p.turns.value.filter { it.fromJarvis }
+        )
+        assertEquals(1, r.deliveryCount)
+    }
+
+    @Test
+    fun `reply without a pending user exchange is discarded as stale`() {
+        val r = Recorder()
+        val p = r.pipeline()
+
+        p.onReplyReady("late reply from an earlier turn")
+
+        assertTrue(r.fullSpoken.isEmpty())
+        assertTrue(p.turns.value.isEmpty())
+        assertEquals(0, r.firstSegment)
+        assertEquals(0, r.utteranceDone)
+        assertEquals(0, r.deliveryCount)
     }
 
     @Test
@@ -119,7 +149,7 @@ class LatencyPipelineTest {
             listOf("reply-1", "reply-2"),
             p.turns.value.filter { it.fromJarvis }.map { it.text }
         )
-        assertEquals(2, r.completeCount)
+        assertEquals(2, r.deliveryCount)
     }
 
     // ------------------------------------------------------ fallback ladder
@@ -189,7 +219,7 @@ class LatencyPipelineTest {
         )
         assertEquals(listOf("Let me check the screen."), r.spoken)
         assertEquals(emptyList<String>(), r.sent)
-        assertTrue(r.completeCount == 0)
+        assertTrue(r.deliveryCount == 0)
 
         r.scheduled.first { it.first == LatencyPipeline.ACK_ONLY_IDLE_MS }.second()
         assertEquals(LatencyLayer.Phase.IDLE, p.phase.value)
