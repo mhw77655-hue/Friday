@@ -94,8 +94,8 @@ class AndroidPlatformPorts(
 
     /**
      * Read and update only the local last-interaction timestamp. Unknown
-     * presence/away state remains null; it is never inferred from a missing
-     * Human Core snapshot or fabricated as an all-clear observation.
+     * presence/away state remains null; it is never inferred from missing
+     * sensor/runtime evidence or fabricated as an all-clear observation.
      */
     override fun sessionContext(): TurnContext {
         val now = clock()
@@ -149,7 +149,8 @@ class AndroidPlatformPorts(
         traceStore = turnTraceStore,
         threads = threadTracker,
         provenance = provenanceLedger,
-        adapters = adapterManifest
+        adapters = adapterManifest,
+        clock = clock
     )
 
     override fun failureSurface(): FailureSurface = failureSurface
@@ -172,11 +173,12 @@ class AndroidPlatformStores(
     private val traceStore: com.jarvis.app.trace.TurnTraceStore? = null,
     private val threads: com.jarvis.app.threads.ThreadTracker? = null,
     private val provenance: com.jarvis.app.memory.provenance.ProvenanceLedger? = null,
-    private val adapters: com.jarvis.app.memory.provenance.AdapterManifest? = null
+    private val adapters: com.jarvis.app.memory.provenance.AdapterManifest? = null,
+    private val clock: () -> Long = { System.currentTimeMillis() }
 ) : PlatformStores {
 
     override fun graphStore(): com.jarvis.app.memory.MemoryGraphStore =
-        com.jarvis.app.memory.AndroidMemoryGraphStore(context)
+        com.jarvis.app.memory.AndroidMemoryGraphStore(context, clock = clock)
 
     override fun embeddingProvider(): com.jarvis.app.memory.EmbeddingProvider =
         com.jarvis.app.memory.NeuralEmbeddingProvider()

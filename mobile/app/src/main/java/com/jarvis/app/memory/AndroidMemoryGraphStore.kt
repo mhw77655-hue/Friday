@@ -20,7 +20,8 @@ import android.database.sqlite.SQLiteOpenHelper
  */
 class AndroidMemoryGraphStore(
     context: Context,
-    dbName: String = "galaxy_memory_graph.db"
+    dbName: String = "galaxy_memory_graph.db",
+    private val clock: () -> Long = { System.currentTimeMillis() }
 ) : MemoryGraphStore {
 
     private val helper = object : SQLiteOpenHelper(context, dbName, null, SCHEMA_VERSION) {
@@ -50,7 +51,7 @@ class AndroidMemoryGraphStore(
     private val db: SQLiteDatabase = helper.writableDatabase
 
     override fun addFact(subject: String, predicate: String, `object`: String, source: String): String {
-        val now = System.currentTimeMillis()
+        val now = clock()
         val id = java.util.UUID.randomUUID().toString()
         db.beginTransaction()
         try {
@@ -125,7 +126,7 @@ class AndroidMemoryGraphStore(
         if (count > 0) {
             db.execSQL(
                 "UPDATE nodes SET validUntil = ? WHERE validUntil IS NULL AND (object LIKE ? OR subject LIKE ?)",
-                arrayOf<Any>(System.currentTimeMillis(), "%$text%", "%$text%")
+                arrayOf<Any>(clock(), "%$text%", "%$text%")
             )
         }
         return count

@@ -231,7 +231,8 @@ class CognitiveEngine(
         salienceScorer,
         blendedRetriever = blendedRetriever,
         confidentialityFirewall = identityContext?.confidentialityFirewall,
-        workspace = workspace
+        workspace = workspace,
+        nowMs = nowMs
     )
     /**
      * CONTINUITY-GATE-ENFORCED-SEAM: the generation seam this engine balances.
@@ -247,7 +248,8 @@ class CognitiveEngine(
             personRelationshipModel = identityContext?.personRelationshipModel,
             confidentialityFirewall = identityContext?.confidentialityFirewall,
             blendedRetriever = blendedRetriever,
-            mentalStateEstimator = identityContext?.mentalStateEstimator
+            mentalStateEstimator = identityContext?.mentalStateEstimator,
+            nowMs = nowMs
         )
     private val attentionEngine = AttentionEngine(scope)
     private val contextBuilder = CognitiveContextBuilder(scope, continuity = continuity, modelContext = modelContext)

@@ -323,7 +323,8 @@ class TurnPathAssembly private constructor(
                 personRelationshipModel = personRelationshipModel,
                 confidentialityFirewall = confidentialityFirewall,
                 blendedRetriever = retriever,
-                mentalStateEstimator = mentalStateEstimator
+                mentalStateEstimator = mentalStateEstimator,
+                nowMs = { ports.nowMs() }
             )
 
             // ── Predictive state: compact JEPA-inspired successor learning ───────
