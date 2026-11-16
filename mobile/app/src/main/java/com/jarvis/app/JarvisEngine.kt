@@ -235,8 +235,8 @@ object JarvisEngine {
         this.recoveryController = recoveryController
         this.selfDiagnosis = com.jarvis.app.failure.SelfDiagnosis(failureSurface)
 
-        // The Human Core model port (§0.15) is bound by the ONE composition
-        // root inside init, over the same ModelManager this Friday uses.
+        // Friday's cognitive and identity path is assembled once below by
+        // TurnPathAssembly; no legacy Human Core model port is constructed.
 
         val wiringPosted = handler.post {
             try {
