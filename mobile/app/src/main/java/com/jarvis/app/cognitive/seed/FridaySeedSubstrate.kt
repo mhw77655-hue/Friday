@@ -146,6 +146,40 @@ class FridaySeedSubstrate(
     @Synchronized
     fun associationCount(): Int = links.size
 
+    /**
+     * Store an explicitly stated, user-correctable fact as a typed relation.
+     * The original conversation is not retained; only the selected value is.
+     */
+    @Synchronized
+    fun rememberFact(key: String, value: String): Boolean {
+        val safeKey = normalizeFactKey(key)
+        val safeValue = value.trim().replace(Regex("\\s+"), " ").take(120)
+        if (safeKey.isBlank() || safeValue.isBlank()) return false
+        observeOutcome(
+            context = mapOf("fact:$safeKey" to 1.0),
+            outcome = mapOf("fact-value:$safeKey:$safeValue" to 1.0)
+        )
+        return true
+    }
+
+    /** Return the most recently explicitly stored value for a fact key. */
+    @Synchronized
+    fun recallFact(key: String): String? {
+        val safeKey = normalizeFactKey(key)
+        if (safeKey.isBlank()) return null
+        val prefix = "fact-value:$safeKey:"
+        return experiences.asReversed().firstNotNullOfOrNull { experience ->
+            if ("fact:$safeKey" !in experience.features) null
+            else experience.outcomes.keys.firstOrNull { it.startsWith(prefix) }?.removePrefix(prefix)
+        }
+    }
+
+    private fun normalizeFactKey(key: String): String =
+        key.trim().lowercase()
+            .replace(Regex("[^a-z0-9_]+"), "_")
+            .trim('_')
+            .take(48)
+
     private fun associate(source: Map<String, Double>, target: Map<String, Double>): Int {
         if (source.isEmpty() || target.isEmpty()) return 0
         var changed = 0
