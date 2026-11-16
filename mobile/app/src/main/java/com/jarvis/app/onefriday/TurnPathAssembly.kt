@@ -159,6 +159,7 @@ class TurnPathAssembly private constructor(
         "cognitiveAdmissionPolicy" to cognitiveAdmissionPolicy.javaClass.name,
         "anchorEngine" to anchorEngine.javaClass.name,
         "engine" to engine.javaClass.name,
+        "individual" to individual.javaClass.name,
         "pipeline" to pipeline.javaClass.name,
     )
 
