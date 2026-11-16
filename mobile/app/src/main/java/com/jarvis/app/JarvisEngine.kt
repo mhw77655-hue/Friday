@@ -36,8 +36,16 @@ data class CapabilityManifest(
 }
 
 object JarvisEngine {
-    private val thread = HandlerThread("JarvisEngine").apply { start() }
-    private val handler = Handler(thread.looper)
+    // Do not start a thread while the singleton class is being initialized.
+    // init() first marks readiness WAKING, then touches this lazy pair inside
+    // its failure boundary so a HandlerThread/Looper startup failure becomes
+    // FailedToWake rather than a class-initialization crash before the gate exists.
+    private val thread: HandlerThread by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        HandlerThread("JarvisEngine").apply { start() }
+    }
+    private val handler: Handler by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        Handler(thread.looper)
+    }
 
     @Volatile private var bootstrapStarted = false
     val readinessGate = EngineReadinessGate()
