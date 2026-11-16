@@ -8,6 +8,10 @@ baseline is a second baseline, which is the exact failure this story exists to
 remove — so if you are about to copy it somewhere else, you are about to break
 the check.
 
+## Owner-authorized identity baseline
+
+The source transcripts below were captured while the legacy app identity was named JARVIS. The current entity's owner-authorized identity is FRIDAY. The `expectedIdentity` values therefore record the current continuity baseline (`identity:name=Friday`) while preserving the original verbatim turn inputs and their provenance. This is an explicit baseline migration, not a claim that the historical transcript originally said Friday.
+
 ## What a line is
 
 One recorded turn per line, JSON Lines, append-only:
