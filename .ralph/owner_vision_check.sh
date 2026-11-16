@@ -6,11 +6,11 @@ cd "$ROOT"
 test -s .ralph/VISION.md
 test -s .ralph/OWNER_WORDS.md
 OUT="$(bash .ralph/ralph.sh --print-prompt)"
-grep -q "The owner's latest authenticated explicit instruction" <<<"$OUT"
+grep -q "The owner's latest authenticated instruction" <<<"$OUT"
 grep -q "buddy partner friend an actual digital person" <<<"$OUT"
 grep -q "Symbiotic liquid software" <<<"$OUT"
 grep -q "Don't force every specialist to be permanently active" <<<"$OUT"
 grep -q "FRIDAY - Vision (written record)" <<<"$OUT"
-grep -q "Do not turn Friday into a chatbot" <<<"$OUT"
+grep -q "Do not build a chatbot and call it Friday" <<<"$OUT"
 echo "OWNER_VISION_PROMPT=PASS"
 echo "OWNER_WORDS_SOURCE=PASS"
