@@ -322,25 +322,6 @@ object JarvisEngine {
                     storageDir = appContext.filesDir,
                     scope = scope,
                     memoryStore = memoryStore,
-                    // The legacy Human Core's own durable storage, and the
-                    // optional sink its memory annotations flow into (the
-                    // relationship-context sidecar plus local retrieval). The
-                    // root calls HumanCore.init itself, identically on every
-                    // host — see §0.4 ownership: the backend never owns identity,
-                    // personality, emotion, or internal state.
-                    humanCoreStorage = fileStorage,
-                    humanCoreMemorySink = { annotation ->
-                        ObsidianSync.logAnnotated(
-                            userText = annotation.userText,
-                            jarvisText = annotation.jarvisText,
-                            ts = annotation.ts,
-                            tags = annotation.tags
-                        )
-                        JarvisEngine.getMemoryStore()?.storeConversation(
-                            userText = annotation.userText,
-                            assistantText = annotation.jarvisText
-                        )
-                    },
                     failureSurface = failureSurface,
                     modelBackend = offlineModelBackend,
                     turnTraceStore = turnTraceStore,
@@ -535,14 +516,12 @@ object JarvisEngine {
             val bodyCoordinator = BodyCoordinator(
                 context = appContext,
                 modelManager = modelManager,
-                humanCore = HumanCore,
                 companionIntegration = companionIntegration,
                 languageRouter = languageRouter,
                 memoryStore = memoryStore,
                 failureSurface = failureSurface,
                 recoveryController = recoveryController,
                 scope = scope,
-                cognitiveEngine = cognitiveEngine,
                 phoneDecisionTool = phoneDecisionTool
             )
 
