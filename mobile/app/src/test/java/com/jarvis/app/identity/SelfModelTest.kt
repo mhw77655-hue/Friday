@@ -1,8 +1,6 @@
 package com.jarvis.app.identity
 
 import com.jarvis.app.capability.CapabilityRegistry
-import com.jarvis.app.humancore.HumanCore
-import com.jarvis.app.humancore.store.FileStorage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -10,7 +8,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
-/** Mutable fake [IdentitySource] mirroring live HumanCore fields. */
+/** Mutable fake [IdentitySource] mirroring the owner-controlled Friday identity record. */
 private class MutableIdentitySource(
     var name: String? = null,
     var version: Int? = null
@@ -33,7 +31,7 @@ class SelfModelTest {
 
     private fun model(
         registry: CapabilityRegistry,
-        identity: IdentitySource = MutableIdentitySource("jarvis", 1),
+        identity: IdentitySource = MutableIdentitySource("Friday", 1),
         history: StageHistorySource = StageHistorySource { emptyList() }
     ) = SelfModel(identitySource = identity, capabilityRegistry = registry, stageHistory = history)
 
@@ -79,27 +77,21 @@ class SelfModelTest {
 
     @Test
     fun `identity reads the live source and reflects a change immediately`() {
-        val src = MutableIdentitySource("jarvis", 1)
+        val src = MutableIdentitySource("Friday", 1)
         val m = model(registry(), identity = src)
-        assertEquals("jarvis", m.identity().name)
+        assertEquals("Friday", m.identity().name)
 
         src.name = "jor-el"
         src.version = 4
-        assertEquals("SelfModel must reflect the changed HumanCore-backed field live", "jor-el", m.identity().name)
+        assertEquals("SelfModel must reflect the changed owner-controlled field live", "jor-el", m.identity().name)
         assertEquals(4, m.identity().version)
     }
 
     @Test
-    fun `HumanCoreIdentitySource reads real HumanCore identity fields`() {
-        val dir = File(System.getProperty("java.io.tmpdir"), "selfmodel-hc-${System.nanoTime()}")
-        dir.mkdirs()
-        if (!HumanCore.isInitialized()) {
-            HumanCore.init(storage = FileStorage(dir))
-        }
-        val source = HumanCoreIdentitySource()
-        assertEquals("source must read exactly what HumanCore reports", HumanCore.snapshot()?.identityName, source.name())
-        assertEquals("source must read exactly what HumanCore reports", HumanCore.snapshot()?.identityVersion, source.version())
-        assertNotEquals("loading the snapshot id must be the live/delegated read, not a hardcoded constant", 0, source.name().hashCode())
+    fun `seeded identity is Friday and uses she pronouns`() {
+        assertEquals("Friday", SeededFridayIdentitySource.name())
+        assertEquals(1, SeededFridayIdentitySource.version())
+        assertEquals("she/her", SeededFridayIdentitySource.pronouns())
     }
 
     // ── AC4: history() built from real prd.json stage facts ───────────────
@@ -112,7 +104,7 @@ class SelfModelTest {
         prd.writeText(
             """
             {
-              "project": "JARVIS",
+              "project": "Friday",
               "branchName": "ralph/stage-03-self-user-world-models",
               "userStories": [
                 {"id":"WORLD-MODEL-SERVICE","title":"World service","passes":true},
