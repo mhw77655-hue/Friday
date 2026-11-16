@@ -5,7 +5,6 @@ import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.cognition.workspace.Claim
 import com.jarvis.app.cognition.workspace.ClaimKind
 import com.jarvis.app.failure.FailureSurface
-import com.jarvis.app.humancore.store.FileStorage
 import com.jarvis.app.model.FakeModelBackend
 import com.jarvis.app.memory.TestEmbeddingProvider
 import com.jarvis.app.model.ModelTier
@@ -62,7 +61,6 @@ class InjectedClockTest {
             ),
             snapshot = { ResourceSnapshot.alwaysHealthy() },
             clock = clock,
-            humanCoreStorage = FileStorage(compositionDir("clock-humancore")),
             // The slow path is deliberately NOT run here: every behaviour under
             // test is a fast-path or organ-level clock rule, and isolating them
             // keeps this test about the clock rather than about the engine.
