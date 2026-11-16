@@ -278,6 +278,8 @@ class LatencyPipeline(
     private val cognitiveEngine: com.jarvis.app.cognitive.CognitiveEngine? = null,
     /** Local expression path used when no model can answer. */
     private val modelFreeReply: ((String) -> String?)? = null,
+    /** False when the active provider is only the no-model heuristic placeholder. */
+    private val modelAvailable: () -> Boolean = { true },
     /** Records an experience in Friday's app-local seed, independent of models. */
     private val experienceObserver: (String) -> Unit = {},
     /** Links a received reply to the user experience that preceded it. */
@@ -327,15 +329,35 @@ class LatencyPipeline(
 
         // Slow path — Friday-owned turn context, Obsidian write and cognitive send.
         dispatch {
-            val ctx = sessionContext()
-            synchronized(pendingLock) {
-                pending.addLast(id)
-                pendingInputs[id] = text
-            }
             runCatching { experienceObserver(text) }
             logObsidian(false, text)
             if (_phase.value == LatencyLayer.Phase.ACKNOWLEDGING) {
                 _phase.value = LatencyLayer.Phase.THINKING
+            }
+
+            // No language model is not a failed/empty Friday. When the selected
+            // provider is the placeholder heuristic, the persistent local
+            // individual handles the turn directly without invoking the model
+            // manager or waiting for the response timeout.
+            if (!modelAvailable()) {
+                val localReply = runCatching { modelFreeReply?.invoke(text) }
+                    .getOrNull()?.takeIf { it.isNotBlank() }
+                val settledText = localReply
+                    ?: "I'm here, but my local expression capability is not available right now."
+                appendTurn(Turn(fromJarvis = true, text = settledText, verified = false))
+                logObsidian(true, settledText)
+                reactorFirstSegment()
+                _phase.value = LatencyLayer.Phase.REPLYING
+                if (localReply != null) fullSpeak(localReply)
+                _phase.value = LatencyLayer.Phase.IDLE
+                reactorUtteranceDone()
+                return@dispatch
+            }
+
+            val ctx = sessionContext()
+            synchronized(pendingLock) {
+                pending.addLast(id)
+                pendingInputs[id] = text
             }
             val engine = cognitiveEngine
             if (engine != null) {
