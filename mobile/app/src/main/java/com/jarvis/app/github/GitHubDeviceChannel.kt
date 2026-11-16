@@ -78,7 +78,7 @@ class GitHubDeviceChannel(context: Context) {
     suspend fun disconnect(): String = withContext(Dispatchers.IO) {
         val number = prefs.getInt(KEY_ISSUE_NUMBER, 0)
         val token = tokenStore.read()
-        var remoteClosed = true
+        var remoteClosed = number <= 0
         if (number > 0 && token != null) {
             val body = JSONObject().put("state", "closed").toString().toRequestBody(JSON_MEDIA_TYPE)
             remoteClosed = runCatching {
