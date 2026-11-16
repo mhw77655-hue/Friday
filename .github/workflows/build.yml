@@ -21,10 +21,10 @@ concurrency:
 permissions: {}
 
 jobs:
+  # Run the same build/test gate for every PR, including audit and proposal
+  # branches. Draft PRs still need real validation; skipping their only job
+  # makes the check appear neutral without testing the candidate.
   debug-apk:
-    if: >-
-      github.event_name != 'pull_request' ||
-      (!startsWith(github.head_ref, 'audit/') && !startsWith(github.head_ref, 'friday-proposals/'))
     permissions:
       contents: read
     runs-on: ubuntu-latest
