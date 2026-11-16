@@ -35,6 +35,7 @@ import com.jarvis.app.ui.EngineAccess
 import com.jarvis.app.voice.DefaultJarvisVoiceProfile
 import com.jarvis.app.voice.VoiceProfileStore
 import com.jarvis.app.voice.provider.VoiceSynthesisParams
+import com.jarvis.app.voice.provider.ReferenceAudioLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -68,7 +69,7 @@ fun VoiceStudioScreen() {
             scope.launch {
                 busy = true
                 status = "Importing reference audio…"
-                val imported = withContext(Dispatchers.IO) {
+                val importResult = withContext(Dispatchers.IO) {
                     runCatching {
                         val directory = File(context.filesDir, "voice-studio").apply { mkdirs() }
                         val mime = context.contentResolver.getType(uri)?.lowercase()
@@ -79,10 +80,12 @@ fun VoiceStudioScreen() {
                         context.contentResolver.openInputStream(uri)?.use { input ->
                             target.outputStream().use { output -> input.copyTo(output) }
                         } ?: error("Could not open selected audio")
+                        ReferenceAudioLoader.load(target) // validate format, duration and bounds before saving
                         target.absolutePath
-                    }.getOrNull()
+                    }
                 }
-                if (imported != null) {
+                if (importResult.isSuccess) {
+                    val imported = importResult.getOrThrow()
                     referencePath = imported
                     prefs.edit().putString("reference_path", imported).apply()
                     val current = profileStore.get(DefaultJarvisVoiceProfile.id) ?: DefaultJarvisVoiceProfile
@@ -93,7 +96,7 @@ fun VoiceStudioScreen() {
                     ))
                     status = "Reference WAV saved. Pocket TTS will clone it on the next synthesis."
                 } else {
-                    status = "Audio import failed"
+                    status = "Reference WAV rejected: " + (importResult.exceptionOrNull()?.message ?: "unknown error")
                 }
                 busy = false
             }
