@@ -6,7 +6,7 @@
 **Canonical source baseline:** `audit/friday-device-report-repair` at `d24f7ff2409cb9ca4cee5f0be9340218e10e9399`  
 **Other major development line:** `audit/friday-self-evolution-device-bridge` at `954081f98f5cfeda82eb7a88a8b62f7bc5d7230c`
 
-This is a source-level audit, not a claim of physical-device validation. The branch is a consolidation workspace. It is not yet the release branch and it has not been merged into `main`.
+This is a source-level audit, not a claim of physical-device validation. PR #19 and PR #23 have now been joined in merge commit `95fe277fbc8db74928e9c224c66e647ca8df139f` on `audit/friday-unification`. The synthetic integration PR #25 was closed as merged into this branch. The branch is not yet the release branch and has not been promoted to `main`.
 
 ## 1. Executive diagnosis
 
@@ -18,7 +18,7 @@ The current self-development loop is only a **proposal loop**: the phone can req
 
 ## 2. Branch and pull-request diagnosis
 
-At the start of this audit the repository had approximately forty branches and ten open PRs. A new integration branch, `audit/friday-unification`, has now been created from PR #19's head. The live branch list includes multiple parallel naming families: `audit/*`, `build/*`, `feat/*`, `feature/*`, `fix/*`, `rebuild/*`, `reports/*`, `wip/*`, and `work/*`.
+The live repository has more than forty branches (including this integration branch) and ten original open PRs. `audit/friday-unification` is now the working integration line, rooted at PR #19's head and joined to PR #23 by a two-parent merge commit. The live branch list includes multiple parallel naming families: `audit/*`, `build/*`, `feat/*`, `feature/*`, `fix/*`, `rebuild/*`, `reports/*`, `wip/*`, and `work/*`.
 
 There are exact duplicate refs, including:
 - `audit/one-3-to-6` and `wip/one-3-to-6` point to the same commit.
@@ -120,7 +120,7 @@ PR #19 improves the diagnostic path: active probes, crash journal, process-exit 
 ## 5. Build and test evidence
 
 - PR #23 head `954081f98f5cfeda82eb7a88a8b62f7bc5d7230c` has a successful GitHub Actions debug build/test run (#1272, run ID `43979086372`). This validates that PR #23's branch builds in its CI environment; it does not validate PR #19 + PR #23 together.
-- PR #19 head `d24f7ff2409cb9ca4cee5f0be9340218e10e9399` had no matching workflow run in the commit-run lookup used during this audit. Its combined source must be built/tested after integration.
+- The unified branch now contains both histories. A pre-merge CI run (#1278) failed before compilation because the owner-word check script was not yet present on that intermediate commit; its unit-test step then ran without the skipped JDK setup and reported the runner's Java 25.0.5. This is a workflow prerequisite-condition defect, not evidence of a Kotlin compile failure. The post-merge branch needs a fresh CI run after fixing that condition.
 - No physical-device test has been established by this audit. A CI APK is not proof of microphone, Shizuku, reboot, update-install or process-survival behavior on the target phone.
 
 ## 6. Main-branch hazards
