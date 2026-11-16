@@ -187,7 +187,7 @@ fun VoiceStudioScreen() {
                     Text(if (referencePath == null) "Import reference WAV" else "Replace reference WAV")
                 }
                 Text(referencePath?.takeIf { referenceAvailable }?.let { File(it).name } ?: "No reference recording selected")
-                Button(enabled = !busy && referencePath != null, onClick = {
+                Button(enabled = !busy && referenceAvailable, onClick = {
                     prefs.edit().putString("reference_path", referencePath).apply()
                     val current = profileStore.get(DefaultJarvisVoiceProfile.id) ?: DefaultJarvisVoiceProfile
                     profileStore.save(current.copy(
