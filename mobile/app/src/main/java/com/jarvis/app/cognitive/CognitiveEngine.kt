@@ -10,7 +10,7 @@ import com.jarvis.app.failure.DegradationLevel
 import com.jarvis.app.failure.FailureCause
 import com.jarvis.app.failure.FailureEvent
 import com.jarvis.app.humancore.HumanCore
-import com.jarvis.app.humancore.protocol.SessionContext
+import com.jarvis.app.turn.TurnContext
 import com.jarvis.app.model.ModelManager
 import com.jarvis.app.cognitive.capability.CapabilityExecutor
 import com.jarvis.app.cognitive.capability.CapabilityFabric
@@ -321,7 +321,7 @@ class CognitiveEngine(
      */
     suspend fun process(
         userText: String,
-        sessionContext: SessionContext? = null,
+        sessionContext: TurnContext? = null,
         memoryItems: List<MemoryItem> = emptyList(),
         modelCall: (suspend (String) -> String)? = null,
         sendBlock: ((String) -> Unit)? = null,
@@ -610,7 +610,7 @@ class CognitiveEngine(
      */
     private fun buildSituationState(
         userText: String,
-        context: SessionContext?
+        context: TurnContext?
     ): com.jarvis.app.prediction.SituationState {
         val trimmed = userText.trim()
         val firstWord = trimmed.lowercase().split(Regex("\\s+")).firstOrNull().orEmpty()
@@ -635,7 +635,7 @@ class CognitiveEngine(
         return com.jarvis.app.prediction.SituationState(
             personKey = com.jarvis.app.identity.WorldModelService.USER_NODE_NAME,
             fields = mapOf(
-                "channel" to (context?.channel?.name ?: "unknown"),
+                "channel" to (context?.channel ?: "unknown"),
                 "hourBand" to (context?.localHour?.div(4)?.toString() ?: "unknown"),
                 "wasAway" to (context?.wasAway?.toString() ?: "unknown"),
                 "gapBand" to gapBucket,
@@ -819,14 +819,13 @@ class CognitiveEngine(
     data class Config(
         val autoPopulateWorkingMemory: Boolean = true,
         val autoPopulateAttention: Boolean = true,
-        val syncWithHumanCore: Boolean = true,
         val maxContextTokens: Int = 2048
     )
 
     /** Process a user input through the full cognitive cycle */
     suspend fun processInput(
         userText: String,
-        sessionContext: SessionContext? = null
+        sessionContext: TurnContext? = null
     ): CognitiveResult {
         val turnIndex = turnCounter.incrementAndGet()
 
