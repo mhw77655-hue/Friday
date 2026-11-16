@@ -153,11 +153,14 @@ class FridaySeedSubstrate(
     @Synchronized
     fun rememberFact(key: String, value: String): Boolean {
         val safeKey = normalizeFactKey(key)
-        val safeValue = value.trim().replace(Regex("\\s+"), " ").take(120)
-        if (safeKey.isBlank() || safeValue.isBlank()) return false
+        if (safeKey.isBlank()) return false
+        val valuePrefix = "fact-value:$safeKey:"
+        val safeValue = value.trim().replace(Regex("\\s+"), " ")
+            .take((MAX_KEY_LENGTH - valuePrefix.length).coerceAtLeast(0))
+        if (safeValue.isBlank()) return false
         observeOutcome(
             context = mapOf("fact:$safeKey" to 1.0),
-            outcome = mapOf("fact-value:$safeKey:$safeValue" to 1.0)
+            outcome = mapOf("$valuePrefix$safeValue" to 1.0)
         )
         return true
     }
