@@ -24,11 +24,11 @@ import org.junit.Test
  * provider translates into the request sent to Ollama (ModelManager.kt:473-488).
  * So the text captured at bridgeSend IS the outgoing request payload content.
  *
- * This historical harness previously failed to initialize the REAL HumanCore
- * singleton. This test now verifies the platform-neutral identity stack, while
- * Android integration still requires a separate device-level proof. The test drives
- * the harness engine/identity stack:
- *   AC1 - the real composition now resolves the Friday identity name;
+ * The harness uses Friday's owner-seeded identity record, not a Human Core
+ * singleton or a second identity-injection path. Android integration still
+ * requires separate device-level proof. The test drives the same platform-neutral
+ * TurnPathAssembly as the Android app:
+ *   AC1 - the real composition resolves Friday / she;
  *   AC2 - real identity/persona content is wired into the outgoing payload
  *         through the existing IdentityContext.formatForPrompt mechanism, with
  *         the identity stack built by JvmCompositionHarness itself (no second
