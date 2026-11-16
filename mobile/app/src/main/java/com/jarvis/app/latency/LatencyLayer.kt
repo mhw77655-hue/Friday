@@ -5,9 +5,8 @@ import com.jarvis.app.ObsidianSync
 import com.jarvis.app.companioncore.engine.BridgePhase
 import com.jarvis.app.companioncore.engine.BridgeStatusClassifier
 import com.jarvis.app.companioncore.presence.CompanionCoreHolder
-import com.jarvis.app.humancore.HumanCore
 import com.jarvis.app.humancore.pipeline.PerceptionResult
-import com.jarvis.app.humancore.protocol.SessionContext
+import com.jarvis.app.turn.TurnContext
 import com.jarvis.app.humancore.protocol.StyledResponse
 import com.jarvis.app.ui.viewmodel.Turn
 import kotlinx.coroutines.CoroutineScope
@@ -243,11 +242,11 @@ object LatencyLayer {
         }
     }
 
-    private fun sessionContext(): SessionContext {
+    private fun sessionContext(): TurnContext {
         val snapshot = HumanCore.snapshot()
         val presence = snapshot?.presence
-        return SessionContext(
-            channel = SessionContext.Channel.MOBILE_APP,
+        return TurnContext(
+            channel = TurnContext.Channel.MOBILE_APP,
             localHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY),
             secondsSinceLastContact = snapshot?.secondsSinceLastContact,
             wasAway = presence?.mode != com.jarvis.app.humancore.protocol.PresenceState.Mode.ACTIVE,
@@ -282,10 +281,10 @@ class LatencyPipeline(
     private val reactorUtteranceDone: () -> Unit = {},
     private val bridgeSend: (String) -> Unit = {},
     private val bridgeStatus: () -> String = { "" },
-    private val beginExchange: (String, SessionContext?) -> PerceptionResult? = { _, _ -> null },
-    private val express: (String, SessionContext?) -> StyledResponse = { reply, _ -> StyledResponse.Approved(reply) },
+    private val beginExchange: (String, TurnContext?) -> PerceptionResult? = { _, _ -> null },
+    private val express: (String, TurnContext?) -> StyledResponse = { reply, _ -> StyledResponse.Approved(reply) },
     private val completeExchange: (String, String, StyledResponse, Long, PerceptionResult?) -> Unit = { _, _, _, _, _ -> },
-    private val sessionContext: () -> SessionContext? = { null },
+    private val sessionContext: () -> TurnContext? = { null },
     private val nowMs: () -> Long = { System.currentTimeMillis() },
     private val cognitiveEngine: com.jarvis.app.cognitive.CognitiveEngine? = null
 ) {
@@ -299,7 +298,7 @@ class LatencyPipeline(
     private data class PendingTurn(
         val userText: String,
         val perception: PerceptionResult?,
-        val context: SessionContext?
+        val context: TurnContext?
     )
 
     private val pending = ArrayDeque<PendingTurn>()
