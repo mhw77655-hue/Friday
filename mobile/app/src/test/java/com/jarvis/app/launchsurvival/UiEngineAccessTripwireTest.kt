@@ -98,6 +98,35 @@ class UiEngineAccessTripwireTest {
         }
     }
 
+    @Test
+    fun `every published engine slot is backed by the shared readiness gate`() {
+        val appRoot = findAppRoot()
+        val engineSource = File(appRoot, "JarvisEngine.kt").readText()
+        val slotDeclarations = engineSource.lineSequence()
+            .filter { Regex("""fun\\s+\\w+Slot\\s*\\(""").containsMatchIn(it) }
+            .toList()
+
+        assertTrue("JarvisEngine must expose readiness-gated slots", slotDeclarations.isNotEmpty())
+        slotDeclarations.forEach { declaration ->
+            assertTrue(
+                "every engine slot must delegate to readinessGate.slot: $declaration",
+                declaration.contains("readinessGate.slot")
+            )
+        }
+
+        val accessorSource = File(appRoot, "ui/EngineAccess.kt").readText()
+        val typedAccessors = accessorSource.lineSequence()
+            .filter { it.trimStart().startsWith("fun ") && it.contains("EngineSlot<") }
+            .toList()
+        assertTrue("EngineAccess must publish typed accessors", typedAccessors.isNotEmpty())
+        typedAccessors.forEach { declaration ->
+            assertTrue(
+                "UI typed accessors must delegate to a JarvisEngine slot: $declaration",
+                declaration.contains("JarvisEngine.") && declaration.contains("Slot()")
+            )
+        }
+    }
+
     /** Every getter in JarvisEngine.kt whose body is `= checkNotNull(...)`. */
     private fun throwingAccessorNames(engineSource: String): Set<String> =
         Regex("""fun\s+(\w+)\s*\([^)]*\)[^=\n]*=\s*checkNotNull""")
