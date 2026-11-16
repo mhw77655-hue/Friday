@@ -77,6 +77,7 @@ fun SettingsScreen() {
     var recallLimit by remember { mutableStateOf(prefs.getString(KEY_RECALL_LIMIT, "") ?: "") }
     val githubTokenStore = remember { com.jarvis.app.github.GitHubTokenStore(context) }
     var githubToken by remember { mutableStateOf("") }
+    var fridayBuildInstructions by remember { mutableStateOf("") }
     var githubConnected by remember { mutableStateOf(githubTokenStore.isConfigured()) }
     var githubBusy by remember { mutableStateOf(false) }
     var githubStatus by remember { mutableStateOf(if (githubConnected) "GitHub token stored securely." else "Not connected.") }
@@ -186,20 +187,43 @@ fun SettingsScreen() {
             )
         }) { Text("Create fine-grained token") }
 
+        Text(
+            text = "Write what you want Friday to become or build. Your words are sent as the actual development requirement to the repository coding worker; the worker inspects the project, changes code, adds tests and builds a draft APK. It cannot silently install or publish a release.",
+            style = JarvisType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        OutlinedTextField(
+            value = fridayBuildInstructions,
+            onValueChange = { fridayBuildInstructions = it.take(4000) },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Friday, build…", style = JarvisType.Body) },
+            minLines = 4,
+            maxLines = 8,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = JarvisColors.SurfaceHairline,
+                unfocusedBorderColor = JarvisColors.SurfaceHairline
+            )
+        )
         Button(
             onClick = {
                 githubScope.launch {
                     githubBusy = true
-                    githubStatus = "Sending a consented device-health snapshot to GitHub…"
-                    runCatching { com.jarvis.app.github.GitHubDevelopmentClient(context).submitSelfMaintenanceRequest() }
-                        .onSuccess { githubStatus = it }
-                        .onFailure { githubStatus = it.message ?: "GitHub request failed." }
+                    githubStatus = "Sending your build instructions and a bounded device-health snapshot to Friday's coding worker…"
+                    runCatching {
+                        com.jarvis.app.github.GitHubDevelopmentClient(context)
+                            .submitBuildRequest(fridayBuildInstructions)
+                    }
+                        .onSuccess {
+                            githubStatus = it
+                            fridayBuildInstructions = ""
+                        }
+                        .onFailure { githubStatus = it.message ?: "Build request failed." }
                     githubBusy = false
                 }
             },
-            enabled = githubConnected && !githubBusy,
+            enabled = githubConnected && !githubBusy && fridayBuildInstructions.trim().length >= 12,
             modifier = Modifier.fillMaxWidth()
-        ) { Text(if (githubBusy) "Sending…" else "Run Friday self-maintenance") }
+        ) { Text(if (githubBusy) "Sending…" else "Friday, build from my words") }
 
         Button(
             onClick = {
