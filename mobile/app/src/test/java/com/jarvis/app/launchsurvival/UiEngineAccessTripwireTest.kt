@@ -80,7 +80,7 @@ class UiEngineAccessTripwireTest {
         assertTrue("navigation host must exist", navHost.isFile)
         val navSource = navHost.readText()
         val unsafeUnwrap = Regex(
-            """\\bget(?:TaskInbox|ApprovalQueue|AlertStore|SessionManager|EnvironmentManager|ModelManager|BootstrapManager)\\s*\\(\\)\\s*!!"""
+            """\bget(?:TaskInbox|ApprovalQueue|AlertStore|SessionManager|EnvironmentManager|ModelManager|BootstrapManager)\s*\(\)\s*!!"""
         )
         assertTrue(
             "navigation must not force-unwrap nullable engine accessors",
