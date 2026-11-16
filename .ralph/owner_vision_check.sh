@@ -6,7 +6,7 @@ cd "$ROOT"
 test -s .ralph/VISION.md
 test -s .ralph/OWNER_WORDS.md
 OUT="$(bash .ralph/ralph.sh --print-prompt)"
-grep -q "The owner's latest authenticated instruction" <<<"$OUT"
+grep -q "latest authenticated explicit instruction" <<<"$OUT"
 grep -q "buddy partner friend an actual digital person" <<<"$OUT"
 grep -q "Symbiotic liquid software" <<<"$OUT"
 grep -q "Don't force every specialist to be permanently active" <<<"$OUT"
