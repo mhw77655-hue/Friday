@@ -11,6 +11,7 @@ import android.os.Parcel
  */
 interface IJarvisShellService : IInterface {
     fun diagnosticsSnapshot(): String
+    fun captureScreenSummary(): String
     fun destroy()
 
     abstract class Stub : Binder(), IJarvisShellService {
@@ -31,6 +32,13 @@ interface IJarvisShellService : IInterface {
                     reply?.writeString(result)
                     return true
                 }
+                TRANSACTION_CAPTURE_SCREEN -> {
+                    data.enforceInterface(DESCRIPTOR)
+                    val result = captureScreenSummary()
+                    reply?.writeNoException()
+                    reply?.writeString(result)
+                    return true
+                }
                 // Shizuku UserService destruction transaction for a hand-written Binder contract.
                 SHIZUKU_DESTROY_TRANSACTION -> {
                     destroy()
@@ -43,6 +51,7 @@ interface IJarvisShellService : IInterface {
         companion object {
             const val DESCRIPTOR = "com.jarvis.app.IJarvisShellService"
             const val TRANSACTION_DIAGNOSTICS = IBinder.FIRST_CALL_TRANSACTION
+            const val TRANSACTION_CAPTURE_SCREEN = IBinder.FIRST_CALL_TRANSACTION + 1
             const val SHIZUKU_DESTROY_TRANSACTION = 16777114
 
             @JvmStatic
@@ -65,6 +74,20 @@ interface IJarvisShellService : IInterface {
                 remote.transact(Stub.TRANSACTION_DIAGNOSTICS, data, reply, 0)
                 reply.readException()
                 reply.readString() ?: "{}"
+            } finally {
+                data.recycle()
+                reply.recycle()
+            }
+        }
+
+        override fun captureScreenSummary(): String {
+            val data = Parcel.obtain()
+            val reply = Parcel.obtain()
+            return try {
+                data.writeInterfaceToken(Stub.DESCRIPTOR)
+                remote.transact(Stub.TRANSACTION_CAPTURE_SCREEN, data, reply, 0)
+                reply.readException()
+                reply.readString() ?: ""
             } finally {
                 data.recycle()
                 reply.recycle()
