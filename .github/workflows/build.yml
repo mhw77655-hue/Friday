@@ -32,13 +32,14 @@ jobs:
       # real source tree before changing application code.
       - name: Extract uploaded New folder archive
         run: |
+          # The user's upload is on main; this isolated audit branch predates it.
+          git fetch --depth=1 origin main
+          git show FETCH_HEAD:"New folder.zip" > "$RUNNER_TEMP/New folder.zip"
           python3 - <<'PY'
           from pathlib import Path
           from zipfile import ZipFile
           import os
-          archive = Path("New folder.zip")
-          if not archive.is_file():
-              raise SystemExit("New folder.zip is missing from the checked-out repository")
+          archive = Path(os.environ["RUNNER_TEMP"]) / "New folder.zip"
           target = Path(os.environ["RUNNER_TEMP"]) / "friday-new-folder-source"
           target.mkdir(parents=True, exist_ok=True)
           with ZipFile(archive) as z:
