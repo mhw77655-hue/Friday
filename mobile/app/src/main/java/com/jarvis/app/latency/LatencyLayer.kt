@@ -340,6 +340,23 @@ class LatencyPipeline(
             // individual handles the turn directly without invoking the model
             // manager or waiting for the response timeout.
             if (!modelAvailable()) {
+                // Keep Friday's native cognitive organs active even when no
+                // language model is resident. The empty send sink preserves
+                // local perception, memory, intent, continuity and thread work
+                // while allowModelWake prevents hidden model admission.
+                cognitiveEngine?.let { engine ->
+                    runCatching {
+                        kotlinx.coroutines.runBlocking {
+                            engine.process(
+                                userText = text,
+                                sessionContext = sessionContext(),
+                                sendBlock = {},
+                                interlocutor = interlocutor,
+                                allowModelWake = false
+                            )
+                        }
+                    }
+                }
                 val localReply = runCatching { modelFreeReply?.invoke(text) }
                     .getOrNull()?.takeIf { it.isNotBlank() }
                 val settledText = localReply
