@@ -340,7 +340,7 @@ class TurnPathAssembly private constructor(
             // model backend. It remains available when all optional models are
             // absent and persists under app-private storage across restarts.
             val seedSubstrate = FridaySeedSubstrate(
-                journal = ports.storageDir.resolve("friday/seed/experiences.bin").toFile(),
+                journal = ports.storageDir.resolve("friday/seed/experiences.bin"),
                 nowMs = { ports.nowMs() }
             )
             val modelFreeMind = FridayModelFreeMind(seedSubstrate)
