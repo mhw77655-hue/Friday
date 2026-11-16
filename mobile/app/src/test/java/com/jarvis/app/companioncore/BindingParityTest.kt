@@ -6,7 +6,7 @@ import com.jarvis.app.companioncore.engine.FridayLocalRuntimeBinding
 import com.jarvis.app.companioncore.engine.FridayPresenceEvidenceStore
 import com.jarvis.app.companioncore.engine.FridayRuntimeIntegration
 import com.jarvis.app.companioncore.engine.FridayRuntimeSnapshot
-import com.jarvis.app.companioncore.engine.RemoteHumanCoreBinding
+import com.jarvis.app.companioncore.engine.RemoteFridayRuntimeBinding
 import com.jarvis.app.companioncore.engine.SignalMapper
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
