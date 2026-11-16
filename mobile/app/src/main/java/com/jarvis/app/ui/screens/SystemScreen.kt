@@ -5,6 +5,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,6 +17,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.ui.Alignment
@@ -23,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jarvis.app.DiagnosticsViewModel
+import com.jarvis.app.DiagnosticLevel
 import com.jarvis.app.JarvisEngine
 import com.jarvis.app.ui.components.StateChip
 import com.jarvis.app.ui.theme.JarvisColors
@@ -52,6 +57,10 @@ fun SystemScreen() {
     val voiceSubstrateText by diagnosticsViewModel.voiceSubstrateText.collectAsStateWithLifecycle()
     val screenText by diagnosticsViewModel.screenText.collectAsStateWithLifecycle()
     val failureText by diagnosticsViewModel.failureText.collectAsStateWithLifecycle()
+    val selfDiagnosticFindings by diagnosticsViewModel.selfDiagnosticFindings.collectAsStateWithLifecycle()
+    val selfDiagnosticAt by diagnosticsViewModel.selfDiagnosticAt.collectAsStateWithLifecycle()
+
+    LaunchedEffect(Unit) { diagnosticsViewModel.runSelfDiagnosis() }
 
     val rows = listOf(
         SystemRow("Brain", brainStatus, brainDotColor(brainStatus), brainStatus),
@@ -83,14 +92,83 @@ fun SystemScreen() {
             .background(JarvisColors.SurfaceBase)
             .padding(16.dp)
     ) {
-        LazyColumn {
-            items(rows) { row -> SystemRowView(row) }
-        }
+        Text(
+            "FRIDAY SELF-DIAGNOSTICS",
+            style = JarvisType.Technical,
+            color = JarvisColors.TextPrimary
+        )
+        Text(
+            "Local evidence-based checks. This diagnostic does not need a language model and does not send data to GitHub.",
+            style = JarvisType.Label,
+            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+        )
         Button(
-            onClick = { diagnosticsViewModel.crashVoiceSubstrate() },
+            onClick = { diagnosticsViewModel.runSelfDiagnosis() },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Crash voice process (R1 isolation demo)")
+            Text("Run full Friday self-diagnosis")
+        }
+        selfDiagnosticAt?.let {
+            Text(
+                "Last checked: ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(it))} · ${selfDiagnosticFindings.count { finding -> finding.level == DiagnosticLevel.FAILURE }} failures · ${selfDiagnosticFindings.count { finding -> finding.level == DiagnosticLevel.WARNING }} warnings",
+                style = JarvisType.Technical,
+                modifier = Modifier.padding(top = 6.dp, bottom = 8.dp)
+            )
+        }
+        LazyColumn(modifier = Modifier.weight(1f)) {
+            item {
+                Text(
+                    "LIVE SIGNALS",
+                    style = JarvisType.Technical,
+                    color = JarvisColors.TextSecondary,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+            items(rows) { row -> SystemRowView(row) }
+            item {
+                Text(
+                    "SELF-DIAGNOSIS RESULTS",
+                    style = JarvisType.Technical,
+                    color = JarvisColors.TextSecondary,
+                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                )
+            }
+            if (selfDiagnosticFindings.isEmpty()) {
+                item {
+                    Text("No diagnostic run yet.", style = JarvisType.Label)
+                }
+            } else {
+                items(selfDiagnosticFindings, key = { it.id }) { finding ->
+                    SelfDiagnosticRow(finding)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SelfDiagnosticRow(finding: com.jarvis.app.SelfDiagnosticFinding) {
+    val color = when (finding.level) {
+        DiagnosticLevel.PASS -> JarvisColors.CoreSuccess
+        DiagnosticLevel.WARNING -> JarvisColors.CoreAttention
+        DiagnosticLevel.FAILURE -> JarvisColors.CoreWarning
+    }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(finding.title, style = JarvisType.Body)
+            StateChip(label = finding.level.name, dotColor = color)
+        }
+        Text(finding.detail, style = JarvisType.Technical, modifier = Modifier.padding(top = 4.dp))
+        finding.recommendation?.let {
+            Text("Next: $it", style = JarvisType.Label, modifier = Modifier.padding(top = 4.dp))
         }
     }
 }

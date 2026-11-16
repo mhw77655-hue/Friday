@@ -1,5 +1,6 @@
 package com.jarvis.app
 
+import android.Manifest
 import android.app.Application
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -10,8 +11,11 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.BatteryManager
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import com.jarvis.app.humancore.HumanCore
 import com.jarvis.app.JarvisEngine
 import kotlinx.coroutines.delay
@@ -20,6 +24,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+
+enum class DiagnosticLevel { PASS, WARNING, FAILURE }
+
+data class SelfDiagnosticFinding(
+    val id: String,
+    val title: String,
+    val level: DiagnosticLevel,
+    val detail: String,
+    val recommendation: String? = null
+)
 
 class DiagnosticsViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -58,6 +72,12 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
 
     private val _failureText = MutableStateFlow("Failures: none")
     val failureText: StateFlow<String> = _failureText.asStateFlow()
+
+    private val _selfDiagnosticFindings = MutableStateFlow<List<SelfDiagnosticFinding>>(emptyList())
+    val selfDiagnosticFindings: StateFlow<List<SelfDiagnosticFinding>> = _selfDiagnosticFindings.asStateFlow()
+
+    private val _selfDiagnosticAt = MutableStateFlow<Long?>(null)
+    val selfDiagnosticAt: StateFlow<Long?> = _selfDiagnosticAt.asStateFlow()
 
     private var lastBatteryText = ""
     private var lastNetworkText = "Net: checking..."
@@ -284,6 +304,224 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                     publishHealthText()
                 }
             }
+        }
+    }
+
+    /**
+     * Inspect the real running Friday composition without asking a language
+     * model. This checks actual object wiring, the production organ graph,
+     * current failure evidence, platform permissions and optional resources.
+     */
+    fun runSelfDiagnosis() {
+        viewModelScope.launch(Dispatchers.Default) {
+            val findings = mutableListOf<SelfDiagnosticFinding>()
+            fun add(
+                id: String,
+                title: String,
+                level: DiagnosticLevel,
+                detail: String,
+                recommendation: String? = null
+            ) {
+                findings += SelfDiagnosticFinding(id, title, level, detail, recommendation)
+            }
+
+            when (val readiness = JarvisEngine.currentReadiness) {
+                is EngineReadinessState.Ready -> add(
+                    "engine", "Friday engine", DiagnosticLevel.PASS,
+                    "The production composition root reached Ready."
+                )
+                is EngineReadinessState.FailedToWake -> add(
+                    "engine", "Friday engine", DiagnosticLevel.FAILURE,
+                    "The production composition root failed: ${readiness.error.message ?: readiness.error.javaClass.simpleName}",
+                    "Open the failure detail and repair the first initialization failure before testing dependent systems."
+                )
+                EngineReadinessState.Waking -> add(
+                    "engine", "Friday engine", DiagnosticLevel.WARNING,
+                    "The production composition root is still wiring."
+                )
+                EngineReadinessState.NotStarted -> add(
+                    "engine", "Friday engine", DiagnosticLevel.FAILURE,
+                    "JarvisEngine.init has not started.",
+                    "Open Friday normally and inspect the application startup path."
+                )
+            }
+
+            val ready = JarvisEngine.currentReadiness is EngineReadinessState.Ready
+            add(
+                "cognition", "Independent cognitive engine",
+                if (JarvisEngine.cognitiveEngine != null) DiagnosticLevel.PASS else if (ready) DiagnosticLevel.FAILURE else DiagnosticLevel.WARNING,
+                if (JarvisEngine.cognitiveEngine != null) "CognitiveEngine is present in the live application composition." else "No CognitiveEngine instance is exposed by the live composition.",
+                if (JarvisEngine.cognitiveEngine == null) "Inspect TurnPathAssembly and JarvisEngine initialization." else null
+            )
+            add(
+                "body", "Communication body",
+                if (JarvisEngine.bodyCoordinatorSlot().isReady) DiagnosticLevel.PASS else if (ready) DiagnosticLevel.FAILURE else DiagnosticLevel.WARNING,
+                if (JarvisEngine.bodyCoordinatorSlot().isReady) "BodyCoordinator is available through the readiness-gated production accessor." else "BodyCoordinator is not ready.",
+                if (!JarvisEngine.bodyCoordinatorSlot().isReady) "Inspect BodyCoordinator construction and startup failures." else null
+            )
+            add(
+                "presence", "Companion / presence core",
+                if (com.jarvis.app.companioncore.presence.CompanionCoreHolder.instance() != null) DiagnosticLevel.PASS else if (ready) DiagnosticLevel.FAILURE else DiagnosticLevel.WARNING,
+                if (com.jarvis.app.companioncore.presence.CompanionCoreHolder.instance() != null) "The local Companion Core instance exists independently of model availability." else "CompanionCoreHolder has no active core instance.",
+                if (com.jarvis.app.companioncore.presence.CompanionCoreHolder.instance() == null) "Inspect CompanionCoreHolder initialization and its tick-lane startup." else null
+            )
+            add(
+                "identity", "Persistent identity context",
+                if (JarvisEngine.identityContext != null) DiagnosticLevel.PASS else if (ready) DiagnosticLevel.FAILURE else DiagnosticLevel.WARNING,
+                if (JarvisEngine.identityContext != null) "IdentityContext is wired into the production turn path." else "IdentityContext is missing.",
+                if (JarvisEngine.identityContext == null) "Inspect the identity construction in TurnPathAssembly." else null
+            )
+            add(
+                "memory", "Experience / memory substrate",
+                if (JarvisEngine.graphStore != null && JarvisEngine.memoryConsolidationLoop != null) DiagnosticLevel.PASS else if (ready) DiagnosticLevel.FAILURE else DiagnosticLevel.WARNING,
+                "Memory graph=${JarvisEngine.graphStore != null}; consolidation loop=${JarvisEngine.memoryConsolidationLoop != null}.",
+                if (JarvisEngine.graphStore == null || JarvisEngine.memoryConsolidationLoop == null) "Inspect persistent graph-store construction and the experience consolidation loop." else null
+            )
+            add(
+                "capabilities", "Capability and tool-building fabric",
+                if (JarvisEngine.capabilityFabric != null && JarvisEngine.toolBuilder != null) DiagnosticLevel.PASS else DiagnosticLevel.WARNING,
+                "Capability fabric=${JarvisEngine.capabilityFabric != null}; ToolBuilder=${JarvisEngine.toolBuilder != null}.",
+                if (JarvisEngine.capabilityFabric == null || JarvisEngine.toolBuilder == null) "Inspect capability registration and ToolBuilderComposition." else null
+            )
+            add(
+                "device-control", "Phone capability router",
+                if (JarvisEngine.androidDeviceControlRouter != null) DiagnosticLevel.PASS else DiagnosticLevel.WARNING,
+                if (JarvisEngine.androidDeviceControlRouter != null) "The risk-gated DeviceControlRouter is present." else "No production device-control router is wired.",
+                if (JarvisEngine.androidDeviceControlRouter == null) "Inspect the Android capability adapter stack and RiskGate wiring." else null
+            )
+
+            val graph = JarvisEngine.systemGraph
+            if (graph == null) {
+                add("organ-graph", "Live system graph", DiagnosticLevel.FAILURE, "The production SystemGraph is missing.", "Inspect JarvisOrganGraph.build() during engine initialization.")
+            } else {
+                val wiring = runCatching {
+                    com.jarvis.app.selfreconfig.WiringDiagnostics(graph).diagnose()
+                }.getOrNull()
+                if (wiring == null) {
+                    add("organ-graph", "Live system graph", DiagnosticLevel.FAILURE, "The graph exists, but reachability diagnostics could not run.", "Inspect the entry point and dependency edges in JarvisOrganGraph.")
+                } else {
+                    val actionable = wiring.unreachableNodes.filter {
+                        it.organType != com.jarvis.app.selfreconfig.SystemGraph.OrganType.PLANNED
+                    }
+                    val level = when {
+                        !wiring.allInvariantNodesPresent -> DiagnosticLevel.FAILURE
+                        actionable.isNotEmpty() -> DiagnosticLevel.WARNING
+                        else -> DiagnosticLevel.PASS
+                    }
+                    val detail = "Nodes=${graph.nodeCount()}, edges=${graph.edgeCount()}, reachable=${wiring.reachableCount}, unreachable=${wiring.unreachableCount}, missing invariants=${wiring.missingInvariants.joinToString().ifBlank { "none" }}."
+                    add(
+                        "organ-graph", "Live system wiring",
+                        level, detail,
+                        if (level != DiagnosticLevel.PASS) "Review unreachable non-planned organs and missing invariants; do not treat planned nodes as implemented." else null
+                    )
+                }
+            }
+
+            val surface = runCatching { JarvisEngine.getFailureSurface() }.getOrNull()
+            if (surface == null) {
+                add("failure-surface", "Failure and recovery system", DiagnosticLevel.FAILURE, "The live FailureSurface is unavailable.", "Inspect FailureSurface construction before any subsystem can report trustworthy health.")
+            } else {
+                val active = surface.currentFailures.value.filter { it.isActive }
+                val worst = surface.worstSeverity.value
+                val level = when {
+                    worst.rank >= com.jarvis.app.failure.FailureSeverity.ERROR.rank -> DiagnosticLevel.FAILURE
+                    worst.rank >= com.jarvis.app.failure.FailureSeverity.DEGRADED.rank || active.isNotEmpty() -> DiagnosticLevel.WARNING
+                    else -> DiagnosticLevel.PASS
+                }
+                val health = surface.systemHealth.value
+                add(
+                    "failure-surface", "Failure and recovery system",
+                    level,
+                    "Active conditions=${active.size}; total recorded occurrences=${surface.totalFailureCount}; system status=${health.status}; degraded subsystems=${health.degradedSubsystemCount}; down subsystems=${health.downSubsystemCount}.",
+                    if (active.isNotEmpty()) "Inspect the individual evidence-backed diagnoses below and verify recovery rather than clearing the failure record." else null
+                )
+                val diagnosisEngine = runCatching { JarvisEngine.getSelfDiagnosis() }.getOrNull()
+                surface.recentFailures.value.take(3).forEach { event ->
+                    val diagnosis = diagnosisEngine?.let { runCatching { it.diagnose(event) }.getOrNull() }
+                    val detail = diagnosis?.let {
+                        "${it.summary}. Changed before: ${it.changedBefore}. Fallback: ${it.fallbackAvailable ?: "none recorded"}; fallback succeeded: ${it.fallbackSucceeded ?: "not verified"}."
+                    } ?: "${event.subsystem}.${event.operation}: ${event.message}"
+                    val failureLevel = when {
+                        diagnosis?.subsystemHealthyAfter == true -> DiagnosticLevel.WARNING
+                        event.severity.rank >= com.jarvis.app.failure.FailureSeverity.ERROR.rank -> DiagnosticLevel.FAILURE
+                        else -> DiagnosticLevel.WARNING
+                    }
+                    add(
+                        "failure-${event.id}", "Diagnosis: ${event.subsystem} / ${event.operation}",
+                        failureLevel, detail,
+                        if (diagnosis?.subsystemHealthyAfter == true) "The subsystem is healthy now; monitor for recurrence." else "Inspect the named dependency and recovery action; do not assume the fallback worked."
+                    )
+                }
+            }
+
+            val voiceHost = JarvisEngine.voiceOrganismHostSlot().value
+            val voiceState = voiceHost?.state?.value
+            val voiceLevel = when (voiceState?.state) {
+                com.jarvis.app.voice.VoiceOrganismHost.State.BOUND -> DiagnosticLevel.PASS
+                com.jarvis.app.voice.VoiceOrganismHost.State.DISABLED -> DiagnosticLevel.FAILURE
+                else -> DiagnosticLevel.WARNING
+            }
+            add(
+                "voice-habitat", "Isolated voice habitat", voiceLevel,
+                voiceState?.let { "State=${it.state}; voice PID=${it.voicePid ?: "not bound"}; restarts=${it.restartCount}; last status=${it.lastStatus.ifBlank { "none" }}." }
+                    ?: "VoiceOrganismHost is not available yet.",
+                if (voiceLevel != DiagnosticLevel.PASS) "Inspect the :voice process binding, provider readiness and recorded voice failure." else null
+            )
+
+            val modelResolution = JarvisEngine.ollamaModelBackend?.lastResolution
+            val modelDetail = when {
+                modelResolution == null -> "No local model resolution has been attempted. This is an optional compute resource, not a Friday identity or core-presence dependency."
+                modelResolution.unreachable -> "Local model server is unreachable: ${modelResolution.basis}. Friday's local identity/presence checks remain independent."
+                modelResolution.emptyRegistry -> "The model server answered but registered no model: ${modelResolution.basis}."
+                modelResolution.degraded -> "Model request was resolved by fallback: ${modelResolution.basis}; selected=${modelResolution.resolvedId}."
+                else -> "Local model resolved: ${modelResolution.resolvedId}."
+            }
+            add(
+                "optional-model", "Optional model resource",
+                if (modelResolution == null || modelResolution.unreachable || modelResolution.emptyRegistry || modelResolution.degraded) DiagnosticLevel.WARNING else DiagnosticLevel.PASS,
+                modelDetail,
+                if (modelResolution == null || modelResolution.unreachable || modelResolution.emptyRegistry) "If expanded model reasoning is wanted, configure a reachable resource. Do not treat this as Friday being offline." else null
+            )
+
+            val context = getApplication<Application>()
+            val micGranted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+            add(
+                "microphone", "Microphone permission",
+                if (micGranted) DiagnosticLevel.PASS else DiagnosticLevel.WARNING,
+                if (micGranted) "RECORD_AUDIO is granted; capture=${JarvisMic.isRecording.value}." else "RECORD_AUDIO is not granted. Friday's non-microphone core can still run.",
+                if (!micGranted) "Grant microphone permission only if voice input is wanted." else null
+            )
+            add(
+                "shizuku", "Shizuku device bridge",
+                if (ShizukuBridge.isGranted.value) DiagnosticLevel.PASS else DiagnosticLevel.WARNING,
+                if (ShizukuBridge.isGranted.value) "Shizuku is available and Friday has permission." else "Shizuku is unavailable or permission has not been granted; core Friday operation does not depend on it.",
+                if (!ShizukuBridge.isGranted.value) "Start Shizuku and grant Friday permission if privileged device capabilities are wanted." else null
+            )
+            val runtimeEnabled = com.jarvis.app.runtime.FridayRuntimeController.isEnabled(context)
+            add(
+                "persistent-runtime", "Persistent background runtime",
+                if (runtimeEnabled) DiagnosticLevel.PASS else DiagnosticLevel.WARNING,
+                if (runtimeEnabled) "The owner-enabled foreground runtime preference is active." else "Keep Friday alive is off; Android will run the app according to normal activity/process lifecycle.",
+                if (!runtimeEnabled) "Enable Keep Friday alive in Settings if background presence is wanted." else null
+            )
+            val batteryExempt = runCatching {
+                com.jarvis.app.runtime.FridayRuntimeController.batteryOptimizationIgnored(context)
+            }.getOrDefault(false)
+            add(
+                "doze", "Android Doze exemption",
+                if (batteryExempt) DiagnosticLevel.PASS else DiagnosticLevel.WARNING,
+                if (batteryExempt) "Android reports Friday as exempt from battery optimization." else "Friday is not reported as exempt from Doze battery optimization.",
+                if (!batteryExempt) "Use Android battery settings or the Shizuku Protect Friday action. This cannot prevent force-stop or all OEM task killers." else null
+            )
+            add(
+                "autonomous-evolution", "Autonomous development",
+                if (com.jarvis.app.github.FridayEvolutionScheduler.isEnabled(context)) DiagnosticLevel.PASS else DiagnosticLevel.WARNING,
+                if (com.jarvis.app.github.FridayEvolutionScheduler.isEnabled(context)) "Owner-enabled GitHub development cycles are scheduled." else "Scheduled development is off; local Friday continues independently.",
+                if (!com.jarvis.app.github.FridayEvolutionScheduler.isEnabled(context)) "Enable Let Friday develop herself in Settings only if periodic public draft proposals are wanted." else null
+            )
+
+            _selfDiagnosticFindings.value = findings
+            _selfDiagnosticAt.value = System.currentTimeMillis()
         }
     }
 
