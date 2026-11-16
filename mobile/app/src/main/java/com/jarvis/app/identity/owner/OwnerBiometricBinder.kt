@@ -1,11 +1,11 @@
 package com.jarvis.app.identity.owner
 
-import com.jarvis.app.humancore.protocol.OwnerBinding
+import com.jarvis.app.identity.owner.OwnerBinding
 
 /**
  * The real typed owner-binding API. Given an Android `BiometricPrompt`
  * authorization result ([BiometricAuthResult]) it binds the owner relationship
- * to the stable owner identity ([ownerKey]) through [OwnerBindingPort].
+ * to the stable owner identity ([ownerKey]) through Friday's protected [OwnerBindingPort].
  *
  * Authorization rules (fail-closed):
  *  - only [BiometricAuthResult.Success] can bind — [Error] and [Cancelled]
