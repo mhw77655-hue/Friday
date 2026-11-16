@@ -98,7 +98,7 @@ class BindingParityTest {
         local.tick()
         val localSignal: CompanionSignal = local.signal.value
 
-        val remoteBinding = RemoteHumanCoreBinding(
+        val remoteBinding = RemoteFridayRuntimeBinding(
             endpointUrl = "test://status",
             httpGet = { jsonStatusPayload },
             refreshIntervalMs = 60_000L
