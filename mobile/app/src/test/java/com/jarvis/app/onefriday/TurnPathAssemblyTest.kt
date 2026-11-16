@@ -69,7 +69,7 @@ class TurnPathAssemblyTest {
                 storageDir = storageDir,
                 scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
                 stores = JvmPlatformStores(
-                    graphStore = FakeMemoryGraphStore(),
+                    graphStore = FakeMemoryGraphStore(nowMs = clock),
                     embeddingProvider = TestEmbeddingProvider(),
                     memoryStore = NoMemories(),
                     backend = backend,
