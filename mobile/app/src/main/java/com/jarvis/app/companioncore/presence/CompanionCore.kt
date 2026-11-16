@@ -210,6 +210,13 @@ class CompanionCore(
         _suspended.value = false
         integration.sendUserPresenceEvent(
             UserPresenceEvent(
+                eventType = UserPresenceEvent.EventType.DEVICE_FOREGROUNDED,
+                timestamp = nowMs(),
+                confidence = 1.0
+            )
+        )
+        integration.sendUserPresenceEvent(
+            UserPresenceEvent(
                 eventType = UserPresenceEvent.EventType.USER_PRESENT,
                 timestamp = nowMs(),
                 confidence = 1.0
