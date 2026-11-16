@@ -7,13 +7,13 @@ import com.jarvis.app.memory.MemoryNode
  * Minimal in-memory graph used only by the JVM composition tests. The phone
  * always uses AndroidMemoryGraphStore; this class is never in app main sources.
  */
-internal class FakeMemoryGraphStore : MemoryGraphStore {
+internal class FakeMemoryGraphStore(private val nowMs: () -> Long = { System.currentTimeMillis() }) : MemoryGraphStore {
     private val rows = mutableListOf<MemoryNode>()
     private var nextId = 0L
 
     @Synchronized
     override fun addFact(subject: String, predicate: String, `object`: String, source: String): String {
-        val now = System.currentTimeMillis()
+        val now = nowMs()
         rows.indices.forEach { index ->
             val old = rows[index]
             if (old.subject == subject && old.predicate == predicate && old.validUntil == null) {
