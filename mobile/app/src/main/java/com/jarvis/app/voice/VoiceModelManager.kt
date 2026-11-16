@@ -83,7 +83,13 @@ class VoiceModelManager(
     fun isPresent(id: String): Boolean {
         val entry = VoiceModelManifest.byId(id) ?: return false
         val dir = modelDirFor(entry)
-        return File(dir, entry.modelFile).exists()
+        return containsRequiredFiles(dir, entry)
+    }
+
+    private fun containsRequiredFiles(dir: File, entry: VoiceModelEntry): Boolean {
+        val primary = listOf(entry.modelFile, entry.tokensFile, entry.voicesFile)
+            .filter { it.isNotBlank() }
+        return (primary + entry.requiredFiles).distinct().all { File(dir, it).exists() }
     }
 
     private fun modelDirFor(entry: VoiceModelEntry): File = File(modelsDir, entry.id)
@@ -91,7 +97,7 @@ class VoiceModelManager(
     /** All files present for [entry] (model + tokens + voices). */
     fun modelFiles(entry: VoiceModelEntry): Map<String, File>? {
         val dir = modelDirFor(entry)
-        if (!File(dir, entry.modelFile).exists()) return null
+        if (!containsRequiredFiles(dir, entry)) return null
         return mapOf(
             "model" to File(dir, entry.modelFile),
             "tokens" to File(dir, entry.tokensFile),
@@ -134,8 +140,8 @@ class VoiceModelManager(
         }
 
         val dir = modelDirFor(entry)
-        if (!File(dir, entry.modelFile).exists()) {
-            s.update { it.copy(state = ModelState.FAILED, error = "model files missing after download") }
+        if (!containsRequiredFiles(dir, entry)) {
+            s.update { it.copy(state = ModelState.FAILED, error = "one or more required model files are missing after download") }
             return@withContext Result.failure(RuntimeException("model files missing after download"))
         }
 
@@ -257,7 +263,7 @@ class VoiceModelManager(
                         var entryStream = tar.nextEntry
                         while (entryStream != null) {
                             val relative = entryStream.name.split('/').drop(1).joinToString("/")
-                            if (relative.isNotEmpty()) {
+                            if (relative.isNotEmpty() && !relative.startsWith("test_wavs/")) {
                                 val outFile = File(tmpExtract, relative)
                                 if (entryStream.isDirectory) {
                                     outFile.mkdirs()
@@ -274,7 +280,7 @@ class VoiceModelManager(
                 }
             }
             tmpArchive.delete()
-            if (File(tmpExtract, entry.modelFile).exists()) {
+            if (containsRequiredFiles(tmpExtract, entry)) {
                 target.deleteRecursively()
                 if (!tmpExtract.renameTo(target)) {
                     target.mkdirs()
