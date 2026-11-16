@@ -337,9 +337,9 @@ class CognitiveEngine(
         // TURN-TRACE stage timing: the "embed" stage is the input-understanding
         // phase — intent inference + the representational context built by
         // processInput (including its working-memory retrieval).
-        val embedStartMs = System.currentTimeMillis()
+        val embedStartNs = System.nanoTime()
         val cognitiveResult = processInput(userText, sessionContext)
-        val embedMs = System.currentTimeMillis() - embedStartMs
+        val embedMs = (System.nanoTime() - embedStartNs) / 1_000_000L
 
         // FORGET-PROPAGATION: an explicit forget/remember directive is routed
         // through the real propagation path BEFORE pronoun/clarification routing,
@@ -437,7 +437,7 @@ class CognitiveEngine(
         // TURN-TRACE stage timing: the "retrieve" stage spans the gate snapshot,
         // the context-window assembly from it, and the identity gather-for-turn
         // — i.e. every retrieved-memory / context contribution to the payload.
-        val retrieveStartMs = System.currentTimeMillis()
+        val retrieveStartNs = System.nanoTime()
         val mentioned = cognitiveResult.intentResult.explicitIntent.entities
             .map { it.name }
         val selfReferential = userText.lowercase().matches(
@@ -489,7 +489,7 @@ class CognitiveEngine(
             } else {
                 null
             }
-        val retrieveMs = System.currentTimeMillis() - retrieveStartMs
+        val retrieveMs = (System.nanoTime() - retrieveStartNs) / 1_000_000L
 
         // Phase A Galaxy Memory write-back: a durable fact stated in a
         // DIRECT_REPLY turn is written to the graph store through the existing
@@ -523,14 +523,14 @@ class CognitiveEngine(
 
         // TURN-TRACE stage timing: the "prompt-build" stage is the single
         // generation-payload concatenation of the contributions assembled above.
-        val promptBuildStartMs = System.currentTimeMillis()
+        val promptBuildStartNs = System.nanoTime()
         val fullContextMessage = userText + galaxyContext + (identitySuffix ?: "") +
             buildThreadContext(cognitiveResult.turnIndex, userText)
-        val promptBuildMs = System.currentTimeMillis() - promptBuildStartMs
+        val promptBuildMs = (System.nanoTime() - promptBuildStartNs) / 1_000_000L
 
         // TURN-TRACE stage timing: the "generate" stage is the model call — the
         // synchronous reply through the bridge/sendWithContext/modelCall seam.
-        val generateStartMs = System.currentTimeMillis()
+        val generateStartNs = System.nanoTime()
         val responseText = when (decision) {
             TurnDecision.DIRECT_REPLY -> {
                 if (sendBlock != null) {
@@ -548,7 +548,7 @@ class CognitiveEngine(
             TurnDecision.PLAN -> null
             TurnDecision.NEEDS_CLARIFICATION -> null
         }
-        val generateMs = System.currentTimeMillis() - generateStartMs
+        val generateMs = (System.nanoTime() - generateStartNs) / 1_000_000L
 
         // REASONING-TIER-MODEL-GROUND-TRUTH-AND-WIRE turn teardown: the booked
         // reasoning handle was consumed by send() above when the generation went
@@ -569,7 +569,7 @@ class CognitiveEngine(
         if (reasoningWoken && modelManager != null) {
             modelManager.release(com.jarvis.app.model.OrganRole.REASONING)
         }
-        val postProcessMs = System.currentTimeMillis() - generateStartMs - generateMs
+        val postProcessMs = (System.nanoTime() - generateStartNs) / 1_000_000L - generateMs
 
         // TURN-TRACE: write one structured, append-only, local record for this
         // real production turn (AC1/AC2/AC3/AC4). Pure logging — the pre-trace
