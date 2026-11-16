@@ -19,6 +19,7 @@ import java.io.File
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.jarvis.app.diagnostics.DiagnosticEventLog
+import com.jarvis.app.diagnostics.CrashJournal
 import com.jarvis.app.JarvisEngine
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
