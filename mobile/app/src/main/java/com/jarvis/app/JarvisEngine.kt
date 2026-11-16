@@ -517,8 +517,6 @@ object JarvisEngine {
                 context = appContext,
                 modelManager = modelManager,
                 companionIntegration = companionIntegration,
-                languageRouter = languageRouter,
-                memoryStore = memoryStore,
                 failureSurface = failureSurface,
                 recoveryController = recoveryController,
                 scope = scope,
@@ -565,6 +563,7 @@ object JarvisEngine {
                 profileStore = voiceProfileStore
             )
             JarvisEngine.voiceOutputPath = voiceOutputPath
+            bodyCoordinator.attachVoiceOutput(voiceOutputPath)
 
             val voiceMicroSystem = com.jarvis.app.voice.VoiceOrganismMicroSystem(voiceHost)
             JarvisEngine.voiceMicroSystem = voiceMicroSystem
