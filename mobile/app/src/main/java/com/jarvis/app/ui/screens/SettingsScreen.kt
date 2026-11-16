@@ -80,6 +80,9 @@ fun SettingsScreen() {
     var githubConnected by remember { mutableStateOf(githubTokenStore.isConfigured()) }
     var githubBusy by remember { mutableStateOf(false) }
     var githubStatus by remember { mutableStateOf(if (githubConnected) "GitHub token stored securely." else "Not connected.") }
+    val githubDeviceChannel = remember { com.jarvis.app.github.GitHubDeviceChannel(context) }
+    var githubChannelConnected by remember { mutableStateOf(githubDeviceChannel.isConnected()) }
+    var githubChannelStatus by remember { mutableStateOf(if (githubChannelConnected) githubDeviceChannel.issueUrl().orEmpty() else "Phone channel stopped.") }
     val githubScope = rememberCoroutineScope()
 
     // Bumped on ON_RESUME so the storage-permission row re-checks after
@@ -166,10 +169,15 @@ fun SettingsScreen() {
                 enabled = githubToken.isNotBlank()
             ) { Text("Save GitHub token") }
             TextButton(onClick = {
-                githubTokenStore.clear()
-                githubConnected = false
-                githubToken = ""
-                githubStatus = "GitHub token removed from this phone."
+                githubScope.launch {
+                    runCatching { githubDeviceChannel.disconnect() }
+                    com.jarvis.app.github.GitHubDeviceChannelScheduler.disable(context)
+                    githubTokenStore.clear()
+                    githubConnected = false
+                    githubChannelConnected = false
+                    githubToken = ""
+                    githubStatus = "GitHub token removed and phone polling stopped."
+                }
             }) { Text("Disconnect") }
         }
         TextButton(onClick = {
@@ -213,6 +221,68 @@ fun SettingsScreen() {
         )
         Text(
             text = "Privacy: the repository is public. Sending a request publishes a bounded technical snapshot (device model, Android/app version, available RAM/storage, battery, thermal and network type) in the workflow input. No conversations, location, contacts, notifications, microphone, camera, screen contents, files or unique device IDs are sent. Friday never merges or installs a worker patch.",
+            style = JarvisType.Label,
+            modifier = Modifier.padding(top = 8.dp)
+        )
+
+        SectionLabel("LIVE PHONE DIAGNOSTICS CHANNEL")
+        Text(
+            text = "Friday can keep a phone-initiated connection to this repository using WorkManager. It checks GitHub about every 15 minutes when Android permits background work. The only remote command accepted is diagnostics.snapshot, and only comments written by the repository owner are considered.",
+            style = JarvisType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Button(
+            onClick = {
+                githubScope.launch {
+                    githubBusy = true
+                    runCatching { githubDeviceChannel.connect() }
+                        .onSuccess {
+                            com.jarvis.app.github.GitHubDeviceChannelScheduler.enable(context)
+                            githubChannelConnected = true
+                            githubChannelStatus = "Connected: $it. Background polling enabled."
+                        }
+                        .onFailure { githubChannelStatus = it.message ?: "Could not connect device channel." }
+                    githubBusy = false
+                }
+            },
+            enabled = githubConnected && !githubBusy && !githubChannelConnected,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Connect phone to GitHub") }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Button(
+                onClick = {
+                    githubScope.launch {
+                        githubBusy = true
+                        runCatching { githubDeviceChannel.poll() }
+                            .onSuccess { githubChannelStatus = it }
+                            .onFailure { githubChannelStatus = it.message ?: "Phone channel poll failed." }
+                        githubBusy = false
+                    }
+                },
+                enabled = githubChannelConnected && !githubBusy
+            ) { Text("Check now") }
+            TextButton(
+                onClick = {
+                    githubScope.launch {
+                        githubBusy = true
+                        runCatching { githubDeviceChannel.disconnect() }
+                            .onSuccess { githubChannelStatus = it }
+                            .onFailure { githubChannelStatus = it.message ?: "Disconnect failed." }
+                        com.jarvis.app.github.GitHubDeviceChannelScheduler.disable(context)
+                        githubChannelConnected = false
+                        githubBusy = false
+                    }
+                },
+                enabled = githubChannelConnected && !githubBusy
+            ) { Text("Stop channel") }
+        }
+        Text(
+            text = githubChannelStatus,
+            style = JarvisType.Technical,
+            modifier = Modifier.padding(top = 6.dp)
+        )
+        Text(
+            text = "This channel uses a public GitHub issue as its command queue. Diagnostic replies are public and contain only device model, Android/app version, RAM/storage, battery, thermal and network transport. No remote shell, arbitrary file access, microphone, camera, screen capture, location, contacts, notifications, or silent app actions are supported. Disconnect closes the issue and stops polling.",
             style = JarvisType.Label,
             modifier = Modifier.padding(top = 8.dp)
         )
