@@ -180,7 +180,8 @@ private fun genericDotColor(text: String): Color {
             JarvisColors.CoreIdle
 
         t.contains("granted") || t.contains("capturing") || t.contains("connected") ||
-            t.contains("heard") || t.contains("wifi") || t.contains("cellular") ->
+            t.contains("heard") || t.contains("wifi") || t.contains("cellular") ||
+            t.contains("energy monitor active") || t.contains("ready; waiting") ->
             JarvisColors.CoreSuccess
 
         else -> JarvisColors.CoreUnknown
