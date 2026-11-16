@@ -1054,7 +1054,7 @@ class SystemGraphTest {
             reachable.contains("entry.latencyPipeline")
         )
         assertTrue(
-            "the root builds the cognitive engine over real Human Core calls",
+            "the root builds Friday's own cognitive engine",
             reachable.contains("cognitive.engine")
         )
         assertTrue(
@@ -1062,8 +1062,16 @@ class SystemGraphTest {
             reachable.contains("model.modelManager")
         )
         assertTrue(
-            "the root wires the legacy Human Core, not a stub of it",
-            reachable.contains("core.humanCore")
+            "the quarantined legacy Human Core must remain outside Friday's production turn path",
+            !reachable.contains("core.humanCore")
+        )
+        assertTrue(
+            "the root receives platform-specific supply through the single PlatformPorts boundary",
+            reachable.contains("entry.platformPorts")
+        )
+        assertTrue(
+            "the root uses the single Nano Symbiotic Controller",
+            reachable.contains("symbiosis.nanoSymbioticController")
         )
     }
 }
