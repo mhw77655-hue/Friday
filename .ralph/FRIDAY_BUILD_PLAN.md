@@ -277,3 +277,16 @@ The stage order is dependency-driven: close launch readiness, reconcile and prov
 ## Closure rule
 
 The plan is complete only when Friday can remain the same functioning individual offline, develop from experience, direct repository-side construction through a real secure handoff, independently judge the resulting change, integrate verified work, and demonstrate it on the target phone. Until then, the scorecard remains an honest partial-completion estimate.
+
+## Post-build phase — compare Venon's words with Friday's actual work
+
+This is a separate, mandatory phase **after** the build-plan execution and release evidence are complete. It is not a self-congratulation summary. It is a requirement-by-requirement audit:
+
+1. Reconstruct the owner's requirements from the original project conversations and the full `New Folder chats.zip` archive if it can be safely extracted; include the latest explicit corrections and `.ralph/VISION.md`. Do not pretend the ZIP has been read until it actually has.
+2. Break the owner's words into atomic requirements, preserve exact short quotations and source dates, and give each a stable requirement ID.
+3. For every requirement, inspect the actual current source, architecture, model assets/licences, tests, CI artifacts and target-phone evidence. Link exact files/classes/tests and cite the relevant build/device run.
+4. Grade each requirement as **faithful**, **partial**, **missing**, **contradicted**, **unverified**, or **overbuilt**. A source file existing is not proof of runtime behaviour; a passing synthetic test is not device evidence.
+5. Record where the implementation changed the owner's intent, where an old repository feature contradicts the vision, and where the assistant built unnecessary or misdirected work. Do not hide assistant mistakes or inflate completion percentages.
+6. Produce a gap list ranked by impact on the owner's intended Friday, then let the owner correct the interpretation before any final acceptance.
+
+The comparison phase starts only after the build phase has a complete evidence pack. It may reopen implementation work; a high score is not its goal. Fidelity to the owner's words is.
