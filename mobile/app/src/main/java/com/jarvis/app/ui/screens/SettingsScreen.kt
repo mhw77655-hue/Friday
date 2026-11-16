@@ -194,7 +194,7 @@ fun SettingsScreen() {
         )
         OutlinedTextField(
             value = fridayBuildInstructions,
-            onValueChange = { fridayBuildInstructions = it.take(4000) },
+            onValueChange = { fridayBuildInstructions = it.take(3500) },
             modifier = Modifier.fillMaxWidth(),
             placeholder = { Text("Friday, build…", style = JarvisType.Body) },
             minLines = 4,
