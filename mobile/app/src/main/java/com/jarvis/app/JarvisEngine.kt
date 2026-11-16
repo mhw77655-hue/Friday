@@ -772,6 +772,7 @@ object JarvisEngine {
     fun selfDiagnosisSlot(): EngineSlot<com.jarvis.app.failure.SelfDiagnosis> = readinessGate.slot { selfDiagnosis }
     fun environmentManagerSlot(): EngineSlot<LiquidEnvironmentManager> = readinessGate.slot { environmentManager }
     fun modelManagerSlot(): EngineSlot<ModelManager> = readinessGate.slot { modelManager }
+    fun fridayIndividualSlot(): EngineSlot<com.jarvis.app.cognitive.seed.FridayIndividual> = readinessGate.slot { fridayIndividual }
     fun sessionManagerSlot(): EngineSlot<com.jarvis.app.session.SessionManager> = readinessGate.slot { sessionManager }
     fun taskInboxSlot(): EngineSlot<com.jarvis.app.inbox.LocalTaskInbox> = readinessGate.slot { taskInbox }
     fun approvalQueueSlot(): EngineSlot<com.jarvis.app.approvals.LocalApprovalQueue> = readinessGate.slot { approvalQueue }
