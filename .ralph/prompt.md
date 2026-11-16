@@ -2,7 +2,7 @@
 
 ## MANDATORY: read the owner's vision and words before every task
 
-The actual product contract is in `.ralph/VISION.md`. The owner's direct source excerpts and provenance are in `.ralph/OWNER_WORDS.md`. Both files are automatically prepended to every Ralph prompt by `.ralph/ralph.sh`; do not skip them, summarize them away, or replace them with a previous plan. The complete historical source archive is `New Folder chats.zip` at the repository root. Inspect it when an ambiguity or conflict cannot be resolved from the curated excerpts.
+The actual product contract is in `.ralph/VISION.md`. The owner's direct source excerpts and provenance are in `.ralph/OWNER_WORDS.md`. Both files are automatically prepended to every Ralph prompt by `.ralph/ralph.sh`; do not skip them, summarize them away, or replace them with a previous plan. The complete historical source archive is `New Folder chats.zip` at the repository root. When an ambiguity or conflict cannot be resolved from the curated excerpts, search only the owner's speaker turns with `python3 tools/friday-builder/extract_owner_turns.py --search "<relevant phrase>"`; use `--index` to find source files. Assistant turns are excluded, but a user turn may itself quote pasted text, so verify attribution before calling a sentence the owner's own words.
 
 Rules for interpreting the sources:
 
