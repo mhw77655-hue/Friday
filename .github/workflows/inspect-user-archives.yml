@@ -19,6 +19,11 @@ jobs:
           ref: ${{ github.ref_name }}
           persist-credentials: true
 
+      - name: Make default-branch archive available to this audit branch
+        run: |
+          git fetch origin main
+          git show origin/main:"New folder.zip" > "New folder.zip"
+
       - name: Extract repository archives safely
         run: |
           python3 - <<'PY'
