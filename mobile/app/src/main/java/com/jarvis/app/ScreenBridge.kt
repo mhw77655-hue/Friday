@@ -90,33 +90,35 @@ object ScreenBridge {
      * accessibility tree, and a hand-rolled regex has no principled way to
      * pick up both plus handle XML entity escaping correctly.
      */
-    fun captureScreenSummary() {
-        JarvisEngine.run {
-            val svc = service
-            if (svc == null) {
-                _lastScreenText.value = "not bound"
-                return@run
-            }
-            val raw = try {
-                svc.captureScreenSummary()
-            } catch (e: Exception) {
-                _lastScreenText.value = "read failed: ${e.message}"
-                return@run
-            }
-
-            val texts = try {
-                extractVisibleText(raw)
-            } catch (e: Exception) {
-                _lastScreenText.value = "parse failed: ${e.message}"
-                return@run
-            }
-
-            _lastScreenText.value = if (texts.isNotEmpty()) {
-                texts.joinToString(", ")
-            } else {
-                "(no visible text found)"
-            }
+    /**
+     * Synchronous because DeviceControlRouter requires verification evidence
+     * from this exact capture, not a stale StateFlow value from a previous call.
+     * Call this capability from a background execution lane.
+     */
+    fun captureScreenSummary(): String {
+        val svc = service
+        if (svc == null) {
+            _lastScreenText.value = "not bound"
+            return _lastScreenText.value
         }
+        val raw = try {
+            svc.captureScreenSummary()
+        } catch (e: Exception) {
+            _lastScreenText.value = "read failed: ${e.message}"
+            return _lastScreenText.value
+        }
+        val texts = try {
+            extractVisibleText(raw)
+        } catch (e: Exception) {
+            _lastScreenText.value = "parse failed: ${e.message}"
+            return _lastScreenText.value
+        }
+        _lastScreenText.value = if (texts.isNotEmpty()) {
+            texts.joinToString(", ")
+        } else {
+            "(no visible text found)"
+        }
+        return _lastScreenText.value
     }
 
     /** Reads bounded device diagnostics through the same privileged UserService. */
