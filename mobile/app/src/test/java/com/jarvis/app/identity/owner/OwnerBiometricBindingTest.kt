@@ -1,6 +1,7 @@
 package com.jarvis.app.identity.owner
 
 import java.io.File
+import java.util.Properties
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
