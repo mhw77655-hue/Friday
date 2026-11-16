@@ -152,6 +152,33 @@ class LatencyPipelineTest {
         assertEquals(2, r.deliveryCount)
     }
 
+    @Test
+    fun noModelProviderUsesFridayLocalIndividualImmediately() {
+        val spoken = mutableListOf<String>()
+        val sentToModel = mutableListOf<String>()
+        val observed = mutableListOf<String>()
+        val p = LatencyPipeline(
+            dispatch = { it() },
+            scheduleDelayed = { _, _ -> },
+            fullSpeak = { spoken += it },
+            bridgeSend = { sentToModel += it },
+            modelFreeReply = { "Friday's local reply to: $it" },
+            modelAvailable = { false },
+            experienceObserver = { observed += it }
+        )
+
+        p.onUserInput("hello without a model")
+
+        assertEquals(listOf("hello without a model"), observed)
+        assertTrue(sentToModel.isEmpty())
+        assertEquals(
+            listOf("Friday's local reply to: hello without a model"),
+            p.turns.value.filter { it.fromJarvis }.map { it.text }
+        )
+        assertEquals(listOf("Friday's local reply to: hello without a model"), spoken)
+        assertEquals(LatencyLayer.Phase.IDLE, p.phase.value)
+    }
+
     // ------------------------------------------------------ fallback ladder
 
     @Test
