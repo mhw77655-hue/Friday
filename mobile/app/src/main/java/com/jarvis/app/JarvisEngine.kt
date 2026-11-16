@@ -252,9 +252,9 @@ object JarvisEngine {
 
             loadCapabilityManifest(appContext)
 
-            // Companion Core (Phase 2): presence engine + orb render state.
-            // Reads Human Core state through the §2.30 adapter and runs its own
-            // Engine Tick Lane loop (30Hz foreground / 0.1Hz background).
+            // Companion Core: presentation-only presence engine + orb render
+            // state. It consumes FridayRuntimeIntegration evidence and runs its
+            // own Engine Tick Lane loop (30Hz foreground / 0.1Hz background).
             com.jarvis.app.companioncore.presence.CompanionCoreHolder.init(appContext)
 
             // Body Coordinator: the nervous system for communication body.
