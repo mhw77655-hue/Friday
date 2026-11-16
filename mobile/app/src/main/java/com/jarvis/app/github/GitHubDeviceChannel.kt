@@ -38,6 +38,10 @@ class GitHubDeviceChannel(context: Context) {
         .callTimeout(30, TimeUnit.SECONDS)
         .build()
 
+    fun isConnected(): Boolean = prefs.getInt(KEY_ISSUE_NUMBER, 0) > 0
+
+    fun issueUrl(): String? = prefs.getInt(KEY_ISSUE_NUMBER, 0).takeIf { it > 0 }?.let { "$ISSUE_URL/$it" }
+
     suspend fun connect(): String = withContext(Dispatchers.IO) {
         val token = tokenStore.read() ?: throw IllegalStateException("Connect GitHub in Settings first.")
         val existing = prefs.getInt(KEY_ISSUE_NUMBER, 0)
