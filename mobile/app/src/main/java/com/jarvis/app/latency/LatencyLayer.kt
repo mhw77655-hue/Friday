@@ -342,6 +342,41 @@ class LatencyPipeline(
                 _phase.value = LatencyLayer.Phase.THINKING_LONG
             }
         }
+
+        // A missing model/reply must not leave the UI in THINKING forever.
+        // This is a bounded failure settlement, not a fabricated model answer.
+        scheduleDelayed(RESPONSE_TIMEOUT_MS) {
+            val expired = synchronized(pendingLock) { pending.remove(id) }
+            if (expired) {
+                if (exchangeCounter.get() == id) _phase.value = LatencyLayer.Phase.IDLE
+                LatencyLayer.failureSink?.invoke(
+                    com.jarvis.app.failure.FailureReport(
+                        subsystem = "MODEL",
+                        operation = "generate_timeout",
+                        severity = com.jarvis.app.failure.FailureSeverity.ERROR,
+                        category = com.jarvis.app.failure.FailureCategory.MODEL,
+                        message = "No model reply arrived before the response deadline",
+                        source = "LatencyLayer",
+                        cause = "Timed out after ${RESPONSE_TIMEOUT_MS}ms",
+                        recoverability = com.jarvis.app.failure.Recoverability.RETRYABLE,
+                        recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY_WITH_BACKOFF
+                    )
+                )
+                appendTurn(
+                    Turn(
+                        fromJarvis = true,
+                        text = "I couldn't get a response from a reasoning model. " +
+                            "No answer was generated. Check whether a model is selected, downloaded and loaded, then try again.",
+                        verified = false
+                    )
+                )
+                logObsidian(
+                    true,
+                    "Model response timed out; no generated answer was received."
+                )
+                reactorUtteranceDone()
+            }
+        }
     }
 
     /**
@@ -451,6 +486,8 @@ class LatencyPipeline(
         const val ACK_GAP_MS = 1_500L
         /** Past this, the UI escalates THINKING → THINKING_LONG (visual only). */
         const val SLOW_THRESHOLD_MS = 2_500L
+        /** Maximum wait for a model reply before an explicit failure is shown. */
+        const val RESPONSE_TIMEOUT_MS = 30_000L
         /** ackOnly exchanges settle back to IDLE after this beat. */
         const val ACK_ONLY_IDLE_MS = 1_000L
         /** The one soft error turn — only on a confirmed bridge failure. */
