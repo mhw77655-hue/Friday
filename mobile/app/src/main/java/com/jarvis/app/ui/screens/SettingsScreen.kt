@@ -1,11 +1,16 @@
 package com.jarvis.app.ui.screens
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -110,6 +115,26 @@ fun SettingsScreen() {
             Environment.isExternalStorageManager()
         } else {
             true // pre-API 30: legacy external storage, no special grant needed here
+        }
+    }
+
+    var keepFridayAlive by remember(resumeSignal) {
+        mutableStateOf(com.jarvis.app.runtime.FridayRuntimeController.isEnabled(context))
+    }
+    val batteryOptimizationIgnored = remember(resumeSignal) {
+        com.jarvis.app.runtime.FridayRuntimeController.batteryOptimizationIgnored(context)
+    }
+    val runtimeStartFailure = remember(resumeSignal) {
+        com.jarvis.app.runtime.FridayRuntimeController.lastStartFailure(context)
+    }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            keepFridayAlive = true
+            com.jarvis.app.runtime.FridayRuntimeController.enable(context)
+        } else {
+            keepFridayAlive = false
         }
     }
 
@@ -321,6 +346,70 @@ fun SettingsScreen() {
             text = "This channel uses a public GitHub issue as its command queue. Diagnostic replies are public and contain only device model, Android/app version, RAM/storage, battery, thermal and network transport. No remote shell, arbitrary file access, microphone, camera, screen capture, location, contacts, notifications, or silent app actions are supported. Disconnect closes the issue and stops polling.",
             style = JarvisType.Label,
             modifier = Modifier.padding(top = 8.dp)
+        )
+
+        SectionLabel("FRIDAY RUNTIME")
+        Text(
+            text = "Keep Friday's local continuity and background presence alive with an Android foreground service. Android still controls process scheduling; this is a persistence aid, not a way around force-stop or system policy.",
+            style = JarvisType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Keep Friday alive", style = JarvisType.Body)
+                Text(
+                    if (keepFridayAlive) "Persistent runtime enabled" else "Runtime starts only while the app is active",
+                    style = JarvisType.Technical
+                )
+            }
+            Switch(
+                checked = keepFridayAlive,
+                onCheckedChange = { enabled ->
+                    if (enabled) {
+                        if (Build.VERSION.SDK_INT >= 33 &&
+                            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                        ) {
+                            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            keepFridayAlive = true
+                            com.jarvis.app.runtime.FridayRuntimeController.enable(context)
+                        }
+                    } else {
+                        keepFridayAlive = false
+                        com.jarvis.app.runtime.FridayRuntimeController.disable(context)
+                    }
+                },
+                colors = SwitchDefaults.colors(checkedTrackColor = JarvisColors.CoreIdle)
+            )
+        }
+        Text(
+            text = if (batteryOptimizationIgnored) {
+                "Battery optimization: Friday is exempt from Doze battery optimization."
+            } else {
+                "Battery optimization: Android may defer or stop background work. Exempt Friday below for better persistence."
+            },
+            style = JarvisType.Technical,
+            modifier = Modifier.padding(top = 6.dp)
+        )
+        Button(
+            onClick = { com.jarvis.app.runtime.FridayRuntimeController.openBatteryOptimizationSettings(context) },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Open battery optimization settings") }
+        if (runtimeStartFailure.isNotBlank()) {
+            Text(
+                text = "Last runtime start issue: $runtimeStartFailure. Open Friday to retry.",
+                style = JarvisType.Technical,
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        }
+        Text(
+            text = "After reboot Friday restores her non-microphone core where Android permits. Microphone capture is resumed only after Friday is opened in the foreground with RECORD_AUDIO granted. Force-stop, some manufacturer task killers, permission revocation and thermal shutdown cannot be defeated by an app.",
+            style = JarvisType.Label,
+            modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
         )
 
         SectionLabel("DEVICE CAPABILITIES")
