@@ -34,7 +34,7 @@ import org.junit.Test
  * Mirrors the phase-A technique: JarvisEngine.init is Android-bound (object +
  * HandlerThread), so its composition is replicated on the JVM by constructing
  * the SAME production classes with JVM-safe stand-ins where the app would use
- * an Android-bound resource (HumanCore via real FileStorage, a JVM cloud model
+ * an Android-bound resource (owner-binding file port, a JVM cloud model
  * provider, a JVM device-control backend), then driving the same call paths the
  * now-hosted host methods (requestResearch / requestDeviceControl) invoke on
  * the device.
@@ -43,7 +43,7 @@ import org.junit.Test
  *    from a real production call path (the engine itself + the hosted
  *    requestResearch() path over the real CloudModelRouter + real store).
  *  - AC2: the real owner-binding entry point (OwnerBiometricBinder.bind over the
- *    real HumanCoreOwnerBindingPort) invoked from a live constructed path.
+ *    Friday's OwnerBindingPort) invoked from a live constructed path.
  *  - AC3: android capability adapter stack has a real production caller (the
  *    hosted requestDeviceControl() path through RiskGate + DeviceControlRouter).
  *  - AC4: JarvisOrganGraph reflects the three now-real subsystems and their
@@ -115,7 +115,7 @@ class PhaseBDisconnectedSubsystemWiringTest {
         assertTrue("every candidate persisted", result.storedCount == result.candidates.size)
     }
 
-    // ── AC2: real owner-binding entry point over the real HumanCore store ────
+    // ── AC2: real owner-binding entry point over Friday's protected store ────
 
     @Test
     fun `owner binding entry point binds the durable Friday owner relationship when invoked`() {
@@ -135,7 +135,7 @@ class PhaseBDisconnectedSubsystemWiringTest {
         )
         assertTrue("owner is bound through the durable owner store", binder.isOwnerBound())
         assertEquals("Venon", binder.currentBinding()?.ownerKey)
-        assertTrue("owner store agrees the owner is bound", HumanCore.isOwnerBound())
+        assertTrue("owner store agrees the owner is bound", binder.isOwnerBound())
     }
 
     @Test
@@ -224,6 +224,7 @@ class PhaseBDisconnectedSubsystemWiringTest {
             "com.jarvis.app.research.universal.UniversalResearchEngine",
             graph.node("research.universalResearchEngine")?.qualifiedClassName
         )
+        assertNotNull("owner-binding port node", graph.node("identity.ownerBindingPort"))
         assertNotNull("owner-binding node", graph.node("identity.ownerBiometricBinder"))
         assertEquals(
             "com.jarvis.app.identity.owner.OwnerBiometricBinder",
@@ -238,8 +239,8 @@ class PhaseBDisconnectedSubsystemWiringTest {
             graph.edgesFrom("research.universalResearchEngine").any { it.toId == "cloud.cloudModelRouter" }
         )
         assertTrue(
-            "owner binder depends on the real HumanCore",
-            graph.edgesFrom("identity.ownerBiometricBinder").any { it.toId == "core.humanCore" }
+            "owner binder depends on Friday protected owner-binding port",
+            graph.edgesFrom("identity.ownerBiometricBinder").any { it.toId == "identity.ownerBindingPort" }
         )
         assertTrue(
             "risk gate reads the owner-binding biometric signal",

@@ -65,12 +65,6 @@ object JarvisOrganGraph {
 
         // Core organs
         g.registerNode(SystemGraph.SystemNode(
-            id = "core.humanCore",
-            name = "HumanCore",
-            organType = SystemGraph.OrganType.CORE,
-            qualifiedClassName = "com.jarvis.app.humancore.HumanCore"
-        ))
-        g.registerNode(SystemGraph.SystemNode(
             id = "core.bodyCoordinator",
             name = "BodyCoordinator",
             organType = SystemGraph.OrganType.CORE,
@@ -398,18 +392,14 @@ object JarvisOrganGraph {
             qualifiedClassName = "com.jarvis.app.research.universal.UniversalResearchEngine"
         ))
 
-        // Builder organs (TOOLBUILDER-RESEARCH-CONSUMER-WIRING — the ToolBuilder
-        // stack, constructed in JarvisEngine.init via ToolBuilderComposition with
-        // the real UniversalResearchEngine handed to its research consumer seam)
+        // Owner-binding chain uses Friday's protected owner-binding port; it
+        // does not depend on the quarantined Human Core legacy subsystem.
         g.registerNode(SystemGraph.SystemNode(
-            id = "builder.toolBuilder",
-            name = "ToolBuilder",
-            organType = SystemGraph.OrganType.BUILDER,
-            qualifiedClassName = "com.jarvis.app.builder.ToolBuilder"
+            id = "identity.ownerBindingPort",
+            name = "OwnerBindingPort",
+            organType = SystemGraph.OrganType.IDENTITY,
+            qualifiedClassName = "com.jarvis.app.identity.owner.OwnerBindingPort"
         ))
-
-        // Owner-binding chain (PHASE-B — the real owner-binding entry point
-        // over the real HumanCore relationship store)
         g.registerNode(SystemGraph.SystemNode(
             id = "identity.ownerBiometricBinder",
             name = "OwnerBiometricBinder",
@@ -615,17 +605,15 @@ object JarvisOrganGraph {
         // bodyCoordinator is genuinely constructed in JarvisEngine.init and is
         // reached in the reply path, so it gains an inbound edge from the entry.
         // ONE-2-COMPOSITION: the composition root builds the entry point and the
-        // real Human Core wiring, and reads its supply from the platform adapter.
+        // Friday's cognitive turn path and model manager are assembled once;
+        // platform ports supply host capabilities without owning cognition.
         g.addEdge("entry.compositionRoot", "entry.latencyPipeline", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
-        g.addEdge("entry.compositionRoot", "core.humanCore", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("entry.compositionRoot", "cognitive.engine", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("entry.compositionRoot", "model.modelManager", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("entry.compositionRoot", "entry.platformPorts", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
-        g.addEdge("entry.latencyPipeline", "core.humanCore", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("entry.latencyPipeline", "cognitive.engine", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("entry.latencyPipeline", "core.bodyCoordinator", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("core.bodyCoordinator", "cognitive.engine", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
-        g.addEdge("core.bodyCoordinator", "core.humanCore", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("core.bodyCoordinator", "model.modelManager", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("cognitive.engine", "cognitive.contextWindowAssembler", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("cognitive.engine", "memory.blendedRetriever", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
@@ -710,14 +698,10 @@ object JarvisOrganGraph {
         // JarvisEngine.init and their genuine dependency/call paths.
         g.addEdge("research.universalResearchEngine", "cloud.cloudModelRouter", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
 
-        // TOOLBUILDER-RESEARCH-CONSUMER-WIRING edge: the UniversalResearchEngine's
-        // output flows into the ToolBuilder's research consumer seam (constructor-
-        // injected through ToolBuilderComposition), and the builder places its own
-        // research call through the engine — invite/consume both directions.
-        g.addEdge("research.universalResearchEngine", "builder.toolBuilder", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
-        g.addEdge("builder.toolBuilder", "research.universalResearchEngine", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
-
-        g.addEdge("identity.ownerBiometricBinder", "core.humanCore", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        // The repository-side proposal worker is deliberately not represented as
+        // an active Android organ: request synchronization and worker-result
+        // reconciliation are not implemented yet.
+        g.addEdge("identity.ownerBiometricBinder", "identity.ownerBindingPort", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("android.riskGate", "identity.ownerBiometricBinder", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
         g.addEdge("android.deviceControlRouter", "android.riskGate", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("android.deviceControlRouter", "android.mediaSessionBackend", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
