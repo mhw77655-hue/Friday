@@ -55,7 +55,7 @@ class InAppLlamaModelBackend(context: Context) : ModelBackend {
         if (reasoningAlias || residentAlias) {
             var lastReason = "No installed candidate was found."
             // Quality-first ladders: Spark 4B -> Qwen 2B for reasoning;
-            // MiniCPM5 2B -> LFM2.5 1.2B only as a resident-memory fallback.
+            // MiniCPM5 2B -> LFM2.5 1.2B -> Qwen3.5 0.8B for constrained hosts.
             val candidates = if (reasoningAlias) {
                 listOf(OfflineModelCatalog.advanced, OfflineModelCatalog.reasoning)
             } else {
