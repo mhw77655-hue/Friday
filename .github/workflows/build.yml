@@ -81,6 +81,9 @@ jobs:
           path: vision-chat-archive-report.md
           retention-days: 3
 
+      - name: Verify Ralph receives the owner's vision and direct words
+        run: bash .ralph/owner_vision_check.sh
+
       - name: Set up Python for Friday builder contract tests
         uses: actions/setup-python@v5
         with:
