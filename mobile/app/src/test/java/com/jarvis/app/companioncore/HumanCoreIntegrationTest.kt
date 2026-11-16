@@ -12,7 +12,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /** Friday runtime signal freshness, sole-writer and local presence-event tests. */
-class HumanCoreIntegrationTest {
+class FridayRuntimeIntegrationTest {
     @After
     fun resetEvidence() {
         FridayPresenceEvidenceStore.resetForTests()
