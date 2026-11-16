@@ -27,7 +27,6 @@ import com.jarvis.app.companioncore.contract.PresenceMode
 import com.jarvis.app.companioncore.presence.CompanionCoreHolder
 import com.jarvis.app.companioncore.render.OrbRenderParams
 import com.jarvis.app.companioncore.resource.MobileResourceManagement
-import com.jarvis.app.companioncore.ui.PresenceOrb
 import com.jarvis.app.JarvisEngine
 import com.jarvis.app.ui.components.HorizonArc
 import com.jarvis.app.ui.components.pressScale
@@ -99,16 +98,9 @@ fun HomeScreen(onOpenTools: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            PresenceOrb(
-                params = orbParams,
-                size = 200.dp,
-                onFrameReport = { start, duration -> core?.reportFrame(start, duration) },
-                budget = orbBudget,
-                suspended = orbSuspended,
-                masterTimeOf = core?.let { c -> { n: Long -> c.masterElapsedNanos(n) } }
-                    ?: { n: Long -> n },
-                framePeriodNanos = core?.let { c -> { f: Double -> c.framePeriodNanos(f) } }
-                    ?: { f: Double -> if (f > 0.0) (1_000_000_000L / f).toLong() else 0L }
+            com.jarvis.app.ui.components.FridayAvatar(
+                state = bodyState,
+                size = 280.dp
             )
             Spacer(modifier = Modifier.height(14.dp))
             HorizonArc(
