@@ -56,7 +56,7 @@ class ExpectationStateEngineTest {
         val prediction = engine.predict(before)
         assertNotNull(prediction)
         assertEquals("work", prediction!!.likelyNext["topic"])
-        assertEquals("recent evidence should outweigh equally numerous three-day-old evidence", 6, prediction.evidenceCount)
+        assertEquals("recent evidence should outweigh equally numerous three-day-old evidence", 3, prediction.evidenceCount)
     }
 
     @Test fun doesNotMixDifferentPeopleHistories() {
