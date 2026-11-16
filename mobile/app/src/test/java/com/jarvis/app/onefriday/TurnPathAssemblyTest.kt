@@ -5,8 +5,6 @@ import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.cognition.workspace.MentalStateClaims
 import com.jarvis.app.emotion.EmotionHypothesis
 import com.jarvis.app.failure.FailureSurface
-import com.jarvis.app.humancore.HumanCore
-import com.jarvis.app.humancore.store.FileStorage
 import com.jarvis.app.identity.MentalStateHypothesis
 import com.jarvis.app.latency.LatencyPipeline
 import com.jarvis.app.model.AdmissionDecision
@@ -78,7 +76,6 @@ class TurnPathAssemblyTest {
                 ),
                 snapshot = snapshot,
                 clock = clock,
-                humanCoreStorage = FileStorage(compositionDir("humancore")),
                 turnWork = runTurnWork,
                 later = { _, _ -> },
                 fastAckSink = { acks.add(it) },
@@ -106,7 +103,9 @@ class TurnPathAssemblyTest {
 
         assertNotNull("the real cognitive engine", assembly.engine)
         assertNotNull("the entry pipeline", assembly.pipeline)
-        assertNotNull("the real Human Core turn port", assembly.humanCoreTurnPort)
+        assertEquals("Friday", assembly.selfModel.identity().name)
+        assertEquals("she/her", assembly.selfModel.identity().pronouns)
+        assertTrue(assembly.componentFingerprint.keys.none { it.contains("HumanCore", ignoreCase = true) })
         assertNotNull("the real memory graph store", assembly.graphStore)
         assertNotNull("the real blended retriever", assembly.retriever)
         assertNotNull("the real identity context", assembly.identityContext)
@@ -159,32 +158,25 @@ class TurnPathAssemblyTest {
         )
     }
 
-    // ── The real legacy Human Core, on every host ────────────────────────────
+    // ── Friday owns the identity and the turn path ─────────────────────────
 
     @Test
-    fun `the turn path speaks through the real legacy Human Core, not a stub`() {
+    fun `production composition is Friday-owned and independent of legacy Human Core`() {
         val assembly = TurnPathAssembly.assemble(
             Fixture().ports({ ResourceSnapshot.alwaysHealthy() }, { 1_000L })
         )
 
+        val identity = assembly.selfModel.identity()
+        assertEquals("Friday", identity.name)
+        assertEquals("she/her", identity.pronouns)
+        assertEquals(1, identity.version)
         assertTrue(
-            "the root must initialize the legacy Human Core itself, so every host " +
-                "reaches the same singleton",
-            HumanCore.isInitialized()
+            "the composition fingerprint must not expose a Human Core facade",
+            assembly.componentFingerprint.keys.none { it.contains("HumanCore", ignoreCase = true) }
         )
-
-        val perception = assembly.humanCoreTurnPort.beginExchange("what did we decide?", null)
-        assertNotNull(
-            "beginExchange must return a REAL PerceptionResult. The JVM host used to " +
-                "pass a lambda that returned null by construction, so a turn through " +
-                "it recorded nothing at all.",
-            perception
-        )
-
-        assertEquals(
-            "the expression pass must be the real Human Core's own output",
-            HumanCore.express("The seed layer is closed.", null),
-            assembly.humanCoreTurnPort.express("The seed layer is closed.", null)
+        assertTrue(
+            "Friday's self-summary is built from her own identity record",
+            assembly.identityContext.formatForPrompt("Who are you?").contains("Friday")
         )
     }
 
@@ -275,11 +267,6 @@ class TurnPathAssemblyTest {
     fun `the JVM fixture is built by the same composition root as the Android app`() {
         val assembly = newAssembly("root")
 
-        assertTrue(
-            "constructing the JVM host must go through the ONE root, which " +
-                "initializes the legacy Human Core exactly as the phone does",
-            HumanCore.isInitialized()
-        )
         assertEquals(
             "the JVM host's pipeline must be the real production pipeline",
             "com.jarvis.app.latency.LatencyPipeline",
@@ -310,11 +297,9 @@ class TurnPathAssemblyTest {
             "frustrated",
             reading!!.mood
         )
-        assertEquals(
-            "the legacy Human Core must have been consulted for real: the pipeline's " +
-                "own slow path calls beginExchange before the engine does",
-            "com.jarvis.app.latency.LatencyPipeline",
-            assembly.pipeline.javaClass.name
+        assertTrue(
+            "a real turn flows through Friday's cognitive path with no legacy facade",
+            assembly.componentFingerprint.keys.none { it.contains("HumanCore", ignoreCase = true) }
         )
     }
 
@@ -338,22 +323,10 @@ class TurnPathAssemblyTest {
 }
 
 /**
- * A unique composition directory that is deliberately NOT a JUnit
- * TemporaryFolder, and must never become one.
- *
- * [HumanCore.init] runs only while the process-wide HumanCore singleton is
- * uninitialised, so the FIRST directory a test hands the composition becomes
- * that singleton's storage for the REST of the JVM — and a TemporaryFolder is
- * deleted when its class finishes. Every later test that touches the real
- * HumanCore then fails on `FileNotFoundException: .../relationship.json.tmp`,
- * which is exactly what CI run 36365413999 did to OwnerBiometricBindingTest
- * and PhaseBDisconnectedSubsystemWiringTest (fixed in 449efe9). Directories are
- * unique per call (so each test's own state starts empty) and are left on disk.
- *
- * Top-level on purpose: it is called from a nested test fixture, and a nested
- * class cannot see the test class's own members. It is `internal` rather than
- * `private` because [InjectedClockTest] builds its composition the same way and
- * must get the same rule from the same function.
+ * A unique app-private-style directory for each composition fixture. These
+ * stores are independent and no process-wide legacy Human Core singleton owns
+ * their lifetime. Directories are left on disk so asynchronous test work cannot
+ * race with teardown and produce misleading file-not-found failures.
  */
 internal fun compositionDir(prefix: String): File =
     File(
