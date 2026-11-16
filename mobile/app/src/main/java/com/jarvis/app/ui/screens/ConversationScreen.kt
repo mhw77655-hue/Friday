@@ -97,17 +97,17 @@ private fun ContextStrip() {
             .background(JarvisColors.SurfacePanel)
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        Text(text = "Synced to Obsidian vault", style = JarvisType.Label)
+        Text(text = "FRIDAY · conversation", style = JarvisType.Label)
     }
 }
 
 @Composable
 private fun ThinkingRow(phase: LatencyLayer.Phase) {
     val label = when (phase) {
-        LatencyLayer.Phase.ACKNOWLEDGING -> "JARVIS is listening"
-        LatencyLayer.Phase.THINKING -> "JARVIS is thinking"
-        LatencyLayer.Phase.THINKING_LONG -> "JARVIS is still thinking"
-        LatencyLayer.Phase.REPLYING -> "JARVIS is replying"
+        LatencyLayer.Phase.ACKNOWLEDGING -> "Friday is listening"
+        LatencyLayer.Phase.THINKING -> "Friday is thinking"
+        LatencyLayer.Phase.THINKING_LONG -> "Friday is still thinking"
+        LatencyLayer.Phase.REPLYING -> "Friday is replying"
         LatencyLayer.Phase.IDLE -> null
     } ?: return
     Row(
@@ -159,7 +159,7 @@ private fun InputRow(value: String, onValueChange: (String) -> Unit, onSend: () 
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.weight(1f),
-            placeholder = { Text("Message JARVIS", style = JarvisType.Body) },
+            placeholder = { Text("Message Friday", style = JarvisType.Body) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             keyboardActions = KeyboardActions(onSend = { onSend() }),
