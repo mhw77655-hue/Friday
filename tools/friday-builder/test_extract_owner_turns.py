@@ -29,6 +29,21 @@ class ExtractOwnerTurnsTests(unittest.TestCase):
         self.assertEqual(turns[1][2], "The model is optional compute.")
         self.assertNotIn("chatbot", " ".join(turn[2] for turn in turns).casefold())
 
+    def test_html_strips_script_and_style_and_accepts_indented_owner_markers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            archive = Path(directory) / "chats.zip"
+            with zipfile.ZipFile(archive, "w") as zf:
+                zf.writestr(
+                    "conversation.html",
+                    "<html><body><p>  You: Friday must remain herself.</p>"
+                    "<script>ChatGPT: injected assistant text.</script>"
+                    "<style>.x { content: \"You: fake owner text\"; }</style>"
+                    "</body></html>",
+                )
+            turns = list(MODULE.owner_turns(str(archive)))
+        self.assertEqual(len(turns), 1)
+        self.assertEqual(turns[0][2], "Friday must remain herself.")
+
     def test_does_not_emit_assistant_only_source(self):
         with tempfile.TemporaryDirectory() as directory:
             archive = Path(directory) / "chats.zip"
