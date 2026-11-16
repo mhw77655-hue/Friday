@@ -2,166 +2,132 @@ package com.jarvis.app.companioncore
 
 import com.jarvis.app.companioncore.contract.CompanionSignal
 import com.jarvis.app.companioncore.contract.CurrentAction
-import com.jarvis.app.companioncore.engine.CurrentActionDiscriminator
-import com.jarvis.app.companioncore.engine.HumanCoreIntegration
-import com.jarvis.app.companioncore.engine.LocalHumanCoreBinding
-import com.jarvis.app.companioncore.engine.RawCoreState
+import com.jarvis.app.companioncore.engine.FridayLocalRuntimeBinding
+import com.jarvis.app.companioncore.engine.FridayPresenceEvidenceStore
+import com.jarvis.app.companioncore.engine.FridayRuntimeIntegration
+import com.jarvis.app.companioncore.engine.FridayRuntimeSnapshot
 import com.jarvis.app.companioncore.engine.RemoteHumanCoreBinding
 import com.jarvis.app.companioncore.engine.SignalMapper
-import com.jarvis.app.humancore.bus.StateBus
-import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * Local-vs-remote binding parity (audit M-8, spec §2.30): both bindings must
- * produce identical `CompanionSignal` shapes from equivalent underlying Human
- * Core state.
- *
- * Equivalent state is defined as: valence 0.6, arousal 0.7, trust 0.8,
- * presence ACTIVE, current_action GENERATING, same utterance text. The local
- * binding reads it from a `StateSnapshot` fixture (via injected lambdas); the
- * remote binding reads it from a documented `/api/status`-shaped JSON payload
- * (via an injected in-memory fetch — no socket in tests).
- */
+/** Local and optional remote runtime adapters map equivalent validated evidence. */
 class BindingParityTest {
-
-    // StateBus teardown: LocalHumanCoreBinding subscribes in its init.
-    @After
-    fun tearDownBus() {
-        StateBus.reset()
-    }
-
-    private val equivalent = RawCoreState(
-        ts = 1_700_000_000_000L,
-        moodValence = 0.6,
-        moodArousal = 0.7,
-        lastUserConfidence = 0.9,
-        trust = 0.8,
-        bondDepth = 0.5,
-        totalInteractions = 42L,
-        secondsSinceLastContact = 30L,
-        lastUserSignals = emptyMap(),
-        presenceModeName = "ACTIVE",
-        currentActionRaw = null,
-        bridgeStatus = null,
-        lastUtteranceText = "a reply",
-        fabricationEvidence = false
-    )
-
     @Test
-    fun `equivalent raw state maps to identical CompanionSignal`() {
-        val local = SignalMapper.map(equivalent, CurrentAction.GENERATING)
-        val remoteRaw = equivalent.copy(currentActionRaw = CurrentAction.GENERATING)
-        val remote = SignalMapper.map(remoteRaw, CurrentAction.GENERATING)
-        assertEquals(local, remote)
-    }
-
-    @Test
-    fun `local binding reads equivalent state from a snapshot fixture`() {
-        val clock = ManualEpochClock()
-        val snap = snapshot(
-            ts = clock.now,
-            valence = 0.6,
-            arousal = 0.7,
-            trust = 0.8,
+    fun `equivalent runtime observations map to identical CompanionSignal`() {
+        val equivalent = FridayRuntimeSnapshot(
+            ts = 1_700_000_000_000L,
             totalInteractions = 42L,
-            secondsSinceLastContact = 30L
+            secondsSinceLastContact = 30L,
+            presenceModeName = "ACTIVE",
+            bridgeStatus = "sending (local)",
+            lastUtteranceText = "a reply"
         )
-        val binding = LocalHumanCoreBinding(
-            readSnapshot = { snap },
+        val local = SignalMapper.map(equivalent, CurrentAction.GENERATING)
+        val remote = SignalMapper.map(
+            equivalent.copy(currentActionRaw = CurrentAction.GENERATING),
+            CurrentAction.GENERATING
+        )
+        assertEquals(local, remote)
+        assertEquals(0.0, local.confidence, 1e-9)
+        assertEquals(0.5, local.motivation, 1e-9)
+    }
+
+    @Test
+    fun `local binding reads only Friday runtime evidence`() {
+        val clock = ManualEpochClock()
+        val presence = FridayPresenceEvidenceStore.Snapshot(
+            userPresent = true,
+            appForeground = true,
+            lastInteractionAtMs = clock.now - 30_000L,
+            interactionCount = 42L
+        )
+        val binding = FridayLocalRuntimeBinding(
             readStatus = { "sending (local)" },
             readLastReply = { "a reply" },
-            readPresenceModeName = { snap.presence.mode.name }
+            readPresence = { presence },
+            nowMs = { clock.now }
         )
         val raw = binding.read()
-        assertEquals(0.6, raw.moodValence!!, 1e-9)
-        assertEquals(0.7, raw.moodArousal!!, 1e-9)
-        assertEquals(0.8, raw.trust!!, 1e-9)
+        assertNull(raw.moodValence)
+        assertNull(raw.moodArousal)
+        assertNull(raw.trust)
         assertEquals(42L, raw.totalInteractions)
-        assertEquals(30L, raw.secondsSinceLastContact!!)
+        assertEquals(30L, raw.secondsSinceLastContact)
         assertEquals("a reply", raw.lastUtteranceText)
         assertEquals("ACTIVE", raw.presenceModeName)
     }
 
     @Test
-    fun `remote binding parses the documented status payload`() {
+    fun `optional remote runtime adapter parses documented fields`() {
         val binding = RemoteHumanCoreBinding(
             endpointUrl = "test://status",
             httpGet = { jsonStatusPayload },
-            refreshIntervalMs = 60_000L // don't poll during the test
+            refreshIntervalMs = 60_000L
         )
         binding.refreshNow()
         assertTrue(binding.isHealthy())
         val raw = binding.read()
-        assertEquals(0.6, raw.moodValence!!, 1e-9)
-        assertEquals(0.7, raw.moodArousal!!, 1e-9)
-        assertEquals(0.8, raw.trust!!, 1e-9)
+        assertNull(raw.moodValence)
+        assertNull(raw.trust)
         assertEquals(42L, raw.totalInteractions)
-        assertEquals(30L, raw.secondsSinceLastContact!!)
+        assertEquals(30L, raw.secondsSinceLastContact)
         assertEquals("a reply", raw.lastUtteranceText)
         assertEquals(CurrentAction.GENERATING, raw.currentActionRaw)
     }
 
     @Test
-    fun `integration parity - both bindings yield the same signal end to end`() {
+    fun `local and remote runtime bindings produce the same signal end to end`() {
         val clock = ManualEpochClock()
-
-        // Local path: snapshot fixture + discriminator drives GENERATING.
-        val snap = snapshot(ts = clock.now)
-        val localBinding = LocalHumanCoreBinding(
-            readSnapshot = { snap },
+        val presence = FridayPresenceEvidenceStore.Snapshot(
+            userPresent = true,
+            appForeground = true,
+            lastInteractionAtMs = clock.now - 30_000L,
+            interactionCount = 42L
+        )
+        val localBinding = FridayLocalRuntimeBinding(
             readStatus = { "sending (local)" },
             readLastReply = { "a reply" },
-            readPresenceModeName = { snap.presence.mode.name }
+            readPresence = { presence },
+            nowMs = { clock.now }
         )
-        val local = HumanCoreIntegration(localBinding, nowMs = { clock.now })
+        val local = FridayRuntimeIntegration(localBinding, nowMs = { clock.now })
         local.onUserSubmitted()
         local.tick()
         val localSignal: CompanionSignal = local.signal.value
 
-        // Remote path: identical state via the documented payload.
         val remoteBinding = RemoteHumanCoreBinding(
             endpointUrl = "test://status",
             httpGet = { jsonStatusPayload },
             refreshIntervalMs = 60_000L
         )
         remoteBinding.refreshNow()
-        val remote = HumanCoreIntegration(remoteBinding, nowMs = { clock.now })
+        val remote = FridayRuntimeIntegration(remoteBinding, nowMs = { clock.now })
         remote.tick()
-        val remoteSignal: CompanionSignal = remote.signal.value
 
         assertEquals(CurrentAction.GENERATING, localSignal.currentAction)
-        assertEquals(localSignal, remoteSignal)
+        assertEquals(localSignal, remote.signal.value)
     }
 
     @Test
-    fun `fabrication flag passes through both bindings unchanged`() {
-        val clock = ManualEpochClock()
-        val local = SignalMapper.map(equivalent.copy(fabricationEvidence = true), CurrentAction.IDLE)
-        val remoteRaw = equivalent.copy(
-            currentActionRaw = CurrentAction.IDLE,
-            fabricationEvidence = true
-        )
-        val remote = SignalMapper.map(remoteRaw, CurrentAction.IDLE)
-        assertTrue(local.fabricationFlag)
-        assertEquals(local, remote)
+    fun `fabrication referee evidence passes through unchanged`() {
+        val evidence = FridayRuntimeSnapshot.empty(1_700_000_000_000L)
+            .copy(fabricationEvidence = true)
+        val signal = SignalMapper.map(evidence, CurrentAction.IDLE)
+        assertTrue(signal.fabricationFlag)
     }
 
     companion object {
         private val jsonStatusPayload = """
             {
               "ts": 1700000000000,
-              "valence": 0.6,
-              "arousal": 0.7,
-              "last_user_confidence": 0.9,
-              "trust": 0.8,
-              "bond_depth": 0.5,
               "total_interactions": 42,
               "seconds_since_last_contact": 30,
               "presence_mode": "ACTIVE",
               "current_action": "GENERATING",
+              "bridge_status": "sending (local)",
               "last_utterance_text": "a reply",
               "fabrication_flag": false
             }
