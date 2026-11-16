@@ -4,7 +4,6 @@ import com.jarvis.app.body.MemoryItem
 import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.body.MemoryType
 import com.jarvis.app.cognitive.CognitiveEngine.CognitiveEvent
-import com.jarvis.app.humancore.HumanCore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -38,7 +37,6 @@ class CognitiveEngineTest {
         engine = CognitiveEngine(
             scope = scope,
             memoryStore = memoryStore,
-            humanCore = HumanCore,
             config = CognitiveEngine.Config()
         )
     }
