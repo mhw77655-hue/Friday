@@ -23,6 +23,12 @@ class VoiceProfileStore(context: Context) {
         val arr = JSONArray(raw)
         val profiles = (0 until arr.length()).mapNotNull { i ->
             decode(arr.getJSONObject(i))
+        }.map { profile ->
+            // Preserve the persisted id for compatibility while correcting
+            // the built-in profile's former JARVIS display name.
+            if (profile.id == DefaultJarvisVoiceProfile.id &&
+                profile.name.equals("Jarvis", ignoreCase = true)
+            ) profile.copy(name = DefaultJarvisVoiceProfile.name) else profile
         }
         return profiles.ifEmpty { listOf(DefaultJarvisVoiceProfile) }
     }
