@@ -8,7 +8,7 @@ if [[ ! "$REQUEST_ID" =~ ^[a-z0-9][a-z0-9._-]{0,63}$ ]]; then
   exit 2
 fi
 
-REQUEST_FILE="development-requests/inbox/$REQUEST_ID.json"
+REQUEST_FILE="${FRIDAY_REQUEST_FILE:-development-requests/inbox/$REQUEST_ID.json}"
 python3 tools/friday-builder/validate_request.py "$REQUEST_FILE" --expected-id "$REQUEST_ID"
 BASE_SHA="$(git rev-parse HEAD)"
 
