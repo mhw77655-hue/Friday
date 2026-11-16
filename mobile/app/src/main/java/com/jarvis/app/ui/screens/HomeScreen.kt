@@ -21,9 +21,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jarvis.app.body.BodyCoordinator
-import com.jarvis.app.body.BodyState
-import com.jarvis.app.companioncore.contract.PresenceMode
-import com.jarvis.app.companioncore.presence.CompanionCoreHolder
 import com.jarvis.app.ui.components.HorizonArc
 import com.jarvis.app.ui.components.pressScale
 import com.jarvis.app.ui.components.rememberCapabilitySnapshot
@@ -44,25 +41,18 @@ import kotlinx.coroutines.flow.flowOf
  */
 @Composable
 fun HomeScreen(onOpenTools: () -> Unit) {
-    val core = remember { CompanionCoreHolder.instance() }
     val bodySlot = com.jarvis.app.ui.EngineAccess.bodyCoordinator()
     val bodyCoordinator = bodySlot.value
     if (bodyCoordinator == null) {
         com.jarvis.app.ui.WakingSurface(bodySlot.readiness)
         return
     }
-    val bodyState by bodyCoordinator.state.collectAsStateWithLifecycle()
 
     val voiceSlot = com.jarvis.app.ui.EngineAccess.voiceOutputPath()
     val voiceOutput = voiceSlot.value
     val voiceActive by (voiceOutput?.isSpeaking ?: flowOf(false)).collectAsStateWithLifecycle(initialValue = false)
     val voiceLevel by (voiceOutput?.audioLevel ?: flowOf(0f)).collectAsStateWithLifecycle(initialValue = 0f)
 
-    // Rarely-changing label source (mode changes on explicit transitions only).
-    val modeFlow = remember { core?.presenceMode ?: flowOf(PresenceMode.ASLEEP) }
-    val mode: PresenceMode by modeFlow.collectAsStateWithLifecycle(
-        initialValue = core?.currentPresenceMode ?: PresenceMode.ASLEEP
-    )
 
     val capsSnapshot by rememberCapabilitySnapshot()
     val activeCount = remember(capsSnapshot) { capsSnapshot?.count { it.value } ?: 0 }
@@ -83,10 +73,10 @@ fun HomeScreen(onOpenTools: () -> Unit) {
             verticalArrangement = Arrangement.Center
         ) {
             com.jarvis.app.ui.components.FridayAvatar(
-                state = bodyState,
                 size = 280.dp,
                 voiceActive = voiceActive,
-                voiceLevel = voiceLevel
+                voiceLevel = voiceLevel,
+                morphologySeed = com.jarvis.app.JarvisEngine.fridayIndividual?.identity?.morphologySeed ?: 0L
             )
             Spacer(modifier = Modifier.height(14.dp))
             HorizonArc(
@@ -95,14 +85,8 @@ fun HomeScreen(onOpenTools: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(14.dp))
             Text(
-                text = "FRIDAY — ${presenceLabel(mode)}",
+                text = "FRIDAY",
                 style = JarvisType.Display,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Body: ${bodyStateLabel(bodyState)}",
-                style = JarvisType.Label.copy(color = JarvisColors.TextSecondary),
                 textAlign = TextAlign.Center
             )
         }
@@ -113,32 +97,6 @@ fun HomeScreen(onOpenTools: () -> Unit) {
             onTap = onOpenTools
         )
     }
-}
-
-/** Friday remains present; these labels describe transient body activity only. */
-private fun presenceLabel(mode: PresenceMode): String = when (mode) {
-    PresenceMode.PRESENT, PresenceMode.ASLEEP, PresenceMode.WAKING,
-    PresenceMode.IDLE, PresenceMode.THINKING -> "present"
-    PresenceMode.LISTENING -> "listening"
-    PresenceMode.SPEAKING -> "speaking"
-    PresenceMode.SHUTTING_DOWN -> "shutting down"
-}
-
-/** Readable label for body state. */
-private fun bodyStateLabel(state: BodyState): String = when (state) {
-    BodyState.IDLE -> "present"
-    BodyState.WAKE -> "wake detected"
-    BodyState.LISTENING -> "listening"
-    BodyState.HEARING -> "processing speech"
-    BodyState.THINKING -> "attending"
-    BodyState.RETRIEVING -> "retrieving memory"
-    BodyState.RESPONDING -> "preparing response"
-    BodyState.SPEAKING -> "speaking"
-    BodyState.INTERRUPTED -> "interrupted"
-    BodyState.LEARNING -> "learning"
-    BodyState.ERROR -> "error"
-    BodyState.USER_PRESENT -> "user present"
-    BodyState.USER_ABSENT -> "user absent"
 }
 
 @Composable
