@@ -91,6 +91,8 @@ object JarvisEngine {
         private set
     @Volatile var cognitiveEngine: com.jarvis.app.cognitive.CognitiveEngine? = null
         private set
+    @Volatile var fridayIndividual: com.jarvis.app.cognitive.seed.FridayIndividual? = null
+        private set
     // CONTINUITY-LAW (Gate 3c): the change gate and the drift check built in
     // init() over the shared workspace and a real durable local change log. Same
     // idiom as the other process-scoped singletons above — public with a private
@@ -330,6 +332,7 @@ object JarvisEngine {
                     nanoSymbiosis = nanoSymbiosis
                 )
             )
+            this.fridayIndividual = assembly.individual
             // ONE ModelManager, ONE ResourceGovernor, ONE LatencyPipeline per
             // Friday. The pipeline is installed into the latency layer BEFORE
             // init, so the layer adopts this one instead of building a second.
