@@ -43,8 +43,8 @@ class GitHubDevelopmentClient(context: Context) {
 
     suspend fun submitBuildRequest(instructions: String): String = withContext(Dispatchers.IO) {
         val userWords = instructions.trim()
-        require(userWords.length in 12..4000) {
-            "Describe what Friday should build in 12–4000 characters."
+        require(userWords.length in 12..3500) {
+            "Describe what Friday should build in 12–3500 characters."
         }
         val token = tokenStore.read()
             ?: throw IllegalStateException("Connect a fine-grained GitHub token in Settings first.")
