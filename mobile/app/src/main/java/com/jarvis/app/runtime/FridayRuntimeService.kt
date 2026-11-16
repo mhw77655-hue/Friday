@@ -72,6 +72,11 @@ class FridayRuntimeService : Service() {
         val wantsMicrophone = intent?.action == ACTION_START_WITH_MICROPHONE &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
+        if (!wantsMicrophone) {
+            // A core-only start (boot, sticky restart or revoked microphone
+            // permission) must never leave an earlier capture loop running.
+            stopOwnedMicrophone()
+        }
 
         try {
             var type = 0

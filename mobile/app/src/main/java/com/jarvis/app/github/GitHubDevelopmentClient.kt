@@ -146,7 +146,7 @@ class GitHubDevelopmentClient(context: Context) {
 
         val previousId = prefs.getString(KEY_LAST_REQUEST, null)
         if (previousId != null) {
-            if (hasOpenProposal(token, previousId)) {
+            if (hasAnyOpenProposal(token)) {
                 return@withContext "Autonomous development is waiting for owner review of the existing proposal."
             }
             val previousAt = prefs.getString(KEY_LAST_REQUEST_AT, null)?.let { value ->
@@ -246,11 +246,11 @@ class GitHubDevelopmentClient(context: Context) {
         "Autonomous cycle $requestId dispatched. Friday will propose one evidence-backed improvement as a draft PR; it will not install or merge it."
     }
 
-    private fun hasOpenProposal(token: String, requestId: String): Boolean {
-        val head = "$OWNER:friday-proposals/$requestId"
-        val encodedHead = java.net.URLEncoder.encode(head, "UTF-8")
+    private fun hasAnyOpenProposal(token: String): Boolean {
+        // Check every open Friday proposal, not only the most recently sent
+        // request: a manual request may have replaced the stored request id.
         val request = Request.Builder()
-            .url("https://api.github.com/repos/$OWNER/$REPOSITORY/pulls?state=open&head=$encodedHead&per_page=5")
+            .url("https://api.github.com/repos/$OWNER/$REPOSITORY/pulls?state=open&per_page=100")
             .header("Authorization", "Bearer $token")
             .header("Accept", "application/vnd.github+json")
             .header("X-GitHub-Api-Version", API_VERSION)
@@ -258,8 +258,15 @@ class GitHubDevelopmentClient(context: Context) {
             .get()
             .build()
         http.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw IOException("Could not check existing proposal (HTTP ${response.code}).")
-            return JSONArray(response.body?.string().orEmpty()).length() > 0
+            if (!response.isSuccessful) throw IOException("Could not check existing proposals (HTTP ${response.code}).")
+            val proposals = JSONArray(response.body?.string().orEmpty())
+            return (0 until proposals.length()).any { index ->
+                proposals.getJSONObject(index)
+                    .optJSONObject("head")
+                    ?.optString("ref")
+                    .orEmpty()
+                    .startsWith("friday-proposals/")
+            }
         }
     }
 
