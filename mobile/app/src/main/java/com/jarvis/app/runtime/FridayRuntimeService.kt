@@ -1,6 +1,7 @@
 package com.jarvis.app.runtime
 
 import android.Manifest
+import android.app.ActivityManager
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -232,6 +233,15 @@ object FridayRuntimeController {
     fun isEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY_ENABLED, false)
+
+    /** True only while Android reports this app's foreground service running. */
+    @Suppress("DEPRECATION")
+    fun isServiceRunning(context: Context): Boolean {
+        val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        return manager.getRunningServices(Int.MAX_VALUE).any {
+            it.service.className == FridayRuntimeService::class.java.name
+        }
+    }
 
     fun enable(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

@@ -47,7 +47,7 @@ class JarvisShellService : IJarvisShellService.Stub() {
         if (commandResult.startsWith("unavailable:") || commandResult == "timeout") {
             return "status=unsupported; command=$commandResult"
         }
-        val listing = runFixed("dumpsys", "deviceidle", "whitelist")
+        val listing = runFixed("cmd", "deviceidle", "whitelist")
         if (listing.startsWith("unavailable:") || listing == "timeout") {
             return "status=unverified; command=$commandResult; readback=$listing"
         }

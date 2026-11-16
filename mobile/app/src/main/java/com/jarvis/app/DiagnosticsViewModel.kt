@@ -478,9 +478,11 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             }
             add(
                 "optional-model", "Optional model resource",
-                if (modelResolution == null || modelResolution.unreachable || modelResolution.emptyRegistry || modelResolution.degraded) DiagnosticLevel.WARNING else DiagnosticLevel.PASS,
+                if (modelResolution == null) DiagnosticLevel.PASS
+                else if (modelResolution.unreachable || modelResolution.emptyRegistry || modelResolution.degraded) DiagnosticLevel.WARNING
+                else DiagnosticLevel.PASS,
                 modelDetail,
-                if (modelResolution == null || modelResolution.unreachable || modelResolution.emptyRegistry) "If expanded model reasoning is wanted, configure a reachable resource. Do not treat this as Friday being offline." else null
+                if (modelResolution?.unreachable == true || modelResolution?.emptyRegistry == true) "If expanded model reasoning is wanted, configure a reachable resource. Do not treat this as Friday being offline." else null
             )
 
             val context = getApplication<Application>()
@@ -491,18 +493,25 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 if (micGranted) "RECORD_AUDIO is granted; capture=${JarvisMic.isRecording.value}." else "RECORD_AUDIO is not granted. Friday's non-microphone core can still run.",
                 if (!micGranted) "Grant microphone permission only if voice input is wanted." else null
             )
+            val shizukuGranted = ShizukuBridge.isGranted.value
+            val shizukuBound = ScreenBridge.status.value == "bound"
             add(
                 "shizuku", "Shizuku device bridge",
-                if (ShizukuBridge.isGranted.value) DiagnosticLevel.PASS else DiagnosticLevel.WARNING,
-                if (ShizukuBridge.isGranted.value) "Shizuku is available and Friday has permission." else "Shizuku is unavailable or permission has not been granted; core Friday operation does not depend on it.",
-                if (!ShizukuBridge.isGranted.value) "Start Shizuku and grant Friday permission if privileged device capabilities are wanted." else null
+                if (shizukuGranted && shizukuBound) DiagnosticLevel.PASS else DiagnosticLevel.WARNING,
+                "Permission granted=$shizukuGranted; privileged UserService bound=$shizukuBound; status=${ScreenBridge.status.value}.",
+                if (!shizukuGranted) "Start Shizuku and grant Friday permission if privileged device capabilities are wanted."
+                else if (!shizukuBound) "Use Connect phone to GitHub / the device capability control to bind Friday's Shizuku UserService."
+                else null
             )
             val runtimeEnabled = com.jarvis.app.runtime.FridayRuntimeController.isEnabled(context)
+            val runtimeRunning = com.jarvis.app.runtime.FridayRuntimeController.isServiceRunning(context)
             add(
                 "persistent-runtime", "Persistent background runtime",
-                if (runtimeEnabled) DiagnosticLevel.PASS else DiagnosticLevel.WARNING,
-                if (runtimeEnabled) "The owner-enabled foreground runtime preference is active." else "Keep Friday alive is off; Android will run the app according to normal activity/process lifecycle.",
-                if (!runtimeEnabled) "Enable Keep Friday alive in Settings if background presence is wanted." else null
+                if (runtimeEnabled && runtimeRunning) DiagnosticLevel.PASS else DiagnosticLevel.WARNING,
+                "Owner enabled=$runtimeEnabled; Android service running=$runtimeRunning.",
+                if (!runtimeEnabled) "Enable Keep Friday alive in Settings if background presence is wanted."
+                else if (!runtimeRunning) "Open Friday to resume the foreground service and inspect any recorded startup failure."
+                else null
             )
             val batteryExempt = runCatching {
                 com.jarvis.app.runtime.FridayRuntimeController.batteryOptimizationIgnored(context)
@@ -515,9 +524,8 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             )
             add(
                 "autonomous-evolution", "Autonomous development",
-                if (com.jarvis.app.github.FridayEvolutionScheduler.isEnabled(context)) DiagnosticLevel.PASS else DiagnosticLevel.WARNING,
-                if (com.jarvis.app.github.FridayEvolutionScheduler.isEnabled(context)) "Owner-enabled GitHub development cycles are scheduled." else "Scheduled development is off; local Friday continues independently.",
-                if (!com.jarvis.app.github.FridayEvolutionScheduler.isEnabled(context)) "Enable Let Friday develop herself in Settings only if periodic public draft proposals are wanted." else null
+                DiagnosticLevel.PASS,
+                if (com.jarvis.app.github.FridayEvolutionScheduler.isEnabled(context)) "Owner-enabled GitHub development cycles are scheduled." else "Scheduled development is intentionally off; local Friday continues independently."
             )
 
             _selfDiagnosticFindings.value = findings
