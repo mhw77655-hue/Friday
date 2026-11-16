@@ -300,6 +300,32 @@ class BodyCoordinator(
         eventChannel.trySend(event)
     }
 
+    /**
+     * Toggle the Android microphone interaction without exposing the body's
+     * transport lifecycle as Friday's identity or inner state.
+     *
+     * A second tap ends recognition. A tap during output/processing interrupts
+     * the current interaction, resets the transport, and begins a fresh capture.
+     */
+    fun toggleListening() {
+        when (_state.value) {
+            BodyState.LISTENING, BodyState.WAKE, BodyState.HEARING -> {
+                speechRecognizer?.cancel()
+                emitEvent(BodyEvent.Reset)
+            }
+            BodyState.SPEAKING, BodyState.RESPONDING, BodyState.THINKING, BodyState.RETRIEVING -> {
+                emitEvent(BodyEvent.BargeIn(""))
+                emitEvent(BodyEvent.Reset)
+                emitEvent(BodyEvent.SpeechStart)
+            }
+            BodyState.IDLE -> emitEvent(BodyEvent.SpeechStart)
+            else -> {
+                emitEvent(BodyEvent.Reset)
+                emitEvent(BodyEvent.SpeechStart)
+            }
+        }
+    }
+
     /** Tag the in-flight turn so failures during it correlate to one TURN-id. */
     private fun beginTurn(text: String) {
         failureSurface.currentTurnId = failureSurface.newTurnId()
