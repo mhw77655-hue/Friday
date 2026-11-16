@@ -103,7 +103,7 @@ class UiEngineAccessTripwireTest {
         val appRoot = findAppRoot()
         val engineSource = File(appRoot, "JarvisEngine.kt").readText()
         val slotDeclarations = engineSource.lineSequence()
-            .filter { Regex("""fun\\s+\\w+Slot\\s*\\(""").containsMatchIn(it) }
+            .filter { Regex("""fun\s+\w+Slot\s*\(""").containsMatchIn(it) }
             .toList()
 
         assertTrue("JarvisEngine must expose readiness-gated slots", slotDeclarations.isNotEmpty())
