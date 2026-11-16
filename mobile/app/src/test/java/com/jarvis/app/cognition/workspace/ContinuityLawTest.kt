@@ -79,8 +79,8 @@ class ContinuityLawTest {
     )
 
     private fun coreIdentity(): CoreIdentity = CoreIdentity(
-        name = "JARVIS",
-        version = 1,
+        name = com.jarvis.app.humancore.fallback.FallbackIdentity.record.name,
+        version = com.jarvis.app.humancore.fallback.FallbackIdentity.record.version,
         userNodeName = com.jarvis.app.identity.WorldModelService.USER_NODE_NAME
     )
 
@@ -357,7 +357,10 @@ class ContinuityLawTest {
         )
         assertTrue(
             "the drift must carry the human-authored expectation that broke",
-            verdict.drifts.any { it.expected == "JARVIS" && it.actual == "HAL-9000" }
+            verdict.drifts.any {
+                it.expected == com.jarvis.app.humancore.fallback.FallbackIdentity.record.name &&
+                    it.actual == "HAL-9000"
+            }
         )
     }
 
