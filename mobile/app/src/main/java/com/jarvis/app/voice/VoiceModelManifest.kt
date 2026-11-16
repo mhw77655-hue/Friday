@@ -131,6 +131,7 @@ object VoiceModelManifest {
         quality = com.jarvis.app.voice.provider.VoiceQuality.HIGH,
         startupCostMs = 12_000,
         latencyMs = 1_200,
+        archiveSha256 = "2f3b88823cbbb9bf0b2477ec8ae7b3fec417b3a87b6bb5f256dba66f2ad967cb",
         requiredFiles = listOf(
             "lm_main.int8.onnx",
             "encoder.onnx",
