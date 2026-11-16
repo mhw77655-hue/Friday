@@ -27,7 +27,11 @@ data class VoiceProfile(
     /** Provider fallback order (ids); when empty the selector picks by priority. */
     val fallbackProviders: List<String> = emptyList(),
     val qualityPreference: VoiceQuality = VoiceQuality.HIGH,
-    val resourcePreference: ResourcePreference = ResourcePreference.BALANCED
+    val resourcePreference: ResourcePreference = ResourcePreference.BALANCED,
+    /** App-private reference recording chosen as this voice identity's source. */
+    val referenceAudioPath: String? = null,
+    /** Optional exact transcript for reference-conditioned engines that require it. */
+    val referenceTranscript: String? = null
 )
 
 /** Coarse resource trade-off preference for voice synthesis. */
