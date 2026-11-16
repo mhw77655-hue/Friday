@@ -1,0 +1,3242 @@
+/root/.config/opencode/opencode.json
+---
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "omniroute": {
+      "name": "OmniRoute",
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://localhost:20128/v1",
+        "apiKey": "{env:OMNIROUTE_API_KEY}"
+      },
+      "models": {
+        "auto/best-coding": {
+          "name": "auto/best-coding",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/best-reasoning": {
+          "name": "auto/best-reasoning",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/best-fast": {
+          "name": "auto/best-fast",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/best-vision": {
+          "name": "auto/best-vision",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/best-chat": {
+          "name": "auto/best-chat",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/best-coding-fast": {
+          "name": "auto/best-coding-fast",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/pro-coding": {
+          "name": "auto/pro-coding",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/pro-reasoning": {
+          "name": "auto/pro-reasoning",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/pro-vision": {
+          "name": "auto/pro-vision",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/pro-chat": {
+          "name": "auto/pro-chat",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/pro-fast": {
+          "name": "auto/pro-fast",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/coding": {
+          "name": "auto/coding",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/fast": {
+          "name": "auto/fast",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/chat": {
+          "name": "auto/chat",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/cheap": {
+          "name": "auto/cheap",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/offline": {
+          "name": "auto/offline",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/smart": {
+          "name": "auto/smart",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/claude-opus": {
+          "name": "auto/claude-opus",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/claude-sonnet": {
+          "name": "auto/claude-sonnet",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/best-free": {
+          "name": "auto/best-free",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/best-chaos": {
+          "name": "auto/best-chaos",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/chaos": {
+          "name": "auto/chaos",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/coding:fast": {
+          "name": "auto/coding:fast",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/coding:cheap": {
+          "name": "auto/coding:cheap",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/coding:free": {
+          "name": "auto/coding:free",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/coding:pro": {
+          "name": "auto/coding:pro",
+          "limit": {
+            "context": 1048576,
+            "output": 65536,
+            "input": 1048576
+          }
+        },
+        "auto/coding:reliable": {
+          "name": "auto/coding:reliable",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/reasoning": {
+          "name": "auto/reasoning",
+          "limit": {
+            "context": 1048576,
+            "output": 384000,
+            "input": 1048576
+          }
+        },
+        "auto/reasoning:pro": {
+          "name": "auto/reasoning:pro",
+          "limit": {
+            "context": 1048576,
+            "output": 65536,
+            "input": 1048576
+          }
+        },
+        "auto/vision": {
+          "name": "auto/vision",
+          "limit": {
+            "context": 1048576,
+            "output": 131072,
+            "input": 1048576
+          }
+        },
+        "auto/multimodal": {
+          "name": "auto/multimodal",
+          "limit": {
+            "context": 1048576,
+            "output": 131072,
+            "input": 1048576
+          }
+        },
+        "auto/glm": {
+          "name": "auto/glm",
+          "limit": {
+            "context": 1000000,
+            "output": 131072,
+            "input": 1000000
+          }
+        },
+        "auto/minimax": {
+          "name": "auto/minimax",
+          "limit": {
+            "context": 128000,
+            "output": 8192,
+            "input": 128000
+          }
+        },
+        "auto/mimo": {
+          "name": "auto/mimo",
+          "limit": {
+            "context": 1048576,
+            "output": 131072,
+            "input": 1048576
+          }
+        },
+        "auto/zai": {
+          "name": "auto/zai",
+          "limit": {
+            "context": 128000,
+            "output": 8192,
+            "input": 128000
+          }
+        },
+        "auto/gemma": {
+          "name": "auto/gemma",
+          "limit": {
+            "context": 32768,
+            "output": 8192,
+            "input": 32768
+          }
+        },
+        "auto/llama": {
+          "name": "auto/llama",
+          "limit": {
+            "context": 128000,
+            "output": 8192,
+            "input": 128000
+          }
+        },
+        "auto/gemini": {
+          "name": "auto/gemini",
+          "limit": {
+            "context": 1048576,
+            "output": 65536,
+            "input": 1048576
+          }
+        },
+        "antigravity/gemini-3.6-flash-high": {
+          "name": "antigravity/gemini-3.6-flash-high",
+          "limit": {
+            "context": 1048576,
+            "output": 65536,
+            "input": 1048576
+          }
+        },
+        "antigravity/gemini-3.6-flash-medium": {
+          "name": "antigravity/gemini-3.6-flash-medium",
+          "limit": {
+            "context": 1048576,
+            "output": 65536,
+            "input": 1048576
+          }
+        },
+        "antigravity/gemini-3.6-flash-low": {
+          "name": "antigravity/gemini-3.6-flash-low",
+          "limit": {
+            "context": 1048576,
+            "output": 65536,
+            "input": 1048576
+          }
+        },
+        "antigravity/claude-opus-4-6-thinking": {
+          "name": "antigravity/claude-opus-4-6-thinking",
+          "limit": {
+            "context": 1048576,
+            "output": 65536,
+            "input": 1048576
+          }
+        },
+        "antigravity/claude-sonnet-4-6": {
+          "name": "antigravity/claude-sonnet-4-6",
+          "limit": {
+            "context": 1048576,
+            "output": 65536,
+            "input": 1048576
+          }
+        },
+        "antigravity/gemini-pro-agent": {
+          "name": "antigravity/gemini-pro-agent",
+          "limit": {
+            "context": 1048576,
+            "output": 65535,
+            "input": 1048576
+          }
+        },
+        "antigravity/gemini-3.1-pro-low": {
+          "name": "antigravity/gemini-3.1-pro-low",
+          "limit": {
+            "context": 1048576,
+            "output": 65535,
+            "input": 1048576
+          }
+        },
+        "antigravity/gemini-3-flash-agent": {
+          "name": "antigravity/gemini-3-flash-agent",
+          "limit": {
+            "context": 1048576,
+            "output": 65536,
+            "input": 1048576
+          }
+        },
+        "antigravity/gemini-3.5-flash-low": {
+          "name": "antigravity/gemini-3.5-flash-low",
+          "limit": {
+            "context": 1048576,
+            "output": 65536,
+            "input": 1048576
+          }
+        },
+        "antigravity/gemini-3.5-flash-extra-low": {
+          "name": "antigravity/gemini-3.5-flash-extra-low",
+          "limit": {
+            "context": 1048576,
+            "output": 65536,
+            "input": 1048576
+          }
+        },
+        "antigravity/gemini-3.1-flash-lite": {
+          "name": "antigravity/gemini-3.1-flash-lite",
+          "limit": {
+            "context": 1048576,
+            "output": 65535,
+            "input": 1048576
+          }
+        },
+        "antigravity/gemini-2.5-flash-thinking": {
+          "name": "antigravity/gemini-2.5-flash-thinking",
+          "limit": {
+            "context": 1048576,
+            "output": 65535,
+            "input": 1048576
+          }
+        },
+        "antigravity/gemini-2.5-flash": {
+          "name": "antigravity/gemini-2.5-flash",
+          "limit": {
+            "context": 1048576,
+            "output": 65535,
+            "input": 1048576
+          }
+        },
+        "antigravity/gemini-2.5-flash-lite": {
+          "name": "antigravity/gemini-2.5-flash-lite",
+          "limit": {
+            "context": 1048576,
+            "output": 65535,
+            "input": 1048576
+          }
+        },
+        "antigravity/gpt-oss-120b-medium": {
+          "name": "antigravity/gpt-oss-120b-medium",
+          "limit": {
+            "context": 131072,
+            "output": 32768,
+            "input": 131072
+          }
+        },
+        "pepper/pepper-1": {
+          "name": "pepper/pepper-1",
+          "limit": {
+            "context": 128000
+          }
+        },
+        "ddgw/gpt-5.4-mini": {
+          "name": "ddgw/gpt-5.4-mini",
+          "limit": {
+            "context": 409600,
+            "output": 131072,
+            "input": 409600
+          }
+        },
+        "ddgw/gpt-5.4-nano": {
+          "name": "ddgw/gpt-5.4-nano",
+          "limit": {
+            "context": 409600,
+            "output": 131072,
+            "input": 409600
+          }
+        },
+        "ddgw/claude-haiku-4-5": {
+          "name": "ddgw/claude-haiku-4-5",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "ddgw/mistral-small-2603": {
+          "name": "ddgw/mistral-small-2603",
+          "limit": {
+            "context": 128000
+          }
+        },
+        "ddgw/tinfoil/gpt-oss-120b": {
+          "name": "ddgw/tinfoil/gpt-oss-120b",
+          "limit": {
+            "context": 400000
+          }
+        },
+        "ddgw/tinfoil/gemma4-31b": {
+          "name": "ddgw/tinfoil/gemma4-31b",
+          "limit": {
+            "context": 128000
+          }
+        },
+        "felo/felo-chat": {
+          "name": "felo/felo-chat",
+          "limit": {
+            "context": 128000
+          }
+        },
+        "felo/felo-search": {
+          "name": "felo/felo-search",
+          "limit": {
+            "context": 128000
+          }
+        },
+        "felo/felo-scholar": {
+          "name": "felo/felo-scholar",
+          "limit": {
+            "context": 128000
+          }
+        },
+        "felo/felo-social": {
+          "name": "felo/felo-social",
+          "limit": {
+            "context": 128000
+          }
+        },
+        "felo/felo-document": {
+          "name": "felo/felo-document",
+          "limit": {
+            "context": 128000
+          }
+        },
+        "aug/sonnet4.6": {
+          "name": "aug/sonnet4.6",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "aug/fable-5": {
+          "name": "aug/fable-5",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "aug/haiku4.5": {
+          "name": "aug/haiku4.5",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "aug/sonnet4.5": {
+          "name": "aug/sonnet4.5",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "aug/sonnet4.6-500k": {
+          "name": "aug/sonnet4.6-500k",
+          "limit": {
+            "context": 500000,
+            "input": 500000
+          }
+        },
+        "aug/sonnet5-high": {
+          "name": "aug/sonnet5-high",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "aug/sonnet5-500k": {
+          "name": "aug/sonnet5-500k",
+          "limit": {
+            "context": 500000,
+            "input": 500000
+          }
+        },
+        "aug/opus4.5": {
+          "name": "aug/opus4.5",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "aug/opus4.6": {
+          "name": "aug/opus4.6",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "aug/opus4.6-500k": {
+          "name": "aug/opus4.6-500k",
+          "limit": {
+            "context": 500000,
+            "input": 500000
+          }
+        },
+        "aug/opus4.7": {
+          "name": "aug/opus4.7",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "aug/opus4.7-500k": {
+          "name": "aug/opus4.7-500k",
+          "limit": {
+            "context": 500000,
+            "input": 500000
+          }
+        },
+        "aug/opus4.8": {
+          "name": "aug/opus4.8",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "aug/gemini-3.1-pro-preview": {
+          "name": "aug/gemini-3.1-pro-preview",
+          "limit": {
+            "context": 1000000,
+            "output": 65535,
+            "input": 1000000
+          }
+        },
+        "aug/gpt5": {
+          "name": "aug/gpt5",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "aug/gpt5.1": {
+          "name": "aug/gpt5.1",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "aug/gpt5.2": {
+          "name": "aug/gpt5.2",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "aug/gpt5.4": {
+          "name": "aug/gpt5.4",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "aug/gpt5.4-mini": {
+          "name": "aug/gpt5.4-mini",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "aug/gpt5.5": {
+          "name": "aug/gpt5.5",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "aug/gpt5.6-luna": {
+          "name": "aug/gpt5.6-luna",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "aug/gpt5.6-sol": {
+          "name": "aug/gpt5.6-sol",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "aug/gpt5.6-terra": {
+          "name": "aug/gpt5.6-terra",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "aug/glm-5.2": {
+          "name": "aug/glm-5.2",
+          "limit": {
+            "context": 1000000,
+            "output": 131072,
+            "input": 1000000
+          }
+        },
+        "aug/kimi-k2.6": {
+          "name": "aug/kimi-k2.6",
+          "limit": {
+            "context": 131000,
+            "output": 262144,
+            "input": 131000
+          }
+        },
+        "aug/kimi-k2.7": {
+          "name": "aug/kimi-k2.7",
+          "limit": {
+            "context": 131000,
+            "output": 262144,
+            "input": 131000
+          }
+        },
+        "aug/prism-a": {
+          "name": "aug/prism-a",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "aug/prism-b": {
+          "name": "aug/prism-b",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "tllm/GPT_5_4": {
+          "name": "tllm/GPT_5_4",
+          "limit": {
+            "context": 400000,
+            "input": 400000
+          }
+        },
+        "tllm/GPT_5_3": {
+          "name": "tllm/GPT_5_3",
+          "limit": {
+            "context": 400000,
+            "input": 400000
+          }
+        },
+        "tllm/GPT_5_2": {
+          "name": "tllm/GPT_5_2",
+          "limit": {
+            "context": 400000,
+            "input": 400000
+          }
+        },
+        "tllm/GPT_5_1": {
+          "name": "tllm/GPT_5_1",
+          "limit": {
+            "context": 400000,
+            "input": 400000
+          }
+        },
+        "tllm/GPT_5": {
+          "name": "tllm/GPT_5",
+          "limit": {
+            "context": 400000,
+            "input": 400000
+          }
+        },
+        "tllm/GPT_o4_mini": {
+          "name": "tllm/GPT_o4_mini",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "tllm/GPT_o3_mini": {
+          "name": "tllm/GPT_o3_mini",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "tllm/gemini_3_pro": {
+          "name": "tllm/gemini_3_pro",
+          "limit": {
+            "context": 1000000,
+            "input": 1000000
+          }
+        },
+        "tllm/gemini_2_5_pro": {
+          "name": "tllm/gemini_2_5_pro",
+          "limit": {
+            "context": 1000000,
+            "input": 1000000
+          }
+        },
+        "tllm/gemini_2_0_flash": {
+          "name": "tllm/gemini_2_0_flash",
+          "limit": {
+            "context": 1000000,
+            "input": 1000000
+          }
+        },
+        "tllm/gemini_1_5_flash": {
+          "name": "tllm/gemini_1_5_flash",
+          "limit": {
+            "context": 1000000,
+            "input": 1000000
+          }
+        },
+        "tllm/CLAUDE_4_6_OPUS": {
+          "name": "tllm/CLAUDE_4_6_OPUS",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "tllm/CLAUDE_4_6_SONNET": {
+          "name": "tllm/CLAUDE_4_6_SONNET",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "tllm/CLAUDE_4_5_HAIKU": {
+          "name": "tllm/CLAUDE_4_5_HAIKU",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "tllm/openrouter_gpt_4_o": {
+          "name": "tllm/openrouter_gpt_4_o",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "tllm/openrouter_gpt_4_o_mini": {
+          "name": "tllm/openrouter_gpt_4_o_mini",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "tllm/openrouter_grok_4": {
+          "name": "tllm/openrouter_grok_4",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "tllm/together_deepseek_v3": {
+          "name": "tllm/together_deepseek_v3",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "tllm/openrouter_deepseek_r1": {
+          "name": "tllm/openrouter_deepseek_r1",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "tllm/sonar-pro": {
+          "name": "tllm/sonar-pro",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "tllm/GPT_4o": {
+          "name": "tllm/GPT_4o",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "tllm/claude_opus_4": {
+          "name": "tllm/claude_opus_4",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "tllm/claude_sonnet_4": {
+          "name": "tllm/claude_sonnet_4",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "tllm/claude_haiku_3_5": {
+          "name": "tllm/claude_haiku_3_5",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "tllm/deepseek_v4": {
+          "name": "tllm/deepseek_v4",
+          "limit": {
+            "context": 200000,
+            "input": 200000
+          }
+        },
+        "tllm/gemini_3_flash": {
+          "name": "tllm/gemini_3_flash",
+          "limit": {
+            "context": 1000000,
+            "input": 1000000
+          }
+        },
+        "mcode/mimo-auto": {
+          "name": "mcode/mimo-auto",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "nvidia/google/gemma-4-31b-it": {
+          "name": "nvidia/google/gemma-4-31b-it",
+          "limit": {
+            "context": 128000
+          }
+        },
+        "nvidia/nvidia/nemotron-3-super-120b-a12b": {
+          "name": "nvidia/nvidia/nemotron-3-super-120b-a12b",
+          "limit": {
+            "context": 128000
+          }
+        },
+        "nvidia/openai/gpt-oss-120b": {
+          "name": "nvidia/openai/gpt-oss-120b",
+          "limit": {
+            "context": 400000
+          }
+        },
+        "nvidia/openai/gpt-oss-20b": {
+          "name": "nvidia/openai/gpt-oss-20b",
+          "limit": {
+            "context": 400000
+          }
+        },
+        "oc/claude-fable-5": {
+          "name": "oc/claude-fable-5",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-fable-5": {
+          "name": "opencode/claude-fable-5",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-opus-5": {
+          "name": "oc/claude-opus-5",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-opus-5": {
+          "name": "opencode/claude-opus-5",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-opus-4-8": {
+          "name": "oc/claude-opus-4-8",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-opus-4-8": {
+          "name": "opencode/claude-opus-4-8",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-opus-4-7": {
+          "name": "oc/claude-opus-4-7",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-opus-4-7": {
+          "name": "opencode/claude-opus-4-7",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-opus-4-6": {
+          "name": "oc/claude-opus-4-6",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-opus-4-6": {
+          "name": "opencode/claude-opus-4-6",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-opus-4-5": {
+          "name": "oc/claude-opus-4-5",
+          "limit": {
+            "context": 200000,
+            "output": 32768,
+            "input": 200000
+          }
+        },
+        "opencode/claude-opus-4-5": {
+          "name": "opencode/claude-opus-4-5",
+          "limit": {
+            "context": 200000,
+            "output": 32768,
+            "input": 200000
+          }
+        },
+        "oc/claude-sonnet-5": {
+          "name": "oc/claude-sonnet-5",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-sonnet-5": {
+          "name": "opencode/claude-sonnet-5",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-sonnet-4-6": {
+          "name": "oc/claude-sonnet-4-6",
+          "limit": {
+            "context": 1000000,
+            "output": 64000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-sonnet-4-6": {
+          "name": "opencode/claude-sonnet-4-6",
+          "limit": {
+            "context": 1000000,
+            "output": 64000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-sonnet-4-5": {
+          "name": "oc/claude-sonnet-4-5",
+          "limit": {
+            "context": 200000,
+            "output": 64000,
+            "input": 200000
+          }
+        },
+        "opencode/claude-sonnet-4-5": {
+          "name": "opencode/claude-sonnet-4-5",
+          "limit": {
+            "context": 200000,
+            "output": 64000,
+            "input": 200000
+          }
+        },
+        "oc/claude-sonnet-4": {
+          "name": "oc/claude-sonnet-4",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/claude-sonnet-4": {
+          "name": "opencode/claude-sonnet-4",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/claude-haiku-4-5": {
+          "name": "oc/claude-haiku-4-5",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/claude-haiku-4-5": {
+          "name": "opencode/claude-haiku-4-5",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/gemini-3.6-flash": {
+          "name": "oc/gemini-3.6-flash",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/gemini-3.6-flash": {
+          "name": "opencode/gemini-3.6-flash",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/gemini-3.7-flash": {
+          "name": "oc/gemini-3.7-flash",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/gemini-3.7-flash": {
+          "name": "opencode/gemini-3.7-flash",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/gemini-3.5-flash-lite": {
+          "name": "oc/gemini-3.5-flash-lite",
+          "limit": {
+            "context": 1048576,
+            "output": 65536,
+            "input": 1048576
+          }
+        },
+        "opencode/gemini-3.5-flash-lite": {
+          "name": "opencode/gemini-3.5-flash-lite",
+          "limit": {
+            "context": 1048576,
+            "output": 65536,
+            "input": 1048576
+          }
+        },
+        "oc/gemini-3.5-flash": {
+          "name": "oc/gemini-3.5-flash",
+          "limit": {
+            "context": 1048576,
+            "output": 65536,
+            "input": 1048576
+          }
+        },
+        "opencode/gemini-3.5-flash": {
+          "name": "opencode/gemini-3.5-flash",
+          "limit": {
+            "context": 1048576,
+            "output": 65536,
+            "input": 1048576
+          }
+        },
+        "oc/gemini-3.1-pro": {
+          "name": "oc/gemini-3.1-pro",
+          "limit": {
+            "context": 1048576,
+            "output": 65535,
+            "input": 1048576
+          }
+        },
+        "opencode/gemini-3.1-pro": {
+          "name": "opencode/gemini-3.1-pro",
+          "limit": {
+            "context": 1048576,
+            "output": 65535,
+            "input": 1048576
+          }
+        },
+        "oc/gemini-3-flash": {
+          "name": "oc/gemini-3-flash",
+          "limit": {
+            "context": 1048576,
+            "output": 65536,
+            "input": 1048576
+          }
+        },
+        "opencode/gemini-3-flash": {
+          "name": "opencode/gemini-3-flash",
+          "limit": {
+            "context": 1048576,
+            "output": 65536,
+            "input": 1048576
+          }
+        },
+        "oc/gpt-5.6-sol": {
+          "name": "oc/gpt-5.6-sol",
+          "limit": {
+            "context": 1050000,
+            "output": 128000,
+            "input": 1050000
+          }
+        },
+        "opencode/gpt-5.6-sol": {
+          "name": "opencode/gpt-5.6-sol",
+          "limit": {
+            "context": 1050000,
+            "output": 128000,
+            "input": 1050000
+          }
+        },
+        "oc/gpt-5.6-terra": {
+          "name": "oc/gpt-5.6-terra",
+          "limit": {
+            "context": 1050000,
+            "output": 128000,
+            "input": 1050000
+          }
+        },
+        "opencode/gpt-5.6-terra": {
+          "name": "opencode/gpt-5.6-terra",
+          "limit": {
+            "context": 1050000,
+            "output": 128000,
+            "input": 1050000
+          }
+        },
+        "oc/gpt-5.6-luna": {
+          "name": "oc/gpt-5.6-luna",
+          "limit": {
+            "context": 1050000,
+            "output": 128000,
+            "input": 1050000
+          }
+        },
+        "opencode/gpt-5.6-luna": {
+          "name": "opencode/gpt-5.6-luna",
+          "limit": {
+            "context": 1050000,
+            "output": 128000,
+            "input": 1050000
+          }
+        },
+        "oc/gpt-5.5": {
+          "name": "oc/gpt-5.5",
+          "limit": {
+            "context": 1050000,
+            "output": 128000,
+            "input": 1050000
+          }
+        },
+        "opencode/gpt-5.5": {
+          "name": "opencode/gpt-5.5",
+          "limit": {
+            "context": 1050000,
+            "output": 128000,
+            "input": 1050000
+          }
+        },
+        "oc/gpt-5.5-pro": {
+          "name": "oc/gpt-5.5-pro",
+          "limit": {
+            "context": 1050000,
+            "output": 128000,
+            "input": 1050000
+          }
+        },
+        "opencode/gpt-5.5-pro": {
+          "name": "opencode/gpt-5.5-pro",
+          "limit": {
+            "context": 1050000,
+            "output": 128000,
+            "input": 1050000
+          }
+        },
+        "oc/gpt-5.4": {
+          "name": "oc/gpt-5.4",
+          "limit": {
+            "context": 409600,
+            "output": 131072,
+            "input": 409600
+          }
+        },
+        "opencode/gpt-5.4": {
+          "name": "opencode/gpt-5.4",
+          "limit": {
+            "context": 409600,
+            "output": 131072,
+            "input": 409600
+          }
+        },
+        "oc/gpt-5.4-pro": {
+          "name": "oc/gpt-5.4-pro",
+          "limit": {
+            "context": 409600,
+            "output": 131072,
+            "input": 409600
+          }
+        },
+        "opencode/gpt-5.4-pro": {
+          "name": "opencode/gpt-5.4-pro",
+          "limit": {
+            "context": 409600,
+            "output": 131072,
+            "input": 409600
+          }
+        },
+        "oc/gpt-5.4-mini": {
+          "name": "oc/gpt-5.4-mini",
+          "limit": {
+            "context": 409600,
+            "output": 131072,
+            "input": 409600
+          }
+        },
+        "opencode/gpt-5.4-mini": {
+          "name": "opencode/gpt-5.4-mini",
+          "limit": {
+            "context": 409600,
+            "output": 131072,
+            "input": 409600
+          }
+        },
+        "oc/gpt-5.4-nano": {
+          "name": "oc/gpt-5.4-nano",
+          "limit": {
+            "context": 409600,
+            "output": 131072,
+            "input": 409600
+          }
+        },
+        "opencode/gpt-5.4-nano": {
+          "name": "opencode/gpt-5.4-nano",
+          "limit": {
+            "context": 409600,
+            "output": 131072,
+            "input": 409600
+          }
+        },
+        "oc/gpt-5.3-codex-spark": {
+          "name": "oc/gpt-5.3-codex-spark",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/gpt-5.3-codex-spark": {
+          "name": "opencode/gpt-5.3-codex-spark",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/gpt-5.3-codex": {
+          "name": "oc/gpt-5.3-codex",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/gpt-5.3-codex": {
+          "name": "opencode/gpt-5.3-codex",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/gpt-5.2": {
+          "name": "oc/gpt-5.2",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/gpt-5.2": {
+          "name": "opencode/gpt-5.2",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/gpt-5.2-codex": {
+          "name": "oc/gpt-5.2-codex",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/gpt-5.2-codex": {
+          "name": "opencode/gpt-5.2-codex",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/gpt-5.1": {
+          "name": "oc/gpt-5.1",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/gpt-5.1": {
+          "name": "opencode/gpt-5.1",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/gpt-5.1-codex-max": {
+          "name": "oc/gpt-5.1-codex-max",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/gpt-5.1-codex-max": {
+          "name": "opencode/gpt-5.1-codex-max",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/gpt-5.1-codex": {
+          "name": "oc/gpt-5.1-codex",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/gpt-5.1-codex": {
+          "name": "opencode/gpt-5.1-codex",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/gpt-5.1-codex-mini": {
+          "name": "oc/gpt-5.1-codex-mini",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/gpt-5.1-codex-mini": {
+          "name": "opencode/gpt-5.1-codex-mini",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/gpt-5": {
+          "name": "oc/gpt-5",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/gpt-5": {
+          "name": "opencode/gpt-5",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/gpt-5-codex": {
+          "name": "oc/gpt-5-codex",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/gpt-5-codex": {
+          "name": "opencode/gpt-5-codex",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/gpt-5-nano": {
+          "name": "oc/gpt-5-nano",
+          "limit": {
+            "context": 400000,
+            "input": 400000
+          }
+        },
+        "opencode/gpt-5-nano": {
+          "name": "opencode/gpt-5-nano",
+          "limit": {
+            "context": 400000,
+            "input": 400000
+          }
+        },
+        "oc/grok-build-0.1": {
+          "name": "oc/grok-build-0.1",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/grok-build-0.1": {
+          "name": "opencode/grok-build-0.1",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/grok-4.6": {
+          "name": "oc/grok-4.6",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/grok-4.6": {
+          "name": "opencode/grok-4.6",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/grok-4.5": {
+          "name": "oc/grok-4.5",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/grok-4.5": {
+          "name": "opencode/grok-4.5",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/muse-spark-1.2": {
+          "name": "oc/muse-spark-1.2",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/muse-spark-1.2": {
+          "name": "opencode/muse-spark-1.2",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/deepseek-v4-pro": {
+          "name": "oc/deepseek-v4-pro",
+          "limit": {
+            "context": 1000000,
+            "output": 384000,
+            "input": 1000000
+          }
+        },
+        "opencode/deepseek-v4-pro": {
+          "name": "opencode/deepseek-v4-pro",
+          "limit": {
+            "context": 1000000,
+            "output": 384000,
+            "input": 1000000
+          }
+        },
+        "oc/deepseek-v4-flash": {
+          "name": "oc/deepseek-v4-flash",
+          "limit": {
+            "context": 1000000,
+            "output": 384000,
+            "input": 1000000
+          }
+        },
+        "opencode/deepseek-v4-flash": {
+          "name": "opencode/deepseek-v4-flash",
+          "limit": {
+            "context": 1000000,
+            "output": 384000,
+            "input": 1000000
+          }
+        },
+        "oc/glm-5.2": {
+          "name": "oc/glm-5.2",
+          "limit": {
+            "context": 1000000,
+            "output": 131072,
+            "input": 1000000
+          }
+        },
+        "opencode/glm-5.2": {
+          "name": "opencode/glm-5.2",
+          "limit": {
+            "context": 1000000,
+            "output": 131072,
+            "input": 1000000
+          }
+        },
+        "oc/glm-5.1": {
+          "name": "oc/glm-5.1",
+          "limit": {
+            "context": 200000,
+            "output": 128000,
+            "input": 200000
+          }
+        },
+        "opencode/glm-5.1": {
+          "name": "opencode/glm-5.1",
+          "limit": {
+            "context": 200000,
+            "output": 128000,
+            "input": 200000
+          }
+        },
+        "oc/glm-5": {
+          "name": "oc/glm-5",
+          "limit": {
+            "context": 200000,
+            "output": 128000,
+            "input": 200000
+          }
+        },
+        "opencode/glm-5": {
+          "name": "opencode/glm-5",
+          "limit": {
+            "context": 200000,
+            "output": 128000,
+            "input": 200000
+          }
+        },
+        "oc/minimax-m3": {
+          "name": "oc/minimax-m3",
+          "limit": {
+            "context": 1048576,
+            "output": 512000,
+            "input": 1048576
+          }
+        },
+        "opencode/minimax-m3": {
+          "name": "opencode/minimax-m3",
+          "limit": {
+            "context": 1048576,
+            "output": 512000,
+            "input": 1048576
+          }
+        },
+        "oc/minimax-m2.7": {
+          "name": "oc/minimax-m2.7",
+          "limit": {
+            "context": 204800,
+            "output": 131072,
+            "input": 204800
+          }
+        },
+        "opencode/minimax-m2.7": {
+          "name": "opencode/minimax-m2.7",
+          "limit": {
+            "context": 204800,
+            "output": 131072,
+            "input": 204800
+          }
+        },
+        "oc/minimax-m2.5": {
+          "name": "oc/minimax-m2.5",
+          "limit": {
+            "context": 200000,
+            "output": 131072,
+            "input": 200000
+          }
+        },
+        "opencode/minimax-m2.5": {
+          "name": "opencode/minimax-m2.5",
+          "limit": {
+            "context": 200000,
+            "output": 131072,
+            "input": 200000
+          }
+        },
+        "oc/kimi-k3": {
+          "name": "oc/kimi-k3",
+          "limit": {
+            "context": 1048576,
+            "output": 1048576,
+            "input": 1048576
+          }
+        },
+        "opencode/kimi-k3": {
+          "name": "opencode/kimi-k3",
+          "limit": {
+            "context": 1048576,
+            "output": 1048576,
+            "input": 1048576
+          }
+        },
+        "oc/kimi-k2.7-code": {
+          "name": "oc/kimi-k2.7-code",
+          "limit": {
+            "context": 262144,
+            "output": 262144,
+            "input": 262144
+          }
+        },
+        "opencode/kimi-k2.7-code": {
+          "name": "opencode/kimi-k2.7-code",
+          "limit": {
+            "context": 262144,
+            "output": 262144,
+            "input": 262144
+          }
+        },
+        "oc/kimi-k2.6": {
+          "name": "oc/kimi-k2.6",
+          "limit": {
+            "context": 262144,
+            "output": 262144,
+            "input": 262144
+          }
+        },
+        "opencode/kimi-k2.6": {
+          "name": "opencode/kimi-k2.6",
+          "limit": {
+            "context": 262144,
+            "output": 262144,
+            "input": 262144
+          }
+        },
+        "oc/kimi-k2.5": {
+          "name": "oc/kimi-k2.5",
+          "limit": {
+            "context": 262144,
+            "output": 262144,
+            "input": 262144
+          }
+        },
+        "opencode/kimi-k2.5": {
+          "name": "opencode/kimi-k2.5",
+          "limit": {
+            "context": 262144,
+            "output": 262144,
+            "input": 262144
+          }
+        },
+        "oc/qwen3.6-plus": {
+          "name": "oc/qwen3.6-plus",
+          "limit": {
+            "context": 1000000,
+            "output": 65536,
+            "input": 1000000
+          }
+        },
+        "opencode/qwen3.6-plus": {
+          "name": "opencode/qwen3.6-plus",
+          "limit": {
+            "context": 1000000,
+            "output": 65536,
+            "input": 1000000
+          }
+        },
+        "oc/qwen3.5-plus": {
+          "name": "oc/qwen3.5-plus",
+          "limit": {
+            "context": 1000000,
+            "output": 65536,
+            "input": 1000000
+          }
+        },
+        "opencode/qwen3.5-plus": {
+          "name": "opencode/qwen3.5-plus",
+          "limit": {
+            "context": 1000000,
+            "output": 65536,
+            "input": 1000000
+          }
+        },
+        "oc/big-pickle": {
+          "name": "oc/big-pickle",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/big-pickle": {
+          "name": "opencode/big-pickle",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/deepseek-v4-flash-free": {
+          "name": "oc/deepseek-v4-flash-free",
+          "limit": {
+            "context": 1000000,
+            "output": 384000,
+            "input": 1000000
+          }
+        },
+        "opencode/deepseek-v4-flash-free": {
+          "name": "opencode/deepseek-v4-flash-free",
+          "limit": {
+            "context": 1000000,
+            "output": 384000,
+            "input": 1000000
+          }
+        },
+        "oc/x-preview-f-free": {
+          "name": "oc/x-preview-f-free",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/x-preview-f-free": {
+          "name": "opencode/x-preview-f-free",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/muse-spark-1.2-contributor-free": {
+          "name": "oc/muse-spark-1.2-contributor-free",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/muse-spark-1.2-contributor-free": {
+          "name": "opencode/muse-spark-1.2-contributor-free",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/mimo-v2.5-free": {
+          "name": "oc/mimo-v2.5-free",
+          "limit": {
+            "context": 1048576,
+            "output": 131072,
+            "input": 1048576
+          }
+        },
+        "opencode/mimo-v2.5-free": {
+          "name": "opencode/mimo-v2.5-free",
+          "limit": {
+            "context": 1048576,
+            "output": 131072,
+            "input": 1048576
+          }
+        },
+        "oc/hy3-free": {
+          "name": "oc/hy3-free",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/hy3-free": {
+          "name": "opencode/hy3-free",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/nemotron-3-ultra-free": {
+          "name": "oc/nemotron-3-ultra-free",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/nemotron-3-ultra-free": {
+          "name": "opencode/nemotron-3-ultra-free",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/nemotron-3.5-lightning-free": {
+          "name": "oc/nemotron-3.5-lightning-free",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/nemotron-3.5-lightning-free": {
+          "name": "opencode/nemotron-3.5-lightning-free",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "oc/laguna-s-2.1-free": {
+          "name": "oc/laguna-s-2.1-free",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "opencode/laguna-s-2.1-free": {
+          "name": "opencode/laguna-s-2.1-free",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "openrouter/stealth/ox-alpha": {
+          "name": "openrouter/stealth/ox-alpha",
+          "limit": {
+            "context": 1048576,
+            "output": 131072
+          }
+        },
+        "openrouter/dots-studio/dots-3-note-preview:free": {
+          "name": "openrouter/dots-studio/dots-3-note-preview:free",
+          "limit": {
+            "context": 512000,
+            "output": 512000
+          }
+        },
+        "openrouter/liquid/lfm-2.5-2.6b:free": {
+          "name": "openrouter/liquid/lfm-2.5-2.6b:free",
+          "limit": {
+            "context": 65536,
+            "output": 8192
+          }
+        },
+        "openrouter/nvidia/nemotron-3.5-lightning:free": {
+          "name": "openrouter/nvidia/nemotron-3.5-lightning:free",
+          "limit": {
+            "context": 1000000,
+            "output": 65536
+          }
+        },
+        "openrouter/poolside/laguna-s-2.1:free": {
+          "name": "openrouter/poolside/laguna-s-2.1:free",
+          "limit": {
+            "context": 262144,
+            "output": 32768
+          }
+        },
+        "openrouter/poolside/laguna-xs-2.1:free": {
+          "name": "openrouter/poolside/laguna-xs-2.1:free",
+          "limit": {
+            "context": 262144,
+            "output": 32768
+          }
+        },
+        "openrouter/cohere/north-mini-code:free": {
+          "name": "openrouter/cohere/north-mini-code:free",
+          "limit": {
+            "context": 256000,
+            "output": 64000
+          }
+        },
+        "openrouter/z-ai/glm-5.2:free": {
+          "name": "openrouter/z-ai/glm-5.2:free",
+          "limit": {
+            "context": 256000,
+            "output": 256000
+          }
+        },
+        "openrouter/nvidia/nemotron-3.5-content-safety:free": {
+          "name": "openrouter/nvidia/nemotron-3.5-content-safety:free",
+          "limit": {
+            "context": 128000,
+            "output": 8192
+          }
+        },
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free": {
+          "name": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+          "limit": {
+            "context": 1000000,
+            "output": 65536
+          }
+        },
+        "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free": {
+          "name": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+          "limit": {
+            "context": 256000,
+            "output": 65536
+          }
+        },
+        "openrouter/google/gemma-4-26b-a4b-it:free": {
+          "name": "openrouter/google/gemma-4-26b-a4b-it:free",
+          "limit": {
+            "context": 262144,
+            "output": 32768
+          }
+        },
+        "openrouter/google/gemma-4-31b-it:free": {
+          "name": "openrouter/google/gemma-4-31b-it:free",
+          "limit": {
+            "context": 262144,
+            "output": 32768
+          }
+        },
+        "openrouter/google/lyria-3-pro-preview": {
+          "name": "openrouter/google/lyria-3-pro-preview",
+          "limit": {
+            "context": 1048576,
+            "output": 65536
+          }
+        },
+        "openrouter/google/lyria-3-clip-preview": {
+          "name": "openrouter/google/lyria-3-clip-preview",
+          "limit": {
+            "context": 1048576,
+            "output": 65536
+          }
+        },
+        "openrouter/nvidia/nemotron-3-super-120b-a12b:free": {
+          "name": "openrouter/nvidia/nemotron-3-super-120b-a12b:free",
+          "limit": {
+            "context": 262144,
+            "output": 262144
+          }
+        },
+        "openrouter/openrouter/free": {
+          "name": "openrouter/openrouter/free",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "openrouter/nvidia/nemotron-3-nano-30b-a3b:free": {
+          "name": "openrouter/nvidia/nemotron-3-nano-30b-a3b:free",
+          "limit": {
+            "context": 256000
+          }
+        },
+        "openrouter/nvidia/nemotron-nano-12b-v2-vl:free": {
+          "name": "openrouter/nvidia/nemotron-nano-12b-v2-vl:free",
+          "limit": {
+            "context": 128000,
+            "output": 128000
+          }
+        },
+        "openrouter/nvidia/nemotron-nano-9b-v2:free": {
+          "name": "openrouter/nvidia/nemotron-nano-9b-v2:free",
+          "limit": {
+            "context": 128000
+          }
+        },
+        "openrouter/openai/gpt-oss-20b:free": {
+          "name": "openrouter/openai/gpt-oss-20b:free",
+          "limit": {
+            "context": 131072,
+            "output": 32768
+          }
+        },
+        "nvidia/nv-embedqa-e5-v5": {
+          "name": "nvidia/nv-embedqa-e5-v5"
+        },
+        "openrouter/openai/text-embedding-3-small": {
+          "name": "openrouter/openai/text-embedding-3-small"
+        },
+        "openrouter/openai/text-embedding-3-large": {
+          "name": "openrouter/openai/text-embedding-3-large"
+        },
+        "openrouter/qwen/qwen3-embedding-8b": {
+          "name": "openrouter/qwen/qwen3-embedding-8b"
+        },
+        "openrouter/qwen/qwen3-embedding-4b": {
+          "name": "openrouter/qwen/qwen3-embedding-4b"
+        },
+        "openrouter/baai/bge-m3": {
+          "name": "openrouter/baai/bge-m3"
+        },
+        "openrouter/mistralai/mistral-embed-2312": {
+          "name": "openrouter/mistralai/mistral-embed-2312"
+        },
+        "openrouter/google/gemini-embedding-001": {
+          "name": "openrouter/google/gemini-embedding-001"
+        },
+        "antigravity/gemini-3.1-flash-image": {
+          "name": "antigravity/gemini-3.1-flash-image"
+        },
+        "openrouter/openai/gpt-5.4-image-2": {
+          "name": "openrouter/openai/gpt-5.4-image-2"
+        },
+        "openrouter/openai/gpt-5-image-mini": {
+          "name": "openrouter/openai/gpt-5-image-mini"
+        },
+        "openrouter/google/gemini-3.1-flash-image-preview": {
+          "name": "openrouter/google/gemini-3.1-flash-image-preview"
+        },
+        "openrouter/google/gemini-3-pro-image-preview": {
+          "name": "openrouter/google/gemini-3-pro-image-preview"
+        },
+        "openrouter/black-forest-labs/flux.2-max": {
+          "name": "openrouter/black-forest-labs/flux.2-max"
+        },
+        "openrouter/black-forest-labs/flux.2-pro": {
+          "name": "openrouter/black-forest-labs/flux.2-pro"
+        },
+        "openrouter/black-forest-labs/flux.2-flex": {
+          "name": "openrouter/black-forest-labs/flux.2-flex"
+        },
+        "nvidia/black-forest-labs/flux.1-dev": {
+          "name": "nvidia/black-forest-labs/flux.1-dev"
+        },
+        "nvidia/black-forest-labs/flux.1-schnell": {
+          "name": "nvidia/black-forest-labs/flux.1-schnell"
+        },
+        "nvidia/black-forest-labs/flux.1-kontext-dev": {
+          "name": "nvidia/black-forest-labs/flux.1-kontext-dev"
+        },
+        "nvidia/black-forest-labs/flux.2-klein-4b": {
+          "name": "nvidia/black-forest-labs/flux.2-klein-4b"
+        },
+        "nvidia/nv-rerankqa-mistral-4b-v3": {
+          "name": "nvidia/nv-rerankqa-mistral-4b-v3"
+        },
+        "openrouter/cohere/rerank-4-pro": {
+          "name": "openrouter/cohere/rerank-4-pro"
+        },
+        "openrouter/cohere/rerank-4-fast": {
+          "name": "openrouter/cohere/rerank-4-fast"
+        },
+        "openrouter/cohere/rerank-v3.5": {
+          "name": "openrouter/cohere/rerank-v3.5"
+        },
+        "openrouter/deepgram/nova-3": {
+          "name": "openrouter/deepgram/nova-3"
+        },
+        "openrouter/microsoft/mai-transcribe-1.5": {
+          "name": "openrouter/microsoft/mai-transcribe-1.5"
+        },
+        "openrouter/nvidia/parakeet-tdt-0.6b-v3": {
+          "name": "openrouter/nvidia/parakeet-tdt-0.6b-v3"
+        },
+        "openrouter/mistralai/voxtral-mini-transcribe": {
+          "name": "openrouter/mistralai/voxtral-mini-transcribe"
+        },
+        "openrouter/qwen/qwen3-asr-flash-2026-02-10": {
+          "name": "openrouter/qwen/qwen3-asr-flash-2026-02-10"
+        },
+        "openrouter/google/chirp-3": {
+          "name": "openrouter/google/chirp-3"
+        },
+        "openrouter/openai/gpt-4o-mini-transcribe": {
+          "name": "openrouter/openai/gpt-4o-mini-transcribe"
+        },
+        "openrouter/openai/whisper-large-v3": {
+          "name": "openrouter/openai/whisper-large-v3"
+        },
+        "openrouter/openai/whisper-large-v3-turbo": {
+          "name": "openrouter/openai/whisper-large-v3-turbo"
+        },
+        "openrouter/openai/whisper-1": {
+          "name": "openrouter/openai/whisper-1"
+        },
+        "openrouter/openai/gpt-4o-transcribe": {
+          "name": "openrouter/openai/gpt-4o-transcribe"
+        },
+        "nvidia/parakeet-ctc-1.1b-asr": {
+          "name": "nvidia/parakeet-ctc-1.1b-asr"
+        },
+        "nvidia/openai/whisper-large-v3": {
+          "name": "nvidia/openai/whisper-large-v3"
+        },
+        "nvidia/fastpitch": {
+          "name": "nvidia/fastpitch"
+        },
+        "nvidia/tacotron2": {
+          "name": "nvidia/tacotron2"
+        },
+        "veoaifree-web/veo": {
+          "name": "veoaifree-web/veo"
+        },
+        "veo-free/veo": {
+          "name": "veo-free/veo"
+        },
+        "veoaifree-web/seedance": {
+          "name": "veoaifree-web/seedance"
+        },
+        "veo-free/seedance": {
+          "name": "veo-free/seedance"
+        },
+        "antigravity/claude-opus-4-6-thinking-low": {
+          "name": "antigravity/claude-opus-4-6-thinking-low",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "antigravity/claude-opus-4-6-thinking-medium": {
+          "name": "antigravity/claude-opus-4-6-thinking-medium",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "antigravity/claude-opus-4-6-thinking-high": {
+          "name": "antigravity/claude-opus-4-6-thinking-high",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "antigravity/claude-sonnet-4-6-low": {
+          "name": "antigravity/claude-sonnet-4-6-low",
+          "limit": {
+            "context": 1000000,
+            "output": 64000,
+            "input": 1000000
+          }
+        },
+        "antigravity/claude-sonnet-4-6-medium": {
+          "name": "antigravity/claude-sonnet-4-6-medium",
+          "limit": {
+            "context": 1000000,
+            "output": 64000,
+            "input": 1000000
+          }
+        },
+        "antigravity/claude-sonnet-4-6-high": {
+          "name": "antigravity/claude-sonnet-4-6-high",
+          "limit": {
+            "context": 1000000,
+            "output": 64000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-fable-5-low": {
+          "name": "oc/claude-fable-5-low",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-fable-5-medium": {
+          "name": "oc/claude-fable-5-medium",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-fable-5-high": {
+          "name": "oc/claude-fable-5-high",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-fable-5-xhigh": {
+          "name": "oc/claude-fable-5-xhigh",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-fable-5-low": {
+          "name": "opencode/claude-fable-5-low",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-fable-5-medium": {
+          "name": "opencode/claude-fable-5-medium",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-fable-5-high": {
+          "name": "opencode/claude-fable-5-high",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-fable-5-xhigh": {
+          "name": "opencode/claude-fable-5-xhigh",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-opus-5-low": {
+          "name": "oc/claude-opus-5-low",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-opus-5-medium": {
+          "name": "oc/claude-opus-5-medium",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-opus-5-high": {
+          "name": "oc/claude-opus-5-high",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-opus-5-xhigh": {
+          "name": "oc/claude-opus-5-xhigh",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-opus-5-low": {
+          "name": "opencode/claude-opus-5-low",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-opus-5-medium": {
+          "name": "opencode/claude-opus-5-medium",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-opus-5-high": {
+          "name": "opencode/claude-opus-5-high",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-opus-5-xhigh": {
+          "name": "opencode/claude-opus-5-xhigh",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-opus-4-8-low": {
+          "name": "oc/claude-opus-4-8-low",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-opus-4-8-medium": {
+          "name": "oc/claude-opus-4-8-medium",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-opus-4-8-high": {
+          "name": "oc/claude-opus-4-8-high",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-opus-4-8-xhigh": {
+          "name": "oc/claude-opus-4-8-xhigh",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-opus-4-8-low": {
+          "name": "opencode/claude-opus-4-8-low",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-opus-4-8-medium": {
+          "name": "opencode/claude-opus-4-8-medium",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-opus-4-8-high": {
+          "name": "opencode/claude-opus-4-8-high",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-opus-4-8-xhigh": {
+          "name": "opencode/claude-opus-4-8-xhigh",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-opus-4-7-low": {
+          "name": "oc/claude-opus-4-7-low",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-opus-4-7-medium": {
+          "name": "oc/claude-opus-4-7-medium",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-opus-4-7-high": {
+          "name": "oc/claude-opus-4-7-high",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-opus-4-7-xhigh": {
+          "name": "oc/claude-opus-4-7-xhigh",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-opus-4-7-low": {
+          "name": "opencode/claude-opus-4-7-low",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-opus-4-7-medium": {
+          "name": "opencode/claude-opus-4-7-medium",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-opus-4-7-high": {
+          "name": "opencode/claude-opus-4-7-high",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-opus-4-7-xhigh": {
+          "name": "opencode/claude-opus-4-7-xhigh",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-opus-4-6-low": {
+          "name": "oc/claude-opus-4-6-low",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-opus-4-6-medium": {
+          "name": "oc/claude-opus-4-6-medium",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-opus-4-6-high": {
+          "name": "oc/claude-opus-4-6-high",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-opus-4-6-low": {
+          "name": "opencode/claude-opus-4-6-low",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-opus-4-6-medium": {
+          "name": "opencode/claude-opus-4-6-medium",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-opus-4-6-high": {
+          "name": "opencode/claude-opus-4-6-high",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-opus-4-5-low": {
+          "name": "oc/claude-opus-4-5-low",
+          "limit": {
+            "context": 200000,
+            "output": 32768,
+            "input": 200000
+          }
+        },
+        "oc/claude-opus-4-5-medium": {
+          "name": "oc/claude-opus-4-5-medium",
+          "limit": {
+            "context": 200000,
+            "output": 32768,
+            "input": 200000
+          }
+        },
+        "oc/claude-opus-4-5-high": {
+          "name": "oc/claude-opus-4-5-high",
+          "limit": {
+            "context": 200000,
+            "output": 32768,
+            "input": 200000
+          }
+        },
+        "opencode/claude-opus-4-5-low": {
+          "name": "opencode/claude-opus-4-5-low",
+          "limit": {
+            "context": 200000,
+            "output": 32768,
+            "input": 200000
+          }
+        },
+        "opencode/claude-opus-4-5-medium": {
+          "name": "opencode/claude-opus-4-5-medium",
+          "limit": {
+            "context": 200000,
+            "output": 32768,
+            "input": 200000
+          }
+        },
+        "opencode/claude-opus-4-5-high": {
+          "name": "opencode/claude-opus-4-5-high",
+          "limit": {
+            "context": 200000,
+            "output": 32768,
+            "input": 200000
+          }
+        },
+        "oc/claude-sonnet-5-low": {
+          "name": "oc/claude-sonnet-5-low",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-sonnet-5-medium": {
+          "name": "oc/claude-sonnet-5-medium",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-sonnet-5-high": {
+          "name": "oc/claude-sonnet-5-high",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-sonnet-5-xhigh": {
+          "name": "oc/claude-sonnet-5-xhigh",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-sonnet-5-low": {
+          "name": "opencode/claude-sonnet-5-low",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-sonnet-5-medium": {
+          "name": "opencode/claude-sonnet-5-medium",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-sonnet-5-high": {
+          "name": "opencode/claude-sonnet-5-high",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-sonnet-5-xhigh": {
+          "name": "opencode/claude-sonnet-5-xhigh",
+          "limit": {
+            "context": 1000000,
+            "output": 128000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-sonnet-4-6-low": {
+          "name": "oc/claude-sonnet-4-6-low",
+          "limit": {
+            "context": 1000000,
+            "output": 64000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-sonnet-4-6-medium": {
+          "name": "oc/claude-sonnet-4-6-medium",
+          "limit": {
+            "context": 1000000,
+            "output": 64000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-sonnet-4-6-high": {
+          "name": "oc/claude-sonnet-4-6-high",
+          "limit": {
+            "context": 1000000,
+            "output": 64000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-sonnet-4-6-low": {
+          "name": "opencode/claude-sonnet-4-6-low",
+          "limit": {
+            "context": 1000000,
+            "output": 64000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-sonnet-4-6-medium": {
+          "name": "opencode/claude-sonnet-4-6-medium",
+          "limit": {
+            "context": 1000000,
+            "output": 64000,
+            "input": 1000000
+          }
+        },
+        "opencode/claude-sonnet-4-6-high": {
+          "name": "opencode/claude-sonnet-4-6-high",
+          "limit": {
+            "context": 1000000,
+            "output": 64000,
+            "input": 1000000
+          }
+        },
+        "oc/claude-sonnet-4-5-low": {
+          "name": "oc/claude-sonnet-4-5-low",
+          "limit": {
+            "context": 200000,
+            "output": 64000,
+            "input": 200000
+          }
+        },
+        "oc/claude-sonnet-4-5-medium": {
+          "name": "oc/claude-sonnet-4-5-medium",
+          "limit": {
+            "context": 200000,
+            "output": 64000,
+            "input": 200000
+          }
+        },
+        "oc/claude-sonnet-4-5-high": {
+          "name": "oc/claude-sonnet-4-5-high",
+          "limit": {
+            "context": 200000,
+            "output": 64000,
+            "input": 200000
+          }
+        },
+        "opencode/claude-sonnet-4-5-low": {
+          "name": "opencode/claude-sonnet-4-5-low",
+          "limit": {
+            "context": 200000,
+            "output": 64000,
+            "input": 200000
+          }
+        },
+        "opencode/claude-sonnet-4-5-medium": {
+          "name": "opencode/claude-sonnet-4-5-medium",
+          "limit": {
+            "context": 200000,
+            "output": 64000,
+            "input": 200000
+          }
+        },
+        "opencode/claude-sonnet-4-5-high": {
+          "name": "opencode/claude-sonnet-4-5-high",
+          "limit": {
+            "context": 200000,
+            "output": 64000,
+            "input": 200000
+          }
+        },
+        "no-think/antigravity/claude-opus-4-6-thinking": {
+          "name": "no-think/antigravity/claude-opus-4-6-thinking",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/antigravity/claude-sonnet-4-6": {
+          "name": "no-think/antigravity/claude-sonnet-4-6",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-5": {
+          "name": "no-think/oc/claude-opus-5",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-5": {
+          "name": "no-think/opencode/claude-opus-5",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-4-8": {
+          "name": "no-think/oc/claude-opus-4-8",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-4-8": {
+          "name": "no-think/opencode/claude-opus-4-8",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-4-7": {
+          "name": "no-think/oc/claude-opus-4-7",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-4-7": {
+          "name": "no-think/opencode/claude-opus-4-7",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-4-6": {
+          "name": "no-think/oc/claude-opus-4-6",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-4-6": {
+          "name": "no-think/opencode/claude-opus-4-6",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-4-5": {
+          "name": "no-think/oc/claude-opus-4-5",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-4-5": {
+          "name": "no-think/opencode/claude-opus-4-5",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-sonnet-5": {
+          "name": "no-think/oc/claude-sonnet-5",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-sonnet-5": {
+          "name": "no-think/opencode/claude-sonnet-5",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-sonnet-4-6": {
+          "name": "no-think/oc/claude-sonnet-4-6",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-sonnet-4-6": {
+          "name": "no-think/opencode/claude-sonnet-4-6",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-sonnet-4-5": {
+          "name": "no-think/oc/claude-sonnet-4-5",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-sonnet-4-5": {
+          "name": "no-think/opencode/claude-sonnet-4-5",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/antigravity/claude-opus-4-6-thinking-low": {
+          "name": "no-think/antigravity/claude-opus-4-6-thinking-low",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/antigravity/claude-opus-4-6-thinking-medium": {
+          "name": "no-think/antigravity/claude-opus-4-6-thinking-medium",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/antigravity/claude-opus-4-6-thinking-high": {
+          "name": "no-think/antigravity/claude-opus-4-6-thinking-high",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/antigravity/claude-sonnet-4-6-low": {
+          "name": "no-think/antigravity/claude-sonnet-4-6-low",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/antigravity/claude-sonnet-4-6-medium": {
+          "name": "no-think/antigravity/claude-sonnet-4-6-medium",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/antigravity/claude-sonnet-4-6-high": {
+          "name": "no-think/antigravity/claude-sonnet-4-6-high",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-5-low": {
+          "name": "no-think/oc/claude-opus-5-low",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-5-medium": {
+          "name": "no-think/oc/claude-opus-5-medium",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-5-high": {
+          "name": "no-think/oc/claude-opus-5-high",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-5-xhigh": {
+          "name": "no-think/oc/claude-opus-5-xhigh",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-5-low": {
+          "name": "no-think/opencode/claude-opus-5-low",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-5-medium": {
+          "name": "no-think/opencode/claude-opus-5-medium",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-5-high": {
+          "name": "no-think/opencode/claude-opus-5-high",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-5-xhigh": {
+          "name": "no-think/opencode/claude-opus-5-xhigh",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-4-8-low": {
+          "name": "no-think/oc/claude-opus-4-8-low",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-4-8-medium": {
+          "name": "no-think/oc/claude-opus-4-8-medium",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-4-8-high": {
+          "name": "no-think/oc/claude-opus-4-8-high",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-4-8-xhigh": {
+          "name": "no-think/oc/claude-opus-4-8-xhigh",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-4-8-low": {
+          "name": "no-think/opencode/claude-opus-4-8-low",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-4-8-medium": {
+          "name": "no-think/opencode/claude-opus-4-8-medium",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-4-8-high": {
+          "name": "no-think/opencode/claude-opus-4-8-high",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-4-8-xhigh": {
+          "name": "no-think/opencode/claude-opus-4-8-xhigh",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-4-7-low": {
+          "name": "no-think/oc/claude-opus-4-7-low",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-4-7-medium": {
+          "name": "no-think/oc/claude-opus-4-7-medium",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-4-7-high": {
+          "name": "no-think/oc/claude-opus-4-7-high",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-4-7-xhigh": {
+          "name": "no-think/oc/claude-opus-4-7-xhigh",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-4-7-low": {
+          "name": "no-think/opencode/claude-opus-4-7-low",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-4-7-medium": {
+          "name": "no-think/opencode/claude-opus-4-7-medium",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-4-7-high": {
+          "name": "no-think/opencode/claude-opus-4-7-high",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-4-7-xhigh": {
+          "name": "no-think/opencode/claude-opus-4-7-xhigh",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-4-6-low": {
+          "name": "no-think/oc/claude-opus-4-6-low",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-4-6-medium": {
+          "name": "no-think/oc/claude-opus-4-6-medium",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-4-6-high": {
+          "name": "no-think/oc/claude-opus-4-6-high",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-4-6-low": {
+          "name": "no-think/opencode/claude-opus-4-6-low",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-4-6-medium": {
+          "name": "no-think/opencode/claude-opus-4-6-medium",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-4-6-high": {
+          "name": "no-think/opencode/claude-opus-4-6-high",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-4-5-low": {
+          "name": "no-think/oc/claude-opus-4-5-low",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-4-5-medium": {
+          "name": "no-think/oc/claude-opus-4-5-medium",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-opus-4-5-high": {
+          "name": "no-think/oc/claude-opus-4-5-high",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-4-5-low": {
+          "name": "no-think/opencode/claude-opus-4-5-low",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-4-5-medium": {
+          "name": "no-think/opencode/claude-opus-4-5-medium",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-opus-4-5-high": {
+          "name": "no-think/opencode/claude-opus-4-5-high",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-sonnet-5-low": {
+          "name": "no-think/oc/claude-sonnet-5-low",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-sonnet-5-medium": {
+          "name": "no-think/oc/claude-sonnet-5-medium",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-sonnet-5-high": {
+          "name": "no-think/oc/claude-sonnet-5-high",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-sonnet-5-xhigh": {
+          "name": "no-think/oc/claude-sonnet-5-xhigh",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-sonnet-5-low": {
+          "name": "no-think/opencode/claude-sonnet-5-low",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-sonnet-5-medium": {
+          "name": "no-think/opencode/claude-sonnet-5-medium",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-sonnet-5-high": {
+          "name": "no-think/opencode/claude-sonnet-5-high",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-sonnet-5-xhigh": {
+          "name": "no-think/opencode/claude-sonnet-5-xhigh",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-sonnet-4-6-low": {
+          "name": "no-think/oc/claude-sonnet-4-6-low",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-sonnet-4-6-medium": {
+          "name": "no-think/oc/claude-sonnet-4-6-medium",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-sonnet-4-6-high": {
+          "name": "no-think/oc/claude-sonnet-4-6-high",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-sonnet-4-6-low": {
+          "name": "no-think/opencode/claude-sonnet-4-6-low",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-sonnet-4-6-medium": {
+          "name": "no-think/opencode/claude-sonnet-4-6-medium",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-sonnet-4-6-high": {
+          "name": "no-think/opencode/claude-sonnet-4-6-high",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-sonnet-4-5-low": {
+          "name": "no-think/oc/claude-sonnet-4-5-low",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-sonnet-4-5-medium": {
+          "name": "no-think/oc/claude-sonnet-4-5-medium",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/oc/claude-sonnet-4-5-high": {
+          "name": "no-think/oc/claude-sonnet-4-5-high",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-sonnet-4-5-low": {
+          "name": "no-think/opencode/claude-sonnet-4-5-low",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-sonnet-4-5-medium": {
+          "name": "no-think/opencode/claude-sonnet-4-5-medium",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "no-think/opencode/claude-sonnet-4-5-high": {
+          "name": "no-think/opencode/claude-sonnet-4-5-high",
+          "limit": {
+            "context": 200000
+          }
+        },
+        "openrouter/stealth/ox-alpha-xhigh": {
+          "name": "openrouter/stealth/ox-alpha-xhigh",
+          "limit": {
+            "context": 1048576,
+            "output": 131072
+          }
+        },
+        "openrouter/stealth/ox-alpha-high": {
+          "name": "openrouter/stealth/ox-alpha-high",
+          "limit": {
+            "context": 1048576,
+            "output": 131072
+          }
+        },
+        "openrouter/stealth/ox-alpha-low": {
+          "name": "openrouter/stealth/ox-alpha-low",
+          "limit": {
+            "context": 1048576,
+            "output": 131072
+          }
+        },
+        "openrouter/z-ai/glm-5.2:free-xhigh": {
+          "name": "openrouter/z-ai/glm-5.2:free-xhigh",
+          "limit": {
+            "context": 256000,
+            "output": 256000
+          }
+        },
+        "openrouter/z-ai/glm-5.2:free-high": {
+          "name": "openrouter/z-ai/glm-5.2:free-high",
+          "limit": {
+            "context": 256000,
+            "output": 256000
+          }
+        },
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free-high": {
+          "name": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free-high",
+          "limit": {
+            "context": 1000000,
+            "output": 65536
+          }
+        },
+        "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free-medium": {
+          "name": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free-medium",
+          "limit": {
+            "context": 1000000,
+            "output": 65536
+          }
+        },
+        "openrouter/nvidia/nemotron-3-super-120b-a12b:free-medium": {
+          "name": "openrouter/nvidia/nemotron-3-super-120b-a12b:free-medium",
+          "limit": {
+            "context": 262144,
+            "output": 262144
+          }
+        },
+        "openrouter/nvidia/nemotron-3-super-120b-a12b:free-low": {
+          "name": "openrouter/nvidia/nemotron-3-super-120b-a12b:free-low",
+          "limit": {
+            "context": 262144,
+            "output": 262144
+          }
+        },
+        "openrouter/openai/gpt-oss-20b:free-high": {
+          "name": "openrouter/openai/gpt-oss-20b:free-high",
+          "limit": {
+            "context": 131072,
+            "output": 32768
+          }
+        },
+        "openrouter/openai/gpt-oss-20b:free-medium": {
+          "name": "openrouter/openai/gpt-oss-20b:free-medium",
+          "limit": {
+            "context": 131072,
+            "output": 32768
+          }
+        },
+        "openrouter/openai/gpt-oss-20b:free-low": {
+          "name": "openrouter/openai/gpt-oss-20b:free-low",
+          "limit": {
+            "context": 131072,
+            "output": 32768
+          }
+        }
+      }
+    }
+  }
+}
+---

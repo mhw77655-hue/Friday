@@ -1,0 +1,57 @@
+== status
+## main...origin/main
+351fddd chore: archive JARVIS-era reports and stale agent directives (tag jarvis-era-final keeps them)
+e65b4ab docs: LAUNCH-SURVIVAL - notes, passes=true, progress entry
+61f8f2e fix: LAUNCH-SURVIVAL - fake Ollama on java.net, not com.sun.net.httpserver (not on Android test classpath)
+== queue
+[############--------] 8/13 stories closed — Friday (in progress)
+
+  [x] LAUNCH-SURVIVAL  (priority 0, passes=true)
+  [x] RALPH-FAST-PREFLIGHT  (priority 1, passes=true)
+  [x] RALPH-SYMBOL-FACTS  (priority 2, passes=true)
+  [x] RALPH-PROGRESS-BAR  (priority 3, passes=true)
+  [x] WORKSPACE-CORE  (priority 4, passes=true)
+  [x] CONTINUITY-LAW  (priority 5, passes=true)
+  [x] AUDIT-TOOL  (priority 6, passes=true)
+  [x] ONE-1-VISION-SYNC  (priority 7, passes=true)
+  [ ] ONE-2-COMPOSITION  (priority 9, passes=false)
+  [ ] ONE-3-LIFETEST  (priority 10, passes=false)
+  [ ] ONE-4-RECORDER-LEDGER  (priority 11, passes=false)
+  [ ] ONE-5-IDENTITY-SYNC-FLOOR  (priority 12, passes=false)
+  [ ] ONE-6-SEED-REPORT  (priority 13, passes=false)
+
+== running
+== run 53 log
+721 /sdcard/Download/ci53_full.log
+619:2026-10-24T16:34:57.4792134Z e: file:///home/runner/work/Friday/Friday/mobile/app/src/test/java/com/jarvis/app/onefriday/EntryParityTest.kt:57:13 Unresolved reference 'assertEquals'.
+620:2026-10-24T16:34:57.4793326Z e: file:///home/runner/work/Friday/Friday/mobile/app/src/test/java/com/jarvis/app/onefriday/EntryParityTest.kt:101:38 Unresolved reference 'xor'.
+621:2026-10-24T16:34:57.4794308Z e: file:///home/runner/work/Friday/Friday/mobile/app/src/test/java/com/jarvis/app/onefriday/identity/IdentitySyncTest.kt:20:37 Unresolved reference 'stateSnapshot'.
+622:2026-10-24T16:34:57.4827352Z e: file:///home/runner/work/Friday/Friday/mobile/app/src/test/java/com/jarvis/app/onefriday/identity/IdentitySyncTest.kt:21:47 Cannot infer type for value parameter 'v'. Specify it explicitly.
+623-2026-10-24T16:34:57.4827982Z 
+624:2026-10-24T16:34:57.4856661Z e: file:///home/runner/work/Friday/Friday/mobile/app/src/test/java/com/jarvis/app/onefriday/identity/IdentitySyncTest.kt:22:31 Unresolved reference 'key'.
+625:2026-10-24T16:34:57.4857362Z > Task :mobile:app:compileDebugUnitTestKotlin FAILED
+626:2026-10-24T16:34:57.4872563Z e: file:///home/runner/work/Friday/Friday/mobile/app/src/test/java/com/jarvis/app/onefriday/identity/IdentitySyncTest.kt:22:38 Unresolved reference 'statement'.
+627-2026-10-24T16:34:57.4873855Z [Incubating] Problems report is available at: file:///home/runner/work/Friday/Friday/build/reports/problems/problems-report.html
+628:2026-10-24T16:34:57.4906285Z e: file:///home/runner/work/Friday/Friday/mobile/app/src/test/java/com/jarvis/app/onefriday/identity/IdentitySyncTest.kt:22:73 Unresolved reference 'severity'.
+629-2026-10-24T16:34:57.4926077Z 20 actionable tasks: 3 executed, 17 up-to-date
+630:2026-10-24T16:34:57.4946243Z e: file:///home/runner/work/Friday/Friday/mobile/app/src/test/java/com/jarvis/app/onefriday/identity/IdentitySyncTest.kt:22:91 Unresolved reference 'justification'.
+631:2026-10-24T16:34:57.4978967Z e: file:///home/runner/work/Friday/Friday/mobile/app/src/test/java/com/jarvis/app/onefriday/identity/IdentitySyncTest.kt:34:35 Unresolved reference 'stateSnapshot'.
+632-2026-10-24T16:34:57.4979594Z Configuration cache entry stored.
+633:2026-10-24T16:34:57.4993829Z e: file:///home/runner/work/Friday/Friday/mobile/app/src/test/java/com/jarvis/app/onefriday/lifetest/LifeTestRunnerTest.kt:75:37 No value passed for parameter 'portsFactory'.
+634:2026-10-24T16:34:57.4997042Z e: file:///home/runner/work/Friday/Friday/mobile/app/src/test/java/com/jarvis/app/onefriday/lifetest/LifeTestRunnerTest.kt:75:53 Argument type mismatch: actual type is '() -> JvmPlatformPorts', but 'Map<Stri
+635:2026-10-24T16:34:57.4998426Z e: file:///home/runner/work/Friday/Friday/mobile/app/src/test/java/com/jarvis/app/onefriday/lifetest/LifeTestRunnerTest.kt:89:37 No value passed for parameter 'portsFactory'.
+636:2026-10-24T16:34:57.4999781Z e: file:///home/runner/work/Friday/Friday/mobile/app/src/test/java/com/jarvis/app/onefriday/lifetest/LifeTestRunnerTest.kt:89:53 Argument type mismatch: actual type is '() -> JvmPlatformPorts', but 'Map<Stri
+637:2026-10-24T16:34:57.5001181Z e: file:///home/runner/work/Friday/Friday/mobile/app/src/test/java/com/jarvis/app/onefriday/lifetest/LifeTestRunnerTest.kt:100:37 No value passed for parameter 'portsFactory'.
+638:2026-10-24T16:34:57.5002533Z e: file:///home/runner/work/Friday/Friday/mobile/app/src/test/java/com/jarvis/app/onefriday/lifetest/LifeTestRunnerTest.kt:100:53 Argument type mismatch: actual type is '() -> JvmPlatformPorts', but 'Map<Str
+639:2026-10-24T16:34:57.5003872Z e: file:///home/runner/work/Friday/Friday/mobile/app/src/test/java/com/jarvis/app/onefriday/lifetest/LifeTestRunnerTest.kt:109:38 No value passed for parameter 'portsFactory'.
+640:2026-10-24T16:34:57.5005219Z e: file:///home/runner/work/Friday/Friday/mobile/app/src/test/java/com/jarvis/app/onefriday/lifetest/LifeTestRunnerTest.kt:109:55 Argument type mismatch: actual type is '() -> JvmPlatformPorts', but 'Map<Str
+641:2026-10-24T16:34:57.5006669Z e: file:///home/runner/work/Friday/Friday/mobile/app/src/test/java/com/jarvis/app/onefriday/lifetest/LifeTestRunnerTest.kt:130:37 No value passed for parameter 'portsFactory'.
+642:2026-10-24T16:34:57.5008006Z e: file:///home/runner/work/Friday/Friday/mobile/app/src/test/java/com/jarvis/app/onefriday/lifetest/LifeTestRunnerTest.kt:130:53 Argument type mismatch: actual type is '() -> JvmPlatformPorts', but 'Map<Str
+643-2026-10-24T16:34:57.5008869Z 
+--
+646:2026-10-24T16:34:57.5009585Z * What went wrong:
+647:2026-10-24T16:34:57.5009995Z Execution failed for task ':mobile:app:compileDebugUnitTestKotlin'.
+648-2026-10-24T16:34:57.5011108Z > A failure occurred while executing org.jetbrains.kotlin.compilerRunner.btapi.BuildToolsApiCompilationWork
+--
+657:2026-10-24T16:34:57.5014514Z BUILD FAILED in 8s
+658-2026-10-24T16:34:57.6087770Z ##[error]Process completed with exit code 1.

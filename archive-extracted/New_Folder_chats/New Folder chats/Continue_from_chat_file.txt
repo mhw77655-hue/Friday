@@ -1,0 +1,1206 @@
+Continue from chat file
+=======================
+
+You:
+Continue from the chat file knowing that the last comands in that chat was the one that made what happened in the photo
+
+
+You:
+Continue
+
+
+Claude:
+Still working: I've read the whole chat and your screenshot. Now I'm checking the project notes and the cloud reports on GitHub, then I'll send one report.Still working: I'm reading the two cloud reports from your 4-hour run on GitHub and checking whether the story actually closed. Then I'll send one report.Still working: I've finished the reports and NVIDIA's free-tier facts, and I'm reading the rest of the runner script so I can build the fix, then I'll send one report.Still working: I'm building a fixed cloud runner and testing it against the real opencode client before I send the report.Still working: the mock provider is up and I'm testing the new lane check on it. Next is the real opencode client, then the runner itself, then your report.
+
+
+You:
+Continue
+
+
+Claude:
+Still working: my test server had stopped, so I'm restarting it and re-running the lane tests. Then I'll put the fix into the runner and send one report.Still working: my cleanup command accidentally killed its own shell, so I'm restarting the test servers more carefully, then running the runner tests.Still working: the runner passes all my test cases, so I'm packaging the fixed version into one paste block and testing the installer, then I'll send your report.
+
+
+You:
+Continue
+
+
+Claude:
+Still working: I'm testing the installer block on a fake GitHub (success, failure, damaged paste), then I'll send your report.Still working: the fix is built and tested. I'm printing the final paste block now so I can send it with your report.Still working: I found a quoting risk when copying the block into chat, so I'm repacking it as one plain base64 line and re-testing it before I send it.Still working: I'm checking my own copy of the paste block against the original so it can't be damaged in transit, then I'll send your report.Run #2 built nothing. The green tick only means the script finished without crashing.
+Known (read from the cloud reports on GitHub, nothing needed from you):
+
+It waited 4h20m and did 0 iterations. LAUNCH-WAKE-ORDER is still open (10/16 closed).
+Main has no commit after the two v1.1 ones, and there is no friday-latest release.
+Setup and the baseline check passed. The only failure was finding a model that answers.
+
+The real cause is a bug in the v1.1 lane check. It read opencode's one shared log. After the first error line, every later lane was rejected at the next 4-second check, even a healthy one.
+
+172 of the report's 175 lane checks ended at exactly 4 seconds.
+I reproduced it with the real opencode 1.19.5: a healthy lane tested after a busy one died after 4s with the busy lane's error.
+So NVIDIA was never fairly tested. v1.1 also tried only two of its hottest models. NVIDIA's free API is capped at 40 requests a minute, and OpenCode users have asked for more.
+The OpenCode free lanes probably are used up, because their own log lines say so.
+Unknown: whether NVIDIA works for your key.
+
+What v1.2 changes:
+
+Each lane is tested in its own private log, with title requests off.
+It reads NVIDIA's live model list and tests up to 10 coding models directly. Each result records the HTTP code, time and reply, and only models that answer become lanes.
+If nothing works, the run ends red in about 50 minutes instead of 4h20m green, with the table on the run page.
+Optional MISTRAL_API_KEY, GROQ_API_KEY or OPENROUTER_API_KEY secrets are picked up automatically.
+The block first runs a 3-minute lane test and prints the table on your screen. It starts the long run only if a lane answered.
+
+Chosen: fix the check and test lanes directly. Given up: waiting hours for free quotas. A model on the GitHub machine is not an option, since its 16 GB of RAM can't hold a useful coder next to the Android build.
+Tested here:
+
+The real opencode against a fake provider: healthy, busy-then-healthy, all busy, flaky, wrong key and no key.
+The block against a fake GitHub, including a damaged paste.
+
+Not tested: NVIDIA's real API, which my sandbox can't reach. This run's table is the first real answer.
+If the table says NVIDIA is dead, the fallback is a free Mistral key. It needs phone verification but no card, and Mistral may train on your requests. You'd add it as the secret MISTRAL_API_KEY, with no code change.
+This is builder tooling, not Friday's code. Paste this one block (about 4 minutes):
+bash -c 'X=$(printf %s "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" | base64 -d | gunzip); [ "$(printf %s "$X" | md5sum | cut -c1-8)" = "5bed9cc7" ] || { echo "STOP: damaged paste, paste the block again"; exit 1; }; bash -c "$X"'
+
+If it prints "damaged paste", paste once more, and if it says so twice, tell me.
+If the lane test fails, the table on your screen says why, and nothing long is started. If it passes, the run link prints and you can switch the phone off.
+
+
+You:
+I won't run your comands try to take gpt advice
+
+
+Claude:
+Reading GPT's plan against your real repo now. I already have the current checkout from the cloud run, so you don't need to send a ZIP.
+
+
+You:
+Continue
+
+
+Claude:
+Still working: I wrote the single workflow file. Now I'm linting it and testing its git and story-selection steps on a copy of your real repo, then I'll send your report.
+
+
+You:
+Continue
+
+
+Claude:
+Still working: one last check that the red branch's earlier CI run is still on GitHub, since the acceptance command needs it. Then I'll send your report.I'm taking GPT's plan and won't send another command block. I built it against your real repo: I already have your current main (fa6af12) with .github and .ralph, so GPT's ZIP request doesn't apply.
+Adopted: GPT's sections 1–3, 6 and 7:
+
+GitHub Actions with the official openai/codex-action, one story per run, and the model key only in the worker job.
+A candidate branch with your real Android CI, then a pull request.
+No automatic retries, and it never waits for a model to come back.
+
+Not adopted: sections 4–5 (Friday's runtime stack and the research toolbox). They are a shopping list, not decisions, and GPT itself says no big framework before the first real result.
+It fits your repo.
+
+AGENTS.md already says agents never run Gradle and CI is the only judge, which matches Codex having no network.
+Verification reuses your own build.yml, ci_verify.sh and the story's own acceptance command, so "verified" means what it always did.
+The red branch for LAUNCH-WAKE-ORDER merges cleanly under main, and its red CI run (#64) still exists.
+
+The one decision only you can make is money. The action needs an OpenAI API key, which is prepaid credit. GPT says your ChatGPT plan doesn't cover it, and the action's README says you must supply an API key. That breaks your zero-budget rule.
+
+If you won't pay, reply "no budget" and I swap only the Codex step for a free model. The other three jobs stay.
+Free lanes were never proven dead. Run #2 failed on my own gate bug.
+If you do pay, set a monthly cap in OpenAI's billing.
+
+Tested:
+
+The lint is clean except one false alarm: my linter doesn't know the action's permission-profile input, but the action's v1 tag has it.
+I ran each step's real script against a copy of your actual repo, with a local stand-in for GitHub:
+story pick and red-branch merge
+patch capture and the candidate branch
+refusal of protected files
+the acceptance command's git checks, with CI results stubbed
+a tampered red test being caught
+the PR step and its fallback
+
+
+
+Not tested:
+
+The Codex step itself (it needs your key).
+The live GitHub calls: push, build dispatch and PR creation. These fail loudly with a message.
+
+Codex can't run Gradle, so its first attempt may fail CI. If so, re-run with the failure text in the note box.
+To start (no commands):
+
+In the repo, tap Add file → Create new file. Name it .github/workflows/construct.yml, paste the file below, and commit.
+Go to Settings → Secrets and variables → Actions and add a secret named OPENAI_API_KEY.
+Optional: in Settings → Actions → General, allow Actions to create pull requests. Otherwise you get a compare link instead.
+Go to Actions → construct → Run workflow.
+When it finishes green, open the pull request. Download the APK from the CI run linked in it, test it on the phone, then merge.
+
+Leave the old ralph.yml alone; it isn't used.
+name: construct
+
+# One real construction task per run, in four separate permission zones.
+#   worker    the only job that sees the model key. Read-only token. Produces a patch, nothing else.
+#   candidate applies the patch, pushes a candidate branch, starts the real Android CI on it. No model key.
+#   verify    runs the story's own acceptance command (from .ralph/prd.json) against that CI run. Read-only. No model key.
+#   promote   only after verify passes: marks the story, opens a pull request. Never touches main.
+# Nothing here retries by itself and nothing here waits for a model to come back.
+
+on:
+  workflow_dispatch:
+    inputs:
+      story:
+        description: "Story id from .ralph/prd.json. Empty = the open story with the lowest priority number."
+        required: false
+        default: ""
+      note:
+        description: "Optional extra instruction for the worker, for example the failure evidence of the last run."
+        required: false
+        default: ""
+      publish:
+        description: "false = stop after the worker and only keep its patch (a cheap first look). true = the full run."
+        type: boolean
+        default: true
+
+concurrency:
+  group: construct
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    outputs:
+      story: ${{ steps.pick.outputs.story }}
+      title: ${{ steps.pick.outputs.title }}
+      red: ${{ steps.pick.outputs.red }}
+      base: ${{ steps.pick.outputs.base }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Pick the story and build the work base
+        id: pick
+        env:
+          IN_STORY: ${{ inputs.story }}
+        run: |
+          set -euo pipefail
+          ID="$IN_STORY"
+          if [ -z "$ID" ]; then
+            ID=$(jq -r '[.userStories[] | select(.passes != true)] | sort_by(.priority) | .[0].id // empty' .ralph/prd.json)
+          fi
+          [ -n "$ID" ] || { echo "No open story in .ralph/prd.json"; exit 1; }
+          jq -e --arg id "$ID" '.userStories[] | select(.id == $id)' .ralph/prd.json > /dev/null || { echo "Unknown story $ID"; exit 1; }
+          [ "$(jq -r --arg id "$ID" '.userStories[] | select(.id == $id) | .passes' .ralph/prd.json)" != "true" ] || { echo "Story $ID is already closed"; exit 1; }
+          TITLE=$(jq -r --arg id "$ID" '.userStories[] | select(.id == $id) | .title' .ralph/prd.json)
+          RED=$(jq -r --arg id "$ID" '.userStories[] | select(.id == $id) | .verifyCommand' .ralph/prd.json | grep -oE 'refs/heads/audit/[A-Za-z0-9._/-]+' | sed 's#^refs/heads/##' | sort -u | head -1 || true)
+          BASE=$(git rev-parse HEAD)
+          git config user.name "friday-construct"
+          git config user.email "friday-construct@users.noreply.github.com"
+          if [ -n "$RED" ]; then
+            git fetch --no-tags origin "+refs/heads/$RED:refs/remotes/origin/$RED"
+            git merge --no-ff -m "construct: red tests ($RED) under the green work" "origin/$RED"
+          fi
+          {
+            echo "story=$ID"
+            echo "title=$TITLE"
+            echo "red=$RED"
+            echo "base=$BASE"
+          } >> "$GITHUB_OUTPUT"
+          jq --arg id "$ID" '.userStories[] | select(.id == $id) | del(.notes)' .ralph/prd.json > "$RUNNER_TEMP/story.json"
+          echo "Story $ID: $TITLE (red branch: ${RED:-none})" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Write the construction contract
+        env:
+          IN_NOTE: ${{ inputs.note }}
+          RED: ${{ steps.pick.outputs.red }}
+        run: |
+          set -euo pipefail
+          mkdir -p .construct
+          echo ".construct/" >> .git/info/exclude
+          cat > .construct/prompt.md <<'EOF'
+          You are the construction worker for the Friday project. Read AGENTS.md first, then .ralph/VISION.md.
+          Build exactly ONE story in this checkout: the story below, nothing else.
+
+          How this run is organised (this differs from .ralph/prompt.md, which was written for the old phone loop):
+          - You only edit files in the working tree. Do NOT run git commit, git push or git checkout, and do not create branches.
+          - You have no network and must not run Gradle. CI builds and tests the result after you finish (see AGENTS.md).
+          - Do NOT edit .github/**, .ralph/prd.json, .ralph/ci_verify.sh, .ralph/ralph.sh or .ralph/cloud/**. The run fails if you do.
+          - Do not mark the story as passing. A separate job does that after CI and the story's own acceptance command pass.
+          - From .ralph/prompt.md use only the discipline sections: plan first; grep the real sources before every import and
+            record fixes in .ralph/SYMBOL_FACTS.md; systematic debugging. Ignore its steps about committing, branches, prd.json and progress.txt.
+          - If the story has a RED-first criterion and a red branch is named below, that criterion is already done: its test files are in
+            the tree and must stay byte-identical. Build the remaining criteria only.
+          - Create the files the acceptance criteria name, at the paths they name. Put the mechanisms-considered notes in the incident file
+            under a heading "Mechanisms considered".
+
+          Finish with a final message of at most 30 lines: the files you changed, how each acceptance criterion is met or why it is not,
+          and what remains unproven. Do not claim anything works: CI decides.
+          EOF
+          {
+            echo
+            echo "## Story (from .ralph/prd.json)"
+            cat "$RUNNER_TEMP/story.json"
+            echo
+            echo "## Red branch already merged under this work: ${RED:-none}"
+            if [ -n "$IN_NOTE" ]; then
+              echo
+              echo "## Extra instruction from the operator"
+              printf '%s\n' "$IN_NOTE"
+            fi
+          } >> .construct/prompt.md
+
+      - name: Run Codex
+        id: codex
+        uses: openai/codex-action@v1
+        timeout-minutes: 50
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":workspace"
+          prompt-file: .construct/prompt.md
+          output-file: .construct/final-message.md
+          model: ${{ vars.CODEX_MODEL }}
+          effort: ${{ vars.CODEX_EFFORT }}
+
+      - name: Capture the candidate patch
+        run: |
+          set -euo pipefail
+          git add -A
+          mkdir -p cand
+          git diff --cached --binary > cand/candidate.patch
+          [ -s cand/candidate.patch ] || { echo "Codex changed nothing, so there is nothing to verify"; exit 1; }
+          cp .construct/final-message.md cand/final-message.md 2>/dev/null || echo "(no final message)" > cand/final-message.md
+          {
+            echo "### Worker finished"
+            git diff --cached --stat | tail -40
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the patch
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate
+          path: cand/
+          if-no-files-found: error
+
+  candidate:
+    needs: worker
+    if: ${{ inputs.publish }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: write
+    outputs:
+      branch: ${{ steps.push.outputs.branch }}
+    steps:
+      - name: Checkout the exact base the worker used
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.worker.outputs.base }}
+          fetch-depth: 0
+
+      - name: Fetch the patch
+        uses: actions/download-artifact@v4
+        with:
+          name: candidate
+          path: cand
+
+      - name: Build the candidate branch, push it and start the real CI on it
+        id: push
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STORY: ${{ needs.worker.outputs.story }}
+          RED: ${{ needs.worker.outputs.red }}
+        run: |
+          set -euo pipefail
+          git config user.name "friday-construct"
+          git config user.email "friday-construct@users.noreply.github.com"
+          BR="candidate/${STORY}-${GITHUB_RUN_ID}"
+          git checkout -q -b "$BR"
+          if [ -n "$RED" ]; then
+            git fetch --no-tags origin "+refs/heads/$RED:refs/remotes/origin/$RED"
+            git merge --no-ff -m "construct: red tests ($RED) under the green work" "origin/$RED"
+          fi
+          git apply --index cand/candidate.patch
+          BAD=$(git diff --cached --name-only | grep -E '^(\.github/|\.ralph/(ci_verify\.sh|prd\.json|ralph\.sh|cloud/))' || true)
+          if [ -n "$BAD" ]; then
+            echo "The worker changed protected files, so this candidate is refused:"
+            echo "$BAD"
+            exit 1
+          fi
+          git commit -q -m "construct: ${STORY} (candidate, not yet verified)"
+          git push origin "$BR"
+          echo "branch=$BR" >> "$GITHUB_OUTPUT"
+          SHA=$(git rev-parse HEAD)
+          gh workflow run build.yml --ref "$BR"
+          N=0
+          for _ in $(seq 1 36); do
+            N=$(gh run list --workflow build.yml --branch "$BR" --json headSha --jq "[.[] | select(.headSha == \"$SHA\")] | length")
+            [ "$N" -ge 1 ] && break
+            sleep 10
+          done
+          [ "$N" -ge 1 ] || { echo "The CI run for $BR did not start within 6 minutes"; exit 1; }
+          echo "Candidate branch $BR at ${SHA:0:10}; the real Android CI is running on it." >> "$GITHUB_STEP_SUMMARY"
+
+  verify:
+    needs: [worker, candidate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout the candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.candidate.outputs.branch }}
+          fetch-depth: 0
+
+      - name: Run the story's own acceptance command
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          STORY: ${{ needs.worker.outputs.story }}
+          BR: ${{ needs.candidate.outputs.branch }}
+          BASE: ${{ needs.worker.outputs.base }}
+        run: |
+          set -uo pipefail
+          set +e
+          git fetch -q origin '+refs/heads/audit/*:refs/heads/audit/*' || true
+          git checkout -q -B "$BR" "origin/$BR"
+          git show "$BASE:.ralph/prd.json" > "$RUNNER_TEMP/base_prd.json"
+          CMD=$(jq -r --arg id "$STORY" '.userStories[] | select(.id == $id) | .verifyCommand' "$RUNNER_TEMP/base_prd.json")
+          if [ -z "$CMD" ] || [ "$CMD" = "null" ]; then echo "No verifyCommand for $STORY"; exit 1; fi
+          sudo mkdir -p /sdcard
+          sudo ln -sfn "$GITHUB_WORKSPACE" /sdcard/jarvis-repo
+          export CIV_BRANCH="$BR" CIV_TIMEOUT_SECONDS=3600
+          bash -c "$CMD" 2>&1 | tee "$RUNNER_TEMP/verify.log"
+          RC=${PIPESTATUS[0]}
+          {
+            echo "### Acceptance command for $STORY: exit $RC"
+            echo '```'
+            tail -60 "$RUNNER_TEMP/verify.log"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$RC"
+
+  promote:
+    needs: [worker, candidate, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+    steps:
+      - name: Checkout the verified candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.candidate.outputs.branch }}
+          fetch-depth: 0
+
+      - name: Fetch the worker's message
+        uses: actions/download-artifact@v4
+        with:
+          name: candidate
+          path: cand
+
+      - name: Mark the story and open the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STORY: ${{ needs.worker.outputs.story }}
+          TITLE: ${{ needs.worker.outputs.title }}
+          BR: ${{ needs.candidate.outputs.branch }}
+        run: |
+          set -euo pipefail
+          git config user.name "friday-construct"
+          git config user.email "friday-construct@users.noreply.github.com"
+          python3 - <<'PY'
+          import os
+          sid = os.environ["STORY"]
+          t = open(".ralph/prd.json", encoding="utf-8").read()
+          i = t.index('"id": "%s"' % sid)
+          j = t.index('"passes": false', i)
+          k = t.find('"id":', i + 1)
+          assert k == -1 or j < k, "passes flag not found inside the story"
+          t = t[:j] + '"passes": true' + t[j + len('"passes": false'):]
+          open(".ralph/prd.json", "w", encoding="utf-8").write(t)
+          PY
+          jq -e --arg id "$STORY" '.userStories[] | select(.id == $id) | .passes == true' .ralph/prd.json > /dev/null
+          echo "$(date -u +%F): $STORY verified by construct run $GITHUB_RUN_ID on candidate $BR (CI green, acceptance command passed)." >> .ralph/progress.txt
+          git add .ralph/prd.json .ralph/progress.txt
+          git commit -q -m "construct: $STORY verified (CI green, acceptance command passed)"
+          git push origin "HEAD:refs/heads/$BR"
+          CI_URL=$(gh run list --workflow build.yml --branch "$BR" --limit 1 --json url --jq '.[0].url')
+          {
+            echo "Verified candidate for story $STORY."
+            echo
+            echo "- CI run with the debug APK artifact: $CI_URL"
+            echo "- The story's own acceptance command passed against that run."
+            echo "- Not proven by any of this: behaviour on a real phone. Install the APK and test before you trust it."
+            echo
+            echo "Worker's final message (unverified claims, for reading only):"
+            echo
+            head -c 6000 cand/final-message.md
+          } > "$RUNNER_TEMP/pr.md"
+          if gh pr create --base main --head "$BR" --title "$STORY: $TITLE" --body-file "$RUNNER_TEMP/pr.md"; then
+            echo "Pull request opened for $BR. Merge it when you accept the change." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Verified. Pull requests from Actions are not allowed on this repo yet, so open it yourself: https://github.com/$GITHUB_REPOSITORY/compare/main...$BR?expand=1" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+
+
+You:
+I can't use anything paid till Friday fund itself
+
+
+Claude:
+Understood: nothing paid, so the Codex step is out. The other three jobs stay, and I'm swapping only the worker to a free model that is tested at the start of every run. First I'm checking whether GitHub's own free model service could be a lane that needs no new account.
+
+
+You:
+Continue
+
+
+Claude:
+Understood: nothing paid, so the Codex step is out. The rest of GPT's plan stays as built: one story per run, a candidate branch, your real Android CI, the story's own acceptance command, then a pull request, with nothing written to main. Only the worker changes. It now uses the free model lanes you already have.
+Why this isn't the failed v1.1/v1.2 again:
+
+Every run starts by asking each lane directly. It makes real HTTP calls using NVIDIA's live model list. Each answering lane then gets one real tool-use test in its own private log, so the bug that rejected healthy lanes is gone.
+If no lane answers, the run ends red in minutes. The run page shows each model's HTTP code and reply. It never waits and never retries by itself.
+You need no new secret. It uses the NVIDIA_API_KEY already in your repo. A free Mistral, Groq or OpenRouter key added as a secret is picked up automatically.
+
+Honest limits:
+
+GPT is right that free lanes aren't dependable. Expect some runs to end red at the lane test.
+A free model may write code that fails CI. CI and the story's own command decide. Paste the failure into the note box to feed it to the next run.
+I checked GitHub's own free models. They cap input at 8,000 tokens per request, which is too small for a coding agent.
+
+Tested:
+
+The real opencode 1.19.5 against a fake NVIDIA-style provider: a healthy lane, a lane that passes the probe but fails inside opencode (the next lane is taken), and all lanes busy (red in about 15 seconds with the table).
+Every other step, run against a copy of your real repo.
+
+Not tested:
+
+NVIDIA's real API, which my sandbox can't reach.
+The live GitHub calls.
+Whether a free model can actually finish this story.
+
+To start (no commands):
+
+In the repo, tap Add file → Create new file. Name it .github/construct/lanes.py and paste the first block.
+Do the same with .github/workflows/construct.yml and the second block.
+Go to Actions → construct → Run workflow.
+Optional: in Settings → Actions → General, allow Actions to create pull requests.
+
+Leave the old ralph.yml alone; it isn't used. About two minutes in, the run page shows the "Model lanes" table.
+#!/usr/bin/env python3
+"""Lane census for the construct workflow.
+For every provider whose API key is in the environment: read its LIVE model list, pick coding-capable candidates,
+probe each with one streamed tool-call request, print what really came back (HTTP code, time, short body), and write
+the models that answered into the opencode config. Exit 0 if a lane answered, 2 if none did, 3 if no key is set."""
+import argparse, json, os, re, sys, time
+import urllib.error, urllib.request
+
+PROVIDERS = [
+    dict(id="nvnim", name="NVIDIA NIM", env="NVIDIA_API_KEY", base="https://integrate.api.nvidia.com/v1",
+         prefer=[r"qwen3[-.]?coder", r"kimi[-.]?k2", r"devstral", r"deepseek[-.]?v[34]", r"glm", r"minimax",
+                 r"gpt-oss-120b", r"qwen3.*(235|480)", r"mistral-(large|medium)", r"llama-3\.3-70b",
+                 r"llama-3\.1-405b", r"nemotron.*(ultra|super)"], per=2, cap=10),
+    dict(id="mistral", name="Mistral", env="MISTRAL_API_KEY", base="https://api.mistral.ai/v1",
+         prefer=[r"devstral", r"codestral", r"mistral-large", r"mistral-medium"], per=2, cap=5),
+    dict(id="groq", name="Groq", env="GROQ_API_KEY", base="https://api.groq.com/openai/v1",
+         prefer=[r"qwen.*coder", r"kimi", r"gpt-oss-120b", r"qwen3", r"llama-3\.3-70b"], per=1, cap=5),
+    dict(id="openrouter", name="OpenRouter", env="OPENROUTER_API_KEY", base="https://openrouter.ai/api/v1",
+         prefer=[r"qwen3-coder", r"kimi", r"glm", r"gpt-oss-120b", r"deepseek", r"devstral"], per=1, cap=6,
+         require=r":free$"),
+]
+
+LONG_BAD = ("vision", "embed", "rerank", "reward", "guard", "safety", "retriev", "parse", "whisper", "audio",
+            "image", "diffusion", "flux", "cosmos", "riva", "translat", "safeguard", "topic-control", "jailbreak",
+            "moderat", "speech", "voice", "video", "vila", "neva", "paligemma", "fuyu", "kosmos", "ocr-")
+SHORT_BAD = re.compile(r"(?:^|[^a-z0-9])(vl|vlm|asr|ocr|tts|clip|bge|e5|pii)(?:[^a-z0-9]|$)", re.I)
+
+PROBE_TOOLS = [{"type": "function", "function": {
+    "name": "ping", "description": "Call this function to confirm you can use tools.",
+    "parameters": {"type": "object", "properties": {"note": {"type": "string"}}, "required": []}}}]
+
+
+def vkey(s):
+    return [(0, int(t), "") if t.isdigit() else (1, 0, t) for t in re.split(r"(\d+)", s) if t != ""]
+
+
+def usable(mid):
+    low = mid.lower()
+    return not (any(w in low for w in LONG_BAD) or SHORT_BAD.search(low))
+
+
+def pick_candidates(ids, spec):
+    ids = [i for i in ids if usable(i)]
+    if spec.get("require"):
+        ids = [i for i in ids if re.search(spec["require"], i)]
+    out = []
+    for pat in spec["prefer"]:
+        hit = sorted((i for i in ids if i not in out and re.search(pat, i, re.I)), key=vkey, reverse=True)
+        out += hit[: spec.get("per", 2)]
+    if not out:
+        out = sorted(ids, key=vkey, reverse=True)[:3]
+    return out[: spec.get("cap", 8)]
+
+
+def clean(text, secrets, n=170):
+    text = re.sub(r"\s+", " ", text or "").strip()
+    for s in secrets:
+        if s and len(s) > 6:
+            text = text.replace(s, "[KEY]")
+    text = re.sub(r"(nvapi-|sk-|csk-|gsk_|gh[pousr]_)[A-Za-z0-9_\-]{8,}", "[KEY]", text)
+    return text[:n]
+
+
+def http(method, url, key, body=None, timeout=45):
+    req = urllib.request.Request(url, method=method, data=None if body is None else json.dumps(body).encode(),
+                                 headers={"Authorization": "Bearer " + key, "Content-Type": "application/json",
+                                          "Accept": "application/json" if body is None else "text/event-stream",
+                                          "User-Agent": "cloud-ralph-census/1.2"})
+    return urllib.request.urlopen(req, timeout=timeout)
+
+
+def list_models(base, key, secrets):
+    """returns (code, [(id, ctx)], note)"""
+    t0 = time.time()
+    try:
+        with http("GET", base.rstrip("/") + "/models", key, timeout=30) as r:
+            j = json.loads(r.read().decode("utf-8", "replace"))
+            rows = j.get("data") if isinstance(j, dict) else j
+            out = []
+            for m in rows or []:
+                if not isinstance(m, dict) or not m.get("id"):
+                    continue
+                ctx = m.get("context_length") or m.get("context_window") or m.get("max_context_length") or m.get("max_model_len")
+                out.append((m["id"], ctx if isinstance(ctx, int) else None))
+            return r.status, out, "%.1fs" % (time.time() - t0)
+    except urllib.error.HTTPError as e:
+        return e.code, [], clean(e.read().decode("utf-8", "replace"), secrets)
+    except Exception as e:  # timeout, dns, ssl, bad json
+        return 0, [], clean("%s: %s" % (type(e).__name__, e), secrets)
+
+
+def probe(base, key, model, secrets, timeout):
+    """one streamed tool-call request. state: tool | text | empty | http | timeout | neterr"""
+    body = {"model": model, "stream": True, "max_tokens": 256, "temperature": 0,
+            "messages": [{"role": "user", "content": "Call the function ping now."}],
+            "tools": PROBE_TOOLS, "tool_choice": "auto"}
+    t0 = time.time()
+    tool = text = False
+    snippet = ""
+    try:
+        with http("POST", base.rstrip("/") + "/chat/completions", key, body, timeout=timeout) as r:
+            code = r.status
+            for raw in r:
+                if time.time() - t0 > timeout:
+                    return dict(state="timeout", code=code, secs=time.time() - t0, snippet="no end of stream in %ds" % timeout)
+                line = raw.decode("utf-8", "replace").strip()
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    break
+                try:
+                    j = json.loads(data)
+                except ValueError:
+                    continue
+                if isinstance(j, dict) and j.get("error"):
+                    snippet = clean(json.dumps(j["error"]), secrets)
+                for ch in (j.get("choices") or []) if isinstance(j, dict) else []:
+                    d = ch.get("delta") or {}
+                    if d.get("tool_calls"):
+                        tool = True
+                    if d.get("content") or d.get("reasoning_content") or d.get("reasoning"):
+                        text = True
+        state = "tool" if tool else ("text" if text else "empty")
+        return dict(state=state, code=code, secs=time.time() - t0, snippet=snippet)
+    except urllib.error.HTTPError as e:
+        return dict(state="http", code=e.code, secs=time.time() - t0, snippet=clean(e.read().decode("utf-8", "replace"), secrets))
+    except Exception as e:
+        name = type(e).__name__
+        st = "timeout" if "timeout" in name.lower() or "timed out" in str(e).lower() else "neterr"
+        return dict(state=st, code=0, secs=time.time() - t0, snippet=clean("%s: %s" % (name, e), secrets))
+
+
+def transient(code, state):
+    return state in ("timeout", "neterr", "empty") or code == 429 or code >= 500 or code == 408 or code == 0
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--config", help="opencode.json to merge the working providers into")
+    ap.add_argument("--out", default="/tmp/lanes.json")
+    ap.add_argument("--timeout", type=int, default=int(os.environ.get("LANES_TIMEOUT", "60")))
+    a = ap.parse_args()
+
+    secrets = [os.environ.get(p["env"], "") for p in PROVIDERS]
+    lanes, detail, kinds = [], [], []
+    blocks = {}
+    present = 0
+    for p in PROVIDERS:
+        key = os.environ.get(p["env"], "").strip()
+        base = os.environ.get("LANES_BASE_" + p["id"].upper(), p["base"])
+        if not key:
+            continue
+        present += 1
+        print("census: %s: key present (%s), base %s" % (p["id"], p["env"], base))
+        code, models, note = list_models(base, key, secrets)
+        if code != 200 or not models:
+            print("census: %s: model list FAILED http=%s %s" % (p["id"], code, note))
+            kinds.append("transient" if transient(code, "http") else "hard")
+            detail.append(dict(provider=p["id"], listed=0, code=code, note=note))
+            continue
+        ids = [m[0] for m in models]
+        ctxof = dict(models)
+        cands = pick_candidates(ids, p)
+        print("census: %s: %d models listed (http=%s %s); testing %d: %s" % (p["id"], len(ids), code, note, len(cands), ", ".join(cands)))
+        good, maybe = [], []
+        for mid in cands:
+            r = probe(base, key, mid, secrets, a.timeout)
+            ok = r["state"] in ("tool", "text")
+            word = {"tool": "answered with a tool call", "text": "answered with text only (tool use unconfirmed)",
+                    "empty": "empty stream", "timeout": "TIMEOUT", "neterr": "NETWORK ERROR", "http": "FAILED"}[r["state"]]
+            print("probe %s/%s: %s http=%s %.1fs%s" % (p["id"], mid, word, r["code"], r["secs"], (" | " + r["snippet"]) if r["snippet"] else ""))
+            detail.append(dict(provider=p["id"], model=mid, **r))
+            if r["state"] == "tool":
+                good.append(mid)
+            elif r["state"] == "text":
+                maybe.append(mid)
+            else:
+                kinds.append("transient" if transient(r["code"], r["state"]) else "hard")
+        use = good + maybe
+        if use:
+            models_cfg = {}
+            for mid in use:
+                ctx = ctxof.get(mid) or 131072
+                models_cfg[mid] = {"name": mid, "tool_call": True, "limit": {"context": ctx, "output": min(16384, max(4096, ctx // 4))}}
+            blocks[p["id"]] = {"npm": "@ai-sdk/openai-compatible", "name": p["name"],
+                               "options": {"baseURL": base, "apiKey": "{env:%s}" % p["env"], "timeout": 900000, "chunkTimeout": 300000},
+                               "models": models_cfg}
+            lanes += ["%s/%s" % (p["id"], m) for m in use]
+
+    if present == 0:
+        state = "nokeys"
+    elif lanes:
+        state = "ok"
+    else:
+        state = "transient" if "transient" in kinds else "hard"
+    print("census: result %s; lanes: %s" % (state, " ".join(lanes) if lanes else "none"))
+
+    if a.config and blocks:
+        try:
+            cfg = json.load(open(a.config)) if os.path.exists(a.config) else {}
+        except ValueError:
+            cfg = {}
+        cfg.setdefault("$schema", "https://opencode.ai/config.json")
+        cfg.setdefault("provider", {}).update(blocks)
+        json.dump(cfg, open(a.config, "w"))
+    json.dump(dict(state=state, lanes=lanes, detail=detail), open(a.out, "w"))
+    sys.exit(0 if lanes else (3 if present == 0 else 2))
+
+
+if __name__ == "__main__":
+    main()
+
+name: construct
+
+# One real construction task per run, in four separate permission zones.
+#   worker    the only job that sees a model key. Read-only token. Tests the free model lanes with real calls, then
+#             runs one agent on the first lane that answers. Produces a patch, nothing else.
+#   candidate applies the patch, pushes a candidate branch, starts the real Android CI on it. No model key.
+#   verify    runs the story's own acceptance command (from .ralph/prd.json) against that CI run. Read-only. No model key.
+#   promote   only after verify passes: marks the story, opens a pull request. Never touches main.
+# Nothing here retries by itself. If no model lane answers, the run ends red within minutes and says why.
+
+on:
+  workflow_dispatch:
+    inputs:
+      story:
+        description: "Story id from .ralph/prd.json. Empty = the open story with the lowest priority number."
+        required: false
+        default: ""
+      note:
+        description: "Optional extra instruction for the worker, for example the failure evidence of the last run."
+        required: false
+        default: ""
+      publish:
+        description: "false = stop after the worker and only keep its patch (a cheap first look). true = the full run."
+        type: boolean
+        default: true
+
+concurrency:
+  group: construct
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    outputs:
+      story: ${{ steps.pick.outputs.story }}
+      title: ${{ steps.pick.outputs.title }}
+      red: ${{ steps.pick.outputs.red }}
+      base: ${{ steps.pick.outputs.base }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Pick the story and build the work base
+        id: pick
+        env:
+          IN_STORY: ${{ inputs.story }}
+        run: |
+          set -euo pipefail
+          ID="$IN_STORY"
+          if [ -z "$ID" ]; then
+            ID=$(jq -r '[.userStories[] | select(.passes != true)] | sort_by(.priority) | .[0].id // empty' .ralph/prd.json)
+          fi
+          [ -n "$ID" ] || { echo "No open story in .ralph/prd.json"; exit 1; }
+          jq -e --arg id "$ID" '.userStories[] | select(.id == $id)' .ralph/prd.json > /dev/null || { echo "Unknown story $ID"; exit 1; }
+          [ "$(jq -r --arg id "$ID" '.userStories[] | select(.id == $id) | .passes' .ralph/prd.json)" != "true" ] || { echo "Story $ID is already closed"; exit 1; }
+          TITLE=$(jq -r --arg id "$ID" '.userStories[] | select(.id == $id) | .title' .ralph/prd.json)
+          RED=$(jq -r --arg id "$ID" '.userStories[] | select(.id == $id) | .verifyCommand' .ralph/prd.json | grep -oE 'refs/heads/audit/[A-Za-z0-9._/-]+' | sed 's#^refs/heads/##' | sort -u | head -1 || true)
+          BASE=$(git rev-parse HEAD)
+          git config user.name "friday-construct"
+          git config user.email "friday-construct@users.noreply.github.com"
+          if [ -n "$RED" ]; then
+            git fetch --no-tags origin "+refs/heads/$RED:refs/remotes/origin/$RED"
+            git merge --no-ff -m "construct: red tests ($RED) under the green work" "origin/$RED"
+          fi
+          echo "WORKHEAD=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          {
+            echo "story=$ID"
+            echo "title=$TITLE"
+            echo "red=$RED"
+            echo "base=$BASE"
+          } >> "$GITHUB_OUTPUT"
+          jq --arg id "$ID" '.userStories[] | select(.id == $id) | del(.notes)' .ralph/prd.json > "$RUNNER_TEMP/story.json"
+          echo "Story $ID: $TITLE (red branch: ${RED:-none})" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Write the construction contract
+        env:
+          IN_NOTE: ${{ inputs.note }}
+          RED: ${{ steps.pick.outputs.red }}
+        run: |
+          set -euo pipefail
+          mkdir -p .construct
+          echo ".construct/" >> .git/info/exclude
+          cat > .construct/prompt.md <<'EOF'
+          You are the construction worker for the Friday project. Read AGENTS.md first, then .ralph/VISION.md.
+          Build exactly ONE story in this checkout: the story below, nothing else.
+
+          How this run is organised (this differs from .ralph/prompt.md, which was written for the old phone loop):
+          - You only edit files in the working tree. Do NOT run git commit, git push, git checkout or git reset, and do not create branches.
+          - Do not use the network and do not run Gradle or any build. CI builds and tests the result after you finish (see AGENTS.md).
+          - Do NOT edit .github/**, .ralph/prd.json, .ralph/ci_verify.sh, .ralph/ralph.sh or .ralph/cloud/**. The run fails if you do.
+          - Do not mark the story as passing. A separate job does that after CI and the story's own acceptance command pass.
+          - From .ralph/prompt.md use only the discipline sections: plan first; grep the real sources before every import and
+            record fixes in .ralph/SYMBOL_FACTS.md; systematic debugging. Ignore its steps about committing, branches, prd.json and progress.txt.
+          - If the story has a RED-first criterion and a red branch is named below, that criterion is already done: its test files are in
+            the tree and must stay byte-identical. Build the remaining criteria only.
+          - Create the files the acceptance criteria name, at the paths they name. Put the mechanisms-considered notes in the incident file
+            under a heading "Mechanisms considered".
+
+          Finish with a final message of at most 30 lines: the files you changed, how each acceptance criterion is met or why it is not,
+          and what remains unproven. Do not claim anything works: CI decides.
+          EOF
+          {
+            echo
+            echo "## Story (from .ralph/prd.json)"
+            cat "$RUNNER_TEMP/story.json"
+            echo
+            echo "## Red branch already merged under this work: ${RED:-none}"
+            if [ -n "$IN_NOTE" ]; then
+              echo
+              echo "## Extra instruction from the operator"
+              printf '%s\n' "$IN_NOTE"
+            fi
+          } >> .construct/prompt.md
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install the coding agent
+        run: npm install -g opencode-ai@1.19.5
+
+      - name: Find a model lane that answers (real calls, no waiting)
+        id: lane
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENCODE_DISABLE_AUTOUPDATE: "true"
+          OPENCODE_PERMISSION: '{"external_directory":{"*":"allow"}}'
+        run: |
+          set -uo pipefail
+          set +e
+          mkdir -p "$HOME/.config/opencode"
+          # shellcheck disable=SC2016
+          echo '{"$schema":"https://opencode.ai/config.json","agent":{"title":{"disable":true}},"provider":{"opencode":{"options":{"timeout":900000,"chunkTimeout":300000}}}}' > "$HOME/.config/opencode/opencode.json"
+          python3 .github/construct/lanes.py --config "$HOME/.config/opencode/opencode.json" --out "$RUNNER_TEMP/lanes.json" > "$RUNNER_TEMP/census.txt" 2>&1
+          cat "$RUNNER_TEMP/census.txt"
+          KEYED=$(jq -r '.lanes | join(" ")' "$RUNNER_TEMP/lanes.json" 2>/dev/null)
+          timeout 90 opencode models < /dev/null > "$RUNNER_TEMP/models.txt" 2>&1
+          FREE=$(grep -E '^opencode/(big-pickle|.*-free)$' "$RUNNER_TEMP/models.txt" | tr '\n' ' ')
+          gate_error() {
+            GE=$(cat "$1"/*.log 2>/dev/null | grep 'message="stream error"' | grep -v 'agent=title')
+            [ -n "$GE" ] || return 0
+            GN=$(echo "$GE" | wc -l)
+            G1=$(echo "$GE" | head -1 | grep -o 'error.error=.*' | cut -c1-200)
+            if [ "$GN" -ge 2 ] || echo "$G1" | grep -qiE "free usage|quota|unauthor|forbidden|invalid|not found|insufficient|payment|credit"; then echo "$G1"; fi
+          }
+          gate() {
+            GO=$(mktemp); GD=$(mktemp -d); mkdir -p "$GD/data" "$GD/work"; S0=$(date +%s); ERR=""
+            ( cd "$GD/work" && exec env XDG_DATA_HOME="$GD/data" timeout -k 5 150 opencode run -m "$1" "Create a file named gate_tool.txt in the current directory containing exactly the word ok, then reply with the single word done." ) > "$GO" 2>&1 < /dev/null &
+            GP=$!
+            while kill -0 "$GP" 2>/dev/null; do
+              sleep 3
+              ERR=$(gate_error "$GD/data/opencode/log")
+              if [ -n "$ERR" ]; then kill -TERM "$GP" 2>/dev/null; sleep 1; kill -KILL "$GP" 2>/dev/null; break; fi
+            done
+            wait "$GP" 2>/dev/null; RC=$?
+            if [ -z "$ERR" ] && [ "$RC" = 0 ] && [ -f "$GD/work/gate_tool.txt" ] && [ "$(tr -d '[:space:]' < "$GD/work/gate_tool.txt")" = ok ]; then
+              echo "lane ok: $1 ($(( $(date +%s) - S0 ))s, used a tool)"; rm -rf "$GO" "$GD"; return 0
+            fi
+            [ -n "$ERR" ] || ERR="$(tail -3 "$GO" | tr '\n' ' ' | cut -c1-200)"
+            [ -f "$GD/work/gate_tool.txt" ] || ERR="no tool call happened. $ERR"
+            echo "lane failed: $1 rc=$RC after $(( $(date +%s) - S0 ))s: $ERR"; rm -rf "$GO" "$GD"; return 1
+          }
+          LANE=""
+          for m in $KEYED $FREE; do
+            OUT=$(gate "$m"); GRC=$?
+            echo "$OUT"
+            echo "$OUT" >> "$RUNNER_TEMP/census.txt"
+            if [ "$GRC" = 0 ]; then LANE="$m"; break; fi
+          done
+          {
+            echo "### Model lanes"
+            echo '```'
+            cut -c1-300 "$RUNNER_TEMP/census.txt" | tail -60
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -z "$LANE" ]; then
+            echo "No model lane answered. Nothing was built and nothing will wait. The table above says why; try again later."
+            exit 1
+          fi
+          echo "lane=$LANE" >> "$GITHUB_OUTPUT"
+          echo "Using lane: $LANE" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Run the worker agent
+        timeout-minutes: 55
+        env:
+          LANE: ${{ steps.lane.outputs.lane }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          OPENCODE_DISABLE_AUTOUPDATE: "true"
+          OPENCODE_PERMISSION: '{"external_directory":{"*":"allow"}}'
+        run: |
+          set -uo pipefail
+          set +e
+          timeout -k 30 50m opencode run -m "$LANE" "$(cat .construct/prompt.md)" > "$RUNNER_TEMP/agent.log" 2>&1 < /dev/null
+          RC=$?
+          tail -n 80 "$RUNNER_TEMP/agent.log"
+          echo "The agent stopped with exit code $RC" >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+
+      - name: Capture the candidate patch
+        run: |
+          set -euo pipefail
+          git add -A
+          mkdir -p cand
+          git diff --cached --binary "$WORKHEAD" > cand/candidate.patch
+          [ -s cand/candidate.patch ] || { echo "The worker changed nothing, so there is nothing to verify"; exit 1; }
+          tail -n 60 "$RUNNER_TEMP/agent.log" | sed 's/\x1b\[[0-9;]*m//g' > cand/final-message.md 2>/dev/null || echo "(no agent log)" > cand/final-message.md
+          {
+            echo "### Worker finished"
+            git diff --cached --stat "$WORKHEAD" | tail -40
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Keep the patch
+        uses: actions/upload-artifact@v4
+        with:
+          name: candidate
+          path: cand/
+          if-no-files-found: error
+
+  candidate:
+    needs: worker
+    if: ${{ inputs.publish }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      actions: write
+    outputs:
+      branch: ${{ steps.push.outputs.branch }}
+    steps:
+      - name: Checkout the exact base the worker used
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.worker.outputs.base }}
+          fetch-depth: 0
+
+      - name: Fetch the patch
+        uses: actions/download-artifact@v4
+        with:
+          name: candidate
+          path: cand
+
+      - name: Build the candidate branch, push it and start the real CI on it
+        id: push
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STORY: ${{ needs.worker.outputs.story }}
+          RED: ${{ needs.worker.outputs.red }}
+        run: |
+          set -euo pipefail
+          git config user.name "friday-construct"
+          git config user.email "friday-construct@users.noreply.github.com"
+          BR="candidate/${STORY}-${GITHUB_RUN_ID}"
+          git checkout -q -b "$BR"
+          if [ -n "$RED" ]; then
+            git fetch --no-tags origin "+refs/heads/$RED:refs/remotes/origin/$RED"
+            git merge --no-ff -m "construct: red tests ($RED) under the green work" "origin/$RED"
+          fi
+          git apply --index cand/candidate.patch
+          BAD=$(git diff --cached --name-only | grep -E '^(\.github/|\.ralph/(ci_verify\.sh|prd\.json|ralph\.sh|cloud/))' || true)
+          if [ -n "$BAD" ]; then
+            echo "The worker changed protected files, so this candidate is refused:"
+            echo "$BAD"
+            exit 1
+          fi
+          git commit -q -m "construct: ${STORY} (candidate, not yet verified)"
+          git push origin "$BR"
+          echo "branch=$BR" >> "$GITHUB_OUTPUT"
+          SHA=$(git rev-parse HEAD)
+          gh workflow run build.yml --ref "$BR"
+          N=0
+          for _ in $(seq 1 36); do
+            N=$(gh run list --workflow build.yml --branch "$BR" --json headSha --jq "[.[] | select(.headSha == \"$SHA\")] | length")
+            [ "$N" -ge 1 ] && break
+            sleep 10
+          done
+          [ "$N" -ge 1 ] || { echo "The CI run for $BR did not start within 6 minutes"; exit 1; }
+          echo "Candidate branch $BR at ${SHA:0:10}; the real Android CI is running on it." >> "$GITHUB_STEP_SUMMARY"
+
+  verify:
+    needs: [worker, candidate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout the candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.candidate.outputs.branch }}
+          fetch-depth: 0
+
+      - name: Run the story's own acceptance command
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          STORY: ${{ needs.worker.outputs.story }}
+          BR: ${{ needs.candidate.outputs.branch }}
+          BASE: ${{ needs.worker.outputs.base }}
+        run: |
+          set -uo pipefail
+          set +e
+          git fetch -q origin '+refs/heads/audit/*:refs/heads/audit/*' || true
+          git checkout -q -B "$BR" "origin/$BR"
+          git show "$BASE:.ralph/prd.json" > "$RUNNER_TEMP/base_prd.json"
+          CMD=$(jq -r --arg id "$STORY" '.userStories[] | select(.id == $id) | .verifyCommand' "$RUNNER_TEMP/base_prd.json")
+          if [ -z "$CMD" ] || [ "$CMD" = "null" ]; then echo "No verifyCommand for $STORY"; exit 1; fi
+          sudo mkdir -p /sdcard
+          sudo ln -sfn "$GITHUB_WORKSPACE" /sdcard/jarvis-repo
+          export CIV_BRANCH="$BR" CIV_TIMEOUT_SECONDS=3600
+          bash -c "$CMD" 2>&1 | tee "$RUNNER_TEMP/verify.log"
+          RC=${PIPESTATUS[0]}
+          {
+            echo "### Acceptance command for $STORY: exit $RC"
+            echo '```'
+            tail -60 "$RUNNER_TEMP/verify.log"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$RC"
+
+  promote:
+    needs: [worker, candidate, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+    steps:
+      - name: Checkout the verified candidate
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.candidate.outputs.branch }}
+          fetch-depth: 0
+
+      - name: Fetch the worker's message
+        uses: actions/download-artifact@v4
+        with:
+          name: candidate
+          path: cand
+
+      - name: Mark the story and open the pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STORY: ${{ needs.worker.outputs.story }}
+          TITLE: ${{ needs.worker.outputs.title }}
+          BR: ${{ needs.candidate.outputs.branch }}
+        run: |
+          set -euo pipefail
+          git config user.name "friday-construct"
+          git config user.email "friday-construct@users.noreply.github.com"
+          python3 - <<'PY'
+          import os
+          sid = os.environ["STORY"]
+          t = open(".ralph/prd.json", encoding="utf-8").read()
+          i = t.index('"id": "%s"' % sid)
+          j = t.index('"passes": false', i)
+          k = t.find('"id":', i + 1)
+          assert k == -1 or j < k, "passes flag not found inside the story"
+          t = t[:j] + '"passes": true' + t[j + len('"passes": false'):]
+          open(".ralph/prd.json", "w", encoding="utf-8").write(t)
+          PY
+          jq -e --arg id "$STORY" '.userStories[] | select(.id == $id) | .passes == true' .ralph/prd.json > /dev/null
+          echo "$(date -u +%F): $STORY verified by construct run $GITHUB_RUN_ID on candidate $BR (CI green, acceptance command passed)." >> .ralph/progress.txt
+          git add .ralph/prd.json .ralph/progress.txt
+          git commit -q -m "construct: $STORY verified (CI green, acceptance command passed)"
+          git push origin "HEAD:refs/heads/$BR"
+          CI_URL=$(gh run list --workflow build.yml --branch "$BR" --limit 1 --json url --jq '.[0].url')
+          {
+            echo "Verified candidate for story $STORY."
+            echo
+            echo "- CI run with the debug APK artifact: $CI_URL"
+            echo "- The story's own acceptance command passed against that run."
+            echo "- Not proven by any of this: behaviour on a real phone. Install the APK and test before you trust it."
+            echo
+            echo "Worker's final message (unverified claims, for reading only):"
+            echo
+            head -c 6000 cand/final-message.md
+          } > "$RUNNER_TEMP/pr.md"
+          if gh pr create --base main --head "$BR" --title "$STORY: $TITLE" --body-file "$RUNNER_TEMP/pr.md"; then
+            echo "Pull request opened for $BR. Merge it when you accept the change." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Verified. Pull requests from Actions are not allowed on this repo yet, so open it yourself: https://github.com/$GITHUB_REPOSITORY/compare/main...$BR?expand=1" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+
+
+You:
+No commands or whatever u keep designing a setup full of failures u already know and you narrowed everything to GitHubFor once think good and out side of the box thinking stuffGive me a real setup not misleadingFind it without excuses that u keep makeYou letarly do the wrong and come to convince me it's right till i find out myself it's wrongSo do it right it's been over 8 months
+
+
+Claude:
+You're right. I kept handing you untested machinery as if it were the fix. This time I'm researching what actually exists for free, from a phone, with no commands, using live sources first. You get one report at the end.
+
+
+You:
+Continue
+
+
+You:
+Continue
+
+
+You:
+Continue
+
+
+Claude:
+You're right. I designed first and checked after. This time I checked first, and the answer isn't the one either of us wanted.
+There is no free, dependable, hands-off builder right now. What I found:
+
+Jules (Google: free, runs in a browser, fixes failing CI by itself) stops taking new work on Nov 11 and closes on Dec 31. I was about to give it to you.
+Codex cloud: OpenAI's help page lists it for paid plans, not Free.
+Antigravity (Jules' successor): free, but it's a desktop app and CLI with weekly quotas. No phone path.
+Freebuff Cloud: free and ad-funded. It runs agents on a GitHub repo you connect, with about 5 free hours a day outside supported regions. Its terms changed more than once in a few weeks, your prompts are analysed for ads, and it may ask for a government-ID photo and selfie.
+Free model APIs are shared and capped: NVIDIA's free tier is 40 requests a minute.
+
+My bugs aside, that is why eight months of free lanes kept dying. Free capacity is a subsidy that gets cut, so it can't be the foundation. Every cloud agent I found plugs into GitHub anyway, so that isn't the narrowing.
+The setup is a stable judge plus workers you can swap.
+
+Judge (yours, nothing to build): the repo, the PRD acceptance commands, AGENTS.md, and build.yml, which already builds every push to audit/**.
+Workers race: Freebuff Cloud now, and Jules too until Nov 11, since that capacity disappears anyway. Give each the same prompt. CI plus my review against the acceptance criteria picks the winner, and if one dies the others carry on. Jules' branch isn't audit/, so build it by hand: Actions → build → Run workflow → pick its branch.
+Me: reviewer and diagnoser, not the builder. My rate limits make long builds impractical. I read your public repo with no token and tell you to merge, retry or slice. If you ever want me to finish a branch, that needs you to lift your standing rule that I don't write code, plus a repo-scoped token. It's optional and not needed now.
+Slice the stories. Free models are weak and CI is a strong judge. If a worker stalls on LAUNCH-WAKE-ORDER, I cut it into pieces CI can check one at a time.
+
+Do this now (taps only). Open Freebuff, sign in, connect the repo, and paste:
+Repo: mhw77655-hue/Friday. Read AGENTS.md first, then .ralph/VISION.md.
+Build only story LAUNCH-WAKE-ORDER from .ralph/prd.json. Its red tests already exist on branch audit/ls-wake-order-red: start from that branch and keep that test file byte-identical.
+Do not run Gradle or any build; CI does that. Do not edit .github/**, .ralph/prd.json or .ralph/ci_verify.sh.
+Push your work to a new branch named audit/ls-wake-order-fb1. Never push to main.
+End with: files changed, how each acceptance criterion is met, what is unproven.
+
+Then tell me the branch name and I'll read the diff and the CI result.
+Verified: the Jules and Codex facts, from official pages, and that your CI triggers on audit/**. Not verified: whether Freebuff Cloud can push a branch, start from a given branch, or work well on a phone, and whether Egypt gets the limited tier. The first run answers that, and I'll say plainly if it fails.
+What I won't claim: that this runs unattended overnight at $0. The price of zero budget is that someone is present when a story runs. The runner I built stays dormant unless you ask for it.
+
+
+You:
+So read it then tell me what's our moves next
+
+
+Claude:
+Still working: I'm reading the whole conversation before answering, about a third done so far. No findings until the end.
+
+
+You:
+Continue
+
+
+You:
+Continue
+
+
+Claude:
+Short answer: GPT and I agree on the architecture. We disagree on the order, and the order is what burned the eight months. Its plan builds a cockpit before any worker has landed a story.
+What I checked in its plan
+What holds up:
+
+Codespaces is free for your account. Personal accounts get 120 compute hours and 15 GB a month, and usage is blocked, not billed, when the quota runs out with no card on file. The default idle stop is 30 minutes.
+Orca is real, and its Android app pairs with a headless server.
+Antigravity's CLI has a documented headless mode and a remote sign-in flow.
+
+What doesn't hold up:
+
+The "existing Python Builder" isn't in your repo. I checked the real checkout. The old test imports a package that doesn't exist, and the in-app builder is unwired. Your builder today is Ralph plus CI. If the Python one lives somewhere else, show me.
+It doesn't fix the real bottleneck, free inference. Codespaces only changes where the agent runs. Antigravity's free tier is refreshed weekly, has been cut repeatedly, and agent tasks stop mid-run when the allowance empties. I couldn't confirm Egypt is covered.
+The cockpit is heavy and unproven. Orca's remote server is beta upstream. Its headless mode needs a virtual display and terminal setup. That means commands again and three new parts, with no worker proven.
+
+Our moves, in order:
+
+By Nov 10: Jules. It closes to new work on Nov 11. It's free and runs in a browser.
+Go to jules.google, pick your repo and the branch audit/ls-wake-order-red, and paste the same prompt I gave you.
+Approve its plan. When it opens a PR, go to Actions → build → Run workflow and pick its branch.
+
+
+Same days: Freebuff, with you present. GPT says its new terms from Nov 12 ban unattended use. I haven't verified that. Use the same prompt.
+Send me each branch name. I read the diff and CI on your public repo and say merge, retry or slice.
+Then one proof of the durable worker: Antigravity free in a Codespace. This is the only step that needs a terminal. Say go and I'll take the exact lines from its docs. I won't guess them.
+The rule that stops another eight months: no new infrastructure (Orca, Tailscale, runners) until one worker has landed one story. Three failed attempts on a story means slice it, not re-plan it.
+
+What I can't promise: that any free worker finishes LAUNCH-WAKE-ORDER. The first results by Nov 11 will tell us, and then we decide on evidence.

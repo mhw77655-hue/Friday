@@ -1,0 +1,112 @@
+== HEAD / status
+e65b4ab docs: LAUNCH-SURVIVAL - notes, passes=true, progress entry
+61f8f2e fix: LAUNCH-SURVIVAL - fake Ollama on java.net, not com.sun.net.httpserver (not on Android test classpath)
+1e5ea6f fix: LAUNCH-SURVIVAL - model resolution outcome is data, not a closed enum (VISION Section 4)
+7e9ece4 feat: LAUNCH-SURVIVAL - The installed build survives launch and answers one typed turn
+2e3ce2d chore: remove stale AUDIT-TOOL spec from the standing prompt
+acdf9a7 fix: AUDIT-TOOL - make verifyCommand time-stable (vision_audit.sh --all) and cap report title path enumeration at 8
+## main...origin/main
+ M .ralph/prd.json
+ M .ralph/progress.txt
+A  mobile/app/src/main/java/com/jarvis/app/onefriday/lifetest/EvidencePack.kt
+A  mobile/app/src/main/java/com/jarvis/app/onefriday/lifetest/LifeTestRunner.kt
+A  mobile/app/src/main/java/com/jarvis/app/onefriday/lifetest/LifeTestTrace.kt
+A  mobile/app/src/main/java/com/jarvis/app/onefriday/lifetest/Scenario.kt
+A  mobile/app/src/test/java/com/jarvis/app/onefriday/lifetest/LifeTestRunnerTest.kt
+A  mobile/app/src/test/resources/lifetest/hello-restart.json
+?? .ralph/SEED_REPORT.md
+?? .ralph/audit/audit_1e5ea6fa7f.json
+?? .ralph/audit/audit_1e5ea6fa7f.md
+?? .ralph/audit/audit_220a38a.json
+?? .ralph/audit/audit_220a38a.md
+?? .ralph/audit/audit_2e3ce2d3ed.json
+?? .ralph/audit/audit_2e3ce2d3ed.md
+?? .ralph/audit/audit_2e3ce2d3ed.patch
+?? .ralph/audit/audit_5613bc550c.json
+?? .ralph/audit/audit_5613bc550c.md
+?? .ralph/audit/audit_7e9ece48fb.json
+?? .ralph/audit/audit_7e9ece48fb.md
+?? .ralph/audit/audit_a3ea8bf156.json
+?? .ralph/audit/audit_a3ea8bf156.md
+?? .ralph/audit/audit_a3ea8bf156.patch
+?? .ralph/audit/audit_dc8a68f62f.json
+?? .ralph/audit/audit_dc8a68f62f.md
+?? .ralph/audit/audit_e65b4ab0ab.json
+?? .ralph/audit/audit_e65b4ab0ab.md
+?? .ralph/audit/audit_e65b4ab0ab.patch
+?? .ralph/new_stories.json
+== LAUNCH-SURVIVAL commits: files changed
+7e9ece4 feat: LAUNCH-SURVIVAL - The installed build survives launch and answers one typed turn
+ .ralph/REPO_FACTS.md                               |   6 +
+ .../2026-10-18_closed_enum_assumed_name.md         | 125 +++++++++++++++++++++
+ .ralph/incidents/INDEX.md                          |   1 +
+ .ralph/progress.txt                                |   4 +
+ .../java/com/jarvis/app/body/LanguageRouter.kt     |  13 +++
+ .../com/jarvis/app/body/LanguageTagResolver.kt     |  61 ++++++++++
+ .../main/java/com/jarvis/app/body/StreamingTts.kt  |  35 +++++-
+ .../com/jarvis/app/model/OllamaModelBackend.kt     |  72 +++++++++++-
+ .../launchsurvival/FailingOrganContainmentTest.kt  | 100 +++++++++++++++++
+ .../com/jarvis/app/launchsurvival/FakeOllama.kt    |  85 ++++++++++++++
+ .../launchsurvival/LanguageTagResolutionTest.kt    |  74 ++++++++++++
+ .../app/launchsurvival/ResidentTierLoadTest.kt     |  70 ++++++++++++
+ .../app/launchsurvival/TypedTurnGenerationTest.kt  |  77 +++++++++++++
+ 13 files changed, 716 insertions(+), 7 deletions(-)
+1e5ea6f fix: LAUNCH-SURVIVAL - model resolution outcome is data, not a closed enum (VISION Section 4)
+ .../com/jarvis/app/model/OllamaModelBackend.kt     | 36 ++++++++++++++++------
+ .../launchsurvival/FailingOrganContainmentTest.kt  |  4 +--
+ 2 files changed, 28 insertions(+), 12 deletions(-)
+61f8f2e fix: LAUNCH-SURVIVAL - fake Ollama on java.net, not com.sun.net.httpserver (not on Android test classpath)
+ .../com/jarvis/app/launchsurvival/FakeOllama.kt    | 149 ++++++++++++++++-----
+ 1 file changed, 113 insertions(+), 36 deletions(-)
+== onefriday files in git (what CI can see)
+com/jarvis/app/onefriday/AndroidPlatformPorts.kt
+com/jarvis/app/onefriday/InjectedClockTest.kt
+com/jarvis/app/onefriday/JvmPlatformPorts.kt
+com/jarvis/app/onefriday/PlatformPorts.kt
+com/jarvis/app/onefriday/TurnPathAssembly.kt
+com/jarvis/app/onefriday/TurnPathAssemblyTest.kt
+com/jarvis/app/onefriday/WallClockAllowlistTest.kt
+com/jarvis/app/onefriday/lifetest/EvidencePack.kt
+com/jarvis/app/onefriday/lifetest/LifeTestRunner.kt
+com/jarvis/app/onefriday/lifetest/LifeTestRunnerTest.kt
+com/jarvis/app/onefriday/lifetest/LifeTestTrace.kt
+com/jarvis/app/onefriday/lifetest/Scenario.kt
+== untracked files (CI cannot see these)
+.ralph/SEED_REPORT.md
+.ralph/audit/audit_1e5ea6fa7f.json
+.ralph/audit/audit_1e5ea6fa7f.md
+.ralph/audit/audit_220a38a.json
+.ralph/audit/audit_220a38a.md
+.ralph/audit/audit_2e3ce2d3ed.json
+.ralph/audit/audit_2e3ce2d3ed.md
+.ralph/audit/audit_2e3ce2d3ed.patch
+.ralph/audit/audit_5613bc550c.json
+.ralph/audit/audit_5613bc550c.md
+.ralph/audit/audit_7e9ece48fb.json
+.ralph/audit/audit_7e9ece48fb.md
+.ralph/audit/audit_a3ea8bf156.json
+.ralph/audit/audit_a3ea8bf156.md
+.ralph/audit/audit_a3ea8bf156.patch
+.ralph/audit/audit_dc8a68f62f.json
+.ralph/audit/audit_dc8a68f62f.md
+.ralph/audit/audit_e65b4ab0ab.json
+.ralph/audit/audit_e65b4ab0ab.md
+.ralph/audit/audit_e65b4ab0ab.patch
+.ralph/new_stories.json
+.ralph/prd_gate3b_done.json
+.ralph/sync_check.sh
+mobile/app/src/main/java/com/jarvis/app/onefriday/floor/FloorManifest.kt
+mobile/app/src/main/java/com/jarvis/app/onefriday/ledger/DevelopmentLedger.kt
+mobile/app/src/main/java/com/jarvis/app/onefriday/mirror/MirrorScreen.kt
+mobile/app/src/main/java/com/jarvis/app/onefriday/recorder/FlightRecorder.kt
+mobile/app/src/test/java/com/jarvis/app/onefriday/EntryParityTest.kt
+mobile/app/src/test/java/com/jarvis/app/onefriday/floor/FloorTripwireTest.kt
+mobile/app/src/test/java/com/jarvis/app/onefriday/identity/IdentitySyncTest.kt
+mobile/app/src/test/java/com/jarvis/app/onefriday/ledger/RecorderLedgerTest.kt
+mobile/app/src/test/resources/lifetest/dev-1.json
+== claimed ONE-5/ONE-6 files
+-rw-rw---- 1 10260 1023 5484 Oct 21 14:20 .ralph/SEED_REPORT.md
+-rw-rw---- 1 10260 1023  585 Oct 21 13:16 .ralph/sync_check.sh
+== identity seed literals
+mobile/app/src/main/java/com/jarvis/app/humancore/fallback/FallbackIdentity.kt:17: * §1: name "JARVIS", core values {honesty, user's wellbeing over engagement,
+mobile/app/src/main/java/com/jarvis/app/humancore/fallback/FallbackIdentity.kt:23:    val name: String = "JARVIS"

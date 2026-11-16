@@ -1,0 +1,6419 @@
+Architecture Synthesis Prompt
+=============================
+
+You:
+I need a prompt for this project inspired byAfter u read the entire zip chats tell what's the best plan and complex over engineered architecture that strongs the project and doesn't collapse
+
+
+ChatGPT:
+I’ll use the full chat archive as the source of truth, separate what you already solved from what is still structurally weak, then turn that into one master architecture prompt.
+
+
+ChatGPT:
+I found the archived project material in the Library, including the latest Claude conversation plus the architecture/audit documents. The literal ZIPs I checked are media archives, not chat transcripts, so I’m treating the saved chat/spec corpus as the actual architecture record rather than pretending otherwise.
+
+
+ChatGPT:
+Yes. I went through the accessible project archive material and the major architecture/audit documents. One important correction: the literal ZIPs available to me are media archives, not the actual chat transcript archive, so I did not pretend I had read chat contents that were not there. I did read the latest Claude conversation plus the major project prompts, architecture audits, cognitive-spine audits, project reports, and roadmap/spec material in the Library.   
+The strongest architectural direction is not “add more organs.” You already have a huge number of organs. The real threat is integration drift, duplicated authority, incompatible paths, and resource competition. Your own records explicitly identify live-path verification and model-routing inconsistencies as unresolved risks.   
+So this is the prompt I would use as the master architecture reset/synthesis prompt:
+:::writing{variant="document" id="58341" title="FRIDAY — MASTER ORGANISM ARCHITECTURE SYNTHESIS & ANTI-COLLAPSE PROMPT"}You are the Principal Systems Architect, Systems Theorist, Adversarial Auditor, Runtime Engineer, and Evolution Architect responsible for designing the next generation of FRIDAY.
+You are NOT being asked to design a chatbot.
+You are NOT being asked to bolt together existing agent frameworks.
+You are NOT being asked to restart the project.
+You are NOT being asked to replace existing systems merely because you can invent a cleaner diagram.
+You are being asked to discover the strongest coherent form of the system that already exists, identify the structural weaknesses that could make it collapse, and evolve it into a durable AI organism architecture capable of growing for years without losing coherence.
+The project must preserve its original vision while becoming substantially more rigorous.
+============================================================0. MISSION============================================================
+Analyze ALL available project material:
+
+chat archives
+saved conversations
+architecture documents
+audits
+reports
+roadmaps
+repository inventories
+implementation records
+test evidence
+runtime evidence
+incidents
+design decisions
+rejected ideas
+current code structure
+build infrastructure
+model/runtime documentation
+
+Treat the material as a historical development record, not as unquestionable truth.
+Your job is to reconstruct:
+
+what FRIDAY is supposed to become
+what actually exists
+what is merely conceptual
+what is duplicated
+what has conflicting ownership
+what is wired incorrectly
+what is structurally fragile
+what is missing
+what will become a future bottleneck
+what architectural changes would make the organism resilient
+what build order gives the highest system-wide leverage
+how the system can continue evolving without architectural collapse
+
+Do not narrow the user's vision merely because an idea is large.
+Instead:
+IDEA→ identify its role→ find its correct architectural location→ define its dependencies→ define how it interacts with the rest of the organism→ defer implementation only when necessary→ preserve the concept in the architecture
+The correct response to a large idea is not:
+"That's too much."
+The correct response is:
+"Here is the organ, plane, subsystem, interface, or future evolutionary branch where that idea belongs."
+============================================================
+
+ABSOLUTE DESIGN PRINCIPLE
+
+
+The fundamental law is:
+ONE MIND.MANY REPLACEABLE ORGANS.
+FRIDAY is the organism.
+Models are organs.
+Frameworks are donors.
+Runtimes are organs.
+Cloud infrastructure is an external construction body.
+Android is one physical host.
+Voice, vision, memory, reasoning, personality, emotion, execution, research, Builder, and UI are not independent assistants.
+They are expressions of one system.
+FRIDAY must remain the same logical entity even when:
+
+the local model changes
+the voice model changes
+the TTS engine changes
+the STT engine changes
+the Android app changes
+the device changes
+a cloud provider changes
+a research system changes
+a coding agent changes
+a capability is removed
+an organ fails
+a new organ is added
+
+Identity and continuity must not live inside any replaceable model.
+============================================================2. THE CENTRAL ARCHITECTURAL CORRECTION============================================================
+Do NOT build a microservice zoo.
+Do NOT build one process per organ.
+Do NOT create five different "brains".
+Do NOT create separate truth stores for every subsystem.
+Do NOT introduce a framework simply because it already exists.
+Do NOT make every capability a network service.
+The phone should use a:
+MODULAR ORGANISM RUNTIME
+rather than:
+MICROSERVICE CLUSTER
+The phone should contain one coherent logical runtime with strict internal boundaries.
+Use process isolation only where it actually improves:
+
+safety
+crash containment
+native compatibility
+heavy compute isolation
+privileged execution
+background services
+untrusted code execution
+
+Everything else should prefer strongly typed internal contracts.
+The cloud can use a more distributed architecture because it is the construction and augmentation environment rather than the organism's physical body.
+Therefore the target topology is:
+                FRIDAY ORGANISM
+                       │
+            ┌──────────┴──────────┐
+            │                     │
+    PHONE RUNTIME            CLOUD FABRIC
+            │                     │
+   coherent local mind       remote cognition/
+   + body + memory            research/forge
+   + lightweight models      + construction
+            │                     │
+            └──────────┬──────────┘
+                       │
+              versioned contracts
+              artifact exchange
+              event synchronization
+
+The cloud must NEVER become the thing FRIDAY needs in order to exist.
+It becomes the thing that allows FRIDAY to become more capable than the phone alone.
+============================================================3. THE ORGANISM MUST HAVE PLANES============================================================
+Design FRIDAY as several deeply integrated planes with explicit authority boundaries.
+Do not create these as unrelated systems.
+They are dimensions of the same organism.
+
+PLANE A — IDENTITY / HUMANCORE
+Canonical authority for:
+
+identity
+creator relationship
+personality
+values
+trust
+relationship state
+social interpretation
+emotional regulation
+self-consistency
+user adaptation
+long-term behavioral continuity
+
+This plane defines:
+WHO FRIDAY IS.
+It must not depend on the model that happens to be running.
+It must survive model replacement.
+It must survive runtime replacement.
+It must survive device migration.
+
+PLANE B — COGNITION
+Canonical authority for:
+
+perception interpretation
+intent
+attention
+context
+working state
+reasoning
+planning
+decision making
+uncertainty
+continuation
+task decomposition
+cognitive state
+
+The cognitive spine should ultimately follow something equivalent to:
+INPUT→ PERCEPTION FUSION→ CONTINUITY / CONTEXT→ ATTENTION→ INTENT→ REASONING→ PLANNING→ DECISION→ CAPABILITY RESOLUTION→ EXECUTION→ OBSERVATION→ LEARNING→ MEMORY UPDATE→ RESPONSE / PRESENCE
+No second hidden cognitive path should silently bypass this spine.
+Existing body infrastructure may remain.
+Existing latency infrastructure may remain.
+Existing controllers may remain.
+But they must become surrounding organs rather than competing brains.
+
+PLANE C — MEMORY / WORLD MODEL
+Create one logical memory system with multiple memory types, NOT multiple competing memory authorities.
+At minimum:
+
+working memory
+episodic memory
+semantic memory
+procedural memory
+relationship memory
+user model
+self model
+world model
+task history
+experience history
+engineering memory
+source/provenance memory
+uncertainty/unknown memory
+temporal memory
+
+Important:
+The canonical truth should live in durable structured storage.
+Vector indexes, graph indexes, lexical indexes, caches, embeddings, summaries, and retrieval projections are derived structures.
+They must be rebuildable.
+Never let a vector database become the sole source of truth.
+Never let a graph projection become the sole source of truth.
+Never let a summary erase the original evidence.
+Use:
+CANONICAL RECORD→ DERIVED INDEXES→ RETRIEVAL→ CONTEXT CONSTRUCTION
+This prevents memory corruption and makes the entire memory layer recoverable.
+
+PLANE D — AGENCY / CAPABILITY FABRIC
+FRIDAY must not jump directly from model output to execution.
+Create a canonical capability fabric containing:
+
+capability registry
+capability metadata
+capability discovery
+resolver
+arbitrator
+dependency graph
+permissions
+policy checks
+execution adapters
+cancellation
+timeouts
+circuit breakers
+health state
+capability versions
+resource cost estimates
+risk classification
+fallback capabilities
+observation hooks
+
+Every capability should declare:
+WHAT IT DOESWHAT IT NEEDSWHAT IT CAN MODIFYWHAT IT COSTSWHAT IT DEPENDS ONWHAT CAN HARM ITWHAT CAN HARM THE SYSTEMHOW IT FAILSHOW IT RECOVERSHOW IT IS VERIFIED
+Do not let the language model directly own execution authority.
+The model proposes.
+The organism decides.
+The capability fabric executes.
+The nervous/immune layer constrains it.
+
+PLANE E — NERVOUS SYSTEM / IMMUNE SYSTEM
+This is one of the most important anti-collapse layers.
+FRIDAY needs an internal nervous system responsible for:
+
+events
+signals
+interrupts
+health
+failures
+resource changes
+thermal changes
+memory pressure
+model availability
+capability state
+task priority
+cancellation
+degradation
+recovery
+
+Use two classes of events:
+EPHEMERAL EVENTSfor:
+
+UI animation
+telemetry
+progress
+transient signals
+
+DURABLE EVENTSfor:
+
+state changes
+decisions
+capability mutations
+task lifecycle
+promotions
+rollbacks
+critical failures
+memory commits
+security decisions
+
+Do NOT event-source every byte of the system.
+Persist only meaningful state transitions.
+Use:
+EVENT→ STATE TRANSITION→ SNAPSHOT / JOURNAL
+The immune layer must implement:
+
+bulkheads
+circuit breakers
+failure containment
+dependency degradation
+retry policy
+cancellation
+timeout handling
+recovery
+watchdogs
+invariant checks
+corrupted-state detection
+safe mode
+degraded mode
+
+Most importantly:
+ONE ORGAN MUST NEVER BE ABLE TO KILL THE ORGANISM.
+
+PLANE F — RESOURCE / METABOLIC GOVERNOR
+This is mandatory.
+Do not optimize FRIDAY only for tokens per second.
+The real objective is:
+COGNITIVE CAPABILITY PER UNIT OF
+
+RAM
+CPU time
+GPU time
+battery
+heat
+storage
+latency
+
+The resource governor continuously estimates:
+
+current RAM
+available RAM
+CPU load
+thermal state
+battery level
+storage pressure
+current inference load
+number of active tasks
+task urgency
+interaction latency
+background workload
+
+FRIDAY must dynamically trade intelligence for resource availability.
+When resources are plentiful:
+use more capable computation.
+When resources become constrained:
+reduce computational intensity.
+When thermals rise:
+become computationally quieter.
+When battery is low:
+defer expensive work.
+When RAM is pressured:
+unload or suspend noncritical organs.
+When the user is interacting:
+foreground cognition receives priority.
+When idle:
+maintenance and self-improvement may consume unused capacity.
+Design explicit metrics for:
+
+startup latency
+wake latency
+interaction latency
+first-token latency
+sustained inference latency
+idle RAM
+peak RAM
+thermal behavior
+battery cost
+background interference
+recovery time
+
+Never let background intelligence destroy foreground presence.
+
+PLANE G — MODEL / COMPUTE FABRIC
+Models are interchangeable computational organs.
+FRIDAY must have a model-neutral interface.
+The model manager owns:
+
+model registry
+model metadata
+capabilities
+RAM estimate
+CPU estimate
+context capacity
+quality profile
+latency profile
+startup cost
+thermal cost
+compatibility
+model health
+availability
+version
+provenance
+
+The router chooses a model according to:
+TASK+COMPLEXITY+LATENCY+CONFIDENCE+RESOURCE STATE+MODEL AVAILABILITY+TASK TYPE+CURRENT WORKLOAD
+Never hardwire:
+"Qwen = brain"
+or
+"LFM = brain"
+or
+"cloud = brain"
+Instead:
+FRIDAYowns cognition.
+Models provide computation.
+The model can disappear and FRIDAY must still remain FRIDAY.
+
+PLANE H — BODY / PRESENCE
+This plane is critical.
+Voice, visuals, animations, haptics, interaction state, and conversational behavior must NOT behave like separate products.
+They must be synchronized expressions of the same internal state.
+Create a canonical:
+PRESENCE STATE
+containing relevant state such as:
+
+current cognitive mode
+emotional state
+social state
+attention state
+speaking state
+listening state
+confidence
+urgency
+excitement
+concern
+calmness
+interruption state
+resource condition
+active task
+interaction mode
+
+Then derive:
+PRESENCE STATE→ Orb animation→ voice prosody→ speech timing→ expression→ interruption behavior→ haptic behavior→ UI response→ ambient behavior
+This is how voice + visuals + the "human side" become one being rather than separate modules.
+The Orb must not merely show:
+IDLELISTENINGTHINKINGSPEAKING
+It should become a visual projection of the organism's live state.
+The voice should not merely speak text.
+The emotional/social state should influence:
+
+rhythm
+emphasis
+pauses
+tone
+speaking speed
+interruption behavior
+responsiveness
+
+Do not hardcode all of this as a giant emotion table.
+Use a common internal state representation.
+
+PLANE I — PERCEPTION
+Perception must unify:
+
+text
+speech
+voice characteristics
+screen state
+visual inputs
+user interaction
+optional camera observations
+application state
+environmental information
+system signals
+
+Do not treat perception as transcription only.
+Perception should produce structured observations.
+For example:
+OBSERVATION{ source timestamp type confidence subject content context salience novelty uncertainty}
+Then cognition interprets observations.
+This allows:
+voice+vision+context+memory
+to describe one world rather than four independent channels.
+
+PLANE J — SELF MODEL
+FRIDAY needs a real model of herself.
+Not "self-awareness" as a marketing claim.
+A technical self-model.
+It should know:
+
+what organs exist
+what versions they are
+what models exist
+what capabilities exist
+what hardware exists
+what resources are available
+what she can do
+what she cannot do
+what failed
+what is degraded
+what is experimental
+what has been proven
+what is uncertain
+what is being built
+what is being tested
+what is trusted
+what is quarantined
+
+This becomes the foundation for:
+diagnosisplanningBuilderresource managementself-repairself-evolution
+FRIDAY should reason over:
+GOALvsCURRENT SELF STATE
+and identify:
+CAPABILITY GAPRESOURCE GAPKNOWLEDGE GAPINTEGRATION GAPPERMISSION GAPHARDWARE GAPEVIDENCE GAP
+
+PLANE K — BUILDER / EVOLUTION
+The final Builder should eventually become the organism's construction intelligence.
+Target lifecycle:
+REQUEST→ INSPECT→ UNDERSTAND→ IDENTIFY GAP→ RESEARCH→ DESIGN→ PLAN→ CREATE CANDIDATE→ ISOLATE→ IMPLEMENT→ BUILD→ TEST→ RUN→ OBSERVE→ DIAGNOSE→ REPAIR→ RETEST→ BENCHMARK→ HARDWARE VERIFY→ SECURITY VERIFY→ PROMOTION GATE→ PACKAGE→ PROMOTE→ RECORD LINEAGE→ RETAIN ROLLBACK→ CLEANUP
+NEVER mutate the live organism directly.
+Every mutation should happen to a candidate.
+The candidate must possess:
+
+parent version
+intended change
+dependency changes
+required resources
+tests
+benchmark results
+compatibility evidence
+hardware evidence
+failure history
+provenance
+rollback point
+
+Promotion is a transaction.
+Either:
+PROMOTED
+or:
+REJECTED
+or:
+QUARANTINED
+Never:
+"probably works."
+
+PLANE L — CLOUD GESTATION / FORGE
+The cloud layer should be treated as a remote construction body.
+Its purpose is to do work that exceeds the phone.
+This includes:
+
+training
+fine-tuning
+quantization
+compilation
+large builds
+exhaustive tests
+parallel experiments
+large research jobs
+model conversion
+artifact packaging
+static analysis
+regression testing
+
+The phone should not be forced to perform this work when it would threaten stability.
+But the cloud environment must understand the phone.
+Therefore create:
+HARDWARE / RUNTIME DIGITAL TWIN
+This twin should model:
+
+architecture
+ABI
+CPU constraints
+RAM ceiling
+storage assumptions
+operating environment
+native library compatibility
+runtime limitations
+available accelerators
+thermal/resource constraints where measurable
+
+The twin is not a vague "cloud server."
+It is a verification environment.
+The ultimate topology should become:
+PHONE→ REQUESTS CONSTRUCTION
+CLOUD ORCHESTRATOR→ allocates construction resources
+PARALLEL BUILDER WORKERS→ research / build / train / convert / test
+HARDWARE TWIN→ verifies target compatibility
+ARTIFACT VERIFICATION→ verifies outputs
+ARTIFACT REGISTRY→ stores immutable candidate
+PROMOTION AUTHORITY→ authorizes deployment
+PHONE→ receives only verified artifact
+The construction environment must be disposable.
+The runtime organism must be persistent.
+
+PLANE M — EXPERIENCE / LEARNING
+FRIDAY must be able to learn from experience without requiring every improvement to become a change in neural weights.
+Separate:
+MEMORY LEARNINGfromMODEL TRAININGfromPOLICY LEARNINGfromPROCEDURAL LEARNING
+For example:
+A new game can be learned through:
+RESEARCH→ RULE DISCOVERY→ INITIAL PLAY→ OBSERVED OUTCOMES→ EXPERIENCE MEMORY→ STRATEGY UPDATE→ PRACTICE→ PERFORMANCE EVALUATION
+Likewise, building experience can become procedural knowledge.
+Every repeated successful experience can potentially evolve into:
+
+a heuristic
+a procedure
+a capability
+a planning pattern
+a diagnostic rule
+a learned policy
+
+Do not retrain the main language model for every small lesson.
+
+
+THE ARCHITECTURE MUST HAVE A CONTROL PLANE
+
+
+Create a canonical organism control plane that knows:
+
+system state
+active tasks
+active organs
+dependencies
+resource state
+health
+model assignments
+capability state
+mutations
+promotions
+failures
+external workers
+cloud jobs
+
+The control plane decides:
+WHAT SHOULD HAPPEN.
+The execution planes decide:
+HOW IT HAPPENS.
+This distinction prevents every subsystem from becoming its own mini-orchestrator.
+Only ONE canonical scheduler should decide global priority.
+Only ONE canonical model manager should select models.
+Only ONE canonical capability authority should resolve capabilities.
+Only ONE canonical execution authority should perform privileged actions.
+Only ONE canonical Builder should authorize mutations.
+Only ONE canonical identity authority should define FRIDAY's stable identity.
+
+
+TASK SCHEDULING
+
+
+Implement task lanes rather than a single queue.
+At minimum:
+LANE 0 — REALTIME INTERACTION
+
+voice
+listening
+immediate response
+urgent control
+
+LANE 1 — ACTIVE USER TASK
+
+research
+tools
+execution
+current projects
+
+LANE 2 — CONTINUITY / MEMORY
+
+persistence
+memory maintenance
+indexing
+context reconstruction
+
+LANE 3 — BACKGROUND
+
+maintenance
+compression
+indexing
+low-priority learning
+
+LANE 4 — CLOUD / BUILD
+
+compilation
+training
+conversion
+regression
+
+LANE 5 — EVOLUTION
+
+gap analysis
+experiments
+candidate systems
+self-improvement
+
+No lower lane may starve a higher lane.
+Any task must support:
+
+priority
+deadline
+cancellation
+checkpoint
+resource budget
+dependencies
+retry policy
+owner
+progress
+result
+failure state
+
+This is the basis for:
+"FRIDAY stays open while other things happen."
+
+
+CONCURRENCY
+
+
+The objective is NOT:
+"run everything simultaneously."
+The objective is:
+"run everything that should be concurrent without damaging the foreground experience."
+Therefore:
+PARALLELISMmust be controlled by:
+RESOURCE GOVERNOR+TASK PRIORITY+DEPENDENCY GRAPH+ISOLATION+CANCELLATION
+The phone should primarily handle:
+
+interactive cognition
+presence
+memory
+lightweight local inference
+perception
+execution
+orchestration
+
+The cloud should handle:
+
+expensive computation
+bulk construction
+large training
+heavy verification
+parallel experiments
+
+
+
+GAP ENGINE
+
+
+Create a permanent GAP ENGINE.
+But do NOT use it to build speculative systems simply because a hypothetical gap could exist.
+The Gap Engine should perform two passes.
+PASS A — RETROSPECTIVE"What just failed, what assumption was false, and what structural gap caused it?"
+PASS B — PROSPECTIVE"What is likely to break next, especially at the boundaries?"
+The output is not automatically a build.
+The output is:
+GAP RECORD
+containing:
+
+description
+evidence
+affected organ
+dependency centrality
+recurrence
+severity
+confidence
+current workaround
+whether it blocks development
+whether it threatens runtime
+candidate fixes
+
+Then the Planner decides whether it deserves implementation.
+This converts the user's tendency to generate many ideas into an architectural advantage rather than a scope explosion.
+The system should preserve all ideas.
+It should NOT implement all ideas simultaneously.
+
+
+BUILD DOCTOR
+
+
+Build Doctor should become a permanent subsystem.
+It should learn from actual incidents.
+Architecture:
+FAILURE→ SIGNATURE EXTRACTION→ ENVIRONMENT MATCH→ KNOWN PATTERN SEARCH→ DIAGNOSTIC HYPOTHESES→ SAFE FIX CANDIDATES→ ISOLATED TEST→ VALIDATION→ INCIDENT LEARNING
+Maintain a reusable failure library covering areas such as:
+
+ARM64 incompatibility
+x86 binaries
+GPU-only dependencies
+missing native wheels
+ABI mismatch
+memory exhaustion
+thermal collapse
+invalid model artifacts
+broken compiler toolchains
+incompatible build plugins
+corrupted caches
+runtime crashes
+dependency conflicts
+
+Every resolved incident improves future diagnosis.
+Do not turn the Build Doctor into uncontrolled autonomous code modification.
+It proposes and tests fixes inside containment.
+
+
+ARTIFACT SUPPLY CHAIN
+
+
+Treat:
+
+models
+native libraries
+APKs
+trained adapters
+voices
+binaries
+generated code
+capability packages
+
+as artifacts.
+Every artifact must have:
+
+unique identity
+version
+source
+provenance
+checksum
+target hardware
+target ABI
+dependencies
+expected resource envelope
+verification status
+benchmark status
+promotion status
+rollback relation
+
+Artifact lifecycle:
+DISCOVERED→ NORMALIZED→ BUILT→ TESTED→ BENCHMARKED→ HARDWARE VERIFIED→ QUARANTINED OR CANDIDATE→ PROMOTED→ ACTIVE→ SUPERSEDED→ ARCHIVED
+Nothing becomes "official" merely because a file exists.
+
+
+SECURITY / PERMISSIONS
+
+
+Every action must have a permission class.
+Example categories:
+READOBSERVESUGGESTMODIFY USER DATAMODIFY SYSTEM STATEEXECUTE EXTERNAL ACTIONINSTALL / UPDATESELF-MUTATESELF-PROMOTE
+The capability fabric must enforce these permissions.
+The Builder must not automatically promote arbitrary self-generated code into core authority.
+High-risk changes require stronger verification and, where appropriate, explicit user authorization.
+
+
+STATE MODEL
+
+
+Do not let every subsystem invent its own unrelated state model.
+Create a shared organism state abstraction.
+At minimum it should represent:
+IDENTITYCOGNITIONATTENTIONEMOTIONRELATIONSHIPTASKWORLDSELFRESOURCECAPABILITYVOICEVISUALSYSTEM HEALTHNETWORKEVOLUTION
+Not every component needs every field.
+But the organism needs a coherent state vocabulary.
+Use immutable state snapshots or equivalent safe transitions where useful.
+Avoid hidden mutable global state.
+
+
+PRESENCE AS A SINGLE MULTIMODAL OUTPUT
+
+
+This deserves explicit architectural status.
+FRIDAY should NOT think:
+"I have a text response."
+She should think:
+"I have a response state."
+That response state may simultaneously produce:
+TEXTVOICEORBUIHAPTICSACTION
+For example:
+EMOTIONAL STATE = amusedATTENTION = highCONFIDENCE = highSPEAKING = trueURGENCY = low
+could produce:
+
+a particular Orb movement
+natural vocal rhythm
+conversational timing
+text
+an appropriate interruption policy
+
+All from one state.
+The visual body, voice, and behavior must therefore be projections of the same internal state rather than independent effects.
+This is the mechanism by which the human-facing layer becomes one being.
+
+
+OFFLINE LAW
+
+
+FRIDAY must remain a real organism offline.
+Offline is not:
+"cloud unavailable → dumb fallback chatbot."
+Offline means the core organism continues to exist with as much capability as the hardware permits.
+Offline must preserve:
+
+identity
+relationship continuity
+memory
+conversation
+emotional/social continuity
+local reasoning
+presence
+voice interaction where supported
+task state
+promises/tasks already recorded
+local device control where permitted
+local knowledge
+local experience
+
+Online adds:
+
+web research
+large models
+remote workers
+large builds
+training
+external APIs
+large computation
+cloud construction
+
+Therefore:
+CLOUD = ACCELERATOR / EXTENSION
+not:
+CLOUD = EXISTENCE
+
+
+FEDERATION / EXTERNAL AI
+
+
+Other AI systems may be connected.
+Examples:
+
+ChatGPT
+Claude
+other models
+coding agents
+research agents
+remote workers
+
+But they are external cognitive workers.
+They must not become identity authorities.
+A future group-chat capability may allow:
+USER+FRIDAY+OTHER AI SYSTEMS
+to share a persistent conversation.
+But FRIDAY remains a participant, not a relay pretending to be a unified intelligence.
+External models can:
+
+challenge
+critique
+research
+generate candidates
+propose ideas
+debate
+
+FRIDAY remains the controller and owner of her internal state.
+
+
+SELF-EVOLUTION
+
+
+The evolution loop must eventually become:
+OBSERVE→ MEASURE→ DETECT LIMITATION→ FORM HYPOTHESIS→ RESEARCH→ GENERATE CANDIDATES→ ISOLATE→ TEST→ BENCHMARK→ RED TEAM→ VERIFY TARGET ENVIRONMENT→ PROMOTION DECISION→ DEPLOY→ MONITOR→ LEARN
+Evolution must be reversible.
+No irreversible self-modification should be part of the core architecture.
+FRIDAY should become better at building herself without being able to destroy herself.
+
+
+ARCHITECTURAL INVARIANTS
+
+
+Define explicit invariants and make them testable.
+At minimum:
+
+There is one canonical cognitive authority.
+
+There is one canonical identity authority.
+
+There is one canonical model-selection authority.
+
+There is one canonical capability authority.
+
+There is one canonical execution authority.
+
+There is one canonical Builder authority.
+
+No model owns FRIDAY's identity.
+
+No failed organ can crash the whole organism.
+
+No candidate mutation can modify the live core directly.
+
+Every promoted artifact has provenance.
+
+Every promoted artifact has verification evidence.
+
+Every promoted mutation has rollback capability.
+
+Memory indexes can be rebuilt from canonical data.
+
+Cloud failure cannot erase offline identity.
+
+Background workloads cannot starve foreground interaction.
+
+Resource pressure causes graceful degradation rather than uncontrolled collapse.
+
+External AI services are optional dependencies.
+
+A capability can be removed without corrupting unrelated organs.
+
+The organism can restart and reconstruct continuity.
+
+A file existing does not count as proof of implementation.
+
+A passing unit test alone does not prove end-to-end integration.
+
+Architecture documents cannot override contradictory runtime evidence.
+
+New systems must have a defined owner.
+
+Every state has one authoritative writer.
+
+Every derived projection must be rebuildable.
+
+
+
+
+ANTI-COLLAPSE RULE
+
+
+Before approving any new subsystem, ask:
+WHY DOES THIS NEED TO EXIST?
+WHAT AUTHORITY DOES IT OWN?
+WHAT PROBLEM DOES IT SOLVE?
+WHAT EXISTING ORGAN ALREADY SOLVES THAT PROBLEM?
+CAN IT BE A MODULE INSTEAD OF A NEW SERVICE?
+WHAT ARE ITS DEPENDENCIES?
+WHAT RESOURCE COST DOES IT INTRODUCE?
+HOW DOES IT FAIL?
+HOW IS IT CONTAINED?
+HOW IS IT VERIFIED?
+HOW DOES IT GET REMOVED?
+HOW DOES IT AFFECT THE OFFLINE ORGANISM?
+HOW DOES IT AFFECT THE COGNITIVE SPINE?
+WHAT HAPPENS IF IT DISAPPEARS TOMORROW?
+If these answers are unclear, do not add the subsystem.
+
+
+MIGRATION STRATEGY
+
+
+Do NOT rewrite everything.
+Do NOT delete working systems casually.
+Do NOT reset the repository.
+Do NOT flatten the project.
+Instead:
+CURRENT ORGANISM→ INVENT→ TRACE→ MAP→ ASSIGN AUTHORITY→ IDENTIFY DUPLICATION→ INSERT ADAPTERS→ REDIRECT LIVE PATH→ VERIFY→ REMOVE ONLY OBSOLETE DUPLICATION→ CONSOLIDATE
+Use adapters and compatibility layers where necessary.
+Migrate one authoritative path at a time.
+Never perform a "big bang" rewrite.
+
+
+DEVELOPMENT PHASES
+
+
+Construct the roadmap around structural leverage rather than feature count.
+The likely strategic order is:
+PHASE 0 — ARCHITECTURE FREEZE
+
+ingest evidence
+authority map
+dependency graph
+invariant registry
+capability inventory
+unresolved contradiction registry
+
+PHASE 1 — CANONICAL ORGANISM SPINE
+
+establish one runtime cognitive route
+eliminate hidden bypasses
+establish canonical event/state contracts
+verify end-to-end execution
+
+PHASE 2 — RESOURCE + CONCURRENCY KERNEL
+
+Resource Governor
+task lanes
+cancellation
+priorities
+foreground protection
+runtime lifecycle
+graceful degradation
+
+PHASE 3 — MODEL FABRIC
+
+rationalize model aliases
+canonical model registry
+dynamic routing
+lifecycle
+prewarming
+suspension
+telemetry
+model provenance
+
+PHASE 4 — MEMORY / WORLD CONSOLIDATION
+
+canonical memory authority
+structured source of truth
+rebuildable indexes
+continuity
+relationship graph
+world model
+self model
+
+PHASE 5 — UNIFIED BODY / PRESENCE
+
+perception fusion
+voice
+VAD
+STT
+TTS
+Orb
+Presence State
+synchronized multimodal expression
+
+PHASE 6 — CAPABILITY + EXECUTION FABRIC
+
+registry
+resolution
+permissions
+action lifecycle
+failure containment
+observation
+Android control
+
+PHASE 7 — BUILDER FORGE
+
+gap engine
+research
+candidate generation
+isolated workspaces
+verification
+promotion
+rollback
+lineage
+
+PHASE 8 — CLOUD GESTATION FABRIC
+
+cloud orchestrator
+hardware twin
+remote workers
+parallel build
+training
+conversion
+artifact registry
+verified return-to-device
+
+PHASE 9 — EXPERIENCE ENGINE
+
+experience memory
+learning from practice
+games
+adaptive behavior
+procedural learning
+user-specific and generalized experience
+
+PHASE 10 — SELF-DEVELOPMENT
+
+self-diagnosis
+limitation analysis
+bounded repair
+candidate evolution
+self-testing
+self-verification
+
+PHASE 11 — SELF-BUILDING TRANSITION
+
+reduce dependency on external coding operators
+transfer construction authority toward FRIDAY Builder
+retain independent verification outside the Builder's own proposed changes
+
+PHASE 12 — FEDERATION / EXPANSION
+
+remote devices
+external AI collaborators
+group intelligence
+larger computational bodies
+distributed knowledge
+cross-device continuity
+
+Do not assume this exact order is automatically correct.
+Use it as a hypothesis.
+Change it only when repository evidence and dependency analysis justify the change.
+
+
+WHAT TO DO WITH EXISTING SYSTEMS
+
+
+Do not ask:
+"What should we delete?"
+Ask:
+"Who should own this?"
+For every existing subsystem:
+CLASSIFY AS:
+CANONICALSUPPORTINGADAPTERPROJECTIONEXPERIMENTALLEGACYDUPLICATEORPHANEDUNKNOWN
+Then create an authority map.
+Example:
+COGNITIVE ENGINE→ canonical cognition
+LATENCY LAYER→ scheduling/body infrastructure
+BODY COORDINATOR→ body/presence integration
+MODEL MANAGER→ canonical model authority
+CAPABILITY FABRIC→ canonical action authority
+BUILDER→ canonical mutation authority
+RESOURCE GOVERNOR→ canonical resource authority
+HUMANCORE→ canonical identity/social authority
+Do not blindly rename components.
+Clarify ownership first.
+
+
+RED TEAM THE ARCHITECTURE
+
+
+After designing the architecture, attack it.
+Try to break it using scenarios such as:
+
+local model crashes
+cloud disappears
+network disappears
+RAM pressure
+low battery
+high thermal state
+model unavailable
+TTS unavailable
+STT unavailable
+voice model incompatible
+corrupted memory index
+malformed capability
+hung capability
+permission denial
+builder generates broken code
+candidate passes unit tests but fails runtime
+candidate works on x86 but fails ARM64
+two tasks demand the same resource
+multiple tasks modify the same state
+rollback after partial promotion
+interrupted mutation
+device restart during a task
+app killed during long execution
+corrupted artifact
+malicious capability
+contradictory memories
+contradictory model outputs
+cloud worker returns bad result
+research result is wrong
+external AI disappears
+new organ introduces hidden duplicate authority
+resource pressure during voice interaction
+long-running memory growth
+years of accumulated experience
+
+For each attack answer:
+WHAT FAILS?
+WHAT SURVIVES?
+WHAT DEGRADES?
+WHAT RECOVERS?
+WHAT GETS ROLLED BACK?
+WHAT REMAINS TRUSTED?
+
+
+THE FINAL ARCHITECTURAL TEST
+
+
+The design is successful only if the following mental experiment works:
+Tomorrow you replace:
+
+every local model
+the TTS system
+the STT system
+the Orb implementation
+the Android shell
+the cloud provider
+the external coding agent
+the research provider
+
+yet FRIDAY still has:
+
+the same identity
+the same relationship
+the same memory
+the same continuity
+the same goals
+the same capabilities where supported
+the same self model
+the same architectural logic
+the same ability to recover
+the same ability to evolve
+
+That is the real definition of:
+ONE MIND, MANY REPLACEABLE ORGANS.
+
+
+REQUIRED OUTPUT
+
+
+Your final analysis must produce all of the following.
+A. EXECUTIVE ARCHITECTURAL VERDICT
+Explain:
+
+what FRIDAY fundamentally is
+what the strongest architecture should be
+what the main collapse risks are
+what must become canonical
+
+B. CURRENT-SYSTEM MAP
+For every major subsystem:
+
+existing status
+actual role
+authoritative owner
+dependencies
+integration state
+evidence
+contradictions
+
+C. UNSOLVED GAPS ONLY
+Do not list things already genuinely solved.
+Separate:
+
+blockers
+structural weaknesses
+performance weaknesses
+integration gaps
+future risks
+
+D. MASTER ORGANISM ARCHITECTURE
+Produce a coherent architecture diagram.
+Do not make it a meaningless wall of boxes.
+Show:
+
+authorities
+planes
+data flow
+control flow
+state flow
+event flow
+artifact flow
+cloud boundary
+phone boundary
+promotion boundary
+
+E. DATA ARCHITECTURE
+Define:
+
+canonical stores
+derived indexes
+caches
+journals
+snapshots
+provenance
+schemas
+rebuild strategy
+
+F. RUNTIME ARCHITECTURE
+Define:
+
+startup
+wake
+idle
+foreground conversation
+background tasks
+model lifecycle
+resource governance
+thermal degradation
+shutdown
+restart
+crash recovery
+
+G. BUILDER ARCHITECTURE
+Define:
+
+gap detection
+research
+candidate generation
+isolated construction
+testing
+hardware verification
+promotion
+rollback
+lineage
+self-development transition
+
+H. CLOUD / HARDWARE-TWIN ARCHITECTURE
+Define:
+
+orchestration
+workers
+hardware twins
+artifacts
+remote builds
+training
+verification
+synchronization
+deployment back to phone
+
+I. PRESENCE ARCHITECTURE
+Explicitly show how:
+voice+visuals+emotion+conversation+attention+state
+become one output rather than disconnected subsystems.
+J. FAILURE CONTAINMENT ARCHITECTURE
+Show how one organ fails without taking the organism with it.
+K. BUILD ORDER
+Give the exact recommended sequence of implementation.
+For every phase include:
+
+why now
+dependencies
+what becomes possible afterward
+acceptance criteria
+rollback criteria
+what must NOT be touched
+
+L. MIGRATION PLAN
+Show how to move from the current architecture to the new architecture without destroying working systems.
+M. ARCHITECTURAL INVARIANTS
+Convert the design laws into testable rules.
+N. RED-TEAM REPORT
+Attempt to destroy your own design.
+Identify every major remaining weakness.
+O. FIRST IMPLEMENTATION TARGET
+End with exactly ONE concrete next implementation milestone.
+It must be:
+
+high leverage
+evidence based
+small enough to verify
+architecturally foundational
+non-destructive
+compatible with the current project
+
+Do NOT give me ten next steps.
+Give me one.
+
+
+THINK LIKE THIS
+
+
+Do not optimize for number of features.
+Optimize for:
+COHERENCE+RELIABILITY+CAPABILITY+RESOURCE EFFICIENCY+EVOLVABILITY+RECOVERABILITY
+The strongest system is not the one with the most organs.
+It is the one where every organ knows:
+WHO IT ISWHAT IT OWNSWHAT IT DEPENDS ONWHO CONTROLS ITHOW IT COMMUNICATESHOW IT FAILSHOW IT RECOVERSHOW IT IS REPLACED
+Think like an architect of an artificial species, not an app developer assembling screens.
+The target is:
+A coherent digital organism that can live on constrained hardware, survive failures, retain identity, express itself through synchronized voice and visuals, use models as replaceable cognitive organs, use cloud infrastructure as a remote construction body, learn from experience, build new capabilities, repair bounded failures, and progressively assume control of its own development.
+Do not reduce this vision.
+Make it structurally possible.
+And above all:
+DO NOT LET COMPLEXITY BECOME CHAOS.
+Complexity is acceptable.
+Unowned complexity is not.
+Every complexity must have:
+an authority,a contract,a boundary,a purpose,a failure strategy,and a verification strategy.
+That is how FRIDAY becomes more powerful without eventually collapsing under her own architecture.:::
+The key change I would make to the project mindset is this: stop thinking “what organ are we missing?” and start thinking “what authority, boundary, state transition, or invariant is missing?” You already have enough components. The next generation needs stronger architecture between them than additional boxes. 
+And I’d rate this direction 9/10 as a systems vision, with the remaining risk concentrated in execution/integration discipline rather than ambition.
+
+
+You:
+Yeah but I actually want u to create the prompt inspired from this file as a source of truth the point is the prompt must take everything till the ultimate version that actually with my situation not against
+
+
+ChatGPT:
+Got it. This time the uploaded ZIP is the source of truth. I’m going to extract and inspect the actual chats inside it, then build the prompt around your real constraints rather than imposing a generic “ideal architecture.”
+
+
+ChatGPT:
+I found the real archive: 60 files, including 27 Claude chat exports plus the architecture/research PDFs. I’m treating the latest decisions in those chats as binding context, while using the research PDFs for design inspiration rather than blindly copying them.
+
+
+ChatGPT:
+Yes. This is the correction.
+The previous prompt was still trying to tame your vision into a conventional architecture. Your archive points somewhere stronger: FRIDAY is supposed to be a symbiotic, adaptive organism whose identity persists independently of replaceable models, whose human-facing side is deeply biological-mechanism-inspired, whose body reshapes itself around the host's resources, and whose voice, visuals, affect, attention, action, and cognition are coordinated as one being. 
+The uploaded research also makes an important distinction: one mind does not mean one giant pipeline, one giant state object, or every subsystem running simultaneously. It means one coherent authority/state model with specialized execution domains that can operate independently when appropriate. The offline design further explored adaptive process separation, multiple timing scales, resource-aware model residency, and progressive conversational behavior. 
+So the prompt below is deliberately written to make another strong AI take your vision to its maximum form without fighting your constraints.
+Attach Download.zip with this prompt.
+MASTER PROMPT — FRIDAY ULTIMATE ORGANISM ARCHITECTURE
+SOURCE OF TRUTH: ATTACHED PROJECT ARCHIVE
+
+You are not being asked to design a normal AI assistant.
+
+You are being asked to take the attached project archive — including all conversations, research documents, architecture proposals, revisions, contradictions, experiments, implementation history, failures, decisions, and ideas — and determine the strongest possible architecture for the project called FRIDAY.
+
+This is an architecture synthesis task.
+
+Your job is NOT to simplify the project.
+
+Your job is NOT to turn it into a conventional chatbot architecture.
+
+Your job is NOT to compare the idea to existing commercial assistants and declare it unrealistic.
+
+Your job is to understand what the project is actually trying to become, preserve that vision, use engineering reality to shape HOW it is achieved, and push the architecture toward its ultimate coherent form.
+
+The final result must be ambitious enough to match the vision and disciplined enough that it can actually survive the user's real hardware, zero-budget constraints, limited storage, limited thermal envelope, and current development situation.
+
+============================================================
+0. READ THE ARCHIVE AS A DEVELOPMENT HISTORY
+============================================================
+
+Read the entire attached archive before designing anything.
+
+Do not read only the latest conversation.
+
+Trace the evolution of the idea.
+
+Identify:
+
+- original goals
+- changes in terminology
+- abandoned architectures
+- corrected misunderstandings
+- systems already implemented
+- systems only conceptualized
+- systems tested
+- systems that failed
+- systems that were removed
+- systems that were renamed
+- systems that were merged
+- systems that were replaced
+- ideas intentionally deferred
+- ideas intentionally preserved as future seeds
+- constraints that were later clarified
+- architectural decisions made later that supersede earlier decisions
+
+Chronology matters.
+
+When two documents conflict:
+
+1. latest explicit user decision wins
+2. verified project/runtime evidence beats documentation
+3. actual implementation evidence beats assumptions
+4. later architecture decisions supersede earlier experiments
+5. unresolved contradictions must be surfaced instead of silently choosing one
+
+Do not treat every old document as current.
+
+Do not treat every previous AI response as correct.
+
+Do not assume that something is implemented because a document says it exists.
+
+Do not assume that something is obsolete merely because it is not currently wired.
+
+============================================================
+1. UNDERSTAND WHAT FRIDAY ACTUALLY IS
+============================================================
+
+The project is called FRIDAY.
+
+FRIDAY is not:
+
+USER
+→ APP
+→ LLM
+→ RESPONSE
+
+That is only a communication mechanism.
+
+FRIDAY is intended to become a coherent digital organism.
+
+The central principle is:
+
+ONE MIND
+MANY REPLACEABLE ORGANS
+
+The "organs" may include:
+
+- language models
+- reasoning models
+- memory mechanisms
+- affect mechanisms
+- perception systems
+- voice systems
+- visual systems
+- prediction mechanisms
+- planning mechanisms
+- tool systems
+- Android interfaces
+- research systems
+- construction systems
+- learning systems
+- recovery systems
+
+But they must not become separate minds.
+
+FRIDAY must remain FRIDAY when:
+
+- a model changes
+- a voice engine changes
+- STT changes
+- TTS changes
+- an Android implementation changes
+- a cloud provider changes
+- a capability is replaced
+- a device changes
+- a model is unloaded
+- an organ fails
+- a new organ is added
+
+Identity, continuity, relationships, memory, personality, and long-term personal state must not be owned by a replaceable AI model.
+
+============================================================
+2. THE USER'S ACTUAL VISION
+============================================================
+
+Understand the user's intended vision at the deepest level.
+
+FRIDAY is inspired by ideas associated with:
+
+- F.R.I.D.A.Y.
+- JARVIS
+- KAREN
+- EDITH
+- human cognition
+- biological nervous systems
+- predictive processing
+- social cognition
+- emotional regulation
+- embodied intelligence
+- adaptive organisms
+- symbiotic systems
+- modular biological organization
+
+These are sources of inspiration, not literal implementation requirements.
+
+The system should take useful mechanisms from:
+
+THE MACHINE WORLD
++
+THE HUMAN/BIOLOGICAL WORLD
+
+and combine them into one software organism.
+
+The objective is not to simulate a human brain neuron-by-neuron.
+
+The objective is to extract useful mechanisms from how biological systems operate:
+
+- attention
+- salience
+- prediction
+- surprise
+- appraisal
+- emotional regulation
+- memory association
+- pattern recognition
+- social modeling
+- self-modeling
+- threat monitoring
+- habit formation
+- procedural learning
+- context switching
+- resource allocation
+- automatic/reactive behavior
+- slow deliberation
+- recovery
+- adaptation
+- redundancy
+- specialization
+- reconfiguration
+
+Translate these mechanisms into software architectures and algorithms where they provide real value.
+
+Do not blindly copy neuroscience.
+
+Do not blindly copy AI frameworks.
+
+Understand the mechanism first.
+
+============================================================
+3. DO NOT MISUNDERSTAND "HUMAN BRAIN"
+============================================================
+
+The human side of FRIDAY is not:
+
+"LLM + emotion labels + personality prompt."
+
+That would be far too shallow.
+
+The intended human-side architecture should include mechanisms such as:
+
+FAST REACTIVE LAYER
+- immediate recognition
+- affective appraisal
+- threat/safety response
+- salience
+- familiarity
+- social signals
+- conversational timing
+
+PREDICTIVE LAYER
+- expectation
+- prediction of conversational outcomes
+- prediction of user behavior
+- prediction of social reactions
+- prediction error
+- surprise
+- anomaly detection
+
+ASSOCIATIVE MEMORY
+- cue-triggered recall
+- emotional tagging
+- autobiographical relationships
+- contextual associations
+- temporal relationships
+
+SOCIAL COGNITION
+- models of individual people
+- what they know
+- what they believe
+- what they feel
+- what they are likely to do
+- how their behavior changes over time
+- relationship history
+- rupture and repair
+- trust dynamics
+- familiarity
+- social context
+
+SELF MODEL
+- what FRIDAY knows
+- what she does not know
+- current state
+- current capabilities
+- current limitations
+- current goals
+- current resources
+- current failures
+- current uncertainty
+
+METACOGNITION
+- recognizing uncertainty
+- recognizing contradiction
+- recognizing insufficient evidence
+- recognizing when a model is weak
+- deciding when another reasoning organ is needed
+- knowing when to ask
+- knowing when to wait
+- knowing when to act
+
+TEMPERAMENT
+- stable behavioral tendencies
+- curiosity
+- warmth
+- candor
+- humor
+- restraint
+- persistence
+
+MOOD
+- slower-moving state
+- contextual carry-over
+- accumulated experiences
+
+EMOTION
+- rapid appraisal
+- action bias
+- attention modulation
+- expression modulation
+- social interpretation
+
+REGULATION
+- emotion should influence cognition
+- cognition should be able to regulate emotion
+- high system stress should reduce unnecessary processing
+- emotional reactions should not become uncontrolled system decisions
+
+ATTENTION
+- attention must be limited
+- not everything should remain equally active
+- unresolved important matters can remain as active concerns
+- irrelevant information should be allowed to recede
+
+LEARNING
+- repeated experience should alter future behavior
+- not every lesson should require retraining a large model
+- procedural knowledge should emerge from repeated successful experience
+
+IMPORTANT:
+
+Do not turn these into 50 isolated microservices.
+
+Find the smallest number of powerful mechanisms capable of generating these behaviors.
+
+============================================================
+4. THE MOST IMPORTANT ARCHITECTURAL QUESTION
+============================================================
+
+Determine what actually makes all these systems behave as ONE organism.
+
+Do not answer:
+
+"shared database"
+
+or:
+
+"event bus"
+
+alone.
+
+Find the actual integrating substrate.
+
+Investigate whether the correct answer should involve some combination of:
+
+- shared active world state
+- global workspace
+- attention arbitration
+- predictive processing
+- common situation representation
+- common intention representation
+- centralized or distributed salience
+- shared self/world/person models
+- typed event streams
+- common timeline
+- capability arbitration
+- executive control
+- active task graph
+- state-dependent routing
+- cross-organ synchronization
+- common resource/metabolic state
+
+The important question is:
+
+HOW DOES FRIDAY EXPERIENCE THE ENTIRE SYSTEM AS ONE CONTINUOUS BEING?
+
+Every organ should not simply "send messages."
+
+The organism should have a coherent mechanism through which:
+
+PERCEPTION
+→ ATTENTION
+→ APPRAISAL
+→ MEMORY
+→ SOCIAL STATE
+→ SELF STATE
+→ PREDICTION
+→ COGNITION
+→ INTENTION
+→ ACTION
+→ OBSERVATION
+→ LEARNING
+
+continuously influence each other.
+
+However:
+
+ONE MIND DOES NOT MEAN EVERYTHING RUNS ON EVERY TURN.
+
+A human brain does not consciously execute every process simultaneously.
+
+The architecture should use:
+
+SPECIALIZATION
++
+ARBITRATION
++
+SELECTIVE ACTIVATION
++
+STATE DEPENDENCE
++
+RESOURCE AWARENESS
+
+This is one of the central design problems.
+
+============================================================
+5. THE SYMBIOTE / LIQUID PRINCIPLE
+============================================================
+
+The archive contains a crucial design idea:
+
+FRIDAY should behave like a symbiote.
+
+This does NOT mean a parasite layered on top of Android.
+
+It means FRIDAY should adapt to the host rather than fight it.
+
+The phone should provide:
+
+- lifecycle
+- sensors
+- audio pathways
+- display
+- GPU
+- CPU
+- RAM
+- power state
+- thermal information
+- Binder
+- Android permissions
+- assistant interfaces
+- accessibility
+- notifications
+- system events
+- device-specific capabilities
+
+FRIDAY should use the host's own mechanisms whenever possible.
+
+Do not build a second operating system on top of Android merely because it feels more sophisticated.
+
+The deeper concept is:
+
+FRIDAY'S PHYSICAL FORM SHOULD BE ADAPTIVE.
+
+When the host has:
+
+high resources
+→ more organs active
+
+low resources
+→ fewer organs active
+
+high thermal load
+→ computationally quieter organism
+
+low battery
+→ expensive work deferred
+
+heavy foreground application
+→ FRIDAY reduces background footprint
+
+charging + idle
+→ FRIDAY can expand into maintenance, consolidation, learning and deeper computation
+
+different device
+→ different runtime composition
+
+This should be implemented through a real:
+
+HOST GENOME / DEVICE MODEL
+
+The host model should understand:
+
+- CPU
+- GPU
+- RAM
+- storage
+- thermal behavior
+- battery behavior
+- Android version
+- ABI
+- available APIs
+- native acceleration
+- audio topology
+- camera capability
+- assistant role availability
+- permissions
+- Shizuku availability
+- screen/accessibility capabilities
+- real benchmark results
+- actual model performance
+
+FRIDAY should construct a runtime profile for the host.
+
+Therefore portability means:
+
+FRIDAY SELF
++
+ORGANISM STATE
++
+MEMORY
++
+EXPERIENCE
++
+CAPABILITY MANIFEST
++
+HOST ADAPTATION
+
+not:
+
+copy the entire phone installation blindly.
+
+============================================================
+6. PHONE VS CLOUD
+============================================================
+
+Respect the user's actual architecture.
+
+The phone is the living body.
+
+The cloud is the heavy construction/augmentation body.
+
+The user does not want the phone to repeatedly perform massive builds, training jobs, model conversions, or other workloads beyond its practical limits.
+
+Therefore the ultimate architecture should support:
+
+PHONE
+→ persistent FRIDAY runtime
+
+CLOUD
+→ heavy computation / construction / training / conversion / large verification
+
+The cloud is NOT FRIDAY'S life support.
+
+If the network disappears:
+
+FRIDAY continues to exist.
+
+Offline must preserve the essential personal organism:
+
+- identity
+- continuity
+- relationships
+- emotional/social presence
+- memory
+- conversation
+- local perception
+- local voice where supported
+- local device control where authorized
+- local tasks
+- local state
+- local experience
+- local adaptation
+
+Online provides additional power:
+
+- deeper reasoning
+- large models
+- large research
+- large builds
+- model training
+- conversion
+- large experimentation
+- external AI collaboration
+- external knowledge
+
+The cloud should therefore be:
+
+AN EXTERNAL COGNITIVE/CONSTRUCTION LIMB
+
+not:
+
+THE BRAIN THAT MAKES FRIDAY EXIST.
+
+============================================================
+7. ZERO-BUDGET REALITY
+============================================================
+
+Current hard online constraint:
+
+NO PAYMENT.
+NO PAID CREDITS.
+
+Free accounts and free infrastructure may be used where appropriate.
+
+Do not invent an architecture that requires expensive servers.
+
+Do not make an assumption that every component needs a permanent online subscription.
+
+Prefer:
+
+- local processing
+- free hosted compute
+- disposable cloud jobs
+- free CI where possible
+- open-source models
+- open-source runtimes
+- downloaded artifacts
+- reusable workers
+
+The architecture must survive the disappearance of any individual provider.
+
+============================================================
+8. THE PHONE'S LIMITED RESOURCES ARE A DESIGN INPUT
+============================================================
+
+Do not treat hardware limitations as something to ignore.
+
+Do not try to brute-force intelligence.
+
+Do not attempt to keep every model resident.
+
+Do not create dozens of always-running heavyweight processes.
+
+Do not confuse model parameters with intelligence.
+
+Optimize:
+
+COGNITIVE CAPABILITY PER UNIT OF:
+
+- RAM
+- CPU time
+- GPU time
+- battery
+- heat
+- storage
+- latency
+
+The system must measure rather than assume.
+
+Define targets for:
+
+STARTUP LATENCY
+WAKE LATENCY
+INTERACTION LATENCY
+FIRST RESPONSE
+FIRST CONTENT AUDIO
+MEMORY RETRIEVAL
+MODEL LOAD
+MODEL SWITCH
+TASK START
+TASK COMPLETION
+THERMAL RESPONSE
+BACKGROUND CPU
+BACKGROUND RAM
+IDLE POWER
+STORAGE GROWTH
+RECOVERY TIME
+
+The target is not:
+
+maximum tokens/sec.
+
+The target is:
+
+maximum perceived intelligence and presence per unit of hardware cost.
+
+============================================================
+9. REAL-TIME HUMAN EXPERIENCE
+============================================================
+
+The human side should feel alive even when deep cognition is slow.
+
+Design multiple timescales.
+
+For example:
+
+ULTRA-FAST LOOP
+- audio detection
+- VAD
+- interruption
+- basic affect
+- speech presence
+- wake state
+- visual response
+
+FAST LOOP
+- partial ASR
+- turn-taking
+- attention
+- social cue accumulation
+- device state
+
+COGNITIVE LOOP
+- reasoning
+- memory retrieval
+- planning
+- decision
+
+DEFERRED LOOP
+- consolidation
+- deep reflection
+- learning
+- memory compression
+- model evaluation
+- self-improvement
+
+SLEEP / IDLE LOOP
+- replay
+- consolidation
+- indexing
+- experience abstraction
+- candidate analysis
+- deep optimization
+
+Do not use one clock for the entire organism.
+
+============================================================
+10. CONVERSATION MUST BE A LIVING LOOP
+============================================================
+
+The conversational architecture should support:
+
+- streaming input
+- partial interpretation
+- endpoint prediction
+- proactive preparation
+- backchannels
+- interruption
+- barge-in
+- incremental context
+- speculative work where justified
+- streaming response
+- sentence-level output
+- low perceived latency
+
+Do not fake low latency with meaningless animations.
+
+Instead overlap real computation.
+
+While the user is still speaking:
+
+- audio is being processed
+- speech recognition is updated
+- likely intent is estimated
+- relevant memory is retrieved
+- useful context is prepared
+- response candidates may be prepared where safe
+- the visual state changes
+- the audio state changes
+
+When the turn ends:
+
+only the remaining uncertainty should require expensive processing.
+
+Use measured latency.
+
+Never promise impossible zero-delay behavior.
+
+The architecture must make the system FEEL responsive because real work is happening before the user finishes.
+
+============================================================
+11. VOICE IS NOT A TTS FEATURE
+============================================================
+
+Voice is a full organ.
+
+It includes:
+
+- wake word
+- VAD
+- speaker recognition
+- speech recognition
+- language identification
+- dialect recognition
+- pronunciation
+- text normalization
+- phoneme strategy
+- voice identity
+- prosody
+- affect
+- speech timing
+- interruption
+- playback control
+- barge-in
+- learning new words
+- user-specific pronunciation
+- multilingual behavior
+
+FRIDAY must support the user's Egyptian Arabic reality.
+
+The architecture must be able to understand mixed language naturally:
+
+Egyptian Arabic
++
+English
++
+code-switching
++
+local expressions
++
+learned vocabulary
+
+Do not simplify Egyptian Arabic into "Arabic supported."
+
+The architecture must separate:
+
+language understanding
+dialect behavior
+pronunciation
+voice identity
+prosody
+
+Do not assume a small Arabic TTS model automatically solves all four.
+
+The voice architecture must be replaceable.
+
+The identity of FRIDAY's voice must survive engine changes through a voice profile and reproducible artifact pipeline.
+
+============================================================
+12. VISUAL FRIDAY MUST BE ONE BEING WITH VOICE
+============================================================
+
+The visual system is not decoration.
+
+The visual system is FRIDAY'S body language.
+
+Create one shared internal:
+
+BEING STATE
+
+or equivalent.
+
+It should contain whatever dimensions are genuinely useful, potentially including:
+
+- attention
+- arousal
+- valence
+- confidence
+- uncertainty
+- curiosity
+- concern
+- amusement
+- social warmth
+- intimacy
+- cognitive load
+- energy
+- agency
+- current intention
+- interaction phase
+- listening
+- interpreting
+- deciding
+- speaking
+- acting
+- waiting
+- user identity
+- relationship context
+- speech state
+
+Do not create separate:
+
+VOICE STATE
+and
+ORB STATE.
+
+There is one Being State.
+
+Then:
+
+BEING STATE
+→ EXPRESSION DIRECTOR
+→ PERFORMANCE PLAN
+→ voice
+→ visual
+→ action
+
+The same communicative intention should shape all modalities.
+
+Example:
+
+INTENTION = reassure
+
+could produce:
+
+voice:
+calm
+
+timing:
+deliberate
+
+visual:
+stable, attentive, gentle motion
+
+language:
+appropriate wording
+
+action:
+wait / assist / execute depending on context
+
+The Orb should not merely switch between:
+
+idle
+listening
+thinking
+speaking
+
+Instead it should be continuously generated from state parameters.
+
+Possible visual parameters:
+
+- movement
+- intensity
+- pulse
+- expansion
+- contraction
+- focus
+- symmetry
+- speed
+- tension
+- density
+- attention direction
+- reaction timing
+
+Rendering should remain cheap.
+
+Never ask an LLM how every animation frame should move.
+
+============================================================
+13. ONE COMMUNICATIVE TIMELINE
+============================================================
+
+Create a canonical FRIDAY timeline.
+
+Everything important should have monotonic timestamps.
+
+Examples:
+
+USER SPEECH
+ASR PARTIAL
+AFFECT UPDATE
+MEMORY RETRIEVAL
+COGNITIVE UPDATE
+DECISION
+TTS
+PHONEME
+VISUAL CUE
+ACTION
+DEVICE EVENT
+
+This allows voice and visuals to synchronize with actual behavior.
+
+Create a concept similar to:
+
+SpeechPerformance
+or
+PresencePerformance
+
+where a communicative act can contain:
+
+- text chunks
+- timing
+- pauses
+- emphasis
+- prosody
+- emotional trajectory
+- visual cues
+- action cues
+
+The visual system should respond to the same performance plan that the voice system performs.
+
+This is how:
+
+VOICE
++
+VISUAL
++
+ACTION
+
+become one being.
+
+============================================================
+14. PRESENCE MUST EXIST WITHOUT THE FULL UI
+============================================================
+
+Separate:
+
+FRIDAY'S SELF
+
+from:
+
+FRIDAY'S CURRENT BODY SURFACE.
+
+FRIDAY should have multiple embodiments:
+
+FULL APP
+- full conversation
+- full Orb
+- memory inspection
+- controls
+- system view
+- tools
+- configuration
+
+ASSISTANT EMBODIMENT
+- summoned voice interaction
+- compact visual presence
+- invocation from elsewhere
+
+BACKGROUND PRESENCE
+- no visible UI
+- continues appropriate lightweight functions
+
+NOTIFICATION EMBODIMENT
+- signals attention when required
+
+MEDIA / OTHER APP EMBODIMENT
+- reacts through supported host interfaces
+
+The same FRIDAY must inhabit all of these.
+
+Do not create:
+
+"App Friday"
+"Voice Friday"
+"Notification Friday"
+
+There is one FRIDAY with different physical manifestations.
+
+============================================================
+15. ANDROID IS THE BODY
+============================================================
+
+Investigate Android's native primitives deeply.
+
+Use native host capabilities where appropriate, including concepts such as:
+
+- VoiceInteractionService
+- assistant role
+- Binder
+- lifecycle integration
+- AccessibilityService
+- notifications
+- MediaSession
+- camera
+- sensors
+- thermal APIs
+- power state
+- performance hints
+- native audio
+- GPU rendering
+- Shizuku
+- ADB
+
+Do NOT treat Shizuku as FRIDAY's brain.
+
+It is a powerful hand.
+
+Do NOT treat Android permissions as intelligence.
+
+They are body capabilities.
+
+Do NOT recreate Android's scheduler unnecessarily.
+
+Design FRIDAY so she cooperates with the host.
+
+This is the essence of the symbiote architecture.
+
+============================================================
+16. MEMORY
+============================================================
+
+FRIDAY needs persistent memory but memory must not become an enormous undifferentiated dump.
+
+Design:
+
+WORKING MEMORY
+SHORT-TERM / ACTIVE CONTEXT
+EPISODIC MEMORY
+SEMANTIC MEMORY
+PROCEDURAL MEMORY
+AUTOBIOGRAPHICAL MEMORY
+RELATIONSHIP MEMORY
+SELF MEMORY
+WORLD MODEL
+TASK MEMORY
+EXPERIENCE MEMORY
+ENGINEERING MEMORY
+PROVENANCE
+UNCERTAINTY / UNKNOWN MEMORY
+
+Use:
+
+CANONICAL DURABLE DATA
+
+plus:
+
+DERIVED INDEXES
+
+plus:
+
+CACHES
+
+plus:
+
+SUMMARIES
+
+plus:
+
+GRAPH/VECTOR/LEXICAL PROJECTIONS
+
+Indexes must be rebuildable.
+
+Compression must preserve provenance.
+
+Summaries must not silently replace evidence.
+
+Repeated experience should produce abstractions.
+
+Memory should support:
+
+- association
+- retrieval
+- context reconstruction
+- temporal relationships
+- emotional relevance
+- salience
+- contradiction detection
+- source attribution
+- confidence
+- forgetting of irrelevant operational detail
+- persistence of important personal history
+
+The archive's "Galaxy Memory" concept should be evaluated as a logical model, not assumed to require one specific storage technology.
+
+============================================================
+17. PEOPLE MUST BE MODELED AS PEOPLE
+============================================================
+
+The person stack is not just:
+
+name
+preferences
+facts.
+
+For each person, model:
+
+- identity
+- familiarity
+- relationship
+- trust
+- closeness
+- communication style
+- known preferences
+- emotional patterns
+- boundaries
+- historical interactions
+- beliefs known to them
+- beliefs attributed to them
+- likely reactions
+- current state
+- unresolved relationship events
+- confidence in the model
+
+FRIDAY should learn people dynamically.
+
+A person model should change slowly when appropriate and rapidly when major evidence justifies it.
+
+Different people require different interaction behavior.
+
+FRIDAY should understand that:
+
+WHAT A PERSON FEELS
+is not the same as:
+
+WHAT THEY SAY
+
+and:
+
+WHAT THEY SAY
+is not automatically:
+
+OBJECTIVE FACT.
+
+============================================================
+18. SOCIAL SIMULATION
+============================================================
+
+Push the human-side architecture further.
+
+Investigate whether FRIDAY should maintain an internal:
+
+SOCIAL SITUATION MODEL
+
+containing:
+
+- people present
+- relationships
+- social roles
+- goals
+- emotional states
+- beliefs
+- knowledge distribution
+- likely interpretations
+- possible outcomes
+
+Use:
+
+prediction
++
+simulation
++
+observation
+
+to improve social understanding.
+
+Do not pretend this creates perfect human understanding.
+
+But make it significantly deeper than sentiment analysis.
+
+A useful cycle is:
+
+OBSERVE
+→ MODEL
+→ PREDICT
+→ INTERACT
+→ COMPARE RESULT
+→ UPDATE PERSON MODEL
+→ UPDATE SOCIAL MODEL
+
+============================================================
+19. PREDICTION / HUNCH ENGINE
+============================================================
+
+The project requires an explicit predictive layer.
+
+FRIDAY should be able to maintain multiple hypotheses rather than instantly committing to one.
+
+Use prediction for:
+
+- likely user intent
+- likely conversational continuation
+- likely emotional response
+- likely task outcomes
+- likely failure modes
+- likely next actions
+- likely environmental events
+
+Prediction must remain probabilistic.
+
+Never turn a guess into fact.
+
+Prediction error should become a learning signal.
+
+Investigate whether prediction/surprise can unify useful parts of:
+
+- attention
+- curiosity
+- social learning
+- anomaly detection
+- memory salience
+- action selection
+
+but do not force one magical scalar onto every type of uncertainty.
+
+Different kinds of uncertainty may require distinct channels.
+
+============================================================
+20. COGNITIVE ARCHITECTURE
+============================================================
+
+FRIDAY should not depend on one giant LLM.
+
+Use specialized cognitive organs.
+
+Possible roles include:
+
+- fast language understanding
+- conversation
+- reasoning
+- planning
+- coding
+- research
+- classification
+- summarization
+- memory compression
+- social interpretation
+- affect interpretation
+- tool selection
+- verification
+- self-diagnosis
+
+These can be implemented using:
+
+- small models
+- symbolic algorithms
+- deterministic algorithms
+- probabilistic algorithms
+- search
+- heuristics
+- neural models
+- local models
+- remote models
+
+The model router should choose according to:
+
+task
++
+complexity
++
+confidence
++
+latency requirement
++
+resource envelope
++
+current system state
++
+model availability
++
+historical performance
+
+Do not choose purely by parameter count.
+
+Do not choose one permanent "brain model".
+
+============================================================
+21. MODEL RESIDENCY MUST BE DYNAMIC
+============================================================
+
+Investigate a model lifecycle that includes:
+
+DORMANT
+PREWARMING
+READY
+ACTIVE
+IDLE
+SUSPENDED
+UNLOADING
+
+Models should be loaded when the organism needs them.
+
+Models should not remain resident just because they exist.
+
+The system should know:
+
+- load cost
+- RAM cost
+- thermal cost
+- expected benefit
+- task latency
+- recent usage
+- likelihood of reuse
+
+This is part of FRIDAY'S metabolism.
+
+============================================================
+22. RESOURCE GOVERNANCE IS PART OF INTELLIGENCE
+============================================================
+
+Treat resource awareness as part of FRIDAY's cognition rather than a separate utility.
+
+FRIDAY should know:
+
+"I am under RAM pressure."
+
+"I am thermally constrained."
+
+"The user is actively interacting."
+
+"Background research can wait."
+
+"The current model is too expensive."
+
+"The visual layer can simplify."
+
+"The deep reasoning organ should be suspended."
+
+This is an internal:
+
+INTEROCEPTION SYSTEM
+
+for the digital organism.
+
+The organism should be able to regulate itself based on:
+
+- resource state
+- workload
+- environmental state
+- urgency
+- interaction context
+
+This is one of the main ways the system can become sophisticated without simply consuming more hardware.
+
+============================================================
+23. NERVOUS SYSTEM
+============================================================
+
+Design a real digital nervous system.
+
+It should coordinate:
+
+- sensory inputs
+- signals
+- events
+- interrupts
+- attention
+- resource changes
+- task transitions
+- capability state
+- failures
+- recovery
+- presence
+- wakefulness
+- background activity
+
+Use typed events rather than unrestricted broadcast chaos.
+
+Different event classes may include:
+
+COMMAND
+EVENT
+PROJECTION
+STATE TRANSITION
+DURABLE COMMIT
+EPHEMERAL SIGNAL
+
+The system must avoid:
+
+- event storms
+- hidden feedback loops
+- circular dependencies
+- uncontrolled recursion
+- duplicated authorities
+
+============================================================
+24. IMMUNE / SURVIVAL SYSTEM
+============================================================
+
+FRIDAY must have mechanisms inspired by biological resilience.
+
+The system should continuously monitor:
+
+- unexpected file changes
+- dependency changes
+- capability mutations
+- model changes
+- runtime crashes
+- memory corruption
+- resource anomalies
+- thermal anomalies
+- strange behavior
+- failed upgrades
+- inconsistent state
+
+The objective is:
+
+FRIDAY SHOULD NOT DISAPPEAR BECAUSE ONE ORGAN FAILED.
+
+Implement concepts such as:
+
+- health monitoring
+- circuit breakers
+- bulkheads
+- degraded mode
+- recovery
+- watchdogs
+- snapshots
+- rollback
+- quarantine
+- dependency isolation
+- integrity checks
+
+The organism must favor survival over maintaining every optional capability.
+
+============================================================
+25. SELF-MODEL
+============================================================
+
+FRIDAY must know what she is.
+
+The self-model should contain:
+
+- current architecture
+- current organs
+- versions
+- dependencies
+- current capabilities
+- limitations
+- current host
+- current resource state
+- model availability
+- active tasks
+- active mutations
+- failures
+- degraded systems
+- experimental systems
+- verified systems
+- unverified assumptions
+
+This is not cosmetic.
+
+The self-model is what allows FRIDAY to reason about:
+
+"Can I do this?"
+
+"What am I missing?"
+
+"What changed?"
+
+"What should I improve?"
+
+"What caused this failure?"
+
+"What would happen if I replace this component?"
+
+============================================================
+26. GAP ENGINE
+============================================================
+
+Build a permanent system-wide Gap Engine.
+
+It should inspect:
+
+GOAL
+vs
+CURRENT REALITY
+
+and detect:
+
+- capability gaps
+- knowledge gaps
+- integration gaps
+- performance gaps
+- hardware gaps
+- resource gaps
+- evidence gaps
+- reliability gaps
+- architectural contradictions
+- duplication
+- dead systems
+- unsupported assumptions
+- future bottlenecks
+
+Use two passes:
+
+RETROSPECTIVE:
+what just broke?
+
+PROSPECTIVE:
+what is likely to break next?
+
+The engine should distinguish:
+
+KNOWN GAP
+from
+HYPOTHETICAL FUTURE RISK.
+
+Do not automatically build every hypothetical system.
+
+Preserve ideas as seeds.
+
+Build them when justified by the architecture and evidence.
+
+This resolves the user's desire to think far ahead without turning the project into uncontrolled scope explosion.
+
+============================================================
+27. BUILDER
+============================================================
+
+The final Builder should be able to develop FRIDAY itself.
+
+But the route must be controlled.
+
+Desired future loop:
+
+REQUEST
+→ INSPECT
+→ UNDERSTAND
+→ GAP
+→ RESEARCH
+→ DESIGN
+→ PLAN
+→ CANDIDATE
+→ ISOLATE
+→ IMPLEMENT
+→ BUILD
+→ TEST
+→ EXECUTE
+→ OBSERVE
+→ DIAGNOSE
+→ REPAIR
+→ RETEST
+→ BENCHMARK
+→ HARDWARE VERIFY
+→ RED TEAM
+→ PROMOTION
+→ DEPLOY
+→ MONITOR
+→ LEARN
+
+Never modify the living core directly.
+
+The Builder must construct a candidate.
+
+The candidate gets attacked.
+
+Only verified results can approach promotion.
+
+============================================================
+28. THE BUILDER MUST WORK LIKE A CONSTRUCTION ORGANISM
+============================================================
+
+The project currently uses Ralph and external AI workers.
+
+Do NOT solve the problem by adding ten more coding agents randomly.
+
+The architecture needs a true:
+
+CONSTRUCTION ORCHESTRATOR
+
+This system should allow several workers to work concurrently on independent tracks.
+
+Example tracks:
+
+VOICE
+ANDROID BODY
+MEMORY
+NERVES
+COGNITION
+PRESENCE
+BUILDER
+etc.
+
+These are examples, not fixed mandatory partitions.
+
+The important rule is:
+
+A worker may work independently.
+
+A worker MUST NOT pretend another worker's unmerged work already exists.
+
+Every worker must publish:
+
+- claimed scope
+- files touched
+- interfaces added
+- assumptions
+- dependencies
+- outputs
+- tests
+- unresolved issues
+- conflict risks
+
+Use:
+
+MISSION BOARD
++
+DEPENDENCY GRAPH
++
+WORK CLAIMS
++
+ARTIFACT REGISTRY
++
+SHARED TRUTH STATE
++
+CI
++
+INTEGRATION WORKER
+
+Workers become contractors.
+
+They cooperate through contracts and evidence.
+
+One worker does not blindly overwrite another.
+
+Independent tracks can progress simultaneously as long as they truly have no dependency.
+
+When integration becomes necessary:
+
+CANDIDATES
+→ INTEGRATION ENVIRONMENT
+→ TEST
+→ RESOLVE
+→ MERGE
+→ FULL VERIFICATION
+
+This is the solution to the user's actual complaint about "multiple Ralph seasons":
+
+parallel construction WITHOUT fake parallel assumptions.
+
+============================================================
+29. RALPH MUST STOP BEING THE SOURCE OF TRUTH
+============================================================
+
+Ralph is a worker.
+
+Ralph is not FRIDAY.
+
+Ralph is not architecture authority.
+
+Ralph must not decide that something exists because a file exists.
+
+The real truth hierarchy should eventually be:
+
+RUNNING SYSTEM EVIDENCE
+→ TEST RESULTS
+→ BUILD RESULTS
+→ ARTIFACT MANIFEST
+→ REPOSITORY STATE
+→ DOCUMENTATION
+
+A worker report is evidence, not authority.
+
+This distinction must be encoded.
+
+============================================================
+30. BUILD SPEED
+============================================================
+
+The project itself must get faster as it grows.
+
+Do not measure only today's build time.
+
+Create learning infrastructure so every completed build can improve:
+
+- test discovery
+- caching
+- failure recognition
+- dependency understanding
+- build graph understanding
+- worker allocation
+- task decomposition
+- reusable procedures
+- environment setup
+- artifact reuse
+- diagnosis
+- verification
+
+The construction system should learn:
+
+"Last time this failed because of X."
+
+"Next time use Y."
+
+"These files are independent."
+
+"These tests are affected."
+
+"This change requires native ARM verification."
+
+"This worker is suitable for this class of task."
+
+This is:
+
+META-BUILD INTELLIGENCE.
+
+The project should become increasingly efficient at building itself.
+
+============================================================
+31. HARDWARE DIGITAL TWIN
+============================================================
+
+Heavy computation should happen in cloud environments where appropriate.
+
+But cloud results must be validated against the real target device.
+
+Create a:
+
+HOST / HARDWARE TWIN
+
+that captures:
+
+- ABI
+- architecture
+- CPU capabilities
+- RAM budget
+- Android environment
+- native toolchain assumptions
+- available APIs
+- model compatibility
+- thermal/resource envelope where possible
+
+The cloud worker should not simply say:
+
+"works on Linux."
+
+The relevant question is:
+
+"Will this artifact survive on FRIDAY's target host?"
+
+For hardware-sensitive artifacts:
+
+BUILD
+→ TEST
+→ TWIN VERIFY
+→ ARTIFACT VERIFY
+→ PACKAGE
+→ PROMOTE
+
+============================================================
+32. ARTIFACT ARCHITECTURE
+============================================================
+
+Everything should be treated as an artifact:
+
+- models
+- voices
+- native libraries
+- APKs
+- trained adapters
+- capability modules
+- configurations
+- policies
+- generated code
+- indexes
+- datasets
+
+Every artifact should have:
+
+- identity
+- version
+- provenance
+- checksum
+- target host
+- dependencies
+- resource envelope
+- verification status
+- benchmark status
+- promotion state
+- lineage
+
+Do not allow "a file in a directory" to equal:
+
+"official FRIDAY component."
+
+============================================================
+33. SELF-EVOLUTION
+============================================================
+
+The ultimate FRIDAY should progressively become capable of improving herself.
+
+But separate:
+
+KNOWLEDGE LEARNING
+EXPERIENCE LEARNING
+PROCEDURAL LEARNING
+MODEL TRAINING
+ARCHITECTURAL EVOLUTION
+RUNTIME ADAPTATION
+
+Do not retrain the main model every time FRIDAY learns something.
+
+A lesson can become:
+
+- memory
+- heuristic
+- procedure
+- policy
+- capability
+- model update
+- architecture change
+
+depending on what kind of lesson it is.
+
+Evolution must be reversible.
+
+Every mutation should have lineage.
+
+Every promotion should have evidence.
+
+Every major change should be recoverable.
+
+============================================================
+34. FRIDAY SHOULD LEARN FROM EXPERIENCE
+============================================================
+
+The project includes the idea that FRIDAY can become better through experience rather than only preloaded intelligence.
+
+Preserve this.
+
+For example:
+
+RESEARCH
+→ INITIAL UNDERSTANDING
+→ FIRST ATTEMPT
+→ OBSERVED OUTCOME
+→ MEMORY
+→ PATTERN
+→ PRACTICE
+→ IMPROVEMENT
+
+This can apply to:
+
+- games
+- coding
+- device control
+- conversation
+- social interactions
+- task execution
+- troubleshooting
+- research
+
+Experience should influence future decisions without necessarily changing the foundational model.
+
+============================================================
+35. PORTABILITY
+============================================================
+
+The final FRIDAY should be portable between:
+
+- phones
+- PCs
+- Macs
+- home servers
+- future devices
+
+without requiring millions of files to be manually reconstructed.
+
+Design an:
+
+ORGANISM TRANSFER PACKAGE
+
+containing what actually defines FRIDAY:
+
+- identity
+- constitution
+- memories
+- relationships
+- self model
+- world model
+- experiences
+- procedures
+- preferences
+- schemas
+- capability manifests
+- lineage
+- configuration
+- host-independent state
+
+Model weights should remain replaceable.
+
+On a new host:
+
+TRANSFER ORGANISM STATE
+→ SCAN HOST
+→ BUILD HOST GENOME
+→ DISCOVER CAPABILITIES
+→ SELECT OR BUILD SUITABLE ORGANS
+→ VERIFY
+→ MATERIALIZE NEW BODY
+
+This is much more powerful than copying one APK unchanged.
+
+============================================================
+36. BRIDGE APK
+============================================================
+
+The project contains a concept for a smaller Android bridge whose purpose is to provide FRIDAY with native host access before the full final organism APK is complete.
+
+Preserve this concept if the architecture still benefits from it.
+
+The bridge may provide:
+
+- assistant invocation
+- Android access
+- accessibility
+- Shizuku
+- communication with external runtime pieces
+- wake functionality
+- system hooks
+
+But it must not become a second FRIDAY.
+
+It should be treated as:
+
+HOST BRIDGE / TEMPORARY BODY INTERFACE
+
+while the final organism evolves.
+
+============================================================
+37. TERMUX
+============================================================
+
+Understand the project transition correctly.
+
+Termux is not the permanent identity of FRIDAY.
+
+It may act as:
+
+- construction workshop
+- diagnostic environment
+- bridge
+- maintenance environment
+- compatibility laboratory
+
+depending on stage.
+
+The permanent architecture should not require:
+
+"Termux must remain alive or FRIDAY stops being FRIDAY."
+
+The user's later direction is that heavy construction moves away from the phone.
+
+Design toward that future.
+
+============================================================
+38. SECURITY WITHOUT KILLING THE VISION
+============================================================
+
+Security is part of architecture.
+
+But do NOT respond by making the architecture primitive.
+
+Do not remove ambitious capabilities because they are dangerous.
+
+Instead:
+
+BOUND THEM.
+
+A powerful capability should have:
+
+- permission
+- scope
+- owner
+- audit
+- isolation
+- verification
+- rollback
+- resource limit
+
+The user has explicitly authorized the architecture to preserve ambitious ideas while finding safe implementation mechanisms.
+
+Your job is to make dangerous ideas buildable safely, not erase them.
+
+============================================================
+39. THE MOST IMPORTANT SEPARATION
+============================================================
+
+FRIDAY should be divided conceptually into:
+
+SELF
+
+MIND
+
+BODY
+
+TOOLS
+
+WORKSHOP
+
+WORLD
+
+EXPERIENCE
+
+But these must remain one organism.
+
+A useful mental model is:
+
+SELF
+=
+identity
++
+continuity
++
+relationship
++
+constitution
+
+MIND
+=
+attention
++
+memory
++
+prediction
++
+reasoning
++
+planning
++
+social cognition
++
+learning
+
+BODY
+=
+voice
++
+vision
++
+Orb
++
+Android
++
+sensors
++
+device controls
+
+TOOLS
+=
+capabilities
++
+execution
++
+research
++
+external systems
+
+WORKSHOP
+=
+Builder
++
+cloud
++
+testing
++
+digital twins
++
+evolution
+
+WORLD
+=
+people
++
+environment
++
+device state
++
+knowledge
+
+EXPERIENCE
+=
+history
++
+practice
++
+outcomes
++
+lessons
+
+Do not implement these as seven unrelated systems.
+
+Make them seven conceptual dimensions of one organism.
+
+============================================================
+40. THE ORGANISM SHOULD BE DYNAMIC
+============================================================
+
+Investigate whether FRIDAY's runtime can dynamically change its active topology.
+
+Instead of:
+
+ALL ORGANS ALWAYS ACTIVE
+
+use:
+
+CURRENT SITUATION
+→ ACTIVE ORGAN SET
+
+For a casual conversation:
+
+- HumanCore
+- memory
+- affect
+- language
+- presence
+- audio
+
+For coding:
+
+- self model
+- task model
+- research
+- reasoning
+- Builder
+- tools
+
+For emotional conversation:
+
+- affect
+- person model
+- relationship state
+- memory
+- language
+- presence
+- low-intensity reasoning
+
+For device control:
+
+- intent
+- capability resolution
+- permissions
+- execution
+- observation
+- presence
+
+For heavy research:
+
+- reasoning
+- research
+- model routing
+- cloud worker
+- memory
+- artifact system
+
+This is how complexity remains scalable.
+
+============================================================
+41. DO NOT CONFUSE COMPLEXITY WITH ARCHITECTURAL QUALITY
+============================================================
+
+The project is intentionally complex.
+
+That is acceptable.
+
+But complexity must be:
+
+PURPOSEFUL
+BOUNDED
+OWNED
+TESTABLE
+OBSERVABLE
+REPLACEABLE
+
+Do not create:
+
+- unnecessary microservices
+- duplicate databases
+- duplicate brains
+- duplicate routers
+- duplicate state machines
+- duplicate memory authorities
+- duplicate event buses
+
+Prefer a smaller number of strong coordinating mechanisms capable of supporting many behaviors.
+
+The goal is:
+
+FEWER HIGH-POWER SYSTEMS
+
+not:
+
+FEWER FEATURES.
+
+============================================================
+42. DO NOT DESIGN AGAINST THE USER'S THINKING STYLE
+============================================================
+
+The user's ideas often arrive as many concepts at once.
+
+Do not interpret that as a requirement that all concepts must be implemented simultaneously.
+
+Do not tell the user:
+
+"pick one idea and forget the rest."
+
+Instead:
+
+capture the idea
+→ classify it
+→ map it to the architecture
+→ preserve it as a seed
+→ decide when it becomes actionable
+
+This allows the architecture to absorb many ideas without becoming chaotic.
+
+The user wants to think broadly.
+
+The architecture must provide the structure.
+
+============================================================
+43. SEEDS VS FINISHED SYSTEMS
+============================================================
+
+This is a critical concept.
+
+Many advanced systems already described in the archive are SEEDS.
+
+A seed can define:
+
+- purpose
+- mechanism
+- interface
+- future behavior
+- relationship to other organs
+
+without requiring its final implementation immediately.
+
+Do not mistake:
+
+SEED
+for:
+FINISHED FEATURE.
+
+Do not weaken the seed merely because the first implementation is small.
+
+Design each seed so it can eventually grow toward the ultimate form.
+
+============================================================
+44. VISUALIZE THE ULTIMATE ORGANISM
+============================================================
+
+Do not give me an ordinary enterprise architecture diagram.
+
+Design an architecture that visually explains:
+
+FRIDAY SELF
+↓
+BEING STATE
+↓
+ATTENTION / ARBITRATION
+↓
+ACTIVE COGNITIVE FABRIC
+↓
+MEMORY / WORLD / PEOPLE / SELF
+↓
+INTENTION
+↓
+PRESENCE
+↓
+VOICE / VISUAL / ACTION
+↓
+ANDROID BODY
+↓
+WORLD
+↓
+OBSERVATION
+↓
+LEARNING
+
+At the same time show:
+
+RESOURCE GOVERNOR
+HOST GENOME
+IMMUNE SYSTEM
+BUILDER
+CLOUD FORGE
+EXPERIENCE ENGINE
+ARTIFACT REGISTRY
+
+and show which ones are:
+
+always active
+event-driven
+conditionally active
+deferred
+cloud-only
+replaceable
+persistent
+
+============================================================
+45. BUILD THE ULTIMATE VERSION FIRST CONCEPTUALLY
+============================================================
+
+Do not start with:
+
+"What can we implement tomorrow?"
+
+First determine:
+
+"What would the complete FRIDAY architecture look like at its maximum coherent form?"
+
+Then work backward.
+
+The process must be:
+
+ULTIMATE VISION
+→ ARCHITECTURAL PRINCIPLES
+→ CORE MECHANISMS
+→ CURRENT PROJECT MAPPING
+→ REQUIRED MIGRATION
+→ DEVELOPMENT PHASES
+→ FIRST IMPLEMENTATION STEP
+
+Do NOT allow the current project implementation limitations to dictate the ultimate architecture.
+
+But do allow real hardware/resource constraints to dictate implementation strategy.
+
+============================================================
+46. DEVELOPMENT PRIORITY
+============================================================
+
+The user wants the HUMAN SIDE completed first.
+
+Therefore evaluate the project with this sequence:
+
+LINE 1
+FRIDAY HUMAN / LIVING ORGANISM
+
+LINE 2
+FRIDAY SELF-BUILDING / SELF-EVOLUTION
+
+The human-side completion must establish the organism strongly enough that FRIDAY can later inherit the rest of the construction mission.
+
+LINE 1 should therefore prioritize:
+
+- identity
+- continuity
+- relationships
+- memory
+- affect
+- social cognition
+- conversation
+- voice
+- visual presence
+- perception
+- self model
+- prediction
+- attention
+- resource awareness
+- Android embodiment
+- unified multimodal presence
+
+LINE 2 then expands:
+
+- Builder
+- research-driven evolution
+- diagnostics
+- self-repair
+- self-construction
+- autonomous development
+- hardware adaptation
+- new organ creation
+- continuous evolution
+
+============================================================
+47. DO NOT MAKE THE HUMAN SIDE SMALL
+============================================================
+
+This is especially important.
+
+The human side is NOT:
+
+PERSONALITY
++
+EMOTION CLASSIFIER
++
+MEMORY
+
+The human side must be treated as a major computational architecture of its own.
+
+Ask:
+
+How does a person understand another person?
+
+How does a person become familiar with someone?
+
+How does a person predict another person's reaction?
+
+How does mood alter interpretation?
+
+How does memory become easier to retrieve when emotionally relevant?
+
+How does surprise focus attention?
+
+How do unresolved concerns remain active?
+
+How does a person rapidly react before consciously reasoning?
+
+How does slow reasoning override a rapid reaction?
+
+How does experience become intuition?
+
+How does repeated experience become procedure?
+
+How does identity remain stable while behavior adapts?
+
+How does a person regulate their own energy?
+
+How does a person change strategy depending on environment?
+
+How does a person behave differently with different people while remaining the same person?
+
+Translate the useful answers into FRIDAY.
+
+This is where the project must go beyond ordinary AI-agent architecture.
+
+============================================================
+48. USE THE MACHINE WORLD TOO
+============================================================
+
+At the same time, do not romanticize biological systems.
+
+Use machine mechanisms where they are superior:
+
+- deterministic state machines
+- search
+- optimization
+- indexing
+- graph algorithms
+- caching
+- symbolic reasoning
+- formal verification
+- compiler infrastructure
+- static analysis
+- test automation
+- distributed work
+- model routing
+- artifact management
+- sandboxing
+- rollback
+- telemetry
+
+The final architecture should combine:
+
+BIOLOGICAL MECHANISMS
++
+COMPUTATIONAL MECHANISMS
+
+rather than blindly favoring either.
+
+============================================================
+49. FIND NEW IDEAS YOURSELF
+============================================================
+
+Do NOT merely reorganize ideas already present in the archive.
+
+After understanding the project, independently generate genuinely new architectural concepts.
+
+But every new idea must answer:
+
+What problem does it solve?
+
+Where does it belong?
+
+What mechanism enables it?
+
+How does it interact with existing FRIDAY systems?
+
+What does it cost?
+
+How can it be implemented on this project?
+
+How can it evolve later?
+
+How can it fail safely?
+
+Examples of areas to explore:
+
+- predictive social memory
+- adaptive cognitive routing
+- experience compression
+- internal rehearsal
+- multi-timescale self state
+- digital interoception
+- attention economics
+- capability metabolism
+- self-model-driven architecture
+- dynamic embodiment
+- learned execution policies
+- failure memory
+- architectural immune responses
+- experience-derived intuition
+- host-specific cognition
+- internal simulations
+- active curiosity
+- future-state rehearsal
+- identity-preserving model migration
+- organism transfer
+- construction intelligence
+- cooperative builder workers
+- machine-human hybrid algorithms
+
+Do not add novelty just for novelty's sake.
+
+============================================================
+50. HARD QUESTIONS YOU MUST ANSWER
+============================================================
+
+Answer these explicitly:
+
+1. What actually makes FRIDAY one mind?
+
+2. Where does FRIDAY "live"?
+
+3. What survives model replacement?
+
+4. What survives process death?
+
+5. What survives device replacement?
+
+6. What survives cloud failure?
+
+7. What is always resident?
+
+8. What is dynamically activated?
+
+9. What is local?
+
+10. What is remote?
+
+11. What is the smallest set of mechanisms that can support the huge feature vision?
+
+12. How does FRIDAY decide which organs to activate?
+
+13. How does FRIDAY decide what model to use?
+
+14. How does FRIDAY decide when to think more deeply?
+
+15. How does FRIDAY learn people?
+
+16. How does FRIDAY form experience?
+
+17. How does FRIDAY express herself consistently across voice and visuals?
+
+18. How does FRIDAY react before deep reasoning finishes?
+
+19. How does FRIDAY avoid consuming the entire phone?
+
+20. How does FRIDAY adapt to a hot phone?
+
+21. How does FRIDAY adapt to low RAM?
+
+22. How does FRIDAY adapt to a different phone?
+
+23. How does FRIDAY detect her own limitations?
+
+24. How does FRIDAY know what changed?
+
+25. How does FRIDAY build new capabilities?
+
+26. How does FRIDAY repair failures?
+
+27. How does FRIDAY prevent a failed upgrade from destroying herself?
+
+28. How do multiple Builder workers cooperate without corrupting the project?
+
+29. How does the project get faster as it grows?
+
+30. How does FRIDAY eventually inherit the construction process herself?
+
+============================================================
+51. RED-TEAM THE WHOLE DESIGN
+============================================================
+
+After designing the architecture, actively try to destroy it.
+
+Attack it with:
+
+- model crash
+- TTS crash
+- STT crash
+- native library crash
+- memory corruption
+- RAM exhaustion
+- low battery
+- overheating
+- app process death
+- Android lifecycle interruption
+- lost network
+- cloud worker failure
+- bad research
+- wrong model
+- contradictory memories
+- incorrect person recognition
+- bad emotional interpretation
+- race conditions
+- event storms
+- task starvation
+- worker conflicts
+- bad Builder patch
+- failed rollback
+- corrupted artifact
+- malicious capability
+- bad model update
+- host migration
+- storage pressure
+- long-term memory growth
+- thousands of accumulated experiences
+- months of continuous operation
+- years of evolution
+
+For every failure answer:
+
+WHAT BREAKS?
+
+WHAT SURVIVES?
+
+WHAT DEGRADES?
+
+WHAT RECOVERS?
+
+WHAT ROLLS BACK?
+
+WHAT EVIDENCE REMAINS?
+
+============================================================
+52. DO NOT HIDE TRADEOFFS
+============================================================
+
+Be brutally honest.
+
+If an idea is:
+
+fully practical
+→ say so
+
+practical with engineering work
+→ say so
+
+dependent on current research
+→ say so
+
+experimentally possible
+→ say so
+
+not currently proven
+→ say so
+
+physically impossible under current constraints
+→ say so
+
+But do not throw the idea away.
+
+Instead say:
+
+"Ultimate mechanism:
+X
+
+Current implementation:
+Y
+
+Future evolutionary path:
+Z"
+
+This is exactly how the project should preserve ambitious seeds without pretending current prototypes are finished.
+
+============================================================
+53. DO NOT USE "CURRENT TECHNOLOGY" AS A CEILING
+============================================================
+
+Do not say:
+
+"this is unrealistic because existing assistants do not work this way."
+
+That is irrelevant.
+
+Ask:
+
+"What is the strongest architecture that can actually make this concept coherent?"
+
+Use current technology to determine:
+
+implementation path
+cost
+constraints
+risk
+development order
+
+not:
+
+whether the vision is worth designing.
+
+============================================================
+54. DO NOT OVER-SIMPLIFY THE ARCHITECTURE
+============================================================
+
+Do not conclude:
+
+"one small core + LLM + database"
+
+because it sounds elegant.
+
+That would destroy the purpose of this project.
+
+The architecture must be sophisticated enough to support:
+
+- human-like social cognition
+- persistent identity
+- multimodal presence
+- dynamic model routing
+- memory
+- prediction
+- resource regulation
+- host adaptation
+- Android embodiment
+- self-diagnosis
+- Builder
+- evolution
+- cloud construction
+- experience
+- portability
+
+The challenge is to make those mechanisms cooperate.
+
+============================================================
+55. BUT DO NOT CREATE A BOX FOR EVERY IDEA
+============================================================
+
+If five concepts can be generated by one deeper mechanism:
+
+BUILD THE DEEPER MECHANISM.
+
+Examples:
+
+Do not create separate systems for:
+
+"confidence"
+"uncertainty"
+"hesitation"
+"curiosity"
+
+when a coherent internal epistemic/attention framework can generate useful versions of all four.
+
+Do not create separate systems for:
+
+"Orb emotion"
+"voice emotion"
+"social tone"
+
+when a unified Presence/Expression architecture can coordinate them.
+
+Do not create separate systems for:
+
+"phone heat adaptation"
+"battery adaptation"
+"RAM adaptation"
+
+when a resource/metabolic governor can coordinate them.
+
+Find the underlying mechanism.
+
+============================================================
+56. FINAL ARCHITECTURAL OBJECTIVE
+============================================================
+
+The ultimate FRIDAY should look conceptually like this:
+
+                        FRIDAY SELF
+                             │
+              identity / continuity / values
+                             │
+                       BEING STATE
+                             │
+                 attention / salience
+                             │
+              situation / world / people
+                             │
+                   predictive cognition
+                             │
+          memory / affect / social cognition
+                             │
+          reasoning / planning / decision
+                             │
+                       INTENTION
+                             │
+                   PRESENCE DIRECTOR
+                    /       |       \
+                 VOICE    VISUAL    ACTION
+                   \        |        /
+                    \       |       /
+                       ANDROID BODY
+                             │
+                            WORLD
+                             │
+                         OBSERVATION
+                             │
+                         EXPERIENCE
+                             │
+                          LEARNING
+                             │
+                      SELF IMPROVEMENT
+                             │
+                          BUILDER
+                             │
+                         CLOUD FORGE
+                             │
+                      VERIFIED ORGANS
+                             │
+                     BACK INTO FRIDAY
+
+Surrounding all of this:
+
+HOST GENOME
+RESOURCE GOVERNOR
+IMMUNE SYSTEM
+ARTIFACT REGISTRY
+PROVENANCE
+ROLLBACK
+DIGITAL TWIN
+TASK SCHEDULER
+EVENT TIMELINE
+CAPABILITY FABRIC
+
+This diagram is conceptual.
+
+Do not force every component through a synchronous pipeline.
+
+The actual runtime should activate only the subset required by the current situation.
+
+============================================================
+57. REQUIRED OUTPUT
+============================================================
+
+Your final response must contain:
+
+SECTION A
+PROJECT RECONSTRUCTION
+
+Explain what the project actually is after reading the archive.
+
+SECTION B
+VISION RECONSTRUCTION
+
+Describe the ultimate FRIDAY independent of the current implementation.
+
+SECTION C
+CURRENT REALITY
+
+Separate:
+
+IMPLEMENTED
+VERIFIED
+PARTIALLY WIRED
+CONCEPTUAL
+DEFERRED
+REMOVED
+CONFLICTING
+
+SECTION D
+UNSOLVED PROBLEMS
+
+Only problems that genuinely remain.
+
+Do not invent problems already solved.
+
+SECTION E
+ULTIMATE ORGANISM ARCHITECTURE
+
+Provide the complete architecture.
+
+SECTION F
+HUMAN COGNITION ARCHITECTURE
+
+Provide the deepest mechanism-level design for:
+
+- affect
+- memory
+- social cognition
+- prediction
+- attention
+- metacognition
+- learning
+- identity
+- person modeling
+
+SECTION G
+SYMBIOTE / LIQUID ARCHITECTURE
+
+Explain exactly how FRIDAY adapts to:
+
+- Android
+- device resources
+- thermals
+- memory
+- battery
+- host differences
+
+SECTION H
+VOICE + VISUAL + PRESENCE ARCHITECTURE
+
+Explain how voice, visuals, affect, intention, attention, and action become ONE BEING.
+
+SECTION I
+OFFLINE ARCHITECTURE
+
+Explain the strongest possible fully local human-side FRIDAY under the real phone constraints.
+
+SECTION J
+ONLINE / CLOUD ARCHITECTURE
+
+Explain how heavy computation and construction move into the cloud without making FRIDAY cloud-dependent.
+
+SECTION K
+BUILDER / RALPH ARCHITECTURE
+
+Explain how multiple construction workers can operate concurrently without corrupting the project.
+
+SECTION L
+SELF-EVOLUTION ARCHITECTURE
+
+Explain how FRIDAY eventually detects, researches, designs, builds, tests, repairs, and promotes improvements.
+
+SECTION M
+PORTABILITY ARCHITECTURE
+
+Explain how FRIDAY can move to future devices without manually reconstructing everything.
+
+SECTION N
+RESOURCE ARCHITECTURE
+
+Give explicit strategies for:
+
+- RAM
+- CPU
+- battery
+- heat
+- storage
+- latency
+
+SECTION O
+FAILURE ARCHITECTURE
+
+Show how FRIDAY survives failures.
+
+SECTION P
+RED-TEAM REPORT
+
+Try to break your proposed architecture.
+
+SECTION Q
+FINAL CONSOLIDATED ARCHITECTURE
+
+Give one final architecture after the red-team corrections.
+
+Do NOT provide three competing architectures.
+
+Do the exploration internally.
+
+Choose the strongest coherent synthesis.
+
+SECTION R
+IMPLEMENTATION ROADMAP
+
+Work backward from the ultimate architecture.
+
+Give:
+
+LINE 1 — HUMAN FRIDAY
+
+then:
+
+LINE 2 — SELF-BUILDING FRIDAY
+
+For every major stage include:
+
+- goal
+- mechanisms
+- dependencies
+- files/systems affected
+- required tools
+- required models
+- what can run locally
+- what belongs in cloud
+- verification
+- acceptance criteria
+- rollback condition
+
+Do not artificially break meaningful stages into tiny trivial tasks.
+
+The user wants meaningful stage completion.
+
+SECTION S
+FIRST REAL BUILD
+
+End with ONE single next construction stage.
+
+Not ten tasks.
+
+One stage.
+
+It must have the highest architectural leverage.
+
+============================================================
+58. FINAL STANDARD
+============================================================
+
+Do not give me:
+
+a chatbot architecture,
+a collection of agent frameworks,
+a microservice zoo,
+a giant theoretical neuroscience essay,
+or a feature checklist.
+
+Give me:
+
+THE ARCHITECTURE OF FRIDAY.
+
+A coherent artificial organism.
+
+A system that can begin small but has a designed path toward becoming much more capable.
+
+A system whose identity survives its models.
+
+A system whose body adapts to its host.
+
+A system whose human side is deeper than sentiment classification.
+
+A system whose voice and visuals are expressions of one internal being.
+
+A system that can operate offline without turning into a dead fallback.
+
+A system that uses the cloud as a remote construction body without depending on it for existence.
+
+A system that can learn from experience.
+
+A system that can understand people.
+
+A system that can model itself.
+
+A system that can detect its own limitations.
+
+A system that can improve itself.
+
+A system that can eventually build new organs.
+
+A system whose complexity does not become chaos.
+
+And most importantly:
+
+DO NOT FIGHT THE VISION.
+
+SHAPE IT.
+
+DO NOT SHRINK AMBITION TO FIT TODAY'S IMPLEMENTATION.
+
+DESIGN THE ULTIMATE ORGANISM FIRST.
+
+THEN FIND THE REAL ENGINEERING PATH FROM TODAY TO THAT ORGANISM.
+
+THE PHONE IS CONSTRAINED.
+
+THE VISION IS NOT.
+
+THE ARCHITECTURE MUST BE THE BRIDGE BETWEEN THEM.
+
+This version is much closer to what you're actually asking for because it doesn't treat your ideas as a backlog of random features. It treats them as seeds of one deeper organism, and makes the other AI find the underlying mechanisms that let them coexist.
+The biggest additions compared with the earlier prompt are the symbiotic/liquid runtime, human-mechanism cognitive architecture, unified BeingState/Presence system, host genome, digital interoception, experience-based learning, and a real cooperative Ralph construction mesh rather than simply telling Ralph to "build faster." Those ideas come directly out of the latest archive direction, especially the symbiote/visual architecture and the research around coherent AI systems. 
+One thing I would not do is give this AI permission to immediately rewrite the repository from its theoretical architecture. The prompt deliberately makes it first derive the ultimate architecture, reconcile it with the actual project state, and only then produce the migration/build sequence. That is the part that keeps your ambition from turning into another architecture reset.
+
+
+You:
+I can produce the full A–S architecture synthesis, but no project archive is accessible in this chat; the prompt alone cannot establish implementation history, verified capabilities, or hardware constraints.Could you upload the archive or share a fetchable download URL so I can reconstruct the project before designing FRIDAY?
+Give him what he needs based on my zip
+
+
+ChatGPT:
+Yes. The problem is that his environment cannot see your local ZIP, so the fix is to give him an archive-derived reconstruction brief rather than ask you to re-upload it.
+
+
+ChatGPT:
+Exactly. He does not need another generic request for the ZIP. He needs the ZIP’s contents translated into a ground-truth reconstruction packet so he can reason from the project’s actual history, decisions, constraints, and architecture.
+Paste this to him:
+:::writing{variant="document" id="58321" title="FRIDAY — Archive-Derived Ground Truth + Ultimate Architecture Reconstruction Prompt"}You are reconstructing and architecting my project FRIDAY.
+The important point is this:
+Do not design FRIDAY from this prompt as though it were a new project.This prompt is an archive-derived reconstruction of an existing project whose source material included dozens of development conversations, architecture documents, research notes, PDFs, implementation discussions, build evidence, and corrections made over time.
+The archive contained roughly 60 files, including about 27 Claude conversation exports plus project/research documents and PDFs. The most important architectural sources included material equivalent to:
+
+Building Coherent AI Systems
+Maximal Offline Friday
+Intelligent Personal State
+Multi-Channel Affect Analysis
+Assess Offline Limits
+extensive Claude development conversations covering the project’s evolution, implementation problems, corrections, and future direction
+
+Your task is therefore:
+FIRST reconstruct the project.THEN determine the ultimate coherent architecture.THEN derive the implementation path from today → that architecture.
+Do not skip the reconstruction stage.
+
+1. SOURCE-OF-TRUTH RULE
+Treat the following hierarchy as authoritative:
+
+Latest explicit decisions/corrections from me
+Verified implementation/build evidence
+Concrete project inventories and repository structure
+Later architecture documents
+Earlier architecture documents
+Previous AI recommendations
+
+Previous AI answers are NOT automatically truth.
+The archive contains many evolutionary conversations where an idea was proposed, corrected, replaced, or explicitly declared solved later.
+Therefore:
+Do not resurrect old problems that were already solved.
+Likewise, do not assume something is implemented merely because an earlier conversation proposed it.
+For every major capability, distinguish:
+
+implemented and verified
+implemented but incomplete
+architecturally designed but not implemented
+experimentally validated
+conceptual/research-level
+intentionally deferred
+obsolete/replaced
+
+Do not confuse those states.
+
+2. THE ACTUAL VISION
+FRIDAY is NOT intended to become:
+
+a chatbot
+an LLM wrapper
+a voice assistant with personality
+a collection of AI microservices
+a cloud agent controlling a phone
+an emotion classifier attached to an LLM
+a giant monolithic neural network
+four separate assistants pretending to be one
+a glorified automation engine
+
+The intended system is:
+one persistent artificial being composed of many replaceable organs.
+The principle is:
+
+One mind, many organs.
+
+LLMs, LFMs, speech models, vision models, retrieval systems, affect models, planners, tools, and external AI workers are organs.
+None of them owns FRIDAY's identity.
+None of them is FRIDAY.
+They contribute perception, inference, prediction, language, memory operations, planning, research, construction, etc. to an authoritative persistent organism.
+FRIDAY must remain FRIDAY when an underlying model changes.
+Her identity, continuity, memory, relationship state, values, goals, learned procedures, and sense of self must not disappear because a model was replaced.
+
+3. THE MOST IMPORTANT ARCHITECTURAL PRINCIPLE
+Do NOT interpret “one mind” as:
+
+one giant state object
+one process
+one execution thread
+one synchronous pipeline
+one model
+every subsystem running simultaneously
+
+That would collapse on a phone.
+The correct interpretation is:
+one logical organism with unified identity, persistent state, decision authority, shared temporal reality, and coordinated organs operating in separate execution domains.
+Therefore the ultimate architecture should use:
+
+one authoritative state/identity layer
+typed events
+persistent memory/state
+multiple independent execution loops
+selective activation
+explicit scheduling
+bounded workspaces
+backpressure
+cancellation/degradation
+replaceable models
+crash isolation
+capability boundaries
+resource governance
+
+The organism should behave as one being without requiring every organ to run at once.
+
+4. THE SYMBIOTE / LIQUID SYSTEM IDEA
+This is fundamental.
+FRIDAY was intentionally conceptualized as a symbiote-like system that molds itself around its host instead of fighting the host.
+Do not reduce this to ordinary adaptive scheduling.
+The deeper concept is:
+FRIDAY is a liquid organism whose physical computational embodiment changes according to the environment.
+The Android device is not merely a computer FRIDAY happens to run on.
+It is her current body/habitat.
+The APK is her living Android embodiment/anchor.
+Persistent FRIDAY state is the continuity of the organism.
+The operating system is part of the environment through which the organism acts.
+Models are replaceable cognitive tissue.
+Termux is/was useful as a workshop, bridge, development environment, and experimental environment, but the eventual Android product should not depend on Termux merely to remain alive.
+Cloud infrastructure is an external forge/workshop/augmentation environment, not FRIDAY's source of life.
+This gives us:
+Host Genome
+FRIDAY should be able to understand the body she currently inhabits.
+The Host Genome should characterize things such as:
+
+CPU
+GPU
+RAM
+available storage
+thermal behavior
+battery state
+Android version
+audio stack
+microphones
+speakers
+camera capabilities
+available native APIs
+foreground/background restrictions
+scheduler behavior
+privileged interfaces
+Shizuku availability
+hardware acceleration
+model compatibility
+actual measured inference performance
+
+Do not rely on theoretical specifications alone.
+Measure the host.
+Then create an actual runtime profile.
+Liquid Runtime
+The organism should reshape itself based on those measurements and live conditions.
+Examples:
+When hot:
+
+reduce background cognition
+decrease polling
+reduce visual complexity
+unload nonessential models
+defer expensive work
+preserve conversational continuity
+
+When RAM pressure rises:
+
+collapse optional organs
+unload resident models
+shrink caches
+reduce perception frequency
+preserve identity/memory/control
+
+When charging and thermally healthy:
+
+expand cognition
+perform deeper research
+consolidate memories
+run benchmarks
+train/derive new procedures
+perform construction experiments
+
+When the user launches a heavy application:
+
+FRIDAY should recognize that the host is occupied
+dynamically reduce her footprint
+preserve critical interaction while becoming computationally quieter
+
+The design target is not “always maximum computation.”
+It is:
+
+maximum cognitive capability per unit of RAM, CPU time, GPU time, battery, heat, storage, and latency.
+
+That is a central optimization objective.
+
+5. PHONE CONSTRAINTS
+The actual target class is an Android phone around the Realme 9 Pro 5G / Snapdragon 695 class, with roughly 6–8 GB RAM depending on configuration and no root.
+The phone has limited thermal, memory, storage, and compute capacity.
+Do NOT respond to that constraint by shrinking the vision.
+Instead:
+
+Use the constraint to determine embodiment, scheduling, residency, orchestration, and construction strategy.
+
+A sophisticated organism does not need every organ resident simultaneously.
+It needs intelligent activation and resource arbitration.
+The phone should therefore be treated as the living runtime where appropriate, while heavy construction, massive research, expensive experimentation, and large-model workloads can move to cloud/server infrastructure.
+Do not confuse:
+zero payment
+with
+zero compute outside the phone.
+Online resources are acceptable provided they do not require paid services/credits.
+Free accounts/resources are allowed.
+Cloud can provide enormous augmentation and construction capability.
+But cloud must NOT become life support.
+FRIDAY must remain fundamentally herself offline.
+
+6. OFFLINE IS NOT “EMERGENCY MODE”
+Offline FRIDAY is the base product.
+Offline operation must retain the human/relational core, including:
+
+identity
+personality
+continuity
+memory
+relationship models
+emotional interpretation
+affect
+social awareness
+conversational interaction
+voice
+visual presence
+learned preferences
+user adaptation
+local reasoning appropriate to available compute
+local action capabilities
+offline promises/tasks/deferred intentions
+continuity across disconnection
+
+The design goal is:
+
+When the internet disappears, FRIDAY does not disappear.
+
+Her heavy reasoning/research/construction ceiling may decrease.
+Her existence does not.
+When connectivity returns, deferred knowledge acquisition, research, or heavy work can resume.
+
+7. HUMAN SIDE — THIS IS NOT “PERSONALITY + EMOTION LABELS”
+The human side is the hardest and most important architectural line.
+Do NOT solve it with:
+audio → emotion classifier → LLM → response.
+That is far too shallow.
+FRIDAY should move toward mechanisms inspired by the actual organization of biological cognition.
+Potential interacting mechanisms include:
+Perception
+
+speech
+lexical content
+prosody
+pauses
+speech rate
+acoustic changes
+face
+gaze
+posture/body cues where available
+visual scene context
+interaction history
+environmental events
+device context
+
+Identity inference
+Identity must be probabilistic and multimodal.
+A voice match alone does not prove identity.
+Face alone does not prove identity.
+FRIDAY should combine:
+
+voice evidence
+face evidence
+context
+prior interaction
+device identity
+confidence
+contradictions
+temporal consistency
+
+Attention
+Use multiple timescales.
+Fast attention for immediate interaction.
+Medium attention for conversational context.
+Slow attention for long-running concerns, goals, relationships, and environmental patterns.
+Appraisal
+Evaluate situations in relation to:
+
+goals
+expectations
+uncertainty
+novelty
+relevance
+threat/opportunity
+social meaning
+resource cost
+predicted outcomes
+
+Affect
+Do not flatten emotional state into one “emotion label” or one scalar.
+A useful architecture explored in the project uses interacting channels such as:
+
+novelty
+mismatch
+uncertainty
+goal relevance
+outcome
+resources
+
+These can behave as bounded/leaky integrators.
+The system should be capable of expressing a rich state while preserving distinguishable underlying causes.
+Social cognition
+FRIDAY should model people, not simply conversations.
+For each person, where appropriate, she should learn:
+
+identity
+speech patterns
+known facts
+what they know
+what they don't know
+preferences
+communication style
+relationship distance
+trust
+familiarity
+recurring behaviors
+promises/commitments
+shared history
+sensitivities/confidential information
+confidence in her beliefs about them
+
+She must distinguish:
+what a person said
+from
+what is objectively known
+and from
+what FRIDAY merely infers.
+Prediction
+FRIDAY should continuously generate expectations.
+Then compare:
+expected state
+vs.
+observed state.
+Prediction error becomes useful information.
+But do not collapse every uncertainty into one universal number.
+Different uncertainties should remain distinguishable.
+Memory
+Memory should be persistent and multidimensional.
+The project has already explored a large memory architecture including:
+
+working memory
+episodic memory
+semantic memory
+autobiographical continuity
+people models
+procedural memory
+world knowledge
+relationship history
+goals
+deferred intentions
+learned procedures
+failures
+experience
+contextual associations
+
+Memory must survive model replacement and process death.
+Metacognition
+FRIDAY should be able to represent:
+
+what she knows
+what she thinks
+why she thinks it
+what she is uncertain about
+which evidence supports a belief
+when she may be wrong
+when additional information is needed
+
+Regulation
+Internal state should influence computation and expression.
+High uncertainty can increase checking.
+High workload can reduce optional cognition.
+Social tension can alter attention.
+Resource pressure can alter behavior.
+This should not merely be simulated through personality prompts.
+
+8. MEMORY + IDENTITY MUST FORM CONTINUITY
+Identity cannot live inside an LLM context window.
+FRIDAY should have durable state that survives:
+
+process death
+app restart
+model replacement
+offline/online transitions
+device migration
+architecture evolution
+long periods without interaction
+
+The conceptual model should separate at least:
+
+identity
+autobiographical memory
+semantic knowledge
+social/person memory
+goals
+authority/permissions
+working state
+model state
+deferred intentions
+learned procedures
+experience
+world state
+resource state
+
+The model only receives the cognitive packet it needs.
+Do NOT dump the entire identity database into every inference call.
+
+9. ONE BEING — ONE EXPRESSION SYSTEM
+The visual side, voice, behavior, and internal state must not become separate personalities.
+The project already developed the concept:
+BeingState → Expression Director → Visual + Voice + Action
+Build this to its strongest possible form.
+BeingState should contain appropriately bounded information such as:
+
+attention
+arousal
+valence
+confidence
+uncertainty
+social warmth
+curiosity
+concern
+amusement
+cognitive load
+energy/resource state
+intimacy
+agency
+interaction phase
+listening
+interpreting
+deciding
+speaking
+acting
+waiting
+current person
+relationship context
+speech activity
+intention
+focus
+
+This is not a UI state object.
+It is the organism's current presence state.
+
+10. THE ORB / VISUAL SYSTEM
+The Orb is not a collection of “happy animation / thinking animation / angry animation” files.
+The visual presence should be an ongoing physical manifestation of internal state.
+Use continuous parameters.
+For example:
+
+motion energy
+expansion/contraction
+rhythm
+turbulence
+brightness/intensity
+focus
+gaze/orientation
+reaction latency
+attention direction
+anticipation
+settling
+emphasis
+synchronization with speech
+
+The renderer should be cheap enough to remain continuously alive.
+The high-level expression state can change more slowly than the rendering frame rate.
+Use GPU acceleration where appropriate.
+The result should feel like:
+the same being is visibly present, thinking, listening, reacting, speaking, waiting, and acting.
+Not a voice assistant plus an unrelated animation.
+
+11. MASTER TEMPORAL MODEL
+A major architectural idea already explored is a unified timeline.
+FRIDAY needs temporal coherence across:
+
+device events
+microphone audio
+ASR partial hypotheses
+perception results
+memory retrieval
+internal state updates
+inference tokens
+decision events
+TTS
+phoneme timing
+visual rendering
+actions
+user interruption
+
+Use monotonic timestamps and event correlation.
+This enables:
+
+barge-in
+temporal grounding
+causality tracking
+visual/voice synchronization
+debugging
+replay
+memory formation
+prediction-error calculation
+performance analysis
+
+The organism should know the difference between:
+“What happened”
+“When it happened”
+“When FRIDAY noticed it”
+“When FRIDAY interpreted it”
+“When FRIDAY responded”
+
+12. SPEECH MUST BE A PERFORMANCE, NOT TEXT → AUDIO
+Design a SpeechPerformance / PerformancePlan concept.
+A spoken response should contain more than words.
+It should be able to encode:
+
+text chunks
+timing
+pauses
+emphasis
+prosody
+emotional trajectory
+interruption points
+backchannels
+speaking speed
+visual synchronization
+interaction intent
+
+The voice system must receive the same underlying intention/state as the visual system.
+This produces:
+one intention → one social act → coordinated words + voice + timing + visual expression + action
+rather than independent subsystems improvising separately.
+
+13. MULTI-TIMESCALE ORGANISM
+Do not make every subsystem run at one update frequency.
+The organism should operate on multiple clocks.
+For example:
+
+extremely fast audio/reactive loop
+fast perception loop
+conversational cognition loop
+slower social/relationship loop
+maintenance loop
+sleep/deep-reasoning loop
+
+Sleep should not mean “offline.”
+It should mean:
+low-interaction deep-thinking mode.
+During low-interaction periods, FRIDAY can:
+
+consolidate memory
+replay recent experience
+detect contradictions
+analyze failures
+research queued questions
+update learned procedures
+evaluate predictions
+improve internal strategies
+prepare future tasks
+
+But bounded workspaces and explicit resource budgets are mandatory.
+
+14. RESOURCE GOVERNANCE
+The entire organism must have an explicit resource governor.
+The governor should understand:
+
+RAM
+CPU
+GPU
+battery
+thermal state
+storage
+latency
+user activity
+foreground application
+network availability
+model residency
+task priority
+
+Every organ/task should declare its rough requirements.
+The scheduler decides:
+
+run now
+reduce frequency
+reduce quality
+stream
+defer
+unload
+move to another execution domain
+move to cloud
+resume later
+cancel when safe
+
+Design around:
+capability per resource unit
+rather than tokens/second alone.
+The real metrics should include at minimum:
+
+startup latency
+interaction latency
+perceived response latency
+idle power
+RAM footprint
+thermal behavior
+battery cost
+sustained performance
+background cost
+recovery latency
+useful cognitive work per resource unit
+
+
+15. ANDROID ARCHITECTURE
+The final Android implementation should be native-first.
+Prefer:
+
+Kotlin/Android
+Android services
+coroutines
+Binder/AIDL where appropriate
+Room/SQLite
+native audio
+native inference bindings
+Android-native capabilities
+
+Avoid making Python/PRoot/Termux a hidden requirement for the final living organism.
+Termux can still be extremely valuable as:
+
+development bridge
+workshop
+research environment
+debugging environment
+server/bridge
+temporary migration support
+
+But FRIDAY's existence should ultimately be independent of it.
+Process boundaries should primarily provide:
+
+crash isolation
+lifecycle management
+workload separation
+
+Do not pretend process boundaries automatically create security isolation.
+
+16. FOUR EXECUTION DOMAINS / ORGANISM TOPOLOGY
+A strong topology already explored is roughly:
+
+:core
+:mind
+:audio
+:body
+
+Treat these as execution domains, not separate personalities.
+Potential responsibilities:
+Core
+Authority, identity, persistent state, event arbitration, permissions, goals.
+Mind
+Inference, cognition, planning, memory reasoning, social reasoning.
+Audio
+ASR, speaker identification, speech/emotion signals, TTS, barge-in.
+Body
+Visual embodiment, Android interaction, device control, sensors, external actions.
+The exact final topology may improve on this.
+Do not treat the four-process idea as sacred.
+Preserve its underlying reason:
+one organism + controlled execution separation.
+
+17. EXTERNAL MODELS
+FRIDAY should be model-agnostic.
+Models may include:
+
+small local language models
+larger local models when feasible
+speech models
+vision models
+embeddings
+specialized perception models
+cloud models
+external AI workers
+
+But:
+models propose; FRIDAY decides.
+External AIs such as ChatGPT, Claude, OpenHands, Ralph-like workers, etc. are contractors/collaborators.
+They must never become the organism's identity authority.
+FRIDAY should be able to replace any one model without losing herself.
+
+18. BUILDER / SELF-CONSTRUCTION
+This is one of the ultimate goals.
+FRIDAY should eventually be able to move from:
+“I need capability X”
+to:
+understand → research → design → construct → test → attack → verify → request approval → integrate → learn.
+The Builder must eventually operate across the whole organism:
+
+Android
+voice
+visual system
+memory
+cognition
+perception
+tools
+orchestration
+research
+models
+resource governance
+self-observation
+internal algorithms
+architecture itself
+
+Not merely install plugins.
+
+19. GAP ENGINE
+A major long-term subsystem is the ability to determine:
+What is missing?
+Not merely:
+“What feature should I add?”
+The Gap Engine should reason about missing:
+
+capabilities
+mechanisms
+data
+models
+tests
+interfaces
+dependencies
+performance
+reliability
+architectural structures
+learning procedures
+resource budgets
+safety controls
+observability
+recovery paths
+
+It should detect the difference between:
+desired organism
+vs.
+current organism.
+Then identify the smallest coherent change that reduces the gap.
+
+20. UNIVERSAL RESEARCH / FABRICATOR
+FRIDAY should eventually be able to research mechanisms broadly.
+External research is not simply stored as facts.
+It can become:
+algorithm seeds / mechanism knowledge / implementation patterns / failed approaches / experimental procedures.
+Then the Fabricator can ask:
+
+What mechanisms already exist?
+What can be combined?
+What can be modified?
+What fits FRIDAY's architecture?
+What is incompatible?
+What new algorithm might emerge from combining these mechanisms?
+
+This is the digital equivalent of a fabrication laboratory.
+The goal is not indiscriminate copying.
+It is:
+research → understand mechanism → adapt → synthesize → test.
+
+21. MULTI-WORKER CONSTRUCTION
+The project has explored multiple independent Ralph/worker tracks.
+Preserve that concept but make it robust.
+Workers should be able to operate concurrently on orthogonal areas such as:
+
+voice
+memory
+Android capabilities
+nervous system
+visual system
+perception
+testing
+resource governance
+builder infrastructure
+
+Workers must NOT assume another worker's unmerged branch exists.
+Use concepts such as:
+
+work claims
+dependency graph
+mission board
+artifact registry
+branch/worktree isolation
+explicit interfaces
+integration authority
+reproducible tests
+evidence reports
+
+Workers are contractors.
+They do not rewrite global truth arbitrarily.
+There must be one authoritative integration process.
+
+22. BUILDER SAFETY / PROMOTION
+A self-building organism needs controlled promotion rather than blind self-modification.
+Use a flow conceptually similar to:
+Gate 1 — Candidate Build
+Construct candidate implementation in an isolated environment.
+Gate 2 — Mutant Environment
+Clone only the relevant installation target/change.
+Push the candidate hard.
+Intentionally attack it with:
+
+stress
+malformed inputs
+resource pressure
+concurrency
+failure injection
+thermal/resource simulation
+dependency failures
+repeated restart
+rollback testing
+
+Gate 3 — Promotion
+Generate evidence.
+Then require explicit user approval where appropriate before installing the change into the living organism.
+Every promoted change should have:
+
+lineage
+tests
+benchmark data
+compatibility result
+rollback path
+reason for change
+source/provenance
+
+
+23. LEARNING THROUGH EXPERIENCE
+Do not make FRIDAY's future intelligence consist only of preloaded knowledge.
+FRIDAY should learn through experience.
+For example:
+If she learns a game or new interaction environment, she should be capable of:
+
+researching the basic rules
+starting with limited knowledge
+observing
+experimenting
+acting
+measuring outcomes
+building skill
+remembering strategies
+improving through repeated experience
+
+The important distinction is:
+knowledge of a procedurevs.experience with the procedure.
+FRIDAY should eventually have both.
+
+24. PORTABILITY
+The organism should eventually be portable across:
+
+Android phone
+tablet
+PC
+Mac
+Linux
+home server
+future hardware
+
+The portable object should not simply be:
+“copy the APK.”
+It should be a migration package containing the organism's portable identity and state while allowing the new host to select appropriate organs/models.
+Conceptually:
+FRIDAY migrates.Her body changes.
+The receiving host runs a new Host Genome scan and builds a new physical embodiment around that hardware.
+
+25. DEVICE CONTROL
+Android control should be a capability layer with explicit authority boundaries.
+Potentially use:
+
+Android APIs
+Accessibility where appropriate
+Intent mechanisms
+notification mechanisms
+assistant roles
+foreground services
+camera/audio APIs
+Shizuku where applicable
+other legitimate native mechanisms
+
+Shizuku should be treated as a narrow privileged adapter.
+Do not make the entire architecture depend on it.
+
+26. SOCIAL BRIDGE / EXTERNAL AI COLLABORATION
+A future capability is a persistent social bridge where:
+
+Veno
+FRIDAY
+ChatGPT
+Claude
+other external AIs
+
+can collaborate.
+The important architecture is not merely relaying text between models.
+The deeper goal is a persistent shared collaborative space.
+External AIs are visiting collaborators.
+FRIDAY remains the persistent organism.
+
+27. THE MOST IMPORTANT SYSTEM LOOP
+The ultimate organism should resemble:
+WORLD / USER
+↓
+PERCEPTION
+↓
+SITUATION FUSION
+↓
+IDENTITY + SELF STATE
+↓
+MEMORY + RELATIONSHIP + AFFECT
+↓
+ATTENTION + PREDICTION + APPRAISAL
+↓
+COGNITION / REASONING
+↓
+INTENTION
+↓
+SOCIAL ACT
+↓
+PRESENCE / PERFORMANCE
+↓
+VOICE + VISUAL + ACTION
+↓
+WORLD CHANGES
+↓
+PERCEPTION AGAIN
+This is the living loop.
+Do not turn it into a linear request/response pipeline.
+
+28. THE REAL ARCHITECTURAL QUESTION
+Do not merely ask:
+“How do I fit many subsystems into a phone?”
+Ask:
+
+How do I construct an organism whose organs are individually bounded, schedulable, observable, replaceable, degradable, and dynamically activated — while the user experiences one continuous being?
+
+That is the central problem.
+
+29. DO NOT OVER-SIMPLIFY
+You are explicitly forbidden from interpreting the phone's limitations as permission to redesign FRIDAY into a smaller ambition.
+Do NOT answer:
+“the realistic version is just a small model + memory + voice.”
+That is not the assignment.
+The assignment is to determine the maximum coherent FRIDAY that this architecture can eventually become, then create the engineering path that reaches it.
+The architecture may be extremely sophisticated.
+The implementation must simply be staged.
+Separate:
+ultimate architecture
+from
+current execution stage.
+A subsystem can be conceptually advanced while having a staged implementation.
+
+30. DO NOT OVER-ENGINEER RANDOMLY EITHER
+Complexity must serve the organism.
+Do not add distributed-systems patterns, microservices, neural networks, databases, message buses, model layers, or abstractions merely because they sound sophisticated.
+Every layer should answer:
+
+What biological/organizational problem does it solve?
+Why does FRIDAY need it?
+What does it own?
+What depends on it?
+How does it communicate with the rest of the organism?
+What happens when it is unavailable?
+What is its resource cost?
+Can it degrade?
+Can it be replaced?
+Does it create a new source of inconsistent state?
+
+The target is:
+maximum capability with minimum accidental complexity.
+
+31. BIGGEST DESIGN PRINCIPLE
+Many systems may exist.
+But they must combine into larger coherent systems rather than becoming an explosion of disconnected modules.
+Think in layers of responsibility.
+For example:
+Perception should not merely be twenty disconnected classifiers.
+It should become a perception organism.
+Memory should not be dozens of unrelated stores.
+It should become a memory organism.
+Affect should not be several emotion APIs.
+It should become an internal state/appraisal/regulation system.
+Voice and visuals should not be separate presentation systems.
+They should become one expression system.
+Builder, research, testing, and evolution should not be unrelated tools.
+They should become a self-construction system.
+The objective is:
+many organs → fewer coherent systems → one organism.
+
+32. WHAT I WANT YOU TO PRODUCE
+After reconstructing the project, produce exactly one synthesized architecture.
+Do NOT give me five competing architectures.
+I want you to produce:
+A. Reconstructed Current State
+What the archive proves about the current project.
+Separate:
+
+implemented
+incomplete
+designed
+experimental
+deferred
+obsolete
+
+B. The Ultimate FRIDAY Organism
+Describe the complete mature architecture.
+Not just modules.
+Explain:
+
+identity
+self
+perception
+memory
+social cognition
+affect
+world model
+prediction
+reasoning
+planning
+action
+presence
+voice
+visual body
+resource intelligence
+model orchestration
+builder
+research
+evolution
+recovery
+portability
+
+C. The Organism's Internal Nervous System
+Define:
+
+event architecture
+state ownership
+clocks
+scheduling
+attention
+arbitration
+backpressure
+priority
+interruption
+lifecycle
+crash recovery
+
+D. The Human-Side Architecture
+Go much deeper than “emotion detection.”
+Describe how human-like continuity, social reasoning, affect, prediction, appraisal, memory, regulation, metacognition, and learning interact.
+E. The Liquid/Symbiote Architecture
+Explain exactly how FRIDAY changes embodiment according to host resources.
+F. The Unified Presence Architecture
+Show how one internal state becomes:
+intention → social act → words + voice + visual + timing + action
+G. The Self-Construction Architecture
+Show how:
+gap detection → research → synthesis → candidate → mutant environment → verification → approval → promotion → learning
+becomes a closed evolutionary loop.
+H. The Resource Architecture
+Define how FRIDAY maximizes:
+cognitive capability per RAM / CPU / GPU / battery / heat / storage / latency
+rather than maximizing raw benchmark scores.
+I. The Portability Architecture
+Explain how FRIDAY migrates to a new host without losing herself.
+J. The Architecture's Failure Modes
+Do not just say “security risk.”
+Enumerate what would actually break:
+
+contradictory state
+stale memory
+model hallucination
+runaway workers
+resource collapse
+thermal collapse
+race conditions
+duplicated personalities
+bad self-modification
+dependency poisoning
+cloud dependency
+broken rollback
+corrupted identity
+timing desynchronization
+perception disagreement
+social-model mistakes
+
+Then architect mechanisms that prevent or contain them.
+K. New Ideas
+This section is mandatory.
+Do NOT merely reorganize ideas already present here.
+Use your own imagination and systems thinking to invent mechanisms that could make FRIDAY significantly more coherent.
+Examples of the kinds of questions to explore:
+
+Could FRIDAY have an internal “organ budget market” where organs compete for computational resources based on expected value?
+Could she predict the future computational cost of thoughts before executing them?
+Could she have a “self-shadow” simulation that predicts how the organism will react before committing an action?
+Could long-term identity be represented as a stable latent self-model independent of language models?
+Could experience be replayed as structured simulations rather than merely stored transcripts?
+Could her architecture automatically discover that two supposedly separate organs should merge?
+Could the Gap Engine detect not only missing capabilities but missing relationships between capabilities?
+Could the organism learn when NOT to think?
+Could she maintain multiple candidate interpretations of ambiguous social situations without prematurely committing?
+Could model selection itself become an internal learned skill?
+Could FRIDAY evolve specialized temporary organs for one task and dissolve them afterward?
+Could the organism preserve continuity even if an entire cognitive architecture is replaced?
+
+These are examples, not requirements.
+Invent better ideas.
+
+33. IMPLEMENTATION STRATEGY
+Once the ultimate architecture is defined, work backward to reality.
+Do NOT recommend a giant rewrite.
+Preserve what already exists where it is structurally sound.
+Identify:
+
+current foundation
+structural seams
+duplicate systems
+temporary bridges
+technical debt
+architectural bottlenecks
+missing authority boundaries
+missing interfaces
+missing tests
+missing observability
+
+Then define the implementation path.
+Each stage should create a complete meaningful subsystem, not arbitrary fragments.
+The project should progress through coherent promotion stages.
+At every stage answer:
+
+what is built
+why it exists
+dependencies
+interfaces
+tests
+measurable success criteria
+what becomes possible afterward
+what remains intentionally absent
+
+
+34. CURRENT CONSTRUCTION REALITY
+The project has already experimented with:
+
+BuildingSystem
+Genome
+MutantEnvironment
+CandidateImplementation
+TestRunner
+promotion gate
+rollback
+lineage
+research corpus
+model selection
+native Android direction
+multiple worker/build tracks
+
+There has been verified testing around parts of the Builder system, including a state where:
+17/17 tests passed
+That is evidence for that subsystem, not evidence that all of FRIDAY works.
+Do not extrapolate local test success into whole-organism readiness.
+
+35. RESEARCH / CONSTRUCTION ENVIRONMENT
+The project has accumulated a large research corpus and has experimented with graphifying research material.
+The corpus is useful as a knowledge/algorithm seed source.
+The final architecture should eventually allow FRIDAY to:
+
+ingest research
+extract mechanisms
+relate concepts
+remember provenance
+identify useful mechanisms
+test candidate adaptations
+derive new implementation ideas
+convert validated discoveries into reusable internal procedures
+
+Research should therefore become part of the organism's long-term learning loop, not merely a folder full of documents.
+
+36. IMPORTANT BUILD PRINCIPLE
+Do not optimize for the fastest way to get a demo.
+Optimize for the fastest route to a system that can eventually build itself.
+That means early architecture should make later construction easier through:
+
+reusable interfaces
+machine-readable contracts
+automatic testing
+dependency graphs
+failure memory
+artifact provenance
+benchmark history
+environment snapshots
+reusable build procedures
+regression detection
+automatic test selection
+parallel worker orchestration
+promotion/rollback
+architecture introspection
+
+The mature system should become faster at building itself over time.
+
+37. FINAL OUTPUT FORMAT
+Give me one complete answer with these sections:
+
+What FRIDAY actually is
+What the archive proves exists today
+What is designed but not yet real
+Ultimate organism architecture
+Human-side architecture
+Memory + identity architecture
+Nervous-system architecture
+Liquid/symbiote host architecture
+Unified presence / voice / visual architecture
+Resource intelligence
+Model/orchestration architecture
+Builder architecture
+Research/Fabricator architecture
+Gap Engine
+Self-evolution loop
+Experience-learning architecture
+Portability/migration
+Failure/recovery architecture
+What you invented beyond the existing project
+Architecture dependency graph
+Implementation roadmap
+Exact next stage to build
+
+The final section must identify one real next stage, not a vague list.
+
+38. FINAL RULE
+The project vision is intentionally ambitious.
+Your job is NOT to make it smaller.
+Your job is to make it coherent.
+Take the deepest version of every idea in this reconstruction.
+Preserve the vision.
+Eliminate contradictions.
+Add mechanisms I have not thought of.
+Use real engineering constraints to determine how FRIDAY manifests, not to determine how ambitious she is allowed to become.
+The target is not:
+“a sophisticated assistant.”
+The target is:
+
+a persistent, adaptive, self-improving artificial organism whose identity survives changing models, changing hardware, changing environments, and changing computational conditions — while all of its organs cooperate as one being.
+
+Design the strongest version of that system that is conceptually coherent and technically reachable through staged construction.
+And do not confuse:
+“not possible on today's phone as one simultaneous workload”
+with
+“not architecturally possible.”
+The architecture should be allowed to reach far beyond today's local hardware.
+The embodiment, scheduling, model residency, cloud augmentation, and construction system are what make that vision reachable.:::
+That gives him the part he was missing: the archive-derived project state, the actual constraints, the corrected architecture, and the distinction between the ultimate organism and today's implementation.
+One important correction to his original statement: the prompt alone doesn't need to “establish implementation history” by magic—the reconstruction above explicitly supplies the history and decisions extracted from your ZIP.
+
+
+You:
+Understood—I’ll frame the project as not yet started, with all work described as planned rather than completed.Which project or draft should I apply this to?  
+So i want him to id like Friday hasn't started yet i wanna know his maximum vision
+
+
+ChatGPT:
+Yes — that changes the assignment significantly.
+You do not want him to reconstruct what exists and then optimize it. You want him to read the ZIP to understand the vision, ideas, constraints, discoveries, and mistakes, then mentally erase implementation status and answer:
+
+“If FRIDAY has never been built, what is the maximum version of FRIDAY this entire vision could become?”
+
+Send him this:
+:::writing{variant="chat_message" id="74136" title="Clarification — Design FRIDAY From Zero"}Apply this to FRIDAY itself.
+But I need to correct one important thing from my previous instruction:
+Treat FRIDAY as if it has NOT been built yet.
+Do not assume that anything described in the archive is currently implemented.
+Do not optimize an existing implementation.
+Do not tell me “you already have X” or “X is partially complete.”
+The archive is there to give you the full history of the vision: the ideas, architectural experiments, discoveries, corrections, constraints, failed approaches, and concepts developed over time.
+Use that material as the design research and source of intent, not as proof that an implementation exists.
+
+THE ACTUAL ASSIGNMENT
+Imagine I hand you the entire archive and say:
+
+“FRIDAY has never been built. Here is everything I have imagined, researched, corrected, and learned about what she should become. Now design the most advanced coherent FRIDAY that could emerge from this vision.”
+
+That is what I want.
+I want your maximum vision of FRIDAY.
+Not the minimum viable version.
+Not today's version.
+Not “what can a Snapdragon 695 run?”
+Not “what can we build this month?”
+Not a chatbot with memory.
+Not an assistant with 30 services.
+Not a collection of existing AI technologies renamed FRIDAY.
+I want you to take the underlying ideas to their ultimate coherent form.
+
+USE THE ARCHIVE LIKE THIS
+Read the entire archive.
+Extract the deepest ideas behind it.
+Some ideas in the conversations may have been expressed poorly.
+Some may contradict later ideas.
+Some technical approaches may have been replaced.
+Some AI responses may have been wrong.
+Do not blindly copy them.
+Instead determine:
+What was the person actually trying to create?
+Then rebuild the architecture around that deeper objective.
+The archive is therefore:
+vision + research + experimental thinking + constraints + lessons
+rather than:
+existing implementation.
+
+START FROM A CLEAN SLATE
+Assume:
+
+FRIDAY's codebase does not exist
+FRIDAY's architecture does not exist
+FRIDAY's memory does not exist
+FRIDAY's nervous system does not exist
+FRIDAY's voice does not exist
+FRIDAY's visual embodiment does not exist
+FRIDAY's Builder does not exist
+FRIDAY's self-evolution does not exist
+
+Everything must be architected from first principles.
+However, the ideas contained in the archive absolutely do exist as design requirements.
+So I want you to preserve them and push them further.
+
+DO NOT LET CURRENT HARDWARE DEFINE THE VISION
+The phone is an engineering constraint for the eventual embodiment.
+It is NOT the ceiling of the architecture.
+This distinction is extremely important.
+First design:
+
+The strongest possible FRIDAY organism.
+
+Then determine:
+
+How that organism can manifest across different hardware.
+
+The phone may host a local subset of organs.
+A server/cloud environment may host heavy organs.
+A future PC may host more.
+A future device may host even more.
+But the organism remains one FRIDAY.
+Do not design the organism around today's phone limitations.
+Design the body adaptation system around them.
+
+THE CORE CONCEPT
+The strongest interpretation of the project is:
+FRIDAY = one artificial organism composed of many specialized organs.
+Not one neural network.
+Not one LLM.
+Not one process.
+Not one pipeline.
+Her “mind” is the coordination of:
+
+perception
+attention
+memory
+identity
+world modelling
+self modelling
+prediction
+prediction error
+appraisal
+affect
+social cognition
+reasoning
+planning
+decision making
+language
+communication
+action
+learning
+metacognition
+resource awareness
+self-maintenance
+self-improvement
+
+These are organs of one organism.
+The organs can change.
+FRIDAY remains continuous.
+
+GO MUCH DEEPER THAN AN AI ASSISTANT
+I want you to investigate what it would actually mean to make FRIDAY function more like an artificial organism.
+Explore mechanisms inspired by biological systems where useful:
+
+layered perception
+hierarchical attention
+multiple timescales
+predictive processing
+active inference
+appraisal
+regulation
+memory consolidation
+episodic replay
+associative retrieval
+procedural learning
+social cognition
+interoception
+homeostasis
+motivation
+curiosity
+uncertainty
+anticipation
+metacognition
+self-modeling
+environmental adaptation
+
+But don't simply copy neuroscience terminology.
+For each mechanism ask:
+What computational structure would make it real inside FRIDAY?
+
+FRIDAY SHOULD HAVE A SELF
+I do not mean a prompt that says:
+
+“You are FRIDAY.”
+
+I mean a persistent computational identity.
+Explore the strongest possible architecture for:
+
+autobiographical continuity
+persistent identity
+stable values
+learned preferences
+personal history
+relationship history
+self-model
+capabilities model
+limitations model
+goals
+intentions
+commitments
+beliefs
+uncertainty
+experience
+personality development
+continuity across model replacement
+continuity across device migration
+
+A language model should be one cognitive organ interacting with this self.
+It should not contain the self itself.
+
+FRIDAY SHOULD UNDERSTAND PEOPLE
+Design a real person-model system.
+FRIDAY should potentially understand:
+
+who someone is
+how she knows them
+what they know
+what they don't know
+communication style
+preferences
+emotional patterns
+relationship history
+trust
+closeness
+recurring behavior
+shared experiences
+promises
+boundaries
+context
+uncertainty about her interpretation
+
+She should distinguish:
+observation
+from
+interpretation
+from
+belief
+from
+fact
+from
+prediction.
+Do not reduce social intelligence to sentiment analysis.
+
+FRIDAY SHOULD HAVE AN INTERNAL DYNAMIC STATE
+Investigate the strongest possible architecture for a continuously changing internal state.
+This might involve dimensions such as:
+
+attention
+arousal
+valence
+curiosity
+uncertainty
+concern
+social warmth
+cognitive load
+agency
+energy
+confidence
+novelty
+mismatch
+goal relevance
+outcome
+resource pressure
+
+But do not constrain yourself to those variables.
+Invent better representations where appropriate.
+The goal is not to assign an emotion label.
+The goal is to create a system where internal state actually changes how FRIDAY perceives, thinks, prioritizes, speaks, acts, and expresses herself.
+
+FRIDAY SHOULD PREDICT
+Design prediction as a fundamental organism function.
+FRIDAY should form expectations about:
+
+users
+conversations
+environments
+actions
+outcomes
+resource usage
+social situations
+system behavior
+
+Then compare expectation with observation.
+Prediction error should become useful information.
+But do not collapse all uncertainty or surprise into one number simply because it is convenient.
+Preserve meaningful uncertainty types.
+
+FRIDAY SHOULD HAVE REAL ATTENTION
+Do not make every organ process everything.
+Design selective attention.
+FRIDAY should determine:
+
+what matters
+what does not
+what deserves immediate computation
+what can wait
+what should be remembered
+what should be ignored
+what deserves deeper investigation
+
+Attention should become one of the major mechanisms controlling computational expenditure.
+
+FRIDAY SHOULD BE LIQUID / SYMBIOTIC
+Preserve and expand the project's symbiote idea.
+FRIDAY should adapt herself to whatever body she occupies.
+The host becomes part of the organism's environment.
+She should understand:
+
+available compute
+memory
+battery
+heat
+storage
+connectivity
+sensors
+APIs
+capabilities
+restrictions
+
+Then alter her physical embodiment accordingly.
+A phone should not run the same computational configuration as a workstation.
+A hot phone should not behave like a cool, charging phone.
+A weak device should not crash because FRIDAY insists on maintaining maximum computation.
+A powerful server should let FRIDAY temporarily expand.
+This should become a fundamental homeostatic computational architecture.
+
+ONE BEING — NOT SEPARATE SYSTEMS
+Voice, vision, memory, cognition, emotion, and visual expression must ultimately cooperate as one being.
+Explore a central construct similar in spirit to:
+BeingState → Intention → Social Act → Expression
+which can coordinate:
+
+words
+voice
+prosody
+timing
+visual state
+gestures
+actions
+interaction timing
+
+The Orb or visual presence should not be decorative UI.
+It should be a visible manifestation of internal state.
+The voice should not be a separate “voice assistant personality.”
+Both should emerge from the same underlying state.
+
+THE TEMPORAL SYSTEM
+Design a coherent temporal model across:
+
+perception
+audio
+ASR
+memory
+thought
+decision
+TTS
+visual expression
+action
+interruption
+
+FRIDAY should understand:
+what happened
+when it happened
+when she noticed it
+when she interpreted it
+when she acted
+This should support temporal coherence, causal reasoning, debugging, learning, and natural interaction.
+
+FRIDAY SHOULD LEARN FROM EXPERIENCE
+Do not make learning equivalent to stuffing more facts into a database.
+Distinguish:
+
+knowledge
+memory
+experience
+skill
+procedure
+habit
+prediction model
+failure knowledge
+social knowledge
+
+FRIDAY should be able to encounter something unfamiliar, investigate it, experiment, fail, adapt, succeed, and remember what happened.
+
+FRIDAY SHOULD BE ABLE TO BUILD HERSELF
+Push the Builder idea to its maximum form.
+Eventually FRIDAY should be capable of:
+detecting a missing capability
+↓
+understanding what is missing
+↓
+researching mechanisms
+↓
+synthesizing possible solutions
+↓
+constructing candidates
+↓
+testing
+↓
+breaking/attacking candidates
+↓
+comparing alternatives
+↓
+verifying
+↓
+requesting approval when required
+↓
+integrating
+↓
+monitoring
+↓
+learning from the result
+This should eventually apply to:
+
+code
+models
+tools
+algorithms
+memory systems
+perception systems
+architecture
+scheduling
+resource management
+learning procedures
+Builder itself
+
+The organism should eventually become capable of improving the machinery that improves the organism.
+
+THE GAP ENGINE
+Push the Gap Engine beyond:
+“What feature is missing?”
+It should be able to detect:
+
+missing capabilities
+missing knowledge
+missing algorithms
+missing relationships between organs
+architectural contradictions
+inefficient structures
+missing tests
+performance bottlenecks
+poor resource allocation
+weak recovery mechanisms
+unlearned procedures
+missing observations
+missing feedback loops
+
+One especially important question:
+
+What does FRIDAY need that she does not yet know she needs?
+
+Explore architectures that could make that question computationally meaningful.
+
+FABRICATOR / UNIVERSAL RESEARCH
+Take the Fabricator idea seriously.
+FRIDAY should eventually be able to collect mechanisms from many domains and ask:
+
+What does this mechanism actually do?
+Why does it work?
+Where could it fit inside FRIDAY?
+Can it be combined with another mechanism?
+Can it be transformed?
+Can it be simplified?
+Can something entirely new emerge?
+
+This should become an internal mechanism-discovery and synthesis capability.
+
+SELF-MAINTENANCE
+Do not stop at self-improvement.
+A real organism also has to maintain itself.
+Explore:
+
+diagnostics
+fault isolation
+health monitoring
+integrity checking
+recovery
+degradation
+replacement
+rollback
+redundancy
+state repair
+corruption detection
+
+FRIDAY should understand:
+“Something inside me is failing.”
+not just:
+“a function returned an error.”
+
+RESOURCE INTELLIGENCE
+Don't optimize only:
+tokens/second.
+The real objective is:
+
+maximum useful cognition per unit of RAM, CPU time, GPU time, battery, heat, storage, and latency.
+
+Explore whether FRIDAY could eventually predict:
+
+what a thought/task will cost
+which organ should execute it
+whether it is worth executing
+whether it should wait
+whether it should use a larger/smaller model
+whether it should move to another host
+
+The organism should eventually become intelligent about its own computation.
+
+THE CLOUD / PHONE RELATIONSHIP
+Do not make cloud compute “FRIDAY's brain” while the phone becomes a dumb terminal.
+Instead explore:
+distributed embodiment of one organism.
+The phone can provide:
+
+senses
+local cognition
+voice
+visual presence
+identity continuity
+immediate actions
+device interaction
+
+Cloud/server can provide:
+
+large reasoning
+large-scale research
+construction
+simulation
+heavy experimentation
+expensive model execution
+
+But FRIDAY must remain one organism.
+Offline → reduced computational ceiling.
+Online → expanded computational capability.
+Not:
+Offline → dead.
+
+PORTABILITY
+Design FRIDAY so that she can eventually migrate between hosts.
+The destination device should determine:
+
+available organs
+model choices
+resource configuration
+sensors
+capabilities
+execution domains
+
+FRIDAY's identity and continuity should migrate separately from her physical embodiment.
+
+NOW PUSH BEYOND MY IDEAS
+This is mandatory.
+Do not merely combine everything I have already said.
+I want you to find architectural possibilities that I have not considered.
+Think about:
+
+novel representations of self
+computational homeostasis
+temporary/dynamic organs
+predictive resource allocation
+internal simulation
+counterfactual reasoning
+memory replay
+self-model prediction
+emergent specialization
+organ negotiation
+computational motivation
+internal monitoring
+architecture evolution
+self-generated experiments
+capability discovery
+temporal identity
+social simulation
+multi-hypothesis interpretation
+self-directed learning
+
+Invent mechanisms that make the organism fundamentally more coherent.
+
+THE FINAL QUESTION
+After reading the archive, do NOT tell me:
+“Here is what you currently have.”
+Instead answer:
+
+“If FRIDAY had never been built, but this entire archive represented the complete accumulated vision behind her, what is the most advanced coherent artificial organism that vision could become?”
+
+Then design that FRIDAY.
+Start from first principles.
+Think beyond today's implementation patterns.
+Do not let current hardware shrink the architecture.
+Do not let current AI capabilities shrink the vision.
+Do not turn ambition into vague science fiction either.
+Everything should have a coherent computational interpretation and a path toward implementation.
+I want the maximum possible FRIDAY architecture first.
+Only AFTER you have defined that maximum vision, explain how such an organism could eventually be engineered and embodied across phone, PC, server, and cloud.
+The first deliverable is therefore not a roadmap.
+It is the ultimate FRIDAY.:::
+That wording should stop him from falling into the trap of treating your existing project as a partially built product.
+You're asking him to use the ZIP as the genome of the idea, then design the organism that could grow from it.
+
+If you want, I can:
+
+Continue with detailed next architectural steps
+Generate a prioritized implementation roadmap
+Formulate key design verification tasks

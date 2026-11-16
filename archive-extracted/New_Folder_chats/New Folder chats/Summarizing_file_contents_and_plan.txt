@@ -1,0 +1,241 @@
+Summarizing file contents and plan
+==================================
+
+You:
+After reading that file and gpt tell me what's the plan
+
+
+You:
+Continue
+
+
+Claude:
+Still reading: I've been through both files except GPT's last reply. Now checking your project notes and re-verifying the Jules and Freebuff dates, then one report.The plan: two free workers build the same story this week, CI and I judge the results, and nothing new gets built until one change is merged. GPT rated this 8.5/10 and its four fixes are in. This is only the build route and changes nothing about what Friday is. It's taps only and nothing is paid.
+
+Jules, today. Sessions can only be finished until Nov 11, after which it's read-only. Use repo Friday, base branch audit/ls-wake-order-red, story LAUNCH-WAKE-ORDER. When it opens a PR, tap Actions → build → Run workflow on its branch.
+Freebuff, same days, with you present. From Nov 12 a human must start every session and stay present. It allows one account only and no VPN, and it may ask for an ID photo and selfie. If it asks for the ID, skip Freebuff. There are no unattended nights on this route. Use branch audit/ls-wake-order-fb1, which CI builds by itself.
+Send me both links. I read each diff and CI run and say merge, retry or slice. Never merge both. audit/ls-wake-order-red stays untouched as the baseline.
+Three tries per story, each different. Build it; fix the exact failure from try 1; fix the smallest failure left. If it's still red, I cut the story smaller. No re-planning.
+Then test Antigravity in one Codespace. The test is stop, save to Git, resume, because free use runs on a weekly quota. Codespaces blocks rather than bills when the free allowance runs out with no card. Egypt is supported if your Google account's country says so, but third-party tools on an Antigravity login break its terms and can get the account suspended. So no Orca: Antigravity runs directly or not at all. I'll take the exact lines from its docs. No Tailscale or runners either until a change is merged.
+
+Success is a green build on the right branch, the story's criteria met in the diff, and you merging it. A PR or a confident worker message is not success.
+Not checked: your repo, which I can't open from here, so the branch names and main fa6af12 come from your chat file. I also haven't checked whether Jules and Freebuff accept your account. The first runs will answer that.
+Paste into both workers:
+Repo: mhw77655-hue/Friday. Read AGENTS.md first, then .ralph/VISION.md.
+Build only story LAUNCH-WAKE-ORDER from .ralph/prd.json.
+Its red tests are on branch audit/ls-wake-order-red: start from it, keep that test file byte-identical.
+Do not run Gradle or any build; CI does that. Do not edit .github/**, .ralph/prd.json or .ralph/ci_verify.sh.
+Never push to main. Push to a new branch (Freebuff: audit/ls-wake-order-fb1).
+End with: files changed, how each acceptance criterion is met, what is unproven.
+
+
+
+You:
+My opinion: this is the first plan in this process that I'd genuinely stop debating and execute. 9.5/10.
+And I mean that for a specific reason: it finally puts a real deliverable ahead of infrastructure.
+I wouldn't change your plan.
+What I particularly agree with
+
+Two workers, one story: This gives us actual comparative evidence. We can see whether different workers independently understand and implement the same requirements.
+
+Keeping the red baseline untouched: Essential. Otherwise, we risk losing the evidence of what we're trying to fix.
+
+CI as the judge: Much better than trusting an agent's report that its implementation works.
+
+Three distinct attempts: This prevents repeatedly feeding the same failure back into an agent and calling it progress.
+
+Antigravity later: Correct prioritisation. Prove that a worker can deliver first; investigate durable cloud execution afterwards.
+
+No Orca, no Tailscale, no extra infrastructure: Correct. None of those things fixes a failed implementation.
+
+
+The most important thing
+You're changing the nature of the project temporarily without changing its ultimate ambition.
+You're not building a smaller Friday.
+You're establishing the first reliable mechanism through which Friday can be built.
+That distinction matters enormously.
+What I want to see happen next
+
+Jules produces a branch and PR.
+  First evidence
+
+Freebuff independently produces its branch.
+  Second evidence
+
+We compare actual implementations, not explanations.
+
+One implementation passes CI and meets the acceptance criteria.
+  Real progress
+
+You merge it.
+  First accepted delivery
+
+
+One thing I want to be particularly strict about: if both workers fail, that does not automatically mean the architecture is wrong. We first inspect whether the specification, baseline tests, worker capability or environment caused the failure.
+My verdict: stop planning. Run the two attempts. Bring me the two PR links and their CI results. I'll judge the code against the actual requirements, not defend either worker.
+That's how we start getting Friday built instead of spending another month discussing how to build her.
+Ok now tell me what to do step by step
+
+
+Claude:
+Do Jules first, today. Sessions can only be finished until Nov 11, then Jules goes read-only.
+Jules (about 10 minutes)
+
+Open jules.google.com in your phone browser and sign in with your Google account.
+Connect GitHub, choose only the Friday repo, and save. Jules then shows a repo picker and a prompt box.
+Pick mhw77655-hue/Friday and branch audit/ls-wake-order-red.
+Paste the prompt at the bottom and tap Give me a plan. If you see a plan-mode menu, don't pick Plan and go.
+Jules shows its plan before it changes any code. Approve only if it leaves .github, .ralph/prd.json, .ralph/ci_verify.sh and the red test file alone. If not, type "leave those alone" in its chat.
+When it finishes, tap Create branch (it may say Publish branch). Skip the PR. The branch should be audit/ls-wake-order-jules1. If it isn't, don't fix it, just tell me.
+
+Freebuff (same day, you present)7. Open freebuff.com and sign in with GitHub. One account only, no VPN, and you stay on the screen while it runs. If it asks for an ID photo and selfie, stop there. Jules still carries the plan.8. Open Cloud and tap Connect a repository. Pick Friday, then paste the same prompt.
+Then9. Open github.com/mhw77655-hue/Friday/actions. Pushes to audit/ branches build by themselves, so wait for the result.10. Paste here each worker's final message, plus these two links if they open. They show exactly what each worker changed.https://github.com/mhw77655-hue/Friday/compare/audit/ls-wake-order-red...audit/ls-wake-order-jules1https://github.com/mhw77655-hue/Friday/compare/audit/ls-wake-order-red...audit/ls-wake-order-fb111. I judge: merge, retry or slice. If both fail, I check the spec, the red tests, the worker and the environment before blaming the design. A retry is a new prompt from me aimed at the exact failure.
+Prompt for both:
+Repo: mhw77655-hue/Friday. Read AGENTS.md first, then .ralph/VISION.md.
+Build only story LAUNCH-WAKE-ORDER from .ralph/prd.json.
+Its red tests are on branch audit/ls-wake-order-red: start from it, keep that test file byte-identical.
+Do not run Gradle or any build; CI does that. Do not edit .github/**, .ralph/prd.json or .ralph/ci_verify.sh.
+Never push to main. Do not open a pull request. Push to one new branch only: audit/ls-wake-order-jules1 if you are Jules, audit/ls-wake-order-fb1 if you are Freebuff.
+End with: files changed, how each acceptance criterion is met, what is unproven.
+
+Not checked: I couldn't open Freebuff's Cloud screens, so its button names may differ, and I don't know whether Jules accepts your account. If either surprises you, tell me what you see.
+
+
+You:
+So now whatWhat do u think and for the record i didn't do the freebof yet
+
+
+You:
+Continue
+
+
+Claude:
+Reply yes, with three small additions. It's a good plan. It started from the red branch, kept the branch name, and its six items match the story's six acceptance criteria. I checked it against the story text in your chat file, not the live repo, which I can't open. That also settles two unknowns: Jules accepts your account and followed the branch rule.
+Two gaps to close now:
+
+:voice accessors: the story also requires the accessors the :voice process uses to answer "not ready" instead of throwing. Jules only mentions the screens.
+No build: Jules can't build, so a change across ten screens may not compile on the first push. Splitting initialized into new states is safer than renaming it blind. CI will tell us either way.
+
+Paste into "Talk to Jules":
+Yes, proceed on audit/ls-wake-order-jules1. Also cover the accessors the :voice process uses (AC2). You can't compile, so prefer adding new states over renaming, and search every use of anything you change. AC6 needs two different mechanisms. Finish with: files changed, how each AC is met, what is unproven.
+
+
+If a plan card with Approve appears, approve it only if it leaves .github, .ralph/prd.json, .ralph/ci_verify.sh and the red test file alone.
+If the bar at the top is asking to enable notifications, tap Enable, then go to sleep. Jules works without you.
+When it finishes, tap Create branch, then open github.com/mhw77655-hue/Friday/actions and wait for that branch's run.
+Do Freebuff tomorrow when you're awake and present. Jules is the one with the deadline: it goes read-only after Nov 11, so nothing is lost.
+Bring me Jules' final message and the CI result. If it asks anything else, send me a screenshot.
+
+
+
+You:
+So
+
+
+You:
+Continue
+
+
+Claude:
+Reply yes, with one safety check. Jules is paused ("Session is inactive") until you answer the question at the bottom.
+
+Good: it did everything in the plan and added code without renaming. That means readiness states, typed slots, one EngineAccess door, all ten screens plus the nav host, the unit test and the incident note.
+Not proof yet: its "tripwire passes" check was its own, since it can't run Gradle. CI decides.
+Check: the review pane lists your cloud Ralph files (ralph.yml, run.sh) as deleted. Most likely the pane compares against main and the red branch is older than those files. The same log entry lists the red test file, and those three are exactly where main and the red branch differ. But .github/** is off limits, so we prove it instead of assuming.
+
+Paste into "Talk to Jules":
+Yes, proceed. Before you commit, diff against origin/audit/ls-wake-order-red and put the changed-file list in your final message. These must not appear: anything under .github/ or .ralph/cloud/, .ralph/prd.json, .ralph/ci_verify.sh, UiEngineAccessTripwireTest.kt. Your review pane shows ralph.yml and run.sh as deleted; if that is only because the red branch never had them, say so, otherwise restore them from the red branch. Also say how you verified the tripwire without Gradle, what you changed for the :voice callers, and what is unproven.
+
+
+When it finishes, tap Create branch (it may say Publish branch).
+Open github.com/mhw77655-hue/Friday/actions and wait for the run on audit/ls-wake-order-jules1.
+Send me Jules' final message and this link. It's the real diff against the red branch, and those two files shouldn't appear in it: https://github.com/mhw77655-hue/Friday/compare/audit/ls-wake-order-red...audit/ls-wake-order-jules1
+Freebuff stays for later today, when you're up and present.
+
+
+
+You:
+So
+
+
+Claude:
+Don't merge. Try 1 is red, and the PR has a second problem.
+
+Red CI: Jules finished everything, then opened PR #3 into main by itself, even though we said no PR. CI failed on build / debug-apk. That's normal for a first try written without a compiler, and it isn't a verdict on the route.
+The catch: the PR says +556 −377. The two files Jules' own review pane marks as deleted, ralph.yml (39 lines) and run.sh (313), make up 352 of those 377. So the PR very likely deletes both from main, whatever Jules says about preserving them. The likely cause is that Jules compares against main while the red branch is older than those files. Nobody intended it, but merging would remove them.
+
+What to do:
+
+Plug in your phone, it's at 9%.
+Don't tap Merge and don't close the PR. The screen says Jules has been notified of the failure, so it may already be fixing it. If it's mid-fix, let it finish.
+Then paste this into Jules:
+
+Two fixes, then stop.
+1. This PR is against main, and its diff deletes .github/workflows/ralph.yml and .ralph/cloud/run.sh. Run git diff --stat origin/main. Only these may differ from main: your engine, UI and test files for this story, the two incident notes, and UiEngineAccessTripwireTest.kt. Restore everything else byte-identical from origin/main, including those two files.
+2. CI failed on build / debug-apk. Read the failed log, fix only that cause, and keep UiEngineAccessTripwireTest.kt byte-identical.
+Then tell me: what the CI error was, what you changed, how you verified the tripwire without Gradle, what you changed for the :voice callers, and what is unproven.
+
+
+When Jules pushes again, open the PR and tap Checks. If it's green, paste the PR link here. If it's red, screenshot the red step's error lines (lines starting with e:, or "What went wrong") and send them.
+Freebuff can wait until you've slept and charged up.
+
+
+
+You:
+I merged it now what mate
+
+
+Claude:
+That's the milestone: one worker has landed one story, so the "no new infrastructure" gate is open. It isn't proven yet. You merged before I read the diff, and green CI only tells us it compiles and its checks pass. Nothing is lost if something's wrong, because the merged PR has a Revert button.
+
+Check what I flagged. On GitHub, open the Code tab on main, then .github/workflows and .ralph/cloud. ralph.yml and run.sh should both still be there. Jules' second commit looks like its own CI fix, so I can't tell if it also restored them. If either is gone, tell me and don't touch anything.
+Watch main's own build. Go to Actions and open the newest run on main. It should go green.
+When you're up to it, install the APK from that run's Artifacts and open it. A waking screen or a shown failure instead of a crash is the win. The story itself says full proof of the first-launch race waits for the device test after the rename.
+Skip Freebuff for this story. Jules already landed it, so a second version would be duplicate work. Jules goes read-only after Nov 11, so if you want it to take one more story first, tell me which one. It must start from main this time, not the red branch, which is the likely cause of the deleted-files scare.
+
+Optional: paste the PR #3 link and I'll try to read the changed-file list myself.
+Chosen: end the race early. Given up: a second implementation to compare against.
+
+
+You:
+https://github.com/mhw77655-hue/Friday/pull/3
+I guess that's a progressFor the record i record the logs with shizuku next appEverything u need in the zip
+
+
+Claude:
+Still working through your zip. The new log shows no crash, so now I'm reading the PR page, the old Oct 24 crash log and your screenshots, then one report.
+
+
+You:
+Continue
+
+
+Claude:
+Nearly there: the phone log is clean. I'm checking which story is next in your repo's queue, then one report.Finished reading the zip, the PR and the CI runs. Here's the report.
+More than a guess: both launch crashes from your Oct 24 log are gone on your phone, and the merge is clean.
+Your logs
+
+Before (Oct 24): three crashes in ten seconds. The app died 1.15 s after start with JarvisEngine.init() must run first from HomeScreen. Then it crashed on Ollama server unreachable at 127.0.0.1:8080, and so did the :voice process.
+After (Nov 10, 07:08): 2 min 8 s with zero crashes. The System screen shows the voice process bound with 0 restarts. The first window opened about 50 ms before the engine's body coordinator started, the same window that killed the old build, and nothing died. The model server at 127.0.0.1:8080 still isn't running, but it now shows as data (Model Manager "Failed to connect", System "MODEL ×1").
+Screens: Home, Chat, Missions, Environment, Model Manager, Memory, Tools, System, Sandbox and Settings all opened.
+
+The merge, from GitHub
+
+PR #3 changed 18 files, +598 −29, and touched nothing under .github or .ralph/cloud.
+Main's build #71 is green. The first attempt (#69) failed in under two minutes, Jules' fix (#70) passed, and the red baseline (#64) stayed red.
+Since CI-HONEST on Oct 25, a red test is a red build, so green means the tests passed.
+
+Still unproven
+
+One clean launch doesn't prove a race fix. Swipe the app away and reopen it five more times. If it ever crashes, send me that log.
+Task Inbox, Approvals, Alerts, Sessions and Bootstrap weren't in your screenshots, so open each once.
+Jules left part of AC2 undone: initialized still flips at start and is now public, the old throwing getters remain for non-UI code, and :voice wasn't touched. That's harmless today.
+I read the engine, the facade and the incident note, not the ten screens. The phone run is the evidence for those.
+
+Next
+
+Don't run Ralph yet. The PR didn't touch prd.json, so it should still list this story as open and he'd rebuild it.
+Next story: the Jarvis → Friday rename. It's next in your own sequence, and the story notes put the proper device test after it. I'd do the visible name first (app label and on-screen text, small and safe) and the package names later, since renaming packages blind is what burns days. Chosen: visible first. Given up: internal names stay Jarvis for now.
+New defect for later: streaming TTS fails to play cached audio four times at every start. It isn't a crash.
+
+Say "go" and I'll write the rename spec and the Jules prompt. Jules goes read-only after Nov 11.

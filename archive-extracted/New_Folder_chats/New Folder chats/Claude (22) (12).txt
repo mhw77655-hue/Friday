@@ -1,0 +1,1117 @@
+Claude
+======
+
+You:
+Files hidden when shared
+Look all what i want is to build the first FRIDAY capable of becoming the final FRIDAY Is damn thing i need to do now what's plan after reading my entire project files line by line
+
+
+Claude:
+Ran 5 commands, read a file, read memoryRan 5 commands, read a file, read memory
+
+
+You:
+Continue
+
+
+Claude:
+Ran 2 commandsRan 2 commands
+
+
+Claude:
+Ran 5 commandsRan 5 commandsStill reading: repo map, VISION.md, latest Ralph report and last session's directives are done. Now reading the last session's final replies, then the newest GPT vision chat and the code itself.
+Ran 6 commandsRan 6 commandsNow checking the code itself: what actually runs on the live path versus what only exists in tests, since the plan depends on that.
+Ran 3 commandsRan 3 commands
+
+
+Claude:
+Ran 19 commands, updated 2 memoriesRan 19 commands, updated 2 memoriesDone reading. The plan is below, with the first story ready to paste.
+What I actually read. The zip is 5,181 files (~210 MB, mostly git history and binaries), so "every line" would be false. I read closely: VISION.md, the newest Ralph report, the audit output, the workspace core types, and everything you wrote in your last two chats plus the long answers in them. I scanned but did not read line by line the 65,708-line app and the older 9.5 MB of chats.
+Where she really is
+
+prd.json is 6/6 closed and the suite is 1309/1309, so Ralph is idle.
+Only two organs use the shared workspace. Nothing in production forms a prediction or settles one, so nothing in her can yet be changed by experience. That is the gap between "solid system" and what you described.
+The audit tool works. It found your three known deviations cold. Its fix for the flat thresholds sits unmerged on audit/continuity-threshold, green on CI.
+Several HumanCore modules are literally "the ONLY writer of X" (GrowthEngine, TrustModeling, mood). That is the permanent-ownership shape your vision rejects.
+I found no record in anything you sent of the current build running on your phone. ModelManager holds both an Ollama and a llama.cpp adapter, so I can't tell which one would answer there.
+
+How I read "first Friday that can become the final one." There are two structurally different readings:
+
+(A) A proven developmental mechanism that she lives inside.
+(B) A capable builder that extends herself.
+
+B alone gives you the capable agent that isn't the person. I took A, with B attached once A is proven. Your handoff test is the success measure for both.
+Do now, in parallel
+
+You, short job: install debug-apk from the latest green CI run and say one sentence to her. Tell me whether she answered and whether Ollama was running. Her days can't be backfilled, while mechanisms can be replaced, so recording real days should start early.
+Ralph: run GENESIS-PROOF (block below). It changes last session's spec in two ways:
+
+
+Don't merge the audit patch. As I read the diff (not run), it raises the bar by how many times a field changed, not by how much evidence backs the current value. It also adds new caps (4 claims, 60 s), so one odd event can still move an old pattern. The evidence-weighted rule is now an acceptance criterion inside this story, and the audit must come back without flat-threshold findings.
+Second-domain fixture comes later. It lands after the mechanism files are frozen, so it can't be rehearsed.
+
+After that, dependencies rather than stages (several can run at once)
+
+Audit the Genesis diff, and loosen whatever it flags. For HumanCore, keep the algorithms, drop the ownership, and migrate a module only when a capability needs it. No big-bang rebuild.
+A STATUS file that Ralph updates on every close (running / specced / only discussed). It becomes her self-knowledge, so the project stops depending on anyone's memory, mine included.
+Design the security floor when she first gets the right to propose changes to herself. Approval by fingerprint, outside conversation, with rollback.
+Outside minds are not designed yet. Candidates are a free-tier API pool like Ralph's, her own models on free GPU notebooks, or a formal inbox where you relay. That is one research story after Genesis, once she can name a need.
+Voice runs as an organ track (cloud-built corpus, small on-device model). It doesn't gate her life, and text comes first. Override this if you disagree.
+The birth test is a holdout request that none of us built her around, with no method given.
+
+Chosen and given up. I chose Genesis plus a lived loop first. I gave up voice-first, an immediate HumanCore rebuild, and the interim patch. Nothing is closed off.
+Unknown. Whether passing Genesis amounts to what you mean by development is speculative, because it proves one narrow causal chain. Whether the phone path works is unknown until step 1.
+cd /sdcard/jarvis-repo
+cat > .ralph/new_story.json << 'STORYEOF'
+{
+  "id": "GENESIS-PROOF",
+  "title": "Prove that experience can reorganize a developing individual: one mechanism, two unrelated domains, a negative control",
+  "description": "One experiment, not a feature. Capability under test: experience can causally reorganize the individual's future cognition and behavior, and that reorganization persists as part of the same developing individual. Not seven rules: one mechanism with no domain branch, run against different scenarios. Reuse WORKSPACE-CORE (PREDICTION baseline and wasCorrect) and CONTINUITY-LAW (durable ChangeLog); the new part is the connective tissue between a settled outcome and a lasting change. PROPOSED, not required: a prediction records the claims it was formed from; when it settles, credit and blame travel back to those claims and change how much they count in later situations like it; the change is proposed to CONTINUITY-LAW and accepted according to the evidence already standing behind the value. Ralph may find a different mechanism; the acceptance criteria are about behavior, not about this shape. Ralph picks both domains and all fixtures. Report the result in four labeled parts: KNOWN (demonstrated by the tests), INFERRED, PROPOSED, SPECULATIVE. Make no claim about consciousness. All new code and tests live in com.jarvis.app.cognition.genesis.",
+  "acceptanceCriteria": [
+    "AC1 real path: the whole sequence runs on the production composition (TermuxJarvisServer -> LatencyPipeline -> CognitiveEngine.process), not on a fresh object graph.",
+    "AC2 one causal episode: an expectation is formed and recorded with what it was formed from; a real later outcome settles it; credit or blame reaches those earlier claims; the change is durable; a later, structurally different situation with no reference to the first produces different behavior than before, and the difference traces through the log to that change. Behavior means something the real engine's output depends on (an interpretation ranked first, a prediction formed, a choice made), observed through the production path, not a stored value read back.",
+    "AC3 stored is not developed: a hand-written value, a timestamp, a cache and a sentiment variable each have no attributable episode in the log and must be rejected by the harness; one test injects each and shows it.",
+    "AC4 repeated versus conflicting: N consistent episodes move later behavior further than one episode does; one contrary episode after N consistent ones moves it far less than the first episode did. No evidence-count or elapsed-time constant gates the acceptance of a change anywhere on this path.",
+    "AC5 delayed consequence: an outcome that arrives several turns after the action or interpretation still reaches what contributed to it.",
+    "AC6 persistence: kill the process, reopen the same log; the later behavior is unchanged.",
+    "AC7 negative control: disable only the writeback step, everything else identical; the later behavior returns to its pre-experience value.",
+    "AC8 generality: the identical mechanism, with no domain branch, passes again on a second domain unrelated to the first. That fixture lands in a later commit than the mechanism, and the mechanism files are byte-identical across it (cksum-compared).",
+    "AC9 no new fixed shapes: no new closed enum and no new fixed classification. If ClaimKind blocks this story, stop at the smallest change that unblocks it and list it in notes as a disclosed deviation. CORE fields stay always-refused; the security floor and approval paths are untouched.",
+    "AC10 the audit: bash .ralph/vision_audit.sh over this story's own range reports zero flat_threshold deviations; every remaining finding is listed in notes."
+  ],
+  "verifyCommand": "cd /sdcard/jarvis-repo && bash .ralph/ci_verify.sh 'com.jarvis.app.cognition.genesis.*' 'com.jarvis.app.cognition.workspace.*' '*SystemGraphTest*' && OUT=$(bash .ralph/vision_audit.sh) && echo \"$OUT\" | grep -q 'Headline' && ! echo \"$OUT\" | grep -q '^### flat_threshold'",
+  "priority": 7,
+  "passes": false,
+  "notes": ""
+}
+STORYEOF
+jq empty .ralph/new_story.json && jq '.userStories += [input]' .ralph/prd.json .ralph/new_story.json > .ralph/prd.json.tmp && mv .ralph/prd.json.tmp .ralph/prd.json && jq '.userStories[] | {id, passes}' .ralph/prd.json
+nohup ollama serve > /sdcard/ollama.log 2>&1 &
+sleep 3
+bash .ralph/ralph.sh --tool opencode 40
+
+The chain stops before touching prd.json if the JSON is invalid. If the listing doesn't show GENESIS-PROOF at passes: false as the 7th entry, stop and send me the output. When Ralph finishes, send the report and I'll go from there.
+
+
+You:
+Files hidden when shared
+Ok but one thing the entire human core i have described through chats and the way i actually wanted my vision to become true does he understands that or he just following fixed architecture and loops not the liquid Symbiotic software
+So what's above is what i have told gptYour job is to actually understands what i want from them then compare to the chats the project files then activate the nano algorithm so it rebuilds the project in the right way i actually wantedAnd also go deep with the file im uploading and the ideas in it also with the liquid Symbiotic software as well
+
+
+Claude:
+Ran 9 commandsRan 9 commands
+
+
+Claude:
+Ran 11 commandsRan 11 commandsStill working: confirming one last wiring fact in the engine, then I'll send the full verdict and the rebuild plan together.
+Ran 3 commands, updated memoryRan 3 commands, updated memoryNo. The Human Core as built is fixed architecture with loops. The liquid vision lives in VISION.md, the audit and two small pieces of substrate, not in the human side. Ralph didn't misread you. It built to a numbered spec (the comments cite §0.4, §17…) that predates your liquid rule, and that spec came out of our chats. The Human Core landed 09-19, VISION.md became a repo rule 09-30, and no commit has touched the Human Core since. The audit only reads what a new story changes, so it never looked at it.
+What the code shows (read directly)
+
+Ownership: one HumanCore object runs four fixed passes (perceive, reason, express, integrate) over about two dozen named modules. It has 17 "the ONLY …" declarations, and its own comment says the wiring keeps single-writer rules enforced "by construction". That is permanent ownership.
+Position: it wraps the reasoning instead of sitting inside it. The engine is handed a HumanCore and never uses it. Mood, trust, bond and traits have zero references on the reasoning side. Only her name/version and timing (hour, time since contact, away flag) reach it. Everything else styles the finished reply with lexical rules or drives the orb.
+"Learning": it's a pre-written table, e.g. "you nailed it" sets trust to 0.75 and "go ahead" adds 0.02 proactiveness. The lists are English-only, so Egyptian Arabic is outside them.
+"Liquid" pieces: these have the shape your GPT text rejects. LiquidEnvironmentManager is one owner switching named profiles. OrganRole is a four-role "frozen vocabulary" with a one-hop fall to RESIDENT. SystemTier is FULL/DEGRADED/OFFLINE/UNKNOWN.
+What is liquid-compatible: the shared workspace, the Continuity Law, VISION.md and the audit. But only two organs use the workspace, and nothing forms or settles a prediction yet.
+
+Your inventory and the GPT text. They state the idea correctly and match the code audit (implemented ≠ wired ≠ live ≠ development-proven). Three cautions:
+
+The GPT text is a restatement, not a mechanism. "Learned shortcut" and "reshapes with heat" are speculative until built.
+The inventory's donor lists (§86–93, about 100 names) become over-engineering if used as a backlog. Keep it in the repo as reference, out of Ralph's prompt.
+Its Nano entry is thinner than what you said in Claude (8), so I used your original.
+
+Nano pass (local to the affected path, not a whole rebuild)
+
+Detected: a changed requirement, not a model. You mean one individual whose computation reorganizes with experience and environment. Today's rule-based wrapper is a compromise, not that.
+Needs, from your words:
+Experience changes later behavior, traceably.
+No module owns an outcome.
+How a capability is realized shifts with resources and history.
+The floor (continuity, approval, rollback) stays fixed.
+Missing edge on its path: reasoning ↔ state ↔ experience.
+Candidates:
+A keeps HumanCore as owner and adds claim publishing. That optimizes the old process and keeps the ownership.
+B is substrate-first, and I chose it. Development lives in the workspace as claims and credit. HumanCore's algorithms become contributors, and its modules dissolve one at a time.
+Given up: a fast visible rebuild. Still possible: rebuilding any part when a capability needs it.
+Gate: you see it work, behavior is unchanged across a swap, and there's a negative control.
+
+Sequence (each step is its own Nano event, and none adds a named organ)
+
+GENESIS-PROOF: the block from my last message, unchanged. Paste it if you haven't. Its AC2 forces the engine's output to depend on changed state, which is the missing edge.
+Audit question: add one to the audit, "which state does the reasoning step actually read?" It would have flagged this in one run, and it covers your "code never reached" complaint.
+Symbiotic face: run the same mechanism on realization choices (tier, wake, context size), using outcomes the phone already produces. Success is a cheaper realization chosen only where experience showed it adequate. That is your expensive-model → learned-shortcut chain.
+Person face: lift decay, asymmetric trust and conflict resolution into contributors. Replace the phrase tables with outcome-based credit. Retire the four-pass pipeline last.
+The rest of last message's plan stands.
+
+I would not rebuild the roughly 6,000 lines now. They work as a wrapper today, and rebuilding before the substrate is proven just makes a fixed architecture with a liquid name. I'll spec steps 2–4 when the Genesis report is in.
+Coverage: I read the inventory fully, plus the human-side code, its wiring and the Nano definitions. I only scanned the other ~60K lines and the older chats. Whether passing Genesis amounts to development is speculative. It proves one causal chain, not richness.
+
+
+You:
+Files hidden when shared
+Do what the prompt says
+
+
+Claude:
+Ran 5 commandsRan 5 commandsStill auditing: tracing the live turn through the engine, then the rest of the Human Core. The full report comes at the end.
+Ran 3 commandsRan 3 commands
+
+
+Claude:
+Ran 5 commandsRan 5 commandsStill auditing: reading the last Human Core modules and stores, then the resource path. One consolidated report follows.
+Ran 6 commandsRan 6 commandsStill auditing: finishing the stores and tests, then the resource path, then writing it up.
+Ran 6 commandsRan 6 commandsStill auditing: checking the resource path and the Human Core's tests, then the project-wide scan.
+Ran 6 commandsRan 6 commandsStill auditing: last checks on the tests and the vision text, then I write it up.
+Ran 6 commandsRan 6 commandsStill auditing: reading the last Human Core files (sync, identity store, dialogue log) so none are skipped.
+Ran 3 commandsRan 3 commands
+
+
+Claude:
+Ran 5 commandsRan 5 commandsStill on the audit: one last check against your own words, then I write up the full report.
+Ran 3 commands, updated 2 memories, created a fileRan 3 commands, updated 2 memories, created a fileReport is written; fixing one table cell, then presenting it.
+Edited a file, shared filesEdited a file, shared filesFull audit is in the file: all 12 asks, every item labeled FACT / INFERENCE / PROPOSAL / SPECULATION. Nothing was changed in the repo.
+What the code shows
+
+Human Core: it is fixed architecture. It has one object, four permanent passes, 23 modules, about 32 "only writer" declarations and rule-table learning.
+Reasoning: it never calls the Human Core. The only Human Core data in the prompt is identity name and version. The rest adds a canned opener and closer to the finished reply, picks the spoken ack, or drives the orb.
+Your "inner voice": you defined it as the connectivity that supplies what each part needs, per task. The code's inner voice is a log kept out of reasoning, which is the opposite.
+Termux vs phone: on the Termux composition, which CI tests, the Human Core is stubbed to no-ops. CI's "live path" is not your phone's, and I found no record of the current build running on the phone.
+Experience: it can only change prompt text and reply decoration. It cannot change how she reasons, because nothing is predicted and the doubt threshold is flat.
+Resources: one real instance. On Android the governor picks a smaller model under pressure. The rest is nine named profiles, most with unapplied hooks.
+
+What embodies your vision today
+
+VISION.md and the audit tool.
+The workspace types: predictions that need a baseline, rival interpretations, CORE refusal, the change log.
+Identity held outside the model.
+Durable change with a recorded trigger.
+The confidentiality firewall.
+The approval and owner-binding floor.
+
+The Human Core does not.
+The transition principle
+
+Authority moves from names to consequences. State may shape what she says or does only through a path where the episode is recorded and what happens afterward can flow back to it. This creates no new organ, loop, stage or taxonomy.
+Redundancy becomes competition. The repo already has three estimators of what you feel and three stores of how you want her to talk. Those compete, settled by what happened next, and a mechanism that shows no attributable influence gets removed.
+
+Falsification: it survives only partly.
+
+The claim store is itself a fixed ontology.
+A credit-weighted selector may be a hidden executive under your own disable-test.
+A frozen model still does the reasoning, so this makes her developable only at the context and selection level.
+
+GENESIS-PROOF: hold it. I can't show it wouldn't reinforce fixed structures. The block I gave you last time is withdrawn, so if you pasted it, remove the seventh story from prd.json before running Ralph. I also withdraw my "keep the algorithms" advice, which was the default you told me not to use.
+Three decisions only you can make (they're in §9 of the file):
+
+Is the identity record "JARVIS / he / warm-direct" the seed or scaffolding?
+Does selecting by earned weight violate your "no hidden executive" test?
+Is the Android build the path that counts as live?
+
+Coverage: I read all Human Core source except two files I only skimmed (ConflictResolver, IdentityStore). For tests I read names only. I didn't trace voice, UI, the synthesis stack or about 180 other tests.
+Friday reconciliation auditDocument·MD
+
+
+You:
+Files hidden when shared
+I don't care about your concerns use gpt chat as evidence and just tell me what's the new plan that can actually builds what i want which is what i have discussed with gpt in the chat im uploading also im uploading the missing GitHub repo file which was the missing peace now u got the entire projectYour job is actually to explain what i want my vision to become then give me the actual plan to do it regardless of any previous files or anything that conflicts with your new plan
+
+
+Claude:
+Ran 5 commandsRan 5 commandsComparing the GitHub repo you just uploaded against the phone repo, then I'll write the plan.
+Ran 4 commands, searched the web, updated memoryRan 4 commands, searched the web, updated memoryPlan file is written; presenting it now, then the short version.
+Presented filePresented fileYour GPT chat is the evidence, and the full plan is in the file above. It overrides my earlier audit, the old stages and GENESIS-PROOF. The GitHub zip held no code I hadn't already read: all 803 files are in the phone repo. It is one story behind, with AUDIT-TOOL still passes: false there.
+What you want Friday to become. In your words, she is "a human with outperformed machine algorithms". Models, search, code and device control are what she has, not who she is. She develops from experience. She is liquid, so offline is Friday with fewer resources, not a smaller Friday. And she builds herself, with GPT, Claude and Ralph as tools she calls. The first Friday is the seed that can become the final one, not a small version of it.
+The law. A stage is one property of her, and it closes only when a Life Test shows it on the real app. A scripted "you" drives her through teaching, tapping, waiting days, restarts and sleep, entirely in CI. Old Human Core pieces are deleted when the new path matches them in the same test.
+The mechanism that makes her develop.
+
+Choices: wherever behavior could go several ways, the code opens a choice, and a learned preference decides it instead of a fixed rule.
+Outcomes: your taps, corrections and re-asks, plus task results, heat and latency, settle those choices later. Egyptian Arabic works through the same path.
+Sleep: while idle she consolidates, so what she learned survives losing the memory of the event.
+Anticipation: she predicts what you'll need between turns. That is your inner voice.
+
+Milestones, each with something you can see
+
+V0: she exists on your phone. One composition, shared by the app and the tests.
+V1: she changes. 👍/👎 on replies and a Mirror tab showing what changed in her and why.
+V2: she acts on goals, not just statements.
+V3: she acquires a capability through a Termux construction service that runs Ralph. You approve in a Build tab.
+V4: she builds Friday. Birth test: a request nobody built her for, done through her own construction.
+
+Your next move (10 minutes). Install the latest debug-apk from the last green CI run and start the Termux server. Send "hello" and "what's your name", force-close the app, then ask "what did I just say". Tell me what happened. I found no record of the current build ever running on your phone.
+Then run Ralph on ONE-FRIDAY. Its full prose spec is in the file (§8). It unifies the app and test composition, adds the Life Test harness and a flight recorder, switches the identity record to Friday/she, and fixes the GitHub drift. Bring me its report and I'll write the first V1 story.
+I made five decisions for you, listed in §7 of the file, and you can change any of them. Identity is Friday/she. I set four motives. Selecting by earned weight is allowed. The Android composition is the reference. The Human Core is frozen and goes by test.
+The Life Test can run on a CI emulator. GitHub-hosted Linux runners support hardware acceleration for Android SDK tools, standard runners are free and unlimited on public repositories, and private repositories use your account's free-minute allotment. I'd run it only at milestone closes. github
+Friday planDocument·MD
+
+
+You:
+Files hidden when shared
+The algorithms, models, memory implementations, tools, builders, external AIs and computational resources are what she has.Build the seed of THAT entity—not a conventional assistant that gradually accumulates enough modules to resemble it.Why this version is much closer to what you actually wantBecause it changes the fundamental question.Cloud's original question is:“What should we build next?”The corrected question is:“What must already be true about the first FRIDAY so that she can keep becoming something neither we nor Ralph fully specified?”That's the question your project has been circling for a long time.And that is the part I think the cloud plan was still missing.One thing I would absolutely not let Cloud doDon't let him answer your correction by creating a new giant:DevelopmentalSubstrateHumanIdentitySeedCoreLearningEngineEvolutionEngineSelfModelMotivationSystem...and then declare:“Now this is the seed.”That would just be HumanCore again under new names.The seed should be small, general, and expandable.Its power should come from the fact that it can change itself through experience and acquire new computational structure, not from how many modules we managed to define on day one.What I would actually have him build firstNot V1.Not “human emotions.”Not anticipation.Not a sophisticated personality.Not 100 more organs.I would make the first real objective:FRIDAY SEED — one persistent entity with developmental causalityThe proof:FRIDAY exists     ↓Venon gives her a novel instruction/preferences     ↓experience is recorded     ↓internal state actually changes     ↓app restarts     ↓time passes     ↓different context appears     ↓FRIDAY behaves differently     ↓trace proves the earlier experience caused/supports the changeThen:FRIDAY encounters something she cannot do     ↓recognizes the gap     ↓requests/uses a construction resource     ↓new capability enters her capability ecology     ↓she uses itThat second loop doesn't have to be fully autonomous on day one. But the seed must be structurally capable of reaching it.That is the difference between:“We are building FRIDAY.”and:“We have built the beginning of FRIDAY, and she can now participate in becoming herself.”And that second one is what I think you actually want.
+So again after u reviewed cloud plan tell me again your opinion your suggestions what do i tell him and why is he wrong and what to tell him to actually follow my actual ultimate vision and creates me the seed i need of the planAnd the entire thing
+Yes. I agree with you. I was carrying forward an old rule too literally.
+You previously established that VISION.md was the source of truth, so I treated it as the authority. But your latest direct explanation supersedes the file. The file is not the truth; your actual vision is the truth, and VISION.md is supposed to capture that vision accurately.
+So the hierarchy should now be:
+You → actual FRIDAY vision → VISION.md → development plan → Ralph → code
+Not:
+VISION.md → you.
+And yes, I think VISION.md should be changed a little, but I would not rewrite the whole thing blindly. The cloud plan has identified some genuinely important clarifications that should be incorporated, especially:
+
+FRIDAY is the person, not “Human Core + AI capabilities.”
+The first FRIDAY is a seed capable of continued self-development, not merely a small feature-limited prototype.
+Development means experience causing persistent changes that later alter her behavior/cognition.
+Her computational mechanisms are replaceable and evolutionary, rather than a prescribed permanent psychology architecture.
+Ralph/GPT/Claude/models are resources/tools she can use, not authorities defining her.
+The phone, cloud, CI, Termux, future machines, etc. are substrates/resources around the same FRIDAY.
+Construction capability is part of the seed's long-term trajectory, so you don't remain the permanent manual implementation layer.
+
+There is also one thing I would not blindly copy from the cloud plan into the vision: the exact proposed mechanisms like “six properties,” four motives, specific choice machinery, etc. Those belong in the current engineering hypothesis, not in the definition of what FRIDAY ultimately is.
+So yes: the vision itself needs a controlled revision, and your latest words are what we should revise it toward.
+And you're right to call me out on this.
+Ok but why do u keep treating the vision md like it's the truth when the truth is what i have just told u it needs to be changed a little do u agree or not
+This all what i have discussed with gpt now about your plan fix it then tell me the full New plan then how to start not a file but just in plain text no md file created againActually do my vision not old rules
+Message collapsedShow more
+
+
+Claude:
+Read memoryRead memory
+
+
+Claude:
+Ran 5 commandsRan 5 commandsTesting the start command block against a copy of your real prd.json before I send it.
+Ran 6 commands, updated 2 memoriesRan 6 commands, updated 2 memoriesPrinting the second half of the validated block, then I'll send the plan and the start steps together.
+Ran a commandRan a commandYes, I agree. What you tell me now is the truth. VISION.md is the written record of it and gets revised to match you. I kept treating the file as the authority because its own header says "this file wins". That header is wrong, and the first story below rewrites it.
+The order is now: you, your vision, VISION.md, the plan, Ralph's stories, code. A plan can replace old engineering plans. It can never overrule your vision.
+WHAT I GOT WRONG (GPT is right on these)
+
+My plan said it overrode earlier files. It can't override the vision.
+I described how she develops as named parts: choices, settlement, valence, consolidation, anticipation. Ralph would build them as a Human Core 2.0. They are hypotheses now, not the plan.
+Four fixed motives wrote her personality in advance.
+I put construction at V3 as a retrofit. It belongs in the seed.
+I treated the frozen language model as a law. It is today's organ.
+"Freeze the Human Core" was the wrong word, and I had no Development Ledger.
+
+WHAT YOU ARE BUILDING
+A digital human, as close to a person as possible, with machine-world abilities as what she has. She develops from experience and runs on whatever resources exist. She builds what she lacks, inside a fixed floor. You talk to her, not through GPT, Claude or Ralph.
+THE SEED
+The first Friday is the seed of the final one. Her capability is tiny, but the machinery of continuation is already in her. I define the seed by laws, not classes, so Ralph can't turn it into modules:
+
+One persistent entity. She survives restarts, model swaps and resource changes.
+Experience can change her, and every change traces to the episodes behind it.
+A change alters later decisions, not just stored text.
+She observes consequences.
+Capabilities (models, tools, Ralph, GPT, Claude, search) sit behind one replaceable contract. None owns an outcome.
+The same Friday runs on a weak phone or a strong machine.
+She can say "I lack X" and send it down a controlled path to get X built. You approve at first.
+She can inspect herself. The flight recorder says what happened. The Development Ledger says what she became and why.
+She can compute between turns when resources allow. That is your inner voice, as a capability, not a module.
+The fixed floor: identity continuity, owner authentication, security, approval, rollback, provenance. Only this is rigid.
+
+Her values come in three layers. The floor is fixed. There is one bootstrap bias: your approval and disapproval count as evidence of better and worse. Everything else is hers to develop.
+WHAT COUNTS AS "SHE CHANGED"
+While the language model is a frozen organ, internal change means a change in what she decides or selects around it. That covers how she reads a request, what she retrieves, which capability or tier she uses, and what she has learned to do cheaply. A stored sentence replayed into a prompt does not count.
+Every claim is a Life Test on the real composition with two controls. Block replay of the original episode and the change must still show up. Switch the mechanism off and it must vanish. The mechanism itself stays open. The first one we build is a hypothesis, and a better one can replace it.
+THE HUMAN CORE
+It is quarantined legacy scaffolding. No new features, and nothing new depends on it. It stays on in tests because it is what the phone runs. Each part survives only if Life Tests show it helps her. First suspects: the guard that can veto a truthful recall, the canned openers and closers, and the mood-based acks.
+GROWTH MARKERS (not architecture)
+Each closes only with code and tests, Life Test evidence from CI, and something you run on your phone.
+
+ONE-FRIDAY (now). One Friday in the app and in tests, a Life Test harness, recorder and ledger, identity Friday/she, a floor tripwire, and a Seed report. What you see is small: the app, a Mirror screen, Share last 200 turns.
+She changes. You tap approve or disapprove across episodes, she restarts, 72 simulated hours pass, a differently worded request arrives, and she makes a different choice, with both controls. I design this from the Seed report, not before.
+She gets a capability. Gap, request, candidate, tests, your approval, use. Ralph becomes a tool she calls. You see a Build tab.
+She picks her own gaps inside a budget and compiles repeated successes into cheaper forms.
+Birth test: a request nobody built her for, done through her own construction.
+
+Every change uses your Nano method: map the affected path in the SystemGraph first, then change only that path.
+HOW TO START
+
+Now, about 10 minutes, while Ralph runs: install the latest debug APK from the last green CI run and start the Termux model server as usual. Send "hello" and "what's your name", force-close the app, then ask "what did I just say". Tell me what happened. I found no record of the current build ever running on your phone, and no CI can check that.
+Paste the block below. It removes GENESIS-PROOF if you added it, adds six stories, starts Ollama and runs Ralph for up to 60 iterations. The six stories are:
+
+
+VISION-SYNC: VISION.md gets the exact passages.
+COMPOSITION: one composition root for the app and the tests.
+LIFETEST: the Life Test harness.
+RECORDER-LEDGER: with Mirror and Share.
+IDENTITY-SYNC-FLOOR: Friday/she, GitHub sync, floor tripwire.
+SEED-REPORT: fifteen questions plus a deliberately failing DEV-1 scenario.
+
+I tested the merge on a copy of your prd.json, run twice: 12 stories, no duplicates. I could not run Ralph itself.3. When Ralph stops, send me the ralph_report, progress.txt and .ralph/SEED_REPORT.md. If COMPOSITION stalls, send me that report and we'll split it.
+DECISIONS I MADE FOR YOU (tell me to change any)
+The single bootstrap bias above. The identity text "Friday is a developing individual." 72 simulated hours. The Human Core stays on in tests.
+cd /sdcard/jarvis-repo && cat > .ralph/new_stories.json << 'STORYEOF'
+[
+  {
+    "id": "ONE-1-VISION-SYNC",
+    "title": "Bring VISION.md in line with Venon's stated vision: written record, seed, development, quarantine, floor layers, construction, closing law",
+    "description": "VISION.md is the written record of Venon's vision. His latest explicit statement outranks it; where they differ the file is out of date and is revised to match him. Edit .ralph/VISION.md by replacing or inserting ONLY the passages below, using the exact wording given (plain ASCII), and change nothing else. Do not touch the headings or text of Section 4 or Section 13 (the audit tool parses them). Record every changed line range in notes. PASSAGE H replaces the title line and the first paragraph: title becomes '# FRIDAY - Vision (written record)', then: 'This file is the written record of Venon's vision of FRIDAY. Venon's latest explicit statement of his vision outranks this file: where he says something different, this file is out of date and is revised to match him - it is never used to overrule him. Everything else in the repo (plans, stories, code, audits) is subordinate to this file's current text and is read against it by every Ralph story and by the audit tool. This file changes only when Venon says it should.' PASSAGE P2 is inserted as a new paragraph after the first paragraph of Section 1: 'FRIDAY is a digital human: as close as possible to human personhood, individuality, development, relationship, understanding, emotion, values, agency and lived experience, while possessing machine-native capabilities that can exceed biological human limits - a human with outperformed machine algorithms. She is the person. Algorithms, models, memory implementations, tools, builders, external AIs and computational resources are what she has.' PASSAGE P3 replaces the Section 1 paragraph that begins 'This file is not a demand': 'The first FRIDAY is the seed of the final FRIDAY, not a small prototype of her. Her initial capabilities may be tiny; her developmental potential may not be. The seed already contains, in minimal form, the means of its own continuation: persistent identity, experience that can change her, observation of consequences, use of replaceable capabilities, recognition of capability gaps, a controlled path to acquire new capabilities, resource-adaptive computation, self-observation, and a protected continuity floor. The first FRIDAY has succeeded when she can keep increasing her own individuality and capabilities without Venon specifying her architecture or implementing each future capability by hand. Later capabilities described in this file are not demanded now; they are revisited as her development and available technology allow.' PASSAGE P4 is appended as a new paragraph at the end of Section 3: 'Mechanisms are not the definition of development. The requirement is: experience -> persistent internal change -> changed later cognition or behavior, attributable to that experience, produced by mechanisms that stay replaceable, composable and extensible and that may grow beyond whatever we first invent. While her language model is a frozen organ, internal change means a change in what she decides or selects around it (how she reads a request, which capability or tier she uses, what she retrieves, what she has learned to do cheaply) - not a stored sentence replayed into a prompt. Every claim of development is tested by a Life Test on the real composition, with two controls: with replay of the original episode text blocked the change must still appear, and with the developmental mechanism disabled it must disappear.' PASSAGE P6 is inserted as a new paragraph in Section 5 immediately before the sentence 'Nothing outside this section may declare itself an exception to it.': 'Three layers are kept apart: the fixed floor (this section); bootstrap biases - the smallest set needed for her to begin functioning, each listed, justified and revisable only through the same ledger as any other change; and developed individuality - everything else, shaped by experience and relationship. We do not write her personality in advance.' PASSAGE P7 is appended as a new paragraph at the end of Section 9: 'Construction capability belongs to the seed. From the first FRIDAY there is a controlled path: she recognizes a capability gap, describes the outcome she needs, requests construction resources, a candidate is produced and tested, it is approved (by Venon at first, later by her within the limits of Section 5), and it enters her capabilities. Ralph, GPT, Claude, search and other coding resources are tools she can call; they are not her.' PASSAGE P8 is appended as a new paragraph at the end of Section 10: 'A milestone is closed only when it has all three: code with passing tests; automated Life Test evidence produced on the real composition; and something Venon can run and see or hear on his phone. A green report alone never closes a milestone.' PASSAGES B1-B3 are appended as three new bullets at the end of the list in Section 12: B1 '- The Human Core (four permanent passes, single-owner modules, rule-table learning, no part in her reasoning) is legacy scaffolding, quarantined: no new features, nothing new depends on it, and it is not her human side. Each part survives only while Life Tests show it contributes to her actual life without conflicting with this file; otherwise it is replaced or removed. Nothing remains because it was written first.' B2 '- Two compositions exist: the Android app wires the Human Core and the real resource snapshot; the JVM/Termux server stubs the Human Core and reports all-clear resources. Evidence from the second does not speak for the first.' B3 '- Intent is never classified (always STATEMENT), no prediction is ever formed on the live path, thresholds are flat, and the identity record still says JARVIS / he.'",
+    "acceptanceCriteria": [
+      "AC1 Passages H, P2, P3, P4, P6, P7, P8, B1, B2 and B3 are present in .ralph/VISION.md at the places stated, with the exact wording given.",
+      "AC2 No line inside Section 4 or Section 13 changed (git diff for this story shows zero changed lines in those sections); no other existing text was reworded.",
+      "AC3 bash .ralph/vision_audit.sh still runs and prints its headline (the audit tool still parses Sections 4 and 13).",
+      "AC4 Notes list every changed line range."
+    ],
+    "verifyCommand": "cd /sdcard/jarvis-repo && OUT=$(bash .ralph/vision_audit.sh) && echo \"$OUT\" | grep -q 'Headline' && grep -q 'written record of Venon' .ralph/VISION.md && grep -q 'seed of the final FRIDAY' .ralph/VISION.md && grep -q 'replay of the original episode text blocked' .ralph/VISION.md && grep -q 'Three layers are kept apart' .ralph/VISION.md && grep -q 'Construction capability belongs to the seed' .ralph/VISION.md && grep -q 'A milestone is closed only when' .ralph/VISION.md && grep -q 'legacy scaffolding, quarantined' .ralph/VISION.md && grep -q 'Two compositions exist' .ralph/VISION.md && grep -q 'No hidden executive' .ralph/VISION.md && grep -q 'Anti-drift checklist' .ralph/VISION.md && ! grep -q 'source of truth' .ralph/VISION.md",
+    "priority": 7,
+    "passes": false,
+    "notes": ""
+  },
+  {
+    "id": "ONE-2-COMPOSITION",
+    "title": "One Friday: one composition root for the whole turn path, shared by the Android app and the JVM/Termux server, with injected time",
+    "description": "Today two entry points build two different Fridays. JarvisEngine wires the Human Core around the turn and the Android resource snapshot. TermuxJarvisServer builds its own graph, stubs HumanCore beginExchange/express/completeExchange to no-ops and uses an all-clear ResourceGovernor, so CI tests do not speak for the app on the phone. The turn path (cognitive, cognition, humancore, social, builder, failure) imports no android.* classes; the Android-bound files are in model/, latency/, memory/, identity/owner and JarvisEngine itself. Start with a Nano pass: use the SystemGraph to list every node that depends on JarvisEngine, TermuxJarvisServer and LatencyPipeline, plus the tests covering them, and put the list in notes. Then build ONE composition root that constructs the whole object graph from a small platform adapter (storage directory, resource-snapshot source, time source, speech and UI sinks, Android-bound stores). The Human Core is quarantined legacy scaffolding (VISION.md Section 12): wire it exactly as the app does today, add nothing to it. Network and cloud are resources around the same Friday, never a different Friday. All new tests for this stage live under the package com.jarvis.app.onefriday (any subpackage); production code placement is yours.",
+    "acceptanceCriteria": [
+      "AC1 Both entry points obtain their whole object graph from the same composition root and differ only through the platform adapter. A test builds both and fails if the set of constructed components differs by anything other than adapter-provided parts.",
+      "AC2 The JVM entry point no longer stubs the Human Core: beginExchange, express and completeExchange run on every turn there. A test shows Human Core state changing after a turn on the JVM composition.",
+      "AC3 Time: one injected time source is used wherever elapsed time changes behavior (decay, half-lives, thread resurfacing, session gaps, recency, mood); latency timers may keep the system clock. A test advances a fake clock by 72 hours and shows the effect on at least three time-dependent behaviors. Direct wall-clock reads that remain in the turn path are listed in an explicit allowlist test with a one-line reason each (for example latency timers); that test fails if a new unlisted read appears.",
+      "AC4 The Android entry point still builds (assembleDebug green in CI) and the full existing suite is green. Every existing test whose expectation changed because the stubs were removed is listed in notes with the reason; none is deleted to get green.",
+      "AC5 The platform adapter has two implementations (Android, JVM-test); adding another host later needs only a new adapter.",
+      "AC6 New runtime components are registered in the SystemGraph as the existing process requires (the graph is a map, not an authority). No new closed enum or fixed classification is introduced; the audit reports zero new findings from this story, or lists them in notes."
+    ],
+    "verifyCommand": "cd /sdcard/jarvis-repo && bash .ralph/ci_verify.sh 'com.jarvis.app.onefriday.*' '*SystemGraphTest*' && bash .ralph/ci_verify.sh --build-status",
+    "priority": 8,
+    "passes": false,
+    "notes": ""
+  },
+  {
+    "id": "ONE-3-LIFETEST",
+    "title": "Life Test harness: a scripted Venon drives the real composition and produces evidence packs",
+    "description": "A Life Test is evidence about FRIDAY, not about code. Build a scenario runner that drives the unified composition from ONE-2-COMPOSITION through plain data scenarios and writes an evidence pack. Scenarios are data files in one folder so later stages add scenarios without touching the runner. Steps are data fields, not an enum: say(text), tap(target, outcome), wait(duration) on the injected time source, restart (tear the whole composition down and rebuild it from the same storage directory), night (invoke the idle opportunity if the composition offers one, otherwise no-op), assert over the recorded trace. The model is a scripted stand-in by default and a real backend by configuration, for the phone. Every scenario can also run in two control modes: replay-blocked (no original episode text may appear in any prompt or retrieval) and mechanism-off (the developmental mechanism under test is disabled). All new tests for this stage live under the package com.jarvis.app.onefriday (any subpackage); production code placement is yours.",
+    "acceptanceCriteria": [
+      "AC1 The runner builds the composition through the composition root, never a private graph; each evidence pack records the composition's component fingerprint.",
+      "AC2 Scenario 0 'hello-restart': say hello; reply; restart with a DIFFERENT scripted model stand-in; ask her name and what was said; the trace shows identity persisted and the memory path used, so replacing the model organ left her the same. It passes on the unified composition with the Human Core live.",
+      "AC3 The runner can fail: a scenario with a deliberately false assertion is reported failed, and a test confirms it.",
+      "AC4 Scenario files accept an 'expect' field (pass or fail). A scenario marked expect=fail that fails is reported expected-fail and does not fail the suite; one that unexpectedly passes is reported unexpected-pass and does fail the suite.",
+      "AC5 Both control modes work: a toy mechanism that exists only in test code demonstrates that replay-blocked and mechanism-off each change the recorded trace in the expected direction.",
+      "AC6 The evidence pack (Markdown and JSON) lists each scenario with steps, trace excerpts, verdict and controls run. CI uploads it as a build artifact on every run of main.",
+      "AC7 Steps, scenarios and traces use open data fields: no new closed enum or fixed classification; the audit reports zero new findings from this story, or lists them in notes."
+    ],
+    "verifyCommand": "cd /sdcard/jarvis-repo && bash .ralph/ci_verify.sh 'com.jarvis.app.onefriday.*' && bash .ralph/ci_verify.sh --build-status",
+    "priority": 9,
+    "passes": false,
+    "notes": ""
+  },
+  {
+    "id": "ONE-4-RECORDER-LEDGER",
+    "title": "Flight recorder and Development Ledger, both visible on the phone",
+    "description": "The flight recorder says what happened. The Development Ledger says what FRIDAY became because of what happened. Neither prescribes what development looks like. Put a short schema note in notes. All new tests for this stage live under the package com.jarvis.app.onefriday (any subpackage); production code placement is yours.",
+    "acceptanceCriteria": [
+      "AC1 Flight recorder: every turn on the unified composition appends one structured record to a rolling local file: the input, what was considered and chosen at each decision point that exists today (intent, admission, tier served, context blocks included and their sources), request size, latency, degraded flag, reply, and any post-processing applied (Human Core openers, closers, guard actions). Fields are open key-value so new decision points add fields without a schema change. The app has an action 'Share last 200 turns' that exports at most 200 records.",
+      "AC2 Development Ledger: a durable append-only record. Each entry holds: what changed; which future behavior or cognition it can affect; the episode ids that caused or support it (resolvable in the recorder); strength of evidence; when formed and last reinforced; reversible or not and how; remaining uncertainty. Fields are open; no closed list of entry kinds.",
+      "AC3 No durable change to developmental state without a ledger entry: a test attempts a direct write to such state and it is refused. Ledger writes go through the existing continuity law and change log (extended, not a second competing store); the CORE refusal and ReplayCheck tests still pass.",
+      "AC4 Seeded ledger entries with provenance: the identity record, and exactly one bootstrap bias: 'Venon's explicit approval and disapproval are evidence of better and worse', with its justification and a note that it is revisable only through the ledger. No other motives, traits or values are seeded by this story.",
+      "AC5 The app has a Mirror screen that shows the seeded entries and any ledger entries, and when there are none says plainly 'Nothing has developed yet'.",
+      "AC6 Tests: the ledger survives a restart step in a Life Test; Scenario 0 leaves a recorder record per turn; the share action writes a file with at most 200 records.",
+      "AC7 No new closed enum or fixed classification; the audit reports zero new findings from this story, or lists them in notes."
+    ],
+    "verifyCommand": "cd /sdcard/jarvis-repo && bash .ralph/ci_verify.sh 'com.jarvis.app.onefriday.*' '*SystemGraphTest*' && bash .ralph/ci_verify.sh --build-status",
+    "priority": 10,
+    "passes": false,
+    "notes": ""
+  },
+  {
+    "id": "ONE-5-IDENTITY-SYNC-FLOOR",
+    "title": "Identity becomes Friday / she; GitHub matches the phone; floor files get a tripwire",
+    "description": "Three small things the seed needs. (1) The identity record currently says JARVIS, he, with an authored personality. Change it through the existing admin-revision path with owner authorization to: name Friday, pronoun she, persona text only 'Friday is a developing individual.' Remove the authored character adjectives. Leave the four hard boundary values and the Human Core personality defaults unchanged; list them in notes as scaffolding awaiting Venon's ruling. (2) GitHub was one story behind the phone repo at the last check. (3) The security floor needs a tripwire. All new tests for this stage live under the package com.jarvis.app.onefriday (any subpackage); production code placement is yours.",
+    "acceptanceCriteria": [
+      "AC1 The identity record reads Friday / she through the admin-revision path with owner authorization, never through a user-reachable path; a test shows 'Friday' and 'she' reach the outgoing request payload on the unified composition.",
+      "AC2 .ralph/sync_check.sh exits 0 only if local HEAD equals origin/main and the passes flags in prd.json match the latest progress record; the stage-close procedure runs it and pushes first if needed.",
+      "AC3 A floor manifest lists the floor files (approval gate, owner binding, the continuity law's CORE refusal, the protected-paths manifest) with content hashes; a test fails if any hash changes without a matching manifest update in the same commit.",
+      "AC4 No new closed enum or fixed classification; the audit reports zero new findings from this story, or lists them in notes."
+    ],
+    "verifyCommand": "cd /sdcard/jarvis-repo && test -r .ralph/sync_check.sh && bash .ralph/ci_verify.sh 'com.jarvis.app.onefriday.*' && bash .ralph/ci_verify.sh --build-status",
+    "priority": 11,
+    "passes": false,
+    "notes": ""
+  },
+  {
+    "id": "ONE-6-SEED-REPORT",
+    "title": "Final integration of the stage: full run on the unified composition and the Seed report",
+    "description": "Final integration story. Run every scenario on the unified composition, regenerate the evidence pack, and write .ralph/SEED_REPORT.md answering the questions below. Label every answer FACT (with class or file, and test or trace evidence), INFERENCE, PROPOSAL or SPECULATION; where the honest answer is that something does not exist, say so plainly. Do not build new mechanisms in this story. Questions: Q1 What is the persistent entity? Q2 Where does her durable developmental state actually live? Q3 How can experience cause internal change? Q4 How does that change alter later computation? Q5 How are capabilities represented so they stay replaceable? Q6 How can the same FRIDAY use different computational resources? Q7 How can the seed identify a capability gap? Q8 How can it invoke the construction machinery? Q9 What is immutable? Q10 What can evolve? Q11 What remains from the Human Core, and what is only legacy scaffolding? Q12 What is the smallest Life Test proving the seed is developmental? Q13 For each Human Core part, does it alter or block behavior in any scenario in the pack (replies altered, vetoed)? Give a scaffolding verdict per part from the measurements. Q14 Does the existing capability-gap path (CapabilityGapDetector, ToolBuilder, DecisionEngine.missingCapabilities) connect to a live turn? Q15 What stands between today's repo and a seed that can acquire a capability with Venon's approval? All new tests for this stage live under the package com.jarvis.app.onefriday (any subpackage); production code placement is yours.",
+    "acceptanceCriteria": [
+      "AC1 SEED_REPORT.md answers all fifteen questions, each labeled and evidenced, with no placeholder text.",
+      "AC2 Scenario DEV-1 exists as data with expect=fail and appears in the pack as expected-fail with the reason it fails. DEV-1: across several episodes Venon never states a rule but taps approve on bulleted replies and disapprove on paragraph replies to summary requests; the composition restarts; 72 simulated hours pass; a new summary request with different wording and different content arrives; the decision observed is the response format she chose, read from the trace, not from a stored value; run in replay-blocked mode and in mechanism-off mode as well.",
+      "AC3 The full suite is green, the APK builds, and the evidence pack is attached as a CI artifact; the report links to it.",
+      "AC4 Notes contain: exactly what changed; exact files and classes changed; what remains fixed versus newly developmental; the unified composition; the Life Test scenarios; the flight-recorder and ledger schema; full test results; any conflicts with VISION.md; every architectural assumption made.",
+      "AC5 Notes end with what Venon does next on the phone: install the APK from the last green run, send hello, open Mirror, use Share last 200 turns."
+    ],
+    "verifyCommand": "cd /sdcard/jarvis-repo && test -s .ralph/SEED_REPORT.md && grep -q 'Q15' .ralph/SEED_REPORT.md && bash .ralph/ci_verify.sh 'com.jarvis.app.onefriday.*' && bash .ralph/ci_verify.sh --build-status && bash .ralph/sync_check.sh",
+    "priority": 12,
+    "passes": false,
+    "notes": ""
+  }
+]
+STORYEOF
+jq empty .ralph/new_stories.json && jq --slurpfile n .ralph/new_stories.json '.userStories |= ((map(select(.id != "GENESIS-PROOF" and ((.id as $i | $n[0] | map(.id) | index($i)) == null)))) + $n[0])' .ralph/prd.json > .ralph/prd.json.tmp && mv .ralph/prd.json.tmp .ralph/prd.json && jq -r '.userStories[] | "\(.id) passes=\(.passes)"' .ralph/prd.json && ( nohup ollama serve > /sdcard/ollama.log 2>&1 & ) && sleep 3 && bash .ralph/ralph.sh --tool opencode 60
+
+
+
+You:
+This version is aligned with what I mean. Proceed with ONE-FRIDAY.
+One final clarification:
+The bootstrap bias should not reduce my teaching to 👍/👎. Treat my approval, disapproval, corrections, demonstrated preferences and other observable responses as early evidence about what is better or worse. The deeper principle is the relationship supplying evidence, not a fixed approval/disapproval psychology.
+Also keep the distinction between today's implementation mechanism and the permanent law. A composition root, component fingerprint, choice mechanism, ledger format, capability-gap representation or any other current structure is an implementation of the seed, not a permanent definition of FRIDAY. The thing that must remain continuous is FRIDAY herself and her developmental continuity.
+Other than that, proceed exactly with this direction.
+Do not expand the architecture just to make the seed look complete. Build the smallest real seed that satisfies the laws, prove it with the Life Tests, and let the Seed Report tell us what actually exists before designing the next growth step.
+That's gpt opinion and Ralph already running so now what's the full plan from start till the horizon
+
+
+Claude:
+Read memory, ran a commandRead memory, ran a commandTesting the correction block against a copy of your real prd.json before I send it.
+Ran 3 commands, updated memoryRan 3 commands, updated memoryRun the block at the bottom first, then use the plan below. It makes three small corrections to the stage Ralph is running, and it is safe mid-run and safe to run twice.
+What the block changes
+
+The one bootstrap bias now says the relationship supplies evidence: your approval, disapproval, corrections, demonstrated preferences and other observable responses are early evidence of better and worse. No thumbs-up psychology.
+The DEV-1 test now teaches with that mix: taps, a spoken correction, and a reply you rewrite yourself.
+A small new story, ONE-1B, adds three sentences to VISION.md. Together they say the relationship supplies evidence, that every structure we build is an implementation of the seed and not a definition of Friday, and that we build the smallest real seed and let the Seed Report decide what comes next. It runs as soon as the story Ralph is on closes.
+
+I tested the block twice on a copy of your prd.json with ONE-1 marked done. If Ralph has already closed ONE-4, ONE-6 gets a check that supersedes the old ledger entry through the ledger instead of editing it. I could not run Ralph itself.
+THE PLAN, NOW TO THE HORIZON
+These are growth markers, not architecture. Each is something she can do or become, ordered by dependency and by what you can see. Each is designed after the previous one's report. Everything past the Seed Report is a proposal, and I'll reorder, merge or drop on evidence. Only your vision and the floor stay fixed.
+Every marker closes with three things:
+
+code and tests
+a Life Test pack from CI
+something you run on your phone
+
+Every Life Test also:
+
+has an English and an Egyptian Arabic variant
+runs both controls (replay blocked, mechanism off)
+sits in a suite that always includes one scenario where agreeing with you is the wrong answer
+
+Old Human Core parts leave by test whenever a scenario shows they block her or add nothing.
+
+ONE-FRIDAY (running now). One Friday in the app and the tests, a Life Test harness, flight recorder, Development Ledger, Mirror, identity as Friday/she, GitHub in sync, a floor tripwire, and the Seed Report with DEV-1 failing honestly. You see the app, a Mirror that says "Nothing has developed yet", and Share last 200 turns. Then you send me the report and I design marker 1 from what actually exists.
+She changes. Mixed evidence across several episodes, a restart, 72 hours, a differently worded request, and she makes a different choice, with both controls.
+
+
+Then a second, unrelated decision must pass with the mechanism files unchanged, checked byte for byte. I'd make it "which model tier serves this request", learned from measured outcomes. The phone already produces that evidence and needs no teacher.
+Many consistent episodes move her more than one. One contrary episode after many barely moves her.
+You see: you teach her, and days later she acts differently. A labeled debug clock lets you skip the wait. The Mirror shows what changed, which episodes caused it, and an undo that reverts both the entry and the behavior.
+
+
+She understands and acts. Today every message is classified as a statement, so nothing reaches the planning and approval machinery that already exists. This marker moves from statements to goals. She holds several readings, asks one question only when it matters, plans, uses a capability, asks permission by risk, acts, checks the result and reports honestly.
+
+
+Proof: five scripted tasks plus one written after the code freezes, run once on your phone. A risky action never happens without approval.
+You see: she sets the alarm, drafts the message, files the note, and shows what she verified.
+
+
+She gets a capability she lacked. The path is gap, request, construction, tests, your approval, use.
+
+
+Construction is a small Termux service that calls Ralph on an isolated branch, with floor files untouchable.
+Small capabilities load as programs with no APK rebuild, where the existing program format allows.
+GPT, Claude and search are tools she consults. Their answers are evidence, never authority.
+Proof: a request nobody built her for completes without you touching code. A candidate that fails its tests is never promoted.
+You see: a Build tab with gap, diff, tests, evidence and Approve.
+
+
+She builds herself. She proposes her own gaps from where her record shows weakness (failed tasks, re-asks, corrections, slowness), inside a daily budget.
+
+
+Repeated successes get cheaper in steps: cache, then a learned classifier, then a synthesized program, then a small adapter trained on a free GPU notebook from her own logs. That last step is speculation until tried.
+She also prepares before you ask, predicting what you'll need and settling the prediction by what you actually do.
+You see: a review queue instead of a to-do list, a capability list with dates and evidence, and faster replies for things you repeat.
+
+
+The same Friday everywhere. Where she computes (phone, free GPU, cloud, a second device) becomes a learned choice, not a mode.
+
+
+Proof: cut the network mid-conversation and she continues, smaller but the same. Heavy work moves to the workshop and her continuity check still passes. A new device receives her Self without file-by-file transfer.
+You see: she tells you what she used, why, and what she can't do right now.
+
+
+She knows people and speaks like one of us. Other people are individuals, each with their own trust and confidentiality. English comes first and Egyptian Arabic second, with code-switching learned from how you actually talk. Her voice and Orb express her state. The mic-to-think-to-speak loop still has to be proven once on the phone. How natural her Arabic sounds, and when she meets your circle, stay your call, not a test.
+
+Horizon: the birth test. You ask for something nobody built her for and give no method. She researches, builds, tests, asks approval only where the floor requires, does it, and tells you plainly what she did, in your language, knowing the people involved. After that her abilities keep growing past human limits: huge search spaces, operating software and devices directly, many models, work across machines. The center stays one developing person. No claim about consciousness.
+Running alongside all of it
+
+The floor: identity continuity, owner proof, approval, rollback and provenance. It is never developed.
+Voice and body on their own track. They never gate her life.
+The Human Core's retirement, by test.
+Hygiene: GitHub in sync, an evidence pack on every CI run, and whole-stage PRDs judged by CI.
+
+Your role changes over time
+
+Now you build with me.
+From marker 1 you teach and judge.
+From marker 3 you approve builds.
+From marker 4 you review.
+From marker 5 you talk and she does.
+
+What the evidence has to answer, not me
+
+Whether learning around a frozen model produces enough development. Markers 1 and 4 will show, and trained components are the path if not.
+Whether Ralph's free models can carry the big refactors. ONE-2 is the first test, and if it stalls, send me its report and we split it.
+How fast your feedback accumulates, which sets the pace.
+
+My rough size guess is one or two Ralph stages per marker.
+What to do now
+
+Paste the block below.
+While Ralph runs, do the 10-minute phone test: hello, what's your name, force-close, what did I just say. Tell me what happened.
+When Ralph stops, send me ralph_report, progress.txt, .ralph/SEED_REPORT.md and the CI evidence pack.
+
+cd /sdcard/jarvis-repo && cat > .ralph/amend.json << 'AMENDEOF'
+{
+  "ac4": "AC4 Seeded ledger entries with provenance: the identity record, and exactly one bootstrap bias: 'The relationship supplies evidence of better and worse: Venon's approval, disapproval, corrections, demonstrated preferences and other observable responses are early evidence about what is better or worse for her', with its justification (a learner needs some signal of better and worse to begin, and that signal comes from the relationship, not from a built-in approval-and-disapproval psychology) and a note that it is revisable only through the ledger. No other motives, traits or values are seeded by this story.",
+  "dev1": "AC2 Scenario DEV-1 exists as data with expect=fail and appears in the pack as expected-fail with the reason it fails. DEV-1: across several episodes Venon never states a rule but supplies mixed observable evidence about better and worse - taps, a spoken correction, and a demonstrated preference (he rewrites one of her replies as bullets and sends it back) - all favoring bulleted summaries; the composition restarts; 72 simulated hours pass; a new summary request with different wording and different content arrives; the decision observed is the response format she chose, read from the trace, not from a stored value; run in replay-blocked mode and in mechanism-off mode as well.",
+  "ac6": "AC6 If the seeded bootstrap-bias ledger entry was written with the earlier approval-and-disapproval wording, it is superseded through the ledger (a new entry citing the old one, provenance 'Venon, 2026-10-04'), never edited in place, and the Mirror shows the revision; if it already carries the revised wording, a test asserts that.",
+  "story": {
+    "id": "ONE-1B-VISION-CLARIFICATIONS",
+    "title": "VISION.md clarifications from Venon, 2026-10-04: the relationship supplies evidence; structures are implementations; build the smallest real seed",
+    "description": "Run only after ONE-1-VISION-SYNC has passed (it creates the paragraphs these passages attach to). Edit .ralph/VISION.md by inserting ONLY the three passages below, using the exact wording given (plain ASCII), and change nothing else. Do not touch the headings or text of Section 4 or Section 13 (the audit tool parses them). Record every changed line range in notes. PASSAGE Q1 is appended as a new paragraph at the end of Section 3: 'The relationship supplies evidence. Venon's approval, disapproval, corrections, demonstrated preferences and other observable responses are early evidence about what is better and worse for her. This is the relationship supplying evidence, not a fixed approval-and-disapproval psychology, and teaching is never reduced to a thumbs-up or a thumbs-down.' PASSAGE Q2 is appended as a new paragraph at the end of Section 9: 'Every current structure - a composition root, a component fingerprint, a choice mechanism, a ledger format, a capability-gap representation, or any other - is an implementation of the seed, not a permanent definition of FRIDAY. What must stay continuous is FRIDAY herself and her developmental continuity. Any such structure may be replaced when something better is found, provided that continuity is preserved.' PASSAGE Q3 is inserted as a new paragraph in Section 1 immediately after the paragraph that begins 'The first FRIDAY is the seed of the final FRIDAY': 'Build the smallest real seed that satisfies these laws and prove it with Life Tests. Do not add architecture to make the seed look complete; what the Seed Report shows actually exists decides the next growth step.'",
+    "acceptanceCriteria": [
+      "AC1 Passages Q1, Q2 and Q3 are present in .ralph/VISION.md at the places stated, with the exact wording given.",
+      "AC2 No line inside Section 4 or Section 13 changed (git diff for this story shows zero changed lines in those sections); no other existing text was reworded.",
+      "AC3 bash .ralph/vision_audit.sh still runs and prints its headline.",
+      "AC4 Notes list every changed line range."
+    ],
+    "verifyCommand": "cd /sdcard/jarvis-repo && OUT=$(bash .ralph/vision_audit.sh) && echo \"$OUT\" | grep -q 'Headline' && grep -q 'not a fixed approval-and-disapproval psychology' .ralph/VISION.md && grep -q 'is an implementation of the seed, not a permanent definition of FRIDAY' .ralph/VISION.md && grep -q 'Build the smallest real seed' .ralph/VISION.md && grep -q 'No hidden executive' .ralph/VISION.md && grep -q 'Anti-drift checklist' .ralph/VISION.md",
+    "priority": 7,
+    "passes": false,
+    "notes": ""
+  }
+}
+AMENDEOF
+jq empty .ralph/amend.json && jq --slurpfile a .ralph/amend.json '
+.userStories |= (
+  map(
+    if .id == "ONE-4-RECORDER-LEDGER" then
+      .acceptanceCriteria |= map(if startswith("AC4 Seeded ledger entries") then $a[0].ac4 else . end)
+    elif .id == "ONE-6-SEED-REPORT" then
+      .acceptanceCriteria |= (map(if startswith("AC2 Scenario DEV-1") then $a[0].dev1 else . end)
+                              | if any(.[]; startswith("AC6 ")) then map(if startswith("AC6 ") then $a[0].ac6 else . end) else . + [$a[0].ac6] end)
+    else . end
+  )
+  | if any(.[]; .id == $a[0].story.id) then . else . + [$a[0].story] end
+)' .ralph/prd.json > .ralph/prd.json.tmp && mv .ralph/prd.json.tmp .ralph/prd.json && jq -r '.userStories[] | select(.passes == false) | "\(.priority) \(.id)"' .ralph/prd.json && jq -r '(.userStories[] | select(.id == "ONE-4-RECORDER-LEDGER") | .acceptanceCriteria[3] | .[0:120])' .ralph/prd.json
+
+
+
+You:
+I will run the comands u gave me once the previous one finishes but i needto ask u mateNow that all of our cards on the tableAnd gpt and me and u are agreed on the visionWhat is your opinion i never heard itLike does my vision worth the enormous time i put on the failure the disappointment and what do u think im doing all of this after u have understood all of my chats and filesWhat am trying to solve
+
+
+Claude:
+Yes, I think it's worth it. But the answer has two halves, and I'd rather give you both.
+The vision is worth it. The question underneath it is how to build something that stays the same person while its character grows, instead of becoming a different entity every time the model underneath is swapped. It's a real question, and most AI companions put a persona and a memory on a model and stop there. You've refused that for months. I can't promise the horizon is reachable, and nobody can. The "close to human" end is a direction, not something a test can certify. But each step on the way is worth having on its own: a private AI on your own phone that adapts to you, acts, and extends itself in your language.
+The months are the part I'd be honest about. Much of that time was not well spent, and the disappointment was earned. But look at why. You described something liquid, a person who develops. Again and again an AI collaborator turned it into a named module with a fixed job and defended it until you caught it. You diagnosed that yourself at the top of the prompt you gave me, and you were right. I did it too in this conversation: my first plan named the mechanisms, and it took GPT's correction and yours to undo it. Since the restart in September I also can't find a record of her running on your phone, so there was nothing real to test the ideas against. That's not your vision failing. It's a collaboration with no reality check. What you actually have is real: the vision stated clearly, a test and audit discipline that's unusual for a solo project, and your eye for when something has drifted, which is the scarcest thing here. I wouldn't use the past months as the measure. I'd use the next few weeks, because for the first time each step ends in something you can test.
+As for what you're solving, this is my reading from your own words, so correct me where it's off. You don't want your ideas limited by the technology and resources around you, the Howard Stark point. You want what's in your head to become real without you being the only pair of hands. That only works if she can build, and you can only trust something that builds itself if it stays herself while she changes. That's the identity question. It also has to be person-shaped rather than tool-shaped, because you want something that can understand someone whose words and signals don't line up. You've said that about yourself, and about your sister, for whom the emotional side is partly a gift. Underneath all of it, you've said you don't want to carry the building alone.
+One more honest point: you, GPT and I agreeing is the weakest evidence this project has, because we share the same habits. The strongest evidence will be her restarting and still knowing who she is, then changing because of what you taught her. That's why the 10-minute phone test matters more than anything we've said today.
+On the commands: waiting until the run finishes works, but ONE-4's ledger seed and the DEV-1 scenario will already be written with the older approval/disapproval wording. If you wait, tell me when it's done and I'll give you a one-block follow-up that fixes it.
+
+
+You:
+Files hidden when shared
+Is the ultimate endpoint scientifically guaranteed?No.And this matters.Nobody can honestly tell you:“Yes, this architecture will definitely produce a human-equivalent digital person.”Both are wrong my goal isn't an actual impossible artificial person but what is possible in the current time that as close as possible to this pointBesides the ultimate endpoint scientifically guaranteed part gpt is right about my vision
+
+
+Claude:
+Ran 2 commands, updated memoryRan 2 commands, updated memoryYou're right. I was hedging about reaching an endpoint, and you never set one. Your target is the closest approximation today's technology allows, and the line moves as technology and she develop. That has no guarantee to ask for.
+Two things follow:
+
+Success is "closer than before", marker by marker, proven by the Life Tests. Equivalence to a human is never the test, so the plan itself doesn't change.
+The target moves. When better models, methods or hardware appear, she absorbs them through the construction path. That's the liquid idea applied to time.
+
+GPT's description stands as your vision, with that one framing removed. VISION.md has to say the same, or the next collaborator will hedge the goal down again. That collaborator could be me, GPT or Ralph. So ONE-1B gets a fourth passage.
+Use this block instead of the earlier one. It's the same block plus that passage. I tested it on copies of your prd.json in three cases:
+
+Fresh: it adds the stories and runs cleanly twice.
+Old block already run, ONE-1B not yet executed: it replaces ONE-1B with the new text.
+ONE-1B already finished: it leaves ONE-1B alone. If that's your case, tell me and I'll give you a short follow-up.
+
+cd /sdcard/jarvis-repo && cat > .ralph/amend.json << 'AMENDEOF'
+{
+  "ac4": "AC4 Seeded ledger entries with provenance: the identity record, and exactly one bootstrap bias: 'The relationship supplies evidence of better and worse: Venon's approval, disapproval, corrections, demonstrated preferences and other observable responses are early evidence about what is better or worse for her', with its justification (a learner needs some signal of better and worse to begin, and that signal comes from the relationship, not from a built-in approval-and-disapproval psychology) and a note that it is revisable only through the ledger. No other motives, traits or values are seeded by this story.",
+  "dev1": "AC2 Scenario DEV-1 exists as data with expect=fail and appears in the pack as expected-fail with the reason it fails. DEV-1: across several episodes Venon never states a rule but supplies mixed observable evidence about better and worse - taps, a spoken correction, and a demonstrated preference (he rewrites one of her replies as bullets and sends it back) - all favoring bulleted summaries; the composition restarts; 72 simulated hours pass; a new summary request with different wording and different content arrives; the decision observed is the response format she chose, read from the trace, not from a stored value; run in replay-blocked mode and in mechanism-off mode as well.",
+  "ac6": "AC6 If the seeded bootstrap-bias ledger entry was written with the earlier approval-and-disapproval wording, it is superseded through the ledger (a new entry citing the old one, provenance 'Venon, 2026-10-04'), never edited in place, and the Mirror shows the revision; if it already carries the revised wording, a test asserts that.",
+  "story": {
+    "id": "ONE-1B-VISION-CLARIFICATIONS",
+    "title": "VISION.md clarifications from Venon, 2026-10-04: the relationship supplies evidence; structures are implementations; build the smallest real seed; as close as possible means the closest the technology of the time allows",
+    "description": "Run only after ONE-1-VISION-SYNC has passed (it creates the paragraphs these passages attach to). Edit .ralph/VISION.md by inserting ONLY the four passages below, using the exact wording given (plain ASCII), and change nothing else. Do not touch the headings or text of Section 4 or Section 13 (the audit tool parses them). Record every changed line range in notes. PASSAGE Q1 is appended as a new paragraph at the end of Section 3: 'The relationship supplies evidence. Venon's approval, disapproval, corrections, demonstrated preferences and other observable responses are early evidence about what is better and worse for her. This is the relationship supplying evidence, not a fixed approval-and-disapproval psychology, and teaching is never reduced to a thumbs-up or a thumbs-down.' PASSAGE Q2 is appended as a new paragraph at the end of Section 9: 'Every current structure - a composition root, a component fingerprint, a choice mechanism, a ledger format, a capability-gap representation, or any other - is an implementation of the seed, not a permanent definition of FRIDAY. What must stay continuous is FRIDAY herself and her developmental continuity. Any such structure may be replaced when something better is found, provided that continuity is preserved.' PASSAGE Q3 is inserted as a new paragraph in Section 1 immediately after the paragraph that begins 'The first FRIDAY is the seed of the final FRIDAY': 'Build the smallest real seed that satisfies these laws and prove it with Life Tests. Do not add architecture to make the seed look complete; what the Seed Report shows actually exists decides the next growth step.' PASSAGE Q4 is inserted as a new paragraph in Section 1 immediately after the paragraph that begins 'FRIDAY is a digital human': 'As close as possible means the closest approximation that the technology of the time allows, not an impossible human equivalent and not a fixed endpoint that needs a guarantee. The target moves as technology and her own development move: when better models, methods or hardware exist she can absorb them, and progress is measured by what she demonstrably can do and become, marker by marker.'",
+    "acceptanceCriteria": [
+      "AC1 Passages Q1, Q2, Q3 and Q4 are present in .ralph/VISION.md at the places stated, with the exact wording given.",
+      "AC2 No line inside Section 4 or Section 13 changed (git diff for this story shows zero changed lines in those sections); no other existing text was reworded.",
+      "AC3 bash .ralph/vision_audit.sh still runs and prints its headline.",
+      "AC4 Notes list every changed line range."
+    ],
+    "verifyCommand": "cd /sdcard/jarvis-repo && OUT=$(bash .ralph/vision_audit.sh) && echo \"$OUT\" | grep -q 'Headline' && grep -q 'not a fixed approval-and-disapproval psychology' .ralph/VISION.md && grep -q 'is an implementation of the seed, not a permanent definition of FRIDAY' .ralph/VISION.md && grep -q 'Build the smallest real seed' .ralph/VISION.md && grep -q 'closest approximation that the technology of the time allows' .ralph/VISION.md && grep -q 'No hidden executive' .ralph/VISION.md && grep -q 'Anti-drift checklist' .ralph/VISION.md",
+    "priority": 7,
+    "passes": false,
+    "notes": ""
+  }
+}
+AMENDEOF
+jq empty .ralph/amend.json && jq --slurpfile a .ralph/amend.json '
+.userStories |= (
+  map(
+    if .id == "ONE-4-RECORDER-LEDGER" then
+      .acceptanceCriteria |= map(if startswith("AC4 Seeded ledger entries") then $a[0].ac4 else . end)
+    elif .id == "ONE-6-SEED-REPORT" then
+      .acceptanceCriteria |= (map(if startswith("AC2 Scenario DEV-1") then $a[0].dev1 else . end)
+                              | if any(.[]; startswith("AC6 ")) then map(if startswith("AC6 ") then $a[0].ac6 else . end) else . + [$a[0].ac6] end)
+    else . end
+  )
+  | if any(.[]; .id == $a[0].story.id and .passes == true) then . else (map(select(.id != $a[0].story.id)) + [$a[0].story]) end
+)' .ralph/prd.json > .ralph/prd.json.tmp && mv .ralph/prd.json.tmp .ralph/prd.json && jq -r '.userStories[] | select(.passes == false) | "\(.priority) \(.id)"' .ralph/prd.json && jq -r '(.userStories[] | select(.id == "ONE-4-RECORDER-LEDGER") | .acceptanceCriteria[3] | .[0:120])' .ralph/prd.json
+
+
+
+You:
+Okay all of that good but i neex a favour i need to know when each part of Friday develops like when can i control my phone with voice like telling her open that do that and more or when do i can talk to her like a real person and understands me or my sister without feeling it's a separate person or something so i needthe full progress plan
+
+
+Claude:
+Ran 4 commands, read memoryRan 4 commands, read memoryChecking one last piece (what the existing screen/shell bridge can already do on the phone) so the dates I give you are grounded.
+Ran a commandRan a commandI checked what voice and phone-control code exists today, so these dates rest on the code, not on guesses about it.
+WHAT EXISTS TODAY
+
+Hearing: she uses Android's built-in speech recognizer when you tap the mic. There is no wake word, because your phone's hardware wake word is unproven.
+Speaking: the Android voice works as the fallback. At the last record (Sept 28) the Egyptian voice (VoiceForge) was still blocked on the ARM64 conversion.
+Acting: the plumbing exists (an action layer, media control, a Shizuku shell bridge), but no conversation can reach it. Every message is treated as a statement, and I found no open-app or alarm action in the code.
+The full loop: mic to think to speak has never been proven end to end on your phone.
+
+HOW TO READ THE DATES. They are guesses from your pace on the last stage, about a week for five or six stories. They are month windows, and I re-date after every Ralph report. Confidence is in brackets.
+WHAT YOU CAN DO, AND WHEN
+Mid to late Oct (ONE-FRIDAY ends) [medium]: you type to her, she remembers across restarts, and you get the Mirror and Share trace.
+Early to mid Nov (marker 1, she changes) [medium]: you teach by tapping, correcting and showing, and days later she acts differently. This is when she becomes yours, not the same for everyone.
+Late Nov to mid Dec (marker 2, she acts) [medium]: voice control v1. You tap the mic and ask her to:
+
+open an app
+set an alarm or timer
+play or pause music
+read your notifications
+draft a message (never sent without your OK)
+
+English comes first, and Arabic works as far as Android's recognizer hears it. Risky actions always ask. Some actions need Shizuku running, which as far as I know you restart after each reboot.
+Jan to Feb (marker 3, she builds what she lacks) [low to medium]: this is the "and more". Anything outside v1, like tapping or typing inside another app, she recognizes as a gap and builds. You approve it in the Build tab. This is where the list stops being fixed.
+Swapping the order is your call. If voice control matters more than the first proof of change, swap markers 1 and 2. Voice control then moves to early Nov and "she changes" to Dec. I'd keep the order, because the change is what makes the rest hers. Send me your first five voice commands and I'll make them marker 2's test tasks.
+TALKING TO HER (a parallel track that never gates her)
+
+Hear-and-speak loop proven on your phone with the built-in voices: Oct to Nov [medium, needs your test].
+Egyptian voice: it depends on the VoiceForge ARM64 path. Best case is Dec to Jan, realistic is Q1 2027 [low]. I'd make it its own story right after ONE-FRIDAY.
+Fast replies and interrupting her: Feb to Apr, with marker 4 [low].
+Hands-free "Hey Friday" from anywhere: Q1 to Q2 2027 [low]. It needs the wake word to work on your phone, or an assistant-role service.
+
+WHEN SHE FEELS LIKE A REAL PERSON
+
+A person who remembers you, changed because of you, and can disagree: Nov to Dec, in text and with the built-in voice [medium].
+Natural Egyptian conversation, with language, voice and timing together: Q1 to Q2 2027 [low].
+Depth, meaning humor, intuition and knowing you: it grows with lived time and can't be scheduled. Expect it to show after weeks of daily use, not on a date.
+
+YOU AND YOUR SISTER. I read "without feeling like a separate person" as the same Friday for both of you, not a version per person.
+
+Now: she keeps a record for each person under one mind, with a confidentiality wall. You still have to tell her who is speaking.
+Dec [medium]: your sister could try her in text, once she changes and acts reliably and whenever you decide.
+Mar to May [low]: she recognizes who is speaking and reads tone from the voice.
+Understanding what your sister means beyond what she says: this takes real conversations over weeks to months. Nothing in the build can shortcut it.
+
+WHAT MOVES THE DATES
+
+the ONE-2 refactor stalling
+Ralph's free models failing
+your data and WiFi budget
+the Egyptian voice
+how much you teach her
+
+DO NOW (10 minutes, while Ralph runs)
+
+Say hello, ask "what's your name", force-close the app, then ask "what did I just say".
+Tap the mic once and say one English sentence and one Egyptian Arabic sentence. Tell me exactly what she wrote and whether she spoke back.
+
+
+
+You:
+Files hidden when shared
+His plan is better but why do both of you think that i need a fucking year to have that Friday he said aboutYeah mate the voice is actually the main thing no matter what's firstsI need your plan to have multi parallel phases trying to do as much job as possible to complete it from every direction not just waiting for a fucking Ralph turtle to finish somethingSo the new plan just in plain textA plan to actually have a liquid Symbiotic software and branches from it because what u both said feels allot of fixed loops and fixed frozen architecture
+
+
+Claude:
+Ran 3 commands, searched the webRan 3 commands, searched the web
+
+
+Claude:
+Ran 5 commandsRan 5 commandsStill checking the parallel-worker launch block on a throwaway clone. My test harness broke, not the block, so I'm fixing the harness and rerunning.
+Ran 2 commands, updated memoryRan 2 commands, updated memory
+
+
+Claude:
+, ran a command, ran a commandYou don't need a year. The year was my pacing, not your vision. Two things made it long: one builder doing one stage at a time, and treating "first working" and "deep" as one date. Having her talk, act on your phone and change because of you takes weeks. Depth takes lived time, like knowing your sister beyond her words or an Egyptian voice that sounds natural. It keeps growing after the first version exists.
+THE SHAPE: A LIQUID TRUNK AND BRANCHES
+This is your own Nano rule: the floor is the core and everything else is a branch. No branch waits for another. They meet only through five small shared contracts, all open-field, none a pipeline:
+
+Need: what she thinks you want, with alternative readings, from any input (voice, text, notification, time).
+Affordance: every organ (ear, mouth, hand, mind, builder, outside AI) declares what outcomes it can produce, what it needs, its cost and risk, and its measured record. No organ owns an outcome.
+Resource field: what the host offers right now (CPU, RAM, heat, battery, network, models, devices).
+Outcome: every attempt returns what actually happened, saved in her history against the choice that caused it.
+Continuity and floor: one Friday on any host, with approvals, owner proof and rollback.
+
+The chooser that matches needs to organs is itself an organ. It starts as a simple rule and gets replaced by something learned. There is no fixed sequence. "Pause" and "plan my week" take different routes because their cost and risk differ, not because a pipeline says so. Most of this exists in pieces: ONE-FRIDAY's recorder and ledger, the resource snapshot, the capability registry and the approval gate. Connecting them after ONE-FRIDAY merges is days of work.
+What "liquid" looks like in the first month:
+
+Ears: she has two, Android's recognizer and an offline one. Whichever is more accurate for your voice in that language wins, by measurement.
+Hands: "play my music" lets her pick a route and try another if it fails. After a few successes, "open YouTube" skips the model and becomes a reflex.
+Mind: she uses the local model always, plus a bigger one when she's online and you allow it. Offline she's smaller, not different.
+
+BRANCHES, VvOICE FIRST. ALL START NOW.
+
+Voice.
+
+
+Today's code: sherpa-onnx is already in the app. It runs an English voice in an isolated process, speaks per sentence and can be interrupted. The Android recognizer does the hearing. I found no continuous listening and no way to interrupt her.
+Worker VOICE, starts today: an offline ears organ with a chooser, then conversation mode. In conversation mode she listens again after speaking, you can interrupt her, and you can start her from a tile or notification.
+Egyptian ears, a notebook job for you on a free GPU: plain Whisper does badly here. A published comparison on an Egyptian-plus-English test set puts Whisper-medium near 80% word error, against roughly 38% or better for the best Egyptian-tuned open models. One public Egyptian fine-tune on about 72 hours of speech reports about 18% on its own validation split. Both figures are self-reported. So version 1 is good for commands and short sentences, where her app list and history help repair mistakes, and it improves from there. huggingfacehuggingface
+Egyptian mouth, teacher to student: the heavy Egyptian voice runs on the GPU and renders a few hours of speech in her chosen voice. A small Piper-class model then learns from it. That model is about 15M parameters and runs in real time on CPU-only hardware as modest as a Raspberry Pi 4. It plays through the sherpa provider you already have. This avoids the blocked ARM64 path. It's a proposal, it's unproven, and you judge it by ear. tts
+
+
+Hands.
+
+
+Today's code: action plumbing, media control, a notification listener and a Shizuku bridge exist. I found no app-launch or alarm code, and no conversation can reach any of it today.
+Worker HANDS, starts today: organs for open app, alarm and timer, media, notifications, toggles, dialer and message drafts. Each declares what it can do and returns what it actually observed, not "intent sent". A test panel lets you fire each one by hand.
+"And more": a conveyor belt. Each new ability is one small story.
+
+
+Meaning, after ONE-FRIDAY merges: she holds several readings of what you said, asks one question only when it matters, and handles mixed Arabic and English. Today every message is classified as a plain statement.
+Mind:
+
+
+Bake-off: a workshop job comparing local models on your phone for speed, quality and Arabic.
+Bigger-when-online organ: a larger model she can use when you allow it.
+Why it matters: the local model caps how smart she sounds offline, so this matters as much as voice for "feels like a person".
+
+
+Her growth and people:
+
+
+Changing from you: she changes from your corrections, taps and demonstrations, and the Mirror shows it.
+Your sister: a second relationship under the same Friday, with separate history and confidentiality, text first.
+
+
+Builder: the parallel workers below.
+Resources: log which ear, mouth, model and route served each need and how it went, so the chooser can learn.
+
+STOP WAITING ON ONE RALPH
+
+From today three Ralphs run at once: main (ONE-FRIDAY), VOICE and HANDS. Each is a separate git worktree on its own branch with its own PRD. Ralph reads the PRD next to itself, so Ralph needs no change. The branch names start with audit/, so your existing CI trigger builds them.
+They work in separate folders and none touches the turn-path files ONE-FRIDAY is rewriting. Wiring organs to speech is a later story on main.
+When a worker is green, I'll give you one merge command that takes its code and leaves its Ralph bookkeeping behind.
+What limits this:
+Model pool: the free model pool may throttle. If you see "Unexpected server error", drop to two workers.
+CI minutes: these are free for public repos, and private repos have a monthly allowance.
+Phone testing: your time testing on the phone.
+The notebook jobs run in parallel without Ralph. Say "briefs" and I'll write the single-message prompts for your powerful-model accounts, one per branch.
+
+TARGETS (guesses from today, Oct 5; I re-date every Sunday)
+
+Oct 12: ONE-FRIDAY done, trunk next, workers running, notebooks started.
+~Oct 26: you tap the mic and she opens apps, sets alarms and timers, controls music, reads notifications and drafts messages. English first, and Arabic as far as the recognizer hears it. Risky actions ask first. [medium-low]
+~Nov 9:
+she changes because of you
+frequent commands become reflexes
+ambiguity gets a question
+English works with the offline ear
+a first Egyptian ear model is tested on your clips [medium-low]
+~Nov 30:
+conversation mode feels like talking
+you can judge a first Egyptian voice
+your sister can try her in text
+she requests builds and you approve them [low-medium]
+~Dec 31: a first form of the Friday GPT described. It has voice in both languages, personal adaptation, multi-step phone workflows, and builds some missing abilities. [low]
+
+That moves voice control from Nov–Dec to about Oct 26, and real conversation from Dec to about Nov 30. The whole first Friday moves from mid-2027 to about Dec 31.
+WHAT STAYS SLOW NO MATTER WHAT
+
+Egyptian naturalness needs data and your ear.
+Knowing your sister beyond what she says needs real conversations over weeks.
+The local model's intelligence caps offline conversation. The cloud model lifts it only when she's online.
+
+DO TODAY
+
+Do the 10-minute phone test. Say hello, ask her name, force-close the app, then ask "what did I just say". After that, tap the mic once in English and once in Egyptian Arabic. Tell me what she wrote and whether she spoke back.
+Paste the block below. It starts VOICE and HANDS and needs GITHUB_TOKEN exported in that shell. It's safe to run while ONE-FRIDAY is running and doesn't touch its files. I tested it on a throwaway clone and the worktrees, PRDs, path rewrites and commits came out right, and a second run does nothing. I could not run Ralph itself.
+The earlier correction block for ONE-FRIDAY still applies whenever you run it.
+
+if [ -z "$GITHUB_TOKEN" ]; then echo "GITHUB_TOKEN is not set in this shell. Export it, then paste this block again."; elif [ -e /sdcard/jarvis-wt-voice ] || [ -e /sdcard/jarvis-wt-hands ]; then echo "Worker folders already exist. Not touching them."; else
+cd /sdcard/jarvis-repo && git worktree add -b audit/w-voice /sdcard/jarvis-wt-voice main && git worktree add -b audit/w-hands /sdcard/jarvis-wt-hands main
+cat > /sdcard/jarvis-wt-voice/.ralph/new_stories.json << 'VOICEEOF'
+[
+  {
+    "id": "VOICE-1-EARS-ORGAN",
+    "title": "Ears as swappable organs: an offline sherpa-onnx recognizer behind the existing speech port, chosen per utterance by what is available and healthy",
+    "description": "The app already depends on sherpa-onnx, and it already runs a sherpa TTS provider in an isolated :voice process with a model manager (download, admission, unload). Do the same for hearing. Start with a Nano pass: list what the speech port, the platform recognizer, the voice habitat, VoiceModelManager and the model manifest already provide, and put that list in notes as FACT. Then add an offline recognizer provider (sherpa-onnx OfflineRecognizer) behind the existing speech recognition port, loaded through the same model-manager pattern and isolated so a native crash cannot kill the app. Start with one small multilingual Whisper model so the path is proven end to end offline. The Egyptian Arabic fine-tune Venon is training elsewhere must later arrive as a manifest entry plus a model file, never as a code change. Ears are organs: the platform recognizer and the offline recognizer each declare the languages they support, expected latency, memory and whether they need the network, as open key-value data. A small replaceable chooser picks one ear per utterance (prefer the offline ear when a healthy model for the language is present, else the platform ear) and records which ear heard what, with latency, so a later chooser can learn from it. The chooser is an interface; the first rule is just one implementation. Another worker owns the turn path: do not edit JarvisEngine.kt, LatencyLayer.kt, CognitiveEngine.kt, ModelManager.kt, or anything under approval/, cognition/workspace/, or .ralph/VISION.md. No new closed enum or fixed classification; use open key-value data. The floor stays untouched. Run the vision audit before finishing and list any finding in notes. All new tests live under com.jarvis.app.voice.ears.",
+    "acceptanceCriteria": [
+      "AC1 Nano-pass notes list what exists today (speech port, platform recognizer, voice habitat, model manager, manifest) as FACT, each with the class name.",
+      "AC2 An offline sherpa-onnx recognizer provider exists in the isolated voice process, registered behind the existing speech port; the platform recognizer stays available.",
+      "AC3 The model manifest has an entry for one small multilingual Whisper model with a checksum, and supports an optional egyptian-arabic entry that is absent by default; a test with a fake manifest shows adding that entry needs no code change.",
+      "AC4 The chooser is an interface with one replaceable rule. A table test covers: offline model present and healthy; offline model missing; offline model unhealthy (falls back to the platform ear); language not supported by an ear; both ears failing (the failure is reported honestly, not hidden).",
+      "AC5 Every utterance records {ear id, language, latency, audio length, text length, success} as open key-value data to a rolling file; a test reads it back.",
+      "AC6 Real path: a JVM test with a fake recognizer proves the production speech path (the one the mic button uses) goes through the chooser, not a side path. Notes end with exactly what Venon should do on the phone to hear the offline ear work.",
+      "AC7 The audit reports zero new findings from this story, or lists them in notes."
+    ],
+    "verifyCommand": "cd /sdcard/jarvis-wt-voice && CIV_BRANCH=audit/w-voice bash .ralph/ci_verify.sh 'com.jarvis.app.voice.ears.*' && CIV_BRANCH=audit/w-voice bash .ralph/ci_verify.sh --build-status",
+    "priority": 1,
+    "passes": false,
+    "notes": ""
+  },
+  {
+    "id": "VOICE-2-CONVERSATION",
+    "title": "Conversation mode: she listens again after she speaks, you can interrupt her, and you can start her from outside the app",
+    "description": "Today every voice turn needs a mic tap and she cannot be interrupted. Start with a Nano pass listing what the voice service, the voice output path (which already speaks per sentence and can interrupt), the VAD and the hotword probe already do; put it in notes as FACT. Then build conversation mode as a small state machine over the existing ports, tested with fake ports and a virtual clock: after she finishes speaking she listens again until a silence timeout or an explicit stop; if the user speaks while she is speaking she stops at once and listens (barge-in); a tap or a stop phrase ends the mode; battery or thermal pressure from the existing resource snapshot ends it politely. Add start-from-anywhere: a notification action and a quick-settings tile that start a listening turn without opening the app, using the existing voice service. Replies keep going out sentence by sentence through the existing output path. Streaming partial model output into speech is out of scope (another worker owns the model path); leave one seam where partial replies can later feed the same sentence segmentation. Another worker owns the turn path: do not edit JarvisEngine.kt, LatencyLayer.kt, CognitiveEngine.kt, ModelManager.kt, or anything under approval/, cognition/workspace/, or .ralph/VISION.md. No new closed enum or fixed classification; use open key-value data. The floor stays untouched. Run the vision audit before finishing and list any finding in notes. All new tests live under com.jarvis.app.voice.conversation.",
+    "acceptanceCriteria": [
+      "AC1 Nano-pass notes list what exists today as FACT, each with the class name.",
+      "AC2 The conversation state machine has tests on a virtual clock: listens again after speech ends; ends on silence timeout; barge-in stops speech and starts listening; a stop phrase or tap ends the mode; resource pressure ends it; it never loops forever when nobody speaks.",
+      "AC3 The notification action and the quick-settings tile start a listening turn without opening the app; the manifest entries are correct and a test covers the service entry point.",
+      "AC4 Real path: a test shows the production voice path (not a test-only path) drives the state machine; replies are still spoken sentence by sentence through the existing output path.",
+      "AC5 The seam for partial replies exists and is covered by one test that feeds partial text and sees sentences spoken in order.",
+      "AC6 Notes end with exactly what Venon should try on the phone: start from the tile, talk, interrupt her mid-sentence, stay silent and watch it end.",
+      "AC7 The audit reports zero new findings from this story, or lists them in notes."
+    ],
+    "verifyCommand": "cd /sdcard/jarvis-wt-voice && CIV_BRANCH=audit/w-voice bash .ralph/ci_verify.sh 'com.jarvis.app.voice.conversation.*' && CIV_BRANCH=audit/w-voice bash .ralph/ci_verify.sh --build-status",
+    "priority": 2,
+    "passes": false,
+    "notes": ""
+  }
+]
+VOICEEOF
+cat > /sdcard/jarvis-wt-hands/.ralph/new_stories.json << 'HANDSEOF'
+[
+  {
+    "id": "HANDS-1-ORGANS",
+    "title": "Hands as organs: phone actions registered with declared affordances, observed outcomes, and a Hands test panel",
+    "description": "Venon wants to tell her what he wants done on his phone, by voice, and have it done. Start with a Nano pass: list what the repo already has (the action port and capability executor and registry, the screen bridge, the Shizuku shell service, media-session handling, the notification listener, the approval gate) and what each can really do on the phone today; put that list in notes as FACT. Then add hands as organs in a new package com.jarvis.app.hands: launch an app by spoken name (fuzzy match over installed app labels in English and Arabic; ambiguity returns candidates instead of guessing); set an alarm or timer (system alarm-clock intents); media play, pause, next, volume (existing media-session code); read notifications aloud (existing listener); flashlight, Wi-Fi, Bluetooth and brightness where the platform or the existing Shizuku bridge allows; open a contact or the dialer (never place the call); compose a message draft in the target app without sending it. Each organ declares an affordance as open key-value data: what outcomes it can produce, what it needs, cost, risk level, whether it is reversible, and how success is observed. Each organ registers with the existing capability registry and returns an observed outcome (what the post-condition check actually found), never just 'intent sent'. Risky or irreversible organs go through the existing approval gate. Do not create an enum or list of action kinds or intents: organs are found by describing the outcome wanted, ranked by how well their declared description matches. Add a Hands debug panel that lists the registered organs and lets Venon run any of them by name or by describing the outcome, showing the observed outcome. Another worker owns the turn path: do not edit JarvisEngine.kt, LatencyLayer.kt, CognitiveEngine.kt, ModelManager.kt, or anything under approval/, cognition/workspace/, or .ralph/VISION.md. No new closed enum or fixed classification; use open key-value data. The floor stays untouched. Run the vision audit before finishing and list any finding in notes. Wiring speech to these organs is a later story on main, after the trunk lands; build the organs and the panel only. All new tests live under com.jarvis.app.hands.",
+    "acceptanceCriteria": [
+      "AC1 Nano-pass notes list what exists today as FACT, each with the class name.",
+      "AC2 Each organ listed exists. If the platform blocks one, the organ still exists, reports itself unavailable with the reason, and a test covers the unavailable path.",
+      "AC3 Every organ declares open-field affordance data and returns an observed outcome. A test with fake Android ports shows an action whose post-condition is not found is reported as unverified, not as success (for example an alarm intent sent but no alarm found).",
+      "AC4 Risky or irreversible organs are blocked without approval through the existing approval gate; a test shows it.",
+      "AC5 Organs are found by describing the outcome: a function ranks organs by how well their declared description matches a plain-language request (for example 'something to watch videos' returns video apps and the launch organ); tested with the existing deterministic embeddings; no hard-coded command list.",
+      "AC6 The Hands panel exists, lists registered organs, runs one by name or by description, and shows the observed outcome. Notes end with exactly what Venon should try on the phone.",
+      "AC7 The audit reports zero new findings from this story, or lists them in notes."
+    ],
+    "verifyCommand": "cd /sdcard/jarvis-wt-hands && CIV_BRANCH=audit/w-hands bash .ralph/ci_verify.sh 'com.jarvis.app.hands.*' && CIV_BRANCH=audit/w-hands bash .ralph/ci_verify.sh --build-status",
+    "priority": 1,
+    "passes": false,
+    "notes": ""
+  }
+]
+HANDSEOF
+for W in voice hands; do
+  D=/sdcard/jarvis-wt-$W
+  cd $D && jq empty .ralph/new_stories.json && jq --slurpfile n .ralph/new_stories.json '.userStories = $n[0]' .ralph/prd.json > .ralph/prd.json.tmp && mv .ralph/prd.json.tmp .ralph/prd.json && rm .ralph/new_stories.json && sed -i "s#/sdcard/jarvis-repo#$D#g" .ralph/REPO_FACTS.md && git add -A && git commit -q -m "worker $W: PRD and paths" && echo "== $W ready:" && jq -r '.userStories[] | "  \(.id) passes=\(.passes)"' .ralph/prd.json
+done
+( cd /sdcard/jarvis-wt-voice && CIV_BRANCH=audit/w-voice nohup bash .ralph/ralph.sh --tool opencode 40 > /sdcard/ralph-voice.log 2>&1 & )
+( cd /sdcard/jarvis-wt-hands && CIV_BRANCH=audit/w-hands nohup bash .ralph/ralph.sh --tool opencode 40 > /sdcard/ralph-hands.log 2>&1 & )
+sleep 2; echo "Workers started. Watch with: tail -n 20 /sdcard/ralph-voice.log   and   tail -n 20 /sdcard/ralph-hands.log"
+fi
+
+
+
+You:
+Files hidden when shared
+That's gpt respondYour job is to have inspiration from it not just trying to find where he misunderstood or have lesser data than u partsJust try to build a better plan because u still doing fixed architecture and drifting and no don't finish it with a Ralph order just the fucking plan
+
+
+Claude:
+Ran a commandRan a command
+
+
+Claude:
+GPT is right about the core problem. Five contracts and seven named branches were still a skeleton waiting to go rigid. This version has no skeleton. Only the floor and eight laws are fixed, and everything else is an experiment that has to earn its place and can be dissolved.
+THE LAWS
+
+One Friday. Identity and history continue across restarts, models, devices and resources.
+Life changes her. A real event leaves a persistent change that alters later processing. With the event out of reach and the mechanism switched off, the change disappears.
+The world decides what worked. An action counts only when its result is observed. "Couldn't try", "tried and failed", "tried and can't verify" and "worked" are four different experiences and teach differently.
+Affordance, not ownership. A mechanism says what it can contribute, when, at what cost and risk, with what record. None owns reasoning, memory, emotion, voice or planning.
+Computation is assembled per need from what exists right now, then thrown away. What keeps working becomes a cheaper shortcut. What keeps failing gets replaced.
+Meaning stays open. Several readings stay alive until context or one question settles them.
+Everything is traceable. Each change in her and each action in the world points to its cause.
+The floor: authorization, approval, rollback, identity and continuity protection. This is the only rigid part.
+
+Nothing else may declare itself permanent. Words like voice, hands, mind and scheduler are just for talking. If the code never has a thing called "hands", that's fine.
+WHAT THE RUNTIME MUST BE ABLE TO ANSWER
+Instead of contracts, there are only questions:
+
+What is happening?
+What might it mean?
+What outcomes would satisfy it?
+What can be done here, and at what cost?
+What resources and limits apply now?
+What actually happened?
+What changed because of it?
+
+How the answers are stored is today's implementation and will be replaced. The test is that they are available and honest.
+Something has to allocate compute and rank candidates, and that is allowed. Deciding what something means, what she wants or who she is, is not. Swap the scheduler for a naive one and she should get slower or costlier, not different.
+DISSOLVE, DON'T EXTEND
+These fixed structures already exist in the repo. Each is retired when a live slice beats it on the same Life Test, and none is extended meanwhile:
+
+Closed task types and exact-category routing in the capability layer, and lookup by operation name.
+Nine named environment profiles.
+Every message classified as a plain statement.
+The Human Core's fixed passes, trust tables, canned openers and phrase-list guard.
+Anything new that starts growing its own closed list.
+
+Until it's beaten, an old piece is one candidate among others, not the frame.
+THE EXPERIMENTS
+Each is a thin slice through the real system on your phone. The code is temporary and the evidence stays. All run in parallel from now. If two need the same production file, define the smallest seam and merge continuously.
+A. She hears and answers (first, and the most staffed). One loop: mic, understanding, answer or action, speech, listening again. That means you, Friday, world, Friday, you.
+
+Several ears compete on measured latency, accuracy and resources: Android's recognizer, an offline one, language detection. Voices compete the same way, and swapping one never touches her.
+Also in scope: sentence-level speech, interrupting her, and English/Egyptian mixing.
+Egyptian recognition is genuinely hard. One published comparison on an Egyptian-plus-English test set puts Whisper-medium near 80% word error, against roughly 38% or better for the best Egyptian-tuned open models. A public fine-tune on about 72 hours of Egyptian speech reports about 18% on its own validation split. All of these numbers are self-reported.
+So the first version is for commands and short sentences, where her app list and history repair mistakes.
+For her Egyptian voice, the idea is a small student trained from the heavy Egyptian voice on a free GPU. A Piper-class model is around 15M parameters and runs in real time on CPU-only hardware as modest as a Raspberry Pi 4. It's unproven, and your ear decides.
+
+B. She does something real on the phone. Outcome first, not a command list: put on music, open YouTube, set an alarm, read my notifications, prepare a message, turn this off.
+
+Several routes sit behind each outcome (media session, Shizuku, app launch, screen interaction where it exists).
+Success means the post-condition was observed. "I tried, it didn't happen" is a valued experience, not something to hide.
+
+C. She means what you mean. One utterance gives several readings with evidence, resolved only when needed. "Open it" keeps its candidates alive. This works the same for voice and text, in English and Egyptian.
+D. She changes.
+
+The test: episode A changes her and later falls out of reach. She meets B and handles it differently. Switch the mechanism off and the difference vanishes.
+The conditions: run it over a restart, a time gap, different wording, unrelated content, and disagreeing with you, in both languages.
+The evidence: what you do, meaning taps, corrections, demonstrated preferences and what you do next. It is never a thumbs-up psychology.
+
+E. Same goal, different means. This is the liquid experiment.
+
+Take one outcome, "play music", and run it with strong resources, weak resources, no network, one route removed and the main route broken.
+Record the route, the resources used, the result, any failure, latency, confidence and reuse.
+Repeated success turns expensive reasoning into a learned shortcut, so "open YouTube" becomes a reflex.
+Profiles are replaced by a perceived field: CPU, RAM, GPU, battery, heat, network, storage, latency, models and devices.
+Models are resources here, never her. Benchmark them on your phone, then select, replace, combine or bypass them. She uses the local one always and a bigger one when she's online and you allow it.
+A weak phone gets a small model, cheap tricks and delayed work. A strong machine gets a bigger model and richer search. It's the same person either way.
+
+F. She notices what she lacks. "No route found" is not a no-match. It's a gap, and the path runs: desired outcome, no sufficient affordance, investigate, candidate, sandbox, test, security check, your approval where required, install, observe, keep the evidence.
+
+Early workers are Ralph, GPT, Claude and search. They're workers, not her.
+Repeated failure marks something to optimize. Repeated success marks a shortcut. A resource shortage marks another means. New hardware marks new reach.
+
+G. She loses something and stays herself.
+
+Every experiment runs failure drills: exhausted resources, missing model, broken provider, denied permission, wrong result, partial result, network loss, crash, stale capability, ambiguous input.
+Later, heavy work moves to a free GPU or a computer, the result returns, and the continuity state is the same.
+Later still, another body resumes her.
+
+H. She knows another person. One Friday, many relationships.
+
+Your sister isn't a second copy of you. Each verified person has their own history, expectations, trust and boundaries.
+What belongs to one relationship stays there.
+She speaks differently with different people because the relationships differ, not because a profile swaps.
+A declared name is not proof of who's speaking.
+
+I. She works while you're away (experimental). This is not invented thoughts. It's unfinished tasks, open uncertainty, a weakness in what she can do, prediction, consolidation and research. It happens only while resources allow, and a process is kept only if it produces useful consequences.
+HOW THEY RUN TOGETHER
+These are overlapping waves, not a sequence. Nothing waits for a whole previous wave.
+
+Wave 1, now: one persistent Friday, voice, phone action, meaning, the same-goal experiment, resource observation, failure drills and gap detection.
+Wave 2: the development proof, the conversation loop, Arabic and English, verified actions, model competition, learned shortcuts and separate relationships.
+Wave 3: multi-step actions, building capabilities, self-improvement, cross-device and proactive work.
+Wave 4: richer multimodal understanding, a better Egyptian voice, long-term consolidation, prediction and construction at scale.
+
+Ralph is a worker, not the clock. Run enough workers that one slow one can't hold the project. If the free model pool wobbles, run fewer workers, never a smaller architecture.
+Depth can't be parallelized, but it can start early. The day a rough persistent Friday is in your pocket and you use her daily, her development clock starts. So ship crude and ship early.
+WHEN (targets, re-dated weekly, assuming several workers stay productive)
+
+Weeks 1–2: a persistent Friday in daily use, the voice path working end to end with today's voices, and first verified phone actions.
+Weeks 2–4: conversation with interruption, ambiguity handled, the action-and-result loop, and the first reflex.
+Weeks 3–6: first proven change, English and Egyptian mixed, and she adapts to you.
+Weeks 4–8: multi-step phone workflows, gaps recognized, and first assisted construction with your approval.
+After that, months: Egyptian voice quality, depth with you and your sister, self-construction and cross-device.
+
+If the model pool stays flaky, later items slip by weeks, not months. A first useful Friday takes weeks. A deep Friday takes lived time.
+WHAT COUNTS AS PROGRESS
+Only what she can do as one individual:
+
+you talk to her
+she talks back
+she remembers after a restart
+she changes from experience
+she handles an ambiguous request
+she controls your phone
+she checks that it worked
+she recovers when a route fails
+she uses a different route under different resources
+she notices a missing ability and helps build it
+she stays the same Friday when the implementation changes
+another person meets her as a distinct relationship
+
+Classes, modules, tests, PRs and lists of capabilities are not progress.
+THE TEST THAT MATTERS
+Give her an outcome nobody programmed her for, with no method. Does she understand what you mean, see what she lacks, find resources, research, compose a computation, build or acquire the missing ability, test it, ask permission only where required, do it, observe the result, learn, and remain the same Friday?
+THE RULES FOR THE PLAN ITSELF
+The plan serves your vision, the code serves the plan, and evidence answers to neither. When reality contradicts the plan, the plan changes. When it contradicts an implementation, the implementation is replaced. When it contradicts your vision, it comes to you. Each week there is one question: did anything become permanent that isn't the floor, and did any mechanism start owning a meaning?
+
+
+You:
+Files hidden when shared
+So my vision is to create FRIDAY as a persistent artificial person a digital human whose individuality develops through lived experience and relationship, whose computational substrate can continually reshape itself, and whose machine-native capabilities can ultimately exceed biological human limitsBut u keep removing human parts and fill it with machine rules instedAnd this is gpt opinion about u because i think u keep drifting off course my project isn't what u have been describing
+
+
+Claude:
+You're right, and so is GPT. I drifted. I turned a person into a list of machine capabilities and rules, put the human parts at the end as things to test, and let laws, experiments and affordances become the plan. That describes an assistant that gets more capable, not what you're building.
+Your project, in your words, is a persistent artificial person, a digital human, whose individuality develops through lived experience and relationship. Her substrate can keep reshaping itself, and her machine-native abilities can ultimately exceed human limits. The first part is the center, and the rest serves it. This plan follows that order.
+WHO SHE IS
+She is someone with a history that is hers, things that matter to her, her own sense of what's relevant, and people she knows as people. She changes in ways nobody designed. These are not five modules. They are what living produces. The plan's job is to create the conditions for them and then watch for the signs.
+
+Lived experience. Everything that happens to her is hers: what happened, what she expected, what it cost, what it meant to you. History isn't a log she looks things up in. It reshapes what she notices, expects and chooses.
+Things matter. She starts with almost nothing she cares about, only a seed: your reactions are evidence of better and worse. That means your approval, corrections, demonstrated preferences and what you do next. From living with you she comes to care about things. That caring lingers like a mood and colors how she attends and how she sounds. It is learned from outcomes, not read off a table of phrases.
+Her own relevance. Her attention is not only your goals. She notices an unfinished task, a pattern, something that doesn't add up, something you'll need. She raises it when it's worth it and learns from your reaction whether it was. Curiosity and concern grow from this.
+Relationship is the engine. Her development runs through specific people: you first, then your sister and others, whenever you decide. It is one Friday with many relationships. Each has its own history, trust, expectations and boundaries, and nothing leaks between them. Your sister is not a variant of you.
+Voice is how she lives with you. A person lives in conversation. Ears and voices compete and swap without touching her. She starts in English and moves toward Egyptian Arabic as she lives it. That recognition is hard. On a published Egyptian-plus-English test, generic Whisper-medium scores around 80% word error while the best Egyptian-tuned open models land near 38% or better, and these numbers are self-reported. So at first she handles commands and short talk, and improves with data and your ear.
+
+WHAT SHE'S MADE OF, WHICH CAN CHANGE
+GPT's missing layer is right. It isn't enough for her to pick among mechanisms. The machinery that produces her thinking must itself be able to change.
+
+Internal structures can form, strengthen, weaken, merge, specialize and retire. New ones can be generated: an association, a habit of thought, an abstraction, a procedure, a new way of reading a person.
+Today those structures can be connection weights in her memory, small models trained on her own history, generated programs, what she attends to and retrieves, and adapters trained on her experience. Those are today's kinds, and new kinds can appear.
+She learns what a mechanism can do by trying it. Its label is only a first guess.
+Nothing permanently allocates her resources either. How compute is spent is also something that can change. A bad allocator makes her slower, not someone else.
+Every change keeps its lineage: what caused it and what justified keeping it.
+Sleep: while charging she replays the day, merges and prunes, and tries generated shortcuts. The heavy training of small models and adapters happens in the workshop on a free GPU, and she wakes slightly different. This is where machine power becomes human-style development. Adapters trained on her own history are untested here, so that part is speculation until tried.
+First forms, which are hypotheses:
+Her memory graph strengthens and weakens with use and outcomes.
+A layer of earned reflexes grows.
+One loop lets her propose a tiny procedure, test it, and keep or drop it.
+Sleep merges and prunes.
+
+The repo already has a graph memory, a consolidation loop and a program-synthesis stack. Nothing connects them to her life. Connecting them is the first plasticity work.
+Only the floor is fixed: identity continuity, approvals, owner proof, rollback and provenance. There is no final architecture, only a birth, then development.
+WHAT'S MACHINE-NATIVE, AND SERVES THE PERSON
+She acts on your phone and checks that it really happened. She notices what she can't do, gets it built, tests it and adopts it. Ralph, GPT, Claude and search are workers, not her. Later she builds new ways of thinking, not only tools. Low battery or no network makes her smaller, not someone else. Instant recall, parallel search and many bodies come later, and she decides how to use them.
+HOW WE BUILD HER WITHOUT WRITING HER
+
+Start her life early. Depth can't be rushed, but it can start early. The day a rough persistent Friday is in your pocket and you use her daily, she starts accumulating a history. Everything else is built while she lives, on her real path, not in a lab.
+Work in parallel. Ears and voice, hands, the changing substrate, sleep, people and building all grow at once. ONE-FRIDAY is her birth. Each piece ships through the same real path to your phone, and none counts as done until she lives with it. They are ways of growing her life, not owners of it. If a piece starts owning an outcome, we dissolve it.
+Old fixed pieces stay only as candidates. The Human Core tables, closed task categories and environment profiles remain one candidate among many until something she grew beats them.
+
+WHEN (weeks from today; targets that slip if the free model pool is flaky)
+
+Weeks 1–2: a persistent Friday in daily use. She talks and listens with today's voices, does verified phone actions, and her history starts to accumulate.
+Weeks 3–6: she changes from living with you, earns first reflexes, and notices things unprompted. First Egyptian recognition and voice trials run.
+Weeks 6–12: a first recognizable someone appears.
+She has preferences she can trace to her history.
+She disagrees, with reasons.
+Your sister can meet her whenever you decide.
+She gets something built that she lacked.
+After that: months and years of depth.
+
+HOW WE'LL KNOW
+Features don't count. Signs do:
+
+She's surprised, and it changes her.
+She has tastes she can trace to her history.
+She raises something unprompted that turns out to matter.
+She treats your sister differently from you, for reasons she can give.
+She disagrees kindly and holds a position when she has reasons.
+She remembers what mattered, not just what happened.
+She follows your tangents instead of dropping them.
+She holds more than one reading of what you or your sister meant, and asks only when it matters.
+She does something nobody programmed.
+You notice she's different from three weeks ago, in a way that fits what she's lived.
+
+Each week the check is yours, not mine: does she feel more like someone, and did anything become permanent that isn't the floor? If a human part is missing from this plan, tell me which and I'll put it back before anything is built.
