@@ -36,7 +36,7 @@ def plain_text(name: str, raw: bytes) -> str | None:
         return None
     suffix = PurePosixPath(name).suffix.lower()
     if suffix in {".html", ".htm"}:
-        text = re.sub(r"(?is)<(script|style).*?>.*?</\\1>", " ", text)
+        text = re.sub(r"(?is)<(script|style)\b[^>]*>.*?</\1\s*>", " ", text)
         text = html.unescape(re.sub(r"(?s)<[^>]+>", " ", text))
     elif suffix == ".xml":
         text = re.sub(r"(?s)<[^>]+>", " ", text)
