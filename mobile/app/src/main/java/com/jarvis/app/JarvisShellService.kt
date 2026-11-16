@@ -29,6 +29,12 @@ class JarvisShellService : IJarvisShellService.Stub() {
         return result.toString()
     }
 
+    override fun captureScreenSummary(): String {
+        val dump = runFixed("uiautomator", "dump", "/sdcard/friday_window.xml")
+        if (dump.startsWith("unavailable:") || dump == "timeout") return dump
+        return runFixed("cat", "/sdcard/friday_window.xml").take(24_000)
+    }
+
     private fun readFile(path: String, maxChars: Int): String =
         runCatching { File(path).takeIf { it.isFile && it.canRead() }?.readText()?.take(maxChars) }
             .getOrNull().orEmpty()
