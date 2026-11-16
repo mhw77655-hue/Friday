@@ -24,11 +24,6 @@ import com.jarvis.app.failure.FailureSeverity
 import com.jarvis.app.failure.FailureSurface
 import com.jarvis.app.failure.Recoverability
 import com.jarvis.app.failure.RecoveryAction
-import com.jarvis.app.humancore.HumanCore
-import com.jarvis.app.humancore.pipeline.PerceptionResult
-import com.jarvis.app.humancore.protocol.SessionContext
-import com.jarvis.app.humancore.protocol.StyledResponse
-import com.jarvis.app.identity.HumanCoreIdentitySource
 import com.jarvis.app.identity.IdentityContext
 import com.jarvis.app.identity.MentalStateHypothesis
 import com.jarvis.app.identity.PersonaTuner
@@ -119,10 +114,8 @@ class TurnPathAssembly private constructor(
     val cognitiveAdmissionPolicy: CognitiveAdmissionPolicy,
     val anchorEngine: AnchorEngine,
     val engine: CognitiveEngine,
-    /** The turn entry point, wired over the ports and the real Human Core. */
+    /** Friday's turn entry point, wired from the shared cognitive engine and platform ports. */
     val pipeline: LatencyPipeline,
-    /** The legacy Human Core turn facade this Friday speaks through. */
-    val humanCoreTurnPort: HumanCoreTurnPort,
     /** The adapter this Friday was built from. */
     val ports: PlatformPorts
 ) {
@@ -164,7 +157,6 @@ class TurnPathAssembly private constructor(
         "anchorEngine" to anchorEngine.javaClass.name,
         "engine" to engine.javaClass.name,
         "pipeline" to pipeline.javaClass.name,
-        "humanCoreTurnPort" to humanCoreTurnPort.javaClass.name
     )
 
     /** Concrete host-provided leaves, kept separate from root-owned cognition. */
@@ -196,14 +188,6 @@ class TurnPathAssembly private constructor(
         fun assemble(ports: PlatformPorts): TurnPathAssembly {
             val stores = ports.stores()
 
-            // ── The legacy Human Core, exactly as the app wires it ─────────────
-            // Quarantined legacy scaffolding (VISION.md Section 12): constructed
-            // here and called through its real facade. Nothing is added to it.
-            HumanCore.init(
-                storage = ports.humanCoreStorage(),
-                memorySink = ports.humanCoreMemorySink()
-            )
-
             // ── Memory substrate: real store, real scorer, real retrieval ──────
             val graphStore = stores.graphStore()
             val embeddingProvider = stores.embeddingProvider()
@@ -226,7 +210,7 @@ class TurnPathAssembly private constructor(
                 listOf(ports.storageDir.resolve("ralph/prd.json").absolutePath)
             )
             val selfModel = SelfModel(
-                identitySource = HumanCoreIdentitySource(),
+                identitySource = ports.identitySource(),
                 capabilityRegistry = stores.capabilityRegistry(),
                 stageHistory = stageHistory
             )
@@ -299,12 +283,6 @@ class TurnPathAssembly private constructor(
                     ports.recordWorkloadOutcome(organ, succeeded, latencyMs, peakMemoryMb)
                 }
             )
-            // The legacy Human Core's model port reads this at call time, so
-            // binding it here is enough. It is a dependency direction (this root
-            // -> legacy port), never the reverse.
-            com.jarvis.app.humancore.mod.ModelBackend.requestChat = { messages, maxTokens, timeoutMs ->
-                modelManager.requestChat(messages, maxTokens, timeoutMs)
-            }
             val cognitiveAdmissionPolicy = CognitiveAdmissionPolicy()
             val anchorEngine = AnchorEngine(modelManager, cognitiveAdmissionPolicy)
 
@@ -357,7 +335,6 @@ class TurnPathAssembly private constructor(
             val engine = CognitiveEngine(
                 scope = ports.modelScope(),
                 memoryStore = memoryStore,
-                humanCore = HumanCore,
                 modelManager = modelManager,
                 cognitiveAdmissionPolicy = cognitiveAdmissionPolicy,
                 blendedRetriever = retriever,
@@ -376,10 +353,9 @@ class TurnPathAssembly private constructor(
             )
 
             // ── The entry point ────────────────────────────────────────────────
-            // Wired once for Android: the real Human Core facade, the app's
-            // speech/UI sinks, and the app's clock. Test adapters exercise this
-            // same path without defining another production host.
-            val humanCoreTurnPort = HumanCoreTurnPort()
+            // Friday's single cognitive engine produces the reply. This layer
+            // only schedules the turn, transports the input/output, and records
+            // its trace; no legacy fixed-pass authority surrounds her reasoning.
             val pipeline = LatencyPipeline(
                 dispatch = { block -> ports.runTurnWork(block) },
                 scheduleDelayed = { ms, block -> ports.runLater(ms, block) },
@@ -412,11 +388,6 @@ class TurnPathAssembly private constructor(
                     }
                 },
                 bridgeStatus = { modelManager.status.value },
-                beginExchange = { text, context -> humanCoreTurnPort.beginExchange(text, context) },
-                express = { reply, context -> humanCoreTurnPort.express(reply, context) },
-                completeExchange = { userText, reply, styled, ts, perception ->
-                    humanCoreTurnPort.completeExchange(userText, reply, styled, ts, perception)
-                },
                 sessionContext = { ports.sessionContext() },
                 nowMs = { ports.nowMs() },
                 cognitiveEngine = engine
@@ -457,7 +428,6 @@ class TurnPathAssembly private constructor(
                 anchorEngine = anchorEngine,
                 engine = engine,
                 pipeline = pipeline,
-                humanCoreTurnPort = humanCoreTurnPort,
                 ports = ports
             )
         }
@@ -476,31 +446,4 @@ class TurnPathAssembly private constructor(
             return OllamaModelBackend(adapter)
         }
     }
-}
-
-/**
- * ONE-2-COMPOSITION: the legacy Human Core's turn facade, as this Friday speaks
- * through it.
- *
- * A port, not a mechanism: it adds nothing to [HumanCore] and decides nothing.
- * It exists so the three turn calls the entry pipeline makes are one named,
- * inspectable seam instead of three lambdas written separately per host — which
- * is exactly how the former test host ended up with no-ops no test could see.
- */
-class HumanCoreTurnPort(
-    private val humanCore: HumanCore = HumanCore
-) {
-    fun beginExchange(userText: String, context: SessionContext?): PerceptionResult? =
-        humanCore.beginExchange(userText, context)
-
-    fun express(reasoningReply: String, context: SessionContext?): StyledResponse =
-        humanCore.express(reasoningReply, context)
-
-    fun completeExchange(
-        userText: String,
-        reasoningReply: String,
-        styled: StyledResponse,
-        ts: Long,
-        perception: PerceptionResult?
-    ) = humanCore.completeExchange(userText, reasoningReply, styled, ts, perception)
 }
