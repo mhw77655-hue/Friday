@@ -27,6 +27,7 @@ class ModelPathResolver(
             "resident" to "MiniCPM5-2B-heretic-Q4_K_M.gguf",
             "jarvis-resident:latest" to "MiniCPM5-2B-heretic-Q4_K_M.gguf",
             "lfm2.5-1.2b-abliterated" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
+            "qwen3.5-0.8b-abliterated" to "Qwen3.5-0.8B-abliterated-Q4_K_M.gguf",
             "lfm2.5-1.2b-instruct-abliterated" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
             "lfm" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
             "fallback" to "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
