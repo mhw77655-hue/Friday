@@ -132,11 +132,12 @@ Do not merge this design document into main as authority. It is a working propos
 
 The first experiment now exists in production source:
 
+- `cognitive/seed/FridayIndividual.kt`: persistent identity record (stable ID, creation time, morphology seed) plus the model-independent seed and expression root. Corrupt identity records are not silently replaced.
 - `cognitive/seed/FridaySeedSubstrate.kt`: app-private binary experience journal, arbitrary feature keys, online associative updates, explicit context→observed-outcome links, inference, bounded storage, and restart replay. It is a deliberately small adaptive substrate, not a claim of a complete mind.
 - `cognitive/seed/FridayModelFreeMind.kt`: limited local expression for identity/greeting/learned-association requests and explicit honesty for unsupported free-form language. It does not imitate an LLM.
 - `LatencyPipeline`: records each incoming experience and observed reply association; if the model bridge errors or the reply deadline expires, it attempts the independent local expression path before the generic model failure.
-- `TurnPathAssembly`: stores the seed journal under app-private `filesDir/friday/seed/experiences.bin` and wires the seed into the production turn pipeline.
-- `FridayAvatar.kt`: the previous human face was removed and replaced by an asymmetric, continuously evolving filament topology. It has no eyes, nose, mouth or human silhouette; it does not map a fixed list of psychological states to poses. Audio amplitude can influence the topology's energy when measured playback data exists.
+- `TurnPathAssembly`: stores identity and experiences under app-private `filesDir/friday/identity.bin` and `filesDir/friday/experiences.bin`, and wires the individual into the production turn pipeline.
+- `FridayAvatar.kt` and `HomeScreen.kt`: the previous human face and fixed presence labels were removed. The renderer is an asymmetric, continuously evolving filament topology with a stable per-individual morphology seed. It has no eyes, nose, mouth or human silhouette and does not map a fixed list of psychological states to poses. Audio amplitude can influence its energy when measured playback data exists.
 - Unit tests cover cross-context association, restart persistence, empty-evidence non-inference, input bounds, model-free self-description, honest unknown handling, bridge-error fallback and timeout fallback.
 
 ### What this proves and does not prove
