@@ -69,7 +69,7 @@ class TurnPathClockAllowlistTest {
             File(appRoot, directory).walkTopDown()
                 .filter { it.isFile && it.extension == "kt" }
                 .forEach { file ->
-                    val relative = file.relativeTo(appRoot).invariantSeparatorsPath
+                    val relative = file.relativeTo(appRoot).path.replace(File.separatorChar, '/')
                     val count = file.readLines().sumOf { line -> pattern.findAll(line).count() }
                     if (count > 0 && relative !in actualPaths) {
                         unlisted += "$relative ($count direct reads)"
