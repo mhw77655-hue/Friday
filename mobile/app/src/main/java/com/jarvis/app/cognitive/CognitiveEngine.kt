@@ -9,7 +9,6 @@ import com.jarvis.app.failure.ContainmentStatus
 import com.jarvis.app.failure.DegradationLevel
 import com.jarvis.app.failure.FailureCause
 import com.jarvis.app.failure.FailureEvent
-import com.jarvis.app.humancore.HumanCore
 import com.jarvis.app.turn.TurnContext
 import com.jarvis.app.model.ModelManager
 import com.jarvis.app.cognitive.capability.CapabilityExecutor
@@ -49,14 +48,14 @@ import java.util.concurrent.atomic.AtomicLong
  * This is the main entry point for cognitive processing.
  *
  * Dependencies: memory is consumed through [MemoryStorePort] (never the
- * Android-coupled concrete store) so the engine stays JVM-testable. [humanCore]
- * is the reserved integration point for a future Build — today the engine does
- * not call into it (no heavy runtime wiring yet).
+ * Android-coupled concrete store) so the engine stays JVM-testable. Friday's
+ * cognitive engine has no dependency on the quarantined Human Core.
  */
 class CognitiveEngine(
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO),
     private val memoryStore: MemoryStorePort,
-    private val humanCore: HumanCore,
+    /** Temporary source-compatibility slot for older test fixtures; never stored or used. */
+    @Suppress("UNUSED_PARAMETER") humanCore: Any? = null,
     private val modelManager: ModelManager? = null,
     private val config: Config = Config(),
     private val goalPlanner: GoalPlanner = GoalPlanner(),
