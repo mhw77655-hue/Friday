@@ -41,7 +41,6 @@ fun MoreSheet(
                 "Memory" to "memory",
                 "Tools" to "tools",
                 "System" to "system",
-                "Sandbox" to "sandbox",
                 "Settings" to "settings"
             ).forEach { (label, route) ->
                 Text(
