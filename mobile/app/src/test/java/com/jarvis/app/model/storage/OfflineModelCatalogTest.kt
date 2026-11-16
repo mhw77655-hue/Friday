@@ -67,6 +67,10 @@ class OfflineModelCatalogTest {
             ModelPathResolver.modelFileName(OfflineModelCatalog.fallback.id)
         )
         assertEquals(
+            "Qwen3.5-0.8B-abliterated-Q4_K_M.gguf",
+            ModelPathResolver.modelFileName(OfflineModelCatalog.tinyFallback.id)
+        )
+        assertEquals(
             "Qwen3.5-2B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf",
             ModelPathResolver.modelFileName(OfflineModelCatalog.reasoning.id)
         )
