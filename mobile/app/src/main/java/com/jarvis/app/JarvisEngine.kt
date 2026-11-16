@@ -268,7 +268,7 @@ object JarvisEngine {
             val memoryStore = MemoryStore(appContext, scope, onFailure = { r -> failureSurface.report(r) })
             val streamingTts = StreamingTts(appContext, languageRouter, scope, onFailure = { r -> failureSurface.report(r) })
 
-            // Get HumanCoreIntegration from CompanionCoreHolder
+            // Get FridayRuntimeIntegration from CompanionCoreHolder
             val companionIntegration = com.jarvis.app.companioncore.presence.CompanionCoreHolder.instance()?.integration
                 ?: throw IllegalStateException("CompanionCoreHolder not initialized")
 
