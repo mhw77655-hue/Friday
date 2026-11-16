@@ -78,16 +78,18 @@ class GitHubDeviceChannel(context: Context) {
     suspend fun disconnect(): String = withContext(Dispatchers.IO) {
         val number = prefs.getInt(KEY_ISSUE_NUMBER, 0)
         val token = tokenStore.read()
+        var remoteClosed = true
         if (number > 0 && token != null) {
             val body = JSONObject().put("state", "closed").toString().toRequestBody(JSON_MEDIA_TYPE)
-            runCatching {
+            remoteClosed = runCatching {
                 http.newCall(apiRequest(token, "/issues/$number", "PATCH", body)).execute().use { response ->
-                    if (!response.isSuccessful) throw IOException("GitHub issue close failed (HTTP ${response.code}).")
+                    response.isSuccessful
                 }
-            }.getOrElse { throw it }
+            }.getOrDefault(false)
         }
-        prefs.edit().remove(KEY_ISSUE_NUMBER).remove(KEY_LAST_COMMENT_ID).apply()
-        "Phone channel disconnected. Friday will no longer poll GitHub."
+        prefs.edit().remove(KEY_ISSUE_NUMBER).remove(KEY_LAST_COMMENT_ID).remove(KEY_SEEN_COMMAND_IDS).apply()
+        if (remoteClosed) "Phone channel disconnected. Friday will no longer poll GitHub."
+        else "Local polling stopped, but GitHub could not close the public issue. Close it manually if needed."
     }
 
     suspend fun poll(): String = withContext(Dispatchers.IO) {
@@ -102,6 +104,7 @@ class GitHubDeviceChannel(context: Context) {
         }
         var cursor = lastSeen
         var handled = 0
+        val seenIds = prefs.getStringSet(KEY_SEEN_COMMAND_IDS, emptySet()).orEmpty().toMutableSet()
         for (index in 0 until comments.length()) {
             val comment = comments.getJSONObject(index)
             val commentId = comment.optLong("id", 0L)
@@ -110,10 +113,16 @@ class GitHubDeviceChannel(context: Context) {
             val author = comment.optJSONObject("user")?.optString("login").orEmpty()
             if (author != OWNER) continue
             val command = parseCommand(comment.optString("body", "")) ?: continue
+            if (command.id in seenIds) continue
             val result = execute(command)
             postResult(token, number, command.id, result)
+            seenIds.add(command.id)
+            while (seenIds.size > 100) seenIds.remove(seenIds.first())
             handled++
-            prefs.edit().putLong(KEY_LAST_COMMENT_ID, cursor).apply()
+            prefs.edit()
+                .putLong(KEY_LAST_COMMENT_ID, cursor)
+                .putStringSet(KEY_SEEN_COMMAND_IDS, seenIds.toSet())
+                .apply()
         }
         prefs.edit().putLong(KEY_LAST_COMMENT_ID, cursor).apply()
         if (handled == 0) "Phone channel online; no new owner diagnostic commands."
@@ -205,6 +214,7 @@ class GitHubDeviceChannel(context: Context) {
         private const val PREFS = "friday_github_device_channel"
         private const val KEY_ISSUE_NUMBER = "issue_number"
         private const val KEY_LAST_COMMENT_ID = "last_comment_id"
+        private const val KEY_SEEN_COMMAND_IDS = "seen_command_ids"
         private const val MB = 1024L * 1024L
         private val JSON_MEDIA_TYPE = "application/vnd.github+json; charset=utf-8".toMediaType()
     }
