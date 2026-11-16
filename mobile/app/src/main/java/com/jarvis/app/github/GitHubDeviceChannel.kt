@@ -97,7 +97,7 @@ class GitHubDeviceChannel(context: Context) {
         val number = prefs.getInt(KEY_ISSUE_NUMBER, 0)
         if (number <= 0) return@withContext "No device channel has been paired."
         val lastSeen = prefs.getLong(KEY_LAST_COMMENT_ID, 0L)
-        val request = apiRequest(token, "/issues/$number/comments?per_page=100&sort=created&direction=asc", "GET")
+        val request = apiRequest(token, "/issues/$number/comments?per_page=100&sort=created&direction=desc", "GET")
         val comments = http.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException("Device command poll failed (HTTP ${response.code}).")
             JSONArray(response.body?.string().orEmpty())
@@ -105,8 +105,10 @@ class GitHubDeviceChannel(context: Context) {
         var cursor = lastSeen
         var handled = 0
         val seenIds = prefs.getStringSet(KEY_SEEN_COMMAND_IDS, emptySet()).orEmpty().toMutableSet()
-        for (index in 0 until comments.length()) {
-            val comment = comments.getJSONObject(index)
+        val orderedComments = (0 until comments.length())
+            .map { comments.getJSONObject(it) }
+            .sortedBy { it.optLong("id", 0L) }
+        for (comment in orderedComments) {
             val commentId = comment.optLong("id", 0L)
             if (commentId <= cursor) continue
             cursor = maxOf(cursor, commentId)
