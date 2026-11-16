@@ -18,7 +18,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.jarvis.app.ui.EngineAccess
 import com.jarvis.app.voice.DefaultJarvisVoiceProfile
 import com.jarvis.app.voice.VoiceProfileStore
+import com.jarvis.app.voice.provider.VoiceSynthesisParams
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -59,7 +59,6 @@ fun VoiceStudioScreen() {
 
     val initialProfile = remember { profileStore.get(DefaultJarvisVoiceProfile.id) ?: DefaultJarvisVoiceProfile }
     var referencePath by remember { mutableStateOf(initialProfile.referenceAudioPath ?: prefs.getString("reference_path", null)) }
-    var referenceTranscript by remember { mutableStateOf(initialProfile.referenceTranscript ?: prefs.getString("reference_transcript", "") ?: "") }
     var status by remember { mutableStateOf("Ready") }
     var speechRate by remember { mutableFloatStateOf(profileStore.get(DefaultJarvisVoiceProfile.id)?.speechRate ?: 1f) }
     var busy by remember { mutableStateOf(false) }
@@ -72,15 +71,11 @@ fun VoiceStudioScreen() {
                 val imported = withContext(Dispatchers.IO) {
                     runCatching {
                         val directory = File(context.filesDir, "voice-studio").apply { mkdirs() }
-                        val extension = when (context.contentResolver.getType(uri)?.lowercase()) {
-                            "audio/wav", "audio/x-wav" -> "wav"
-                            "audio/mpeg" -> "mp3"
-                            "audio/mp4", "audio/x-m4a" -> "m4a"
-                            "audio/ogg" -> "ogg"
-                            "audio/flac" -> "flac"
-                            else -> "audio"
-                        }
-                        val target = File(directory, "reference-audio.$extension")
+                        val mime = context.contentResolver.getType(uri)?.lowercase()
+                        val isWav = mime in setOf("audio/wav", "audio/x-wav", "audio/wave", "audio/vnd.wave") ||
+                            uri.lastPathSegment?.endsWith(".wav", ignoreCase = true) == true
+                        require(isWav) { "Choose a PCM WAV recording for voice cloning" }
+                        val target = File(directory, "reference-audio.wav")
                         context.contentResolver.openInputStream(uri)?.use { input ->
                             target.outputStream().use { output -> input.copyTo(output) }
                         } ?: error("Could not open selected audio")
@@ -93,9 +88,10 @@ fun VoiceStudioScreen() {
                     val current = profileStore.get(DefaultJarvisVoiceProfile.id) ?: DefaultJarvisVoiceProfile
                     profileStore.save(current.copy(
                         referenceAudioPath = imported,
-                        referenceTranscript = referenceTranscript.trim().ifBlank { null }
+                        preferredProvider = "pocket",
+                        preferredVoice = "reference"
                     ))
-                    status = "Reference audio saved locally as part of Friday's voice identity"
+                    status = "Reference WAV saved. Pocket TTS will clone it on the next synthesis."
                 } else {
                     status = "Audio import failed"
                 }
@@ -126,9 +122,9 @@ fun VoiceStudioScreen() {
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Friday's active voice", style = MaterialTheme.typography.titleMedium)
-                Text("Provider: Piper VITS / English US (Amy · Low)")
+                Text(if (referencePath != null) "Provider: Pocket TTS · your reference voice" else "Provider: Piper VITS / English US (Amy · Low)")
                 Text("Voice process: ${host?.state?.value?.state ?: "not ready"}")
-                Text("This is Friday’s speed-first on-device voice. Kokoro remains available as an optional higher-quality provider.")
+                Text(if (referencePath != null) "Friday uses your locally saved voice sample for offline synthesis. The Pocket TTS pack is downloaded on first use." else "Piper is the speed-first on-device voice. Upload a reference WAV to switch Friday to offline voice cloning.")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(enabled = !busy && host != null, onClick = {
                         scope.launch {
@@ -137,7 +133,8 @@ fun VoiceStudioScreen() {
                             val audio = host?.synthesizeText(
                                 text = "Hello. I'm Friday. This is a preview of my current voice.",
                                 language = "en",
-                                voiceId = "speaker_0"
+                                voiceId = if (referencePath != null) "reference" else "speaker_0",
+                                params = VoiceSynthesisParams(referenceAudioPath = referencePath)
                             )
                             if (audio != null) {
                                 status = "Playing Friday voice preview"
@@ -163,16 +160,15 @@ fun VoiceStudioScreen() {
                 Text("Voice identity settings", style = MaterialTheme.typography.titleMedium)
                 Text("Speech rate: ${"%.2f".format(speechRate)}×")
                 Slider(value = speechRate, onValueChange = { speechRate = it }, valueRange = 0.75f..1.25f)
-                Text("Voice: Amy · English US (Piper Low)")
+                Text(if (referencePath != null) "Voice: your uploaded reference" else "Voice: Amy · English US (Piper Low)")
                 Button(enabled = !busy, onClick = {
                     val current = profileStore.get(DefaultJarvisVoiceProfile.id) ?: DefaultJarvisVoiceProfile
                     profileStore.save(current.copy(
                         language = "en",
-                        preferredProvider = "piper",
-                        preferredVoice = "speaker_0",
+                        preferredProvider = if (referencePath != null) "pocket" else "piper",
+                        preferredVoice = if (referencePath != null) "reference" else "speaker_0",
                         speechRate = speechRate,
                         referenceAudioPath = referencePath,
-                        referenceTranscript = referenceTranscript.trim().ifBlank { null }
                     ))
                     status = "Friday's active voice profile saved"
                 }) { Text("Save active voice") }
@@ -181,41 +177,31 @@ fun VoiceStudioScreen() {
 
         Card {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Voice reference library", style = MaterialTheme.typography.titleMedium)
-                Text("Upload a recording to define Friday's chosen voice reference. The audio stays inside this app. The transcript is optional and is retained only for local synthesis engines that require it. Important: the active Piper/Kokoro voices do not yet clone from this sample; reference-conditioned synthesis is a separate integration still in progress.")
-                OutlinedButton(enabled = !busy, onClick = { pickAudio.launch(arrayOf("audio/*")) }) {
-                    Text(if (referencePath == null) "Import reference audio" else "Replace reference audio")
+                Text("Friday's reference voice", style = MaterialTheme.typography.titleMedium)
+                Text("Upload a clean 1–12 second PCM WAV recording. Pocket TTS clones the voice fully offline and does not need a transcript. The sample stays in this app. Its optional English model pack is about 99 MB and downloads only when first used.")
+                OutlinedButton(enabled = !busy, onClick = { pickAudio.launch(arrayOf("audio/wav", "audio/x-wav")) }) {
+                    Text(if (referencePath == null) "Import reference WAV" else "Replace reference WAV")
                 }
                 Text(referencePath?.let { File(it).name } ?: "No reference recording selected")
-                OutlinedTextField(
-                    value = referenceTranscript,
-                    onValueChange = { referenceTranscript = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Exact words spoken in the recording") },
-                    minLines = 2
-                )
                 Button(enabled = !busy && referencePath != null, onClick = {
-                    prefs.edit().putString("reference_path", referencePath).putString("reference_transcript", referenceTranscript.trim()).apply()
+                    prefs.edit().putString("reference_path", referencePath).apply()
                     val current = profileStore.get(DefaultJarvisVoiceProfile.id) ?: DefaultJarvisVoiceProfile
                     profileStore.save(current.copy(
                         referenceAudioPath = referencePath,
-                        referenceTranscript = referenceTranscript.trim().ifBlank { null }
+                        preferredProvider = "pocket",
+                        preferredVoice = "reference"
                     ))
-                    status = "Friday's voice reference and optional transcript saved locally"
-                }) { Text("Save voice reference") }
+                    status = "Friday's reference voice saved. Pocket TTS will clone it on the next synthesis."
+                }) { Text("Save reference voice") }
             }
         }
 
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("LuxTTS — experimental voice cloning", style = MaterialTheme.typography.titleMedium)
-                Text("Candidate: LuxTTS ONNX (English voice cloning, 48 kHz output, Apache-2.0).")
-                Text("Status: research/integration pending. The ONNX graphs are available, but the public ONNX pipeline still relies on Python audio loading, mel extraction, English phonemization/tokenization and NumPy post-processing. ONNX Runtime alone does not provide those pieces.")
-                Text("The reference clip and transcript above are now stored locally in the format needed for the next integration step. LuxTTS is not yet generating audio in this Android build, and Piper remains the active default; Kokoro remains an optional higher-quality provider.")
-                Text("Device policy: do not load LuxTTS automatically. First benchmark peak RAM, thermal load, latency and quality on this phone; enable it only when the user explicitly selects it.")
-                OutlinedButton(onClick = {
-                    status = "LuxTTS reference is prepared; Android inference adapter is not yet implemented"
-                }) { Text("Check LuxTTS integration status") }
+                Text("Pocket TTS · reference-conditioned synthesis", style = MaterialTheme.typography.titleMedium)
+                Text("Integrated through sherpa-onnx in Friday's isolated voice process. No transcript, cloud account or separate TTS app is required.")
+                Text("The model is optional and lazy-loaded. Without a reference sample, Friday continues using compact Piper. With a saved sample, Pocket TTS is selected for English speech.")
+                Text("Use a clean recording with one speaker and little background noise. This first integration accepts PCM16 WAV only; compressed-audio conversion is not included yet.")
             }
         }
 
