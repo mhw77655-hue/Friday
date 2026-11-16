@@ -15,8 +15,8 @@ import com.jarvis.app.voice.PlatformSpeechRecognizerPort
 import com.jarvis.app.latency.LatencyLayer
 import com.jarvis.app.companioncore.engine.HumanCoreIntegration
 import com.jarvis.app.model.ModelManager
+import com.jarvis.app.body.LanguageRouter
 import com.jarvis.app.voice.VoiceOutputPath
-import kotlinx.coroutines.flow.distinctUntilChanged
 import com.jarvis.app.model.OrganRole
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -48,6 +48,7 @@ private const val TAG = "BodyCoordinator"
 class BodyCoordinator(
     private val context: Context,
     private val modelManager: ModelManager,
+    private val languageRouter: LanguageRouter,
     private val companionIntegration: HumanCoreIntegration,
     private val failureSurface: com.jarvis.app.failure.FailureSurface,
     private val recoveryController: com.jarvis.app.failure.RecoveryController,
@@ -172,7 +173,7 @@ class BodyCoordinator(
     /** Attach the isolated voice output state to the body activity machine. */
     fun attachVoiceOutput(output: VoiceOutputPath) {
         scope.launch {
-            output.isSpeaking.distinctUntilChanged().collect { speaking ->
+            output.isSpeaking.collect { speaking ->
                 if (!speaking && _state.value == BodyState.SPEAKING) {
                     emitEvent(BodyEvent.TtsEnd)
                 }
@@ -429,6 +430,44 @@ class BodyCoordinator(
                         eventType = com.jarvis.app.companioncore.contract.UserPresenceEvent.EventType.USER_ABSENT,
                         timestamp = System.currentTimeMillis(),
                         confidence = 0.9
+                    )
+                )
+            }
+        }
+    }
+
+    /** Start the Android platform speech recognizer using Friday's current language route. */
+    private fun startPlatformRecognition() {
+        val recognizer = speechRecognizer
+        if (recognizer == null || !recognizer.isAvailable()) {
+            failureSurface.report(
+                com.jarvis.app.failure.FailureReport(
+                    subsystem = "STT_PLATFORM",
+                    operation = "recognize",
+                    severity = com.jarvis.app.failure.FailureSeverity.DEGRADED,
+                    category = com.jarvis.app.failure.FailureCategory.LANGUAGE,
+                    message = "Platform recognizer unavailable — tap-to-trigger degraded",
+                    source = "BodyCoordinator",
+                    dependency = languageRouter.currentLanguage.value.code,
+                    recoverability = com.jarvis.app.failure.Recoverability.PERMANENT,
+                    recoveryAction = com.jarvis.app.failure.RecoveryAction.FALLBACK
+                )
+            )
+            return
+        }
+        val locale = when (languageRouter.currentLanguage.value) {
+            LanguageRouter.Language.EGYPTIAN_ARABIC -> java.util.Locale("ar", "EG")
+            LanguageRouter.Language.ENGLISH -> java.util.Locale.US
+        }
+        recognizer.recognize(locale) { text ->
+            val clean = text?.trim().orEmpty()
+            if (clean.isNotBlank()) {
+                SpeechBridge.recordResult(clean)
+                emitEvent(
+                    BodyEvent.SttResult(
+                        clean,
+                        0.9f,
+                        languageRouter.currentLanguage.value.code
                     )
                 )
             }
