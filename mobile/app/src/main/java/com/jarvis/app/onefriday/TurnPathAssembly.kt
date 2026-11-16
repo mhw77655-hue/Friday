@@ -13,8 +13,7 @@ import com.jarvis.app.cognition.workspace.RecordedTurns
 import com.jarvis.app.cognition.workspace.ReplayCheck
 import com.jarvis.app.cognition.workspace.Workspace
 import com.jarvis.app.cognitive.CognitiveEngine
-import com.jarvis.app.cognitive.seed.FridaySeedSubstrate
-import com.jarvis.app.cognitive.seed.FridayModelFreeMind
+import com.jarvis.app.cognitive.seed.FridayIndividual
 import com.jarvis.app.cognitive.capability.CapabilityFabric
 import com.jarvis.app.cognitive.immune.ImmuneSystem
 import com.jarvis.app.continuity.ContinuityGate
@@ -116,6 +115,8 @@ class TurnPathAssembly private constructor(
     val cognitiveAdmissionPolicy: CognitiveAdmissionPolicy,
     val anchorEngine: AnchorEngine,
     val engine: CognitiveEngine,
+    /** Persistent app-local individual identity and model-free seed. */
+    val individual: FridayIndividual,
     /** Friday's turn entry point, wired from the shared cognitive engine and platform ports. */
     val pipeline: LatencyPipeline,
     /** The adapter this Friday was built from. */
@@ -339,11 +340,11 @@ class TurnPathAssembly private constructor(
             // This local experience substrate belongs to the app, not to any
             // model backend. It remains available when all optional models are
             // absent and persists under app-private storage across restarts.
-            val seedSubstrate = FridaySeedSubstrate(
-                journal = ports.storageDir.resolve("friday/seed/experiences.bin"),
+            val individual = FridayIndividual(
+                directory = ports.storageDir.resolve("friday"),
                 nowMs = { ports.nowMs() }
             )
-            val modelFreeMind = FridayModelFreeMind(seedSubstrate)
+            val modelFreeMind = individual.expression
 
             // ── The cognitive engine: the one route a turn takes ───────────────
             val memoryStore = stores.memoryStore()
@@ -446,6 +447,7 @@ class TurnPathAssembly private constructor(
                 cognitiveAdmissionPolicy = cognitiveAdmissionPolicy,
                 anchorEngine = anchorEngine,
                 engine = engine,
+                individual = individual,
                 pipeline = pipeline,
                 ports = ports
             )
