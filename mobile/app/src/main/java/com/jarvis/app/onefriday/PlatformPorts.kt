@@ -77,6 +77,9 @@ interface PlatformPorts {
     /** Warm the model so the first real reply is not a cold load. */
     fun warmModel()
 
+    /** Whether the phone currently has a real language model available. Test hosts default to true. */
+    fun hasLanguageModel(modelManager: com.jarvis.app.model.ModelManager): Boolean = true
+
     /** The read-only Friday identity record seeded by the owner/admin path. */
     fun identitySource(): IdentitySource
 
