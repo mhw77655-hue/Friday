@@ -59,8 +59,9 @@ fun VoiceStudioScreen() {
     val host = hostSlot.getOrNull()
 
     val initialProfile = remember { profileStore.get(DefaultJarvisVoiceProfile.id) ?: DefaultJarvisVoiceProfile }
-    var referencePath by remember { mutableStateOf(initialProfile.referenceAudioPath ?: prefs.getString("reference_path", null)) }
-    var status by remember { mutableStateOf("Ready") }
+    var referencePath by remember { mutableStateOf((initialProfile.referenceAudioPath ?: prefs.getString("reference_path", null))?.takeIf { File(it).isFile }) }
+    val referenceAvailable = referencePath?.let { File(it).isFile } == true
+    var status by remember { mutableStateOf(if (referenceAvailable) "Reference sample available; Pocket TTS loads on first use" else "Piper active; no reference sample selected") }
     var speechRate by remember { mutableFloatStateOf(profileStore.get(DefaultJarvisVoiceProfile.id)?.speechRate ?: 1f) }
     var busy by remember { mutableStateOf(false) }
 
@@ -125,9 +126,9 @@ fun VoiceStudioScreen() {
         Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Friday's active voice", style = MaterialTheme.typography.titleMedium)
-                Text(if (referencePath != null) "Provider: Pocket TTS · your reference voice" else "Provider: Piper VITS / English US (Amy · Low)")
+                Text(if (referenceAvailable) "Provider: Pocket TTS · your reference voice" else "Provider: Piper VITS / English US (Amy · Low)")
                 Text("Voice process: ${host?.state?.value?.state ?: "not ready"}")
-                Text(if (referencePath != null) "Friday uses your locally saved voice sample for offline synthesis. The Pocket TTS pack is downloaded on first use." else "Piper is the speed-first on-device voice. Upload a reference WAV to switch Friday to offline voice cloning.")
+                Text(if (referenceAvailable) "Friday uses your locally saved voice sample. The Pocket TTS pack is downloaded on first synthesis." else "Piper is active. No reference sample is selected, so voice cloning is not active.")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(enabled = !busy && host != null, onClick = {
                         scope.launch {
@@ -136,8 +137,8 @@ fun VoiceStudioScreen() {
                             val audio = host?.synthesizeText(
                                 text = "Hello. I'm Friday. This is a preview of my current voice.",
                                 language = "en",
-                                voiceId = if (referencePath != null) "reference" else "speaker_0",
-                                params = VoiceSynthesisParams(referenceAudioPath = referencePath)
+                                voiceId = if (referenceAvailable) "reference" else "speaker_0",
+                                params = VoiceSynthesisParams(referenceAudioPath = referencePath.takeIf { referenceAvailable })
                             )
                             if (audio != null) {
                                 status = "Playing Friday voice preview"
@@ -150,7 +151,7 @@ fun VoiceStudioScreen() {
                             }
                         }
                     }) { Text("Preview Friday") }
-                    OutlinedButton(enabled = !busy && referencePath != null, onClick = {
+                    OutlinedButton(enabled = !busy && referenceAvailable, onClick = {
                         val file = referencePath?.let(::File)
                         if (file != null && file.exists()) playFile(file)
                     }) { Text("Play reference") }
@@ -163,13 +164,13 @@ fun VoiceStudioScreen() {
                 Text("Voice identity settings", style = MaterialTheme.typography.titleMedium)
                 Text("Speech rate: ${"%.2f".format(speechRate)}×")
                 Slider(value = speechRate, onValueChange = { speechRate = it }, valueRange = 0.75f..1.25f)
-                Text(if (referencePath != null) "Voice: your uploaded reference" else "Voice: Amy · English US (Piper Low)")
+                Text(if (referenceAvailable) "Voice: your uploaded reference" else "Voice: Amy · English US (Piper Low)")
                 Button(enabled = !busy, onClick = {
                     val current = profileStore.get(DefaultJarvisVoiceProfile.id) ?: DefaultJarvisVoiceProfile
                     profileStore.save(current.copy(
                         language = "en",
-                        preferredProvider = if (referencePath != null) "pocket" else "piper",
-                        preferredVoice = if (referencePath != null) "reference" else "speaker_0",
+                        preferredProvider = if (referenceAvailable) "pocket" else "piper",
+                        preferredVoice = if (referenceAvailable) "reference" else "speaker_0",
                         speechRate = speechRate,
                         referenceAudioPath = referencePath,
                     ))
@@ -185,7 +186,7 @@ fun VoiceStudioScreen() {
                 OutlinedButton(enabled = !busy, onClick = { pickAudio.launch(arrayOf("audio/wav", "audio/x-wav")) }) {
                     Text(if (referencePath == null) "Import reference WAV" else "Replace reference WAV")
                 }
-                Text(referencePath?.let { File(it).name } ?: "No reference recording selected")
+                Text(referencePath?.takeIf { referenceAvailable }?.let { File(it).name } ?: "No reference recording selected")
                 Button(enabled = !busy && referencePath != null, onClick = {
                     prefs.edit().putString("reference_path", referencePath).apply()
                     val current = profileStore.get(DefaultJarvisVoiceProfile.id) ?: DefaultJarvisVoiceProfile
@@ -208,7 +209,7 @@ fun VoiceStudioScreen() {
             }
         }
 
-        Text("Status: $status", style = MaterialTheme.typography.bodyMedium)
+        Text("Current voice status: $status", style = MaterialTheme.typography.bodyMedium)
         if (busy) Text("Working…", style = MaterialTheme.typography.labelMedium)
         Spacer(Modifier.height(12.dp))
     }
