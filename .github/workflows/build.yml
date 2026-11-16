@@ -15,13 +15,16 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: friday-build-${{ github.head_ref || github.ref_name }}
+  group: friday-build-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 permissions: {}
 
 jobs:
   debug-apk:
+    if: >-
+      github.event_name != 'pull_request' ||
+      (!startsWith(github.head_ref, 'audit/') && !startsWith(github.head_ref, 'friday-proposals/'))
     permissions:
       contents: read
     runs-on: ubuntu-latest
