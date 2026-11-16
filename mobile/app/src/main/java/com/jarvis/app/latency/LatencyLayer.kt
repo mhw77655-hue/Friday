@@ -279,7 +279,9 @@ class LatencyPipeline(
     /** Local expression path used when no model can answer. */
     private val modelFreeReply: ((String) -> String?)? = null,
     /** Records an experience in Friday's app-local seed, independent of models. */
-    private val experienceObserver: (String) -> Unit = {}
+    private val experienceObserver: (String) -> Unit = {},
+    /** Links a received reply to the user experience that preceded it. */
+    private val outcomeObserver: (String, String) -> Unit = { _, _ -> }
 ) {
 
     private val _turns = MutableStateFlow<List<Turn>>(emptyList())
@@ -426,9 +428,12 @@ class LatencyPipeline(
     fun onReplyReady(reply: String) {
         if (reply.isBlank()) return
         dispatch {
-            val matchedTurn = synchronized(pendingLock) {
-                pending.removeFirstOrNull()?.also { pendingInputs.remove(it) }
+            val matched = synchronized(pendingLock) {
+                val id = pending.removeFirstOrNull() ?: return@synchronized null
+                id to pendingInputs.remove(id)
             } ?: return@dispatch
+            val matchedTurn = matched.first
+            runCatching { outcomeObserver(matched.second.orEmpty(), reply) }
 
             _phase.value = LatencyLayer.Phase.REPLYING
             reactorFirstSegment()
