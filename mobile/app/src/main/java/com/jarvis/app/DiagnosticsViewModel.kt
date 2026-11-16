@@ -80,6 +80,22 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     private var lastFailureText = "Failures: none"
     private var lastVoiceSubstrateText = "Voice Substrate: initializing..."
 
+    // Bounded technical event history for the exported support bundle.
+    // Only subsystem state labels are recorded; user content is never accepted.
+    private data class DiagnosticEvent(val at: String, val subsystem: String, val state: String)
+    private val eventLock = Any()
+    private val diagnosticEvents = ArrayDeque<DiagnosticEvent>()
+    private fun recordDiagnosticEvent(subsystem: String, state: String) {
+        synchronized(eventLock) {
+            val latest = diagnosticEvents.lastOrNull()
+            if (latest?.subsystem == subsystem && latest.state == state) return
+            diagnosticEvents.addLast(
+                DiagnosticEvent(java.time.Instant.now().toString(), subsystem, state.take(240))
+            )
+            while (diagnosticEvents.size > 250) diagnosticEvents.removeFirst()
+        }
+    }
+
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
@@ -156,6 +172,18 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     private fun publishHealthText() {
+        recordDiagnosticEvent("battery", lastBatteryText)
+        recordDiagnosticEvent("network", lastNetworkText)
+        recordDiagnosticEvent("notifications", lastNotifText)
+        recordDiagnosticEvent("shizuku", lastShizukuText)
+        recordDiagnosticEvent("microphone", lastMicText)
+        recordDiagnosticEvent("speech_recognition", lastSttText)
+        recordDiagnosticEvent("hotword", lastHotwordText)
+        recordDiagnosticEvent("model_runtime", lastBrainText)
+        recordDiagnosticEvent("text_to_speech", lastTtsText)
+        recordDiagnosticEvent("voice_process", lastVoiceSubstrateText)
+        recordDiagnosticEvent("screen_context", lastScreenText)
+        recordDiagnosticEvent("failure_surface", lastFailureText)
         val battery = if (lastBatteryText.isNotEmpty()) lastBatteryText else "Reading battery state..."
         lastHumanCoreText = if (HumanCore.isInitialized()) HumanCore.describe() else "Human Core: offline"
         _humanCoreText.value = lastHumanCoreText
@@ -343,6 +371,18 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             .put("model_runtime", lastBrainText)
             .put("memory_subsystem", lastHumanCoreText)
             .put("failure_surface", failureText.value))
+        val eventSnapshot = synchronized(eventLock) { diagnosticEvents.toList() }
+        report.put("event_history_complete", false)
+        report.put("event_history_capacity", 250)
+        report.put("event_history_count", eventSnapshot.size)
+        report.put("events", org.json.JSONArray().apply {
+            eventSnapshot.forEach { event ->
+                put(JSONObject()
+                    .put("at_utc", event.at)
+                    .put("subsystem", event.subsystem)
+                    .put("state", event.state))
+            }
+        })
         report.put("telemetry_summary", Telemetry.summarize())
         report.put("privacy", JSONObject()
             .put("chat_messages_included", false)
