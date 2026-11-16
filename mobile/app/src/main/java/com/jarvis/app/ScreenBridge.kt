@@ -1,10 +1,13 @@
 package com.jarvis.app
 
 import android.content.ComponentName
+import android.content.pm.PackageManager
 import android.content.Context
 import android.content.ServiceConnection
 import android.os.IBinder
 import android.util.Xml
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,6 +17,7 @@ import java.io.StringReader
 
 object ScreenBridge {
     private var service: IJarvisShellService? = null
+    private var userServiceArgs: Shizuku.UserServiceArgs? = null
 
     private val _status = MutableStateFlow("not bound")
     val status: StateFlow<String> = _status.asStateFlow()
@@ -34,14 +38,22 @@ object ScreenBridge {
 
     fun bind(context: Context) {
         if (!Shizuku.pingBinder()) {
-            _status.value = "shizuku not running"
+            _status.value = "Shizuku not running"
+            return
+        }
+        if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
+            _status.value = "Shizuku permission not granted"
+            return
+        }
+        if (service != null) {
+            _status.value = "bound"
             return
         }
         val args = Shizuku.UserServiceArgs(ComponentName(context, JarvisShellService::class.java))
-            .daemon(false)
-            .processNameSuffix("shell")
-            .debuggable(false)
-            .version(1)
+            .daemon(true)
+            .tag("friday-device-capability-core")
+            .version(2)
+        userServiceArgs = args
         try {
             _status.value = "binding..."
             Shizuku.bindUserService(args, connection)
@@ -72,7 +84,7 @@ object ScreenBridge {
                 return@run
             }
             val raw = try {
-                svc.exec("uiautomator dump /sdcard/jarvis_dump.xml && cat /sdcard/jarvis_dump.xml")
+                svc.captureScreenSummary()
             } catch (e: Exception) {
                 _lastScreenText.value = "read failed: ${e.message}"
                 return@run
@@ -91,6 +103,14 @@ object ScreenBridge {
                 "(no visible text found)"
             }
         }
+    }
+
+    /** Reads bounded device diagnostics through the same privileged UserService. */
+    suspend fun diagnosticsSnapshot(): String? = withContext(Dispatchers.IO) {
+        val svc = service ?: return@withContext null
+        runCatching { svc.diagnosticsSnapshot() }
+            .onFailure { _status.value = "diagnostics failed: ${it.message}" }
+            .getOrNull()
     }
 
     private fun extractVisibleText(xml: String): List<String> {
