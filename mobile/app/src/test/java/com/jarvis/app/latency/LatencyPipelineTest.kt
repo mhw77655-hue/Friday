@@ -201,6 +201,59 @@ class LatencyPipelineTest {
         assertEquals(1, p.turns.value.filter { it.fromJarvis }.size)
     }
 
+    @Test
+    fun `confirmed model failure falls back to Friday's independent local expression`() {
+        val spoken = mutableListOf<String>()
+        val experience = mutableListOf<String>()
+        val outcomes = mutableListOf<Pair<String, String>>()
+        val p = LatencyPipeline(
+            dispatch = { it() },
+            scheduleDelayed = { _, _ -> },
+            fullSpeak = { spoken += it },
+            bridgeSend = {},
+            bridgeStatus = { "local brain unreachable after 3 attempts" },
+            modelFreeReply = { input -> "Friday received locally: $input" },
+            experienceObserver = { experience += it },
+            outcomeObserver = { input, output -> outcomes += input to output }
+        )
+
+        p.onUserInput("a new experience")
+        p.onBridgeStatus("local brain unreachable after 3 attempts")
+
+        assertEquals(listOf("a new experience"), experience)
+        assertEquals(
+            listOf("Friday received locally: a new experience"),
+            p.turns.value.filter { it.fromJarvis }.map { it.text }
+        )
+        assertEquals(listOf("Friday received locally: a new experience"), spoken)
+        assertEquals(LatencyLayer.Phase.IDLE, p.phase.value)
+        assertTrue(outcomes.isEmpty())
+    }
+
+    @Test
+    fun `timeout uses local expression when no model reply ever arrives`() {
+        val spoken = mutableListOf<String>()
+        val scheduled = mutableListOf<Pair<Long, () -> Unit>>()
+        val p = LatencyPipeline(
+            dispatch = { it() },
+            scheduleDelayed = { ms, block -> scheduled += ms to block },
+            fullSpeak = { spoken += it },
+            bridgeSend = {},
+            bridgeStatus = { "idle" },
+            modelFreeReply = { "Local response to: $it" }
+        )
+
+        p.onUserInput("survive without a model")
+        scheduled.first { it.first == LatencyPipeline.RESPONSE_TIMEOUT_MS }.second()
+
+        assertEquals(listOf("Local response to: survive without a model"), spoken)
+        assertEquals(
+            listOf("Local response to: survive without a model"),
+            p.turns.value.filter { it.fromJarvis }.map { it.text }
+        )
+        assertEquals(LatencyLayer.Phase.IDLE, p.phase.value)
+    }
+
     // ------------------------------------------------------------- ack only
 
     @Test
