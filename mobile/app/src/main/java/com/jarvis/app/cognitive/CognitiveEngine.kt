@@ -54,8 +54,6 @@ import java.util.concurrent.atomic.AtomicLong
 class CognitiveEngine(
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO),
     private val memoryStore: MemoryStorePort,
-    /** Temporary source-compatibility slot for older test fixtures; never stored or used. */
-    @Suppress("UNUSED_PARAMETER") humanCore: Any? = null,
     private val modelManager: ModelManager? = null,
     private val config: Config = Config(),
     private val goalPlanner: GoalPlanner = GoalPlanner(),
