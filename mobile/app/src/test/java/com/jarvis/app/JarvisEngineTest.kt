@@ -43,7 +43,7 @@ import org.junit.Test
  * CognitiveEngine.process).
  *
  * [JarvisEngine.init] is Android-bound (real Context, HandlerThread,
- * HumanCore global init, CompanionCoreHolder, No-robolec unit classpath),
+ * Android process bootstrap and CompanionCoreHolder, No-robolec unit classpath),
  * so on this JVM the production composition is replicated verbatim — the
  * SAME real subsystems, in the SAME order, with the SAME seam-filling —
  * against the documented JVM references for the two Android-bound stores
