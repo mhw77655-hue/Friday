@@ -152,6 +152,10 @@ jobs:
               out.write(f'## JUnit results\n\n{t} tests, {f} failures, {e} errors, {s} skipped\n')
               out.write(f'\nAPK assembly step: {os.environ.get("APK_STEP_OUTCOME", "see job steps")}\n')
               out.write('A skipped workflow step is not reported as a successful test. Inspect the step conclusion above.\n')
+          if t == 0:
+              raise SystemExit('JUnit report contains zero executed tests; validation is incomplete.')
+          if f or e:
+              raise SystemExit(f'JUnit reports {f} failures and {e} errors.')
           PY
 
   report-failure:
