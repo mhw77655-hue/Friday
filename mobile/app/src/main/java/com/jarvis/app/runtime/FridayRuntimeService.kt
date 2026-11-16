@@ -109,13 +109,23 @@ class FridayRuntimeService : Service() {
                     .onFailure { Log.w(TAG, "Shizuku reconnect deferred", it) }
             }
 
-            if (wantsMicrophone && !microphoneOwned) {
-                // If the activity started capture just before enabling this
-                // service, migrate it to the service-owned scope exactly once.
-                if (JarvisMic.isRecording.value) JarvisMic.stop()
-                JarvisMic.start(runtimeScope)
-                microphoneOwned = JarvisMic.isRecording.value
-                FridayRuntimeController.setMicrophoneServiceActive(this@FridayRuntimeService, microphoneOwned)
+            if (wantsMicrophone) {
+                // Multiple start intents can arrive during Activity onCreate /
+                // onResume. Serialize the handoff so two coroutines cannot
+                // race JarvisMic.start() and create duplicate capture loops.
+                synchronized(this@FridayRuntimeService) {
+                    if (!microphoneOwned) {
+                        // If the activity started capture just before enabling
+                        // this service, migrate it to the service-owned scope.
+                        if (JarvisMic.isRecording.value) JarvisMic.stop()
+                        JarvisMic.start(runtimeScope)
+                        microphoneOwned = JarvisMic.isRecording.value
+                        FridayRuntimeController.setMicrophoneServiceActive(
+                            this@FridayRuntimeService,
+                            microphoneOwned
+                        )
+                    }
+                }
             }
         }
 
