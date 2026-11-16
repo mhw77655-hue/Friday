@@ -10,6 +10,12 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.BatteryManager
+import android.os.Build
+import android.app.ActivityManager
+import android.os.StatFs
+import android.os.Environment
+import org.json.JSONObject
+import java.io.File
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.jarvis.app.humancore.HumanCore
@@ -285,6 +291,66 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 }
             }
         }
+    }
+
+    /**
+     * Creates a shareable, privacy-conscious support report.
+     * It captures runtime/device/subsystem state, never chat text, transcripts,
+     * notification contents, screen contents, credentials, or personal files.
+     */
+    fun createExportReport(): String {
+        val app = getApplication<Application>()
+        val activityManager = app.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val memory = ActivityManager.MemoryInfo().also(activityManager::getMemoryInfo)
+        val storage = StatFs(app.filesDir.absolutePath)
+        val report = JSONObject()
+        report.put("report_schema", "friday-device-report-v1")
+        report.put("generated_at_utc", java.time.Instant.now().toString())
+        report.put("app", JSONObject()
+            .put("application_id", app.packageName)
+            .put("version_name", runCatching {
+                app.packageManager.getPackageInfo(app.packageName, 0).versionName
+            }.getOrNull() ?: "unknown")
+            .put("version_code", runCatching {
+                app.packageManager.getPackageInfo(app.packageName, 0).longVersionCode
+            }.getOrDefault(-1L)))
+        report.put("device", JSONObject()
+            .put("manufacturer", Build.MANUFACTURER)
+            .put("model", Build.MODEL)
+            .put("device_code", Build.DEVICE)
+            .put("android_release", Build.VERSION.RELEASE)
+            .put("sdk_int", Build.VERSION.SDK_INT)
+            .put("supported_abis", org.json.JSONArray(Build.SUPPORTED_ABIS.toList())))
+        report.put("resources", JSONObject()
+            .put("low_memory", memory.lowMemory)
+            .put("available_memory_bytes", memory.availMem)
+            .put("total_memory_bytes", memory.totalMem)
+            .put("threshold_bytes", memory.threshold)
+            .put("app_memory_class_mb", activityManager.memoryClass)
+            .put("storage_available_bytes", storage.availableBytes)
+            .put("storage_total_bytes", storage.totalBytes))
+        report.put("subsystems", JSONObject()
+            .put("battery", batteryText.value)
+            .put("network", networkText.value)
+            .put("notifications", lastNotifText)
+            .put("shizuku", shizukuText.value)
+            .put("microphone", micText.value)
+            .put("speech_recognition", sttText.value)
+            .put("hotword", hotwordText.value)
+            .put("text_to_speech", ttsText.value)
+            .put("voice_process", voiceSubstrateText.value)
+            .put("screen_context", screenText.value)
+            .put("model_runtime", lastBrainText)
+            .put("memory_subsystem", lastHumanCoreText)
+            .put("failure_surface", failureText.value))
+        report.put("telemetry_summary", Telemetry.summarize())
+        report.put("privacy", JSONObject()
+            .put("chat_messages_included", false)
+            .put("speech_transcripts_included", false)
+            .put("notification_contents_included", false)
+            .put("screen_contents_included", false)
+            .put("credentials_or_tokens_included", false))
+        return report.toString(2)
     }
 
     /** Deterministic human-readable summary of the nervous-system failure state. */
