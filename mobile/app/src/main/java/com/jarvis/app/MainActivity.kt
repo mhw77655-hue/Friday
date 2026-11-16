@@ -13,7 +13,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.lifecycleScope
-import com.jarvis.app.humancore.HumanCore
 import com.jarvis.app.ui.navigation.JarvisNavHost
 import com.jarvis.app.ui.theme.JarvisTheme
 import com.jarvis.app.video.VideoIntakeRepository
@@ -45,23 +44,6 @@ class MainActivity : ComponentActivity() {
                 PackageManager.PERMISSION_GRANTED
         ) beginAssistantListening()
         ShizukuBridge.init()
-        // End the Human Core session when the app goes to the background so
-        // session-boundary work (bond growth, baseline coupling, reflection)
-        // actually happens on backgrounding instead of only when the
-        // ViewModel is cleared — which never happens on a plain home-button
-        // exit (HUMAN_CORE_AUDIT M-4). endSession is idempotent. Guarded by
-        // isChangingConfigurations so a rotation (which also stops the
-        // activity) cannot end the session or flush session-boundary work.
-        // Companion Core background/foreground is process-scoped now — driven
-        // by ProcessLifecycleOwner in JarvisApplication (plan §4.3, audit
-        // R-A3) — so this activity observer no longer suspends it.
-        lifecycle.addObserver(object : LifecycleEventObserver {
-            override fun onStateChanged(source: LifecycleOwner, event: Lifecycle.Event) {
-                if (event == Lifecycle.Event.ON_STOP && !isChangingConfigurations) {
-                    HumanCore.endSession()
-                }
-            }
-        })
         // KWS/Vosk/TTS are owned by JarvisEngine, started once in
         // JarvisApplication.onCreate() — never re-initialized or released
         // here. That per-Activity churn was itself a crash source.
