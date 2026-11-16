@@ -1,7 +1,6 @@
 package com.jarvis.app.jvmtest
 
 import com.jarvis.app.humancore.protocol.StyledResponse
-import com.jarvis.app.identity.HumanCoreIdentitySource
 import com.jarvis.app.latency.LatencyPipeline
 import com.jarvis.app.model.FakeModelBackend
 import kotlinx.coroutines.runBlocking
@@ -29,7 +28,7 @@ import org.junit.Test
  * singleton. This test now verifies the platform-neutral identity stack, while
  * Android integration still requires a separate device-level proof. The test drives
  * the harness engine/identity stack:
- *   AC1 - the real composition now resolves the real HumanCore identity name;
+ *   AC1 - the real composition now resolves the Friday identity name;
  *   AC2 - real identity/persona content is wired into the outgoing payload
  *         through the existing IdentityContext.formatForPrompt mechanism, with
  *         the identity stack built by JvmCompositionHarness itself (no second
@@ -60,12 +59,11 @@ class IdentityInChatPipelineGroundTruthTest {
         val server = JvmCompositionHarness(port = 0, backendOverride = FakeModelBackend())
         try {
             assertEquals(
-                "the fix initializes HumanCore, so the identity source reads the real 'JARVIS' " +
-                    "cold-start baseline instead of the pre-fix null -> 'unknown v0'",
-                "JARVIS",
-                HumanCoreIdentitySource().name()
+                "the composition reads Friday's owner-seeded identity record rather than a legacy Human Core singleton",
+                "Friday",
+                server.selfModel.identity().name
             )
-            assertEquals("selfModel reports the real HumanCore identity name", "JARVIS", server.selfModel.identity().name)
+            assertEquals("selfModel reports the real HumanCore identity name", "Friday", server.selfModel.identity().name)
             assertEquals("identity version is the real fallback baseline", 1, server.selfModel.identity().version)
         } finally {
             server.stop()
@@ -73,7 +71,7 @@ class IdentityInChatPipelineGroundTruthTest {
     }
 
     @Test
-    fun `real HumanCore identity reaches the actual outgoing request payload`(): Unit =
+    fun `Friday identity reaches the actual outgoing request payload`(): Unit =
         runBlocking {
             val server = JvmCompositionHarness(port = 0, backendOverride = FakeModelBackend())
             val captured = mutableListOf<String>()
@@ -86,9 +84,9 @@ class IdentityInChatPipelineGroundTruthTest {
                 val payload = captured.last()
                 assertTrue("identity section present in outgoing payload", payload.contains("[Identity context]"))
                 assertTrue(
-                    "real HumanCore identity name travels in the outgoing request payload " +
+                    "Friday identity name travels in the outgoing request payload " +
                         "(pre-fix this was 'unknown v0')",
-                    payload.contains("self: identity=JARVIS")
+                    payload.contains("self: identity=Friday")
                 )
             } finally {
                 server.stop()
