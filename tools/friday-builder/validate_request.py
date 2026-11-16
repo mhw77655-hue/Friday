@@ -77,7 +77,7 @@ def validate_request(data: Any, expected_id: str | None = None) -> dict[str, Any
 
     created_at = _aware_timestamp(data["created_at"], "created_at")
     source_revision = _text(data["source_revision"], "source_revision", 128)
-    intended_outcome = _text(data["intended_outcome"], "intended_outcome", 1200)
+    intended_outcome = _text(data["intended_outcome"], "intended_outcome", 4000)
     evidence = _list(data["evidence"], "evidence", 12, 600, 1)
     acceptance = _list(data["acceptance_criteria"], "acceptance_criteria", 12, 600, 1)
     risks = _list(data["risks"], "risks", 8, 500)
