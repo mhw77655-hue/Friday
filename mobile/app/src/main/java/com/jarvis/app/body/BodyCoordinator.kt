@@ -41,9 +41,12 @@ import java.util.concurrent.ConcurrentHashMap
 private const val TAG = "BodyCoordinator"
 
 /**
- * The Nervous System Coordinator — central state machine for JARVIS communication body.
+ * Android interaction coordinator for microphone capture, platform speech
+ * recognition, playback interruption and presence events. Its finite
+ * transport lifecycle is an adapter for Android I/O only; it is not Friday's
+ * identity, cognition, personality or model of inner life.
  *
- * Single-threaded via a dedicated executor; deterministic behavior.
+ * Event handling is serialized on a dedicated executor.
  */
 class BodyCoordinator(
     private val context: Context,
