@@ -41,7 +41,7 @@ class DiagnosticEventLog(private val capacity: Int = 250) {
     fun snapshot(): List<Event> = synchronized(lock) { events.toList() }
 
     private fun meaningfulState(subsystem: String, raw: String): String = when (subsystem) {
-        "microphone" -> if (raw.startsWith("Mic: capturing")) "capturing" else "not capturing"
+        "microphone" -> if (raw.startsWith("Mic: energy monitor active")) "energy monitor active" else "off"
         "screen_context" -> when {
             raw.isBlank() || raw == "Screen: " || raw.contains("not read yet", ignoreCase = true) ->
                 "unavailable"
