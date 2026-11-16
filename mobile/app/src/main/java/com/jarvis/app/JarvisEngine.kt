@@ -516,6 +516,7 @@ object JarvisEngine {
             val bodyCoordinator = BodyCoordinator(
                 context = appContext,
                 modelManager = modelManager,
+                languageRouter = languageRouter,
                 companionIntegration = companionIntegration,
                 failureSurface = failureSurface,
                 recoveryController = recoveryController,
@@ -619,7 +620,6 @@ object JarvisEngine {
             val environmentManager = LiquidEnvironmentManager(
                 context = appContext,
                 fileStorage = fileStorage,
-                humanCore = HumanCore,
                 modelManager = modelManager,
                 runtimeBinder = runtimeBinder,
                 scope = scope
