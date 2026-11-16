@@ -8,7 +8,6 @@ import com.jarvis.app.cognitive.DecisionOption
 import com.jarvis.app.cognitive.DecisionOutcome
 import com.jarvis.app.cognitive.Goal
 import com.jarvis.app.cognitive.GoalStatus
-import com.jarvis.app.humancore.HumanCore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -54,7 +53,6 @@ class CognitivePlanningIntegrationTest {
         engine = CognitiveEngine(
             scope = scope,
             memoryStore = FakeMemoryStore(),
-            humanCore = HumanCore,
             config = CognitiveEngine.Config(),
             goalPlanner = GoalPlanner(strategy),
             decisionEngine = DecisionEngine()
