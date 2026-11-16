@@ -1,7 +1,8 @@
 # FRIDAY — Vision-to-Reality Build Plan
 
 **Snapshot:** main at `1aec50652d9936d2cde0b2d192ab21d51ba4cdff` (2026-11-14 upload commit); reviewed 2026-11-15.  
-**Purpose:** map Venon's intended Friday against the actual repository, identify the shortest evidence-backed route to the first developing Friday, and keep implementation decisions subordinate to the vision.
+**Purpose:** map Venon's intended Friday against the actual repository, identify the shortest evidence-backed route to the first developing Friday, and keep implementation decisions subordinate to the vision.  
+**Active implementation:** `audit/friday-offline-runtime` (PR #11); `main` remains unchanged.
 
 ## 0. Source authority and limits
 
