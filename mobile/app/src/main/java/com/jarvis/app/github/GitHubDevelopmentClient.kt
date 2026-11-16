@@ -41,7 +41,11 @@ class GitHubDevelopmentClient(context: Context) {
         .callTimeout(30, TimeUnit.SECONDS)
         .build()
 
-    suspend fun submitSelfMaintenanceRequest(): String = withContext(Dispatchers.IO) {
+    suspend fun submitBuildRequest(instructions: String): String = withContext(Dispatchers.IO) {
+        val userWords = instructions.trim()
+        require(userWords.length in 12..4000) {
+            "Describe what Friday should build in 12–4000 characters."
+        }
         val token = tokenStore.read()
             ?: throw IllegalStateException("Connect a fine-grained GitHub token in Settings first.")
         val requestId = "phone-" + UUID.randomUUID().toString().replace("-", "").take(20)
@@ -54,19 +58,20 @@ class GitHubDevelopmentClient(context: Context) {
             .put("source_revision", "main")
             .put(
                 "intended_outcome",
-                "Inspect Friday's current repository source and the attached live Android health snapshot. " +
-                    "Identify the single highest-impact, evidence-supported defect affecting this device or core runtime. " +
-                    "Implement one minimal, coherent repair with a regression test. Do not redesign unrelated systems."
+                "OWNER'S DIRECT BUILD INSTRUCTIONS (primary source of intent):\n" + userWords +
+                    "\n\nTreat these words as the product requirement, not merely a chatbot prompt. Inspect the complete existing repository and relevant tests, infer the coherent implementation, preserve the owner's stated vision, implement the requested work end-to-end, add regression tests, and report anything that cannot be completed with evidence. Do not silently narrow the request to a cosmetic or chatbot-only change. The attached device snapshot is diagnostic context, not the product requirement."
             )
-            .put("evidence", JSONArray().put(snapshot).put(
-                "The snapshot was explicitly sent from Friday Settings by the device owner. " +
-                    "It contains technical device health only, not conversation or personal content."
-            ))
+            .put("evidence", JSONArray()
+                .put("Owner's direct natural-language build instructions: " + userWords)
+                .put(snapshot)
+                .put("The snapshot was explicitly sent from Friday Settings by the device owner. It contains technical device health only, not conversation or personal content.")
+            )
             .put("acceptance_criteria", JSONArray()
-                .put("Add or update a focused regression test for the diagnosed defect.")
-                .put("Run the repository-builder contract tests.")
-                .put("Run :mobile:app:assembleDebug and :mobile:app:testDebugUnitTest; report exact results.")
-                .put("Publish an isolated draft pull request only; never merge, sign, release, or install.")
+                .put("Implement the owner's requested behavior across the correct existing architecture; do not replace the request with generic chatbot enhancements.")
+                .put("Inspect related source, existing vision documents and tests before changing code.")
+                .put("Add or update focused regression tests for the implemented behavior.")
+                .put("Run repository-builder contract tests, :mobile:app:assembleDebug and :mobile:app:testDebugUnitTest; report exact results.")
+                .put("Publish an isolated draft pull request with a clear completion/remaining-work report. Never merge, sign, release, or install.")
             )
             .put("risks", JSONArray()
                 .put("This repository is public; the bounded device snapshot and workflow request are visible to repository readers.")
