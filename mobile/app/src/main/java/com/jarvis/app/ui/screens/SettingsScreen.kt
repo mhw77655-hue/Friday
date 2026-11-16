@@ -88,7 +88,7 @@ fun SettingsScreen() {
     val githubScope = rememberCoroutineScope()
     val shizukuAvailable by com.jarvis.app.ShizukuBridge.isAvailable.collectAsState()
     val shizukuGranted by com.jarvis.app.ShizukuBridge.isGranted.collectAsState()
-    val shizukuStatus by com.jarvis.app.ShizukuDeviceHost.status.collectAsState()
+    val shizukuStatus by com.jarvis.app.ScreenBridge.status.collectAsState()
     var shizukuSnapshot by remember { mutableStateOf("") }
 
     // Bumped on ON_RESUME so the storage-permission row re-checks after
@@ -338,7 +338,7 @@ fun SettingsScreen() {
                 when {
                     !shizukuAvailable -> com.jarvis.app.ShizukuBridge.refresh()
                     !shizukuGranted -> com.jarvis.app.ShizukuBridge.requestPermission()
-                    else -> com.jarvis.app.ShizukuDeviceHost.connect(context)
+                    else -> com.jarvis.app.ScreenBridge.bind(context)
                 }
             },
             modifier = Modifier.fillMaxWidth()
@@ -355,11 +355,11 @@ fun SettingsScreen() {
         Button(
             onClick = {
                 githubScope.launch {
-                    shizukuSnapshot = com.jarvis.app.ShizukuDeviceHost.diagnosticsSnapshot()
+                    shizukuSnapshot = com.jarvis.app.ScreenBridge.diagnosticsSnapshot()
                         ?: "Device service is not connected."
                 }
             },
-            enabled = shizukuStatus.contains("connected", ignoreCase = true),
+            enabled = shizukuStatus == "bound",
             modifier = Modifier.fillMaxWidth()
         ) { Text("Read live device diagnostics") }
         if (shizukuSnapshot.isNotBlank()) {
