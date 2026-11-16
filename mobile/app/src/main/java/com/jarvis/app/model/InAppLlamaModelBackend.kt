@@ -76,7 +76,11 @@ class InAppLlamaModelBackend(context: Context) : ModelBackend {
             }
             if (selectedFile == null) {
                 val tier = if (residentAlias) "resident" else "reasoning"
-                val candidatesText = if (residentAlias) "MiniCPM5 2B or its LFM2.5 low-memory fallback" else "Spark 4B or Qwen 2B"
+                val candidatesText = if (residentAlias) {
+                    "MiniCPM5 2B, LFM2.5 1.2B, or Qwen3.5 0.8B final fallback"
+                } else {
+                    "Spark 4B or Qwen3.5 2B"
+                }
                 unavailable[handle] =
                     "No installed $tier model fits the phone's current NAE resource budget. $lastReason " +
                     "Friday did not load an unsuitable model silently; install $candidatesText or retry when the phone has more headroom."
