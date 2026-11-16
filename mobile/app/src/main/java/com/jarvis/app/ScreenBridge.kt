@@ -28,7 +28,7 @@ object ScreenBridge {
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
             service = IJarvisShellService.Stub.asInterface(binder)
-            _status.value = "bound"
+            _status.value = if (service != null) "bound" else "null service binder"
         }
         override fun onServiceDisconnected(name: ComponentName?) {
             service = null
