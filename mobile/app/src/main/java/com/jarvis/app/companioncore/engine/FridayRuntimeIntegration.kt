@@ -72,6 +72,3 @@ class FridayRuntimeIntegration(
     }
 }
 
-/** Compatibility alias; production composition uses FridayRuntimeIntegration. */
-@Deprecated("Use FridayRuntimeIntegration; no Human Core is consulted.")
-typealias HumanCoreIntegration = FridayRuntimeIntegration
