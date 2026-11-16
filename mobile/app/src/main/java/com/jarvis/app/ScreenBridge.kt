@@ -34,6 +34,14 @@ object ScreenBridge {
             service = null
             _status.value = "disconnected"
         }
+        override fun onBindingDied(name: ComponentName?) {
+            service = null
+            _status.value = "binding died"
+        }
+        override fun onNullBinding(name: ComponentName?) {
+            service = null
+            _status.value = "empty binding"
+        }
     }
 
     fun bind(context: Context) {
@@ -60,6 +68,12 @@ object ScreenBridge {
         } catch (e: Exception) {
             _status.value = "bind failed: ${e.message}"
         }
+    }
+
+    fun onShizukuUnavailable() {
+        service = null
+        _status.value = "Shizuku unavailable"
+        _lastScreenText.value = "not bound"
     }
 
     /**
