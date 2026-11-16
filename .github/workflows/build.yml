@@ -103,6 +103,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build debug APK
+        id: assemble-apk
         run: ./gradlew :mobile:app:assembleDebug
 
       - name: Upload debug APK
@@ -126,6 +127,8 @@ jobs:
 
       - name: Summarize test results
         if: always()
+        env:
+          APK_STEP_OUTCOME: ${{ steps.assemble-apk.outcome }}
         run: |
           python3 - <<'PY'
           import glob, re, os
