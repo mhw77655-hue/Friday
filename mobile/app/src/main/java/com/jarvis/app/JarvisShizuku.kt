@@ -31,7 +31,7 @@ object ShizukuBridge {
     private val binderDeadListener = Shizuku.OnBinderDeadListener {
         _isAvailable.value = false
         _isGranted.value = false
-        ShizukuDeviceHost.onShizukuUnavailable()
+        ScreenBridge.onShizukuUnavailable()
     }
 
     private val permissionResultListener = Shizuku.OnRequestPermissionResultListener { _, grantResult ->
