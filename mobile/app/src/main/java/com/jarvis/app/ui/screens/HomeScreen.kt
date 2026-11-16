@@ -96,13 +96,15 @@ private fun CapabilitySummaryBar(enabled: Int, total: Int, onTap: () -> Unit) {
             .padding(PaddingValues(horizontal = 16.dp, vertical = 16.dp)),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = "$enabled of $total capability entries enabled",
-            style = JarvisType.Body.copy(color = JarvisColors.TextSecondary)
-        )
-        Text(
-            text = "Manifest flags are not proof of end-to-end operation",
-            style = JarvisType.Technical.copy(color = JarvisColors.TextSecondary)
-        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "$enabled of $total capability entries enabled",
+                style = JarvisType.Body.copy(color = JarvisColors.TextSecondary)
+            )
+            Text(
+                text = "Manifest flags are not proof of end-to-end operation",
+                style = JarvisType.Technical.copy(color = JarvisColors.TextSecondary)
+            )
+        }
     }
 }
