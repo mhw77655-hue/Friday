@@ -151,6 +151,8 @@ class WallClockAllowlistTest {
         put("cognitive/execution/ExecutionEngine.kt", 2)
         put("cognitive/immune/ImmuneMemory.kt", 1)
         put("cognitive/planning/PlanGraph.kt", 1)
+        put("cognitive/seed/FridayIndividual.kt", 1)
+        put("cognitive/seed/FridaySeedSubstrate.kt", 1)
 
         // ── cognitive memory: quarantine-era stores, record stamps only ───────
         put("cognitive/memory/ContinuityManager.kt", 2)
@@ -245,6 +247,8 @@ class WallClockAllowlistTest {
         put("cognitive/execution/ExecutionEngine.kt", "execution started-at and last-executed-at stamps")
         put("cognitive/immune/ImmuneMemory.kt", "injected nowMs default for immune records")
         put("cognitive/planning/PlanGraph.kt", "plan-node createdAt default")
+        put("cognitive/seed/FridayIndividual.kt", "initial local identity creation timestamp; production receives the composition-root clock")
+        put("cognitive/seed/FridaySeedSubstrate.kt", "experience journal observation timestamp; production receives the composition-root clock")
 
         put("cognitive/memory/ContinuityManager.kt", "reconstruction stamp and the hours-ago recency read")
         put("cognitive/memory/ContinuityPersistence.kt", "persisted document clock field and per-record created/updated/accessed fallbacks on read")
