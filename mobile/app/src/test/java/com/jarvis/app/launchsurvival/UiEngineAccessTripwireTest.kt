@@ -116,9 +116,9 @@ class UiEngineAccessTripwireTest {
         }
 
         val accessorSource = File(appRoot, "ui/EngineAccess.kt").readText()
-        val normalizedAccessors = accessorSource.replace(Regex("""\\s+"""), " ")
+        val normalizedAccessors = accessorSource.replace(Regex("""\s+"""), " ")
         val typedAccessors = Regex(
-            """fun (\\w+)\\(\\): EngineSlot<[^>]+> = JarvisEngine\\.(\\w+Slot)\\(\\)"""
+            """fun (\w+)\(\): EngineSlot<[^>]+> = JarvisEngine\.(\w+Slot)\(\)"""
         ).findAll(normalizedAccessors).toList()
         assertTrue("EngineAccess must publish typed accessors", typedAccessors.isNotEmpty())
         typedAccessors.forEach { match ->
