@@ -72,9 +72,27 @@ Never expose arbitrary shell, unrestricted filesystem access, raw microphone/cam
 - Keep an append-only audit trail visible to the user.
 - Relay outage must not stop Friday's local functions.
 
-## What is not yet deployed
+## Implemented repository and phone connection
 
-This repository does not yet contain a deployed relay, a registered GitHub App, a device-pairing credential issuer, an Android persistent device-agent service, or signed update infrastructure. Those require service configuration, secrets, Android permission review and on-device testing. The scheduled CI workflow is a first maintenance foundation, not a complete self-writing agent or live phone connection.
+The current development branch now contains:
+- An Android Settings connection for a fine-grained GitHub token, encrypted with Android Keystore.
+- A phone-initiated workflow dispatch that sends a bounded, explicitly consented technical snapshot to the proposal worker.
+- A read-only OpenCode proposal job and a separate trusted publisher that creates draft PRs only.
+- Automatic proposal generation when the main-branch Android CI workflow fails. It reads failure logs with Actions read permission, filters/redacts the evidence, and proposes one root-cause repair.
+- A phone-initiated GitHub Issues command channel. Friday polls every 15 minutes via WorkManager (subject to Android scheduling) and accepts only owner-authored, expiring `diagnostics.snapshot` commands.
+- Phone-side proposal lookup and explicit channel disconnect.
+
+The channel uses a public GitHub issue because the repository is public. The bounded device snapshot and replies are visible to repository readers. The app warns before sending. No private conversation, location, contacts, notifications, raw audio/video, screen content, files, or unique device ID is transmitted.
+
+## Still not deployed or verified
+
+- The workflow must be merged to the repository default branch before Android can dispatch it.
+- The owner must create a fine-grained token with Actions read/write, Pull requests read, and Issues read/write for this repository only. Contents write is not required by the phone.
+- The new Android bridge and workflow still require a green current-head CI run.
+- The phone must be installed and paired before the command channel can return real device telemetry.
+- The channel is periodic pull, not an always-on socket. Android may defer it for Doze, battery optimization, or OEM policy.
+- It provides read-only diagnostics, not unrestricted remote control. A future capability broker must remain typed, permission-bounded, visible, and revocable.
+- No signed update installation, automatic merge, or autonomous release is implemented.
 
 ## Release acceptance criteria
 
