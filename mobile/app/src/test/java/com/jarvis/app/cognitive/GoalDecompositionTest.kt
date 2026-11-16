@@ -2,7 +2,6 @@ package com.jarvis.app.cognitive
 
 import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.body.MemoryItem
-import com.jarvis.app.humancore.HumanCore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -35,7 +34,6 @@ class GoalDecompositionTest {
             memoryStore = object : MemoryStorePort {
                 override fun queryMemories(query: String, limit: Int) = emptyList<MemoryItem>()
             },
-            humanCore = HumanCore,
             decompositionComplete = complete
         )
 
@@ -108,7 +106,6 @@ class GoalDecompositionTest {
             memoryStore = object : MemoryStorePort {
                 override fun queryMemories(query: String, limit: Int) = emptyList<MemoryItem>()
             },
-            humanCore = HumanCore
         )
 
         try {
@@ -157,7 +154,6 @@ class GoalDecompositionTest {
             memoryStore = object : MemoryStorePort {
                 override fun queryMemories(query: String, limit: Int) = emptyList<MemoryItem>()
             },
-            humanCore = HumanCore
         )
         assertNotNull(e)
         assertNotNull(e.getTaskWorkingMemory())
