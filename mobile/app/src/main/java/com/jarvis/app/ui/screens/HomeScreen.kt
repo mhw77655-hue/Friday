@@ -20,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.jarvis.app.ui.components.HorizonArc
 import com.jarvis.app.ui.components.pressScale
 import com.jarvis.app.ui.components.rememberCapabilitySnapshot
 import com.jarvis.app.JarvisMic
@@ -47,8 +46,8 @@ fun HomeScreen(onOpenTools: () -> Unit) {
     val acousticLevel = maxOf(outputLevel, (inputLevel / 120f).coerceIn(0f, 1f))
 
     val capsSnapshot by rememberCapabilitySnapshot()
-    val activeCount = remember(capsSnapshot) { capsSnapshot?.count { it.value } ?: 0 }
-    val totalCount = remember(capsSnapshot) { capsSnapshot?.size ?: 0 }
+    val enabledCount = remember(capsSnapshot) { capsSnapshot?.count { it.value } ?: 0 }
+    val manifestCount = remember(capsSnapshot) { capsSnapshot?.size ?: 0 }
 
     Column(
         modifier = Modifier
@@ -71,11 +70,6 @@ fun HomeScreen(onOpenTools: () -> Unit) {
                 morphologySeed = com.jarvis.app.JarvisEngine.fridayIndividual?.identity?.morphologySeed ?: 0L
             )
             Spacer(modifier = Modifier.height(14.dp))
-            HorizonArc(
-                progress = if (totalCount > 0) activeCount.toFloat() / totalCount else 0f,
-                color = JarvisColors.CoreIdle
-            )
-            Spacer(modifier = Modifier.height(14.dp))
             Text(
                 text = "FRIDAY",
                 style = JarvisType.Display,
@@ -84,15 +78,15 @@ fun HomeScreen(onOpenTools: () -> Unit) {
         }
 
         CapabilitySummaryBar(
-            active = activeCount,
-            total = totalCount,
+            enabled = enabledCount,
+            total = manifestCount,
             onTap = onOpenTools
         )
     }
 }
 
 @Composable
-private fun CapabilitySummaryBar(active: Int, total: Int, onTap: () -> Unit) {
+private fun CapabilitySummaryBar(enabled: Int, total: Int, onTap: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -103,8 +97,12 @@ private fun CapabilitySummaryBar(active: Int, total: Int, onTap: () -> Unit) {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "$active of $total capabilities active",
+            text = "$enabled of $total capability entries enabled",
             style = JarvisType.Body.copy(color = JarvisColors.TextSecondary)
+        )
+        Text(
+            text = "Manifest flags are not proof of end-to-end operation",
+            style = JarvisType.Technical.copy(color = JarvisColors.TextSecondary)
         )
     }
 }
