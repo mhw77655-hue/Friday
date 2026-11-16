@@ -5,6 +5,11 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Native inference is shipped to the handset, not used for source-level debugging.
+# Keep JNI and llama.cpp objects optimized and omit DWARF sections even in the
+# Android debug variant; this materially reduces APK size and improves CPU inference.
+add_compile_options(-O2 -g0)
+
 # Friday owns its offline inference runtime. Fetch a pinned upstream source
 # revision at build time; never assume a developer-specific /sdcard checkout,
 # Termux, Ollama, or a localhost inference daemon exists on the user's phone.
