@@ -59,8 +59,8 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     private val _screenText = MutableStateFlow("Screen: not read yet")
     val screenText: StateFlow<String> = _screenText.asStateFlow()
 
-    private val _humanCoreText = MutableStateFlow("Human Core: initializing...")
-    val humanCoreText: StateFlow<String> = _humanCoreText.asStateFlow()
+    private val _individualMemoryText = MutableStateFlow("Friday individual: initializing...")
+    val individualMemoryText: StateFlow<String> = _individualMemoryText.asStateFlow()
 
     private val _modelRuntimeText = MutableStateFlow("model runtime: checking")
     val modelRuntimeText: StateFlow<String> = _modelRuntimeText.asStateFlow()
@@ -208,7 +208,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         diagnosticEvents.record("failure_surface", lastFailureText)
         val battery = if (lastBatteryText.isNotEmpty()) lastBatteryText else "Reading battery state..."
         lastIndividualText = individualDiagnosticText()
-        _humanCoreText.value = lastIndividualText
+        _individualMemoryText.value = lastIndividualText
         _failureText.value = lastFailureText
         _healthText.value = "$battery. $lastNetworkText. $lastNotifText. $lastShizukuText. $lastMicText. $lastSttText. $lastHotwordText. $runtimeText. $lastTtsText. Screen context content is excluded. $lastSelfKnowledgeText. $lastIndividualText. $lastFailureText. $lastVoiceSubstrateText. Telemetry: ${Telemetry.summarize()}"
 
