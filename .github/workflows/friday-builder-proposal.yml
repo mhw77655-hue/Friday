@@ -70,7 +70,7 @@ jobs:
           target = pathlib.Path(os.environ["RUNNER_TEMP"]) / ("friday-request-" + request_id + ".json")
           target.write_bytes(raw)
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
-              env.write("FRIDAY_REQUEST_FILE=" + str(target) + "\\n")
+              env.write("FRIDAY_REQUEST_FILE=" + str(target) + "\n")
           PY
           python3 tools/friday-builder/validate_request.py \
             "$RUNNER_TEMP/friday-request-$REQUEST_ID.json" --expected-id "$REQUEST_ID"
