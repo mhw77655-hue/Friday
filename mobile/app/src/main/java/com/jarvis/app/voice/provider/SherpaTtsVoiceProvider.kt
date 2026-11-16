@@ -3,6 +3,10 @@ package com.jarvis.app.voice.provider
 import android.content.Context
 import android.util.Log
 import com.k2fsa.sherpa.onnx.OfflineTts
+import com.k2fsa.sherpa.onnx.OfflineTtsConfig
+import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig
+import com.k2fsa.sherpa.onnx.OfflineTtsPocketModelConfig
+import com.k2fsa.sherpa.onnx.GenerationConfig
 import com.k2fsa.sherpa.onnx.getOfflineTtsConfig
 import com.jarvis.app.voice.VoiceModelEntry
 import com.jarvis.app.voice.VoiceModelManager
@@ -40,6 +44,7 @@ class SherpaTtsVoiceProvider(
     override val name = when {
         id == "piper" -> "Piper VITS (sherpa-onnx)"
         id == "sherpa-arabic" -> "sherpa-onnx Nabra Arabic"
+        id == "pocket" -> "Pocket TTS · offline reference voice"
         else -> "sherpa-onnx Kokoro"
     }
 
@@ -53,7 +58,7 @@ class SherpaTtsVoiceProvider(
             languages = entry.languages,
             voices = voices(),
             streaming = false, // single-shot per sentence; the habitat segments
-            cloning = false,
+            cloning = id == "pocket",
             offline = true,    // no network after the model is resident
             estimatedLatencyMs = entry.latencyMs,
             estimatedMemoryMb = entry.expectedRamMb,
@@ -67,6 +72,16 @@ class SherpaTtsVoiceProvider(
 
     override fun voices(): List<VoiceInfo> {
         val entry = modelEntry
+        if (id == "pocket") {
+            return listOf(
+                VoiceInfo(
+                    id = "reference",
+                    name = "Friday's uploaded reference voice",
+                    language = "en",
+                    quality = entry.quality
+                )
+            )
+        }
         return (0 until entry.speakerCount).map { i ->
             VoiceInfo(
                 id = "speaker_$i",
@@ -103,14 +118,33 @@ class SherpaTtsVoiceProvider(
         try {
             val tts = ttsFor(entry)
             val sid = speakerIdFor(voiceId)
-            val generated = tts.generateWithCallback(
-                text = text,
-                sid = sid,
-                speed = params.speechRate,
-                callback = { _ ->
+            val generated = if (id == "pocket") {
+                val referencePath = params.referenceAudioPath
+                    ?: return@withContext VoiceSynthesisResult(
+                        success = false,
+                        error = "Pocket TTS needs Friday's saved reference WAV"
+                    )
+                val reference = ReferenceAudioLoader.load(File(referencePath))
+                val generation = GenerationConfig(
+                    speed = params.speechRate,
+                    referenceAudio = reference.samples,
+                    referenceSampleRate = reference.sampleRate,
+                    numSteps = 5,
+                    extra = mapOf("max_reference_audio_len" to "12.0")
+                )
+                tts.generateWithConfigAndCallback(text, generation) { _ ->
                     if (cancelled.get()) 0 else 1
                 }
-            )
+            } else {
+                tts.generateWithCallback(
+                    text = text,
+                    sid = sid,
+                    speed = params.speechRate,
+                    callback = { _ ->
+                        if (cancelled.get()) 0 else 1
+                    }
+                )
+            }
             if (cancelled.get() || generated.samples.isEmpty()) {
                 return@withContext VoiceSynthesisResult(
                     success = false,
@@ -161,7 +195,26 @@ class SherpaTtsVoiceProvider(
         val espeakDir = File(modelDir, "espeak-ng-data")
         // v1.12.40 builder: voices.isNotEmpty() selects the Kokoro model config;
         // assetManager=null makes every path a filesystem path (no AssetManager).
-        val config = getOfflineTtsConfig(
+        val config = if (id == "pocket") {
+            val pocket = OfflineTtsPocketModelConfig(
+                lmFlow = File(modelDir, "lm_flow.int8.onnx").absolutePath,
+                lmMain = File(modelDir, "lm_main.int8.onnx").absolutePath,
+                encoder = File(modelDir, "encoder.onnx").absolutePath,
+                decoder = File(modelDir, "decoder.int8.onnx").absolutePath,
+                textConditioner = File(modelDir, "text_conditioner.onnx").absolutePath,
+                vocabJson = File(modelDir, "vocab.json").absolutePath,
+                tokenScoresJson = File(modelDir, "token_scores.json").absolutePath,
+                voiceEmbeddingCacheCapacity = 8
+            )
+            OfflineTtsConfig(
+                model = OfflineTtsModelConfig(
+                    pocket = pocket,
+                    numThreads = 2,
+                    debug = false,
+                    provider = "cpu"
+                )
+            )
+        } else getOfflineTtsConfig(
             modelDir = modelDir.absolutePath,
             modelName = entry.modelFile,
             acousticModelName = "",
