@@ -8,17 +8,25 @@ on:
     # the tool must never do. Nothing under audit/** is merged by CI or by the
     # tool; a run there is evidence, not a gate on main.
     branches: [ main, 'audit/**', 'friday-proposals/**' ]
+  pull_request:
+    branches: [ main, 'audit/**' ]
+  schedule:
+    - cron: '17 2 * * *'
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: friday-build-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
+permissions: {}
+
 jobs:
+  # Run the same build/test gate for every PR, including audit and proposal
+  # branches. Draft PRs still need real validation; skipping their only job
+  # makes the check appear neutral without testing the candidate.
   debug-apk:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -27,46 +35,31 @@ jobs:
         with:
           persist-credentials: false
 
-      # Temporary source-inspection bridge for the user's uploaded archive.
-      # Extract in the runner, publish as a workflow artifact, and inspect the
-      # real source tree before changing application code.
-      - name: Extract uploaded New folder archive
-        run: |
-          # The user's upload is on main; this isolated audit branch predates it.
-          git fetch --depth=1 origin main
-          git show FETCH_HEAD:"New folder.zip" > "$RUNNER_TEMP/New folder.zip"
-          python3 - <<'PY'
-          from pathlib import Path
-          from zipfile import ZipFile
-          import os
-          archive = Path(os.environ["RUNNER_TEMP"]) / "New folder.zip"
-          target = Path(os.environ["RUNNER_TEMP"]) / "friday-new-folder-source"
-          target.mkdir(parents=True, exist_ok=True)
-          with ZipFile(archive) as z:
-              bad = [n for n in z.namelist() if Path(n).is_absolute() or ".." in Path(n).parts]
-              if bad:
-                  raise SystemExit(f"Unsafe archive paths: {bad[:10]}")
-              z.extractall(target)
-          files = sorted(p for p in target.rglob("*") if p.is_file())
-          report = Path(os.environ["RUNNER_TEMP"]) / "new-folder-manifest.txt"
-          report.write_text("\\n".join(f"{p.relative_to(target)}\\t{p.stat().st_size}" for p in files), encoding="utf-8")
-          print(f"Extracted {len(files)} files ({sum(p.stat().st_size for p in files)} bytes)")
-          print(report.read_text(encoding="utf-8")[:20000])
-          PY
-
-      - name: Upload extracted New folder source for inspection
-        uses: actions/upload-artifact@v4
-        with:
-          name: new-folder-extracted-source
-          path: |
-            ${{ runner.temp }}/friday-new-folder-source
-            ${{ runner.temp }}/new-folder-manifest.txt
-          if-no-files-found: error
-
       # JDK 17: the repo's Gradle/AGP configuration requires it. Read from
       # mobile/app/build.gradle.kts (compileOptions source/targetCompatibility =
       # VERSION_17, kotlin compilerOptions jvmTarget = JVM_17) and the root
       # build.gradle.kts (AGP 8.10.0, which requires JDK 17).
+      - name: Verify Ralph receives the owner's vision and direct words
+        run: bash .ralph/owner_vision_check.sh
+
+      - name: Set up Python for Friday builder contract tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Test Friday repository-builder safety contracts
+        run: python3 -m unittest discover -s tools/friday-builder -p 'test_*.py' -v
+
+      - name: Set up Go for workflow lint
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.0"
+
+      - name: Lint all GitHub Actions workflows
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          "$(go env GOPATH)/bin/actionlint" -color
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
@@ -99,19 +92,20 @@ jobs:
             "cmake;3.22.1" \
             --sdk_root="$ANDROID_HOME"
 
-
-      - name: Set up Python for repository-builder contract tests
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Test repository-builder request boundary
-        run: python3 -m unittest discover -s tools/friday-builder -p 'test_*.py' -v
+      # Verify the app builds from its repository checkout without rewriting
+      # a device-local binary path during CI.
+      - name: Verify no Termux-only Android build override remains
+        run: |
+          if grep -n '^android.aapt2FromMavenOverride=' gradle.properties; then
+            echo "Remove the device-local aapt2 override from gradle.properties."
+            exit 1
+          fi
 
       - name: Make gradlew executable
         run: chmod +x gradlew
 
       - name: Build debug APK
+        id: assemble-apk
         run: ./gradlew :mobile:app:assembleDebug
 
       - name: Upload debug APK
@@ -120,29 +114,11 @@ jobs:
           name: debug-apk
           path: mobile/app/build/outputs/apk/debug/app-debug.apk
 
-      # Baseline unit-test run for this stage.
-      - name: Run unit tests (baseline)
+      # Run tests even when APK assembly fails. A failed packaging step must
+      # not erase independent evidence about source/test health.
+      - name: Run unit tests independently of APK assembly
+        if: ${{ !cancelled() }}
         run: ./gradlew :mobile:app:testDebugUnitTest
-
-      - name: Print JUnit failure diagnostics
-        if: failure()
-        run: |
-          python3 - <<'PY'
-          import glob, xml.etree.ElementTree as ET
-          for path in glob.glob('mobile/app/build/test-results/**/TEST-*.xml', recursive=True):
-              try:
-                  root = ET.parse(path).getroot()
-              except Exception:
-                  continue
-              for case in root.iter('testcase'):
-                  failure = case.find('failure')
-                  error = case.find('error')
-                  issue = failure if failure is not None else error
-                  if issue is not None:
-                      print(f"FAILED: {case.get('classname')}.{case.get('name')}")
-                      print(issue.get('message', ''))
-                      print((issue.text or '')[-6000:])
-          PY
 
       - name: Upload JUnit results
         if: always()
@@ -153,14 +129,16 @@ jobs:
 
       - name: Summarize test results
         if: always()
+        env:
+          APK_STEP_OUTCOME: ${{ steps.assemble-apk.outcome }}
         run: |
           python3 - <<'PY'
           import glob, re, os
           paths = glob.glob('mobile/app/build/test-results/**/TEST-*.xml', recursive=True)
           if not paths:
               with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
-                  out.write('## JUnit baseline\n\nNO JUNIT FILES: the tests did not run\n')
-              raise SystemExit(0)
+                  out.write('## JUnit results\n\nNO JUNIT FILES: the test task produced no results. This is not a passing test run.\n')
+              raise SystemExit(1)
           t = f = e = s = 0
           for p in paths:
               with open(p, encoding='utf-8', errors='replace') as fh:
@@ -173,5 +151,61 @@ jobs:
                   return int(mm.group(1)) if mm else 0
               t += num('tests'); f += num('failures'); e += num('errors'); s += num('skipped')
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
-              out.write(f'## JUnit baseline\n\n{t} tests, {f} failures, {e} errors, {s} skipped\n')
+              out.write(f'## JUnit results\n\n{t} tests, {f} failures, {e} errors, {s} skipped\n')
+              out.write(f'\nAPK assembly step: {os.environ.get("APK_STEP_OUTCOME", "see job steps")}\n')
+              out.write('A skipped workflow step is not reported as a successful test. Inspect the step conclusion above.\n')
+          if t == 0:
+              raise SystemExit('JUnit report contains zero executed tests; validation is incomplete.')
+          if f or e:
+              raise SystemExit(f'JUnit reports {f} failures and {e} errors.')
           PY
+
+  report-failure:
+    # Always inspect the build job's final result. This job is intentionally
+    # skipped only when the build job succeeded; cancellation remains distinct.
+    if: ${{ !cancelled() && needs.debug-apk.result != 'success' }}
+    needs: debug-apk
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open or update a maintenance incident
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const title = 'Friday automated maintenance: build or test failure';
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              per_page: 100
+            });
+            const body = [
+              '## Automated maintenance failure',
+              '',
+              `- Workflow run: ${runUrl}`,
+              `- Commit: ${context.sha}`,
+              `- Trigger: ${context.eventName}`,
+              '',
+              'Open the run and inspect the first failing step and uploaded JUnit results.',
+              'This incident is diagnostic only; it does not authorize source changes, approval or release.'
+            ].join('\\n');
+            const match = existing.data.find(issue => issue.title === title && !issue.pull_request);
+            if (match) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: match.number,
+                body
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body
+              });
+            }
