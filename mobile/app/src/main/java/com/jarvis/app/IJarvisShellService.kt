@@ -6,21 +6,15 @@ import android.os.IInterface
 import android.os.Parcel
 
 /**
- * Hand-written Binder interface, standing in for what an .aidl file would
- * normally generate. This device's toolchain has no working `aidl`
- * compiler (no real build-tools install — only aapt2 is fetched via
- * Maven), so this is written directly against the same IBinder/Parcel
- * primitives AIDL itself compiles down to. Functionally identical to a
- * generated Stub/Proxy pair.
+ * Narrow Binder contract for Friday's Shizuku UserService.
+ * It deliberately exposes typed diagnostics only: never a caller-supplied shell command.
  */
 interface IJarvisShellService : IInterface {
-    fun exec(command: String): String
+    fun diagnosticsSnapshot(): String
     fun destroy()
 
     abstract class Stub : Binder(), IJarvisShellService {
-        init {
-            attachInterface(this, DESCRIPTOR)
-        }
+        init { attachInterface(this, DESCRIPTOR) }
 
         override fun asBinder(): IBinder = this
 
@@ -30,18 +24,16 @@ interface IJarvisShellService : IInterface {
                     reply?.writeString(DESCRIPTOR)
                     return true
                 }
-                TRANSACTION_exec -> {
+                TRANSACTION_DIAGNOSTICS -> {
                     data.enforceInterface(DESCRIPTOR)
-                    val command = data.readString() ?: ""
-                    val result = exec(command)
+                    val result = diagnosticsSnapshot()
                     reply?.writeNoException()
                     reply?.writeString(result)
                     return true
                 }
-                TRANSACTION_destroy -> {
-                    data.enforceInterface(DESCRIPTOR)
+                // Shizuku UserService destruction transaction for a hand-written Binder contract.
+                SHIZUKU_DESTROY_TRANSACTION -> {
                     destroy()
-                    reply?.writeNoException()
                     return true
                 }
             }
@@ -50,15 +42,14 @@ interface IJarvisShellService : IInterface {
 
         companion object {
             const val DESCRIPTOR = "com.jarvis.app.IJarvisShellService"
-            const val TRANSACTION_exec = IBinder.FIRST_CALL_TRANSACTION
-            const val TRANSACTION_destroy = IBinder.FIRST_CALL_TRANSACTION + 1
+            const val TRANSACTION_DIAGNOSTICS = IBinder.FIRST_CALL_TRANSACTION
+            const val SHIZUKU_DESTROY_TRANSACTION = 16777114
 
             @JvmStatic
             fun asInterface(binder: IBinder?): IJarvisShellService? {
                 if (binder == null) return null
                 val local = binder.queryLocalInterface(DESCRIPTOR)
-                if (local is IJarvisShellService) return local
-                return Proxy(binder)
+                return if (local is IJarvisShellService) local else Proxy(binder)
             }
         }
     }
@@ -66,15 +57,14 @@ interface IJarvisShellService : IInterface {
     class Proxy(private val remote: IBinder) : IJarvisShellService {
         override fun asBinder(): IBinder = remote
 
-        override fun exec(command: String): String {
+        override fun diagnosticsSnapshot(): String {
             val data = Parcel.obtain()
             val reply = Parcel.obtain()
             return try {
                 data.writeInterfaceToken(Stub.DESCRIPTOR)
-                data.writeString(command)
-                remote.transact(Stub.TRANSACTION_exec, data, reply, 0)
+                remote.transact(Stub.TRANSACTION_DIAGNOSTICS, data, reply, 0)
                 reply.readException()
-                reply.readString() ?: ""
+                reply.readString() ?: "{}"
             } finally {
                 data.recycle()
                 reply.recycle()
@@ -82,16 +72,7 @@ interface IJarvisShellService : IInterface {
         }
 
         override fun destroy() {
-            val data = Parcel.obtain()
-            val reply = Parcel.obtain()
-            try {
-                data.writeInterfaceToken(Stub.DESCRIPTOR)
-                remote.transact(Stub.TRANSACTION_destroy, data, reply, 0)
-                reply.readException()
-            } finally {
-                data.recycle()
-                reply.recycle()
-            }
+            remote.transact(Stub.SHIZUKU_DESTROY_TRANSACTION, Parcel.obtain(), null, IBinder.FLAG_ONEWAY)
         }
     }
 }
