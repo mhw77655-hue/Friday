@@ -139,7 +139,7 @@ fun SettingsScreen() {
 
         SectionLabel("GITHUB DEVELOPMENT LINK")
         Text(
-            text = "Connect Friday to her public GitHub repository. A fine-grained token is encrypted with Android Keystore. Grant only Actions: Read and write and Pull requests: Read for the Friday repository. Do NOT grant Contents: Write.",
+            text = "Connect Friday to her public GitHub repository. A fine-grained token is encrypted with Android Keystore. Grant only Actions: Read and write, Pull requests: Read, and Issues: Read and write for the Friday repository. Do NOT grant Contents: Write.",
             style = JarvisType.Label,
             modifier = Modifier.padding(bottom = 8.dp)
         )
