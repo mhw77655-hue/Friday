@@ -31,7 +31,7 @@ import java.io.File
  * now, what time it is, where speech and turn-state go, and which store
  * implementations the platform can offer. Everything else — the claim
  * workspace, the identity/emotion/social/continuity stack, the cognitive engine,
- * the admission governor's policy, the Human Core wiring — is decided ONCE, in
+ * the turn-context and owner-seeded identity boundaries — is decided ONCE, in
  * [TurnPathAssembly] in the Android app; JVM fixtures are test-only.
  *
  * It is an adapter, not an owner: nothing here decides a cognitive outcome, and
