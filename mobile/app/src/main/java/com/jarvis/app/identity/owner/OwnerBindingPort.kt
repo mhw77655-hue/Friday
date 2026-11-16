@@ -1,20 +1,10 @@
 package com.jarvis.app.identity.owner
 
-import com.jarvis.app.humancore.protocol.OwnerBinding
-
-/**
- * The persistence seam for the owner-binding chain: writes an [OwnerBinding]
- * into the real Human Core owner relationship and reads the current binding.
- *
- * Production implements this over the `HumanCore` facade
- * ([HumanCoreOwnerBindingPort]); tests implement it over a real
- * [com.jarvis.app.humancore.HumanCoreGraph] backed by isolated storage so the
- * fixture can prove the chain end-to-end.
- */
+/** Persistence seam for Friday's Android owner authority record. */
 interface OwnerBindingPort {
-    /** Persist the binding; false when the store refused it. */
+    /** Persist a binding; false when integrity or single-owner checks fail. */
     fun bindOwner(binding: OwnerBinding): Boolean
 
-    /** The currently persisted owner binding, or null when unbound. */
+    /** Read the encrypted binding, or null when no valid record exists. */
     fun ownerBinding(): OwnerBinding?
 }
