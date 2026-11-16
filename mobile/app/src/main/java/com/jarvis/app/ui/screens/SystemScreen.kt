@@ -67,6 +67,7 @@ fun SystemScreen() {
     val voiceSubstrateText by diagnosticsViewModel.voiceSubstrateText.collectAsStateWithLifecycle()
     val screenText by diagnosticsViewModel.screenText.collectAsStateWithLifecycle()
     val failureText by diagnosticsViewModel.failureText.collectAsStateWithLifecycle()
+    val individualMemoryText by diagnosticsViewModel.individualMemoryText.collectAsStateWithLifecycle()
 
     val rows = listOf(
         SystemRow("Brain", brainStatus, brainDotColor(brainStatus), brainStatus),
@@ -84,6 +85,7 @@ fun SystemScreen() {
             voiceSubstrateText
         ),
         SystemRow("Screen", screenText.removePrefix("Screen: "), genericDotColor(screenText), screenText),
+        SystemRow("Friday Memory", individualMemoryText.removePrefix("Friday individual: "), if (individualMemoryText.contains("present")) JarvisColors.CoreSuccess else JarvisColors.CoreWarning, individualMemoryText),
         SystemRow(
             "Failures",
             failureText.removePrefix("Failures: "),
