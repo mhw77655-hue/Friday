@@ -18,7 +18,7 @@ class OfflineModelCatalogTest {
         assertTrue(model.resident)
     }
 
-    @Test fun lfmIsOnlyTheLowMemoryFallback() {
+    @Test fun lfmIsTheFirstLowMemoryFallback() {
         val model = OfflineModelCatalog.fallback
         assertEquals("lfm2.5-1.2b-abliterated", model.id)
         assertEquals("LFM 1.0", model.license)
