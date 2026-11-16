@@ -44,7 +44,7 @@ class CurrentActionDiscriminator(
 
     /**
      * Drive the state machine with a bridge-status observation (called each
-     * tick by `HumanCoreIntegration`).
+     * tick by `FridayRuntimeIntegration`).
      */
     fun onBridgeStatus(status: String) {
         val t = now()
