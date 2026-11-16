@@ -1,6 +1,7 @@
 package com.jarvis.app.launchsurvival
 
 import java.io.File
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -115,14 +116,16 @@ class UiEngineAccessTripwireTest {
         }
 
         val accessorSource = File(appRoot, "ui/EngineAccess.kt").readText()
-        val typedAccessors = accessorSource.lineSequence()
-            .filter { it.trimStart().startsWith("fun ") && it.contains("EngineSlot<") }
-            .toList()
+        val normalizedAccessors = accessorSource.replace(Regex("""\\s+"""), " ")
+        val typedAccessors = Regex(
+            """fun (\\w+)\\(\\): EngineSlot<[^>]+> = JarvisEngine\\.(\\w+Slot)\\(\\)"""
+        ).findAll(normalizedAccessors).toList()
         assertTrue("EngineAccess must publish typed accessors", typedAccessors.isNotEmpty())
-        typedAccessors.forEach { declaration ->
-            assertTrue(
-                "UI typed accessors must delegate to a JarvisEngine slot: $declaration",
-                declaration.contains("JarvisEngine.") && declaration.contains("Slot()")
+        typedAccessors.forEach { match ->
+            assertEquals(
+                "UI accessor ${match.groupValues[1]} must delegate to its matching engine slot",
+                "${match.groupValues[1]}Slot",
+                match.groupValues[2]
             )
         }
     }
