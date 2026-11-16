@@ -1,7 +1,7 @@
 package com.jarvis.app.cognitive
 
 import com.jarvis.app.body.MemoryType
-import com.jarvis.app.humancore.protocol.SessionContext
+import com.jarvis.app.turn.TurnContext
 import java.util.TimeZone
 
 /**
@@ -44,7 +44,7 @@ data class CognitiveState(
     // Metadata
     val turnIndex: Long = 0,
     val timestamp: Long = System.currentTimeMillis(),
-    val sessionContext: SessionContext? = null
+    val sessionContext: TurnContext? = null
 ) {
     /** Create a new state with updated fields (copy with builder pattern) */
     fun copyWith(
@@ -65,7 +65,7 @@ data class CognitiveState(
         lastDecision: DecisionRecord? = null,
         turnIndex: Long? = null,
         timestamp: Long? = null,
-        sessionContext: SessionContext? = null
+        sessionContext: TurnContext? = null
     ): CognitiveState = copy(
         currentIntent = currentIntent ?: this.currentIntent,
         inferredIntent = inferredIntent ?: this.inferredIntent,
