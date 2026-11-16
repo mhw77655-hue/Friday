@@ -3,7 +3,6 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.gradle.api.tasks.testing.Test
 import java.util.Properties
 import java.io.FileInputStream
-import java.security.MessageDigest
 
 // BUG FIX (JV-TOKEN-01): JarvisBrainBridge.kt had the live HF Space bearer
 // token hardcoded as a plaintext string literal, committed to git/GitHub.
@@ -107,66 +106,6 @@ plugins {
     }
 }
 
-
-val fridaySourceIndexAssets = layout.buildDirectory.dir("generated/fridaySourceIndex/assets")
-android.sourceSets.getByName("main").assets.srcDir(fridaySourceIndexAssets)
-
-val generateFridaySourceIndex = tasks.register("generateFridaySourceIndex") {
-    val sourceRoot = layout.projectDirectory.dir("src/main/java")
-    inputs.dir(sourceRoot)
-    val indexFile = fridaySourceIndexAssets.map { it.file("friday-source-index.json") }
-    outputs.file(indexFile)
-    doLast {
-        val root = sourceRoot.asFile
-        val files = root.walkTopDown()
-            .filter { it.isFile && it.extension == "kt" }
-            .sortedBy { it.relativeTo(root).invariantSeparatorsPath }
-            .toList()
-        val digest = MessageDigest.getInstance("SHA-256")
-        val entries = files.map { source ->
-            val relative = source.relativeTo(root).invariantSeparatorsPath
-            val text = source.readText()
-            digest.update(relative.toByteArray(Charsets.UTF_8))
-            digest.update(0.toByte())
-            digest.update(text.toByteArray(Charsets.UTF_8))
-            val packageName = Regex("(?m)^\\s*package\\s+([A-Za-z0-9_.]+)")
-                .find(text)?.groupValues?.get(1).orEmpty()
-            val declarations = Regex(
-                "(?m)^\\s*(?:(?:public|internal|private|protected|abstract|open|data|sealed|enum|annotation|value|expect|actual|suspend|inline|infix|operator|override)\\s+)*(?:class|interface|object|typealias|fun)\\s+([A-Za-z_][A-Za-z0-9_]*)"
-            ).findAll(text).map { it.groupValues[1] }.distinct().toList()
-            val imports = Regex("(?m)^\\s*import\\s+([A-Za-z0-9_.*]+)")
-                .findAll(text).map { it.groupValues[1] }.distinct().toList()
-            Triple(relative, packageName, declarations) to imports
-        }
-        val revision = digest.digest().joinToString("") { "%02x".format(it) }
-        val json = buildString {
-            append("{\n  \"schemaVersion\": 2,\n  \"sourceRevision\": \"")
-            append(revision)
-            append("\",\n  \"files\": [")
-            entries.forEachIndexed { index, pair ->
-                if (index > 0) append(",")
-                val entry = pair.first
-                append("\n    { \"path\": \"").append(entry.first)
-                append("\", \"package\": \"").append(entry.second)
-                append("\", \"declarations\": [")
-                append(entry.third.joinToString(", ") { symbol -> "${34.toChar()}$symbol${34.toChar()}" })
-                append("], \"imports\": [")
-                append(pair.second.joinToString(", ") { imported -> "${34.toChar()}$imported${34.toChar()}" })
-                append("] }")
-            }
-            if (entries.isNotEmpty()) append("\n  ")
-            append("]\n}\n")
-        }
-        val out = indexFile.get().asFile
-        out.parentFile.mkdirs()
-        out.writeText(json)
-    }
-}
-
-tasks.named("preBuild").configure {
-    dependsOn(generateFridaySourceIndex)
-}
-
 kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_17)
@@ -174,16 +113,12 @@ kotlin {
 }
 
 dependencies {
-    implementation("androidx.camera:camera-camera2:1.4.2")
-    implementation("androidx.camera:camera-lifecycle:1.4.2")
-    implementation("androidx.camera:camera-view:1.4.2")
-    implementation("com.google.mlkit:face-detection:16.1.7")
     implementation("androidx.navigation:navigation-compose:2.8.4")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.8.4")
     implementation("androidx.lifecycle:lifecycle-process:2.8.4")
-    implementation("androidx.work:work-runtime-ktx:2.9.1")
+    implementation("androidx.work:work-runtime-ktx:2.10.1")
     implementation("androidx.activity:activity-compose:1.9.1")
     implementation(platform("androidx.compose:compose-bom:2024.09.00"))
     implementation("androidx.compose.ui:ui")
@@ -232,6 +167,20 @@ dependencies {
     androidTestImplementation("androidx.test:core-ktx:1.6.1")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("junit:junit:4.13.2")
+}
+
+// TERMUX-LIVE-INSTANCE-BROWSER-INTERFACE (AC6): the exact copy-paste run command
+// for the standalone JVM entry point. Runs TermuxJarvisServer's main() on the
+// JVM with the unit-test classpath (real production main classes + JVM deps).
+val runTermuxJarvisServer by tasks.registering(JavaExec::class) {
+    group = "application"
+    description = "Run the JARVIS Termux live instance (localhost browser interface)."
+    val mainOut = tasks.named("compileDebugKotlin", KotlinCompile::class).get().destinationDirectory
+    val testOut = tasks.named("compileDebugUnitTestKotlin", KotlinCompile::class).get().destinationDirectory
+    val runtimeCp = configurations.named("debugUnitTestRuntimeClasspath").get()
+    classpath = files(mainOut.get().asFileTree, testOut.get().asFileTree, runtimeCp)
+    mainClass.set("com.jarvis.app.termux.TermuxJarvisServer")
+    // Pass-through: --port=8081 --ollama=127.0.0.1:8080 --model=<id>
 }
 
 // ---------------------------------------------------------------------------

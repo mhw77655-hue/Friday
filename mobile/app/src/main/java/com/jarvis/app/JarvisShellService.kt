@@ -1,28 +1,90 @@
 package com.jarvis.app
 
-import java.io.BufferedReader
-import java.io.InputStreamReader
+import android.os.Process
+import org.json.JSONObject
+import java.io.File
+import java.util.concurrent.TimeUnit
 
 /**
- * Phase 0/Chapter 8: hosted by Shizuku with shell (adb) privileges, not a
- * normal Android Service — Shizuku instantiates this directly via
- * reflection in its own privileged process. Must have a public no-arg
- * constructor for that reason.
+ * Shizuku UserService running with the explicitly granted shell/root identity.
+ *
+ * The Binder contract is intentionally capability-based. No arbitrary command,
+ * script, path, or caller-controlled process execution crosses this boundary.
  */
 class JarvisShellService : IJarvisShellService.Stub() {
-    override fun exec(command: String): String {
+
+    override fun diagnosticsSnapshot(): String {
+        val result = JSONObject()
+            .put("schema", 1)
+            .put("uid", Process.myUid())
+            .put("pid", Process.myPid())
+            .put("meminfo", readFile("/proc/meminfo", 12_000))
+            .put("dataFilesystem", runFixed("df", "-k", "/data"))
+            .put("battery", runFixed("dumpsys", "battery"))
+            .put("buildFingerprint", runFixed("getprop", "ro.build.fingerprint"))
+            .put("securityPatch", runFixed("getprop", "ro.build.version.security_patch"))
+            .put("androidRelease", runFixed("getprop", "ro.build.version.release"))
+            .put("sdk", runFixed("getprop", "ro.build.version.sdk"))
+            .put("capturedAt", System.currentTimeMillis())
+        return result.toString()
+    }
+
+    override fun captureScreenSummary(): String {
+        // Keep the temporary hierarchy out of shared storage and remove it
+        // after reading. UI hierarchies can contain private on-screen text.
+        val path = "/data/local/tmp/friday-window-${Process.myPid()}.xml"
         return try {
-            val process = Runtime.getRuntime().exec(arrayOf("sh", "-c", command))
-            val output = BufferedReader(InputStreamReader(process.inputStream)).readText()
-            val error = BufferedReader(InputStreamReader(process.errorStream)).readText()
-            process.waitFor()
-            if (error.isNotBlank()) "$output\nERR: $error" else output
-        } catch (e: Exception) {
-            "exec failed: ${e.message}"
+            val dump = runFixed("uiautomator", "dump", path)
+            if (dump.startsWith("unavailable:") || dump == "timeout" ||
+                dump.contains("ERROR", ignoreCase = true)
+            ) {
+                dump
+            } else {
+                runFixed("cat", path).take(24_000)
+            }
+        } finally {
+            runFixed("rm", "-f", path)
         }
     }
 
+    /**
+     * Shizuku-backed Doze exemption for Friday only. The package name and
+     * command shape are fixed in code; the Binder caller supplies only a
+     * boolean. Read-back verification is required before reporting success.
+     */
+    override fun setDozeWhitelist(enabled: Boolean): String {
+        val packageName = "com.jarvis.app"
+        val sign = if (enabled) "+" else "-"
+        val commandResult = runFixed("cmd", "deviceidle", "whitelist", "$sign$packageName")
+        if (commandResult.startsWith("unavailable:") || commandResult == "timeout") {
+            return "status=unsupported; command=$commandResult"
+        }
+        val listing = runFixed("cmd", "deviceidle", "whitelist")
+        if (listing.startsWith("unavailable:") || listing == "timeout") {
+            return "status=unverified; command=$commandResult; readback=$listing"
+        }
+        val present = listing.contains(packageName)
+        val verified = present == enabled
+        return "status=${if (verified) "verified" else "not-verified"}; enabled=$present; command=$commandResult"
+    }
+
+    private fun readFile(path: String, maxChars: Int): String =
+        runCatching { File(path).takeIf { it.isFile && it.canRead() }?.readText()?.take(maxChars) }
+            .getOrNull().orEmpty()
+
+    /** Runs only fixed executable/argument tuples authored in this class. */
+    private fun runFixed(vararg command: String): String = runCatching {
+        val process = ProcessBuilder(*command).redirectErrorStream(true).start()
+        val finished = process.waitFor(3, TimeUnit.SECONDS)
+        if (!finished) {
+            process.destroyForcibly()
+            return@runCatching "timeout"
+        }
+        process.inputStream.bufferedReader().use { it.readText().take(12_000) }
+    }.getOrElse { "unavailable: ${it.javaClass.simpleName}" }
+
     override fun destroy() {
-        // no-op — Shizuku owns process teardown
+        // Shizuku owns this dedicated UserService process.
+        Process.killProcess(Process.myPid())
     }
 }

@@ -171,6 +171,8 @@ run_preflight() {
 #   REPO_FACTS.md    durable facts about this repo (auto-prepended)
 #   SYMBOL_FACTS.md  class -> real package, so a wrong-package guess is never
 #                    paid for twice (a full CI round trip each time)
+#   VISION.md        the owner's product vision, including direct source anchors
+#   OWNER_WORDS.md   curated owner-authored excerpts from New Folder chats.zip
 #   prompt.md        the Ralph instructions themselves
 #
 # --print-prompt runs exactly this and exits: the real prompt, no preflight, no
@@ -183,7 +185,15 @@ build_prompt() {
   echo
   cat "$SYMBOL_FACTS_FILE"
   echo
-  echo "---"
+  echo "--- OWNER VISION ---"
+  echo
+  cat "$VISION_FILE"
+  echo
+  echo "--- OWNER WORDS (VERBATIM ARCHIVE EXCERPTS) ---"
+  echo
+  cat "$OWNER_WORDS_FILE"
+  echo
+  echo "--- RALPH INSTRUCTIONS ---"
   echo
   cat "$PROMPT_FILE"
 }
@@ -214,6 +224,8 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROMPT_FILE="$SCRIPT_DIR/prompt.md"
 FACTS_FILE="$SCRIPT_DIR/REPO_FACTS.md"
 SYMBOL_FACTS_FILE="$SCRIPT_DIR/SYMBOL_FACTS.md"
+VISION_FILE="$SCRIPT_DIR/VISION.md"
+OWNER_WORDS_FILE="$SCRIPT_DIR/OWNER_WORDS.md"
 PROGRESS_FILE="$SCRIPT_DIR/progress.txt"
 RUN_LOG="$SCRIPT_DIR/ralph_run_$(date +%Y%m%d_%H%M%S).log"
 PRD_FILE="$SCRIPT_DIR/prd.json"
@@ -270,6 +282,11 @@ fi
 if [ ! -f "$SYMBOL_FACTS_FILE" ]; then
   echo "# SYMBOL_FACTS.md" > "$SYMBOL_FACTS_FILE"
   echo "(no symbol facts recorded yet)" >> "$SYMBOL_FACTS_FILE"
+fi
+
+if [ ! -s "$VISION_FILE" ] || [ ! -s "$OWNER_WORDS_FILE" ]; then
+  echo "FATAL: owner vision sources are missing. Required: $VISION_FILE and $OWNER_WORDS_FILE"
+  exit 1
 fi
 
 if [ ! -f "$REJECT_HELPER" ]; then

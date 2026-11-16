@@ -1,10 +1,13 @@
 package com.jarvis.app
 
 import android.content.ComponentName
+import android.content.pm.PackageManager
 import android.content.Context
 import android.content.ServiceConnection
 import android.os.IBinder
 import android.util.Xml
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,6 +17,7 @@ import java.io.StringReader
 
 object ScreenBridge {
     private var service: IJarvisShellService? = null
+    private var userServiceArgs: Shizuku.UserServiceArgs? = null
 
     private val _status = MutableStateFlow("not bound")
     val status: StateFlow<String> = _status.asStateFlow()
@@ -24,30 +28,52 @@ object ScreenBridge {
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
             service = IJarvisShellService.Stub.asInterface(binder)
-            _status.value = "bound"
+            _status.value = if (service != null) "bound" else "null service binder"
         }
         override fun onServiceDisconnected(name: ComponentName?) {
             service = null
             _status.value = "disconnected"
         }
+        override fun onBindingDied(name: ComponentName?) {
+            service = null
+            _status.value = "binding died"
+        }
+        override fun onNullBinding(name: ComponentName?) {
+            service = null
+            _status.value = "empty binding"
+        }
     }
 
     fun bind(context: Context) {
         if (!Shizuku.pingBinder()) {
-            _status.value = "shizuku not running"
+            _status.value = "Shizuku not running"
+            return
+        }
+        if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
+            _status.value = "Shizuku permission not granted"
+            return
+        }
+        if (service != null) {
+            _status.value = "bound"
             return
         }
         val args = Shizuku.UserServiceArgs(ComponentName(context, JarvisShellService::class.java))
-            .daemon(false)
-            .processNameSuffix("shell")
-            .debuggable(false)
-            .version(1)
+            .daemon(true)
+            .tag("friday-device-capability-core")
+            .version(3)
+        userServiceArgs = args
         try {
             _status.value = "binding..."
             Shizuku.bindUserService(args, connection)
         } catch (e: Exception) {
             _status.value = "bind failed: ${e.message}"
         }
+    }
+
+    fun onShizukuUnavailable() {
+        service = null
+        _status.value = "Shizuku unavailable"
+        _lastScreenText.value = "not bound"
     }
 
     /**
@@ -64,33 +90,55 @@ object ScreenBridge {
      * accessibility tree, and a hand-rolled regex has no principled way to
      * pick up both plus handle XML entity escaping correctly.
      */
-    fun captureScreenSummary() {
-        JarvisEngine.run {
-            val svc = service
-            if (svc == null) {
-                _lastScreenText.value = "not bound"
-                return@run
-            }
-            val raw = try {
-                svc.exec("uiautomator dump /sdcard/jarvis_dump.xml && cat /sdcard/jarvis_dump.xml")
-            } catch (e: Exception) {
-                _lastScreenText.value = "read failed: ${e.message}"
-                return@run
-            }
-
-            val texts = try {
-                extractVisibleText(raw)
-            } catch (e: Exception) {
-                _lastScreenText.value = "parse failed: ${e.message}"
-                return@run
-            }
-
-            _lastScreenText.value = if (texts.isNotEmpty()) {
-                texts.joinToString(", ")
-            } else {
-                "(no visible text found)"
-            }
+    /**
+     * Synchronous because DeviceControlRouter requires verification evidence
+     * from this exact capture, not a stale StateFlow value from a previous call.
+     * Call this capability from a background execution lane.
+     */
+    fun captureScreenSummary(): String {
+        val svc = service
+        if (svc == null) {
+            _lastScreenText.value = "not bound"
+            return _lastScreenText.value
         }
+        val raw = try {
+            svc.captureScreenSummary()
+        } catch (e: Exception) {
+            _lastScreenText.value = "read failed: ${e.message}"
+            return _lastScreenText.value
+        }
+        val texts = try {
+            extractVisibleText(raw)
+        } catch (e: Exception) {
+            _lastScreenText.value = "parse failed: ${e.message}"
+            return _lastScreenText.value
+        }
+        _lastScreenText.value = if (texts.isNotEmpty()) {
+            texts.joinToString(", ")
+        } else {
+            "(no visible text found)"
+        }
+        return _lastScreenText.value
+    }
+
+    /** Reads bounded device diagnostics through the same privileged UserService. */
+    suspend fun diagnosticsSnapshot(): String? = withContext(Dispatchers.IO) {
+        val svc = service ?: return@withContext null
+        runCatching { svc.diagnosticsSnapshot() }
+            .onFailure { _status.value = "diagnostics failed: ${it.message}" }
+            .getOrNull()
+    }
+
+    /**
+     * Adds/removes only Friday's own package from Android's Device Idle
+     * whitelist through a fixed Shizuku command. No caller-supplied shell
+     * command or package path crosses the Binder boundary.
+     */
+    suspend fun setDozeWhitelist(enabled: Boolean): String? = withContext(Dispatchers.IO) {
+        val svc = service ?: return@withContext null
+        runCatching { svc.setDozeWhitelist(enabled) }
+            .onFailure { _status.value = "Doze whitelist update failed: ${it.message}" }
+            .getOrNull()
     }
 
     private fun extractVisibleText(xml: String): List<String> {
