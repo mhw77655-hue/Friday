@@ -44,12 +44,12 @@ object JarvisOrganGraph {
             name = "TurnPathAssembly",
             organType = SystemGraph.OrganType.ENTRY,
             qualifiedClassName = "com.jarvis.app.onefriday.TurnPathAssembly",
-            description = "ONE-2-COMPOSITION: the single composition root for the turn path. Builds " +
-                "HumanCore, the memory substrate, the identity/emotion/social/continuity stack, the " +
-                "capability fabric, the single ModelManager + ResourceGovernor + LatencyPipeline and " +
-                "the CognitiveEngine — from a platform adapter that supplies only storage, a resource " +
-                "reading, the clock, speech/UI sinks and the host's stores. Not a cognitive role: a " +
-                "replaceable order of construction, identical on every host."
+            description = "ONE-2-COMPOSITION: the single composition root for Friday's turn path. It builds " +
+                "the memory substrate, identity/emotion/social/continuity stack, capability fabric, " +
+                "single ModelManager + ResourceGovernor + LatencyPipeline and CognitiveEngine. The " +
+                "legacy Human Core is quarantined outside the production turn path. The platform " +
+                "adapter supplies storage, resource readings, clock, speech/UI sinks and host stores. " +
+                "Not a cognitive role: a replaceable order of construction."
         ))
         // The platform adapter is INFRA, not an organ: it is the seam where a
         // host's platform ends and the turn path begins.
