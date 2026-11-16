@@ -43,6 +43,3 @@ data class FridayRuntimeSnapshot(
     }
 }
 
-/** Transitional name for pure mapper tests written against the former DTO. */
-@Deprecated("Use FridayRuntimeSnapshot; this data is not sourced from Human Core.")
-typealias RawCoreState = FridayRuntimeSnapshot
