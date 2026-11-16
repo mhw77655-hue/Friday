@@ -118,6 +118,9 @@ fun SettingsScreen() {
         }
     }
 
+    var autonomousEvolution by remember(resumeSignal) {
+        mutableStateOf(com.jarvis.app.github.FridayEvolutionScheduler.isEnabled(context))
+    }
     var keepFridayAlive by remember(resumeSignal) {
         mutableStateOf(com.jarvis.app.runtime.FridayRuntimeController.isEnabled(context))
     }
@@ -203,6 +206,8 @@ fun SettingsScreen() {
                 githubScope.launch {
                     runCatching { githubDeviceChannel.disconnect() }
                     com.jarvis.app.github.GitHubDeviceChannelScheduler.disable(context)
+                    com.jarvis.app.github.FridayEvolutionScheduler.disable(context)
+                    autonomousEvolution = false
                     githubTokenStore.clear()
                     githubConnected = false
                     githubChannelConnected = false
@@ -272,6 +277,44 @@ fun SettingsScreen() {
             text = githubStatus,
             style = JarvisType.Technical,
             modifier = Modifier.padding(top = 6.dp)
+        )
+
+        SectionLabel("AUTONOMOUS DEVELOPMENT")
+        Text(
+            text = "When enabled, Friday checks in about every 12 hours and asks her repository builder to find one meaningful gap against your original vision, implement it, test it and open a draft proposal. Existing open proposals block duplicate cycles. This is optional and uses GitHub Actions as extra compute; it does not make Friday's identity or local runtime depend on a model.",
+            style = JarvisType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Let Friday develop herself", style = JarvisType.Body)
+                Text(
+                    if (autonomousEvolution) "Owner-authorized · 12-hour cycle" else "Off · no scheduled build requests",
+                    style = JarvisType.Technical
+                )
+            }
+            Switch(
+                checked = autonomousEvolution,
+                enabled = githubConnected,
+                onCheckedChange = { enabled ->
+                    autonomousEvolution = enabled
+                    if (enabled) {
+                        com.jarvis.app.github.FridayEvolutionScheduler.enable(context)
+                    } else {
+                        com.jarvis.app.github.FridayEvolutionScheduler.disable(context)
+                    }
+                },
+                colors = SwitchDefaults.colors(checkedTrackColor = JarvisColors.CoreIdle)
+            )
+        }
+        Text(
+            text = "Scheduled cycles send your vision requirements but no phone telemetry or conversations. GitHub proposals are public because this repository is public. Every change remains a draft PR: Friday does not silently merge, sign, release or install her own APK. You review and install a verified build.",
+            style = JarvisType.Label,
+            modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
         )
         Text(
             text = "Privacy: the repository is public. Sending a request publishes a bounded technical snapshot (device model, Android/app version, available RAM/storage, battery, thermal and network type) in the workflow input. No conversations, location, contacts, notifications, microphone, camera, screen contents, files or unique device IDs are sent. Friday never merges or installs a worker patch.",

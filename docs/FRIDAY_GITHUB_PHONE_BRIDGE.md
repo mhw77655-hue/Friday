@@ -78,3 +78,19 @@ The expiration must be in the future and no more than 30 minutes away when Frida
 - The publisher refuses protected paths including workflow files, Ralph control files, builder validators, request inbox, secrets, signing keys, and release binaries.
 - Every proposal is an isolated draft PR and receives a separate Android build/test run.
 - The phone never installs or merges a proposal automatically.
+
+
+## Owner-enabled autonomous development cycles
+
+Friday Settings now includes an **Let Friday develop herself** opt-in. When enabled, WorkManager schedules a bounded development request about every 12 hours, subject to network, battery-not-low and storage-not-low constraints. Enabling also queues an immediate first cycle.
+
+Each scheduled cycle:
+- Reads the product contract from `.ralph/VISION.md` and the curated owner-authored source excerpts from `.ralph/OWNER_WORDS.md`; the coding worker can search the original `New Folder chats.zip` when needed.
+- Asks the repository worker to identify one meaningful gap between the current implementation and the owner's intended outcome, implement one coherent improvement, add regression tests, and run the Android build/test suite.
+- Sends no phone telemetry, conversations, location, files, microphone/camera data or personal content. It sends only the owner-authorized development instruction and workflow metadata.
+- Allows only one open proposal at a time and throttles repeated requests to at most one per 12 hours after the previous dispatch.
+- Produces a public draft PR only. It never merges, signs, releases, installs or changes the installed APK.
+
+The toggle is off by default. Disconnecting the GitHub credential disables and cancels scheduled development work. WorkManager is deferrable scheduling, not an always-on execution guarantee; Android can delay it under Doze, low battery, low storage, network loss or OEM policy. The feature becomes operational only after the proposal workflow is present on the repository's default branch and the stored token has the required Actions permission.
+
+The app's installed Friday remains the same individual while cloud GitHub Actions supply additional build compute. This does not make the model or cloud worker her identity, and it does not claim subjective consciousness.

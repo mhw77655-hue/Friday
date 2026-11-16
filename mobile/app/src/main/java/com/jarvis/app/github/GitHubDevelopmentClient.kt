@@ -132,6 +132,137 @@ class GitHubDevelopmentClient(context: Context) {
         "Request $requestId sent. Friday's repository worker will test a proposed repair and open a draft PR; it will not install or merge it."
     }
 
+    /**
+     * One owner-authorized, scheduled development cycle. Unlike a manual
+     * request, this deliberately sends no phone telemetry: the repository's
+     * owner-authored vision archive is the source of product intent.
+     *
+     * At most one open proposal is allowed, and a new cycle is throttled to
+     * twelve hours after the last request so a slow worker cannot be spammed.
+     */
+    suspend fun submitVisionMaintenanceCycle(): String = withContext(Dispatchers.IO) {
+        val token = tokenStore.read()
+            ?: throw IllegalStateException("GitHub credential is unavailable; autonomous development paused.")
+
+        val previousId = prefs.getString(KEY_LAST_REQUEST, null)
+        if (previousId != null) {
+            if (hasOpenProposal(token, previousId)) {
+                return@withContext "Autonomous development is waiting for owner review of the existing proposal."
+            }
+            val previousAt = runCatching {
+                Instant.parse(prefs.getString(KEY_LAST_REQUEST_AT, null))
+            }.getOrNull()
+            if (previousAt != null && previousAt.isAfter(Instant.now().minusSeconds(AUTONOMOUS_CYCLE_COOLDOWN_SECONDS))) {
+                return@withContext "The previous development cycle is still settling; no duplicate request was sent."
+            }
+        }
+
+        val requestId = "auto-" + UUID.randomUUID().toString().replace("-", "").take(20)
+        val now = Instant.now().toString()
+        val requestJson = JSONObject()
+            .put("schema_version", 1)
+            .put("request_id", requestId)
+            .put("created_at", now)
+            .put("source_revision", "main")
+            .put(
+                "intended_outcome",
+                "Run one autonomous, bounded development cycle for Friday. Read .ralph/VISION.md and .ralph/OWNER_WORDS.md, inspect the current implementation and tests, identify the highest-impact gap between the owner's intended outcome and the actual working system, then implement one coherent improvement. Preserve Friday as one continuing individual across local and cloud resources. Do not substitute chatbot features for identity, continuity, perception, cognition, agency, embodiment, adaptation or self-development. If no safe, evidence-backed improvement can be selected, report the blocker instead of inventing work."
+            )
+            .put(
+                "evidence",
+                JSONArray()
+                    .put("The owner explicitly enabled scheduled autonomous development in Friday Settings.")
+                    .put("The authoritative product intent is stored in .ralph/VISION.md and .ralph/OWNER_WORDS.md; inspect the original New Folder chats.zip when necessary.")
+                    .put("This scheduled request intentionally contains no phone telemetry, conversation data, files, location or personal content.")
+            )
+            .put(
+                "acceptance_criteria",
+                JSONArray()
+                    .put("Choose one meaningful gap by comparing the actual source and tests with the owner's vision, not by adding a generic chatbot feature.")
+                    .put("Implement a coherent vertical slice and focused regression tests; do not silently narrow the requested outcome.")
+                    .put("Run repository-builder contract tests, Android debug assembly and JVM unit tests; report exact results.")
+                    .put("Open an isolated draft PR only. Never merge, sign, release, install or modify the running app.")
+                    .put("State what remains unimplemented and which target-phone checks cannot be proven by GitHub Actions.")
+            )
+            .put(
+                "risks",
+                JSONArray()
+                    .put("The coding worker's patch is untrusted until owner review.")
+                    .put("The repository is public; the request contains product instructions but no device telemetry.")
+                    .put("A hosted build does not prove behavior on the owner's handset.")
+            )
+            .put("rollback_expectation", "Close the draft PR and discard its isolated proposal branch. The installed Friday app remains unchanged.")
+            .put(
+                "unresolved_questions",
+                JSONArray()
+                    .put("Which behavior still needs direct validation on the owner's handset?")
+                    .put("Does the proposed improvement preserve the owner's full intended outcome without fixing Friday into a closed architecture?")
+            )
+            .put(
+                "privacy_review",
+                JSONObject()
+                    .put("status", "approved")
+                    .put("reviewed_by", "owner-enabled-autonomous-evolution-setting")
+                    .put("reviewed_at", now)
+            )
+
+        val bytes = requestJson.toString().toByteArray(Charsets.UTF_8)
+        require(bytes.size <= MAX_REQUEST_BYTES) { "Autonomous development request exceeds the safe payload limit." }
+        val encoded = Base64.encodeToString(bytes, Base64.NO_WRAP)
+        require(encoded.length < MAX_WORKFLOW_INPUT_CHARS) { "Autonomous development request exceeds GitHub workflow input limits." }
+
+        val body = JSONObject()
+            .put("ref", "main")
+            .put(
+                "inputs",
+                JSONObject()
+                    .put("request_id", requestId)
+                    .put("request_json_b64", encoded)
+            )
+            .toString()
+            .toRequestBody(JSON_MEDIA_TYPE)
+        val request = Request.Builder()
+            .url("https://api.github.com/repos/$OWNER/$REPOSITORY/actions/workflows/friday-builder-proposal.yml/dispatches")
+            .header("Authorization", "Bearer $token")
+            .header("Accept", "application/vnd.github+json")
+            .header("X-GitHub-Api-Version", API_VERSION)
+            .header("User-Agent", "Friday-Android-Autonomous-Evolution")
+            .post(body)
+            .build()
+
+        http.newCall(request).execute().use { response ->
+            if (response.code != 204) {
+                val hint = when (response.code) {
+                    401 -> "GitHub rejected the token. Autonomous development is paused."
+                    403 -> "GitHub denied workflow dispatch. Check Actions read/write permission."
+                    404 -> "The Friday proposal workflow must be available on main before autonomous development can run."
+                    422 -> "GitHub rejected the autonomous workflow request."
+                    else -> "GitHub returned HTTP ${response.code}."
+                }
+                throw IOException(hint)
+            }
+        }
+        prefs.edit().putString(KEY_LAST_REQUEST, requestId).putString(KEY_LAST_REQUEST_AT, now).apply()
+        "Autonomous cycle $requestId dispatched. Friday will propose one evidence-backed improvement as a draft PR; it will not install or merge it."
+    }
+
+    private fun hasOpenProposal(token: String, requestId: String): Boolean {
+        val head = "$OWNER:friday-proposals/$requestId"
+        val encodedHead = java.net.URLEncoder.encode(head, "UTF-8")
+        val request = Request.Builder()
+            .url("https://api.github.com/repos/$OWNER/$REPOSITORY/pulls?state=open&head=$encodedHead&per_page=5")
+            .header("Authorization", "Bearer $token")
+            .header("Accept", "application/vnd.github+json")
+            .header("X-GitHub-Api-Version", API_VERSION)
+            .header("User-Agent", "Friday-Android-Autonomous-Evolution")
+            .get()
+            .build()
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("Could not check existing proposal (HTTP ${response.code}).")
+            return JSONArray(response.body?.string().orEmpty()).length() > 0
+        }
+    }
+
     suspend fun checkLatestProposal(): String = withContext(Dispatchers.IO) {
         val token = tokenStore.read()
             ?: throw IllegalStateException("Connect GitHub in Settings first.")
@@ -226,6 +357,7 @@ class GitHubDevelopmentClient(context: Context) {
         private const val KEY_LAST_REQUEST_AT = "last_request_at"
         private const val MAX_REQUEST_BYTES = 32 * 1024
         private const val MAX_WORKFLOW_INPUT_CHARS = 60_000
+        private const val AUTONOMOUS_CYCLE_COOLDOWN_SECONDS = 12L * 60L * 60L
         private const val MB = 1024L * 1024L
         private val JSON_MEDIA_TYPE = "application/vnd.github+json; charset=utf-8".toMediaType()
     }
