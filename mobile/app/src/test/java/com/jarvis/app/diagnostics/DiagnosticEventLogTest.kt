@@ -23,9 +23,9 @@ class DiagnosticEventLogTest {
     @Test
     fun `microphone level and voice ping do not flood transition history`() {
         val log = DiagnosticEventLog()
-        assertTrue(log.record("microphone", "Mic: capturing, level 100", "t1"))
-        assertFalse(log.record("microphone", "Mic: capturing, level 900", "t2"))
-        assertTrue(log.record("microphone", "Mic: not capturing", "t3"))
+        assertTrue(log.record("microphone", "Mic: energy monitor active, level 100", "t1"))
+        assertFalse(log.record("microphone", "Mic: energy monitor active, level 900", "t2"))
+        assertTrue(log.record("microphone", "Mic: off", "t3"))
         assertTrue(log.record("voice_process", "Voice Substrate: BOUND voice=10 app=11 ping=18ms restarts=0", "t4"))
         assertFalse(log.record("voice_process", "Voice Substrate: BOUND voice=10 app=11 ping=4ms restarts=0", "t5"))
         assertEquals(3, log.snapshot().size)
