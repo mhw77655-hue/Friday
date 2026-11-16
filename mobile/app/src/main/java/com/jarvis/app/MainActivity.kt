@@ -20,7 +20,11 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
-            JarvisMic.start(lifecycleScope)
+            if (com.jarvis.app.runtime.FridayRuntimeController.isEnabled(this)) {
+                com.jarvis.app.runtime.FridayRuntimeController.startWithMicrophone(this)
+            } else {
+                JarvisMic.start(lifecycleScope)
+            }
         }
     }
 
@@ -53,7 +57,11 @@ class MainActivity : ComponentActivity() {
         ) == PackageManager.PERMISSION_GRANTED
 
         if (hasMicPermission) {
-            JarvisMic.start(lifecycleScope)
+            if (com.jarvis.app.runtime.FridayRuntimeController.isEnabled(this)) {
+                com.jarvis.app.runtime.FridayRuntimeController.startWithMicrophone(this)
+            } else {
+                JarvisMic.start(lifecycleScope)
+            }
         } else {
             micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
@@ -78,11 +86,24 @@ class MainActivity : ComponentActivity() {
         if (ShizukuBridge.isGranted.value) {
             ScreenBridge.bind(applicationContext)
         }
+        if (com.jarvis.app.runtime.FridayRuntimeController.isEnabled(this)) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+                PackageManager.PERMISSION_GRANTED
+            ) {
+                // This visible-activity handoff is the permitted place to
+                // restore microphone capture after boot or service restart.
+                com.jarvis.app.runtime.FridayRuntimeController.startWithMicrophone(this)
+            } else {
+                com.jarvis.app.runtime.FridayRuntimeController.startCore(this)
+            }
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        JarvisMic.stop()
+        if (!com.jarvis.app.runtime.FridayRuntimeController.isEnabled(this)) {
+            JarvisMic.stop()
+        }
         // KWS/Vosk/TTS intentionally NOT released here — they belong to
         // JarvisEngine for the life of the process, not this Activity.
     }
