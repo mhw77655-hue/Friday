@@ -30,9 +30,21 @@ class JarvisShellService : IJarvisShellService.Stub() {
     }
 
     override fun captureScreenSummary(): String {
-        val dump = runFixed("uiautomator", "dump", "/sdcard/friday_window.xml")
-        if (dump.startsWith("unavailable:") || dump == "timeout") return dump
-        return runFixed("cat", "/sdcard/friday_window.xml").take(24_000)
+        // Keep the temporary hierarchy out of shared storage and remove it
+        // after reading. UI hierarchies can contain private on-screen text.
+        val path = "/data/local/tmp/friday-window-${Process.myPid()}.xml"
+        return try {
+            val dump = runFixed("uiautomator", "dump", path)
+            if (dump.startsWith("unavailable:") || dump == "timeout" ||
+                dump.contains("ERROR", ignoreCase = true)
+            ) {
+                dump
+            } else {
+                runFixed("cat", path).take(24_000)
+            }
+        } finally {
+            runFixed("rm", "-f", path)
+        }
     }
 
     /**
