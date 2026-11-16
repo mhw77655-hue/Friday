@@ -27,6 +27,41 @@ jobs:
         with:
           persist-credentials: false
 
+      # Temporary source-inspection bridge for the user's uploaded archive.
+      # Extract in the runner, publish as a workflow artifact, and inspect the
+      # real source tree before changing application code.
+      - name: Extract uploaded New folder archive
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          import os
+          archive = Path("New folder.zip")
+          if not archive.is_file():
+              raise SystemExit("New folder.zip is missing from the checked-out repository")
+          target = Path(os.environ["RUNNER_TEMP"]) / "friday-new-folder-source"
+          target.mkdir(parents=True, exist_ok=True)
+          with ZipFile(archive) as z:
+              bad = [n for n in z.namelist() if Path(n).is_absolute() or ".." in Path(n).parts]
+              if bad:
+                  raise SystemExit(f"Unsafe archive paths: {bad[:10]}")
+              z.extractall(target)
+          files = sorted(p for p in target.rglob("*") if p.is_file())
+          report = Path(os.environ["RUNNER_TEMP"]) / "new-folder-manifest.txt"
+          report.write_text("\\n".join(f"{p.relative_to(target)}\\t{p.stat().st_size}" for p in files), encoding="utf-8")
+          print(f"Extracted {len(files)} files ({sum(p.stat().st_size for p in files)} bytes)")
+          print(report.read_text(encoding="utf-8")[:20000])
+          PY
+
+      - name: Upload extracted New folder source for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: new-folder-extracted-source
+          path: |
+            ${{ runner.temp }}/friday-new-folder-source
+            ${{ runner.temp }}/new-folder-manifest.txt
+          if-no-files-found: error
+
       # JDK 17: the repo's Gradle/AGP configuration requires it. Read from
       # mobile/app/build.gradle.kts (compileOptions source/targetCompatibility =
       # VERSION_17, kotlin compilerOptions jvmTarget = JVM_17) and the root
