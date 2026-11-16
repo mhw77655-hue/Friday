@@ -33,11 +33,40 @@ class FridayModelFreeMindTest {
     }
 
     @Test
+    fun `common hay greeting is understood without a model`() {
+        val file = File.createTempFile("friday-mind-", ".bin").apply { delete() }
+        val mind = FridayModelFreeMind(FridaySeedSubstrate(file))
+        assertTrue(mind.respond("hay").startsWith("Hey. I'm here"))
+        file.delete()
+    }
+
+    @Test
+    fun `explicit personal facts persist and can be recalled after restart`() {
+        val file = File.createTempFile("friday-facts-", ".bin").apply { delete() }
+        val first = FridayModelFreeMind(FridaySeedSubstrate(file))
+        assertTrue(first.respond("my name is Veno").contains("remember that your name is Veno"))
+        first.respond("I like dark chocolate")
+
+        val restarted = FridayModelFreeMind(FridaySeedSubstrate(file))
+        assertTrue(restarted.respond("what's my name?").contains("Your name is Veno"))
+        assertTrue(restarted.respond("what do I like?").contains("dark chocolate"))
+        file.delete()
+    }
+
+    @Test
+    fun `simple arithmetic is composed locally without a model`() {
+        val file = File.createTempFile("friday-math-", ".bin").apply { delete() }
+        val mind = FridayModelFreeMind(FridaySeedSubstrate(file))
+        assertTrue(mind.respond("12 * 3?").contains("36"))
+        file.delete()
+    }
+
+    @Test
     fun `unknown natural language is handled honestly instead of fabricated`() {
         val file = File.createTempFile("friday-mind-", ".bin").apply { delete() }
         val mind = FridayModelFreeMind(FridaySeedSubstrate(file))
         val reply = mind.respond("Explain an unfamiliar theorem in detail.")
-        assertTrue(reply.contains("cannot reliably interpret arbitrary natural language", ignoreCase = true))
+        assertTrue(reply.contains("not yet have enough grounded language structure", ignoreCase = true))
         assertTrue(reply.contains("won't pretend", ignoreCase = true))
         file.delete()
     }
