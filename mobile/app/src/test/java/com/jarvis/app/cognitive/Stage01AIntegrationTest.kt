@@ -8,7 +8,6 @@ import com.jarvis.app.cognitive.capability.descriptor
 import com.jarvis.app.cognitive.capability.testImmune
 import com.jarvis.app.cognitive.execution.ActionFailure
 import com.jarvis.app.cognitive.execution.ExecutionResult
-import com.jarvis.app.humancore.HumanCore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -73,7 +72,6 @@ class Stage01AIntegrationTest {
             memoryStore = object : MemoryStorePort {
                 override fun queryMemories(query: String, limit: Int) = emptyList<MemoryItem>()
             },
-            humanCore = HumanCore,
             capabilityFabric = fabric,
             decompositionComplete = { prompt ->
                 decomposeCallCount++
