@@ -71,6 +71,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        ShizukuBridge.refresh()
+        // Reattach the already-authorized capability service after Friday is reopened.
+        if (ShizukuBridge.isGranted.value) {
+            ScreenBridge.bind(applicationContext)
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         JarvisMic.stop()
