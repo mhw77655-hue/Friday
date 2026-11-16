@@ -16,7 +16,7 @@ from pathlib import PurePosixPath
 
 TEXT_SUFFIXES = {".txt", ".md", ".html", ".htm", ".xml", ".csv", ".yaml", ".yml"}
 ROLE = re.compile(
-    r"(?m)^(You|User|Human|ChatGPT|Claude|Assistant|Jules|Friday|GPT):[ \t]*"
+    r"(?m)^[ \t]*(You|User|Human|ChatGPT|Claude|Assistant|Jules|Friday|GPT):[ \t]*"
 )
 OWNER_LABELS = {"You", "User", "Human"}
 
