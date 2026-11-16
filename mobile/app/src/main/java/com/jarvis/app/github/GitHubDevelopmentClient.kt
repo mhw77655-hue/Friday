@@ -62,7 +62,6 @@ class GitHubDevelopmentClient(context: Context) {
                     "\n\nTreat these words as the product requirement, not merely a chatbot prompt. Inspect the complete existing repository and relevant tests, infer the coherent implementation, preserve the owner's stated vision, implement the requested work end-to-end, add regression tests, and report anything that cannot be completed with evidence. Do not silently narrow the request to a cosmetic or chatbot-only change. The attached device snapshot is diagnostic context, not the product requirement."
             )
             .put("evidence", JSONArray()
-                .put("Owner's direct natural-language build instructions: " + userWords)
                 .put(snapshot)
                 .put("The snapshot was explicitly sent from Friday Settings by the device owner. It contains technical device health only, not conversation or personal content.")
             )
