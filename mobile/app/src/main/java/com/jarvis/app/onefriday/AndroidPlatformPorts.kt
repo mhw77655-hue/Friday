@@ -5,6 +5,7 @@ import com.jarvis.app.ObsidianSync
 import com.jarvis.app.companioncore.presence.CompanionCoreHolder
 import com.jarvis.app.failure.FailureSurface
 import com.jarvis.app.turn.TurnContext
+import com.jarvis.app.identity.IdentitySource
 import com.jarvis.app.latency.AckSpeech
 import com.jarvis.app.latency.LatencyLayer
 import com.jarvis.app.latency.WarmupEngine
@@ -30,8 +31,6 @@ class AndroidPlatformPorts(
     override val storageDir: java.io.File,
     private val scope: CoroutineScope,
     private val memoryStore: com.jarvis.app.body.MemoryStorePort,
-    private val humanCoreStorage: com.jarvis.app.humancore.store.StoragePort,
-    private val humanCoreMemorySink: (com.jarvis.app.humancore.mod.MemoryAnnotation) -> Unit,
     private val failureSurface: FailureSurface,
     private val modelBackend: com.jarvis.app.model.ModelBackend,
     private val clock: () -> Long = { System.currentTimeMillis() },
@@ -84,13 +83,34 @@ class AndroidPlatformPorts(
      * The same per-turn session context the app built, now derived from the
      * injected clock so one Friday has exactly one notion of "now".
      */
+    override fun identitySource(): IdentitySource {
+        val preferences = context.getSharedPreferences("friday_identity_record", Context.MODE_PRIVATE)
+        return object : IdentitySource {
+            override fun name(): String? = preferences.getString("name", "Friday")
+            override fun version(): Int = preferences.getInt("version", 1)
+            override fun pronouns(): String? = preferences.getString("pronouns", "she/her")
+        }
+    }
+
+    /**
+     * Read and update only the local last-interaction timestamp. Unknown
+     * presence/away state remains null; it is never inferred from a missing
+     * Human Core snapshot or fabricated as an all-clear observation.
+     */
     override fun sessionContext(): TurnContext {
-                val calendar = Calendar.getInstance()
-        calendar.timeInMillis = clock()
+        val now = clock()
+        val preferences = context.getSharedPreferences("friday_turn_session", Context.MODE_PRIVATE)
+        val lastInteraction = preferences.getLong("last_interaction_at_ms", 0L)
+        val secondsSinceLastContact = lastInteraction.takeIf { it > 0L && now >= it }
+            ?.let { (now - it) / 1_000L }
+        preferences.edit().putLong("last_interaction_at_ms", now).apply()
+
+        val calendar = Calendar.getInstance()
+        calendar.timeInMillis = now
         return TurnContext(
             channel = TurnContext.Channel.ANDROID_APP,
             localHour = calendar.get(Calendar.HOUR_OF_DAY),
-            secondsSinceLastContact = null,
+            secondsSinceLastContact = secondsSinceLastContact,
             wasAway = null,
             prosody = null
         )
@@ -121,11 +141,6 @@ class AndroidPlatformPorts(
     override fun reportFailure(report: com.jarvis.app.failure.FailureReport) {
         failureSurface.report(report)
     }
-
-    override fun humanCoreStorage(): com.jarvis.app.humancore.store.StoragePort = humanCoreStorage
-
-    override fun humanCoreMemorySink(): ((com.jarvis.app.humancore.mod.MemoryAnnotation) -> Unit)? =
-        humanCoreMemorySink
 
     override fun stores(): PlatformStores = AndroidPlatformStores(
         context = context,
