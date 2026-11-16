@@ -94,6 +94,12 @@ class VoiceService : Service() {
                 SherpaTtsVoiceProvider(modelManager, VoiceModelManifest.nabraArabicInt8, id = "sherpa-arabic"),
                 priority = VoiceProviderRegistry.HIGH_PRIORITY
             )
+            // Optional zero-shot English voice cloning; model weights are fetched
+            // on first use and remain isolated in the :voice process.
+            register(
+                SherpaTtsVoiceProvider(modelManager, VoiceModelManifest.pocketTtsEnInt8, id = "pocket"),
+                priority = VoiceProviderRegistry.HIGH_PRIORITY + 20
+            )
             register(SystemTtsVoiceProvider(this@VoiceService), priority = VoiceProviderRegistry.DEFAULT_PRIORITY)
         }
         selector = VoiceProviderSelector(registry)
@@ -135,8 +141,8 @@ class VoiceService : Service() {
             val params = parseOptions(optionsJson)
             val profile = com.jarvis.app.voice.DefaultJarvisVoiceProfile.copy(
                 language = language.ifBlank { "en" },
-                preferredProvider = null,
-                preferredVoice = voiceId.ifBlank { null },
+                preferredProvider = if (!params.referenceAudioPath.isNullOrBlank()) "pocket" else "piper",
+                preferredVoice = if (!params.referenceAudioPath.isNullOrBlank()) "reference" else voiceId.ifBlank { null },
                 speechRate = params.speechRate,
                 pitch = params.pitch,
                 pronunciation = params.pronunciationHints
@@ -286,7 +292,8 @@ class VoiceService : Service() {
                     speechRate = o.optDouble("speechRate", 1.0).toFloat().takeIf { it > 0 } ?: 1.0f,
                     pitch = o.optDouble("pitch", 1.0).toFloat().takeIf { it > 0 } ?: 1.0f,
                     pronunciationHints = emptyMap(),
-                    utteranceId = o.optString("utteranceId", "voice_${System.currentTimeMillis()}")
+                    utteranceId = o.optString("utteranceId", "voice_${System.currentTimeMillis()}"),
+                    referenceAudioPath = o.optString("referenceAudioPath").takeIf { it.isNotBlank() && it != "null" }
                 )
             }.getOrDefault(VoiceSynthesisParams())
         }
