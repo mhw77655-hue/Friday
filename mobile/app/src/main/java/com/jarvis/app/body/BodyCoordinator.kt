@@ -13,12 +13,6 @@ import com.jarvis.app.voice.JarvisSpeechRecognizer
 import com.jarvis.app.voice.PlatformHotwordSupportPort
 import com.jarvis.app.voice.PlatformSpeechRecognizerPort
 import com.jarvis.app.latency.LatencyLayer
-import com.jarvis.app.humancore.HumanCore
-import com.jarvis.app.humancore.protocol.SessionContext
-import com.jarvis.app.humancore.protocol.StyledResponse
-import com.jarvis.app.humancore.protocol.Exchange
-import com.jarvis.app.humancore.protocol.IntegrationContext
-import com.jarvis.app.humancore.mod.MemoryInterface
 import com.jarvis.app.companioncore.engine.HumanCoreIntegration
 import com.jarvis.app.model.ModelManager
 import com.jarvis.app.model.OrganRole
@@ -52,14 +46,12 @@ private const val TAG = "BodyCoordinator"
 class BodyCoordinator(
     private val context: Context,
     private val modelManager: ModelManager,
-    private val humanCore: HumanCore,
     private val companionIntegration: HumanCoreIntegration,
     private val languageRouter: LanguageRouter,
     private val memoryStore: MemoryStore,
     private val failureSurface: com.jarvis.app.failure.FailureSurface,
     private val recoveryController: com.jarvis.app.failure.RecoveryController,
     private val scope: CoroutineScope,
-    private val cognitiveEngine: com.jarvis.app.cognitive.CognitiveEngine? = null,
     private val phoneDecisionTool: com.jarvis.app.voice.FridayPhoneDecisionTool? = null
 ) {
 
@@ -73,9 +65,7 @@ class BodyCoordinator(
     private val _conversationContext = MutableStateFlow(ConversationContext())
     val conversationContext: StateFlow<ConversationContext> = _conversationContext.asStateFlow()
 
-    private val _lastRetrievedMemory = MutableStateFlow<List<MemoryItem>>(emptyList())
-    private val _lastUserText = MutableStateFlow<String>("")
-    private val _lastStyled = MutableStateFlow<StyledResponse?>(null)
+    private val _lastReply = MutableStateFlow<String?>(null)
     private val _turnIndex = AtomicLong(0)
     private val _sessionStartMs = System.currentTimeMillis()
 
@@ -326,13 +316,6 @@ class BodyCoordinator(
                     beginTurn(event.text)
                     emitEvent(BodyEvent.BargeIn(event.text))
                 }
-            is BodyEvent.MemoryRetrieved -> {
-                // Memory retrieved - store it and continue to RESPONDING
-                _lastRetrievedMemory.value = event.items
-                if (_state.value == BodyState.RETRIEVING) {
-                    emitEvent(BodyEvent.ResponseGenerated(""))
-                }
-            }
             else -> {}
         }
 
@@ -368,11 +351,9 @@ class BodyCoordinator(
                 // timeout) closes the recognition session.
             }
             BodyState.THINKING -> {
-                companionIntegration.onFastPathAck()
                 val userText = (trigger as? BodyEvent.UserInput)?.text
                     ?: (trigger as? BodyEvent.SttResult)?.text
                 if (!userText.isNullOrBlank()) {
-                    triggerMemoryRetrieval(userText)
                     generateResponse(userText)
                 }
             }
@@ -380,16 +361,9 @@ class BodyCoordinator(
                 // Memory retrieval in progress - wait for MemoryRetrieved event
             }
             BodyState.RESPONDING -> {
-                companionIntegration.onFirstSegmentReady()
-                val userText = _lastUserText.value
-                val styled = _lastStyled.value
-                if (!userText.isNullOrBlank() && styled != null) {
-                    completeExchangeWithMemory(userText, styled)
-                }
+                // LatencyLayer already owns reply delivery and speech.
             }
-            BodyState.SPEAKING -> {
-                companionIntegration.onUtteranceCompleted()
-            }
+            BodyState.SPEAKING -> Unit
             BodyState.INTERRUPTED -> {
                 handleInterruption(trigger)
             }
@@ -461,198 +435,14 @@ class BodyCoordinator(
         is com.jarvis.app.voice.PhoneControlResult.UserActionRequired -> result.reason
     }
 
-    /** Trigger memory retrieval before model generation. */
-    private fun triggerMemoryRetrieval(query: String) {
-        _state.value = BodyState.RETRIEVING
-        executor.execute {
-            val context = buildMemoryQueryContext()
-            val items = memoryStore.retrieve(query, context)
-            scope.launch {
-                emitEvent(BodyEvent.MemoryRetrieved(items))
-            }
-        }
-    }
-
     /**
-     * Route the voice utterance into the live turn pipeline. LatencyLayer owns
-     * ack speech, the deep brain call, reply completion and the Companion Core
-     * reactor seams — the coordinator stays a thin nervous-system front-end.
+     * Spoken text enters the same installed Friday turn pipeline as typed text.
+     * The BodyCoordinator owns capture, interruption and presence only; it
+     * does not create a second reasoning, Human Core or reply-styling route.
      */
     private fun generateResponse(text: String) {
-        _lastUserText.value = text
-        executor.execute {
-            // Get memory context for the model
-            val memoryItems = _lastRetrievedMemory.value
-
-            // Build session context
-            val sessionContext = SessionContext(
-                channel = SessionContext.Channel.MOBILE_APP,
-                localHour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY),
-                secondsSinceLastContact = null,
-                wasAway = false,
-                prosody = null
-            )
-
-            // Run HumanCore perception
-            val perception = humanCore.beginExchange(text, sessionContext)
-
-            // Route turn through CognitiveEngine -> ModelManager and feed the
-            // actual organ outcome back into Nano Liquid Symbiosis.
-            val inferenceStartedAt = android.os.SystemClock.elapsedRealtime()
-            val engine = cognitiveEngine
-            val modelResponse = try {
-                if (engine != null) {
-                    runBlocking {
-                        val turnResult = engine.process(text, sessionContext, memoryItems)
-                        turnResult.responseText ?: modelManager.sendWithContext(text, memoryItems)
-                    }
-                } else {
-                    modelManager.sendWithContext(text, memoryItems)
-                }
-            } catch (failure: Throwable) {
-                JarvisEngine.nanoSymbiosis?.recordOutcome(
-                    organ = "reasoning",
-                    succeeded = false,
-                    latencyMs = android.os.SystemClock.elapsedRealtime() - inferenceStartedAt
-                )
-                scope.launch {
-                    emitEvent(BodyEvent.ErrorOccurred(failure.message ?: "Reasoning organ failed"))
-                }
-                return@execute
-            }
-            JarvisEngine.nanoSymbiosis?.recordOutcome(
-                organ = "reasoning",
-                succeeded = true,
-                latencyMs = android.os.SystemClock.elapsedRealtime() - inferenceStartedAt
-            )
-
-            // Run expression pass with memory context
-            val styled = humanCore.express(modelResponse, sessionContext)
-            _lastStyled.value = styled
-
-            // Complete exchange through HumanCore
-            if (perception != null) {
-                humanCore.completeExchange(text, modelResponse, styled, System.currentTimeMillis(), perception)
-            }
-
-            // Transition to RESPONDING state
-            scope.launch {
-                emitEvent(BodyEvent.ResponseGenerated(styled.outboundText))
-            }
-        }
-    }
-
-    /**
-     * Tap-to-trigger / push-to-talk recognition: start the platform STT
-     * recognizer with the current language's locale. It self-endpoints on the
-     * user's silence and delivers one result; the result routes straight into
-     * the event loop. This is the SAME production voice-input path used for
-     * the (deleted) Vosk/sherpa stack — now pure android.speech.SpeechRecognizer.
-     */
-    private fun startPlatformRecognition() {
-        val recognizer = speechRecognizer
-        if (recognizer == null || !recognizer.isAvailable()) {
-            failureSurface.report(
-                com.jarvis.app.failure.FailureReport(
-                    subsystem = "STT_PLATFORM",
-                    operation = "recognize",
-                    severity = com.jarvis.app.failure.FailureSeverity.DEGRADED,
-                    category = com.jarvis.app.failure.FailureCategory.LANGUAGE,
-                    message = "Platform recognizer unavailable — tap-to-trigger degraded",
-                    source = "BodyCoordinator",
-                    dependency = languageRouter.currentLanguage.value.code,
-                    recoverability = com.jarvis.app.failure.Recoverability.PERMANENT,
-                    recoveryAction = com.jarvis.app.failure.RecoveryAction.FALLBACK
-                )
-            )
-            return
-        }
-        val locale = when (languageRouter.currentLanguage.value) {
-            LanguageRouter.Language.EGYPTIAN_ARABIC -> java.util.Locale("ar", "EG")
-            LanguageRouter.Language.ENGLISH -> java.util.Locale.US
-        }
-        recognizer.recognize(locale) { text ->
-            val clean = text?.trim().orEmpty()
-            if (clean.isNotBlank()) {
-                SpeechBridge.recordResult(clean)
-                JarvisEngine.nanoSymbiosis?.recordOutcome("speech_input", true, 0L)
-                emitEvent(
-                    BodyEvent.SttResult(
-                        clean,
-                        0.9f,
-                        languageRouter.currentLanguage.value.code
-                    )
-                )
-            } else {
-                JarvisEngine.nanoSymbiosis?.recordOutcome("speech_input", false, 0L)
-            }
-        }
-    }
-
-    /** Build context for memory query. */
-    private fun buildMemoryQueryContext(): List<MemoryItem> {
-        val ctx = _conversationContext.value
-        val items = mutableListOf<MemoryItem>()
-        // Add recent conversation as context
-        ctx.recentUserTexts.forEachIndexed { i, text ->
-            items.add(MemoryItem("ctx_$i", MemoryType.CONTEXT, text, System.currentTimeMillis(), emptyList(), 1.0f))
-        }
-        return items
-    }
-
-    /**
-     * Complete the exchange when a deep reply lands - wire MemoryRetrieved
-     * into the LatencyLayer and HumanCore flow.
-     */
-    private fun completeExchangeWithMemory(userText: String, styled: StyledResponse) {
-        // Get the memory items from the last retrieval
-        val memoryItems = _lastRetrievedMemory.value
-
-        // Build session context with memory
-        val sessionContext = SessionContext(
-            channel = SessionContext.Channel.MOBILE_APP,
-            localHour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY),
-            secondsSinceLastContact = null,
-            wasAway = false,
-            prosody = null
-        )
-
-        // Run expression pass with memory context
-        val finalStyled = humanCore.express(styled.outboundText, sessionContext)
-
-        // Annotate for memory persistence
-        humanCore.memoryInterface?.annotateExchange(
-            com.jarvis.app.humancore.protocol.Exchange(
-                userText = userText,
-                reasoningReply = styled.outboundText,
-                styled = finalStyled,
-                ts = System.currentTimeMillis()
-            ),
-            com.jarvis.app.humancore.protocol.IntegrationContext(
-                affect = null,
-                deviation = null,
-                vulnerabilityShared = false,
-                mentionsJarvis = false
-            )
-        )
-
-        // Store memory items if relevant
-        if (memoryItems.isNotEmpty()) {
-            memoryStore.storeConversation(
-                userText = userText,
-                assistantText = finalStyled.outboundText,
-                memoryItems = memoryItems
-            )
-        }
-
-        // Speak the final response with vocabulary-aware TTS
-        speakWithVocabulary(finalStyled.outboundText)
-
-        // Signal utterance completion
-        companionIntegration.onUtteranceCompleted()
-
-        // Return to IDLE
-        emitEvent(BodyEvent.Reset)
+        _lastReply.value = null
+        LatencyLayer.onUserInput(text)
     }
 
     /**
@@ -741,9 +531,9 @@ class BodyCoordinator(
 
     /** Update visual state for Orb renderer. */
     private fun updateVisualState(bodyState: BodyState) {
-        val snapshot = humanCore.snapshot()
-        val emotion = (snapshot?.moodValence ?: 0.0).toFloat()
-        val arousal = (snapshot?.moodArousal ?: 0.0).toFloat()
+        // Do not fabricate an affect estimate when no validated source exists.
+        val emotion = 0f
+        val arousal = 0f
         val alert = companionIntegration.hcAlertLevel()
         val userPresent = bodyState in setOf(BodyState.USER_PRESENT, BodyState.WAKE, BodyState.LISTENING)
 
