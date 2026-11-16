@@ -54,6 +54,20 @@ class EngineSlotAccessorTripwireTest {
             """\bget(?:TaskInbox|ApprovalQueue|AlertStore|SessionManager|EnvironmentManager|ModelManager|BootstrapManager)\s*\(\)\s*!!"""
         )
         assertTrue("navigation must render a typed waking state instead of force-unwrapping", !forbidden.containsMatchIn(source))
+        val requiredSlots = listOf(
+            "taskInbox", "approvalQueue", "alertStore", "sessionManager",
+            "environmentManager", "modelManager", "bootstrapManager"
+        )
+        requiredSlots.forEach { accessor ->
+            assertTrue(
+                "navigation route must use EngineAccess.$accessor()",
+                source.contains("EngineAccess.$accessor()")
+            )
+        }
+        assertTrue(
+            "navigation must have a typed waking fallback for an unavailable organ",
+            source.contains("WakingSurface(slot.readiness)")
+        )
     }
 
     private fun findAppRoot(): File {
