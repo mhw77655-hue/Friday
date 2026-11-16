@@ -10,7 +10,8 @@ package com.jarvis.app.cognitive.seed
  * layer without owning the seed's continuity.
  */
 class FridayModelFreeMind(
-    private val substrate: FridaySeedSubstrate
+    private val substrate: FridaySeedSubstrate,
+    private val identityName: String = "Friday"
 ) {
     fun observe(experienceText: String) {
         val features = features(experienceText)
@@ -34,7 +35,7 @@ class FridayModelFreeMind(
                 "I'm here. My local seed is running inside this app. I can preserve experiences and use the capabilities available locally; without an optional language model, my open-ended language understanding is limited."
 
             IDENTITY.containsMatchIn(normalized) ->
-                "I'm Friday. My identity and continuity are intended to live in this app, not inside a language model. Models can extend what I can understand or express, but they are not what keeps my local runtime and experiences alive."
+                "I'm $identityName. My identity and continuity are intended to live in this app, not inside a language model. Models can extend what I can understand or express, but they are not what keeps my local runtime and experiences alive."
 
             LEARNING.containsMatchIn(normalized) && associations.isNotEmpty() ->
                 "My local experience substrate has associated these earlier signals: " +
