@@ -8,7 +8,7 @@
     <application
         android:networkSecurityConfig="@xml/network_security_config"
         android:name=".JarvisApplication"
-        android:label="JARVIS"
+        android:label="Friday"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
             android:name=".MainActivity"
