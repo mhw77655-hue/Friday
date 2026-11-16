@@ -23,6 +23,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -85,6 +86,10 @@ fun SettingsScreen() {
     var githubChannelConnected by remember { mutableStateOf(githubDeviceChannel.isConnected()) }
     var githubChannelStatus by remember { mutableStateOf(if (githubChannelConnected) githubDeviceChannel.issueUrl().orEmpty() else "Phone channel stopped.") }
     val githubScope = rememberCoroutineScope()
+    val shizukuAvailable by com.jarvis.app.ShizukuBridge.isAvailable.collectAsState()
+    val shizukuGranted by com.jarvis.app.ShizukuBridge.isGranted.collectAsState()
+    val shizukuStatus by com.jarvis.app.ShizukuDeviceHost.status.collectAsState()
+    var shizukuSnapshot by remember { mutableStateOf("") }
 
     // Bumped on ON_RESUME so the storage-permission row re-checks after
     // the user comes back from the system "All files access" screen --
@@ -318,9 +323,50 @@ fun SettingsScreen() {
             modifier = Modifier.padding(top = 8.dp)
         )
 
-        SectionLabel("PERMISSIONS")
-        Text(text = "Shizuku, mic, notifications — not yet wired to a real permission check", style = JarvisType.Label)
+        SectionLabel("DEVICE CAPABILITIES")
+        Text(
+            text = when {
+                !shizukuAvailable -> "Shizuku is not running. Friday remains operational without it."
+                !shizukuGranted -> "Shizuku is running; Friday has not been granted access yet."
+                else -> "Shizuku permission is granted. Connect Friday's privileged device capability service."
+            },
+            style = JarvisType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Button(
+            onClick = {
+                when {
+                    !shizukuAvailable -> com.jarvis.app.ShizukuBridge.refresh()
+                    !shizukuGranted -> com.jarvis.app.ShizukuBridge.requestPermission()
+                    else -> com.jarvis.app.ShizukuDeviceHost.connect(context)
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                when {
+                    !shizukuAvailable -> "Check Shizuku connection"
+                    !shizukuGranted -> "Grant Friday Shizuku access"
+                    else -> "Connect Friday to the phone"
+                }
+            )
+        }
+        Text(text = shizukuStatus, style = JarvisType.Technical, modifier = Modifier.padding(vertical = 6.dp))
+        Button(
+            onClick = {
+                githubScope.launch {
+                    shizukuSnapshot = com.jarvis.app.ShizukuDeviceHost.diagnosticsSnapshot()
+                        ?: "Device service is not connected."
+                }
+            },
+            enabled = shizukuStatus.contains("connected", ignoreCase = true),
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Read live device diagnostics") }
+        if (shizukuSnapshot.isNotBlank()) {
+            Text(text = shizukuSnapshot, style = JarvisType.Technical, modifier = Modifier.padding(top = 6.dp))
+        }
 
+        SectionLabel("PERMISSIONS")
         StorageAccessRow(
             granted = hasStorageAccess,
             onTapGrant = { openAllFilesAccessSettings(context) }
