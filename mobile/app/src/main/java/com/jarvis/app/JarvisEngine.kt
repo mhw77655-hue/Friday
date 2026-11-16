@@ -246,10 +246,9 @@ object JarvisEngine {
             com.jarvis.app.approval.ApprovalGate.init(appContext.filesDir)
             com.jarvis.app.approval.TaskExecutor.init(appContext.filesDir)
 
-            // The legacy Human Core (§0.4: the backend never owns identity,
-            // personality, emotion, or internal state) is constructed by the ONE
-            // composition root below, over this host's storage and its optional
-            // annotation sink.
+            // Friday's identity, continuity and cognitive organs are built by
+            // the single TurnPathAssembly below; the legacy Human Core is not
+            // initialized or consulted by the product turn path.
 
             loadCapabilityManifest(appContext)
 
