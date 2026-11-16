@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.RandomAccessFile
+import kotlin.math.sqrt
 
 private const val TAG = "VoiceOutputPath"
 
@@ -45,6 +46,11 @@ class VoiceOutputPath(
 
     private val _isSpeaking = MutableStateFlow(false)
     val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
+
+    // Normalized RMS from the PCM window currently reaching AudioTrack. This is
+    // presentation telemetry, not speech recognition or a phoneme/viseme claim.
+    private val _audioLevel = MutableStateFlow(0f)
+    val audioLevel: StateFlow<Float> = _audioLevel.asStateFlow()
 
     @Volatile private var cancelled = false
     private var job: Job? = null
@@ -74,7 +80,10 @@ class VoiceOutputPath(
             } finally {
                 // Only this utterance may clear the speaking flag — an earlier
                 // cancelled job must not stomp the current one's state.
-                if (job === this) _isSpeaking.value = false
+                if (job === this) {
+                    _isSpeaking.value = false
+                    _audioLevel.value = 0f
+                }
             }
         }
         job = myJob
@@ -148,9 +157,18 @@ class VoiceOutputPath(
         return try {
             track.write(pcm, 0, pcm.size)
             track.play()
+            val bytesPerFrame = channels.coerceAtLeast(1) * 2
+            val totalFrames = pcm.size / bytesPerFrame
+            val windowFrames = (sampleRate / 25).coerceAtLeast(1)
             while (track.playState == AudioTrack.PLAYSTATE_PLAYING && !cancelled) {
+                val playedFrames = track.playbackHeadPosition.coerceAtLeast(0).coerceAtMost(totalFrames)
+                val firstFrame = (playedFrames - windowFrames).coerceAtLeast(0)
+                val firstByte = firstFrame * bytesPerFrame
+                val endByte = playedFrames * bytesPerFrame
+                _audioLevel.value = pcmWindowLevel(pcm, firstByte, endByte)
                 Thread.sleep(20)
             }
+            _audioLevel.value = 0f
             runCatching { track.stop() }
             true
         } catch (e: Throwable) {
@@ -158,6 +176,7 @@ class VoiceOutputPath(
             false
         } finally {
             runCatching { track.release() }
+            _audioLevel.value = 0f
         }
     }
 
@@ -218,4 +237,24 @@ class VoiceOutputPath(
     }
 
     private fun emptyVocabulary(): VocabularyStore = VocabularyStore(context)
+}
+
+
+/** RMS amplitude for a little-endian PCM16 byte window, normalized for UI motion. */
+internal fun pcmWindowLevel(pcm: ByteArray, startByte: Int, endByte: Int): Float {
+    val start = startByte.coerceIn(0, pcm.size).let { if (it % 2 == 0) it else it - 1 }
+    val end = endByte.coerceIn(start, pcm.size).let { if (it % 2 == 0) it else it - 1 }
+    if (end <= start) return 0f
+    var sumSquares = 0.0
+    var count = 0
+    var index = start
+    while (index + 1 < end) {
+        val sample = (((pcm[index + 1].toInt() shl 8) or (pcm[index].toInt() and 0xFF))).toShort().toInt()
+        val normalized = sample / 32768.0
+        sumSquares += normalized * normalized
+        count++
+        index += 2
+    }
+    if (count == 0) return 0f
+    return (sqrt(sumSquares / count) * 3.5).toFloat().coerceIn(0f, 1f)
 }
