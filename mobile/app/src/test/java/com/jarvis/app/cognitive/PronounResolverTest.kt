@@ -138,7 +138,6 @@ class PronounResolverTest {
             memoryStore = object : com.jarvis.app.body.MemoryStorePort {
                 override fun queryMemories(query: String, limit: Int) = emptyList<com.jarvis.app.body.MemoryItem>()
             },
-            humanCore = com.jarvis.app.humancore.HumanCore
         )
         val resolver = engine.getPronounResolver()
         assertNotNull(resolver)
