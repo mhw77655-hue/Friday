@@ -59,7 +59,7 @@ class InAppLlamaModelBackend(context: Context) : ModelBackend {
             val candidates = if (reasoningAlias) {
                 listOf(OfflineModelCatalog.advanced, OfflineModelCatalog.reasoning)
             } else {
-                listOf(OfflineModelCatalog.resident, OfflineModelCatalog.fallback)
+                listOf(OfflineModelCatalog.resident, OfflineModelCatalog.fallback, OfflineModelCatalog.tinyFallback)
             }
             val requestedContext = if (residentAlias) 2048 else 4096
             for (asset in candidates) {
