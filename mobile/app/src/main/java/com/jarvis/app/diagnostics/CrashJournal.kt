@@ -2,6 +2,7 @@ package com.jarvis.app.diagnostics
 
 import android.app.Application
 import android.os.Process
+import android.os.Build
 import android.util.AtomicFile
 import org.json.JSONArray
 import org.json.JSONObject
@@ -71,7 +72,7 @@ object CrashJournal {
     }
 
     private fun persist(application: Application, threadName: String, failure: Throwable) {
-        val processName = runCatching { Application.getProcessName() }.getOrDefault("unknown")
+        val processName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) Application.getProcessName() else "unknown"
         val record = createRecord(threadName, failure, processName = processName)
         val atomic = AtomicFile(fileFor(application))
         val stream = atomic.startWrite()
