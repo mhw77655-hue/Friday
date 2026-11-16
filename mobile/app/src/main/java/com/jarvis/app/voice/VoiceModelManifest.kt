@@ -109,7 +109,38 @@ object VoiceModelManifest {
         archiveSha256 = "e7c644fabb1529190de9a2f7d6044f88c26bf6d9b717ad41ef5d2b748e01459b"
     )
 
-    val ALL: List<VoiceModelEntry> = listOf(piperEnglishAmyLow, kokoroEnInt8, kokoroEnFp32, kokoroMultiLangInt8, nabraArabicInt8)
+    /**
+     * Pocket TTS int8 — offline English zero-shot voice cloning from a WAV
+     * reference. No transcript is required. The ~99MB pack is downloaded only
+     * when a reference voice is actually used; it is never bundled or preloaded.
+     */
+    val pocketTtsEnInt8 = VoiceModelEntry(
+        id = "pocket-tts-int8-en-2026-01-26",
+        providerId = "pocket",
+        displayName = "Pocket TTS English (int8 · reference cloning)",
+        languages = setOf("en"),
+        sizeMb = 150,
+        expectedRamMb = 512,
+        expectedCpuPercent = 35.0,
+        downloadUrl = "$BASE_URL/sherpa-onnx-pocket-tts-int8-2026-01-26.tar.bz2",
+        archiveFileName = "sherpa-onnx-pocket-tts-int8-2026-01-26.tar.bz2",
+        modelFile = "lm_flow.int8.onnx",
+        tokensFile = "vocab.json",
+        voicesFile = "token_scores.json",
+        speakerCount = 1,
+        quality = com.jarvis.app.voice.provider.VoiceQuality.HIGH,
+        startupCostMs = 12_000,
+        latencyMs = 1_200,
+        requiredFiles = listOf(
+            "lm_main.int8.onnx",
+            "encoder.onnx",
+            "decoder.int8.onnx",
+            "text_conditioner.onnx",
+            "vocab.json",
+            "token_scores.json"
+        )
+    )
+    val ALL: List<VoiceModelEntry> = listOf(piperEnglishAmyLow, kokoroEnInt8, kokoroEnFp32, kokoroMultiLangInt8, nabraArabicInt8, pocketTtsEnInt8)
 
     fun byId(id: String): VoiceModelEntry? = ALL.firstOrNull { it.id == id }
 }
@@ -137,5 +168,7 @@ data class VoiceModelEntry(
     val startupCostMs: Long,
     val latencyMs: Long,
     /** Optional SHA-256 of the downloaded archive, verified before extraction. */
-    val archiveSha256: String? = null
+    val archiveSha256: String? = null,
+    /** Additional files required by multi-graph TTS packs. */
+    val requiredFiles: List<String> = emptyList()
 )
