@@ -54,6 +54,19 @@ class FridayModelFreeMindTest {
     }
 
     @Test
+    fun `long explicit facts are truncated to the journal key limit instead of silently disappearing`() {
+        val file = File.createTempFile("friday-long-fact-", ".bin").apply { delete() }
+        val substrate = FridaySeedSubstrate(file)
+        val value = "preference ".repeat(30).trim()
+        assertTrue(substrate.rememberFact("user_note", value))
+        val restored = FridaySeedSubstrate(file)
+        val recalled = restored.recallFact("user_note")
+        assertTrue(recalled != null)
+        assertTrue(value.startsWith(recalled!!))
+        file.delete()
+    }
+
+    @Test
     fun `simple arithmetic is composed locally without a model`() {
         val file = File.createTempFile("friday-math-", ".bin").apply { delete() }
         val mind = FridayModelFreeMind(FridaySeedSubstrate(file))
