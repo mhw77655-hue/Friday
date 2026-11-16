@@ -134,7 +134,6 @@ class SystemGraphTest {
 
         val expectedIds = listOf(
             "entry.latencyPipeline",
-            "core.humanCore",
             "core.bodyCoordinator",
             "cognitive.engine",
             "cognitive.contextWindowAssembler",
@@ -163,7 +162,6 @@ class SystemGraphTest {
             "safety.approvalMechanism",
             "safety.circuitBreaker",
             "research.universalResearchEngine",
-            "builder.toolBuilder",
             "identity.ownerBiometricBinder",
             "android.riskGate",
             "android.deviceControlRouter",
