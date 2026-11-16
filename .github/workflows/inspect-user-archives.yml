@@ -1,0 +1,80 @@
+name: inspect-user-archives
+
+on:
+  push:
+    branches: ['audit/friday-device-report-repair']
+    paths:
+      - '.github/workflows/inspect-user-archives.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          persist-credentials: true
+
+      - name: Extract repository archives safely
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile, BadZipFile
+          import shutil
+
+          root = Path.cwd()
+          out = root / "archive-extracted"
+          if out.exists():
+              shutil.rmtree(out)
+          out.mkdir()
+
+          archives = [root / "New Folder chats.zip", root / "New folder.zip"]
+          total = 0
+          report = []
+          for archive in archives:
+              if not archive.is_file():
+                  report.append(f"MISSING: {archive.name}")
+                  continue
+              dest = out / archive.stem.replace(" ", "_")
+              dest.mkdir(parents=True, exist_ok=True)
+              try:
+                  with ZipFile(archive) as z:
+                      for info in z.infolist():
+                          name = info.filename.replace("\\\\", "/")
+                          if name.startswith("/") or any(p == ".." for p in Path(name).parts):
+                              report.append(f"SKIPPED unsafe path: {archive.name}:{name}")
+                              continue
+                          if info.is_dir():
+                              continue
+                          target = dest / name
+                          target.parent.mkdir(parents=True, exist_ok=True)
+                          with z.open(info) as src, target.open("wb") as dst:
+                              shutil.copyfileobj(src, dst)
+                          total += info.file_size
+                          report.append(f"{archive.name}\t{info.file_size}\t{name}")
+              except BadZipFile:
+                  report.append(f"INVALID ZIP: {archive.name}")
+
+          (out / "ARCHIVE_MANIFEST.tsv").write_text(
+              "archive\tsize_bytes\tpath\n" + "\n".join(report) + "\n",
+              encoding="utf-8"
+          )
+          print(f"Extracted {total} uncompressed bytes")
+          print("\n".join(report[:100]))
+          PY
+
+      - name: Commit extracted source material for direct inspection
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add archive-extracted
+          if git diff --cached --quiet; then
+            echo "No extracted archive content to commit"
+          else
+            git commit -m "chore: extract user-provided Friday archives for inspection"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
