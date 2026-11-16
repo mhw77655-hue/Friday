@@ -9,9 +9,7 @@ import com.jarvis.app.body.LanguageRouter
 import com.jarvis.app.body.MemoryStore
 import com.jarvis.app.body.StreamingTts
 import com.jarvis.app.body.VisualStateBridge
-import com.jarvis.app.companioncore.engine.HumanCoreIntegration
 import com.jarvis.app.env.LiquidEnvironmentManager
-import com.jarvis.app.humancore.HumanCore
 import com.jarvis.app.humancore.store.FileStorage
 import com.jarvis.app.memory.BlendedMemoryRetriever
 import com.jarvis.app.model.ModelManager
@@ -397,14 +395,14 @@ object JarvisEngine {
             )
 
             // ── Phase B: Owner-binding chain ─────────────────────────────────
-            // The real owner-binding entry point over the REAL HumanCore
-            // relationship store. The app binds after a successful platform
+            // The real owner-binding entry point over Friday's Android Keystore-backed
+            // owner relationship store. The app binds after a successful platform
             // BiometricPrompt by mapping the result with
             // PlatformBiometricPromptResultMapper.toSuccess and calling bind();
             // the binder is JVM-safe, so the chain is provable through a JVM
             // harness (phase-A technique).
             val ownerBiometricBinder = com.jarvis.app.identity.owner.OwnerBiometricBinder(
-                com.jarvis.app.identity.owner.HumanCoreOwnerBindingPort()
+                com.jarvis.app.identity.owner.AndroidOwnerBindingPort(appContext)
             )
 
             // ── Phase B: Android capability adapter stack ───────────────────
