@@ -3,6 +3,7 @@ package com.jarvis.app.ui.components
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -23,6 +24,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.core.tween
 import com.jarvis.app.body.BodyState
 
 /**
@@ -37,7 +39,9 @@ import com.jarvis.app.body.BodyState
 fun FridayAvatar(
     state: BodyState,
     modifier: Modifier = Modifier,
-    size: Dp = 280.dp
+    size: Dp = 280.dp,
+    voiceActive: Boolean = false,
+    voiceLevel: Float = 0f
 ) {
     val transition = rememberInfiniteTransition(label = "friday-avatar")
     val breathe by transition.animateFloat(
@@ -52,12 +56,22 @@ fun FridayAvatar(
         animationSpec = infiniteRepeatable(tween(180, delayMillis = 2400), RepeatMode.Reverse),
         label = "blink"
     )
-    val speaking by transition.animateFloat(
-        initialValue = 0.12f,
-        targetValue = if (state == BodyState.SPEAKING) 1f else 0.12f,
-        animationSpec = infiniteRepeatable(tween(if (state == BodyState.SPEAKING) 190 else 900), RepeatMode.Reverse),
-        label = "speaking"
+    val speakingNow = state == BodyState.SPEAKING || voiceActive
+    val liveLevel by animateFloatAsState(
+        targetValue = if (speakingNow) voiceLevel.coerceIn(0f, 1f) else 0f,
+        animationSpec = tween(durationMillis = 55),
+        label = "voice-amplitude"
     )
+    // A subtle fallback movement is used when the active provider does not
+    // expose PCM (e.g. Android system TTS). It follows the real speaking
+    // lifecycle, but is deliberately not presented as waveform lip-sync.
+    val fallbackSpeaking by transition.animateFloat(
+        initialValue = 0.12f,
+        targetValue = if (speakingNow) 0.32f else 0.12f,
+        animationSpec = infiniteRepeatable(tween(if (speakingNow) 190 else 900), RepeatMode.Reverse),
+        label = "speaking-fallback"
+    )
+    val mouthActivity = if (liveLevel > 0.015f) liveLevel else if (speakingNow) fallbackSpeaking else 0f
     val active = state in setOf(BodyState.LISTENING, BodyState.HEARING, BodyState.THINKING, BodyState.RETRIEVING, BodyState.RESPONDING, BodyState.SPEAKING)
     val accent = when (state) {
         BodyState.ERROR -> Color(0xFFFF806F)
@@ -135,8 +149,8 @@ fun FridayAvatar(
             drawPath(nose, Color(0xFF9DBFD3).copy(alpha = 0.55f), style = Stroke(1.4f * scale, cap = StrokeCap.Round))
 
             // Mouth opens only while the body is actually in SPEAKING state.
-            val mouthWidth = 12f + 3f * speaking
-            val mouthHeight = if (state == BodyState.SPEAKING) 2.5f + 8f * speaking else 1.5f
+            val mouthWidth = 10f + 7f * mouthActivity
+            val mouthHeight = if (speakingNow) 2.5f + 13f * mouthActivity else 1.5f
             drawOval(
                 color = accent.copy(alpha = 0.9f),
                 topLeft = p(-mouthWidth, 43f - mouthHeight / 2f),
