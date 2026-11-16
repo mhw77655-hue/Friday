@@ -11,18 +11,21 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
 
 /** Scheduled GitHub polling is deliberately periodic, not an always-on socket. */
 class GitHubDeviceChannelWorker(
     context: Context,
     params: WorkerParameters
 ) : CoroutineWorker(context, params) {
-    override suspend fun doWork(): Result = runCatching {
+    override suspend fun doWork(): Result = try {
         GitHubDeviceChannel(applicationContext).poll()
-    }.fold(
-        onSuccess = { Result.success() },
-        onFailure = { Result.retry() }
-    )
+        Result.success()
+    } catch (cancelled: CancellationException) {
+        throw cancelled
+    } catch (_: Exception) {
+        Result.retry()
+    }
 }
 
 object GitHubDeviceChannelScheduler {
