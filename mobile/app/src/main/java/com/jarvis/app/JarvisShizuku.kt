@@ -38,10 +38,16 @@ object ShizukuBridge {
         _isGranted.value = grantResult == PackageManager.PERMISSION_GRANTED
     }
 
+    @Volatile private var initialized = false
+
+    @Synchronized
     fun init() {
+        if (initialized) return
+        initialized = true
         Shizuku.addBinderReceivedListenerSticky(binderReceivedListener)
         Shizuku.addBinderDeadListener(binderDeadListener)
         Shizuku.addRequestPermissionResultListener(permissionResultListener)
+        refresh()
     }
 
     private fun checkPermission() {
