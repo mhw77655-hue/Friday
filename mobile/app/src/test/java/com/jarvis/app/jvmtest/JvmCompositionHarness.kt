@@ -7,7 +7,6 @@ import com.jarvis.app.cognitive.CognitiveEngine
 import com.jarvis.app.env.ModelSource
 import com.jarvis.app.env.ModelProviderType
 import com.jarvis.app.failure.FailureSurface
-import com.jarvis.app.humancore.store.FileStorage
 import com.jarvis.app.latency.LatencyPipeline
 import com.jarvis.app.memory.EmbeddingProvider
 import com.jarvis.app.memory.MemoryGraphStore
@@ -300,12 +299,6 @@ class JvmCompositionHarness(
             // inside the composition root where a reviewer would miss it.
             snapshot = { ResourceSnapshot.alwaysHealthy() },
             clock = { System.currentTimeMillis() },
-            // The legacy Human Core's durable storage, over the real FileStorage
-            // in this server's data directory — so the identity a reply carries
-            // is the REAL HumanCore identity (cold-start baseline or any durable
-            // revision), never the "unknown v0" fallback SelfModel reports while
-            // HumanCore is uninitialized.
-            humanCoreStorage = FileStorage(dataDir),
             turnWork = { it() },
             later = { _, _ -> },
             // A headless browser client has no speech channel and no reactor:
