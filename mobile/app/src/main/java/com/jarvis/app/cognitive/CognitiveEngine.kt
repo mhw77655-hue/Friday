@@ -332,7 +332,9 @@ class CognitiveEngine(
          * the ConfidentialityFirewall gate and per-person surfaces know which
          * interlocutor they are serving. Null means the owner (Venon).
          */
-        interlocutor: String? = null
+        interlocutor: String? = null,
+        /** Skip model wake/admission when Friday runs her local cognition alone. */
+        allowModelWake: Boolean = true
     ): CognitiveTurnResult {
         // TURN-TRACE stage timing: the "embed" stage is the input-understanding
         // phase — intent inference + the representational context built by
@@ -399,7 +401,7 @@ class CognitiveEngine(
         // (resident vs ON_DEMAND_REASONING) can ride the snapshot as the
         // gate's MODEL_TIER contribution (CONTINUITY-GATE-ENFORCED-SEAM).
         val admissionOutcome =
-            if (decision == TurnDecision.DIRECT_REPLY && modelManager != null && cognitiveAdmissionPolicy != null) {
+            if (allowModelWake && decision == TurnDecision.DIRECT_REPLY && modelManager != null && cognitiveAdmissionPolicy != null) {
                 cognitiveAdmissionPolicy.serveTurn(cognitiveResult.finalState.uncertainty) {
                     modelManager.wake(
                         com.jarvis.app.model.OrganRole.REASONING,
