@@ -17,6 +17,12 @@ class FridayModelFreeMind(
         if (features.isNotEmpty()) substrate.observe(features)
     }
 
+    fun observeOutcome(input: String, observedOutcome: String) {
+        val context = features(input)
+        val outcome = features(observedOutcome)
+        if (context.isNotEmpty() && outcome.isNotEmpty()) substrate.observeOutcome(context, outcome)
+    }
+
     fun respond(input: String): String {
         val normalized = input.trim().lowercase()
         val associations = substrate.infer(features(input), limit = 8)
