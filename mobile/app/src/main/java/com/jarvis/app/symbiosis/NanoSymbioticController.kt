@@ -59,6 +59,10 @@ class NanoSymbioticController(
     fun liquidSnapshot(): LiquidSymbiosisSnapshot = liquidSymbiosis.snapshot()
 
     init {
+        // The inference process may be started before its private model directory
+        // has ever been created. Create it before any StatFs inspection; never let
+        // an absent optional model directory crash the isolated inference service.
+        ensureStorageDirectory(storageDir, appContext.filesDir)
         loadEvidence()
         refresh()
     }
@@ -170,7 +174,10 @@ class NanoSymbioticController(
         )
 
     private fun readHost(): HostResourceState {
-        val storage = android.os.StatFs(storageDir.absolutePath).availableBytes / (1024L * 1024L)
+        val storageLocation = if (storageDir.isDirectory) storageDir else appContext.filesDir
+        val storage = runCatching {
+            android.os.StatFs(storageLocation.absolutePath).availableBytes / (1024L * 1024L)
+        }.getOrDefault(0L)
         return HostResourceState(
             availableMemoryMb = device.availableMemoryMb,
             cpuLoadPercent = device.cpuLoadPercent,
@@ -314,3 +321,15 @@ class NanoSymbioticController(
         }
     }
 }
+
+/**
+ * Makes an optional runtime directory safe to inspect. Falls back to the
+ * already-created app-private files directory if the preferred path cannot
+ * be created, so a storage probe can never take down inference startup.
+ */
+internal fun ensureStorageDirectory(preferred: File, fallback: File): File {
+    if (preferred.isDirectory || (preferred.mkdirs() && preferred.isDirectory)) return preferred
+    if (fallback.isDirectory || (fallback.mkdirs() && fallback.isDirectory)) return fallback
+    throw IllegalStateException("No usable app-private storage directory is available.")
+}
+
