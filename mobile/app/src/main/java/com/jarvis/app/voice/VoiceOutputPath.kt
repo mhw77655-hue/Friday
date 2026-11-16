@@ -84,10 +84,12 @@ class VoiceOutputPath(
                     // when the saved default profile language is English.
                     val segmentLanguage = if (containsArabic(segment)) "ar-EG" else lang
                     val spoken = habitatSpeak(segment, segmentLanguage, voiceId ?: profile.preferredVoice, profile, vocabulary)
-                    if (!spoken && fallback != null) {
-                        // Playback is reflected by the fallback's real
-                        // UtteranceProgressListener/MediaPlayer lifecycle.
+                    if (!spoken && fallback != null && profile.referenceAudioPath.isNullOrBlank()) {
+                        // Never silently substitute a different voice after the
+                        // owner explicitly selected Friday's reference identity.
                         fallback.speakStreaming(segment, vocabulary ?: emptyVocabulary())
+                    } else if (!spoken && !profile.referenceAudioPath.isNullOrBlank()) {
+                        Log.w(TAG, "Reference voice synthesis failed; refusing to substitute an unrelated voice")
                     }
                 }
             } catch (e: Throwable) {
