@@ -22,6 +22,8 @@ import com.jarvis.app.diagnostics.DiagnosticEventLog
 import com.jarvis.app.diagnostics.CrashJournal
 import com.jarvis.app.JarvisEngine
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -68,6 +70,12 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
 
     private val _failureText = MutableStateFlow("Failures: none")
     val failureText: StateFlow<String> = _failureText.asStateFlow()
+
+    private val _diagnosticFindings = MutableStateFlow<List<com.jarvis.app.diagnostics.DiagnosticFinding>>(emptyList())
+    val diagnosticFindings: StateFlow<List<com.jarvis.app.diagnostics.DiagnosticFinding>> = _diagnosticFindings.asStateFlow()
+    private val _diagnosticRunning = MutableStateFlow(false)
+    val diagnosticRunning: StateFlow<Boolean> = _diagnosticRunning.asStateFlow()
+    private val diagnosticRunner = com.jarvis.app.diagnostics.DiagnosticRunner(application)
 
     private var lastBatteryText = ""
     private var lastNetworkText = "Net: checking..."
@@ -335,6 +343,10 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         // Nervous-system failure surface: live summary of active failures +
         // subsystem health, recomputed whenever either changes.
         viewModelScope.launch {
+            delay(1500)
+            runFullDiagnostic()
+        }
+        viewModelScope.launch {
             val surface = try { JarvisEngine.getFailureSurface() } catch (e: IllegalStateException) { null }
             if (surface != null) {
                 combine(surface.worstSeverity, surface.currentFailures, surface.subsystemHealth) {
@@ -344,6 +356,43 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                     lastFailureText = summary
                     publishHealthText()
                 }
+            }
+        }
+    }
+
+    /**
+     * Runs active device and subsystem probes off the UI thread. The UI heartbeat
+     * is a bounded Handler round-trip; storage is actually written/read/deleted;
+     * Android exit history is queried instead of assuming a clean state.
+     */
+    fun runFullDiagnostic() {
+        if (_diagnosticRunning.value) return
+        _diagnosticRunning.value = true
+        viewModelScope.launch {
+            try {
+                val signals = mapOf(
+                    "battery" to batteryText.value,
+                    "network" to networkText.value,
+                    "notifications" to lastNotifText,
+                    "shizuku" to shizukuText.value,
+                    "microphone" to micText.value,
+                    "speech_recognition" to sttText.value,
+                    "hotword" to hotwordText.value,
+                    "text_to_speech" to ttsText.value,
+                    "voice_process" to voiceSubstrateText.value,
+                    "model_runtime" to modelRuntimeDiagnosticText(),
+                    "individual_memory" to individualMemoryText.value,
+                    "failure_surface" to failureText.value
+                )
+                val findings = withContext(Dispatchers.IO) {
+                    diagnosticRunner.run(signals, CrashJournal.read(getApplication()))
+                }
+                _diagnosticFindings.value = findings
+                diagnosticEvents.record("active_diagnostic",
+                    "errors=${findings.count { it.severity == com.jarvis.app.diagnostics.DiagnosticSeverity.ERROR }}; " +
+                    "warnings=${findings.count { it.severity == com.jarvis.app.diagnostics.DiagnosticSeverity.WARNING }}")
+            } finally {
+                _diagnosticRunning.value = false
             }
         }
     }
@@ -419,6 +468,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 .put("association_count", it.experience.associationCount())
         } ?: JSONObject.NULL)
         report.put("last_crash", CrashJournal.read(app) ?: JSONObject.NULL)
+        report.put("active_diagnostics", diagnosticRunner.toJson(_diagnosticFindings.value))
         report.put("telemetry_summary", Telemetry.summarize())
         report.put("privacy", JSONObject()
             .put("chat_messages_included", false)
