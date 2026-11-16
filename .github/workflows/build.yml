@@ -30,6 +30,14 @@ jobs:
       # mobile/app/build.gradle.kts (compileOptions source/targetCompatibility =
       # VERSION_17, kotlin compilerOptions jvmTarget = JVM_17) and the root
       # build.gradle.kts (AGP 8.10.0, which requires JDK 17).
+      - name: Set up Python for Friday builder contract tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Test Friday repository-builder safety contracts
+        run: python3 -m unittest discover -s tools/friday-builder -p 'test_*.py' -v
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
