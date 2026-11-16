@@ -17,7 +17,7 @@ import java.util.UUID
  */
 class FridayIndividual(
     private val directory: File,
-    nowMs: () -> Long = { System.currentTimeMillis() }
+    private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) {
     data class Identity(
         val id: String,
