@@ -60,6 +60,3 @@ class FridayLocalRuntimeBinding(
     }
 }
 
-/** Transitional name for tests/older adapters; now reads Friday runtime data only. */
-@Deprecated("Use FridayLocalRuntimeBinding; the binding no longer reads Human Core.")
-typealias LocalHumanCoreBinding = FridayLocalRuntimeBinding
