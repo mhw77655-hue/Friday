@@ -14,6 +14,13 @@ Friday's Android Settings can connect directly to the public `mhw77655-hue/Frida
 - A separate trusted publisher checks changed paths and creates an isolated draft PR. It never merges, signs, releases, or installs.
 - Friday can query the resulting proposal PR from the phone.
 
+### Automatic repair proposal after CI failure
+- The proposal workflow also listens for a completed `build` workflow on `main`.
+- When main-branch CI fails, it fetches failed-run logs with read-only Actions permission, filters failure/error lines, redacts common credential and email patterns, and creates a bounded diagnostic request.
+- The same untrusted worker produces a patch artifact; a separate publisher validates paths and opens a draft PR.
+- This does not auto-merge or auto-install. Proposal branches are built separately.
+- CI failures on pull-request branches do not automatically launch a worker, avoiding untrusted PR code triggering privileged publication.
+
 ### Phone-initiated diagnostic command channel
 - The owner explicitly connects the phone from Settings.
 - Friday creates a public GitHub issue as an auditable command queue.
