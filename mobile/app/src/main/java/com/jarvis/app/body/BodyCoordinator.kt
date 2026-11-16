@@ -15,6 +15,8 @@ import com.jarvis.app.voice.PlatformSpeechRecognizerPort
 import com.jarvis.app.latency.LatencyLayer
 import com.jarvis.app.companioncore.engine.HumanCoreIntegration
 import com.jarvis.app.model.ModelManager
+import com.jarvis.app.voice.VoiceOutputPath
+import kotlinx.coroutines.flow.distinctUntilChanged
 import com.jarvis.app.model.OrganRole
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -47,8 +49,6 @@ class BodyCoordinator(
     private val context: Context,
     private val modelManager: ModelManager,
     private val companionIntegration: HumanCoreIntegration,
-    private val languageRouter: LanguageRouter,
-    private val memoryStore: MemoryStore,
     private val failureSurface: com.jarvis.app.failure.FailureSurface,
     private val recoveryController: com.jarvis.app.failure.RecoveryController,
     private val scope: CoroutineScope,
@@ -65,7 +65,6 @@ class BodyCoordinator(
     private val _conversationContext = MutableStateFlow(ConversationContext())
     val conversationContext: StateFlow<ConversationContext> = _conversationContext.asStateFlow()
 
-    private val _lastReply = MutableStateFlow<String?>(null)
     private val _turnIndex = AtomicLong(0)
     private val _sessionStartMs = System.currentTimeMillis()
 
@@ -114,10 +113,8 @@ class BodyCoordinator(
     val vocabularyStore: VocabularyStore
         get() = _vocabularyStore
 
-    // ── Memory subsystem ──
-    // memoryStore is injected (JarvisEngine owns the single process-wide
-    // instance); vocabulary store is internal to the body. The platform STT
-    // (Arabic-capable push-to-talk) surfaces failures to the nervous system.
+    // Vocabulary store is internal to the body; STT failures surface through
+    // the shared nervous-system failure surface.
     private val _vocabularyStore = VocabularyStore(context, scope,
         onFailure = { r -> failureSurface.report(r) })
 
@@ -135,11 +132,52 @@ class BodyCoordinator(
     private var currentUtteranceAudio: ShortArray? = null
 
     init {
-        // Start the event loop
+        // Start the event loop and mirror Friday's shared turn/output path.
         scope.launch { eventLoop() }
+        observeFridayReplies()
 
         // Initialize subsystems
         initializeSubsystems()
+    }
+
+    /**
+     * Reflect replies from Friday's one turn pipeline into the body activity
+     * state. The body never starts a second model request or post-processes
+     * reply content.
+     */
+    private fun observeFridayReplies() {
+        scope.launch {
+            var observedAssistantTurns = LatencyLayer.turns.value.count { it.fromJarvis }
+            LatencyLayer.turns.collect { turns ->
+                val assistantTurns = turns.filter { it.fromJarvis }
+                if (assistantTurns.size < observedAssistantTurns) {
+                    observedAssistantTurns = assistantTurns.size
+                }
+                if (assistantTurns.size > observedAssistantTurns) {
+                    assistantTurns.drop(observedAssistantTurns).forEach { turn ->
+                        if (turn.text.isNotBlank()) {
+                            _conversationContext.value = _conversationContext.value.copy(
+                                recentJarvisTexts = (_conversationContext.value.recentJarvisTexts + turn.text).takeLast(10)
+                            )
+                            emitEvent(BodyEvent.ResponseGenerated(turn.text))
+                            emitEvent(BodyEvent.ResponseChunk(turn.text, isFinal = true))
+                        }
+                    }
+                    observedAssistantTurns = assistantTurns.size
+                }
+            }
+        }
+    }
+
+    /** Attach the isolated voice output state to the body activity machine. */
+    fun attachVoiceOutput(output: VoiceOutputPath) {
+        scope.launch {
+            output.isSpeaking.distinctUntilChanged().collect { speaking ->
+                if (!speaking && _state.value == BodyState.SPEAKING) {
+                    emitEvent(BodyEvent.TtsEnd)
+                }
+            }
+        }
     }
 
     /** Initialize all voice subsystems and wire them. */
@@ -441,29 +479,7 @@ class BodyCoordinator(
      * does not create a second reasoning, Human Core or reply-styling route.
      */
     private fun generateResponse(text: String) {
-        _lastReply.value = null
         LatencyLayer.onUserInput(text)
-    }
-
-    /**
-     * Speak text with vocabulary pronunciation hints.
-     */
-    private fun speakWithVocabulary(text: String) {
-        // R2: speak through the isolated `:voice` habitat first (Kokoro via the
-        // capability contract); the legacy streaming path remains the fallback
-        // when the habitat isn't ready. The body always answers.
-        val voiceOutput = try { JarvisEngine.getVoiceOutputPath() } catch (e: Exception) { null }
-        if (voiceOutput != null) {
-            voiceOutput.speak(text, vocabulary = vocabularyStore)
-            return
-        }
-        val streamingTts = try { JarvisEngine.getStreamingTts() } catch (e: Exception) { null }
-        if (streamingTts != null) {
-            streamingTts.speakStreaming(text, vocabularyStore)
-        } else {
-            // Fallback to legacy TTS
-            tts?.speak(text)
-        }
     }
 
     /** Handle interruption (barge-in). */
