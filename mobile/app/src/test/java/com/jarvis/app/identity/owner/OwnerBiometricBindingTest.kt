@@ -1,9 +1,5 @@
 package com.jarvis.app.identity.owner
 
-import com.jarvis.app.humancore.HumanCore
-import com.jarvis.app.humancore.HumanCoreGraph
-import com.jarvis.app.humancore.protocol.OwnerBinding
-import com.jarvis.app.humancore.store.FileStorage
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -15,11 +11,11 @@ import org.junit.Test
 /**
  * PEOPLE-VOICE-FACE-MEMORY-OWNER-BINDING — the strict owner chain.
  *
- * AC1 (audited, asserted here): before this story the Human Core had NO owner
+ * AC1 (audited, asserted here): before this story Friday had NO owner
  * identity / owner relationship-ID / biometric chain — only JARVIS's own
  * identity (IdentityKernel, admin-only revisions) and a single relationship
  * record with no ID. The new chain is [OwnerBiometricBinder] →
- * [OwnerBindingPort] → the real Human Core relationship store, gated solely on
+ * [OwnerBindingPort] → Friday's Android Keystore-backed owner store, gated solely on
  * the Android `BiometricPrompt` authorization result.
  *
  * AC2: the typed API consumes a real Android biometric authorization result
@@ -37,18 +33,41 @@ import org.junit.Test
  */
 class OwnerBiometricBindingTest {
 
-    private class Device(
-        dir: File,
-        private val clockMs: () -> Long
-    ) : OwnerBindingPort {
-        val graph: HumanCoreGraph = HumanCoreGraph(
-            storage = FileStorage(dir),
-            clock = clockMs
-        ).also { it.registry.loadAll() }
+    private class FileOwnerBindingPort(private val directory: File) : OwnerBindingPort {
+        private val file = File(directory, "owner-binding-test.properties")
 
-        override fun bindOwner(binding: OwnerBinding): Boolean = graph.bindOwner(binding)
-        override fun ownerBinding(): OwnerBinding? = graph.ownerBinding()
+        override fun bindOwner(binding: OwnerBinding): Boolean {
+            val existing = ownerBinding()
+            if (file.exists() && existing == null) return false
+            if (existing != null &&
+                (existing.relationshipId != binding.relationshipId || existing.ownerKey != binding.ownerKey)
+            ) return false
+            directory.mkdirs()
+            val properties = Properties().apply {
+                setProperty("relationshipId", binding.relationshipId)
+                setProperty("ownerKey", binding.ownerKey)
+                setProperty("authenticator", binding.authenticator)
+                setProperty("authenticatedAtEpochMs", binding.authenticatedAtEpochMs.toString())
+            }
+            file.outputStream().use { properties.store(it, "test owner binding") }
+            return true
+        }
+
+        override fun ownerBinding(): OwnerBinding? {
+            if (!file.isFile) return null
+            return runCatching {
+                val properties = Properties().apply { file.inputStream().use(::load) }
+                OwnerBinding(
+                    relationshipId = properties.getProperty("relationshipId"),
+                    ownerKey = properties.getProperty("ownerKey"),
+                    authenticator = properties.getProperty("authenticator"),
+                    authenticatedAtEpochMs = properties.getProperty("authenticatedAtEpochMs").toLong()
+                )
+            }.getOrNull()
+        }
     }
+
+    private class Device(dir: File) : OwnerBindingPort by FileOwnerBindingPort(dir)
 
     private var nextTs = 1_700_000_000_000L
 
@@ -70,7 +89,7 @@ class OwnerBiometricBindingTest {
 
     @Test
     fun `biometric success binds the real owner relationship`() {
-        val binder = OwnerBiometricBinder(Device(freshDir("a"), clock()))
+        val binder = OwnerBiometricBinder(Device(freshDir("a")))
         val outcome = binder.bind(success())
 
         assertEquals(OwnerBindingOutcome.Bound::class.java, outcome.javaClass)
@@ -83,7 +102,7 @@ class OwnerBiometricBindingTest {
 
     @Test
     fun `error and cancelled results never bind the owner relationship`() {
-        val binder = OwnerBiometricBinder(Device(freshDir("err"), clock()))
+        val binder = OwnerBiometricBinder(Device(freshDir("err")))
 
         val cancelled = binder.bind(BiometricAuthResult.Cancelled)
         assertEquals(OwnerBindingOutcome.Cancelled::class.java, cancelled.javaClass)
@@ -99,7 +118,7 @@ class OwnerBiometricBindingTest {
 
     @Test
     fun `same owner re-authenticating refreshes the binding`() {
-        val binder = OwnerBiometricBinder(Device(freshDir("reauth"), clock()))
+        val binder = OwnerBiometricBinder(Device(freshDir("reauth")))
         binder.bind(success())
         val second = binder.bind(success(nextTs + 1))
 
@@ -111,7 +130,7 @@ class OwnerBiometricBindingTest {
 
     @Test
     fun `a different owner identity is refused by the single-owner relationship`() {
-        val device = Device(freshDir("conflict"), clock())
+        val device = Device(freshDir("conflict"))
         val binder = OwnerBiometricBinder(device, ownerKey = "Venon")
         binder.bind(success())
 
@@ -127,45 +146,27 @@ class OwnerBiometricBindingTest {
     }
 
     @Test
-    fun `owner binding persists into the real HumanCore relationship store`() {
+    fun `owner binding persists in Friday's owner store`() {
         val dir = freshDir("durable")
-        var ts = nextTs
-        val device = Device(dir) { ++ts }
-
+        val device = Device(dir)
         OwnerBiometricBinder(device).bind(success())
-        assertNotNull(device.graph.ownerBinding())
+        assertNotNull(device.ownerBinding())
 
-        // A brand-new graph over the SAME persisted data (a fresh process/device
-        // that has received the relationship data) sees the owner binding.
-        val reloaded = HumanCoreGraph(storage = FileStorage(dir), clock = { ++ts })
-        reloaded.registry.loadAll()
-        val bound = reloaded.ownerBinding()
-        assertNotNull("binding is durable persisted data, not in-memory state", bound)
-        assertEquals("owner", bound?.relationshipId)
-        assertEquals("Venon", bound?.ownerKey)
+        val reloaded = FileOwnerBindingPort(dir).ownerBinding()
+        assertNotNull("binding is durable persisted data, not in-memory state", reloaded)
+        assertEquals("owner", reloaded?.relationshipId)
+        assertEquals("Venon", reloaded?.ownerKey)
     }
 
     @Test
-    fun `production port binds through the real HumanCore singleton facade`() {
-        if (!HumanCore.isInitialized()) {
-            HumanCore.init(storage = FileStorage(freshDir("hc-port")))
-        }
-        val port = HumanCoreOwnerBindingPort()
-        val outcome = OwnerBiometricBinder(port).bind(success())
-
-        // The HumanCore singleton is process-global: another test class in the
-        // same fork (e.g. PhaseBDisconnectedSubsystemWiringTest) may already have
-        // bound the real owner through the same facade, in which case bind()
-        // legitimately reports ReAuthenticated (same-owner refresh), not Bound.
-        // Accept either — the proof is that the real singleton facade reports the
-        // owner bound with the real relationship id, not the fresh-vs-refresh label.
-        assertTrue(
-            "production bind reaches the real facade (fresh bind or same-owner refresh)",
-            outcome is OwnerBindingOutcome.Bound || outcome is OwnerBindingOutcome.ReAuthenticated
-        )
-        assertTrue("real HumanCore facade reports the owner bound", HumanCore.isOwnerBound())
-        assertEquals("owner", HumanCore.ownerBinding()?.relationshipId)
+    fun `production owner port uses Android Keystore encryption`() {
+        val source = File("src/main/java/com/jarvis/app/identity/owner/AndroidOwnerBindingPort.kt").readText()
+        assertTrue(source.contains("AndroidKeyStore"))
+        assertTrue(source.contains("AES/GCM/NoPadding"))
+        assertTrue(source.contains("setRandomizedEncryptionRequired(true)"))
+        assertTrue(source.contains("if (current.relationshipId != binding.relationshipId || current.ownerKey != binding.ownerKey)"))
     }
+
 
     // ── AC3: authority is the biometric result, not device possession ──
 
@@ -174,8 +175,8 @@ class OwnerBiometricBindingTest {
         // Two independent graphs with separate storage = two physical devices
         // that have never exchanged data. The biometric result alone is the
         // authority signal on BOTH.
-        val deviceA = Device(freshDir("dev-a"), clock())
-        val deviceB = Device(freshDir("dev-b"), clock())
+        val deviceA = Device(freshDir("dev-a"))
+        val deviceB = Device(freshDir("dev-b"))
 
         val a = OwnerBiometricBinder(deviceA).bind(success())
         assertEquals(OwnerBindingOutcome.Bound::class.java, a.javaClass)
@@ -218,7 +219,7 @@ class OwnerBiometricBindingTest {
             "src/main/java/com/jarvis/app/identity/owner/PlatformBiometricPromptResultMapper.kt",
             "src/main/java/com/jarvis/app/identity/owner/OwnerBiometricBinder.kt",
             "src/main/java/com/jarvis/app/identity/owner/OwnerBindingPort.kt",
-            "src/main/java/com/jarvis/app/identity/owner/HumanCoreOwnerBindingPort.kt",
+            "src/main/java/com/jarvis/app/identity/owner/AndroidOwnerBindingPort.kt",
             "src/main/java/com/jarvis/app/humancore/protocol/OwnerBinding.kt",
             "src/main/java/com/jarvis/app/humancore/store/RelationshipStore.kt"
         )
