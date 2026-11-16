@@ -20,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.jarvis.app.body.BodyCoordinator
 import com.jarvis.app.ui.components.HorizonArc
 import com.jarvis.app.ui.components.pressScale
 import com.jarvis.app.ui.components.rememberCapabilitySnapshot
@@ -29,25 +28,13 @@ import com.jarvis.app.ui.theme.JarvisType
 import kotlinx.coroutines.flow.flowOf
 
 /**
- * Home — the presence surface.
- *
- * The orb is driven entirely by the Companion Core (Phase 2): [PresenceOrb]
- * collects the Engine Tick Lane's resolved [OrbRenderParams] internally, so
- * 30Hz tick emissions never recompose this screen (audit R-P2). The label
- * below collects only the rarely-changing presence mode. The old
- * battery/network/brain → OrbState label chains that drove the orb
- * (`HomeViewModel`/`DiagnosticsViewModel`) are retired — the orb is state-
- * driven from the presence engine, not fabricated from collectors.
+ * Home — Friday's persistent visual embodiment. It is intentionally not
+ * gated by the model, body coordinator, or a finite presence-state enum.
+ * Optional voice telemetry may modulate the continuously evolving topology,
+ * but the visual identity remains present when those subsystems are absent.
  */
 @Composable
 fun HomeScreen(onOpenTools: () -> Unit) {
-    val bodySlot = com.jarvis.app.ui.EngineAccess.bodyCoordinator()
-    val bodyCoordinator = bodySlot.value
-    if (bodyCoordinator == null) {
-        com.jarvis.app.ui.WakingSurface(bodySlot.readiness)
-        return
-    }
-
     val voiceSlot = com.jarvis.app.ui.EngineAccess.voiceOutputPath()
     val voiceOutput = voiceSlot.value
     val voiceActive by (voiceOutput?.isSpeaking ?: flowOf(false)).collectAsStateWithLifecycle(initialValue = false)
