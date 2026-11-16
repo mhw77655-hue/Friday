@@ -2,7 +2,6 @@ package com.jarvis.app.cognitive
 
 import com.jarvis.app.body.MemoryItem
 import com.jarvis.app.body.MemoryStorePort
-import com.jarvis.app.humancore.HumanCore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
@@ -40,7 +39,6 @@ class Stage01CIntegrationTest {
             memoryStore = object : MemoryStorePort {
                 override fun queryMemories(query: String, limit: Int) = emptyList<MemoryItem>()
             },
-            humanCore = HumanCore,
             intentClassificationComplete = { turn ->
                 if (turn.contains("?")) "QUESTION" else "STATEMENT"
             }
