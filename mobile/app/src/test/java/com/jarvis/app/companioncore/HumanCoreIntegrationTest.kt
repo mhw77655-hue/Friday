@@ -6,6 +6,7 @@ import com.jarvis.app.companioncore.engine.FridayPresenceEvidenceStore
 import com.jarvis.app.companioncore.engine.FridayRuntimeIntegration
 import com.jarvis.app.companioncore.engine.FridayRuntimeSnapshot
 import org.junit.After
+import org.junit.Before
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -13,6 +14,11 @@ import org.junit.Test
 
 /** Friday runtime signal freshness, sole-writer and local presence-event tests. */
 class FridayRuntimeIntegrationTest {
+    @Before
+    fun clearEvidenceBeforeEachTest() {
+        FridayPresenceEvidenceStore.resetForTests()
+    }
+
     @After
     fun resetEvidence() {
         FridayPresenceEvidenceStore.resetForTests()
