@@ -2,7 +2,7 @@ package com.jarvis.app.body
 
 import com.jarvis.app.companioncore.contract.AlertLevel
 import com.jarvis.app.companioncore.contract.PresenceMode
-import com.jarvis.app.companioncore.engine.HumanCoreIntegration
+import com.jarvis.app.companioncore.engine.FridayRuntimeIntegration
 import com.jarvis.app.companioncore.presence.CompanionCoreHolder
 import com.jarvis.app.companioncore.presence.PresenceEngine
 import com.jarvis.app.vf.reactor.ReactorEngine
@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
 class VisualStateBridge(
     private val bodyState: StateFlow<BodyState>,
     private val visualState: StateFlow<VisualState>,
-    private val companionIntegration: HumanCoreIntegration,
+    private val companionIntegration: FridayRuntimeIntegration,
     private val failureWorstSeverity: kotlinx.coroutines.flow.StateFlow<com.jarvis.app.failure.FailureSeverity>,
     private val scope: CoroutineScope
 ) {
@@ -105,7 +105,7 @@ class VisualStateBridge(
         val alert = when (state) {
             BodyState.ERROR -> AlertLevel.CRITICAL
             BodyState.INTERRUPTED -> AlertLevel.WARNING
-            else -> companionIntegration.hcAlertLevel()
+            else -> companionIntegration.alertLevel()
         }
         refreshAlert(alert)
     }
