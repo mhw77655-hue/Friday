@@ -5,9 +5,8 @@ import com.jarvis.app.ObsidianSync
 import com.jarvis.app.companioncore.engine.BridgePhase
 import com.jarvis.app.companioncore.engine.BridgeStatusClassifier
 import com.jarvis.app.companioncore.presence.CompanionCoreHolder
-import com.jarvis.app.humancore.pipeline.PerceptionResult
 import com.jarvis.app.turn.TurnContext
-import com.jarvis.app.humancore.protocol.StyledResponse
+import com.jarvis.app.turn.FridayReplyDelivery
 import com.jarvis.app.ui.viewmodel.Turn
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -32,10 +31,9 @@ import java.util.concurrent.atomic.AtomicLong
  * model, and adds the user turn. Nothing here blocks.
  *
  * **Slow path** (runs on a dedicated single-thread executor): the existing
- * pipeline — `HumanCore.beginExchange` (Perception), the blocking Obsidian
- * vault write, and `ModelManager.send` — relocated off the UI thread so
- * the reactor and ack are not gated on it. The deep answer is completed by
- * [LatencyPipeline.onReplyReady] (expression pass, integration, speech).
+ * context, blocking Obsidian vault write, and `CognitiveEngine.process` /
+ * `ModelManager.send` run off the UI thread. The deep answer is completed by
+ * Friday's reply-delivery boundary and speech output.
  *
  * **Fallback when deep reasoning is slow** (see [LatencyPipeline]): the ack
  * covers the first ~[LatencyPipeline.ACK_GAP_MS]; the orb stays THINKING; past
@@ -43,9 +41,9 @@ import java.util.concurrent.atomic.AtomicLong
  * (visual only); on a *confirmed* bridge failure exactly one soft error turn is
  * emitted — never a fabricated turn on a mere timeout.
  *
- * The frozen Human Core is untouched: the layer only calls its public facade
- * ([HumanCore.beginExchange]/[express]/[completeExchange]/[snapshot]) and the
- * additive Companion Core seams. The deep reasoning path is not removed.
+ * Human Core is quarantined and is not initialized or called here. The
+ * composition supplies Friday-owned cognitive/session contracts; Companion
+ * Core is used only for presentation and turn-state signals.
  *
  * Owns [turns] and [phase]; the conversation UI collects them instead of the
  * ViewModel owning the turn pipeline.
@@ -206,11 +204,6 @@ object LatencyLayer {
                     }
                 },
                 bridgeStatus = { modelManager?.status?.value ?: "idle" },
-                beginExchange = { text, ctx -> HumanCore.beginExchange(text, ctx) },
-                express = { reply, ctx -> HumanCore.express(reply, ctx) },
-                completeExchange = { t, r, s, ts, perc ->
-                    HumanCore.completeExchange(t, r, s, ts, perc)
-                },
                 sessionContext = { sessionContext() },
                 cognitiveEngine = com.jarvis.app.JarvisEngine.cognitiveEngine
             )
@@ -243,13 +236,11 @@ object LatencyLayer {
     }
 
     private fun sessionContext(): TurnContext {
-        val snapshot = HumanCore.snapshot()
-        val presence = snapshot?.presence
         return TurnContext(
-            channel = TurnContext.Channel.MOBILE_APP,
+            channel = TurnContext.Channel.ANDROID_APP,
             localHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY),
-            secondsSinceLastContact = snapshot?.secondsSinceLastContact,
-            wasAway = presence?.mode != com.jarvis.app.humancore.protocol.PresenceState.Mode.ACTIVE,
+            secondsSinceLastContact = null,
+            wasAway = null,
             prosody = null
         )
     }
@@ -257,7 +248,7 @@ object LatencyLayer {
 
 /**
  * The latency pipeline itself — pure-JVM testable. Every effect (speech,
- * reactor, bridge, Human Core, Obsidian) is injected, so the phase ladder,
+ * reactor, bridge, Obsidian, context and reply delivery) are injected, so the phase ladder,
  * burst correlation, and fallback behavior are unit-testable without Android.
  *
  * Threading: [onUserInput]'s fast path runs on the caller thread; the slow
@@ -281,10 +272,8 @@ class LatencyPipeline(
     private val reactorUtteranceDone: () -> Unit = {},
     private val bridgeSend: (String) -> Unit = {},
     private val bridgeStatus: () -> String = { "" },
-    private val beginExchange: (String, TurnContext?) -> PerceptionResult? = { _, _ -> null },
-    private val express: (String, TurnContext?) -> StyledResponse = { reply, _ -> StyledResponse.Approved(reply) },
-    private val completeExchange: (String, String, StyledResponse, Long, PerceptionResult?) -> Unit = { _, _, _, _, _ -> },
     private val sessionContext: () -> TurnContext? = { null },
+    private val replyDelivery: (String) -> String = FridayReplyDelivery::deliver,
     private val nowMs: () -> Long = { System.currentTimeMillis() },
     private val cognitiveEngine: com.jarvis.app.cognitive.CognitiveEngine? = null
 ) {
@@ -295,13 +284,7 @@ class LatencyPipeline(
     val turns: StateFlow<List<Turn>> = _turns.asStateFlow()
     val phase: StateFlow<LatencyLayer.Phase> = _phase.asStateFlow()
 
-    private data class PendingTurn(
-        val userText: String,
-        val perception: PerceptionResult?,
-        val context: TurnContext?
-    )
-
-    private val pending = ArrayDeque<PendingTurn>()
+    private val pending = ArrayDeque<Long>()
     private val pendingLock = Any()
     private val turnsLock = Any()
     private val exchangeCounter = AtomicLong(0)
@@ -335,12 +318,10 @@ class LatencyPipeline(
             ackSpeak(AckSpeech.pick(ackOverride))
         }
 
-        // Slow path — off the caller thread: perception, Obsidian vault write
-        // (the one genuinely blocking op), then the fire-and-forget brain send.
+        // Slow path — Friday-owned turn context, Obsidian write and cognitive send.
         dispatch {
             val ctx = sessionContext()
-            val perception = beginExchange(text, ctx)
-            synchronized(pendingLock) { pending.addLast(PendingTurn(text, perception, ctx)) }
+            synchronized(pendingLock) { pending.addLast(id) }
             logObsidian(false, text)
             if (_phase.value == LatencyLayer.Phase.ACKNOWLEDGING) {
                 _phase.value = LatencyLayer.Phase.THINKING
@@ -365,7 +346,7 @@ class LatencyPipeline(
 
     /**
      * Fast-path-only ack for a local action (e.g. voice "screen"): records the
-     * user command + JARVIS's ack as turns, flips the reactor, speaks the ack.
+     * user command + Friday's ack as turns, flips the reactor, speaks the ack.
      * No brain call, no slow path — the exchange settles back to IDLE after a
      * beat.
      */
@@ -400,22 +381,17 @@ class LatencyPipeline(
     fun onReplyReady(reply: String) {
         if (reply.isBlank()) return
         dispatch {
-            val turn = synchronized(pendingLock) { pending.removeFirstOrNull() }
+            val matchedTurn = synchronized(pendingLock) { pending.removeFirstOrNull() }
+                ?: return@dispatch
 
             _phase.value = LatencyLayer.Phase.REPLYING
             reactorFirstSegment()
 
-            val styled = express(reply, turn?.context)
-            val outbound = styled.outboundText
-            val ts = nowMs()
+            val outbound = replyDelivery(reply)
             val verified = bridgeStatus() == "ok (local)"
 
             appendTurn(Turn(fromJarvis = true, text = outbound, verified = verified))
             logObsidian(true, outbound)
-
-            if (turn != null) {
-                completeExchange(turn.userText, reply, styled, ts, turn.perception)
-            }
 
             fullSpeak(outbound)
             reactorUtteranceDone()
@@ -479,6 +455,6 @@ class LatencyPipeline(
         const val ACK_ONLY_IDLE_MS = 1_000L
         /** The one soft error turn — only on a confirmed bridge failure. */
         const val SOFT_ERROR_TEXT =
-            "I couldn't reach my reasoning engine — check that Termux llama-server is running."
+            "I couldn't reach my reasoning engine. Please check the model connection and try again."
     }
 }
