@@ -2,7 +2,6 @@ package com.jarvis.app.cognitive
 
 import com.jarvis.app.body.MemoryItem
 import com.jarvis.app.body.MemoryStorePort
-import com.jarvis.app.humancore.HumanCore
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -138,7 +137,6 @@ class StaleContextDecayTest {
             memoryStore = object : MemoryStorePort {
                 override fun queryMemories(query: String, limit: Int) = emptyList<MemoryItem>()
             },
-            humanCore = HumanCore
         )
         val resolver = engine.getPronounResolver()
         assertNotNull(resolver)
