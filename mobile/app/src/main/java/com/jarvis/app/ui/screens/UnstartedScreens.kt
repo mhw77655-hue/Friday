@@ -78,9 +78,9 @@ fun MemoryScreen() {
             Button(onClick = { refresh += 1 }) { Text("Refresh") }
         }
         Spacer(Modifier.height(16.dp))
-        Text("Identity: \${individual.identity.name}", style = JarvisType.Body)
-        Text("Experience records: \${individual.experience.experienceCount()}", style = JarvisType.Technical)
-        Text("Learned feature links: \${individual.experience.associationCount()}", style = JarvisType.Technical)
+        Text("Identity: ${individual.identity.name}", style = JarvisType.Body)
+        Text("Experience records: ${individual.experience.experienceCount()}", style = JarvisType.Technical)
+        Text("Learned feature links: ${individual.experience.associationCount()}", style = JarvisType.Technical)
         Spacer(Modifier.height(12.dp))
         Text(
             "This is Friday's model-independent memory substrate. It currently stores feature observations and associations, not full conversation transcripts or verified human-like semantic memories.",
@@ -99,7 +99,7 @@ fun MemoryScreen() {
                     .joinToString(", ") { it.removePrefix("word:") }
                 val outcomes = experience.outcomes.keys.take(6).joinToString(", ")
                 Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                    Text("Experience #\${experience.id} · \${Instant.ofEpochMilli(experience.timestampMs)}", style = JarvisType.Technical)
+                    Text("Experience #${experience.id} · ${Instant.ofEpochMilli(experience.timestampMs)}", style = JarvisType.Technical)
                     Text(features.ifBlank { "No lexical features" }, style = JarvisType.Body)
                     if (outcomes.isNotBlank()) {
                         Text("Observed outcome: $outcomes", style = JarvisType.Technical)
@@ -115,7 +115,7 @@ fun MemoryScreen() {
         } else {
             associations.forEach { association ->
                 Text(
-                    "\${association.source}  →  \${association.target}  ·  \${association.observations} observation(s)",
+                    "${association.source}  →  ${association.target}  ·  ${association.observations} observation(s)",
                     style = JarvisType.Technical,
                     modifier = Modifier.padding(vertical = 5.dp)
                 )
