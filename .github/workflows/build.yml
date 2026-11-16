@@ -39,6 +39,48 @@ jobs:
       # mobile/app/build.gradle.kts (compileOptions source/targetCompatibility =
       # VERSION_17, kotlin compilerOptions jvmTarget = JVM_17) and the root
       # build.gradle.kts (AGP 8.10.0, which requires JDK 17).
+      # Read the owner's original conversation archive as source material for VISION.md.
+      - name: Extract original vision chats
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import zipfile, pathlib, html, re
+          from xml.etree import ElementTree as ET
+          archive = pathlib.Path("New Folder chats.zip")
+          out = pathlib.Path("vision-chat-archive-report.md")
+          allowed = {".txt", ".md", ".json", ".html", ".htm", ".xml", ".csv", ".yaml", ".yml"}
+          sections = ["# Original New Folder chats.zip — extracted source", ""]
+          with zipfile.ZipFile(archive) as z:
+              infos = [i for i in z.infolist() if not i.is_dir()]
+              sections += [f"Archive entries: {len(infos)}", ""]
+              sections += [f"- {i.filename} ({i.file_size} bytes)" for i in infos]
+              sections += ["", "---", ""]
+              for i in infos:
+                  p = pathlib.PurePosixPath(i.filename)
+                  if p.suffix.lower() not in allowed or i.file_size > 2_000_000:
+                      continue
+                  raw = z.read(i)
+                  try: s = raw.decode("utf-8-sig")
+                  except UnicodeDecodeError:
+                      try: s = raw.decode("utf-16")
+                      except UnicodeDecodeError: continue
+                  if p.suffix.lower() in {".html", ".htm"}:
+                      s = re.sub(r"(?is)<(script|style).*?>.*?</\\1>", " ", s)
+                      s = html.unescape(re.sub(r"(?s)<[^>]+>", " ", s))
+                  if p.suffix.lower() == ".xml":
+                      try: s = " ".join(t.strip() for t in ET.fromstring(s).itertext() if t.strip())
+                      except Exception: pass
+                  sections += [f"## SOURCE: {i.filename}", "", s, "", "---", ""]
+          out.write_text("\\n".join(sections), encoding="utf-8")
+          print(f"Extracted archive to {out} ({out.stat().st_size} bytes)")
+          PY
+      - name: Upload original vision source extraction
+        uses: actions/upload-artifact@v4
+        with:
+          name: original-vision-chat-extraction
+          path: vision-chat-archive-report.md
+          retention-days: 3
+
       - name: Set up Python for Friday builder contract tests
         uses: actions/setup-python@v5
         with:
