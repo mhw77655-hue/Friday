@@ -194,7 +194,7 @@ class TurnPathAssembly private constructor(
             val retriever = BlendedMemoryRetriever(
                 graphStore,
                 embeddingProvider,
-                MemoryImportanceScorer(embeddingProvider = embeddingProvider),
+                MemoryImportanceScorer(embeddingProvider = embeddingProvider, nowMs = { ports.nowMs() }),
                 nowMs = { ports.nowMs() }
             )
             val signalScorer = SignalSplitScorer(embeddingProvider)

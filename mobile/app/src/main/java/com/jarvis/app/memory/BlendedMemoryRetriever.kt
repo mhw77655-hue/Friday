@@ -112,7 +112,7 @@ class BlendedMemoryRetriever(
         context: String = "",
         now: Long = nowMs()
     ): List<RankedMemory> {
-        val allNodes = graphStore.query()
+        val allNodes = graphStore.query(asOfTime = now)
         if (allNodes.isEmpty()) return emptyList()
 
         // ── STEP 1: binary-quantized Hamming seeds ────────────────────────

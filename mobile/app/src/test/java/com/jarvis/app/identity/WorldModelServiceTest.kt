@@ -17,12 +17,12 @@ import org.junit.Test
  * tests, mirroring the production AndroidMemoryGraphStore supersession logic
  * (used so identity tests run on this host without Android/JDBC).
  */
-class FakeGraph : MemoryGraphStore {
+class FakeGraph(private val nowMs: () -> Long = { System.currentTimeMillis() }) : MemoryGraphStore {
     private val nodes = mutableListOf<com.jarvis.app.memory.MemoryNode>()
     private var idCounter = 0
 
     override fun addFact(subject: String, predicate: String, `object`: String, source: String): String {
-        val now = System.currentTimeMillis()
+        val now = nowMs()
         val id = "id-${++idCounter}"
         for (n in nodes) {
             if (n.subject == subject && n.predicate == predicate && n.validUntil == null) {
@@ -62,6 +62,19 @@ class WorldModelServiceTest {
     private fun graph(): FakeGraph = FakeGraph()
 
     private fun service(graph: FakeGraph) = WorldModelService(graph)
+
+    @Test
+    fun `world queries use the injected clock after a 72-hour validity transition`() {
+        var now = 1_000L
+        val graph = FakeGraph(nowMs = { now })
+        val service = WorldModelService(graph, nowMs = { now })
+        graph.addFact("Alice", "worksAt", "Acme")
+        now += 72L * 60L * 60L * 1_000L
+        graph.addFact("Alice", "worksAt", "Beta")
+
+        val currentFacts = service.getFactsAbout("Alice")
+        assertEquals(listOf("Beta"), currentFacts.map { it.`object` })
+    }
 
     // ── AC1: real, tested API ──────────────────────────────────────────────
 

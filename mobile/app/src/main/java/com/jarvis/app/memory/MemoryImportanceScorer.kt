@@ -29,7 +29,9 @@ class MemoryImportanceScorer(
      */
     val salienceFloor: Float = 0.1f,
     /** Half-life in milliseconds for a memory with neutral (0.5) salience. */
-    val baseHalfLifeMs: Long = 3_600_000L // 1 hour default
+    val baseHalfLifeMs: Long = 3_600_000L, // 1 hour default
+    /** Shared host clock for default decay/recency queries. */
+    private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) {
     companion object {
         /** Saturation ceiling for frequency scoring. */
@@ -48,7 +50,7 @@ class MemoryImportanceScorer(
      * @param currentContext the current conversation context (for relevance)
      * @param now current timestamp (injectable for testing)
      */
-    fun score(node: MemoryNode, currentContext: String, now: Long = System.currentTimeMillis()): Float {
+    fun score(node: MemoryNode, currentContext: String, now: Long = nowMs()): Float {
         val recency = recencyScore(node.validFrom, now)
         val frequency = frequencyScore(node.accessCount)
         val relevance = relevanceScore(node, currentContext)
@@ -67,7 +69,7 @@ class MemoryImportanceScorer(
      * low-salience memories decay faster. The result is never zero
      * if the node is above [salienceFloor].
      */
-    fun decayedStrength(node: MemoryNode, now: Long = System.currentTimeMillis()): Float {
+    fun decayedStrength(node: MemoryNode, now: Long = nowMs()): Float {
         val elapsedMs = max(0, now - node.validFrom)
         val halfLifeMs = halfLifeForSalience(node.salience)
         val decayRate = ln(2.0) / halfLifeMs.toDouble()
