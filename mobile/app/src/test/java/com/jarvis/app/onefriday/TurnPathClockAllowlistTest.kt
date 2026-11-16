@@ -17,8 +17,7 @@ class TurnPathClockAllowlistTest {
     @Test
     fun `production composition injects one Android root clock through the turn path`() {
         val appRoot = findAppRoot()
-        val engine = File(appRoot, "../../main/java/com/jarvis/app/JarvisEngine.kt").takeIf { it.isFile }
-            ?: File(appRoot, "JarvisEngine.kt")
+        val engine = File(appRoot, "JarvisEngine.kt")
         val ports = File(appRoot, "onefriday/AndroidPlatformPorts.kt")
         val assembly = File(appRoot, "onefriday/TurnPathAssembly.kt")
         val cognitive = File(appRoot, "cognitive/CognitiveEngine.kt")
@@ -59,7 +58,7 @@ class TurnPathClockAllowlistTest {
         )
         assertFalse(
             "the production composition root itself must not read the wall clock directly",
-            Regex("""System\\.currentTimeMillis\\(\\)""").containsMatchIn(assemblyText)
+            Regex("""System\.currentTimeMillis\(\)""").containsMatchIn(assemblyText)
         )
     }
 
