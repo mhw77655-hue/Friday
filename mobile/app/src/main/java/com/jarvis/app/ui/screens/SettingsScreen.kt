@@ -13,7 +13,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Button
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -24,12 +28,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import kotlinx.coroutines.launch
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.jarvis.app.ui.components.StateChip
@@ -68,6 +75,12 @@ fun SettingsScreen() {
     var personaText by remember { mutableStateOf(prefs.getString(KEY_PERSONA, "") ?: "") }
     var offlineMode by remember { mutableStateOf(prefs.getBoolean(KEY_OFFLINE_MODE, true)) }
     var recallLimit by remember { mutableStateOf(prefs.getString(KEY_RECALL_LIMIT, "") ?: "") }
+    val githubTokenStore = remember { com.jarvis.app.github.GitHubTokenStore(context) }
+    var githubToken by remember { mutableStateOf("") }
+    var githubConnected by remember { mutableStateOf(githubTokenStore.isConfigured()) }
+    var githubBusy by remember { mutableStateOf(false) }
+    var githubStatus by remember { mutableStateOf(if (githubConnected) "GitHub token stored securely." else "Not connected.") }
+    val githubScope = rememberCoroutineScope()
 
     // Bumped on ON_RESUME so the storage-permission row re-checks after
     // the user comes back from the system "All files access" screen --
@@ -96,6 +109,7 @@ fun SettingsScreen() {
             .fillMaxSize()
             .background(JarvisColors.SurfaceBase)
             .padding(16.dp)
+            .verticalScroll(rememberScrollState())
     ) {
         SectionLabel("PERSONALITY")
         Text(
@@ -119,6 +133,89 @@ fun SettingsScreen() {
 
         SectionLabel("VOICE")
         Text(text = "TTS voice: en-GB (system)", style = JarvisType.Technical)
+
+        SectionLabel("GITHUB DEVELOPMENT LINK")
+        Text(
+            text = "Connect Friday to her public GitHub repository. A fine-grained token is encrypted with Android Keystore. Grant only Actions: Read and write and Pull requests: Read for the Friday repository. Do NOT grant Contents: Write.",
+            style = JarvisType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        OutlinedTextField(
+            value = githubToken,
+            onValueChange = { githubToken = it },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("github_pat_…", style = JarvisType.Body) },
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = JarvisColors.SurfaceHairline,
+                unfocusedBorderColor = JarvisColors.SurfaceHairline
+            )
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Button(
+                onClick = {
+                    runCatching { githubTokenStore.save(githubToken) }
+                        .onSuccess {
+                            githubConnected = true
+                            githubToken = ""
+                            githubStatus = "GitHub token encrypted and saved on this phone."
+                        }
+                        .onFailure { githubStatus = it.message ?: "Could not save GitHub token." }
+                },
+                enabled = githubToken.isNotBlank()
+            ) { Text("Save GitHub token") }
+            TextButton(onClick = {
+                githubTokenStore.clear()
+                githubConnected = false
+                githubToken = ""
+                githubStatus = "GitHub token removed from this phone."
+            }) { Text("Disconnect") }
+        }
+        TextButton(onClick = {
+            context.startActivity(
+                Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/settings/personal-access-tokens/new"))
+            )
+        }) { Text("Create fine-grained token") }
+
+        Button(
+            onClick = {
+                githubScope.launch {
+                    githubBusy = true
+                    githubStatus = "Sending a consented device-health snapshot to GitHub…"
+                    runCatching { com.jarvis.app.github.GitHubDevelopmentClient(context).submitSelfMaintenanceRequest() }
+                        .onSuccess { githubStatus = it }
+                        .onFailure { githubStatus = it.message ?: "GitHub request failed." }
+                    githubBusy = false
+                }
+            },
+            enabled = githubConnected && !githubBusy,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(if (githubBusy) "Sending…" else "Run Friday self-maintenance") }
+
+        Button(
+            onClick = {
+                githubScope.launch {
+                    githubBusy = true
+                    runCatching { com.jarvis.app.github.GitHubDevelopmentClient(context).checkLatestProposal() }
+                        .onSuccess { githubStatus = it }
+                        .onFailure { githubStatus = it.message ?: "Could not check proposal." }
+                    githubBusy = false
+                }
+            },
+            enabled = githubConnected && !githubBusy,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Check latest repair proposal") }
+        Text(
+            text = githubStatus,
+            style = JarvisType.Technical,
+            modifier = Modifier.padding(top = 6.dp)
+        )
+        Text(
+            text = "Privacy: the repository is public. Sending a request publishes a bounded technical snapshot (device model, Android/app version, available RAM/storage, battery, thermal and network type) in the workflow input. No conversations, location, contacts, notifications, microphone, camera, screen contents, files or unique device IDs are sent. Friday never merges or installs a worker patch.",
+            style = JarvisType.Label,
+            modifier = Modifier.padding(top = 8.dp)
+        )
 
         SectionLabel("PERMISSIONS")
         Text(text = "Shizuku, mic, notifications — not yet wired to a real permission check", style = JarvisType.Label)
