@@ -62,6 +62,9 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     private val _humanCoreText = MutableStateFlow("Human Core: initializing...")
     val humanCoreText: StateFlow<String> = _humanCoreText.asStateFlow()
 
+    private val _modelRuntimeText = MutableStateFlow("model runtime: checking")
+    val modelRuntimeText: StateFlow<String> = _modelRuntimeText.asStateFlow()
+
     private val _failureText = MutableStateFlow("Failures: none")
     val failureText: StateFlow<String> = _failureText.asStateFlow()
 
@@ -188,7 +191,9 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         diagnosticEvents.record("microphone", lastMicText)
         diagnosticEvents.record("speech_recognition", lastSttText)
         diagnosticEvents.record("hotword", lastHotwordText)
-        diagnosticEvents.record("model_runtime", modelRuntimeDiagnosticText())
+        val runtimeText = modelRuntimeDiagnosticText()
+        _modelRuntimeText.value = runtimeText
+        diagnosticEvents.record("model_runtime", runtimeText)
         diagnosticEvents.record("text_to_speech", lastTtsText)
         diagnosticEvents.record("voice_process", lastVoiceSubstrateText)
         diagnosticEvents.record("screen_context", lastScreenText)
@@ -197,7 +202,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         lastIndividualText = individualDiagnosticText()
         _humanCoreText.value = lastIndividualText
         _failureText.value = lastFailureText
-        _healthText.value = "$battery. $lastNetworkText. $lastNotifText. $lastShizukuText. $lastMicText. $lastSttText. $lastHotwordText. ${modelRuntimeDiagnosticText()}. $lastTtsText. Screen context content is excluded. $lastSelfKnowledgeText. $lastIndividualText. $lastFailureText. $lastVoiceSubstrateText. Telemetry: ${Telemetry.summarize()}"
+        _healthText.value = "$battery. $lastNetworkText. $lastNotifText. $lastShizukuText. $lastMicText. $lastSttText. $lastHotwordText. $runtimeText. $lastTtsText. Screen context content is excluded. $lastSelfKnowledgeText. $lastIndividualText. $lastFailureText. $lastVoiceSubstrateText. Telemetry: ${Telemetry.summarize()}"
 
         _networkText.value = lastNetworkText
         _shizukuText.value = lastShizukuText
