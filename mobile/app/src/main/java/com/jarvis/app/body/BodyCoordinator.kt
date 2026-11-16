@@ -202,6 +202,7 @@ class BodyCoordinator(
             onStatusChanged = { s -> SpeechBridge.updateStatus(s) }
         )
         val sttAvailable = speechRecognizer?.isAvailable() ?: false
+        SpeechBridge.updateStatus(if (sttAvailable) "ready; waiting for an explicit listening request" else "unavailable")
         Log.i(TAG, "Platform STT: ${if (sttAvailable) "available" else "UNAVAILABLE"}")
         if (!sttAvailable) {
             // Honest degradation: no platform recognizer service installed, so
