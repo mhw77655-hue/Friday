@@ -5,13 +5,13 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Remote HTTP binding (spec §2.30) — polls an HF-Space `/api/status`-class
+ * Remote HTTP runtime binding (optional research adapter) — polls an HF-Space `/api/status`-class
  * endpoint on the I/O lane and caches the last-known-good [RawCoreState], so
  * [read] never blocks the caller (spec §2.30: remote-binding network calls
  * must never block the render thread; last-known-good used on any stall).
  *
  * ## Phase 1 scope (plan §4.2 GAP rows)
- * The remote endpoint's exact field names are a spec §4 open item. This
+ * The remote endpoint's exact field names remain provider-specific. This
  * binding therefore accepts an injectable [fetchJson] (returns the raw JSON
  * status body) and a [parseJson] (maps it to [RawCoreState]). Defaults:
  * - [fetchJson] performs an HTTP GET against [endpointUrl] via the injected
@@ -36,7 +36,7 @@ class RemoteHumanCoreBinding(
             null
         }
     },
-    private val parseJson: (String) -> RawCoreState = ::parseStatusJson,
+    private val parseJson: (String) -> FridayRuntimeSnapshot = ::parseStatusJson,
     private val refreshIntervalMs: Long = DEFAULT_REFRESH_INTERVAL_MS,
     private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) : HumanCoreBinding {
@@ -48,7 +48,7 @@ class RemoteHumanCoreBinding(
         Thread(r, "companioncore-remote-binding").apply { isDaemon = true }
     }
 
-    @Volatile private var lastKnownGood: RawCoreState = RawCoreState.empty(nowMs())
+    @Volatile private var lastKnownGood: FridayRuntimeSnapshot = RawCoreState.empty(nowMs())
     @Volatile private var healthy: Boolean = false
     private val lastRefreshMs = AtomicLong(0L)
 
@@ -70,7 +70,7 @@ class RemoteHumanCoreBinding(
     }
 
     /** Never blocks: returns the cached last-known-good (empty until first poll). */
-    override fun read(): RawCoreState = lastKnownGood
+    override fun read(): FridayRuntimeSnapshot = lastKnownGood
 
     override fun isHealthy(): Boolean = healthy
 
@@ -88,7 +88,7 @@ class RemoteHumanCoreBinding(
          * optional; unknown fields are ignored; absent emotion fields map to
          * null (→ neutral), never a fabricated default.
          */
-        fun parseStatusJson(body: String): RawCoreState {
+        fun parseStatusJson(body: String): FridayRuntimeSnapshot {
             val obj = org.json.JSONObject(body)
             fun optDouble(key: String): Double? =
                 if (obj.has(key) && !obj.isNull(key)) obj.getDouble(key) else null
@@ -103,7 +103,7 @@ class RemoteHumanCoreBinding(
                 }.getOrNull()
             }
 
-            return RawCoreState(
+            return FridayRuntimeSnapshot(
                 ts = optLong("ts") ?: System.currentTimeMillis(),
                 moodValence = optDouble("valence"),
                 moodArousal = optDouble("arousal"),
