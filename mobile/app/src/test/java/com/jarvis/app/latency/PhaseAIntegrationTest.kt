@@ -5,7 +5,6 @@ import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.capability.CapabilityRegistry
 import com.jarvis.app.cognitive.CognitiveEngine
 import com.jarvis.app.cognitive.UserModel
-import com.jarvis.app.humancore.HumanCore
 import com.jarvis.app.identity.IdentityContext
 import com.jarvis.app.identity.IdentitySource
 import com.jarvis.app.identity.MentalStateHypothesis
@@ -161,7 +160,6 @@ class PhaseAIntegrationTest {
         val engine = CognitiveEngine(
             scope = CoroutineScope(Dispatchers.IO),
             memoryStore = EmptyMemoryStore(),
-            humanCore = HumanCore,
             modelManager = modelManager,
             cognitiveAdmissionPolicy = policy,
             blendedRetriever = retriever,
