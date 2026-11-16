@@ -16,7 +16,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -25,14 +24,22 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.jarvis.app.body.BodyState
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 
 /**
- * Lightweight, native Compose embodiment for Friday.
+ * Friday's first non-anthropomorphic procedural embodiment.
  *
- * All animation is procedural and drawn on Canvas: no video, remote avatar,
- * camera, 3D engine or additional model is required. Activity state comes from
- * the real BodyCoordinator state. Speaking motion is a visual activity cue;
- * it is not represented as phoneme-accurate lip sync.
+ * This is not a face, body, orb, or identity container. It is a continuously
+ * moving topology: asymmetric filaments, branching relations and nodes. The
+ * renderer has no LISTENING/THINKING/SPEAKING pose table. It responds to the
+ * measured voice signal when available and otherwise continues a low-energy
+ * autonomous visual motion. BodyState is used only to surface a real runtime
+ * fault; it does not define a psychological/existence mode.
+ *
+ * Geometry is generated locally with Compose Canvas. No remote asset, avatar
+ * model, network service, or neural model is required.
  */
 @Composable
 fun FridayAvatar(
@@ -42,120 +49,166 @@ fun FridayAvatar(
     voiceActive: Boolean = false,
     voiceLevel: Float = 0f
 ) {
-    val transition = rememberInfiniteTransition(label = "friday-avatar")
-    val breathe by transition.animateFloat(
-        initialValue = 0.985f,
-        targetValue = 1.015f,
-        animationSpec = infiniteRepeatable(tween(2600, easing = FastOutSlowInEasing), RepeatMode.Reverse),
-        label = "breathing"
-    )
-    val blink by transition.animateFloat(
+    val motion = rememberInfiniteTransition(label = "friday-topology")
+    val phase by motion.animateFloat(
         initialValue = 0f,
+        targetValue = (2f * PI).toFloat(),
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 18_000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "topology-phase"
+    )
+    val slowDrift by motion.animateFloat(
+        initialValue = -1f,
         targetValue = 1f,
-        animationSpec = infiniteRepeatable(tween(180, delayMillis = 2400), RepeatMode.Reverse),
-        label = "blink"
+        animationSpec = infiniteRepeatable(tween(7_500, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "topology-drift"
     )
-    val speakingNow = voiceActive
-    val liveLevel by animateFloatAsState(
-        targetValue = if (speakingNow) voiceLevel.coerceIn(0f, 1f) else 0f,
-        animationSpec = tween(durationMillis = 55),
-        label = "voice-amplitude"
+    val measuredLevel by animateFloatAsState(
+        targetValue = if (voiceActive) voiceLevel.coerceIn(0f, 1f) else 0f,
+        animationSpec = tween(70),
+        label = "voice-energy"
     )
-    // A subtle fallback movement is used when the active provider does not
-    // expose PCM (e.g. Android system TTS). It follows the real speaking
-    // lifecycle, but is deliberately not presented as waveform lip-sync.
-    val fallbackSpeaking by transition.animateFloat(
-        initialValue = 0.12f,
-        targetValue = if (speakingNow) 0.32f else 0.12f,
-        animationSpec = infiniteRepeatable(tween(if (speakingNow) 190 else 900), RepeatMode.Reverse),
-        label = "speaking-fallback"
-    )
-    val mouthActivity = if (liveLevel > 0.015f) liveLevel else if (speakingNow) fallbackSpeaking else 0f
-    val active = state in setOf(BodyState.LISTENING, BodyState.HEARING, BodyState.THINKING, BodyState.RETRIEVING, BodyState.RESPONDING, BodyState.SPEAKING)
-    val accent = when (state) {
-        BodyState.ERROR -> Color(0xFFFF806F)
-        BodyState.LISTENING, BodyState.HEARING -> Color(0xFF77D9FF)
-        BodyState.THINKING, BodyState.RETRIEVING, BodyState.RESPONDING -> Color(0xFFB9A0FF)
-        BodyState.SPEAKING -> Color(0xFF8CE8D0)
-        else -> Color(0xFF83CFFF)
-    }
+
+    val fault = state == BodyState.ERROR
+    val accent = if (fault) Color(0xFFFF8A78) else Color(0xFF78DDF2)
+    val secondary = if (fault) Color(0xFFFFB59D) else Color(0xFFB6A6FF)
+    val energy = (0.12f + measuredLevel * 0.88f).coerceIn(0.12f, 1f)
 
     Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
-            val cx = this.size.width / 2f
-            val cy = this.size.height / 2f
+            val cx = this.size.width * 0.5f
+            val cy = this.size.height * 0.5f
             val unit = this.size.minDimension
-            val scale = unit / 280f * breathe
-            fun p(x: Float, y: Float) = Offset(cx + x * scale, cy + y * scale)
+            val scale = unit / 280f
+            val t = phase
+            val drift = slowDrift
+            fun point(x: Float, y: Float) = Offset(cx + x * scale, cy + y * scale)
 
-            // Soft ambient halo.
+            // Diffuse spatial field, intentionally not a circular avatar boundary.
             drawCircle(
                 brush = Brush.radialGradient(
-                    listOf(accent.copy(alpha = if (active) 0.22f else 0.12f), Color.Transparent),
-                    center = Offset(cx, cy),
+                    colors = listOf(accent.copy(alpha = 0.13f * energy), Color.Transparent),
+                    center = Offset(cx - 8f * scale, cy + 3f * scale),
                     radius = 132f * scale
                 ),
                 radius = 132f * scale,
-                center = Offset(cx, cy)
+                center = Offset(cx - 8f * scale, cy + 3f * scale)
             )
-            drawCircle(accent.copy(alpha = 0.22f), 105f * scale, Offset(cx, cy), style = Stroke(1.2f * scale))
-            drawCircle(accent.copy(alpha = 0.12f), 116f * scale, Offset(cx, cy), style = Stroke(1f * scale))
 
-            // Face silhouette: a calm, abstract feminine digital presence.
-            val face = Path().apply {
-                moveTo(p(-62f, -78f).x, p(-62f, -78f).y)
-                cubicTo(p(-83f, -67f).x, p(-83f, -67f).y, p(-88f, 4f).x, p(-88f, 4f).y, p(-61f, 65f).x, p(-61f, 65f).y)
-                cubicTo(p(-42f, 94f).x, p(-42f, 94f).y, p(42f, 94f).x, p(42f, 94f).y, p(61f, 65f).x, p(61f, 65f).y)
-                cubicTo(p(88f, 4f).x, p(88f, 4f).y, p(83f, -67f).x, p(83f, -67f).y, p(62f, -78f).x, p(62f, -78f).y)
-                cubicTo(p(28f, -103f).x, p(28f, -103f).y, p(-28f, -103f).x, p(-28f, -103f).y, p(-62f, -78f).x, p(-62f, -78f).y)
+            // An irregular, open central structure rather than a head or orb.
+            val nucleus = Path().apply {
+                moveTo(point(-18f, -20f).x, point(-18f, -20f).y)
+                cubicTo(
+                    point(-2f, -34f).x, point(-2f, -34f).y,
+                    point(21f, -18f).x, point(21f, -18f).y,
+                    point(17f, 2f).x, point(17f, 2f).y
+                )
+                cubicTo(
+                    point(30f, 22f).x, point(30f, 22f).y,
+                    point(1f, 34f).x, point(1f, 34f).y,
+                    point(-17f, 18f).x, point(-17f, 18f).y
+                )
+                cubicTo(
+                    point(-35f, 5f).x, point(-35f, 5f).y,
+                    point(-31f, -7f).x, point(-31f, -7f).y,
+                    point(-18f, -20f).x, point(-18f, -20f).y
+                )
                 close()
             }
-            drawPath(face, Brush.linearGradient(listOf(Color(0xFF243B52), Color(0xFF101C2C)), p(-80f, -100f), p(70f, 100f)))
-            drawPath(face, accent.copy(alpha = 0.62f), style = Stroke(1.5f * scale))
-
-            // Forehead light and cheek contours.
-            drawLine(accent.copy(alpha = 0.24f), p(-42f, -68f), p(42f, -68f), 1f * scale)
-            drawLine(accent.copy(alpha = 0.22f), p(-64f, 35f), p(-48f, 53f), 1f * scale)
-            drawLine(accent.copy(alpha = 0.22f), p(64f, 35f), p(48f, 53f), 1f * scale)
-
-            // Eyes and gaze: attention shifts subtly with state.
-            val gazeX = if (state == BodyState.LISTENING || state == BodyState.HEARING) 2.5f else if (state == BodyState.THINKING) 3.5f else 0f
-            val eyeY = -17f
-            val eyeH = if (blink > 0.88f) 2.2f else 9f
-            listOf(-34f, 34f).forEach { eyeX ->
-                drawOval(
-                    color = Color(0xFFE4F5FF).copy(alpha = 0.9f),
-                    topLeft = p(eyeX - 13f, eyeY - eyeH / 2f),
-                    size = Size(26f * scale, eyeH * scale)
+            drawPath(
+                nucleus,
+                Brush.linearGradient(
+                    listOf(Color(0xFF172C42).copy(alpha = 0.9f), Color(0xFF263D59).copy(alpha = 0.42f)),
+                    point(-25f, -28f),
+                    point(28f, 30f)
                 )
-                if (eyeH > 4f) {
-                    drawCircle(Color(0xFF75D9FF), 5.2f * scale, p(eyeX + gazeX, eyeY))
-                    drawCircle(Color(0xFF071321), 2.5f * scale, p(eyeX + gazeX, eyeY))
-                    drawCircle(Color.White.copy(alpha = 0.9f), 1.2f * scale, p(eyeX + gazeX - 1.8f, eyeY - 2f))
-                }
-                val brow = Path().apply {
-                    moveTo(p(eyeX - 15f, eyeY - 15f).x, p(eyeX - 15f, eyeY - 15f).y)
-                    quadraticTo(p(eyeX, eyeY - 23f).x, p(eyeX, eyeY - 23f).y, p(eyeX + 15f, eyeY - 15f).x, p(eyeX + 15f, eyeY - 15f).y)
-                }
-                drawPath(brow, accent.copy(alpha = 0.85f), style = Stroke(2f * scale, cap = StrokeCap.Round))
-            }
-
-            // Nose bridge, subtle and non-photorealistic.
-            val nose = Path().apply {
-                moveTo(p(0f, -2f).x, p(0f, -2f).y)
-                quadraticTo(p(-4f, 17f).x, p(-4f, 17f).y, p(1f, 20f).x, p(1f, 20f).y)
-            }
-            drawPath(nose, Color(0xFF9DBFD3).copy(alpha = 0.55f), style = Stroke(1.4f * scale, cap = StrokeCap.Round))
-
-            // Mouth opens only while the body is actually in SPEAKING state.
-            val mouthWidth = 10f + 7f * mouthActivity
-            val mouthHeight = if (speakingNow) 2.5f + 13f * mouthActivity else 1.5f
-            drawOval(
-                color = accent.copy(alpha = 0.9f),
-                topLeft = p(-mouthWidth, 43f - mouthHeight / 2f),
-                size = Size(mouthWidth * 2f * scale, mouthHeight * scale)
             )
-            drawLine(Color.White.copy(alpha = 0.15f), p(-42f, 76f), p(42f, 76f), 1f * scale)
+            drawPath(nucleus, accent.copy(alpha = 0.66f * energy), style = Stroke(1.25f * scale))
+
+            // Unequal filaments grow from different points and continually bend.
+            // No fixed expression or finite activity-to-pose mapping exists.
+            val branchCount = 13
+            for (index in 0 until branchCount) {
+                val angle = (2.0 * PI * index / branchCount + 0.19 * sin(t * 0.23 + index)).toFloat()
+                val rootRadius = 17f + 5f * sin(t * 0.31f + index * 1.7f)
+                val length = (66f + 29f * sin(index * 2.13f + 0.7f) + 12f * sin(t * 0.41f + index)).coerceAtLeast(35f)
+                val bend = 13f * sin(t * 0.37f + index * 0.9f) + drift * 8f
+                val dx = cos(angle)
+                val dy = sin(angle)
+                val px = -dy
+                val py = dx
+                val sx = dx * rootRadius
+                val sy = dy * rootRadius
+                val ex = dx * length + px * bend
+                val ey = dy * length + py * bend
+                val c1x = dx * (length * 0.38f) + px * (bend * 0.8f)
+                val c1y = dy * (length * 0.38f) + py * (bend * 0.8f)
+                val c2x = dx * (length * 0.73f) - px * (bend * 0.55f)
+                val c2y = dy * (length * 0.73f) - py * (bend * 0.55f)
+
+                val filament = Path().apply {
+                    moveTo(point(sx, sy).x, point(sx, sy).y)
+                    cubicTo(
+                        point(c1x, c1y).x, point(c1x, c1y).y,
+                        point(c2x, c2y).x, point(c2x, c2y).y,
+                        point(ex, ey).x, point(ex, ey).y
+                    )
+                }
+                val alpha = (0.30f + 0.42f * energy + 0.12f * sin(t + index)).coerceIn(0.12f, 0.9f)
+                drawPath(filament, accent.copy(alpha = alpha), style = Stroke((0.8f + energy * 0.8f) * scale, cap = StrokeCap.Round))
+
+                // Secondary, shorter offshoot: asymmetrical and not mirrored.
+                if (index % 2 == 0) {
+                    val branchAtX = sx + (ex - sx) * 0.63f
+                    val branchAtY = sy + (ey - sy) * 0.63f
+                    val side = if (index % 4 == 0) 1f else -1f
+                    val twigLength = 17f + 9f * (0.5f + 0.5f * sin(t * 0.53f + index))
+                    val tx = branchAtX + px * side * twigLength + dx * 7f
+                    val ty = branchAtY + py * side * twigLength + dy * 7f
+                    val twig = Path().apply {
+                        moveTo(point(branchAtX, branchAtY).x, point(branchAtX, branchAtY).y)
+                        quadraticTo(
+                            point(branchAtX + px * side * twigLength * 0.72f, branchAtY + py * side * twigLength * 0.72f).x,
+                            point(branchAtX + px * side * twigLength * 0.72f, branchAtY + py * side * twigLength * 0.72f).y,
+                            point(tx, ty).x,
+                            point(tx, ty).y
+                        )
+                    }
+                    drawPath(twig, secondary.copy(alpha = 0.48f * energy), style = Stroke(0.8f * scale, cap = StrokeCap.Round))
+                    drawCircle(secondary.copy(alpha = 0.62f * energy), 2.0f * scale, point(tx, ty))
+                }
+
+                // Distal nodes drift along their filaments; node size follows
+                // measured audio energy without pretending to be lip-sync.
+                val pulse = 2.0f + 1.8f * energy * (0.5f + 0.5f * sin(t * 1.7f + index * 1.3f))
+                drawCircle(accent.copy(alpha = 0.10f * energy), pulse * 2.5f * scale, point(ex, ey))
+                drawCircle(accent.copy(alpha = 0.88f * energy), pulse * scale, point(ex, ey))
+            }
+
+            // A few cross-links create a topology, not independent decorative rays.
+            for (index in 0 until 6) {
+                val a = (index * 2) % branchCount
+                val b = (a + 3 + index % 2) % branchCount
+                fun endpoint(i: Int): Offset {
+                    val angle = (2.0 * PI * i / branchCount + 0.19 * sin(t * 0.23 + i)).toFloat()
+                    val length = (66f + 29f * sin(i * 2.13f + 0.7f) + 12f * sin(t * 0.41f + i)).coerceAtLeast(35f)
+                    val bend = 13f * sin(t * 0.37f + i * 0.9f) + drift * 8f
+                    return point(cos(angle) * length - sin(angle) * bend, sin(angle) * length + cos(angle) * bend)
+                }
+                drawLine(
+                    secondary.copy(alpha = 0.12f * energy),
+                    endpoint(a),
+                    endpoint(b),
+                    strokeWidth = 0.65f * scale
+                )
+            }
+
+            // A small internal glint moves through the structure continuously.
+            val glintX = 9f * sin(t * 0.61f) + 3f * drift
+            val glintY = 11f * cos(t * 0.47f)
+            drawCircle(Color.White.copy(alpha = 0.72f), 2.1f * scale, point(glintX, glintY))
         }
     }
 }
