@@ -63,6 +63,9 @@ object EngineAccess {
 
     fun voiceOrganismHost(): EngineSlot<com.jarvis.app.voice.VoiceOrganismHost> =
         JarvisEngine.voiceOrganismHostSlot()
+
+    fun voiceOutputPath(): EngineSlot<com.jarvis.app.voice.VoiceOutputPath> =
+        JarvisEngine.voiceOutputPathSlot()
 }
 
 /**
