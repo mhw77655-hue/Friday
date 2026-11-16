@@ -17,7 +17,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.jarvis.app.JarvisMic
-import com.jarvis.app.JarvisEngine
 import com.jarvis.app.MainActivity
 import com.jarvis.app.ScreenBridge
 import com.jarvis.app.ShizukuBridge
@@ -209,7 +208,16 @@ object FridayRuntimeController {
     fun enable(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putBoolean(KEY_ENABLED, true).remove(KEY_START_FAILURE).apply()
-        startCore(context)
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            // This method is called by the visible Settings screen after the
+            // owner explicitly enables persistence; preserve the app's current
+            // voice behavior under the foreground service.
+            startWithMicrophone(context)
+        } else {
+            startCore(context)
+        }
     }
 
     fun startCore(context: Context) {
