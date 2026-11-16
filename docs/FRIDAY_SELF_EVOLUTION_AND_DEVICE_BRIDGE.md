@@ -105,3 +105,28 @@ The channel uses a public GitHub issue because the repository is public. The bou
 - No sensitive raw device data leaves the phone without explicit consent.
 - A signed update is verified and user-approved before installation.
 - Friday's identity, memory and local operation continue when GitHub, relay and all models are unavailable.
+
+## Owner vision source — now wired into development
+
+The repository root contains the original `New Folder chats.zip` archive. `.ralph/OWNER_WORDS.md` contains curated, provenance-labelled excerpts from the owner's own conversation turns; `.ralph/VISION.md` now includes direct owner statements and points to the excerpt file. The archive is not treated as a flat prompt dump: assistant-authored text pasted into a user turn is not silently attributed to the owner, historical requests are not allowed to override later corrections, and the latest authenticated owner instruction wins.
+
+Every Ralph run now receives both `VISION.md` and `OWNER_WORDS.md` in its composed prompt. The phone-originated repository worker is also instructed to read both, inspect the original archive when the curated excerpts do not resolve an actual ambiguity, and avoid turning outcomes into fixed modules, taxonomies or a chatbot architecture. `.ralph/owner_vision_check.sh` is an offline regression check for this prompt injection and runs in CI.
+
+## Android persistent runtime — implemented on the development branch
+
+The Android app now has an owner-controlled **Keep Friday alive** setting backed by `FridayRuntimeService`:
+
+- A visible foreground-service notification keeps the runtime user-visible.
+- `START_STICKY` asks Android to recreate the service after ordinary process reclamation when the OS permits it.
+- The boot/package-replacement receiver restores the non-microphone core when the owner enabled persistence and Android permits the start.
+- Friday exposes Android's battery-optimization exemption settings so the owner can exempt the app from Doze restrictions.
+- When persistence is enabled from the visible Settings screen and microphone permission is granted, capture is hosted by the foreground service rather than relying on the activity's lifecycle.
+- A sticky restart or boot does **not** silently reopen the microphone. The owner must open Friday in the foreground before microphone capture is resumed.
+- The notification has an explicit Stop Friday action; disabling the setting clears the persistent preference and stops the service.
+
+This is an Android-supported persistence strategy, not an anti-kill exploit. It cannot defeat force-stop, OEM-specific task killers, user permission revocation, thermal shutdown, or Android policy. Android 14+ imposes while-in-use restrictions on microphone foreground services; Android 14+ also requires declared foreground-service types and permissions. Android 15+ forbids certain service types (including microphone) from being launched by a boot receiver. Friday therefore restores only its non-microphone runtime at boot and waits for a visible user launch to resume voice. See the [foreground-service type requirements](https://developer.android.com/about/versions/14/changes/fgs-types-required), [background-start restrictions](https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start), and [Android 15 boot restrictions](https://developer.android.com/about/versions/15/changes/foreground-service-types).
+
+The `specialUse` type is declared for the user-enabled companion runtime with an explicit manifest subtype. If distributed through Google Play, this use case is subject to Play's foreground-service review; sideloading the APK does not remove Android's runtime restrictions.
+
+**What this does not prove:** it does not establish subjective consciousness, continuous perception, fully autonomous initiative, or a fully developed learning loop. It provides a more durable execution host for the existing identity, memory, cognition, presence, voice and resource systems. Those systems still need integrated, on-device Life Tests showing that real experience changes later behavior.
+
