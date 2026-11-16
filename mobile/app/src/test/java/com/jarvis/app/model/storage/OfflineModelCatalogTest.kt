@@ -25,6 +25,15 @@ class OfflineModelCatalogTest {
         assertFalse(model.resident)
     }
 
+    @Test fun tinyEnglishFallbackIsPinnedAndMarkedAsFallback() {
+        val model = OfflineModelCatalog.tinyFallback
+        assertEquals("qwen3.5-0.8b-abliterated", model.id)
+        assertEquals("xdchinza/Qwen3.5-0.8B-abliterated-GGUF", model.repository)
+        assertEquals("6cef073", model.revision)
+        assertEquals("Apache-2.0", model.license)
+        assertFalse(model.resident)
+    }
+
     @Test fun reasoningModelIsSeparateAndApacheLicensed() {
         val model = OfflineModelCatalog.reasoning
         assertEquals("qwen3.5-2b-uncensored", model.id)
@@ -44,7 +53,7 @@ class OfflineModelCatalogTest {
 
     @Test fun catalogIdsAreUniqueAndEveryAssetIsPinned() {
         val all = OfflineModelCatalog.all
-        assertEquals(4, all.map { it.id }.toSet().size)
+        assertEquals(5, all.map { it.id }.toSet().size)
         assertTrue(all.all { it.revision.matches(Regex("[0-9a-f]{7,40}")) })
     }
 
