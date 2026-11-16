@@ -19,7 +19,6 @@ import com.jarvis.app.cognitive.immune.ImmuneSystem
 import com.jarvis.app.continuity.ContinuityGate
 import com.jarvis.app.emotion.FusionLayerTier1
 import com.jarvis.app.env.ModelSource
-import com.jarvis.app.env.ModelProviderType
 import com.jarvis.app.failure.FailureCategory
 import com.jarvis.app.failure.FailureReport
 import com.jarvis.app.failure.FailureSeverity
@@ -411,9 +410,7 @@ class TurnPathAssembly private constructor(
                 nowMs = { ports.nowMs() },
                 cognitiveEngine = engine,
                 modelFreeReply = modelFreeMind::respond,
-                modelAvailable = {
-                    modelManager.activeProvider.value.providerType != ModelProviderType.HEURISTIC
-                },
+                modelAvailable = { ports.hasLanguageModel(modelManager) },
                 experienceObserver = modelFreeMind::observe,
                 outcomeObserver = modelFreeMind::observeOutcome
             )
