@@ -469,6 +469,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         } ?: JSONObject.NULL)
         report.put("last_crash", CrashJournal.read(app) ?: JSONObject.NULL)
         report.put("active_diagnostics", diagnosticRunner.toJson(_diagnosticFindings.value))
+        report.put("android_process_exit_history", diagnosticRunner.exitHistoryJson())
         report.put("telemetry_summary", Telemetry.summarize())
         report.put("privacy", JSONObject()
             .put("chat_messages_included", false)
