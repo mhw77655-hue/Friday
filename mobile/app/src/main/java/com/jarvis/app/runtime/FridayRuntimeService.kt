@@ -159,7 +159,10 @@ class FridayRuntimeService : Service() {
     }
 
     private fun stopOwnedMicrophone() {
-        if (microphoneOwned || JarvisMic.isRecording.value) {
+        // Never stop an Activity-owned capture loop. This service may only
+        // stop the microphone after it successfully took ownership during an
+        // explicit visible ACTION_START_WITH_MICROPHONE handoff.
+        if (microphoneOwned) {
             JarvisMic.stop()
         }
         microphoneOwned = false
