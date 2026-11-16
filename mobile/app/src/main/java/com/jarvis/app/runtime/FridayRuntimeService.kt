@@ -74,11 +74,14 @@ class FridayRuntimeService : Service() {
             PackageManager.PERMISSION_GRANTED
 
         try {
-            val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE or
-                    if (wantsMicrophone) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0
-            } else {
-                0
+            var type = 0
+            // Microphone foreground-service typing has existed since Android
+            // 11 (API 30); specialUse was added in Android 14 (API 34).
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && wantsMicrophone) {
+                type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
             }
             ServiceCompat.startForeground(
                 this,
