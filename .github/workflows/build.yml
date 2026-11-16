@@ -111,8 +111,10 @@ jobs:
           name: debug-apk
           path: mobile/app/build/outputs/apk/debug/app-debug.apk
 
-      # Baseline unit-test run for this stage.
-      - name: Run unit tests (baseline)
+      # Run tests even when APK assembly fails. A failed packaging step must
+      # not erase independent evidence about source/test health.
+      - name: Run unit tests independently of APK assembly
+        if: ${{ !cancelled() }}
         run: ./gradlew :mobile:app:testDebugUnitTest
 
       - name: Upload JUnit results
@@ -130,8 +132,8 @@ jobs:
           paths = glob.glob('mobile/app/build/test-results/**/TEST-*.xml', recursive=True)
           if not paths:
               with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
-                  out.write('## JUnit baseline\n\nNO JUNIT FILES: the tests did not run\n')
-              raise SystemExit(0)
+                  out.write('## JUnit results\n\nNO JUNIT FILES: the test task produced no results. This is not a passing test run.\n')
+              raise SystemExit(1)
           t = f = e = s = 0
           for p in paths:
               with open(p, encoding='utf-8', errors='replace') as fh:
@@ -144,11 +146,15 @@ jobs:
                   return int(mm.group(1)) if mm else 0
               t += num('tests'); f += num('failures'); e += num('errors'); s += num('skipped')
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
-              out.write(f'## JUnit baseline\n\n{t} tests, {f} failures, {e} errors, {s} skipped\n')
+              out.write(f'## JUnit results\n\n{t} tests, {f} failures, {e} errors, {s} skipped\n')
+              out.write(f'\nAPK assembly step: {os.environ.get("APK_STEP_OUTCOME", "see job steps")}\n')
+              out.write('A skipped workflow step is not reported as a successful test. Inspect the step conclusion above.\n')
           PY
 
   report-failure:
-    if: failure()
+    # Always inspect the build job's final result. This job is intentionally
+    # skipped only when the build job succeeded; cancellation remains distinct.
+    if: ${{ !cancelled() && needs.debug-apk.result != 'success' }}
     needs: debug-apk
     runs-on: ubuntu-latest
     permissions:
