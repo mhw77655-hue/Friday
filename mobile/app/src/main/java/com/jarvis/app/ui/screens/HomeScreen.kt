@@ -20,15 +20,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.jarvis.app.body.BodyCoordinator
-import com.jarvis.app.body.BodyState
-import com.jarvis.app.body.VisualState
 import com.jarvis.app.companioncore.contract.PresenceMode
 import com.jarvis.app.companioncore.presence.CompanionCoreHolder
 import com.jarvis.app.companioncore.render.OrbRenderParams
 import com.jarvis.app.companioncore.resource.MobileResourceManagement
 import com.jarvis.app.companioncore.ui.PresenceOrb
-import com.jarvis.app.JarvisEngine
+import com.jarvis.app.life.IndependentLifeCore
 import com.jarvis.app.ui.components.HorizonArc
 import com.jarvis.app.ui.components.pressScale
 import com.jarvis.app.ui.components.rememberCapabilitySnapshot
@@ -52,14 +49,18 @@ import kotlinx.coroutines.flow.flowOf
 @Composable
 fun HomeScreen(onOpenTools: () -> Unit) {
     val core = remember { CompanionCoreHolder.instance() }
-    val bodySlot = com.jarvis.app.ui.EngineAccess.bodyCoordinator()
-    val bodyCoordinator = bodySlot.value
-    if (bodyCoordinator == null) {
-        com.jarvis.app.ui.WakingSurface(bodySlot.readiness)
-        return
+    // Friday's presence surface is owned by the model-independent substrate.
+    // It must render even when an optional model/body adapter is unavailable.
+    val lifeCore = remember { IndependentLifeCore.get() }
+    val initialLife = remember {
+        IndependentLifeCore.Snapshot(
+            bornAtMs = 0L, lastActiveAtMs = 0L, foreground = false,
+            eventCount = 0L, experienceCount = 0L, associationCount = 0,
+            activeGoals = 0, reflectionCount = 0
+        )
     }
-    val bodyState by bodyCoordinator.state.collectAsStateWithLifecycle()
-    val visualState by bodyCoordinator.visualState.collectAsStateWithLifecycle()
+    val lifeFlow = remember(lifeCore) { lifeCore?.state ?: flowOf(initialLife) }
+    val life by lifeFlow.collectAsStateWithLifecycle(initialValue = initialLife)
 
     // Presence-orb input flow. MainActivity ensures the core is built before
     // first composition; the static-idle fallback keeps this robust to any
@@ -117,13 +118,13 @@ fun HomeScreen(onOpenTools: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(14.dp))
             Text(
-                text = "JARVIS — ${presenceLabel(mode)}",
+                text = "FRIDAY — ${presenceLabel(mode)}",
                 style = JarvisType.Display,
                 textAlign = TextAlign.Center
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Body: ${bodyStateLabel(bodyState)}",
+                text = "Independent core · ${life.experienceCount} experiences · ${life.activeGoals} active goals",
                 style = JarvisType.Label.copy(color = JarvisColors.TextSecondary),
                 textAlign = TextAlign.Center
             )
@@ -146,23 +147,6 @@ private fun presenceLabel(mode: PresenceMode): String = when (mode) {
     PresenceMode.THINKING -> "thinking"
     PresenceMode.SPEAKING -> "speaking"
     PresenceMode.SHUTTING_DOWN -> "shutting down"
-}
-
-/** Readable label for body state. */
-private fun bodyStateLabel(state: BodyState): String = when (state) {
-    BodyState.IDLE -> "idle"
-    BodyState.WAKE -> "wake detected"
-    BodyState.LISTENING -> "listening"
-    BodyState.HEARING -> "processing speech"
-    BodyState.THINKING -> "thinking"
-    BodyState.RETRIEVING -> "retrieving memory"
-    BodyState.RESPONDING -> "preparing response"
-    BodyState.SPEAKING -> "speaking"
-    BodyState.INTERRUPTED -> "interrupted"
-    BodyState.LEARNING -> "learning"
-    BodyState.ERROR -> "error"
-    BodyState.USER_PRESENT -> "user present"
-    BodyState.USER_ABSENT -> "user absent"
 }
 
 @Composable
