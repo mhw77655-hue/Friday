@@ -101,7 +101,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (!com.jarvis.app.runtime.FridayRuntimeController.isEnabled(this)) {
+        if (!com.jarvis.app.runtime.FridayRuntimeController.isEnabled(this) ||
+            !com.jarvis.app.runtime.FridayRuntimeController.isMicrophoneServiceActive(this)
+        ) {
+            // Only leave capture running when the foreground runtime has
+            // actually taken ownership; a failed service start must not leak
+            // an AudioRecord from the Activity scope.
             JarvisMic.stop()
         }
         // KWS/Vosk/TTS intentionally NOT released here — they belong to
