@@ -11,11 +11,9 @@ import com.jarvis.app.android.VerificationStage
 import com.jarvis.app.cloud.CloudModelRouter
 import com.jarvis.app.cloud.CloudProvider
 import com.jarvis.app.cloud.CloudResult
-import com.jarvis.app.humancore.HumanCore
-import com.jarvis.app.humancore.store.FileStorage
 import com.jarvis.app.identity.owner.BiometricAuthResult
 import com.jarvis.app.identity.owner.BiometricType
-import com.jarvis.app.identity.owner.HumanCoreOwnerBindingPort
+import com.jarvis.app.identity.owner.FileOwnerBindingPort
 import com.jarvis.app.identity.owner.OwnerBiometricBinder
 import com.jarvis.app.identity.owner.OwnerBindingOutcome
 import com.jarvis.app.identity.owner.PlatformBiometricPromptResultMapper
@@ -88,10 +86,7 @@ class PhaseBDisconnectedSubsystemWiringTest {
 
     /** The same composition JarvisEngine.init builds for the owner-binding chain. */
     private fun productionOwnerBinder(): OwnerBiometricBinder {
-        if (!HumanCore.isInitialized()) {
-            HumanCore.init(storage = FileStorage(freshDir("owner")))
-        }
-        return OwnerBiometricBinder(HumanCoreOwnerBindingPort())
+        return OwnerBiometricBinder(FileOwnerBindingPort(freshDir("owner")))
     }
 
     // ── AC1: Universal Research Engine, real production call path ────────────
@@ -123,7 +118,7 @@ class PhaseBDisconnectedSubsystemWiringTest {
     // ── AC2: real owner-binding entry point over the real HumanCore store ────
 
     @Test
-    fun `owner binding entry point binds the real HumanCore owner relationship when invoked`() {
+    fun `owner binding entry point binds the durable Friday owner relationship when invoked`() {
         val binder = productionOwnerBinder()
 
         // The typed result a successful Android BiometricPrompt produces.
@@ -138,9 +133,9 @@ class PhaseBDisconnectedSubsystemWiringTest {
             "production bind accepts the biometric result (fresh bind or same-owner refresh)",
             outcome is OwnerBindingOutcome.Bound || outcome is OwnerBindingOutcome.ReAuthenticated
         )
-        assertTrue("owner is bound through the real HumanCore singleton", binder.isOwnerBound())
+        assertTrue("owner is bound through the durable owner store", binder.isOwnerBound())
         assertEquals("Venon", binder.currentBinding()?.ownerKey)
-        assertTrue("real HumanCore facade agrees the owner is bound", HumanCore.isOwnerBound())
+        assertTrue("owner store agrees the owner is bound", HumanCore.isOwnerBound())
     }
 
     @Test

@@ -187,8 +187,8 @@ class OwnerBiometricBindingTest {
             "a biometric result binds the owner on device B with zero cross-device state",
             OwnerBindingOutcome.Bound::class.java, b.javaClass
         )
-        assertEquals("owner", deviceA.graph.ownerBinding()?.relationshipId)
-        assertEquals("owner", deviceB.graph.ownerBinding()?.relationshipId)
+        assertEquals("owner", deviceA.ownerBinding()?.relationshipId)
+        assertEquals("owner", deviceB.ownerBinding()?.relationshipId)
 
         // A failed authorization on device B changes nothing.
         val bErr = OwnerBiometricBinder(deviceB).bind(BiometricAuthResult.Error(4, "no match"))

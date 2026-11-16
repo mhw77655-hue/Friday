@@ -62,7 +62,7 @@ class BindingParityTest {
 
     @Test
     fun `optional remote runtime adapter parses documented fields`() {
-        val binding = RemoteHumanCoreBinding(
+        val binding = RemoteFridayRuntimeBinding(
             endpointUrl = "test://status",
             httpGet = { jsonStatusPayload },
             refreshIntervalMs = 60_000L
