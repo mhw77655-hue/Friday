@@ -13,6 +13,8 @@ import com.jarvis.app.cognition.workspace.RecordedTurns
 import com.jarvis.app.cognition.workspace.ReplayCheck
 import com.jarvis.app.cognition.workspace.Workspace
 import com.jarvis.app.cognitive.CognitiveEngine
+import com.jarvis.app.cognitive.seed.FridaySeedSubstrate
+import com.jarvis.app.cognitive.seed.FridayModelFreeMind
 import com.jarvis.app.cognitive.capability.CapabilityFabric
 import com.jarvis.app.cognitive.immune.ImmuneSystem
 import com.jarvis.app.continuity.ContinuityGate
@@ -333,6 +335,16 @@ class TurnPathAssembly private constructor(
                 clock = { ports.nowMs() }
             )
 
+            // ── Friday's model-independent seed ─────────────────────────────────
+            // This local experience substrate belongs to the app, not to any
+            // model backend. It remains available when all optional models are
+            // absent and persists under app-private storage across restarts.
+            val seedSubstrate = FridaySeedSubstrate(
+                journal = ports.storageDir.resolve("friday/seed/experiences.bin").toFile(),
+                nowMs = { ports.nowMs() }
+            )
+            val modelFreeMind = FridayModelFreeMind(seedSubstrate)
+
             // ── The cognitive engine: the one route a turn takes ───────────────
             val memoryStore = stores.memoryStore()
             val engine = CognitiveEngine(
@@ -394,7 +406,10 @@ class TurnPathAssembly private constructor(
                 bridgeStatus = { modelManager.status.value },
                 sessionContext = { ports.sessionContext() },
                 nowMs = { ports.nowMs() },
-                cognitiveEngine = engine
+                cognitiveEngine = engine,
+                modelFreeReply = modelFreeMind::respond,
+                experienceObserver = modelFreeMind::observe,
+                outcomeObserver = modelFreeMind::observeOutcome
             )
 
             return TurnPathAssembly(
