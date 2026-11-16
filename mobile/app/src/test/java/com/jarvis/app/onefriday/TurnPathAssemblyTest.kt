@@ -174,9 +174,10 @@ class TurnPathAssemblyTest {
             "the composition fingerprint must not expose a Human Core facade",
             assembly.componentFingerprint.keys.none { it.contains("HumanCore", ignoreCase = true) }
         )
-        assertTrue(
-            "Friday's self-summary is built from her own identity record",
-            assembly.identityContext.formatForPrompt("Who are you?").contains("Friday")
+        assertEquals(
+            "the identity context receives Friday's own self-model instance",
+            assembly.selfModel,
+            assembly.identityContext.selfModel
         )
     }
 
