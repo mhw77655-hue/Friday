@@ -276,6 +276,13 @@ fun SettingsScreen() {
                 enabled = githubChannelConnected && !githubBusy
             ) { Text("Stop channel") }
         }
+        if (githubChannelConnected) {
+            TextButton(onClick = {
+                githubDeviceChannel.issueUrl()?.let { url ->
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                }
+            }) { Text("Open GitHub command channel") }
+        }
         Text(
             text = githubChannelStatus,
             style = JarvisType.Technical,
