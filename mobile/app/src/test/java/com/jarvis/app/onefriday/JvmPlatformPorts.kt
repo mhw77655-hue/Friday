@@ -3,9 +3,9 @@ package com.jarvis.app.onefriday
 import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.capability.CapabilityRegistry
 import com.jarvis.app.failure.FailureReport
-import com.jarvis.app.humancore.mod.MemoryAnnotation
-import com.jarvis.app.humancore.protocol.SessionContext
-import com.jarvis.app.humancore.store.StoragePort
+import com.jarvis.app.turn.TurnContext
+import com.jarvis.app.identity.IdentitySource
+import com.jarvis.app.identity.SeededFridayIdentitySource
 import com.jarvis.app.memory.EmbeddingProvider
 import com.jarvis.app.memory.MemoryGraphStore
 import com.jarvis.app.memory.provenance.AdapterManifest
@@ -36,14 +36,13 @@ class JvmPlatformPorts(
     private val stores: PlatformStores,
     private val snapshot: () -> ResourceSnapshot,
     private val clock: () -> Long,
-    private val humanCoreStorage: StoragePort,
     private val turnWork: (() -> Unit) -> Unit,
     private val later: (Long, () -> Unit) -> Unit,
     private val fastAckSink: (String) -> Unit,
     private val fullReplySink: (String) -> Unit,
     private val turnLogSink: (Boolean, String) -> Unit,
     private val warmer: () -> Unit,
-    private val session: () -> SessionContext?,
+    private val session: () -> TurnContext?,
     private val submittedSignal: () -> Unit,
     private val ackSignal: () -> Unit,
     private val firstSegmentSignal: () -> Unit,
@@ -51,7 +50,7 @@ class JvmPlatformPorts(
     private val failureSink: (FailureReport) -> Unit,
     private val failureSurface: com.jarvis.app.failure.FailureSurface,
     private val forgetter: com.jarvis.app.memory.provenance.MemoryForgetter? = null,
-    private val memorySink: ((MemoryAnnotation) -> Unit)? = null
+    private val identity: IdentitySource = SeededFridayIdentitySource
 ) : PlatformPorts {
 
     override fun failureSurface(): com.jarvis.app.failure.FailureSurface = failureSurface
@@ -76,7 +75,9 @@ class JvmPlatformPorts(
 
     override fun warmModel() = warmer()
 
-    override fun sessionContext(): SessionContext? = session()
+    override fun sessionContext(): TurnContext? = session()
+
+    override fun identitySource(): IdentitySource = identity
 
     override fun onUserSubmitted() = submittedSignal()
 
@@ -87,10 +88,6 @@ class JvmPlatformPorts(
     override fun onUtteranceCompleted() = utteranceDoneSignal()
 
     override fun reportFailure(report: FailureReport) = failureSink(report)
-
-    override fun humanCoreStorage(): StoragePort = humanCoreStorage
-
-    override fun humanCoreMemorySink(): ((MemoryAnnotation) -> Unit)? = memorySink
 
     override fun stores(): PlatformStores = stores
 }
