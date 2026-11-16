@@ -46,6 +46,21 @@ object OfflineModelCatalog {
         resident = false
     )
 
+    // Smallest English fallback for hosts that cannot admit either the
+    // primary resident model or the 1.2B fallback. This is a community
+    // reduced-refusal derivative, not a guarantee of unrestricted output.
+    val tinyFallback = OfflineModelAsset(
+        id = "qwen3.5-0.8b-abliterated",
+        displayName = "Qwen3.5 0.8B Abliterated · Q4_K_M",
+        repository = "xdchinza/Qwen3.5-0.8B-abliterated-GGUF",
+        revision = "6cef073",
+        filename = "Qwen3.5-0.8B-abliterated-Q4_K_M.gguf",
+        license = "Apache-2.0",
+        description = "Smallest English reduced-refusal fallback for constrained phones. Approximately 517 MB; runtime memory is higher and reasoning capability is limited.",
+        expectedMinimumBytes = 450L * 1024L * 1024L,
+        resident = false
+    )
+
     // Explicitly uncensored Qwen3.5 2B reasoning fallback with a pinned SHA-256.
     val reasoning = OfflineModelAsset(
         id = "qwen3.5-2b-uncensored",
@@ -74,5 +89,5 @@ object OfflineModelCatalog {
         resident = false
     )
 
-    val all: List<OfflineModelAsset> = listOf(resident, fallback, reasoning, advanced)
+    val all: List<OfflineModelAsset> = listOf(resident, fallback, tinyFallback, reasoning, advanced)
 }
