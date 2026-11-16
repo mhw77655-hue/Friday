@@ -6,7 +6,7 @@ import com.jarvis.app.companioncore.contract.RenderIntent
 import com.jarvis.app.companioncore.contract.UserPresenceEvent
 import com.jarvis.app.companioncore.contract.VisualState
 import com.jarvis.app.companioncore.engine.CompanionClock
-import com.jarvis.app.companioncore.engine.HumanCoreIntegration
+import com.jarvis.app.companioncore.engine.FridayRuntimeIntegration
 import com.jarvis.app.companioncore.render.AnimationController
 import com.jarvis.app.companioncore.render.OrbRenderParams
 import com.jarvis.app.companioncore.render.OrbStateMachine
@@ -30,7 +30,7 @@ import kotlinx.coroutines.isActive
  * framework-UI calls, <1ms per tick) and the fixed per-tick fan-out order:
  *
  * ```
- * HumanCoreIntegration.tick()  (§2.30 signal + §2.9 emotion)
+ * FridayRuntimeIntegration.tick()  (§2.30 signal + §2.9 emotion)
  *         └──► PresenceEngine.tick()   (§2.1 — owns presence_mode, sole producer of CompanionState)
  *                 └──► OrbStateMachine  (§2.6 — pure params + §1 RenderIntent)
  *                         └──► AnimationController.submit(intent)  (§2.21 arbitration)
@@ -46,7 +46,7 @@ import kotlinx.coroutines.isActive
  * Pure-JVM testable: all collaborators are injectable; [tick] is deterministic.
  */
 class CompanionCore(
-    val integration: HumanCoreIntegration,
+    val integration: FridayRuntimeIntegration,
     val presenceEngine: PresenceEngine,
     private val orbStateMachine: OrbStateMachine,
     val animationController: AnimationController,
@@ -144,7 +144,7 @@ class CompanionCore(
         integration.tick()
         val signal = integration.signal.value
         val emotion = integration.emotionLayer.snapshots.value
-        val alert = integration.hcAlertLevel()
+        val alert = integration.alertLevel()
 
         presenceEngine.tick(
             signal = signal,
