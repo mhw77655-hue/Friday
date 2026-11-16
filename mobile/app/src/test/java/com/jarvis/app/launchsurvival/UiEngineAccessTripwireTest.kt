@@ -72,6 +72,30 @@ class UiEngineAccessTripwireTest {
                 "\nAll call sites:\n" + violations.joinToString("\n"),
             violations.isEmpty()
         )
+
+        // Navigation used to unwrap nullable readiness-gated helpers with !!.
+        // That converted a typed missing-organ result back into a process crash
+        // if an optional/late organ was absent after the global Ready signal.
+        val navHost = File(uiRoot, "navigation/JarvisNavHost.kt")
+        assertTrue("navigation host must exist", navHost.isFile)
+        val navSource = navHost.readText()
+        val unsafeUnwrap = Regex(
+            """\\bget(?:TaskInbox|ApprovalQueue|AlertStore|SessionManager|EnvironmentManager|ModelManager|BootstrapManager)\\s*\\(\\)\\s*!!"""
+        )
+        assertTrue(
+            "navigation must not force-unwrap nullable engine accessors",
+            !unsafeUnwrap.containsMatchIn(navSource)
+        )
+        val requiredSlots = listOf(
+            "taskInbox", "approvalQueue", "alertStore", "sessionManager",
+            "environmentManager", "modelManager", "bootstrapManager"
+        )
+        requiredSlots.forEach { accessor ->
+            assertTrue(
+                "navigation must use EngineAccess.$accessor()",
+                navSource.contains("EngineAccess.$accessor()")
+            )
+        }
     }
 
     /** Every getter in JarvisEngine.kt whose body is `= checkNotNull(...)`. */
