@@ -79,6 +79,13 @@ class AndroidPlatformPorts(
         WarmupEngine.prime()
     }
 
+    override fun hasLanguageModel(modelManager: com.jarvis.app.model.ModelManager): Boolean {
+        val provider = modelManager.activeProvider.value
+        val health = modelManager.providerHealth.value
+        return provider.providerType != com.jarvis.app.env.ModelProviderType.HEURISTIC &&
+            health.isHealthy && health.modelLoaded
+    }
+
     /**
      * The same per-turn session context the app built, now derived from the
      * injected clock so one Friday has exactly one notion of "now".
