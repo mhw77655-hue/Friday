@@ -23,6 +23,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jarvis.app.ui.components.HorizonArc
 import com.jarvis.app.ui.components.pressScale
 import com.jarvis.app.ui.components.rememberCapabilitySnapshot
+import com.jarvis.app.JarvisMic
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
 import kotlinx.coroutines.flow.flowOf
@@ -37,9 +38,13 @@ import kotlinx.coroutines.flow.flowOf
 fun HomeScreen(onOpenTools: () -> Unit) {
     val voiceSlot = com.jarvis.app.ui.EngineAccess.voiceOutputPath()
     val voiceOutput = voiceSlot.value
-    val voiceActive by (voiceOutput?.isSpeaking ?: flowOf(false)).collectAsStateWithLifecycle(initialValue = false)
-    val voiceLevel by (voiceOutput?.audioLevel ?: flowOf(0f)).collectAsStateWithLifecycle(initialValue = 0f)
-
+    val outputActive by (voiceOutput?.isSpeaking ?: flowOf(false)).collectAsStateWithLifecycle(initialValue = false)
+    val outputLevel by (voiceOutput?.audioLevel ?: flowOf(0f)).collectAsStateWithLifecycle(initialValue = 0f)
+    // Use the actual incoming microphone energy as well as outgoing PCM energy.
+    // The avatar responds to acoustic evidence, not a fixed listening/thinking/speaking pose.
+    val inputLevel by JarvisMic.lastLevel.collectAsStateWithLifecycle(initialValue = 0)
+    val acousticActivity = outputActive || inputLevel > 35
+    val acousticLevel = maxOf(outputLevel, (inputLevel / 120f).coerceIn(0f, 1f))
 
     val capsSnapshot by rememberCapabilitySnapshot()
     val activeCount = remember(capsSnapshot) { capsSnapshot?.count { it.value } ?: 0 }
@@ -61,8 +66,8 @@ fun HomeScreen(onOpenTools: () -> Unit) {
         ) {
             com.jarvis.app.ui.components.FridayAvatar(
                 size = 280.dp,
-                voiceActive = voiceActive,
-                voiceLevel = voiceLevel,
+                voiceActive = acousticActivity,
+                voiceLevel = acousticLevel,
                 morphologySeed = com.jarvis.app.JarvisEngine.fridayIndividual?.identity?.morphologySeed ?: 0L
             )
             Spacer(modifier = Modifier.height(14.dp))
