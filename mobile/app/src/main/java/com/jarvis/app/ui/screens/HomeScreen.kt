@@ -53,6 +53,11 @@ fun HomeScreen(onOpenTools: () -> Unit) {
     }
     val bodyState by bodyCoordinator.state.collectAsStateWithLifecycle()
 
+    val voiceSlot = com.jarvis.app.ui.EngineAccess.voiceOutputPath()
+    val voiceOutput = voiceSlot.value
+    val voiceActive by (voiceOutput?.isSpeaking ?: flowOf(false)).collectAsStateWithLifecycle(initialValue = false)
+    val voiceLevel by (voiceOutput?.audioLevel ?: flowOf(0f)).collectAsStateWithLifecycle(initialValue = 0f)
+
     // Rarely-changing label source (mode changes on explicit transitions only).
     val modeFlow = remember { core?.presenceMode ?: flowOf(PresenceMode.ASLEEP) }
     val mode: PresenceMode by modeFlow.collectAsStateWithLifecycle(
@@ -79,7 +84,9 @@ fun HomeScreen(onOpenTools: () -> Unit) {
         ) {
             com.jarvis.app.ui.components.FridayAvatar(
                 state = bodyState,
-                size = 280.dp
+                size = 280.dp,
+                voiceActive = voiceActive,
+                voiceLevel = voiceLevel
             )
             Spacer(modifier = Modifier.height(14.dp))
             HorizonArc(
