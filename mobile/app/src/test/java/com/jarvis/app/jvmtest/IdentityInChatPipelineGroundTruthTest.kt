@@ -55,7 +55,7 @@ class IdentityInChatPipelineGroundTruthTest {
     )
 
     @Test
-    fun `real JVM test harness composition resolves the real HumanCore identity name`() {
+    fun `real JVM test harness composition resolves Friday identity`() {
         val server = JvmCompositionHarness(port = 0, backendOverride = FakeModelBackend())
         try {
             assertEquals(
