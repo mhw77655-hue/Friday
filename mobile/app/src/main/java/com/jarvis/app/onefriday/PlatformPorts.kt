@@ -5,7 +5,7 @@ import com.jarvis.app.capability.CapabilityRegistry
 import com.jarvis.app.failure.FailureReport
 import com.jarvis.app.failure.FailureSurface
 import com.jarvis.app.humancore.mod.MemoryAnnotation
-import com.jarvis.app.humancore.protocol.SessionContext
+import com.jarvis.app.turn.TurnContext
 import com.jarvis.app.humancore.store.StoragePort
 import com.jarvis.app.memory.EmbeddingProvider
 import com.jarvis.app.memory.MemoryGraphStore
@@ -79,7 +79,7 @@ interface PlatformPorts {
     fun warmModel()
 
     /** The per-turn session context, or null when the host has no session to describe. */
-    fun sessionContext(): SessionContext?
+    fun sessionContext(): TurnContext?
 
     /** Turn-state signals the host's UI/companion surface consumes. */
     fun onUserSubmitted()
