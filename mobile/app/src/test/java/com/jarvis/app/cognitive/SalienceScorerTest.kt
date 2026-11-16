@@ -2,7 +2,6 @@ package com.jarvis.app.cognitive
 
 import com.jarvis.app.body.MemoryItem
 import com.jarvis.app.body.MemoryStorePort
-import com.jarvis.app.humancore.HumanCore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import org.junit.Assert.assertEquals
@@ -146,7 +145,6 @@ class SalienceScorerTest {
             memoryStore = object : MemoryStorePort {
                 override fun queryMemories(query: String, limit: Int) = emptyList<MemoryItem>()
             },
-            humanCore = HumanCore
         )
         val scorer = engine.getSalienceScorer()
         assertEquals(0.0, scorer.score(alice, 10, 0), 0.001)
