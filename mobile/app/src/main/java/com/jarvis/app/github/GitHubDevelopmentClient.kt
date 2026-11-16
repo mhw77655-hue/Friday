@@ -149,9 +149,9 @@ class GitHubDevelopmentClient(context: Context) {
             if (hasOpenProposal(token, previousId)) {
                 return@withContext "Autonomous development is waiting for owner review of the existing proposal."
             }
-            val previousAt = runCatching {
-                Instant.parse(prefs.getString(KEY_LAST_REQUEST_AT, null))
-            }.getOrNull()
+            val previousAt = prefs.getString(KEY_LAST_REQUEST_AT, null)?.let { value ->
+                runCatching { Instant.parse(value) }.getOrNull()
+            }
             if (previousAt != null && previousAt.isAfter(Instant.now().minusSeconds(AUTONOMOUS_CYCLE_COOLDOWN_SECONDS))) {
                 return@withContext "The previous development cycle is still settling; no duplicate request was sent."
             }
