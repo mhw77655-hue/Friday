@@ -9,7 +9,7 @@ import com.jarvis.app.cloud.CloudResult
 import com.jarvis.app.cognitive.CognitiveEngine
 import com.jarvis.app.cognitive.capability.CapabilityFabric
 import com.jarvis.app.cognitive.immune.ImmuneSystem
-import com.jarvis.app.identity.HumanCoreIdentitySource
+import com.jarvis.app.identity.SeededFridayIdentitySource
 import com.jarvis.app.identity.IdentityContext
 import com.jarvis.app.identity.PersonaTuner
 import com.jarvis.app.identity.SelfModel
@@ -93,7 +93,7 @@ class JarvisEngineTest {
         val mentalStateEstimator = UserMentalStateEstimator()
         val registry = CapabilityRegistry()
         val selfModel = SelfModel(
-            identitySource = HumanCoreIdentitySource(),
+            identitySource = SeededFridayIdentitySource,
             capabilityRegistry = registry,
             stageHistory = StageHistorySource { emptyList() }
         )
@@ -121,7 +121,6 @@ class JarvisEngineTest {
         val engine = CognitiveEngine(
             scope = CoroutineScope(Dispatchers.IO),
             memoryStore = EmptyMemoryStore(),
-            humanCore = com.jarvis.app.humancore.HumanCore,
             blendedRetriever = retriever,
             graphStore = graphStore,
             identityContext = identityContext,
