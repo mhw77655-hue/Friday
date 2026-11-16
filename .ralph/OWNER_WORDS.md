@@ -65,20 +65,12 @@ The owner's repeated distinction is between retaining a record and being changed
 
 Source: `New Folder chats/Vision_summary.txt`, owner turn 17.
 
-> FRIDAY herself
-> The persistent individual.
-> Offline FRIDAY environment
-> Her locally resident, independently functioning existence.
-> Cloud environment
-> A much larger external capability and development environment that can do things the current offline hardware cannot efficiently do.
 > Are the same thing u idiot u divided my project not me
-> You can use enormous external resources to help create capabilities.
-> That does not mean those resources become part of the person.
 > ...
 > the entire human development is offline it's just Friday
 > it's not fixed architecture it's Symbiotic liquid software which means she uses whatever she got she doesn't just say I can't because im offline
 
-Source: `New Folder chats/Vision_summary.txt`, owner turn 18. The quoted definitions are included because the owner explicitly corrected the separation and restated the intended unity.
+Source: `New Folder chats/Vision_summary.txt`, owner turn 18. Assistant-authored definitions pasted earlier in that turn are deliberately omitted; only the owner's correction and restatement are retained.
 
 > Discover and deliberately build the strongest machine-native realization of FRIDAY's capabilities that the current environment can sustain is almost true because i give her the ability to be in any environment the same way not a different one per environment
 
