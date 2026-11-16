@@ -7,7 +7,7 @@ import com.jarvis.app.cognitive.model.ModelContextPort
 import com.jarvis.app.cognitive.model.ModelContextSnapshot
 import com.jarvis.app.cognitive.model.ModelFact
 import com.jarvis.app.cognitive.model.WorldEntity
-import com.jarvis.app.humancore.protocol.SessionContext
+import com.jarvis.app.turn.TurnContext
 import com.jarvis.app.model.adapters.ifNotEmpty
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -59,7 +59,7 @@ class CognitiveContextBuilder(
         intentResult: IntentInference.IntentInferenceResult,
         workingMemory: WorkingMemory,
         attentionSpotlight: AttentionEngine.AttentionSpotlight,
-        sessionContext: SessionContext? = null
+        sessionContext: TurnContext? = null
     ): CognitiveContext {
         val builder = StringBuilder()
         val sections = mutableListOf<ContextSection>()
