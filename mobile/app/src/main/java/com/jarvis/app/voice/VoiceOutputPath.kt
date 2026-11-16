@@ -133,7 +133,8 @@ class VoiceOutputPath(
             speechRate = profile.speechRate,
             pitch = profile.pitch,
             pronunciationHints = pronunciationHintsOf(segment, vocabulary),
-            utteranceId = "utter_${System.currentTimeMillis()}"
+            utteranceId = "utter_${System.currentTimeMillis()}",
+            referenceAudioPath = profile.referenceAudioPath
         )
         val audio = withContext(Dispatchers.IO) {
             host.synthesizeText(
