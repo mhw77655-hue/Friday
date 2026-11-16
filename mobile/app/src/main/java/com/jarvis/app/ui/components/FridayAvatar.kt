@@ -55,7 +55,7 @@ fun FridayAvatar(
         animationSpec = infiniteRepeatable(tween(180, delayMillis = 2400), RepeatMode.Reverse),
         label = "blink"
     )
-    val speakingNow = state == BodyState.SPEAKING || voiceActive
+    val speakingNow = voiceActive
     val liveLevel by animateFloatAsState(
         targetValue = if (speakingNow) voiceLevel.coerceIn(0f, 1f) else 0f,
         animationSpec = tween(durationMillis = 55),
