@@ -295,7 +295,8 @@ object JarvisEngine {
             )
             JarvisEngine.turnTraceStore = turnTraceStore
 
-            val threadTracker = com.jarvis.app.threads.ThreadTracker()
+            val clock: () -> Long = { System.currentTimeMillis() }
+            val threadTracker = com.jarvis.app.threads.ThreadTracker(now = clock)
             JarvisEngine.threadTracker = threadTracker
 
             val provenanceLedger = com.jarvis.app.memory.provenance.JsonlProvenanceLedger(
@@ -321,6 +322,7 @@ object JarvisEngine {
                     memoryStore = memoryStore,
                     failureSurface = failureSurface,
                     modelBackend = offlineModelBackend,
+                    clock = clock,
                     turnTraceStore = turnTraceStore,
                     threadTracker = threadTracker,
                     provenanceLedger = provenanceLedger,

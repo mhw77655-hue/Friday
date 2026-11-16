@@ -194,7 +194,8 @@ class TurnPathAssembly private constructor(
             val retriever = BlendedMemoryRetriever(
                 graphStore,
                 embeddingProvider,
-                MemoryImportanceScorer(embeddingProvider = embeddingProvider)
+                MemoryImportanceScorer(embeddingProvider = embeddingProvider),
+                nowMs = { ports.nowMs() }
             )
             val signalScorer = SignalSplitScorer(embeddingProvider)
             val capabilityMemoryIndex = CapabilityMemoryIndex(graphStore)
@@ -203,7 +204,7 @@ class TurnPathAssembly private constructor(
             val workspace = InMemoryWorkspace()
 
             // ── Identity: self, user, world, persona ──────────────────────────
-            val worldModel = WorldModelService(graphStore, retriever)
+            val worldModel = WorldModelService(graphStore, retriever, nowMs = { ports.nowMs() })
             val userProfile = UserProfile(worldModel)
             val personaTuner = PersonaTuner(worldModel)
             val stageHistory = PrdStageHistorySource(
@@ -327,7 +328,8 @@ class TurnPathAssembly private constructor(
 
             // ── Predictive state: compact JEPA-inspired successor learning ───────
             val expectationEngine = ExpectationStateEngine(
-                JsonFileExpectationStore(ports.storageDir.resolve("cognition/expectation_state.json"))
+                JsonFileExpectationStore(ports.storageDir.resolve("cognition/expectation_state.json")),
+                clock = { ports.nowMs() }
             )
 
             // ── The cognitive engine: the one route a turn takes ───────────────
@@ -349,7 +351,8 @@ class TurnPathAssembly private constructor(
                 memoryForgetter = ports.memoryForgetter(),
                 signalScorer = signalScorer,
                 workspace = workspace,
-                expectationEngine = expectationEngine
+                expectationEngine = expectationEngine,
+                nowMs = { ports.nowMs() }
             )
 
             // ── The entry point ────────────────────────────────────────────────

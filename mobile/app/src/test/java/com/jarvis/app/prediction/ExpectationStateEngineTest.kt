@@ -41,6 +41,24 @@ class ExpectationStateEngineTest {
         assertFalse(prediction.reflexEligible)
     }
 
+    @Test fun a72HourClockAdvanceChangesPredictionTowardRecentEvidence() {
+        val store = MemoryStore()
+        var now = 1_000_000L
+        val engine = ExpectationStateEngine(store, clock = { now }, minimumEvidence = 3)
+        val before = SituationState("person-a", mapOf("app" to "video", "time" to "evening"))
+        repeat(3) {
+            engine.recordTransition(before, SituationState("person-a", mapOf("topic" to "game")))
+        }
+        now += 72L * 60L * 60L * 1_000L
+        repeat(3) {
+            engine.recordTransition(before, SituationState("person-a", mapOf("topic" to "work")))
+        }
+        val prediction = engine.predict(before)
+        assertNotNull(prediction)
+        assertEquals("work", prediction!!.likelyNext["topic"])
+        assertEquals("recent evidence should outweigh equally numerous three-day-old evidence", 6, prediction.evidenceCount)
+    }
+
     @Test fun doesNotMixDifferentPeopleHistories() {
         val store = MemoryStore()
         val engine = ExpectationStateEngine(store, minimumEvidence = 2)

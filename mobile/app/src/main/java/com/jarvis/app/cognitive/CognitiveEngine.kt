@@ -214,7 +214,9 @@ class CognitiveEngine(
      */
     private val workspace: com.jarvis.app.cognition.workspace.Workspace? = null,
     /** Lightweight successor-state learning inside the same cognitive turn. */
-    private val expectationEngine: com.jarvis.app.prediction.ExpectationStateEngine? = null
+    private val expectationEngine: com.jarvis.app.prediction.ExpectationStateEngine? = null,
+    /** Shared host clock for durable timestamps and time-dependent cognition. */
+    private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) : PlanDriver {
 
     private val intentInference = IntentInference(scope)
@@ -661,12 +663,12 @@ class CognitiveEngine(
     ) {
         val store = turnTraceStore ?: return
         if (!store.enabled) return
-        val recordId = "turn-${turnIndex}-${System.currentTimeMillis()}"
+        val recordId = "turn-${turnIndex}-${nowMs()}"
         store.append(
             TurnTraceRecord(
                 id = recordId,
                 turnIndex = turnIndex,
-                timestampMs = System.currentTimeMillis(),
+                timestampMs = nowMs(),
                 inputText = if (redactText) "" else inputText,
                 decision = decision.name,
                 retrievedMemoryIds = retrievedMemoryIds,
@@ -729,7 +731,7 @@ class CognitiveEngine(
             predicate = WRITEBACK_PREDICATE,
             `object` = assertion,
             source = "live-turn",
-            validFrom = System.currentTimeMillis()
+            validFrom = nowMs()
         )
         store.recordSignals(
             nodeId,
@@ -829,7 +831,7 @@ class CognitiveEngine(
         // 1. Update cognitive state with new turn
         var state = _cognitiveState.value.copyWith(
             turnIndex = turnIndex,
-            timestamp = System.currentTimeMillis(),
+            timestamp = nowMs(),
             sessionContext = sessionContext
         )
 
@@ -969,10 +971,10 @@ class CognitiveEngine(
 
         // Also add current user input as context memory
         val contextItem = MemoryItem(
-            id = "ctx_${System.currentTimeMillis()}",
+            id = "ctx_${nowMs()}",
             type = MemoryType.CONTEXT,
             content = "User: $userText",
-            timestamp = System.currentTimeMillis(),
+            timestamp = nowMs(),
             tags = listOf("context", "user", "current"),
             relevance = 0.9f
         )
@@ -992,7 +994,7 @@ class CognitiveEngine(
     ) {
         // User input - high salience, urgency
         attentionEngine.submit(AttentionItem(
-            id = "attn_input_${System.currentTimeMillis()}",
+            id = "attn_input_${nowMs()}",
             content = "User said: $userText",
             source = AttentionSource.USER_INPUT,
             salience = 0.9f,
@@ -1003,7 +1005,7 @@ class CognitiveEngine(
 
         // Intent inference result
         attentionEngine.submit(AttentionItem(
-            id = "attn_intent_${System.currentTimeMillis()}",
+            id = "attn_intent_${nowMs()}",
             content = "Intent: ${intentResult.finalIntent.name} (conf: ${"%.2f".format(intentResult.confidence)})",
             source = AttentionSource.INTERNAL_REASONING,
             salience = 0.8f,
@@ -1015,7 +1017,7 @@ class CognitiveEngine(
         // Ambiguity if present
         if (intentResult.ambiguity.isAmbiguous) {
             attentionEngine.submit(AttentionItem(
-                id = "attn_ambiguity_${System.currentTimeMillis()}",
+                id = "attn_ambiguity_${nowMs()}",
                 content = "Ambiguous intent: ${intentResult.ambiguity.primaryAmbiguity}",
                 source = AttentionSource.INTERNAL_REASONING,
                 salience = 0.7f,
@@ -1028,7 +1030,7 @@ class CognitiveEngine(
         // Unknowns
         for (unknown in intentResult.unknowns.take(3)) {
             attentionEngine.submit(AttentionItem(
-                id = "attn_unknown_${System.currentTimeMillis()}_${unknown.type.ordinal}",
+                id = "attn_unknown_${nowMs()}_${unknown.type.ordinal}",
                 content = "Unknown: ${unknown.description}",
                 source = AttentionSource.INTERNAL_REASONING,
                 salience = 0.6f,
@@ -1254,7 +1256,7 @@ class CognitiveEngine(
             ?: throw IllegalStateException("No CapabilityFabric wired for runNext")
 
         // Build a single-node plan for this subgoal
-        val goalId = "task_${System.currentTimeMillis()}"
+        val goalId = "task_${nowMs()}"
         val node = com.jarvis.app.cognitive.planning.PlanNode(
             id = "${goalId}:s1",
             description = subgoal.description,
