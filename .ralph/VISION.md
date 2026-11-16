@@ -321,7 +321,7 @@ checks. Disclosure does not make a deviation compliant.
   established the value being challenged already is. Sections 3 and 4
   both require it to develop with accumulated evidence instead.
 - The Human Core (four permanent passes, single-owner modules, rule-table learning, no part in her reasoning) is legacy scaffolding, quarantined: no new features, nothing new depends on it, and it is not her human side. Each part survives only while Life Tests show it contributes to her actual life without conflicting with this file; otherwise it is replaced or removed. Nothing remains because it was written first.
-- Two compositions exist: the Android app wires the Human Core and the real resource snapshot; the JVM/Termux server stubs the Human Core and reports all-clear resources. Evidence from the second does not speak for the first.
+- Historical deviation (retired): the repository once had separate Android and JVM/Termux compositions, and evidence from the JVM host was incorrectly treated as evidence for the phone. The owner removed Termux and clarified that Friday is fully functional in her own Android app. Android is the only production host; any JVM ports/stores are test fixtures under `src/test` and are never packaged or required by the app. CI evidence and real-device evidence remain distinct.
 - Intent is never classified (always STATEMENT), no prediction is ever formed on the live path, thresholds are flat, and the identity record still says JARVIS / he.
 
 These deviations are findings, not exemptions.
