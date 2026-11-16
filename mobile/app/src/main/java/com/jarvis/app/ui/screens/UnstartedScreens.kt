@@ -72,7 +72,7 @@ fun MemoryScreen() {
         ) {
             Text(
                 text = "FRIDAY'S LOCAL MEMORY",
-                style = JarvisType.Heading.copy(fontWeight = FontWeight.SemiBold),
+                style = JarvisType.Display.copy(fontWeight = FontWeight.SemiBold),
                 modifier = Modifier.weight(1f)
             )
             Button(onClick = { refresh += 1 }) { Text("Refresh") }
