@@ -1,4 +1,7 @@
 package com.jarvis.app.ui.navigation
+import com.jarvis.app.ui.EngineAccess
+import com.jarvis.app.ui.WakingSurface
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -94,6 +97,12 @@ fun JarvisNavHost() {
     var moreSheetOpen by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
 
+    val readiness by EngineAccess.readinessState.collectAsStateWithLifecycle()
+    if (readiness !is com.jarvis.app.EngineReadinessState.Ready) {
+        WakingSurface(readiness)
+        return
+    }
+
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
@@ -127,7 +136,7 @@ fun JarvisNavHost() {
                 currentRoute = currentRoute,
                 moreSelected = moreSheetOpen,
                 onHome = { navigateToTab(ROUTE_HOME) },
-                onMemory = { navigateToTab(ROUTE_MEMORY) },
+                onConversation = { navigateToTab(ROUTE_CONVERSATION) },
                 onMissions = { navigateToTab(ROUTE_MISSIONS) },
                 onMore = { moreSheetOpen = true }
             )
@@ -179,7 +188,7 @@ private fun JarvisBottomBar(
     currentRoute: String?,
     moreSelected: Boolean,
     onHome: () -> Unit,
-    onMemory: () -> Unit,
+    onConversation: () -> Unit,
     onMissions: () -> Unit,
     onMore: () -> Unit
 ) {
@@ -192,7 +201,7 @@ private fun JarvisBottomBar(
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
         BottomBarItem("Home", currentRoute == ROUTE_HOME, onHome)
-        BottomBarItem("Memory", currentRoute == ROUTE_MEMORY, onMemory)
+        BottomBarItem("Chat", currentRoute == ROUTE_CONVERSATION, onConversation)
         BottomBarItem("Missions", currentRoute == ROUTE_MISSIONS, onMissions)
         BottomBarItem("More", moreSelected, onMore)
     }
