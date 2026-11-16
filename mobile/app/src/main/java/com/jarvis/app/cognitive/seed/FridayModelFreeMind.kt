@@ -3,8 +3,6 @@ package com.jarvis.app.cognitive.seed
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Clock
-import java.time.LocalDate
-import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 
 /**
@@ -90,10 +88,10 @@ class FridayModelFreeMind(
                 "I can keep my local identity, record experiences, recall facts you've explicitly told me, and use phone capabilities that are actually connected and permitted. Broad open-ended reasoning is still developing."
 
             TIME_QUERY.containsMatchIn(normalized) ->
-                "It's " + LocalTime.now(clock).format(DateTimeFormatter.ofPattern("h:mm a")) + "."
+                "It's " + clock.instant().atZone(clock.zone).toLocalTime().format(DateTimeFormatter.ofPattern("h:mm a")) + "."
 
             DATE_QUERY.containsMatchIn(normalized) ->
-                "Today is " + LocalDate.now(clock).format(DateTimeFormatter.ofPattern("EEEE, d MMMM uuuu")) + "."
+                "Today is " + clock.instant().atZone(clock.zone).toLocalDate().format(DateTimeFormatter.ofPattern("EEEE, d MMMM uuuu")) + "."
 
             calculateArithmetic(input) != null ->
                 calculateArithmetic(input)!!
