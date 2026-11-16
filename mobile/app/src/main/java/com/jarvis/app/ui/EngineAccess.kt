@@ -43,6 +43,9 @@ object EngineAccess {
     fun modelManager(): EngineSlot<ModelManager> =
         JarvisEngine.modelManagerSlot()
 
+    fun fridayIndividual(): EngineSlot<com.jarvis.app.cognitive.seed.FridayIndividual> =
+        JarvisEngine.fridayIndividualSlot()
+
     fun sessionManager(): EngineSlot<com.jarvis.app.session.SessionManager> =
         JarvisEngine.sessionManagerSlot()
 
