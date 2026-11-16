@@ -68,6 +68,8 @@ fun SystemScreen() {
     val screenText by diagnosticsViewModel.screenText.collectAsStateWithLifecycle()
     val failureText by diagnosticsViewModel.failureText.collectAsStateWithLifecycle()
     val individualMemoryText by diagnosticsViewModel.individualMemoryText.collectAsStateWithLifecycle()
+    val diagnosticFindings by diagnosticsViewModel.diagnosticFindings.collectAsStateWithLifecycle()
+    val diagnosticRunning by diagnosticsViewModel.diagnosticRunning.collectAsStateWithLifecycle()
 
     val rows = listOf(
         SystemRow("Brain", brainStatus, brainDotColor(brainStatus), brainStatus),
@@ -112,8 +114,39 @@ fun SystemScreen() {
             style = JarvisType.Technical,
             modifier = Modifier.padding(vertical = 8.dp)
         )
+        Button(
+            onClick = { diagnosticsViewModel.runFullDiagnostic() },
+            enabled = !diagnosticRunning,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(if (diagnosticRunning) "Running active diagnostics..." else "Run full system diagnosis")
+        }
         LazyColumn(modifier = Modifier.weight(1f)) {
             items(rows) { row -> SystemRowView(row) }
+            item {
+                Text(
+                    "DIAGNOSTIC FINDINGS (${diagnosticFindings.size})",
+                    style = JarvisType.Technical,
+                    modifier = Modifier.padding(top = 18.dp, bottom = 8.dp)
+                )
+            }
+            if (diagnosticFindings.isEmpty()) {
+                item { Text("No diagnostic run has completed yet.", style = JarvisType.Technical) }
+            }
+            items(diagnosticFindings) { finding ->
+                val color = when (finding.severity) {
+                    com.jarvis.app.diagnostics.DiagnosticSeverity.PASS -> JarvisColors.CoreSuccess
+                    com.jarvis.app.diagnostics.DiagnosticSeverity.INFO -> JarvisColors.CoreIdle
+                    com.jarvis.app.diagnostics.DiagnosticSeverity.WARNING -> JarvisColors.CoreAttention
+                    com.jarvis.app.diagnostics.DiagnosticSeverity.ERROR -> JarvisColors.CoreWarning
+                }
+                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                    Text("${finding.severity.name} · ${finding.title}", color = color, style = JarvisType.Technical)
+                    Text("Observed: ${finding.observed}", style = JarvisType.Technical)
+                    Text("Assessment: ${finding.likelyCause}", style = JarvisType.Technical)
+                    Text("Action: ${finding.recommendedAction}", style = JarvisType.Technical)
+                }
+            }
         }
     }
 }
