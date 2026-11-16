@@ -2,7 +2,6 @@ package com.jarvis.app.cognitive
 
 import com.jarvis.app.body.MemoryItem
 import com.jarvis.app.body.MemoryStorePort
-import com.jarvis.app.humancore.HumanCore
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -28,7 +27,6 @@ class IntentClassificationTest {
             memoryStore = object : MemoryStorePort {
                 override fun queryMemories(query: String, limit: Int) = emptyList<MemoryItem>()
             },
-            humanCore = HumanCore,
             intentClassificationComplete = { turn -> llmFixture[turn.lowercase()] ?: "STATEMENT" }
         )
     }
@@ -103,7 +101,6 @@ class IntentClassificationTest {
             memoryStore = object : MemoryStorePort {
                 override fun queryMemories(query: String, limit: Int) = emptyList<MemoryItem>()
             },
-            humanCore = HumanCore,
             intentClassificationComplete = { throw RuntimeException("LLM down") }
         )
         val result = failingEngine.classifyIntent("anything")
@@ -116,7 +113,6 @@ class IntentClassificationTest {
             memoryStore = object : MemoryStorePort {
                 override fun queryMemories(query: String, limit: Int) = emptyList<MemoryItem>()
             },
-            humanCore = HumanCore
         )
         val result = noSeamEngine.classifyIntent("anything")
         assertEquals(CognitiveEngine.IntentCategory.STATEMENT, result)
