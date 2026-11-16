@@ -57,8 +57,9 @@ fun VoiceStudioScreen() {
     val hostSlot = EngineAccess.voiceOrganismHost()
     val host = hostSlot.getOrNull()
 
-    var referencePath by remember { mutableStateOf(prefs.getString("reference_path", null)) }
-    var referenceTranscript by remember { mutableStateOf(prefs.getString("reference_transcript", "") ?: "") }
+    val initialProfile = remember { profileStore.get(DefaultJarvisVoiceProfile.id) ?: DefaultJarvisVoiceProfile }
+    var referencePath by remember { mutableStateOf(initialProfile.referenceAudioPath ?: prefs.getString("reference_path", null)) }
+    var referenceTranscript by remember { mutableStateOf(initialProfile.referenceTranscript ?: prefs.getString("reference_transcript", "") ?: "") }
     var status by remember { mutableStateOf("Ready") }
     var speechRate by remember { mutableFloatStateOf(profileStore.get(DefaultJarvisVoiceProfile.id)?.speechRate ?: 1f) }
     var busy by remember { mutableStateOf(false) }
@@ -89,7 +90,12 @@ fun VoiceStudioScreen() {
                 if (imported != null) {
                     referencePath = imported
                     prefs.edit().putString("reference_path", imported).apply()
-                    status = "Reference audio imported locally"
+                    val current = profileStore.get(DefaultJarvisVoiceProfile.id) ?: DefaultJarvisVoiceProfile
+                    profileStore.save(current.copy(
+                        referenceAudioPath = imported,
+                        referenceTranscript = referenceTranscript.trim().ifBlank { null }
+                    ))
+                    status = "Reference audio saved locally as part of Friday's voice identity"
                 } else {
                     status = "Audio import failed"
                 }
@@ -164,7 +170,9 @@ fun VoiceStudioScreen() {
                         language = "en",
                         preferredProvider = "piper",
                         preferredVoice = "speaker_0",
-                        speechRate = speechRate
+                        speechRate = speechRate,
+                        referenceAudioPath = referencePath,
+                        referenceTranscript = referenceTranscript.trim().ifBlank { null }
                     ))
                     status = "Friday's active voice profile saved"
                 }) { Text("Save active voice") }
@@ -174,7 +182,7 @@ fun VoiceStudioScreen() {
         Card {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Voice reference library", style = MaterialTheme.typography.titleMedium)
-                Text("Import a clean recording of at least 3 seconds. Keep the transcript accurate; LuxTTS uses both the audio and its transcript to encode a reference voice.")
+                Text("Upload a recording to define Friday's chosen voice reference. The audio stays inside this app. The transcript is optional and is retained only for local synthesis engines that require it. Important: the active Piper/Kokoro voices do not yet clone from this sample; reference-conditioned synthesis is a separate integration still in progress.")
                 OutlinedButton(enabled = !busy, onClick = { pickAudio.launch(arrayOf("audio/*")) }) {
                     Text(if (referencePath == null) "Import reference audio" else "Replace reference audio")
                 }
@@ -186,10 +194,15 @@ fun VoiceStudioScreen() {
                     label = { Text("Exact words spoken in the recording") },
                     minLines = 2
                 )
-                Button(enabled = !busy && referencePath != null && referenceTranscript.isNotBlank(), onClick = {
-                    prefs.edit().putString("reference_transcript", referenceTranscript.trim()).apply()
-                    status = "Reference and transcript saved on this device"
-                }) { Text("Save reference") }
+                Button(enabled = !busy && referencePath != null, onClick = {
+                    prefs.edit().putString("reference_path", referencePath).putString("reference_transcript", referenceTranscript.trim()).apply()
+                    val current = profileStore.get(DefaultJarvisVoiceProfile.id) ?: DefaultJarvisVoiceProfile
+                    profileStore.save(current.copy(
+                        referenceAudioPath = referencePath,
+                        referenceTranscript = referenceTranscript.trim().ifBlank { null }
+                    ))
+                    status = "Friday's voice reference and optional transcript saved locally"
+                }) { Text("Save voice reference") }
             }
         }
 
