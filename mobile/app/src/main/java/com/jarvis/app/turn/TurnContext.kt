@@ -17,6 +17,8 @@ data class TurnContext(
 ) {
     object Channel {
         const val ANDROID_APP = "android_app"
+        /** Compatibility label for older app fixtures; the stored value remains an open string. */
+        const val MOBILE_APP = ANDROID_APP
         const val TELEGRAM = "telegram"
     }
 }
