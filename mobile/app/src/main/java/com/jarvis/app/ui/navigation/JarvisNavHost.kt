@@ -127,7 +127,7 @@ fun JarvisNavHost() {
                 currentRoute = currentRoute,
                 moreSelected = moreSheetOpen,
                 onHome = { navigateToTab(ROUTE_HOME) },
-                onConversation = { navigateToTab(ROUTE_CONVERSATION) },
+                onMemory = { navigateToTab(ROUTE_MEMORY) },
                 onMissions = { navigateToTab(ROUTE_MISSIONS) },
                 onMore = { moreSheetOpen = true }
             )
@@ -179,7 +179,7 @@ private fun JarvisBottomBar(
     currentRoute: String?,
     moreSelected: Boolean,
     onHome: () -> Unit,
-    onConversation: () -> Unit,
+    onMemory: () -> Unit,
     onMissions: () -> Unit,
     onMore: () -> Unit
 ) {
@@ -192,7 +192,7 @@ private fun JarvisBottomBar(
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
         BottomBarItem("Home", currentRoute == ROUTE_HOME, onHome)
-        BottomBarItem("Chat", currentRoute == ROUTE_CONVERSATION, onConversation)
+        BottomBarItem("Memory", currentRoute == ROUTE_MEMORY, onMemory)
         BottomBarItem("Missions", currentRoute == ROUTE_MISSIONS, onMissions)
         BottomBarItem("More", moreSelected, onMore)
     }
