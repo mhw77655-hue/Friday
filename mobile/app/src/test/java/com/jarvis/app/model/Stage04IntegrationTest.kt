@@ -4,7 +4,6 @@ import com.jarvis.app.body.MemoryItem
 import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.cognitive.CognitiveEngine
 import com.jarvis.app.cognitive.UserModel
-import com.jarvis.app.humancore.HumanCore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -77,7 +76,6 @@ class Stage04IntegrationTest {
             val engine = CognitiveEngine(
                 scope = CoroutineScope(Dispatchers.IO),
                 memoryStore = EmptyMemoryStore(),
-                humanCore = HumanCore,
                 modelManager = mm,
                 cognitiveAdmissionPolicy = policy
             )
