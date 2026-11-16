@@ -1,19 +1,13 @@
 package com.jarvis.app
 
-import android.content.ComponentName
-import android.content.Context
-import android.content.ServiceConnection
 import android.content.pm.PackageManager
-import android.os.IBinder
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import rikka.shizuku.Shizuku
 
 /**
- * Shizuku availability/permission state plus the actual privileged UserService host.
+ * Shizuku availability and permission state for Friday's existing ScreenBridge UserService.
  * Shizuku is a capability provider; Friday remains functional when it is unavailable.
  */
 object ShizukuBridge {
