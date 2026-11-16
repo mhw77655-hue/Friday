@@ -63,7 +63,6 @@ class IdentityInChatPipelineGroundTruthTest {
                 "Friday",
                 server.selfModel.identity().name
             )
-            assertEquals("selfModel reports the real HumanCore identity name", "Friday", server.selfModel.identity().name)
             assertEquals("identity version is the real fallback baseline", 1, server.selfModel.identity().version)
         } finally {
             server.stop()
