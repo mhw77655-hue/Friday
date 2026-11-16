@@ -1,7 +1,4 @@
 package com.jarvis.app.ui.navigation
-import com.jarvis.app.ui.EngineAccess
-import com.jarvis.app.ui.WakingSurface
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -96,12 +93,6 @@ fun JarvisNavHost() {
     val navController = rememberNavController()
     var moreSheetOpen by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
-
-    val readiness by EngineAccess.readinessState.collectAsStateWithLifecycle()
-    if (readiness !is com.jarvis.app.EngineReadinessState.Ready) {
-        WakingSurface(readiness)
-        return
-    }
 
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
