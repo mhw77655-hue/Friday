@@ -393,6 +393,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                     .put("state", event.state))
             }
         })
+        report.put("last_crash", CrashJournal.read(app) ?: JSONObject.NULL)
         report.put("telemetry_summary", Telemetry.summarize())
         report.put("privacy", JSONObject()
             .put("chat_messages_included", false)
