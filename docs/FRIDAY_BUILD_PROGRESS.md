@@ -37,8 +37,8 @@ The checked-in `.ralph/prd.json` contains 16 stories for the older Stage 3 / Gat
 
 | Priority | Open story | What must be demonstrated |
 |---:|---|---|
-| 8.2 | `LAUNCH-WAKE-ORDER` | Typed engine readiness; safe access while wiring, failed wiring and concurrent screen access; CI tests and incident prevention. Real first-launch race still requires the phone. |
-| 9 | `ONE-2-COMPOSITION` | Exactly one Android production composition, injected time, test-only fakes, no Termux dependency and Android integration proof. Its current AC2 requires legacy Human Core to be live, which conflicts with the Vision's Human Core quarantine; revise that criterion before closing the story. |
+| 8.2 | `LAUNCH-WAKE-ORDER` | Readiness gate and route-level typed slots are implemented; preserve red-first proof, pass current-head CI and prove cold launch on the phone. |
+| 9 | `ONE-2-COMPOSITION` | Exactly one Android production composition, injected time, test-only fakes, no Termux dependency, no legacy Human Core authority and Android integration proof. |
 | 10 | `ONE-3-LIFETEST` | Real-composition scenario runner, restart/model replacement, expected-fail controls and evidence packs. |
 | 11 | `ONE-4-RECORDER-LEDGER` | Structured flight recorder, append-only developmental ledger, continuity-law enforcement and a visible Mirror screen. |
 | 12 | `ONE-5-IDENTITY-SYNC-FLOOR` | Friday/she identity through owner-authorized admin revision, repository/phone sync checks and protected-floor file tripwires. |
@@ -69,8 +69,9 @@ The following are present in source on `audit/friday-offline-runtime`; presence 
 - PR [#14](https://github.com/mhw77655-hue/Friday/pull/14) contains additional English-model and Nano Liquid Symbiosis work, but is a separate unmerged draft with a stale/non-mergeable base. It is not counted as integrated.
 - PR [#16](https://github.com/mhw77655-hue/Friday/pull/16) contains video intake and a symbolic predictive-cognition bootstrap, but is a separate unmerged draft with a stale/non-mergeable base. Video import/keyframe sampling is not semantic video understanding; its Hunch Engine is not a trained JEPA model.
 - PR [#12](https://github.com/mhw77655-hue/Friday/pull/12) is another separate offline-runtime draft based on a different audit branch. Its overlapping runtime/model/voice changes require a source-level comparison before any part is selected.
-- Latest verified foundation run [#721](https://github.com/mhw77655-hue/Friday/actions/runs/43777826363) passed on head `c524720f7cc00f46015d24b4a77ad40faf644efd`: Android debug APK assembly succeeded; the full `:mobile:app:testDebugUnitTest` task succeeded; Builder request/patch contract tests passed (12 Python tests); JUnit results and a debug APK artifact were uploaded.
-- This is CI proof only. No exact-phone cold-start test, inference-process death/rebind test, model smoke-load, or target-phone thermal/energy report is available. The APK artifact remains an intermediate CI artifact and has not been handed over.
+- Latest current-head run [#818](https://github.com/mhw77655-hue/Friday/actions/runs/43783057171) is running on `fbaa369a02779a40ea9238feeab1f91be6058e84`. At the last check, checkout and JDK setup had succeeded and Android SDK setup was still in progress; Android compilation and Kotlin unit tests have not started. Do not use the older green run #721 as proof for this newer head.
+- The original red-first UI tripwire remains byte-for-byte identical to the test on `audit/ls-wake-order-red`; its two red CI runs are recorded in the PRD notes. New slot/navigation structural checks live in a separate test class. Seven navigation routes now use typed EngineAccess slots rather than nullable helper `!!` unwraps.
+- This is source-level progress only until #818 completes. No exact-phone cold-start test, inference-process death/rebind test, model smoke-load, or target-phone thermal/energy report is available. No APK is being handed over.
 - Earlier runs were cancelled when later commits superseded them; those cancellations are not compile failures and are not passes.
 - `main` is not intentionally modified by this work. No APK is being handed off in this stage.
 
