@@ -22,19 +22,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jarvis.app.body.BodyCoordinator
 import com.jarvis.app.body.BodyState
-import com.jarvis.app.body.VisualState
 import com.jarvis.app.companioncore.contract.PresenceMode
 import com.jarvis.app.companioncore.presence.CompanionCoreHolder
-import com.jarvis.app.companioncore.render.OrbRenderParams
-import com.jarvis.app.companioncore.resource.MobileResourceManagement
-import com.jarvis.app.JarvisEngine
 import com.jarvis.app.ui.components.HorizonArc
 import com.jarvis.app.ui.components.pressScale
 import com.jarvis.app.ui.components.rememberCapabilitySnapshot
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flowOf
 
 /**
@@ -58,27 +52,12 @@ fun HomeScreen(onOpenTools: () -> Unit) {
         return
     }
     val bodyState by bodyCoordinator.state.collectAsStateWithLifecycle()
-    val visualState by bodyCoordinator.visualState.collectAsStateWithLifecycle()
-
-    // Presence-orb input flow. MainActivity ensures the core is built before
-    // first composition; the static-idle fallback keeps this robust to any
-    // entry point that composes Home without the engine (e.g. previews/tests).
-    val orbParams = remember {
-        core?.renderParams ?: MutableStateFlow(OrbRenderParams.idle()).asStateFlow()
-    }
 
     // Rarely-changing label source (mode changes on explicit transitions only).
     val modeFlow = remember { core?.presenceMode ?: flowOf(PresenceMode.ASLEEP) }
     val mode: PresenceMode by modeFlow.collectAsStateWithLifecycle(
         initialValue = core?.currentPresenceMode ?: PresenceMode.ASLEEP
     )
-
-    // §2.31 render-lane inputs (budget for fps pacing, suspension for
-    // background). Fallbacks are static-idle when the engine is absent.
-    val orbBudget = remember {
-        core?.budget ?: MutableStateFlow<MobileResourceManagement.ResourceBudget?>(null)
-    }
-    val orbSuspended = remember { core?.suspended ?: MutableStateFlow(false) }
 
     val capsSnapshot by rememberCapabilitySnapshot()
     val activeCount = remember(capsSnapshot) { capsSnapshot?.count { it.value } ?: 0 }
