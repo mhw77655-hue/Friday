@@ -1,10 +1,10 @@
 package com.jarvis.app.companioncore.contract
 
 /**
- * The Human Core → Companion Core signal (§1, spec §2.30).
+ * The Friday runtime → Companion Core signal (§1, spec §2.30).
  *
  * Pull-based, read-only snapshot of how JARVIS is right now, assembled once
- * per Presence Engine tick by the sole writer — `HumanCoreIntegration` —
+ * per Presence Engine tick by the sole writer — `FridayRuntimeIntegration` —
  * and consumed immutably by every Companion Core subsystem. No subsystem
  * mutates this type (sole-writer discipline, audit R-I6): it is published as
  * a `StateFlow` snapshot and has no setters.
@@ -14,19 +14,17 @@ package com.jarvis.app.companioncore.contract
  * than extending the frozen Human Core (plan §4.2 GAP rows).
  *
  * @property emotionVector mirrored emotion vector, refreshed once per tick,
- *   never mutated locally; null HC values surface as neutral.
- * @property confidence JARVIS self-confidence in [0,1]. GAP heuristic:
- *   0.25 + 0.35·|valence| + 0.4·trust (no single HC self-confidence scalar).
- * @property energy in [0,1]. GAP heuristic: derived from arousal.
- * @property motivation in [0,1]. GAP heuristic: derived from arousal +
- *   presence awayness.
- * @property attentionFocus nullable; spec-deferred — the Kotlin HC exposes
+ *   never mutated locally; null affect values surface as neutral with confidence zero.
+ * @property confidence measured affect confidence in [0,1], or zero when unknown.
+ * @property energy in [0,1], with neutral render baseline when unknown.
+ * @property motivation in [0,1]; remains neutral until Friday has a validated signal.
+ * @property attentionFocus nullable; spec-deferred — the Friday currently has
  *   no scalar, and the Attention Engine (§2.3) supplies it in a later phase.
  * @property currentAction derived from the HC 7-step loop's current step via
  *   the `CurrentActionDiscriminator` (plan §4.2.1); the conservative local
  *   fallback maps tool paths to GENERATING.
  * @property lastUtteranceText the text about to be or currently being spoken;
- *   owned by `HumanCoreIntegration` (audit R-I1), never written by the
+ *   owned by `FridayRuntimeIntegration` (audit R-I1), never written by the
  *   ViewModel directly.
  * @property fabricationFlag set ONLY when a caught-and-corrected claim is
  *   confirmed (audit A-6/V-3), never inferred. Companion Core uses it to
@@ -68,9 +66,9 @@ data class EmotionVector(
 )
 
 /**
- * The Human Core 7-step loop's current step, as seen by the Companion Core
+ * Friday's cognitive turn status, as seen by the Companion Core
  * (§1). TOOL_CALL is not produced by the local discriminator (conservative
  * fallback maps tool paths to GENERATING, plan §4.2.1) but is kept in the
- * enum because a remote binding may supply it directly.
+ * enum because a runtime binding may supply it directly.
  */
 enum class CurrentAction { IDLE, RECEIVING_INPUT, TOOL_CALL, GENERATING, DONE }
