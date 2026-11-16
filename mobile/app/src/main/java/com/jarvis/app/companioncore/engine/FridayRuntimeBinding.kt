@@ -8,6 +8,3 @@ interface FridayRuntimeBinding {
     fun isHealthy(): Boolean
 }
 
-/** Transitional source alias for existing pure test fixtures. */
-@Deprecated("Use FridayRuntimeBinding; no Human Core binding exists in production.")
-typealias HumanCoreBinding = FridayRuntimeBinding
