@@ -72,6 +72,14 @@ jobs:
           print("\n".join(report[:100]))
           PY
 
+      - name: OCR device screenshots for readable inspection
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq tesseract-ocr
+          find "archive-extracted/New_folder/New folder" -type f -iname '*.jpg' -print0 | while IFS= read -r -d '' image; do
+            tesseract "$image" "${image%.jpg}" 2>/dev/null || true
+          done
+
       - name: Commit extracted source material for direct inspection
         run: |
           git config user.name "github-actions[bot]"
