@@ -158,10 +158,10 @@ class FridayRuntimeService : Service() {
     }
 
     private fun stopOwnedMicrophone() {
-        if (microphoneOwned) {
+        if (microphoneOwned || JarvisMic.isRecording.value) {
             JarvisMic.stop()
-            microphoneOwned = false
         }
+        microphoneOwned = false
         FridayRuntimeController.setMicrophoneServiceActive(this, false)
     }
 

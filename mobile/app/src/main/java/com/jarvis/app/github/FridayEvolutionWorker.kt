@@ -26,6 +26,9 @@ class FridayEvolutionWorker(
         if (!FridayEvolutionScheduler.isEnabled(applicationContext)) return Result.success()
         return try {
             GitHubDevelopmentClient(applicationContext).submitVisionMaintenanceCycle()
+            // Start recurring work only after the immediate cycle completes;
+            // this prevents the two workers from racing into duplicate builds.
+            FridayEvolutionScheduler.ensurePeriodic(applicationContext)
             Result.success()
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -49,6 +52,11 @@ object FridayEvolutionScheduler {
     fun enable(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putBoolean(KEY_ENABLED, true).apply()
+        runNow(context)
+    }
+
+    internal fun ensurePeriodic(context: Context) {
+        if (!isEnabled(context)) return
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .setRequiresBatteryNotLow(true)
@@ -63,7 +71,6 @@ object FridayEvolutionScheduler {
             ExistingPeriodicWorkPolicy.KEEP,
             periodic
         )
-        runNow(context)
     }
 
     fun runNow(context: Context) {
