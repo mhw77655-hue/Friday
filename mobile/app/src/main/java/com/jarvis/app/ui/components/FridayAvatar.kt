@@ -23,7 +23,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.jarvis.app.body.BodyState
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -35,19 +34,18 @@ import kotlin.math.sin
  * moving topology: asymmetric filaments, branching relations and nodes. The
  * renderer has no LISTENING/THINKING/SPEAKING pose table. It responds to the
  * measured voice signal when available and otherwise continues a low-energy
- * autonomous visual motion. BodyState is used only to surface a real runtime
- * fault; it does not define a psychological/existence mode.
+ * autonomous visual motion. No finite body-state list defines the visual form.
  *
  * Geometry is generated locally with Compose Canvas. No remote asset, avatar
  * model, network service, or neural model is required.
  */
 @Composable
 fun FridayAvatar(
-    state: BodyState,
     modifier: Modifier = Modifier,
     size: Dp = 280.dp,
     voiceActive: Boolean = false,
-    voiceLevel: Float = 0f
+    voiceLevel: Float = 0f,
+    morphologySeed: Long = 0L
 ) {
     val motion = rememberInfiniteTransition(label = "friday-topology")
     val phase by motion.animateFloat(
@@ -71,9 +69,8 @@ fun FridayAvatar(
         label = "voice-energy"
     )
 
-    val fault = state == BodyState.ERROR
-    val accent = if (fault) Color(0xFFFF8A78) else Color(0xFF78DDF2)
-    val secondary = if (fault) Color(0xFFFFB59D) else Color(0xFFB6A6FF)
+    val accent = Color(0xFF78DDF2)
+    val secondary = Color(0xFFB6A6FF)
     val energy = (0.12f + measuredLevel * 0.88f).coerceIn(0.12f, 1f)
 
     Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
@@ -82,8 +79,10 @@ fun FridayAvatar(
             val cy = this.size.height * 0.5f
             val unit = this.size.minDimension
             val scale = unit / 280f
-            val t = phase
+            val seedPhase = ((morphologySeed ushr 1) % 10_000L).toFloat() / 10_000f * (2f * PI.toFloat())
+            val t = phase + seedPhase
             val drift = slowDrift
+            val branchCount = 11 + ((morphologySeed ushr 4) % 5L).toInt()
             fun point(x: Float, y: Float) = Offset(cx + x * scale, cy + y * scale)
 
             // Diffuse spatial field, intentionally not a circular avatar boundary.
@@ -129,7 +128,6 @@ fun FridayAvatar(
 
             // Unequal filaments grow from different points and continually bend.
             // No fixed expression or finite activity-to-pose mapping exists.
-            val branchCount = 13
             for (index in 0 until branchCount) {
                 val angle = (2.0 * PI * index / branchCount + 0.19 * sin(t * 0.23 + index)).toFloat()
                 val rootRadius = 17f + 5f * sin(t * 0.31f + index * 1.7f)
