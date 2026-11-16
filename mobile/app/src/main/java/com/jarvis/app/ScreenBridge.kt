@@ -60,7 +60,7 @@ object ScreenBridge {
         val args = Shizuku.UserServiceArgs(ComponentName(context, JarvisShellService::class.java))
             .daemon(true)
             .tag("friday-device-capability-core")
-            .version(2)
+            .version(3)
         userServiceArgs = args
         try {
             _status.value = "binding..."
@@ -126,6 +126,18 @@ object ScreenBridge {
         val svc = service ?: return@withContext null
         runCatching { svc.diagnosticsSnapshot() }
             .onFailure { _status.value = "diagnostics failed: ${it.message}" }
+            .getOrNull()
+    }
+
+    /**
+     * Adds/removes only Friday's own package from Android's Device Idle
+     * whitelist through a fixed Shizuku command. No caller-supplied shell
+     * command or package path crosses the Binder boundary.
+     */
+    suspend fun setDozeWhitelist(enabled: Boolean): String? = withContext(Dispatchers.IO) {
+        val svc = service ?: return@withContext null
+        runCatching { svc.setDozeWhitelist(enabled) }
+            .onFailure { _status.value = "Doze whitelist update failed: ${it.message}" }
             .getOrNull()
     }
 

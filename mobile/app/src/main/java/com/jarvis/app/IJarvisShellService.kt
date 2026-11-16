@@ -12,6 +12,7 @@ import android.os.Parcel
 interface IJarvisShellService : IInterface {
     fun diagnosticsSnapshot(): String
     fun captureScreenSummary(): String
+    fun setDozeWhitelist(enabled: Boolean): String
     fun destroy()
 
     abstract class Stub : Binder(), IJarvisShellService {
@@ -39,6 +40,14 @@ interface IJarvisShellService : IInterface {
                     reply?.writeString(result)
                     return true
                 }
+                TRANSACTION_DOZE_WHITELIST -> {
+                    data.enforceInterface(DESCRIPTOR)
+                    val enabled = data.readInt() != 0
+                    val result = setDozeWhitelist(enabled)
+                    reply?.writeNoException()
+                    reply?.writeString(result)
+                    return true
+                }
                 // Shizuku UserService destruction transaction for a hand-written Binder contract.
                 SHIZUKU_DESTROY_TRANSACTION -> {
                     destroy()
@@ -52,6 +61,7 @@ interface IJarvisShellService : IInterface {
             const val DESCRIPTOR = "com.jarvis.app.IJarvisShellService"
             const val TRANSACTION_DIAGNOSTICS = IBinder.FIRST_CALL_TRANSACTION
             const val TRANSACTION_CAPTURE_SCREEN = IBinder.FIRST_CALL_TRANSACTION + 1
+            const val TRANSACTION_DOZE_WHITELIST = IBinder.FIRST_CALL_TRANSACTION + 2
             const val SHIZUKU_DESTROY_TRANSACTION = 16777114
 
             @JvmStatic
@@ -88,6 +98,21 @@ interface IJarvisShellService : IInterface {
                 remote.transact(Stub.TRANSACTION_CAPTURE_SCREEN, data, reply, 0)
                 reply.readException()
                 reply.readString() ?: ""
+            } finally {
+                data.recycle()
+                reply.recycle()
+            }
+        }
+
+        override fun setDozeWhitelist(enabled: Boolean): String {
+            val data = Parcel.obtain()
+            val reply = Parcel.obtain()
+            return try {
+                data.writeInterfaceToken(Stub.DESCRIPTOR)
+                data.writeInt(if (enabled) 1 else 0)
+                remote.transact(Stub.TRANSACTION_DOZE_WHITELIST, data, reply, 0)
+                reply.readException()
+                reply.readString() ?: "Doze whitelist result unavailable."
             } finally {
                 data.recycle()
                 reply.recycle()

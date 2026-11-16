@@ -35,6 +35,27 @@ class JarvisShellService : IJarvisShellService.Stub() {
         return runFixed("cat", "/sdcard/friday_window.xml").take(24_000)
     }
 
+    /**
+     * Shizuku-backed Doze exemption for Friday only. The package name and
+     * command shape are fixed in code; the Binder caller supplies only a
+     * boolean. Read-back verification is required before reporting success.
+     */
+    override fun setDozeWhitelist(enabled: Boolean): String {
+        val packageName = "com.jarvis.app"
+        val sign = if (enabled) "+" else "-"
+        val commandResult = runFixed("cmd", "deviceidle", "whitelist", "$sign$packageName")
+        if (commandResult.startsWith("unavailable:") || commandResult == "timeout") {
+            return "status=unsupported; command=$commandResult"
+        }
+        val listing = runFixed("dumpsys", "deviceidle", "whitelist")
+        if (listing.startsWith("unavailable:") || listing == "timeout") {
+            return "status=unverified; command=$commandResult; readback=$listing"
+        }
+        val present = listing.contains(packageName)
+        val verified = present == enabled
+        return "status=${if (verified) "verified" else "not-verified"}; enabled=$present; command=$commandResult"
+    }
+
     private fun readFile(path: String, maxChars: Int): String =
         runCatching { File(path).takeIf { it.isFile && it.canRead() }?.readText()?.take(maxChars) }
             .getOrNull().orEmpty()

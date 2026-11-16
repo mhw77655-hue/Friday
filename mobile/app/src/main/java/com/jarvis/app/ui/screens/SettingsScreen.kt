@@ -121,6 +121,7 @@ fun SettingsScreen() {
     var autonomousEvolution by remember(resumeSignal) {
         mutableStateOf(com.jarvis.app.github.FridayEvolutionScheduler.isEnabled(context))
     }
+    var shizukuDozeStatus by remember { mutableStateOf("Not checked.") }
     var keepFridayAlive by remember(resumeSignal) {
         mutableStateOf(com.jarvis.app.runtime.FridayRuntimeController.isEnabled(context))
     }
@@ -442,6 +443,35 @@ fun SettingsScreen() {
             onClick = { com.jarvis.app.runtime.FridayRuntimeController.openBatteryOptimizationSettings(context) },
             modifier = Modifier.fillMaxWidth()
         ) { Text("Open battery optimization settings") }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Button(
+                onClick = {
+                    githubScope.launch {
+                        shizukuDozeStatus = runCatching {
+                            com.jarvis.app.ScreenBridge.setDozeWhitelist(true)
+                                ?: "Shizuku service is not connected."
+                        }.getOrElse { it.message ?: "Could not enable Doze exemption." }
+                    }
+                },
+                enabled = shizukuStatus == "bound"
+            ) { Text("Shizuku: protect Friday") }
+            TextButton(
+                onClick = {
+                    githubScope.launch {
+                        shizukuDozeStatus = runCatching {
+                            com.jarvis.app.ScreenBridge.setDozeWhitelist(false)
+                                ?: "Shizuku service is not connected."
+                        }.getOrElse { it.message ?: "Could not remove Doze exemption." }
+                    }
+                },
+                enabled = shizukuStatus == "bound"
+            ) { Text("Remove") }
+        }
+        Text(
+            text = "Shizuku Doze status: $shizukuDozeStatus. This changes only Android's Device Idle whitelist for Friday; it cannot override force-stop or manufacturer task killers.",
+            style = JarvisType.Technical,
+            modifier = Modifier.padding(top = 6.dp)
+        )
         if (runtimeStartFailure.isNotBlank()) {
             Text(
                 text = "Last runtime start issue: $runtimeStartFailure. Open Friday to retry.",

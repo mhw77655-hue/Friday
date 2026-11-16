@@ -130,3 +130,10 @@ The `specialUse` type is declared for the user-enabled companion runtime with an
 
 **What this does not prove:** it does not establish subjective consciousness, continuous perception, fully autonomous initiative, or a fully developed learning loop. It provides a more durable execution host for the existing identity, memory, cognition, presence, voice and resource systems. Those systems still need integrated, on-device Life Tests showing that real experience changes later behavior.
 
+
+
+## Shizuku Doze persistence assist
+
+The foreground runtime settings now expose a Shizuku-backed **Protect Friday** action. The Binder contract accepts only a boolean and the shell service hardcodes the package name `com.jarvis.app`; it runs the fixed `cmd deviceidle whitelist +/-com.jarvis.app` command and reads the Device Idle whitelist back before reporting whether the change was verified. It does not expose arbitrary shell execution.
+
+This is a Doze/battery-idle exemption assist, not a literal anti-kill switch. It can reduce idle restrictions where the Android build permits the shell command. It cannot defeat force-stop, every OEM task killer, permission revocation, thermal shutdown or Android's process lifecycle rules. The owner can remove the whitelist entry from the same Settings control.
