@@ -53,7 +53,20 @@ class VoiceOutputPath(
     val audioLevel: StateFlow<Float> = _audioLevel.asStateFlow()
 
     @Volatile private var cancelled = false
+    @Volatile private var nativePlaybackActive = false
     private var job: Job? = null
+
+    init {
+        // The legacy fallback queues TTS asynchronously. Mirror its actual
+        // playback callback state rather than the speak() enqueue call.
+        fallback?.let { fallbackPath ->
+            scope.launch {
+                fallbackPath.isSpeaking.collect { active ->
+                    if (!nativePlaybackActive) _isSpeaking.value = active
+                }
+            }
+        }
+    }
 
     /** Speak [text] through the habitat, per sentence, with legacy fallback. */
     fun speak(text: String, language: String? = null, voiceId: String? = null, vocabulary: VocabularyStore? = null) {
@@ -72,12 +85,9 @@ class VoiceOutputPath(
                     val segmentLanguage = if (containsArabic(segment)) "ar-EG" else lang
                     val spoken = habitatSpeak(segment, segmentLanguage, voiceId ?: profile.preferredVoice, profile, vocabulary)
                     if (!spoken && fallback != null) {
-                        _isSpeaking.value = true
-                        try {
-                            fallback.speakStreaming(segment, vocabulary ?: emptyVocabulary())
-                        } finally {
-                            _isSpeaking.value = false
-                        }
+                        // Playback is reflected by the fallback's real
+                        // UtteranceProgressListener/MediaPlayer lifecycle.
+                        fallback.speakStreaming(segment, vocabulary ?: emptyVocabulary())
                     }
                 }
             } catch (e: Throwable) {
@@ -97,6 +107,7 @@ class VoiceOutputPath(
     /** Stop playback and ask the habitat to cancel in-flight synthesis. */
     fun interrupt() {
         cancelled = true
+        nativePlaybackActive = false
         _isSpeaking.value = false
         _audioLevel.value = 0f
         runCatching { host.cancelVoice() }
@@ -164,6 +175,7 @@ class VoiceOutputPath(
         return try {
             track.write(pcm, 0, pcm.size)
             track.play()
+            nativePlaybackActive = true
             _isSpeaking.value = true
             val bytesPerFrame = channels.coerceAtLeast(1) * 2
             val totalFrames = pcm.size / bytesPerFrame
@@ -184,7 +196,8 @@ class VoiceOutputPath(
             false
         } finally {
             runCatching { track.release() }
-            _isSpeaking.value = false
+            nativePlaybackActive = false
+            _isSpeaking.value = fallback?.isSpeaking?.value ?: false
             _audioLevel.value = 0f
         }
     }
