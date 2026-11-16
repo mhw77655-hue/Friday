@@ -45,6 +45,11 @@ class FridayModelFreeMind(
             LEARNING.containsMatchIn(normalized) ->
                 "I don't yet have enough local experience to report a useful learned association. I won't invent one."
 
+            associations.isNotEmpty() ->
+                "I notice an association with earlier experiences: " +
+                    associations.distinct().take(5).joinToString(", ") +
+                    ". These are learned feature links, not verified meanings; I don't yet know why they are connected."
+
             else ->
                 "I received your message and recorded its local feature pattern. I can continue operating without a language model, but I cannot reliably interpret arbitrary natural language at human level with this initial seed. I won't pretend that I can."
         }
