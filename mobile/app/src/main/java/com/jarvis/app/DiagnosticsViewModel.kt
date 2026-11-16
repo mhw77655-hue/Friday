@@ -317,7 +317,11 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         }
         viewModelScope.launch {
             com.jarvis.app.voice.HotwordAvailabilityProbe.availability.collect { a ->
-                lastHotwordText = "Hotword: $a"
+                lastHotwordText = when (a) {
+                    com.jarvis.app.voice.HotwordAvailability.SUPPORTED -> "Hotword: supported"
+                    com.jarvis.app.voice.HotwordAvailability.UNSUPPORTED -> "Hotword: unsupported; manual tap-to-listen"
+                    com.jarvis.app.voice.HotwordAvailability.UNKNOWN -> "Hotword: unknown; manual tap-to-listen"
+                }
                 publishHealthText()
             }
         }
