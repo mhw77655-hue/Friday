@@ -39,8 +39,12 @@ exactly one bounded development request in this disposable checkout.
 AUTHORITATIVE PRODUCT CONTRACT:
 - Read .ralph/VISION.md first, then .ralph/OWNER_WORDS.md. Both are mandatory.
 - The complete historical owner archive is New Folder chats.zip at the repo root.
-  Inspect its relevant owner turns when the curated excerpts do not resolve a
-  real ambiguity. Do not treat assistant paraphrases as owner-authored words.
+  When the curated excerpts do not resolve a real ambiguity, search owner
+  speaker turns only with:
+  python3 tools/friday-builder/extract_owner_turns.py --search "<relevant phrase>"
+  Use --index to discover which archive files contain owner turns. Assistant
+  speaker turns are excluded, but a user turn may itself quote pasted text;
+  verify attribution before calling any sentence the owner's own words.
 - The user's latest authenticated explicit instruction outranks every old
   excerpt, summary, PRD, report, assistant paraphrase and code comment.
 - Friday is the developing individual. Models, memory implementations, voice,
