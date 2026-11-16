@@ -66,7 +66,7 @@ class FridayModelFreeMindTest {
         val file = File.createTempFile("friday-mind-", ".bin").apply { delete() }
         val mind = FridayModelFreeMind(FridaySeedSubstrate(file))
         val reply = mind.respond("Explain an unfamiliar theorem in detail.")
-        assertTrue(reply.contains("not yet have enough grounded language structure", ignoreCase = true))
+        assertTrue(reply.contains("don't yet have enough grounded language structure", ignoreCase = true))
         assertTrue(reply.contains("won't pretend", ignoreCase = true))
         file.delete()
     }
