@@ -13,7 +13,7 @@ import com.jarvis.app.voice.JarvisSpeechRecognizer
 import com.jarvis.app.voice.PlatformHotwordSupportPort
 import com.jarvis.app.voice.PlatformSpeechRecognizerPort
 import com.jarvis.app.latency.LatencyLayer
-import com.jarvis.app.companioncore.engine.HumanCoreIntegration
+import com.jarvis.app.companioncore.engine.FridayRuntimeIntegration
 import com.jarvis.app.model.ModelManager
 import com.jarvis.app.body.LanguageRouter
 import com.jarvis.app.voice.VoiceOutputPath
@@ -49,7 +49,7 @@ class BodyCoordinator(
     private val context: Context,
     private val modelManager: ModelManager,
     private val languageRouter: LanguageRouter,
-    private val companionIntegration: HumanCoreIntegration,
+    private val companionIntegration: FridayRuntimeIntegration,
     private val failureSurface: com.jarvis.app.failure.FailureSurface,
     private val recoveryController: com.jarvis.app.failure.RecoveryController,
     private val scope: CoroutineScope,
@@ -589,7 +589,7 @@ class BodyCoordinator(
         // Do not fabricate an affect estimate when no validated source exists.
         val emotion = 0f
         val arousal = 0f
-        val alert = companionIntegration.hcAlertLevel()
+        val alert = companionIntegration.alertLevel()
         val userPresent = bodyState in setOf(BodyState.USER_PRESENT, BodyState.WAKE, BodyState.LISTENING)
 
         _visualState.value = VisualState(
