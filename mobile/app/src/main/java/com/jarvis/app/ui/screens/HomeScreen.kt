@@ -117,7 +117,7 @@ fun HomeScreen(onOpenTools: () -> Unit) {
             )
             Spacer(modifier = Modifier.height(14.dp))
             Text(
-                text = "JARVIS — ${presenceLabel(mode)}",
+                text = "FRIDAY — ${presenceLabel(mode)}",
                 style = JarvisType.Display,
                 textAlign = TextAlign.Center
             )
