@@ -4,7 +4,6 @@ import com.jarvis.app.body.MemoryItem
 import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.capability.CapabilityRegistry
 import com.jarvis.app.cognitive.CognitiveEngine
-import com.jarvis.app.humancore.HumanCore
 import com.jarvis.app.identity.IdentityContext
 import com.jarvis.app.identity.IdentitySource
 import com.jarvis.app.identity.MentalStateHypothesis
@@ -108,7 +107,6 @@ class EmotionFusionTier1ProductionPathTest {
         val engine = CognitiveEngine(
             scope = CoroutineScope(Dispatchers.IO),
             memoryStore = EmptyMemoryStore(),
-            humanCore = HumanCore,
             blendedRetriever = retriever,
             graphStore = graphStore,
             identityContext = identityContext

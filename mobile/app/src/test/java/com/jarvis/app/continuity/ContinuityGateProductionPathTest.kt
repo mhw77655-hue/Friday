@@ -40,9 +40,6 @@ class ContinuityGateProductionPathTest {
         scheduleDelayed = { _, _ -> },
         bridgeSend = { captured.add(it) },
         bridgeStatus = { server.modelManager.status.value },
-        beginExchange = { _, _ -> null },
-        express = { reply, _ -> StyledResponse.Approved(reply) },
-        completeExchange = { _, _, _, _, _ -> },
         sessionContext = { null },
         cognitiveEngine = server.engine
     )

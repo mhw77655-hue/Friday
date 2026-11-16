@@ -196,7 +196,6 @@ class CognitiveEngineTest {
         val testEngine = CognitiveEngine(
             scope = scope,
             memoryStore = memoryStore,
-            humanCore = HumanCore
         )
         assertNotNull(testEngine)
     }
