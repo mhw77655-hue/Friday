@@ -21,6 +21,8 @@ import com.jarvis.app.MainActivity
 import com.jarvis.app.ScreenBridge
 import com.jarvis.app.ShizukuBridge
 import com.jarvis.app.companioncore.presence.CompanionCoreHolder
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -91,8 +93,12 @@ class FridayRuntimeService : Service() {
         }
 
         runtimeScope.launch {
-            runCatching { CompanionCoreHolder.init(applicationContext) }
-                .onFailure { Log.e(TAG, "Companion Core restore failed", it) }
+            runCatching {
+                val core = CompanionCoreHolder.init(applicationContext)
+                val appVisible = ProcessLifecycleOwner.get().lifecycle.currentState
+                    .isAtLeast(Lifecycle.State.STARTED)
+                if (appVisible) core.onForeground() else core.onBackground()
+            }.onFailure { Log.e(TAG, "Companion Core restore failed", it) }
 
             // Reconnect the existing capability owner. Friday remains useful if
             // Shizuku is unavailable; no second device-control host is created.
