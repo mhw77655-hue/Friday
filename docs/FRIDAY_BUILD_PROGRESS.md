@@ -69,9 +69,9 @@ The following are present in source on `audit/friday-offline-runtime`; presence 
 - PR [#14](https://github.com/mhw77655-hue/Friday/pull/14) contains additional English-model and Nano Liquid Symbiosis work, but is a separate unmerged draft with a stale/non-mergeable base. It is not counted as integrated.
 - PR [#16](https://github.com/mhw77655-hue/Friday/pull/16) contains video intake and a symbolic predictive-cognition bootstrap, but is a separate unmerged draft with a stale/non-mergeable base. Video import/keyframe sampling is not semantic video understanding; its Hunch Engine is not a trained JEPA model.
 - PR [#12](https://github.com/mhw77655-hue/Friday/pull/12) is another separate offline-runtime draft based on a different audit branch. Its overlapping runtime/model/voice changes require a source-level comparison before any part is selected.
-- Latest workflow run [#709](https://github.com/mhw77655-hue/Friday/actions/runs/43775048804) is on current head `e34877b08c1e420e91c8ca743c2c2f382306b6c2`. Checkout, SDK setup and the Python Builder contract-test step have succeeded; the Android debug-APK build step is still running. Kotlin unit tests have not started yet.
+- Latest verified foundation run [#721](https://github.com/mhw77655-hue/Friday/actions/runs/43777826363) passed on head `c524720f7cc00f46015d24b4a77ad40faf644efd`: Android debug APK assembly succeeded; the full `:mobile:app:testDebugUnitTest` task succeeded; Builder request/patch contract tests passed (12 Python tests); JUnit results and a debug APK artifact were uploaded.
+- This is CI proof only. No exact-phone cold-start test, inference-process death/rebind test, model smoke-load, or target-phone thermal/energy report is available. The APK artifact remains an intermediate CI artifact and has not been handed over.
 - Earlier runs were cancelled when later commits superseded them; those cancellations are not compile failures and are not passes.
-- No green current-head Android build, completed current-head Kotlin unit-test result, exact-phone model smoke test, target-phone thermal/energy report, or release acceptance is claimed.
 - `main` is not intentionally modified by this work. No APK is being handed off in this stage.
 
 ## Hard boundary: Friday does not build source inside Android
