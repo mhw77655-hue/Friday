@@ -283,14 +283,14 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         }
         viewModelScope.launch {
             JarvisMic.isRecording.collect { recording ->
-                lastMicText = if (recording) "Mic: capturing" else "Mic: not capturing"
+                lastMicText = if (recording) "Mic: energy monitor active; speech recognition starts on request" else "Mic: off"
                 publishHealthText()
             }
         }
         viewModelScope.launch {
             JarvisMic.lastLevel.collect { level ->
                 if (JarvisMic.isRecording.value) {
-                    lastMicText = "Mic: capturing, level $level"
+                    lastMicText = "Mic: energy monitor active, level $level"
                     publishHealthText()
                 }
             }
