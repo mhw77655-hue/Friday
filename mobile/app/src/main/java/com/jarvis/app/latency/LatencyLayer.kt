@@ -386,6 +386,9 @@ class LatencyPipeline(
                     _phase.value = LatencyLayer.Phase.REPLYING
                     fullSpeak(localReply)
                 }
+                // A timeout is a completed local fallback, not a permanent
+                // REPLYING state. The model may never produce a late reply.
+                if (exchangeCounter.get() == id) _phase.value = LatencyLayer.Phase.IDLE
                 reactorUtteranceDone()
             }
         }
@@ -495,12 +498,19 @@ class LatencyPipeline(
                 appendTurn(Turn(fromJarvis = true, text = SOFT_ERROR_TEXT, verified = false))
                 logObsidian(true, SOFT_ERROR_TEXT)
             } else {
-                unresolved.forEach { (_, input) ->
-                    val localReply = runCatching { modelFreeReply?.invoke(input) }.getOrNull()?.takeIf { it.isNotBlank() }
-                    val settledText = localReply ?: SOFT_ERROR_TEXT
-                    appendTurn(Turn(fromJarvis = true, text = settledText, verified = false))
-                    logObsidian(true, settledText)
-                    if (localReply != null) {
+                val localReplies = unresolved.mapNotNull { (_, input) ->
+                    runCatching { modelFreeReply?.invoke(input) }.getOrNull()
+                        ?.takeIf { it.isNotBlank() }
+                }
+                if (localReplies.isEmpty()) {
+                    // One bridge outage is one failure event, even when a burst
+                    // left several requests queued against the same dead bridge.
+                    appendTurn(Turn(fromJarvis = true, text = SOFT_ERROR_TEXT, verified = false))
+                    logObsidian(true, SOFT_ERROR_TEXT)
+                } else {
+                    localReplies.forEach { localReply ->
+                        appendTurn(Turn(fromJarvis = true, text = localReply, verified = false))
+                        logObsidian(true, localReply)
                         _phase.value = LatencyLayer.Phase.REPLYING
                         fullSpeak(localReply)
                     }
