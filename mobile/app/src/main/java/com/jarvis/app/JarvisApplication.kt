@@ -5,20 +5,10 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
-import com.jarvis.app.life.IndependentLifeCore
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 
 class JarvisApplication : Application() {
-    private val lifeScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-
     override fun onCreate() {
         super.onCreate()
-        // Friday's continuity substrate starts before the optional model-backed engine.
-        val lifeCore = IndependentLifeCore.initialize(this)
-        lifeScope.launch { lifeCore.observe("system.application_created") }
         JarvisEngine.init(this)
 
         // Process-scoped background/foreground for the Companion Core (plan
@@ -33,14 +23,8 @@ class JarvisApplication : Application() {
             override fun onStateChanged(source: LifecycleOwner, event: Lifecycle.Event) {
                 val core = com.jarvis.app.companioncore.presence.CompanionCoreHolder.instance()
                 when (event) {
-                    Lifecycle.Event.ON_STOP -> {
-                        lifeScope.launch { lifeCore.setForeground(false) }
-                        core?.onBackground()
-                    }
-                    Lifecycle.Event.ON_START -> {
-                        lifeScope.launch { lifeCore.setForeground(true) }
-                        core?.onForeground()
-                    }
+                    Lifecycle.Event.ON_STOP -> core?.onBackground()
+                    Lifecycle.Event.ON_START -> core?.onForeground()
                     else -> Unit
                 }
             }
