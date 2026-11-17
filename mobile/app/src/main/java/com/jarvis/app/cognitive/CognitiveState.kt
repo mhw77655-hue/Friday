@@ -5,7 +5,7 @@ import com.jarvis.app.turn.TurnContext
 import java.util.TimeZone
 
 /**
- * CognitiveState - The central runtime state representing JARVIS's current
+ * CognitiveState - The central runtime state representing Friday's current
  * cognitive frame. This is structured runtime state, not a markdown file.
  *
  * All fields are observable/readable by other subsystems. Mutations happen
@@ -111,7 +111,7 @@ enum class IntentState {
     AMBIGUOUS
 }
 
-/** A goal JARVIS is pursuing */
+/** A goal Friday is pursuing */
 data class Goal(
     val id: String,
     val description: String,
@@ -131,7 +131,7 @@ enum class GoalPriority { LOW, NORMAL, HIGH, CRITICAL }
  * or FAILED/CANCELLED.
  */
 enum class GoalStatus {
-    CREATED, ACTIVE, BLOCKED, PAUSED,
+    CREATED, ACTIVE, BLOCKED, PARTIAL, SKIPPED, PAUSED,
     COMPLETED, FAILED, CANCELLED,
     SUSPENDED, ABANDONED
 }
@@ -147,7 +147,7 @@ data class Subgoal(
     val dependencies: List<String> = emptyList()
 )
 
-enum class SubgoalStatus { PENDING, IN_PROGRESS, COMPLETED, BLOCKED, FAILED, PAUSED, CANCELLED }
+enum class SubgoalStatus { PENDING, IN_PROGRESS, COMPLETED, PARTIAL, SKIPPED, BLOCKED, FAILED, PAUSED, CANCELLED }
 
 /** An active memory item in working memory with cognitive metadata */
 data class ActiveMemory(
@@ -236,9 +236,9 @@ data class CapabilityState(
     fun isDegraded(): Boolean = degradedCapabilities.isNotEmpty()
 }
 
-/** Self-model: JARVIS's model of itself */
+/** Self-model: Friday's model of itself */
 data class SelfModel(
-    val identityName: String = "JARVIS",
+    val identityName: String = "Friday",
     val identityVersion: String = "1.0",
     val personalityTraits: Map<String, Float> = emptyMap(),
     val currentMood: MoodState = MoodState(),
@@ -261,7 +261,7 @@ data class SelfAssessment(
     val recentPerformance: Float = 0.5f
 )
 
-/** User-model: JARVIS's model of the user */
+/** User-model: Friday's model of the user */
 data class UserModel(
     val knownName: String? = null,
     val preferences: Map<String, String> = emptyMap(),
@@ -288,7 +288,7 @@ data class UserContext(
     val emotionalState: String? = null
 )
 
-/** World-model: JARVIS's model of the world/environment */
+/** World-model: Friday's model of the world/environment */
 data class WorldModel(
     val currentTime: Long = System.currentTimeMillis(),
     val timeZone: String = TimeZone.getDefault().id,
@@ -332,7 +332,7 @@ data class Plan(
     val estimatedDuration: Long = 0
 )
 
-enum class PlanStatus { PENDING, EXECUTING, BLOCKED, PAUSED, COMPLETED, FAILED, REPLANNING }
+enum class PlanStatus { PENDING, EXECUTING, BLOCKED, PARTIAL, SKIPPED, PAUSED, COMPLETED, FAILED, REPLANNING }
 
 data class PlanStep(
     val id: String,
@@ -341,7 +341,11 @@ data class PlanStep(
     val expectedOutcome: String,
     val dependencies: List<String> = emptyList(),
     val status: PlanStepStatus = PlanStepStatus.PENDING,
-    val estimatedEffort: Float = 1.0f
+    val estimatedEffort: Float = 1.0f,
+    /** Why this step was deliberately not attempted. */
+    val skipReason: String? = null,
+    /** Direct prerequisite ids preventing this step from running. */
+    val blockedBy: List<String> = emptyList()
 )
 
 enum class PlanStepStatus { PENDING, IN_PROGRESS, COMPLETED, FAILED, SKIPPED, BLOCKED, PAUSED, CANCELLED }

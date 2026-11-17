@@ -30,19 +30,42 @@ data class PlanGraph(
 
     val completedCount: Int get() = nodes.count { it.status == PlanStepStatus.COMPLETED }
     val failedCount: Int get() = nodes.count { it.status == PlanStepStatus.FAILED }
+    val skippedCount: Int get() = nodes.count { it.status == PlanStepStatus.SKIPPED }
 
-    /** Fraction of nodes completed (0..1); 1.0 for an empty plan. */
-    val progress: Float
-        get() = if (nodes.isEmpty()) 1.0f else completedCount.toFloat() / nodes.size
+    val skippedNodeIds: List<String>
+        get() = nodes.filter { it.isSkipped }.map { it.id }
+
+    val skippedReasons: Map<String, String>
+        get() = nodes.filter { it.isSkipped }.associate { it.id to (it.skipReason ?: "No skip reason recorded") }
 
     val blockedNodeIds: List<String>
-        get() = nodes.filter { it.blocked }.map { it.id }
+        get() = nodes.filter { it.blocked || it.status == PlanStepStatus.BLOCKED }.map { it.id }
+
+    val blockedBy: Map<String, List<String>>
+        get() = nodes.filter { it.blockedBy.isNotEmpty() }.associate { it.id to it.blockedBy }
 
     val failedNodeIds: List<String>
         get() = nodes.filter { it.status == PlanStepStatus.FAILED }.map { it.id }
 
+    private val effectiveNodes: List<PlanNode>
+        get() {
+            val recoveredOriginal = replanning
+                ?.takeIf { it.status == ReplanStatus.COMPLETED }
+                ?.originalNodeId
+            return nodes.filterNot { it.id == recoveredOriginal }
+        }
+
+    /** Fraction of effective nodes completed (0..1); skipped nodes never count as success. */
+    val progress: Float
+        get() = when {
+            nodes.isEmpty() -> 1.0f
+            effectiveNodes.isEmpty() -> 0.0f
+            else -> effectiveNodes.count { it.isCompleted }.toFloat() / effectiveNodes.size
+        }
+
+    /** A failed node is excluded only after its replacement path is complete. */
     val isComplete: Boolean
-        get() = nodes.isNotEmpty() && nodes.all { it.status == PlanStepStatus.COMPLETED }
+        get() = effectiveNodes.isNotEmpty() && effectiveNodes.all { it.isCompleted }
 
     /** Project this graph onto the existing [Plan] value type. */
     fun toPlan(planId: String = "plan_$goalId"): Plan = Plan(
@@ -56,7 +79,9 @@ data class PlanGraph(
                 expectedOutcome = n.expectedOutcome,
                 dependencies = n.prerequisites,
                 status = n.status,
-                estimatedEffort = n.estimatedEffort
+                estimatedEffort = n.estimatedEffort,
+                skipReason = n.skipReason,
+                blockedBy = n.blockedBy
             )
         },
         status = status,
@@ -80,7 +105,11 @@ data class PlanNode(
     val blocked: Boolean = false,
     val failureCause: String? = null,
     val completionCondition: String? = null,
-    val outcome: String? = null
+    val outcome: String? = null,
+    /** Why this node was deliberately skipped. */
+    val skipReason: String? = null,
+    /** Direct prerequisite ids currently blocking this node. */
+    val blockedBy: List<String> = emptyList()
 ) {
     val isPending: Boolean get() = status == PlanStepStatus.PENDING
     val isInProgress: Boolean get() = status == PlanStepStatus.IN_PROGRESS
@@ -198,24 +227,57 @@ fun topologicalOrder(nodes: List<PlanNode>): List<String>? {
  */
 fun computeBlocked(nodes: List<PlanNode>): List<PlanNode> {
     val nodeMap = nodes.associateBy { it.id }
-    val blocked = mutableMapOf<String, Boolean>()
+    val blockedCache = mutableMapOf<String, Boolean>()
+    val visiting = mutableSetOf<String>()
 
     fun isBlocked(id: String): Boolean {
-        blocked[id]?.let { return it }
-        val node = nodeMap[id] ?: return true // missing prerequisite
-        val result = node.blocked ||
-            node.prerequisites.any { dep ->
+        blockedCache[id]?.let { return it }
+        val node = nodeMap[id] ?: return true
+        if (!visiting.add(id)) return true
+
+        // 'blocked' is derived output. Only an explicit BLOCKED status is
+        // authoritative; a previous derived value must not become permanent.
+        val terminalNode = node.status in setOf(
+            PlanStepStatus.COMPLETED,
+            PlanStepStatus.FAILED,
+            PlanStepStatus.SKIPPED
+        )
+        val result = if (terminalNode) false else {
+            node.status == PlanStepStatus.BLOCKED || node.prerequisites.any { dep ->
                 val depNode = nodeMap[dep]
                 depNode == null ||
-                    isBlocked(dep) || // transitive blocking
+                    isBlocked(dep) ||
                     depNode.status == PlanStepStatus.FAILED ||
+                    depNode.status == PlanStepStatus.BLOCKED ||
                     depNode.status == PlanStepStatus.SKIPPED
             }
-        blocked[id] = result
+        }
+        visiting.remove(id)
+        blockedCache[id] = result
         return result
     }
 
-    return nodes.map { n -> if (isBlocked(n.id)) n.copy(blocked = true) else n.copy(blocked = false) }
+    return nodes.map { node ->
+        val terminalNode = node.status in setOf(
+            PlanStepStatus.COMPLETED,
+            PlanStepStatus.FAILED,
+            PlanStepStatus.SKIPPED
+        )
+        val blockers = if (terminalNode || node.status == PlanStepStatus.BLOCKED) emptyList() else {
+            node.prerequisites.filter { dep ->
+                val depNode = nodeMap[dep]
+                depNode == null ||
+                    isBlocked(dep) ||
+                    depNode.status == PlanStepStatus.FAILED ||
+                    depNode.status == PlanStepStatus.BLOCKED ||
+                    depNode.status == PlanStepStatus.SKIPPED
+            }
+        }
+        node.copy(
+            blocked = node.status == PlanStepStatus.BLOCKED || blockers.isNotEmpty(),
+            blockedBy = blockers
+        )
+    }
 }
 
 /**

@@ -15,6 +15,8 @@ import com.jarvis.app.cognitive.planning.PlanGraph
 import com.jarvis.app.cognitive.planning.PlanNode
 import com.jarvis.app.cognitive.planning.nextActionable
 import com.jarvis.app.cognitive.PlanStatus
+import com.jarvis.app.cognitive.PlanStepStatus
+import com.jarvis.app.cognitive.planning.ReplanStatus
 import kotlinx.coroutines.CancellationException
 
 /**
@@ -105,27 +107,46 @@ class CapabilityExecutor(
 
         val node = nextActionable(graph.nodes)
         if (node == null) {
-            // Every remaining node done (or the sole failure recovered by the
-            // active replacement path) -> the plan finished its work.
-            val recoveredOriginal = graph.replanning?.originalNodeId
-            if (graph.nodes.all { it.isCompleted || it.isSkipped || it.id == recoveredOriginal }) {
-                state = state.copy(status = ExecutionStatus.COMPLETED)
-                driver.emit(CognitiveEvent.PlanExecutionCompleted(graph.goalId, state.completedSteps))
-                return null
-            }
-            // Nothing actionable — honour the plan's derived state. A FAILED
-            // graph with a usable partial result is reported as FAILED (the
-            // verdict carries usability); a BLOCKED graph as BLOCKED.
-            val blocked = graph.blockedNodeIds
+            val recoveredOriginal = graph.replanning
+                ?.takeIf { it.status == ReplanStatus.COMPLETED }
+                ?.originalNodeId
+            val effective = graph.nodes.filterNot { it.id == recoveredOriginal }
+            val skipped = effective.filter { it.isSkipped }
+            val blockedNodes = effective.filter { it.blocked || it.status == PlanStepStatus.BLOCKED }
+            val failed = effective.filter { it.isFailed }
+            val blockedIds = blockedNodes.map { it.id }
+            val skippedIds = skipped.map { it.id }
+            val skippedReasons = skipped.associate { it.id to (it.skipReason ?: "No skip reason recorded") }
+            val blockedBy = blockedNodes.filter { it.blockedBy.isNotEmpty() }.associate { it.id to it.blockedBy }
+
             val (terminalStatus, cause) = when {
-                graph.status == PlanStatus.FAILED -> ExecutionStatus.FAILED to (graph.failureCause ?: "plan failed")
-                graph.status == PlanStatus.BLOCKED || blocked.isNotEmpty() ->
-                    ExecutionStatus.BLOCKED to "blocked: ${blocked.take(3)}"
-                else -> ExecutionStatus.FAILED to "no actionable step"
+                effective.isEmpty() -> ExecutionStatus.FAILED to "replan left no replacement steps"
+                failed.isNotEmpty() || graph.status == PlanStatus.FAILED ->
+                    ExecutionStatus.FAILED to (graph.failureCause ?: failed.firstOrNull()?.failureCause ?: "plan failed")
+                blockedNodes.isNotEmpty() ->
+                    if (effective.any { it.isCompleted }) {
+                        ExecutionStatus.PARTIAL to ("partially completed: " + skipped.size + " skipped, " + blockedNodes.size + " blocked")
+                    } else {
+                        ExecutionStatus.BLOCKED to ("blocked: " + blockedIds.take(3))
+                    }
+                skipped.size == effective.size ->
+                    ExecutionStatus.SKIPPED to ("all " + skipped.size + " effective plan steps were skipped")
+                skipped.isNotEmpty() && effective.any { it.isCompleted } ->
+                    ExecutionStatus.PARTIAL to ("partially completed: " + skipped.size + " step(s) skipped")
+                else -> ExecutionStatus.BLOCKED to ("no actionable step remains; unresolved steps: " + effective.filter { !it.isCompleted }.map { it.id }.take(3))
             }
-            state = state.copy(status = terminalStatus, failureCause = cause)
+            state = state.copy(
+                status = terminalStatus,
+                failureCause = cause,
+                skippedSteps = skipped.size,
+                blockedSteps = blockedNodes.size
+            )
             when (terminalStatus) {
-                ExecutionStatus.BLOCKED -> driver.emit(CognitiveEvent.StepBlocked(graph.goalId, null, blocked))
+                ExecutionStatus.BLOCKED -> driver.emit(CognitiveEvent.StepBlocked(graph.goalId, null, blockedIds, blockedBy))
+                ExecutionStatus.PARTIAL -> driver.emit(CognitiveEvent.PlanExecutionPartial(
+                    graph.goalId, state.completedSteps, skippedIds, skippedReasons, blockedIds, blockedBy
+                ))
+                ExecutionStatus.SKIPPED -> driver.emit(CognitiveEvent.PlanExecutionSkipped(graph.goalId, skippedIds, skippedReasons))
                 ExecutionStatus.FAILED -> driver.emit(CognitiveEvent.PlanExecutionFailed(graph.goalId, cause, state.completedSteps))
                 else -> Unit
             }
@@ -319,16 +340,24 @@ class CapabilityExecutor(
     // State / helpers
     // ------------------------------------------------------------------
 
-    private fun summary(): CapabilityExecutionSummary = CapabilityExecutionSummary(
-        planId = state.planId ?: "",
-        status = state.status,
-        stepsCompleted = state.completedSteps,
-        stepsFailed = state.failedSteps,
-        failureCause = state.failureCause,
-        replanTriggered = state.replanTriggered,
-        lastVerdict = lastVerdict,
-        steps = outcomes.toList()
-    )
+    private fun summary(): CapabilityExecutionSummary {
+        val graph = driver.getPlanGraph()
+        return CapabilityExecutionSummary(
+            planId = state.planId ?: "",
+            status = state.status,
+            stepsCompleted = state.completedSteps,
+            stepsFailed = state.failedSteps,
+            failureCause = state.failureCause,
+            replanTriggered = state.replanTriggered,
+            lastVerdict = lastVerdict,
+            steps = outcomes.toList(),
+            stepsSkipped = graph?.skippedCount ?: state.skippedSteps,
+            skippedStepIds = graph?.skippedNodeIds.orEmpty(),
+            skippedReasons = graph?.skippedReasons.orEmpty(),
+            blockedStepIds = graph?.blockedNodeIds.orEmpty(),
+            blockedBy = graph?.blockedBy.orEmpty()
+        )
+    }
 
     private fun terminal(status: ExecutionStatus, cause: String): CapabilityStepOutcome? {
         state = state.copy(status = status, failureCause = cause)
@@ -400,5 +429,10 @@ data class CapabilityExecutionSummary(
     val failureCause: String? = null,
     val replanTriggered: Boolean = false,
     val lastVerdict: PartialFailureVerdict? = null,
-    val steps: List<CapabilityStepOutcome> = emptyList()
+    val steps: List<CapabilityStepOutcome> = emptyList(),
+    val stepsSkipped: Int = 0,
+    val skippedStepIds: List<String> = emptyList(),
+    val skippedReasons: Map<String, String> = emptyMap(),
+    val blockedStepIds: List<String> = emptyList(),
+    val blockedBy: Map<String, List<String>> = emptyMap()
 )

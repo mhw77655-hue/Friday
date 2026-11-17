@@ -1672,9 +1672,27 @@ class CognitiveEngine(
         ) : CognitiveEvent
         data class StepFailed(val planId: String, val stepId: String, val cause: String?, val retryable: Boolean) : CognitiveEvent
         data class StepRetrying(val planId: String, val stepId: String, val attempt: Int, val nextAttempt: Int) : CognitiveEvent
-        data class StepBlocked(val planId: String, val stepId: String?, val blockedNodeIds: List<String>) : CognitiveEvent
+        data class StepBlocked(
+            val planId: String,
+            val stepId: String?,
+            val blockedNodeIds: List<String>,
+            val blockedBy: Map<String, List<String>> = emptyMap()
+        ) : CognitiveEvent
         data class ReplanTriggered(val planId: String, val failedNodeId: String, val cause: String) : CognitiveEvent
         data class PlanExecutionCompleted(val planId: String, val stepsCompleted: Int) : CognitiveEvent
+        data class PlanExecutionPartial(
+            val planId: String,
+            val stepsCompleted: Int,
+            val skippedStepIds: List<String>,
+            val skippedReasons: Map<String, String>,
+            val blockedNodeIds: List<String>,
+            val blockedBy: Map<String, List<String>>
+        ) : CognitiveEvent
+        data class PlanExecutionSkipped(
+            val planId: String,
+            val skippedStepIds: List<String>,
+            val skippedReasons: Map<String, String>
+        ) : CognitiveEvent
         data class PlanExecutionFailed(val planId: String, val cause: String?, val stepsCompleted: Int) : CognitiveEvent
         data class PlanExecutionCancelled(val planId: String) : CognitiveEvent
 

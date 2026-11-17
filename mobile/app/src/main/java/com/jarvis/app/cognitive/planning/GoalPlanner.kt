@@ -232,8 +232,13 @@ class GoalPlanner(
         return when {
             subgoalNodes.all { it.isCompleted } -> SubgoalStatus.COMPLETED
             subgoalNodes.any { it.isFailed } -> SubgoalStatus.FAILED
-            subgoalNodes.any { it.blocked } -> SubgoalStatus.BLOCKED
+            subgoalNodes.any { it.blocked || it.status == PlanStepStatus.BLOCKED } ->
+                if (subgoalNodes.any { it.isCompleted }) SubgoalStatus.PARTIAL else SubgoalStatus.BLOCKED
+            subgoalNodes.all { it.isSkipped } -> SubgoalStatus.SKIPPED
             subgoalNodes.any { it.isInProgress } -> SubgoalStatus.IN_PROGRESS
+            subgoalNodes.any { it.status == PlanStepStatus.PAUSED } -> SubgoalStatus.PAUSED
+            subgoalNodes.any { it.isSkipped } && subgoalNodes.all { it.isCompleted || it.isSkipped } -> SubgoalStatus.PARTIAL
+            subgoalNodes.any { it.isCompleted } -> SubgoalStatus.IN_PROGRESS
             else -> SubgoalStatus.PENDING
         }
     }
@@ -247,7 +252,12 @@ class GoalPlanner(
         return when {
             subgoals.all { it.status == SubgoalStatus.COMPLETED } -> GoalStatus.COMPLETED
             subgoals.any { it.status == SubgoalStatus.FAILED } -> GoalStatus.FAILED
-            subgoals.any { it.status == SubgoalStatus.BLOCKED } -> GoalStatus.BLOCKED
+            subgoals.any { it.status == SubgoalStatus.BLOCKED } ->
+                if (subgoals.any { it.status == SubgoalStatus.COMPLETED || it.status == SubgoalStatus.PARTIAL }) GoalStatus.PARTIAL
+                else GoalStatus.BLOCKED
+            subgoals.all { it.status == SubgoalStatus.SKIPPED } -> GoalStatus.SKIPPED
+            subgoals.any { it.status == SubgoalStatus.IN_PROGRESS || it.status == SubgoalStatus.PENDING } -> GoalStatus.ACTIVE
+            subgoals.any { it.status == SubgoalStatus.PARTIAL || it.status == SubgoalStatus.SKIPPED } -> GoalStatus.PARTIAL
             else -> GoalStatus.ACTIVE
         }
     }
@@ -259,7 +269,13 @@ class GoalPlanner(
     /** Mark a node completed (record its outcome) and refresh blocking/status. */
     fun completeNode(graph: PlanGraph, nodeId: String, outcome: String? = null): PlanGraph {
         val updated = graph.nodes.map {
-            if (it.id == nodeId) it.copy(status = PlanStepStatus.COMPLETED, outcome = outcome ?: it.outcome) else it
+            if (it.id == nodeId) it.copy(
+                status = PlanStepStatus.COMPLETED,
+                outcome = outcome ?: it.outcome,
+                skipReason = null,
+                blocked = false,
+                blockedBy = emptyList()
+            ) else it
         }
         return refreshStatus(graph.copy(nodes = updated))
     }
@@ -267,7 +283,13 @@ class GoalPlanner(
     /** Mark a node failed with a cause; dependent nodes become blocked. */
     fun failNode(graph: PlanGraph, nodeId: String, cause: String): PlanGraph {
         val updated = graph.nodes.map {
-            if (it.id == nodeId) it.copy(status = PlanStepStatus.FAILED, failureCause = cause) else it
+            if (it.id == nodeId) it.copy(
+                status = PlanStepStatus.FAILED,
+                failureCause = cause,
+                skipReason = null,
+                blocked = false,
+                blockedBy = emptyList()
+            ) else it
         }
         return refreshStatus(graph.copy(nodes = updated, failureCause = cause))
     }
@@ -275,15 +297,31 @@ class GoalPlanner(
     /** Explicitly block a node. */
     fun blockNode(graph: PlanGraph, nodeId: String, reason: String): PlanGraph {
         val updated = graph.nodes.map {
-            if (it.id == nodeId) it.copy(status = PlanStepStatus.BLOCKED, failureCause = reason) else it
+            if (it.id == nodeId) it.copy(
+                status = PlanStepStatus.BLOCKED,
+                failureCause = reason,
+                blocked = true,
+                blockedBy = emptyList(),
+                skipReason = null
+            ) else it
         }
         return refreshStatus(graph.copy(nodes = updated))
     }
 
-    /** Skip a node. */
-    fun skipNode(graph: PlanGraph, nodeId: String): PlanGraph {
+    /** Skip a node with a durable, inspectable reason. */
+    fun skipNode(
+        graph: PlanGraph,
+        nodeId: String,
+        reason: String = "Skipped without a recorded reason"
+    ): PlanGraph {
+        val normalizedReason = reason.trim().ifBlank { "Skipped without a recorded reason" }
         val updated = graph.nodes.map {
-            if (it.id == nodeId) it.copy(status = PlanStepStatus.SKIPPED) else it
+            if (it.id == nodeId) it.copy(
+                status = PlanStepStatus.SKIPPED,
+                skipReason = normalizedReason,
+                blocked = false,
+                blockedBy = emptyList()
+            ) else it
         }
         return refreshStatus(graph.copy(nodes = updated))
     }
@@ -340,7 +378,11 @@ class GoalPlanner(
             d.copy(
                 prerequisites = d.prerequisites.map { if (it == failedNodeId) lastReplacement else it },
                 status = PlanStepStatus.PENDING,
-                blocked = false
+                blocked = false,
+                blockedBy = emptyList(),
+                failureCause = null,
+                skipReason = null,
+                outcome = null
             )
         }
 
@@ -367,17 +409,26 @@ class GoalPlanner(
         return graph.copy(nodes = recomputed, status = status)
     }
 
-    private fun derivePlanStatus(graph: PlanGraph): PlanStatus = when {
-        graph.replanning?.status == ReplanStatus.REQUESTED ||
-            graph.replanning?.status == ReplanStatus.IN_PROGRESS -> PlanStatus.REPLANNING
-        graph.isComplete -> PlanStatus.COMPLETED
-        // A failure already recovered by the active replacement path does not
-        // fail the plan — the recorded failure stays visible on its node.
-        graph.nodes.any { it.isFailed && it.id != graph.replanning?.originalNodeId } -> PlanStatus.FAILED
-        graph.nodes.any { it.blocked || it.status == PlanStepStatus.BLOCKED } -> PlanStatus.BLOCKED
-        graph.nodes.any { it.isInProgress } -> PlanStatus.EXECUTING
-        graph.nodes.any { it.status == PlanStepStatus.PAUSED } -> PlanStatus.PAUSED
-        else -> PlanStatus.PENDING
+    private fun derivePlanStatus(graph: PlanGraph): PlanStatus {
+        val recoveredOriginal = graph.replanning
+            ?.takeIf { it.status == ReplanStatus.COMPLETED }
+            ?.originalNodeId
+        val effective = graph.nodes.filterNot { it.id == recoveredOriginal }
+        return when {
+            graph.replanning?.status == ReplanStatus.REQUESTED ||
+                graph.replanning?.status == ReplanStatus.IN_PROGRESS -> PlanStatus.REPLANNING
+            graph.isComplete -> PlanStatus.COMPLETED
+            effective.any { it.isFailed } -> PlanStatus.FAILED
+            effective.any { it.blocked || it.status == PlanStepStatus.BLOCKED } ->
+                if (effective.any { it.isCompleted }) PlanStatus.PARTIAL else PlanStatus.BLOCKED
+            effective.isNotEmpty() && effective.all { it.isSkipped } -> PlanStatus.SKIPPED
+            effective.any { it.isInProgress } -> PlanStatus.EXECUTING
+            effective.any { it.status == PlanStepStatus.PAUSED } -> PlanStatus.PAUSED
+            effective.any { it.isSkipped } && effective.any { it.isCompleted } &&
+                effective.all { it.isCompleted || it.isSkipped } -> PlanStatus.PARTIAL
+            effective.any { it.isCompleted } -> PlanStatus.EXECUTING
+            else -> PlanStatus.PENDING
+        }
     }
 }
 

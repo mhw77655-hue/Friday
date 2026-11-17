@@ -8,8 +8,10 @@ enum class ExecutionStatus {
     PAUSED,        // execution suspended between steps
     CANCELLED,     // execution stopped by request
     BLOCKED,       // no actionable step remains (blocked plan)
-    COMPLETED,     // plan reached completion
-    FAILED         // plan failed terminally
+    PARTIAL,       // some steps succeeded; others were skipped or blocked
+    SKIPPED,       // every effective step was deliberately skipped
+    COMPLETED,     // every effective step succeeded
+    FAILED         // at least one unrecovered step failed
 }
 
 /**
@@ -33,6 +35,10 @@ data class ExecutionState(
     val completedSteps: Int = 0,
     val failedSteps: Int = 0,
     val executedSteps: Int = 0,
+    /** Plan nodes deliberately skipped without dispatch. */
+    val skippedSteps: Int = 0,
+    /** Plan nodes not dispatchable because prerequisites/permissions blocked them. */
+    val blockedSteps: Int = 0,
     // ── 01F capability-aware fields (additive — the 01C engine never sets them) ──
     /** The id of the capability selected for the current step, when resolved. */
     val currentCapabilityId: String? = null,
@@ -94,5 +100,10 @@ data class ExecutionSummary(
     val stepsFailed: Int,
     val failureCause: String? = null,
     val replanTriggered: Boolean = false,
-    val steps: List<StepOutcome> = emptyList()
+    val steps: List<StepOutcome> = emptyList(),
+    val stepsSkipped: Int = 0,
+    val skippedStepIds: List<String> = emptyList(),
+    val skippedReasons: Map<String, String> = emptyMap(),
+    val blockedStepIds: List<String> = emptyList(),
+    val blockedBy: Map<String, List<String>> = emptyMap()
 )

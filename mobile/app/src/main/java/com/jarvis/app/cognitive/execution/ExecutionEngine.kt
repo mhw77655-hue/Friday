@@ -3,6 +3,8 @@ package com.jarvis.app.cognitive.execution
 import com.jarvis.app.cognitive.CognitiveEngine.CognitiveEvent
 import com.jarvis.app.cognitive.DecisionOutcome
 import com.jarvis.app.cognitive.PlanStatus
+import com.jarvis.app.cognitive.PlanStepStatus
+import com.jarvis.app.cognitive.planning.ReplanStatus
 import com.jarvis.app.cognitive.planning.GoalPlanner
 import com.jarvis.app.cognitive.planning.PlanGraph
 import com.jarvis.app.cognitive.planning.PlanNode
@@ -117,31 +119,51 @@ class ExecutionEngine(
 
         val node = nextActionable(graph.nodes)
         if (node == null) {
-            // Every remaining node done (or the sole failure recovered by the
-            // active replacement path) -> the plan finished its work.
-            val recoveredOriginal = graph.replanning?.originalNodeId
-            if (graph.nodes.all { it.isCompleted || it.isSkipped || it.id == recoveredOriginal }) {
-                state = state.copy(status = ExecutionStatus.COMPLETED)
-                driver.emit(CognitiveEvent.PlanExecutionCompleted(graph.goalId, state.completedSteps))
-                return null
-            }
-            // no actionable step remains — honour the plan's derived state
-            val blockedIds = graph.blockedNodeIds
+            val recoveredOriginal = graph.replanning
+                ?.takeIf { it.status == ReplanStatus.COMPLETED }
+                ?.originalNodeId
+            val effective = graph.nodes.filterNot { it.id == recoveredOriginal }
+            val skipped = effective.filter { it.isSkipped }
+            val blockedNodes = effective.filter { it.blocked || it.status == PlanStepStatus.BLOCKED }
+            val failed = effective.filter { it.isFailed }
+            val blockedIds = blockedNodes.map { it.id }
+            val skippedIds = skipped.map { it.id }
+            val skippedReasons = skipped.associate { it.id to (it.skipReason ?: "No skip reason recorded") }
+            val blockedBy = blockedNodes.filter { it.blockedBy.isNotEmpty() }.associate { it.id to it.blockedBy }
+
             val (terminal, cause) = when {
-                graph.status == PlanStatus.FAILED -> ExecutionStatus.FAILED to (graph.failureCause ?: "plan failed")
-                graph.status == PlanStatus.BLOCKED || blockedIds.isNotEmpty() ->
-                    ExecutionStatus.BLOCKED to "blocked: ${blockedIds.take(3)}"
-                else -> ExecutionStatus.FAILED to "no actionable step"
+                effective.isEmpty() -> ExecutionStatus.FAILED to "replan left no replacement steps"
+                failed.isNotEmpty() || graph.status == PlanStatus.FAILED ->
+                    ExecutionStatus.FAILED to (graph.failureCause ?: failed.firstOrNull()?.failureCause ?: "plan failed")
+                blockedNodes.isNotEmpty() ->
+                    if (effective.any { it.isCompleted }) {
+                        ExecutionStatus.PARTIAL to ("partially completed: " + skipped.size + " skipped, " + blockedNodes.size + " blocked")
+                    } else {
+                        ExecutionStatus.BLOCKED to ("blocked: " + blockedIds.take(3))
+                    }
+                skipped.size == effective.size ->
+                    ExecutionStatus.SKIPPED to ("all " + skipped.size + " effective plan steps were skipped")
+                skipped.isNotEmpty() && effective.any { it.isCompleted } ->
+                    ExecutionStatus.PARTIAL to ("partially completed: " + skipped.size + " step(s) skipped")
+                else -> ExecutionStatus.BLOCKED to ("no actionable step remains; unresolved steps: " + effective.filter { !it.isCompleted }.map { it.id }.take(3))
             }
-            // Emit the terminal event only once (state may already be terminal).
             if (state.status != terminal) {
                 when (terminal) {
-                    ExecutionStatus.BLOCKED -> driver.emit(CognitiveEvent.StepBlocked(graph.goalId, null, blockedIds))
+                    ExecutionStatus.BLOCKED -> driver.emit(CognitiveEvent.StepBlocked(graph.goalId, null, blockedIds, blockedBy))
+                    ExecutionStatus.PARTIAL -> driver.emit(CognitiveEvent.PlanExecutionPartial(
+                        graph.goalId, state.completedSteps, skippedIds, skippedReasons, blockedIds, blockedBy
+                    ))
+                    ExecutionStatus.SKIPPED -> driver.emit(CognitiveEvent.PlanExecutionSkipped(graph.goalId, skippedIds, skippedReasons))
                     ExecutionStatus.FAILED -> driver.emit(CognitiveEvent.PlanExecutionFailed(graph.goalId, cause, state.completedSteps))
                     else -> Unit
                 }
             }
-            state = state.copy(status = terminal, failureCause = cause)
+            state = state.copy(
+                status = terminal,
+                failureCause = cause,
+                skippedSteps = skipped.size,
+                blockedSteps = blockedNodes.size
+            )
             return null
         }
 
@@ -249,6 +271,7 @@ class ExecutionEngine(
             guard++
             if (next.replanned) continue // replan step consumed, loop re-selects
         }
+        val graph = driver.getPlanGraph()
         return ExecutionSummary(
             planId = state.planId ?: "",
             status = state.status,
@@ -256,7 +279,12 @@ class ExecutionEngine(
             stepsFailed = state.failedSteps,
             failureCause = state.failureCause,
             replanTriggered = state.replanTriggered,
-            steps = executed.toList()
+            steps = executed.toList(),
+            stepsSkipped = graph?.skippedCount ?: state.skippedSteps,
+            skippedStepIds = graph?.skippedNodeIds.orEmpty(),
+            skippedReasons = graph?.skippedReasons.orEmpty(),
+            blockedStepIds = graph?.blockedNodeIds.orEmpty(),
+            blockedBy = graph?.blockedBy.orEmpty()
         )
     }
 
