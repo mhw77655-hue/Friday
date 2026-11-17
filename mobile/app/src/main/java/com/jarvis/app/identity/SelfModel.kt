@@ -30,7 +30,8 @@ class SelfModel(
         val name = identitySource.name() ?: "unknown"
         val version = identitySource.version() ?: 0
         val pronouns = identitySource.pronouns()
-        return SelfIdentity(name = name, version = version, pronouns = pronouns)
+        val persistentId = identitySource.persistentId()
+        return SelfIdentity(name = name, version = version, pronouns = pronouns, persistentId = persistentId)
     }
 
     /** Exactly what the live [CapabilityRegistry] currently reports. */
@@ -103,7 +104,9 @@ class SelfModel(
 data class SelfIdentity(
     val name: String,
     val version: Int,
-    val pronouns: String? = null
+    val pronouns: String? = null,
+    /** The canonical app-local individual ID; null only for isolated legacy test sources. */
+    val persistentId: String? = null
 )
 
 /** A real limitation derived from registry state - not a fabricated string. */
@@ -136,6 +139,8 @@ data class StageMilestone(
  * changed through the owner-authorized identity administration path.
  */
 interface IdentitySource {
+    /** Stable identifier from FridayIndividual's durable identity record. */
+    fun persistentId(): String? = null
     fun name(): String?
     fun version(): Int?
     fun pronouns(): String? = null
