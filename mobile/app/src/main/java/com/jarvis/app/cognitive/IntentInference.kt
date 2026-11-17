@@ -105,6 +105,27 @@ class IntentInference(
                 "please ", "help me ", "i want you to ", "i need you to ",
                 "can you ", "could you ", "would you ", "will you "
             ).any(command::startsWith)
+            val questionLead = listOf(
+                "what ", "how ", "why ", "when ", "where ", "who ", "which ",
+                "do you ", "did you ", "have you ", "are you ", "is it ",
+                "can you ", "could you "
+            ).any(command::startsWith)
+
+            // A plain statement addressed to Friday is still a statement,
+            // not a weak/ambiguous command. Give the explicit conversational
+            // evidence enough confidence to beat the no-context ambiguity
+            // fallback; question-shaped content continues through question
+            // classification below.
+            if (command.isNotBlank() && statementOrQuestionLead &&
+                !explicitActionRequest && !questionLead && !command.endsWith("?")
+            ) {
+                return ExplicitIntent(
+                    type = IntentState.CONVERSATION,
+                    confidence = 0.85f,
+                    extractedText = command,
+                    entities = extractEntities(command)
+                )
+            }
 
             if (command.isNotBlank() && !informationRequest &&
                 (!statementOrQuestionLead || explicitActionRequest)
