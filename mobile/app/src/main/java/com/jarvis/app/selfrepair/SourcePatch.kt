@@ -3,6 +3,7 @@ package com.jarvis.app.selfrepair
 import java.io.File
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
+import java.nio.file.LinkOption
 import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import java.nio.file.Paths
@@ -67,10 +68,16 @@ data class SourcePatch(
 
     /** Restore only this patch's own transaction backups. */
     fun restoreFromBackup(root: File) {
-        edits.map { safeTarget(root, it.file) }.distinct().forEach { target ->
-            val backup = backupFor(target)
-            if (backup.isFile) moveReplacing(backup, target)
+        val targets = edits.map { safeTarget(root, it.file) }.distinct()
+        val missing = targets.filter { target ->
+            !Files.isRegularFile(backupFor(target).toPath(), LinkOption.NOFOLLOW_LINKS)
         }
+        require(missing.isEmpty()) {
+            "rollback point missing; refusing to claim restoration: ${missing.joinToString()}"
+        }
+        // Validate every rollback point before restoring any target, so a
+        // missing backup cannot leave a partially restored multi-file patch.
+        targets.forEach { target -> moveReplacing(backupFor(target), target) }
     }
 
     private fun stage(root: File): Pair<LinkedHashMap<File, String>, List<String>> {
