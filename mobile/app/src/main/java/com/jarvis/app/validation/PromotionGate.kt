@@ -28,7 +28,15 @@ class PromotionGate(
     fun decide(
         evaluation: FitnessModel.EvaluationResult,
         regression: List<FitnessModel.TestOutcome>,
-        resource: ResourceReport
+        resource: ResourceReport,
+        /**
+         * True only when the caller has independently checked both the live
+         * registry and durable genome registry and proved this capability did
+         * not exist before the build. A genuinely new capability has no old
+         * behavior to regress; an existing capability with missing tests must
+         * still be rejected.
+         */
+        baselineAbsenceVerified: Boolean = false
     ): GateDecision {
         val reasons = mutableListOf<String>()
 
@@ -55,9 +63,15 @@ class PromotionGate(
             reasons += "regression: baseline test identifiers overlap candidate tests"
         }
 
-        val regressionRate = if (regression.isEmpty()) {
-            reasons += "regression: no baseline test evidence"
+        val verifiedNewCapability = regression.isEmpty() && baselineAbsenceVerified
+        val regressionRate = if (regression.isEmpty() && !verifiedNewCapability) {
+            reasons += "regression: no baseline test evidence and no verified new-capability absence"
             0.0
+        } else if (verifiedNewCapability) {
+            // This is not a fabricated passing test: it records that the
+            // capability was absent before the build, so there was no prior
+            // implementation whose behavior could regress.
+            1.0
         } else {
             regression.count { it.passed }.toDouble() / regression.size
         }
@@ -116,7 +130,8 @@ class PromotionGate(
             score = evaluation.score,
             regressionRate = regressionRate,
             testCoverage = evaluation.dimensions.testCoverage,
-            correctness = evaluation.dimensions.correctness
+            correctness = evaluation.dimensions.correctness,
+            baselineAbsenceVerified = verifiedNewCapability
         )
     }
 
@@ -148,5 +163,6 @@ data class GateDecision(
     val score: Double,
     val regressionRate: Double,
     val testCoverage: Double,
-    val correctness: Double
+    val correctness: Double,
+    val baselineAbsenceVerified: Boolean = false
 )
