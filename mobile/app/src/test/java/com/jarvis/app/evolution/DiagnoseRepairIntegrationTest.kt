@@ -11,13 +11,16 @@ import com.jarvis.app.model.GenerateResult
 import com.jarvis.app.model.FinishReason
 import com.jarvis.app.model.TokenUsage
 import com.jarvis.app.mutation.LlmSynthesisProvider
+import com.jarvis.app.mutation.FitnessModel
 import com.jarvis.app.selfrepair.DiagnosisEngine
 import com.jarvis.app.selfrepair.GradleXmlFailureObserver
 import com.jarvis.app.selfrepair.RepairRequirement
+import com.jarvis.app.selfrepair.RepairVerificationEvidence
 import com.jarvis.app.selfrepair.SelfRepairLoop
 import com.jarvis.app.selfrepair.SourcePatch
 import com.jarvis.app.selfrepair.TestSuiteObservation
 import com.jarvis.app.validation.PromotionGate
+import com.jarvis.app.validation.ResourceBenchmark
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -165,6 +168,22 @@ class DiagnoseRepairIntegrationTest {
         )
         return loop to diagnoser
     }
+
+    private fun validEvidence(
+        candidateSuites: List<TestSuiteObservation> = validEvidence(),
+        regressionSuites: List<TestSuiteObservation> = listOf(TestSuiteObservation("BaselineSuite", 18, emptyList()))
+    ): RepairVerificationEvidence = RepairVerificationEvidence(
+        candidateSuites = candidateSuites,
+        regressionSuites = regressionSuites,
+        resourceReport = ResourceBenchmark.ResourceReport(
+            benchmarks = listOf(
+                FitnessModel.BenchmarkOutcome("latency", "latency_ms", 12.0, "ms"),
+                FitnessModel.BenchmarkOutcome("memory", "memory_mb", 1.0, "mb")
+            ),
+            averageLatencyMs = 12.0,
+            iterations = 20
+        )
+    )
 
     // ------------------------------------------------------------------
     // Tests
