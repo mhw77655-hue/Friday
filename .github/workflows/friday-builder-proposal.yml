@@ -11,6 +11,10 @@ on:
         description: "Base64-encoded, privacy-reviewed request JSON (maximum 32 KiB decoded)"
         required: true
         type: string
+  push:
+    branches: [main]
+    paths:
+      - "development-requests/inbox/*.json"
   workflow_run:
     workflows: ["build"]
     types: [completed]
@@ -26,6 +30,7 @@ jobs:
   build_proposal:
     if: >-
       github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'failure' &&
        github.event.workflow_run.head_branch == 'main')
@@ -36,7 +41,7 @@ jobs:
       contents: read
       actions: read
     outputs:
-      request_id: ${{ steps.request_manual.outputs.request_id || steps.request_ci.outputs.request_id }}
+      request_id: ${{ steps.request_manual.outputs.request_id || steps.request_queue.outputs.request_id || steps.request_ci.outputs.request_id }}
     steps:
       - name: Restrict manual dispatch to repository owner
         if: github.event_name == 'workflow_dispatch' && github.actor != 'mhw77655-hue'
@@ -88,6 +93,41 @@ jobs:
               env.write("FRIDAY_REQUEST_ID=" + request_id + "\n")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write("request_id=" + request_id + "\n")
+          PY
+
+      - name: Load one durable queued request from the repository inbox
+        id: request_queue
+        if: github.event_name == 'push'
+        env:
+          EVENT_PATH: ${{ github.event_path }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib, re
+          event = json.loads(pathlib.Path(os.environ["EVENT_PATH"]).read_text(encoding="utf-8"))
+          changed = set()
+          for commit in event.get("commits", []):
+              for key in ("added", "modified"):
+                  changed.update(commit.get(key, []))
+          queued = sorted(path for path in changed if path.startswith("development-requests/inbox/") and path.endswith(".json"))
+          if len(queued) != 1:
+              raise SystemExit(f"Expected exactly one queued request file in this push; found {len(queued)}.")
+          request_path = pathlib.Path(queued[0])
+          if not request_path.is_file():
+              raise SystemExit("Queued request file is missing from the checked-out commit.")
+          data = json.loads(request_path.read_text(encoding="utf-8"))
+          request_id = data.get("request_id") if isinstance(data, dict) else None
+          if not isinstance(request_id, str) or not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", request_id):
+              raise SystemExit("Queued request has an invalid request_id.")
+          if request_path.name != request_id + ".json":
+              raise SystemExit("Queued request filename must match request_id.")
+          target = pathlib.Path(os.environ["RUNNER_TEMP"]) / ("friday-request-" + request_id + ".json")
+          target.write_bytes(request_path.read_bytes())
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
+              env.write("FRIDAY_REQUEST_FILE=" + str(target) + "\\n")
+              env.write("FRIDAY_REQUEST_ID=" + request_id + "\\n")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("request_id=" + request_id + "\\n")
           PY
 
       - name: Build bounded request from failed main-branch CI
@@ -170,7 +210,7 @@ jobs:
 
       - name: Validate request and worker boundary tests
         env:
-          REQUEST_ID: ${{ steps.request_manual.outputs.request_id || steps.request_ci.outputs.request_id }}
+          REQUEST_ID: ${{ steps.request_manual.outputs.request_id || steps.request_queue.outputs.request_id || steps.request_ci.outputs.request_id }}
         run: |
           set -euo pipefail
           python3 tools/friday-builder/validate_request.py "$FRIDAY_REQUEST_FILE" --expected-id "$REQUEST_ID"
@@ -186,7 +226,7 @@ jobs:
 
       - name: Run bounded proposal without repository write credentials
         env:
-          REQUEST_ID: ${{ steps.request_manual.outputs.request_id || steps.request_ci.outputs.request_id }}
+          REQUEST_ID: ${{ steps.request_manual.outputs.request_id || steps.request_queue.outputs.request_id || steps.request_ci.outputs.request_id }}
         run: |
           env -u GITHUB_TOKEN -u GH_TOKEN -u NVIDIA_API_KEY \
             bash tools/friday-builder/run_proposal.sh "$REQUEST_ID"
@@ -194,7 +234,7 @@ jobs:
       - name: Upload untrusted proposal patch
         uses: actions/upload-artifact@v4
         with:
-          name: friday-proposal-${{ steps.request_manual.outputs.request_id || steps.request_ci.outputs.request_id }}
+          name: friday-proposal-${{ steps.request_manual.outputs.request_id || steps.request_queue.outputs.request_id || steps.request_ci.outputs.request_id }}
           path: proposal.patch
           if-no-files-found: error
           retention-days: 7
