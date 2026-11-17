@@ -23,7 +23,7 @@ on:
 permissions: {}
 
 concurrency:
-  group: friday-builder-${{ github.event.inputs.request_id || github.event.workflow_run.id }}
+  group: friday-builder-${{ github.event.inputs.request_id || github.event.workflow_run.id || github.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -115,6 +115,8 @@ jobs:
           request_path = pathlib.Path(queued[0])
           if not request_path.is_file():
               raise SystemExit("Queued request file is missing from the checked-out commit.")
+          if request_path.stat().st_size > 32768:
+              raise SystemExit("Queued request exceeds 32 KiB.")
           data = json.loads(request_path.read_text(encoding="utf-8"))
           request_id = data.get("request_id") if isinstance(data, dict) else None
           if not isinstance(request_id, str) or not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,63}", request_id):
