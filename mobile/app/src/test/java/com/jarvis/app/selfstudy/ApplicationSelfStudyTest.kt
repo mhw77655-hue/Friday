@@ -139,6 +139,104 @@ class ApplicationSelfStudyTest {
         }
     }
 
+    @Test fun `model-free reflection selects a request from observed gaps and survives restart`() {
+        val dir = java.nio.file.Files.createTempDirectory("friday-model-free-reflection-").toFile()
+        try {
+            val reportFile = File(dir, "self-study/latest.properties")
+            fun createStudy() = ApplicationSelfStudy(
+                graph = graph(),
+                reportFile = reportFile,
+                capabilitySnapshot = {
+                    CapabilityManifest(
+                        stage = 1,
+                        updated = "test",
+                        capabilities = mapOf("voice" to true),
+                        knownLimitations = emptyMap()
+                    )
+                },
+                hostSnapshot = { null },
+                liquidSnapshot = { null },
+                sourceIndexSnapshot = {
+                    ApplicationSourceIndex.Summary(1, "revision-model-free", 42, 120, 9)
+                }
+            )
+            val study = createStudy()
+            val report = study.study(nowMs = 100L)
+            val reflection = study.reflectModelFree(report, nowMs = 200L)
+
+            assertTrue(reflection.hasDevelopmentRequest)
+            assertTrue(reflection.developmentRequest!!.contains("unreachable.experimental"))
+            assertTrue(reflection.findings.any { it.contains("unreachable runtime components") })
+            assertTrue(reflection.constraints.any { it.contains("models remain optional") })
+            assertTrue(reflection.evidenceGaps.any { it.contains("Kotlin source text") })
+            assertEquals("revision-model-free", reflection.sourceRevision)
+            assertTrue(File(dir, "self-study/latest-reflection.properties").isFile)
+            assertEquals(reflection, createStudy().latestReflection())
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test fun `model-free reflection does not invent a development request without a concrete gap`() {
+        val dir = java.nio.file.Files.createTempDirectory("friday-no-gap-reflection-").toFile()
+        try {
+            val completeGraph = graph().apply {
+                addEdge("entry.latencyPipeline", "unreachable.experimental")
+            }
+            val study = ApplicationSelfStudy(
+                graph = completeGraph,
+                reportFile = File(dir, "self-study/latest.properties"),
+                capabilitySnapshot = {
+                    CapabilityManifest(
+                        stage = 1,
+                        updated = "test",
+                        capabilities = mapOf("voice" to true),
+                        knownLimitations = emptyMap()
+                    )
+                },
+                hostSnapshot = {
+                    HostStudyRecord(
+                        fingerprint = HostFingerprint(
+                            manufacturer = "test", model = "test", device = "test",
+                            socModel = "test", board = "test", androidApi = 35,
+                            totalMemoryMb = 8192, appMemoryClassMb = 256,
+                            cpuCoreCount = 8, primaryAbi = "arm64-v8a"
+                        ),
+                        sampleCount = 25,
+                        minimumAvailableMemoryMb = 1200,
+                        averageCpuLoadEmaPercent = 20.0,
+                        thermalPressureSamples = 0,
+                        lowMemorySamples = 0,
+                        memoryPressureEma = 0.0,
+                        thermalPressureEma = 0.0,
+                        minimumBatteryPercent = 80,
+                        maximumObservedProcessPssMb = 900
+                    )
+                },
+                liquidSnapshot = {
+                    LiquidSymbiosisSnapshot(
+                        generation = 1,
+                        host = LiquidHostState(availableMemoryMb = 3000, cpuLoad = 20.0,
+                            thermalPressure = 0.0, batteryPercent = 80, charging = false),
+                        organs = emptyMap(),
+                        lastAdaptation = "stable",
+                        lastPredictionError = 0.1
+                    )
+                },
+                sourceIndexSnapshot = {
+                    ApplicationSourceIndex.Summary(1, "revision-healthy", 42, 120, 9,
+                        dependencyEdgeCount = 10)
+                }
+            )
+            val reflection = study.reflectModelFree(study.study(nowMs = 100L), nowMs = 200L)
+
+            assertFalse(reflection.hasDevelopmentRequest)
+            assertTrue(reflection.summary.contains("No source-level change"))
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
     @Test fun `Friday model reflection creates and restores a repository development request`() = kotlinx.coroutines.runBlocking {
         val dir = java.nio.file.Files.createTempDirectory("friday-reflection-").toFile()
         try {

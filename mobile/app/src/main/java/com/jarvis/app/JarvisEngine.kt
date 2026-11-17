@@ -723,10 +723,14 @@ object JarvisEngine {
         ) return false
 
         val report = study.study()
+        // Friday forms a conservative goal from observed evidence even when no
+        // language model is loaded. A resident model may enrich this reflection,
+        // but it is never required for the individual to notice a verified gap.
+        study.reflectModelFree(report)
         val manager = modelManager
         val anchor = anchorEngine
-        // Reflection stays local-only. No second model is loaded and no screen,
-        // conversation or private user data is sent to a cloud model.
+        // Optional enrichment stays on the phone. No second model is loaded and
+        // no screen, conversation or private user data is sent to a cloud model.
         if (manager?.activeProvider?.value?.providerType == com.jarvis.app.env.ModelProviderType.LLAMA_CPP &&
             anchor != null
         ) {
