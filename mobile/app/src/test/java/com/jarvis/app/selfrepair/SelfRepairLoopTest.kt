@@ -258,6 +258,29 @@ class SelfRepairLoopTest {
     }
 
     @Test
+    fun `direct conclude with invalid evidence restores the applied patch`() = runBlocking {
+        val root = tmpDir()
+        writePlannerFixture(root)
+        val h = harness()
+        val (loop, _) = loopWith(root, h)
+        val requirement = RepairRequirement("GoalPlanner", "Retain failed nodes", emptyList())
+        val diagnosis = RepairDiagnosis(
+            rootCause = "failed node is discarded",
+            faultyUnit = "GoalPlanner.replan",
+            fixStrategy = "retain failed node as FAILED",
+            rationale = "preserve the failure record"
+        )
+        val patch = loop.proposeRepair(requirement, diagnosis)
+        loop.apply(patch)
+
+        val result = loop.conclude(requirement, diagnosis, patch, emptyEvidence())
+
+        assertEquals(SelfRepairLoop.Outcome.VALIDATION_FAILED, result.outcome)
+        assertEquals(miniPlannerSource, File(root, "com/example/planner/GoalPlanner.kt").readText())
+        assertFalse(File(root, "com/example/planner/GoalPlanner.kt.selfrepair.${patch.transactionId}.bak").exists())
+    }
+
+    @Test
     fun `verifier exception restores the applied patch`() = runBlocking {
         val root = tmpDir()
         writePlannerFixture(root)
