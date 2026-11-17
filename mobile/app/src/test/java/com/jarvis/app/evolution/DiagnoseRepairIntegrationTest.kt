@@ -210,7 +210,7 @@ class DiagnoseRepairIntegrationTest {
         loop.apply(patch)
         val repaired = File(root, "com/example/planner/GoalPlanner.kt").readText()
         assertTrue("repair should retain failed nodes", repaired.contains("FAILED"))
-        assertTrue("backup should exist", File(root, "com/example/planner/GoalPlanner.kt.selfrepair.bak").exists())
+        assertTrue("backup should exist", File(root, "com/example/planner/GoalPlanner.kt.selfrepair.${patch.transactionId}.bak").exists())
 
         // VERIFY + GATE: all tests pass → PROMOTED
         val result = loop.conclude(
@@ -261,7 +261,7 @@ class DiagnoseRepairIntegrationTest {
 
         assertEquals(SelfRepairLoop.Outcome.ROLLED_BACK, result.outcome)
         assertFalse("backup should be cleaned up after rollback",
-            File(root, "com/example/planner/GoalPlanner.kt.selfrepair.bak").exists())
+            File(root, "com/example/planner/GoalPlanner.kt.selfrepair.${patch.transactionId}.bak").exists())
         assertEquals("source restored to original", miniPlannerSource,
             File(root, "com/example/planner/GoalPlanner.kt").readText())
     }
