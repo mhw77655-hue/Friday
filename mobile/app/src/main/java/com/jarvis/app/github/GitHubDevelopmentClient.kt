@@ -132,11 +132,11 @@ class GitHubDevelopmentClient(context: Context) {
         when (val outcome = outbox.enqueue(draft)) {
             is EnqueueOutcome.Rejected -> throw IllegalArgumentException(outcome.reason)
             is EnqueueOutcome.Duplicate -> {
-                runCatching { DevelopmentRequestOutboxScheduler.ensureScheduled(app) }
+                runCatching { DevelopmentRequestOutboxScheduler.ensureScheduled(app, appendIfActive = true) }
                 "Request ${outcome.request.requestId} is already ${outcome.request.state.name.lowercase()}; no duplicate was queued."
             }
             is EnqueueOutcome.Enqueued -> {
-                runCatching { DevelopmentRequestOutboxScheduler.ensureScheduled(app) }
+                runCatching { DevelopmentRequestOutboxScheduler.ensureScheduled(app, appendIfActive = true) }
                 if (!tokenStore.isConfigured()) {
                     "Request ${outcome.request.requestId} saved. Connect GitHub to deliver it."
                 } else {
