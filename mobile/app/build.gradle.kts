@@ -113,6 +113,11 @@ kotlin {
 }
 
 dependencies {
+    // Camera-based presence perception is optional at runtime but must compile.
+    implementation("androidx.camera:camera-camera2:1.4.2")
+    implementation("androidx.camera:camera-lifecycle:1.4.2")
+    implementation("androidx.camera:camera-view:1.4.2")
+    implementation("com.google.mlkit:face-detection:16.1.7")
     implementation("androidx.navigation:navigation-compose:2.8.4")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
