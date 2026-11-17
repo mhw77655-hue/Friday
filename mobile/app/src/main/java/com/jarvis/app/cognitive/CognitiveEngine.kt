@@ -391,7 +391,7 @@ class CognitiveEngine(
         } else null
 
         // Classify intent via LLM seam and route accordingly
-        val intentCategory = classifyIntent(userText)
+        val intentCategory = classifyIntent(userText, cognitiveResult.intentResult)
         val decision = intentToDecision(intentCategory)
 
         // Stage 04 FEP wake gate: decide resident-vs-reasoning on this turn's
@@ -1364,21 +1364,37 @@ class CognitiveEngine(
     }
 
     /**
-     * Classify the user's intent for a turn by calling the LLM via
-     * [intentClassificationComplete].  Returns the parsed [IntentCategory],
-     * falling back to [IntentCategory.STATEMENT] when the LLM call fails or
-     * the response is unparseable.
+     * Classify a turn from Friday's local inference first. The optional model
+     * classifier is an additional source of evidence, never a prerequisite for
+     * understanding a turn. A high-confidence local result is not overwritten
+     * by a conflicting model guess.
      */
-    suspend fun classifyIntent(turn: String): IntentCategory {
-        val complete = intentClassificationComplete ?: return IntentCategory.STATEMENT
-
-        val raw = try {
-            complete(turn)
-        } catch (_: Throwable) {
-            return IntentCategory.STATEMENT
+    suspend fun classifyIntent(
+        turn: String,
+        localInference: IntentInferenceResult? = null
+    ): IntentCategory {
+        val local = localInference ?: intentInference.infer(turn, getCurrentState())
+        val localCategory = when (local.finalIntent) {
+            IntentState.COMMAND -> IntentCategory.COMMAND
+            IntentState.QUESTION -> IntentCategory.QUESTION
+            IntentState.CLARIFICATION -> IntentCategory.CLARIFICATION_RESPONSE
+            else -> IntentCategory.STATEMENT
         }
 
-        return parseIntentCategory(raw) ?: IntentCategory.STATEMENT
+        // Explicit local evidence is enough. Do not wake or consult a model
+        // merely to classify a turn that Friday already understands.
+        if (local.confidence >= 0.7f) return localCategory
+
+        val complete = intentClassificationComplete ?: return localCategory
+        val raw = try {
+            complete(turn)
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            return localCategory
+        }
+
+        return parseIntentCategory(raw) ?: localCategory
     }
 
     /**
