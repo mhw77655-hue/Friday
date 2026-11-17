@@ -222,6 +222,12 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Preserve trusted patch validator before handling untrusted code
+        run: |
+          set -euo pipefail
+          install -m 600 tools/friday-builder/validate_patch_paths.py \
+            "$RUNNER_TEMP/friday-validate-patch-paths.py"
+
       - name: Download untrusted patch artifact
         uses: actions/download-artifact@v4
         with:
@@ -238,7 +244,9 @@ jobs:
           test "$(wc -c < proposal-artifact/proposal.patch)" -le 2097152
           git apply --index --check proposal-artifact/proposal.patch
           git apply --index proposal-artifact/proposal.patch
-          python3 tools/friday-builder/validate_patch_paths.py HEAD
+          # Execute only the validator copied from trusted main BEFORE the
+          # untrusted patch was applied; never run a patch-replaced validator.
+          python3 "$RUNNER_TEMP/friday-validate-patch-paths.py" HEAD
           git diff --cached --check
 
       - name: Create isolated branch and draft PR
