@@ -10,7 +10,8 @@ package com.jarvis.app.voice
 data class PhoneActionSkill(
     val id: String,
     val aliases: List<String>,
-    val command: PhoneControlCommand
+    val command: PhoneControlCommand,
+    val label: String = id.substringAfterLast('.').replace('_', ' ')
 )
 
 class LocalPhoneActionSkillRegistry(
@@ -59,10 +60,13 @@ class LocalPhoneActionSkillRegistry(
             return Resolution.Action(best.skill.id, best.skill.command, best.score)
         }
         if (best.score >= CLARIFICATION_THRESHOLD && (second == null || margin < AMBIGUITY_MARGIN)) {
-            val choices = scored.take(2).joinToString(" or ") { it.skill.id.substringAfterLast('.') }
-            return Resolution.Clarification(
-                "Do you want me to $choices? I won't change anything until that's clear."
-            )
+            val choices = scored.take(2).map { it.skill.label }
+            val question = if (second == null) {
+                "I think you mean " + choices.first() + ". Is that right?"
+            } else {
+                "Should I " + choices[0] + " or " + choices[1] + "? I won't change anything until you confirm."
+            }
+            return Resolution.Clarification(question)
         }
         return Resolution.NotMatched
     }
@@ -112,55 +116,55 @@ class LocalPhoneActionSkillRegistry(
             PhoneActionSkill("navigation.back", listOf(
                 "go back", "take me back", "go back one screen", "return to previous screen",
                 "navigate to previous screen"
-            ), PhoneControlCommand.Back),
+            ), PhoneControlCommand.Back, "go back"),
             PhoneActionSkill("navigation.home", listOf(
                 "go to home screen", "take me to home screen", "return to home screen",
                 "show home screen"
-            ), PhoneControlCommand.Home),
+            ), PhoneControlCommand.Home, "go to the home screen"),
             PhoneActionSkill("navigation.recents", listOf(
                 "show recent apps", "switch between apps", "show my recent apps",
                 "bring up recent applications"
-            ), PhoneControlCommand.Recents),
+            ), PhoneControlCommand.Recents, "show recent apps"),
             PhoneActionSkill("system.notifications", listOf(
                 "pull down notifications", "open notification shade", "show notification shade",
                 "bring down notifications"
-            ), PhoneControlCommand.Notifications),
+            ), PhoneControlCommand.Notifications, "open notifications"),
             PhoneActionSkill("system.quick_settings", listOf(
                 "open quick settings", "show quick settings", "bring up quick panel"
-            ), PhoneControlCommand.QuickSettings),
+            ), PhoneControlCommand.QuickSettings, "open quick settings"),
             PhoneActionSkill("system.settings", listOf(
                 "open system settings", "take me to settings", "open phone settings"
-            ), PhoneControlCommand.OpenSettings),
+            ), PhoneControlCommand.OpenSettings, "open system settings"),
             PhoneActionSkill("media.play", listOf(
                 "play my music", "resume my music", "start music playback"
-            ), PhoneControlCommand.PlayMedia),
+            ), PhoneControlCommand.PlayMedia, "play music"),
             PhoneActionSkill("media.pause", listOf(
                 "pause my music", "pause the playback", "stop music playback"
-            ), PhoneControlCommand.PauseMedia),
+            ), PhoneControlCommand.PauseMedia, "pause music"),
             PhoneActionSkill("media.next", listOf(
                 "play next song", "skip to next song", "move to next track"
-            ), PhoneControlCommand.NextTrack),
+            ), PhoneControlCommand.NextTrack, "skip to the next track"),
             PhoneActionSkill("media.previous", listOf(
                 "play previous song", "go to previous track", "return to last track"
-            ), PhoneControlCommand.PreviousTrack),
+            ), PhoneControlCommand.PreviousTrack, "return to the previous track"),
             PhoneActionSkill("volume.up", listOf(
                 "make it louder", "make it a bit louder", "turn volume up",
                 "increase the volume", "raise the sound", "make the sound loud"
-            ), PhoneControlCommand.VolumeUp),
+            ), PhoneControlCommand.VolumeUp, "increase the volume"),
             PhoneActionSkill("volume.down", listOf(
                 "make it quieter", "turn volume down", "decrease the volume",
                 "lower the sound", "make the sound quiet"
-            ), PhoneControlCommand.VolumeDown),
+            ), PhoneControlCommand.VolumeDown, "decrease the volume"),
             PhoneActionSkill("network.internet_panel", listOf(
                 "open wifi settings", "show wifi settings", "open internet settings",
                 "open connectivity settings", "show wifi controls"
-            ), PhoneControlCommand.OpenInternetPanel),
+            ), PhoneControlCommand.OpenInternetPanel, "open the internet settings panel"),
             PhoneActionSkill("screen.scroll_down", listOf(
                 "scroll down", "move the screen down", "scroll further down"
-            ), PhoneControlCommand.ScrollForward),
+            ), PhoneControlCommand.ScrollForward, "scroll down"),
             PhoneActionSkill("screen.scroll_up", listOf(
                 "scroll up", "move the screen up", "scroll further up"
-            ), PhoneControlCommand.ScrollBackward)
+            ), PhoneControlCommand.ScrollBackward, "scroll up")
         )
 
         private val DEFAULT = LocalPhoneActionSkillRegistry(defaultSkills)
