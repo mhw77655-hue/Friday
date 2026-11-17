@@ -129,7 +129,8 @@ class IdentityContext(
             val goals = continuity.activeGoals.take(3).joinToString("; ").ifBlank { "none" }
             "identity=${id.name}${id.pronouns?.let { " (${it})" }.orEmpty()} v${id.version}; " +
                 "continuity: experiences=${continuity.experience.experienceCount}, " +
-                "learned_associations=${continuity.experience.associationCount}, active_goals=$goals; " +
+                "learned_associations=${continuity.experience.associationCount}, " +
+                "latest_experience_at_ms=${continuity.experience.latestExperienceAtMs ?: "unknown"}, active_goals=$goals; " +
                 "capabilities: ${caps.ifBlank { "(none)" }}; limitations: ${lims.ifBlank { "(none)" }}"
         } else {
             null
