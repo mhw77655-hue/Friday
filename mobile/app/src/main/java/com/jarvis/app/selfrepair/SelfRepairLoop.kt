@@ -269,6 +269,11 @@ class SelfRepairLoop(
 
         require(candidateSuites.isNotEmpty()) { "verification produced no candidate test suites" }
         require(regressionSuites.isNotEmpty()) { "verification produced no independent baseline regression suites" }
+        val candidateSuiteNames = candidateSuites.map { it.suiteName }.toSet()
+        val regressionSuiteNames = regressionSuites.map { it.suiteName }.toSet()
+        require(candidateSuiteNames.intersect(regressionSuiteNames).isEmpty()) {
+            "candidate and baseline verification suites must be independent"
+        }
         (candidateSuites + regressionSuites).forEach { suite ->
             require(suite.totalTests > 0) { "verification suite '${suite.suiteName}' contains no tests" }
             require(suite.skippedTests == 0) { "verification suite '${suite.suiteName}' contains skipped tests" }
