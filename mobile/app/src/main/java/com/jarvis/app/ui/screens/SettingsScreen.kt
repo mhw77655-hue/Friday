@@ -263,7 +263,7 @@ fun SettingsScreen() {
                             githubConnected = true
                             githubToken = ""
                             runCatching {
-                                com.jarvis.app.github.DevelopmentRequestOutboxScheduler.ensureScheduled(context)
+                                com.jarvis.app.github.DevelopmentRequestOutboxScheduler.ensureScheduled(context, appendIfActive = true)
                             }
                             runCatching {
                                 com.jarvis.app.github.FridayEvolutionScheduler.enable(context)
