@@ -209,6 +209,40 @@ class SourcePatchTest {
     }
 
     @Test
+    fun `git metadata and local signing material are protected`() {
+        val root = tmpDir()
+        val protectedPaths = listOf(
+            ".git/config",
+            "local.properties",
+            "release/upload-key.jks",
+            "keys/signing.pem",
+            "keys/private.key"
+        )
+        protectedPaths.forEach { path ->
+            val patch = SourcePatch(listOf(PatchEdit(path, "old", "new")))
+            assertTrue(
+                "expected protected path to be rejected: $path",
+                patch.validate(root).any { it.contains("unsafe path") }
+            )
+        }
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `patch parser requires file before find and replace`() {
+        SourcePatch.parse(
+            """
+            ```patch
+            FIND:
+            old
+            FILE: Target.kt
+            REPLACE:
+            new
+            ```
+            """.trimIndent()
+        )
+    }
+
+    @Test
     fun `validate returns error for missing file`() {
         val root = tmpDir()
         val patch = SourcePatch(listOf(PatchEdit("nope.kt", "a", "b")))
