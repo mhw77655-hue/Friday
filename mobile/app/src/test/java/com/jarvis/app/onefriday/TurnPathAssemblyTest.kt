@@ -62,8 +62,12 @@ class TurnPathAssemblyTest {
         lateinit var backend: FakeModelBackend
         lateinit var storageDir: java.io.File
 
-        fun ports(snapshot: () -> ResourceSnapshot, clock: () -> Long): JvmPlatformPorts {
-            storageDir = compositionDir("assembly")
+        fun ports(
+            snapshot: () -> ResourceSnapshot,
+            clock: () -> Long,
+            directory: File? = null
+        ): JvmPlatformPorts {
+            storageDir = directory ?: compositionDir("assembly")
             backend = FakeModelBackend()
             return JvmPlatformPorts(
                 storageDir = storageDir,
@@ -210,6 +214,57 @@ class TurnPathAssemblyTest {
             EmotionHypothesis.neutral(),
             reading.emotion
         )
+    }
+
+    @Test
+    fun `the same individual recovers identity experience and unfinished goals after restart`() {
+        val directory = compositionDir("individual-continuity")
+        val first = TurnPathAssembly.assemble(
+            Fixture().ports({ ResourceSnapshot.alwaysHealthy() }, { 1_000L }, directory)
+        )
+        val identityId = first.individual.identity.id
+        val goal = Goal(
+            id = "goal-continuity",
+            description = "Continue the work Friday was pursuing before shutdown.",
+            priority = GoalPriority.HIGH,
+            createdAt = 1_000L,
+            successCriteria = listOf("The same individual resumes with her unfinished goal.")
+        )
+        val subgoal = Subgoal(
+            id = "subgoal-recovery",
+            goalId = goal.id,
+            description = "Restore the unfinished commitment.",
+            status = SubgoalStatus.IN_PROGRESS,
+            createdAt = 1_100L
+        )
+
+        first.engine.setGoal(goal)
+        first.engine.addSubgoal(subgoal)
+        first.individual.recordExperience("Friday observed a durable continuity test event.")
+
+        val liveSnapshot = first.selfModel.continuitySnapshot()
+        assertTrue(liveSnapshot.activeGoals.contains(goal.description))
+        assertTrue(liveSnapshot.activeGoals.contains(subgoal.description))
+        assertEquals(1, liveSnapshot.experience.experienceCount)
+
+        val persistedFile = File(directory, "friday/continuity/goals.json")
+        val deadline = System.currentTimeMillis() + 3_000L
+        while (System.currentTimeMillis() < deadline &&
+            (!persistedFile.isFile || !persistedFile.readText().contains(goal.id))
+        ) {
+            Thread.sleep(10L)
+        }
+        assertTrue("Goal state must reach durable storage.", persistedFile.isFile && persistedFile.readText().contains(goal.id))
+
+        val restarted = TurnPathAssembly.assemble(
+            Fixture().ports({ ResourceSnapshot.alwaysHealthy() }, { 2_000L }, directory)
+        )
+        assertEquals(identityId, restarted.individual.identity.id)
+        assertEquals(goal, restarted.engine.cognitiveState.value.currentGoal)
+        assertEquals(listOf(subgoal), restarted.engine.cognitiveState.value.activeSubgoals)
+        assertEquals(1, restarted.individual.experience.experienceCount())
+        assertTrue(restarted.selfModel.goals().contains(goal.description))
+        directory.deleteRecursively()
     }
 
     // ── The host's clock is the turn clock ───────────────────────────────────
