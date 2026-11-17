@@ -25,8 +25,25 @@ class FridayEvolutionWorker(
     override suspend fun doWork(): Result {
         if (!FridayEvolutionScheduler.isEnabled(applicationContext)) return Result.success()
         return try {
+            val includeAggregateEvidence =
+                FridayEvolutionScheduler.isAggregateEvidenceEnabled(applicationContext)
+
+            // Refresh the on-device self-study before dispatch. The model-free
+            // reflection is created locally by JarvisEngine; a language model
+            // is not required to identify or persist an evidence-backed goal.
+            if (!com.jarvis.app.JarvisEngine.runApplicationSelfStudySlice()) {
+                FridayEvolutionScheduler.ensurePeriodic(applicationContext)
+                return Result.retry()
+            }
+            val localReflection = if (includeAggregateEvidence) {
+                com.jarvis.app.JarvisEngine.applicationSelfStudy?.latestReflection()
+            } else {
+                null
+            }
+
             GitHubDevelopmentClient(applicationContext).submitVisionMaintenanceCycle(
-                includeAggregateEvidence = FridayEvolutionScheduler.isAggregateEvidenceEnabled(applicationContext)
+                includeAggregateEvidence = includeAggregateEvidence,
+                localReflection = localReflection
             )
             // Start recurring work only after the immediate cycle completes;
             // this prevents the two workers from racing into duplicate builds.
