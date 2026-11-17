@@ -105,6 +105,10 @@ class ContinuityLawTest {
         assertEquals(5_000L, ContinuityLaw.requiredIntervalMs(0))
         assertEquals(10_000L, ContinuityLaw.requiredIntervalMs(1))
         assertEquals(60_000L, ContinuityLaw.requiredIntervalMs(100))
+        assertEquals(6, ContinuityLaw.requiredEvidenceClaims(0, base = 6))
+        assertEquals(6, ContinuityLaw.requiredEvidenceClaims(100, base = 6))
+        assertEquals(90_000L, ContinuityLaw.requiredIntervalMs(0, base = 90_000L))
+        assertEquals(90_000L, ContinuityLaw.requiredIntervalMs(100, base = 90_000L))
     }
 
     // ── AC1: evidence count, on the real path ───────────────────────────────────
