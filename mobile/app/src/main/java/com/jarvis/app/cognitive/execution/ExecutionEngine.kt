@@ -148,8 +148,11 @@ class ExecutionEngine(
                 else -> ExecutionStatus.BLOCKED to ("no actionable step remains; unresolved steps: " + effective.filter { !it.isCompleted }.map { it.id }.take(3))
             }
             if (state.status != terminal) {
+                if (blockedNodes.isNotEmpty()) {
+                    driver.emit(CognitiveEvent.StepBlocked(graph.goalId, null, blockedIds, blockedBy))
+                }
                 when (terminal) {
-                    ExecutionStatus.BLOCKED -> driver.emit(CognitiveEvent.StepBlocked(graph.goalId, null, blockedIds, blockedBy))
+                    ExecutionStatus.BLOCKED -> Unit
                     ExecutionStatus.PARTIAL -> driver.emit(CognitiveEvent.PlanExecutionPartial(
                         graph.goalId, state.completedSteps, skippedIds, skippedReasons, blockedIds, blockedBy
                     ))
