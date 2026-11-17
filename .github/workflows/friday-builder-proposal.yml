@@ -54,7 +54,7 @@ jobs:
         with:
           ref: main
           persist-credentials: false
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -99,20 +99,25 @@ jobs:
         id: request_queue
         if: github.event_name == 'push'
         env:
-          EVENT_PATH: ${{ github.event_path }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          import json, os, pathlib, re
-          event = json.loads(pathlib.Path(os.environ["EVENT_PATH"]).read_text(encoding="utf-8"))
-          changed = set()
-          for commit in event.get("commits", []):
-              for key in ("added", "modified"):
-                  changed.update(commit.get(key, []))
-          queued = sorted(path for path in changed if path.startswith("development-requests/inbox/") and path.endswith(".json"))
-          if len(queued) != 1:
-              raise SystemExit(f"Expected exactly one queued request file in this push; found {len(queued)}.")
-          request_path = pathlib.Path(queued[0])
+          # Push webhook commit objects omit changed-file lists. Compare the pushed range.
+          if [[ "$BEFORE_SHA" =~ ^0+$ ]]; then
+            echo "A zero before-SHA is unsupported for this existing-main inbox." >&2
+            exit 1
+          fi
+          changed="$(git diff --name-only --diff-filter=AM "$BEFORE_SHA" "$AFTER_SHA" -- 'development-requests/inbox/*.json')"
+          mapfile -t queued <<< "$changed"
+          if [[ -z "$changed" || "${#queued[@]}" -ne 1 ]]; then
+            echo "Expected exactly one added or modified inbox request; found ${#queued[@]}." >&2
+            exit 1
+          fi
+          REQUEST_PATH="${queued[0]}"
+          python3 - "$REQUEST_PATH" <<'PY'
+          import json, os, pathlib, re, sys
+          request_path = pathlib.Path(sys.argv[1])
           if not request_path.is_file():
               raise SystemExit("Queued request file is missing from the checked-out commit.")
           if request_path.stat().st_size > 32768:
@@ -126,10 +131,10 @@ jobs:
           target = pathlib.Path(os.environ["RUNNER_TEMP"]) / ("friday-request-" + request_id + ".json")
           target.write_bytes(request_path.read_bytes())
           with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
-              env.write("FRIDAY_REQUEST_FILE=" + str(target) + "\\n")
-              env.write("FRIDAY_REQUEST_ID=" + request_id + "\\n")
+              env.write("FRIDAY_REQUEST_FILE=" + str(target) + "\n")
+              env.write("FRIDAY_REQUEST_ID=" + request_id + "\n")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write("request_id=" + request_id + "\\n")
+              output.write("request_id=" + request_id + "\n")
           PY
 
       - name: Build bounded request from failed main-branch CI
