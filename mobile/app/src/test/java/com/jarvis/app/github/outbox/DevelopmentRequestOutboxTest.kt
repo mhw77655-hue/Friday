@@ -65,6 +65,16 @@ class DevelopmentRequestOutboxTest {
     }
 
     @Test
+    fun `maximum supported owner instruction plus system context is accepted`() {
+        val outbox = DevelopmentRequestOutbox(tempDir())
+        val fullInstruction = "x".repeat(4047)
+
+        val outcome = outbox.enqueue(draft(outcome = fullInstruction))
+
+        assertTrue("The full 3500-character user input plus system context must fit.", outcome is EnqueueOutcome.Enqueued)
+    }
+
+    @Test
     fun `repeated enqueue of the same logical request is deduplicated`() {
         val dir = tempDir()
         val outbox = DevelopmentRequestOutbox(dir)
