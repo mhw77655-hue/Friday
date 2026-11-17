@@ -213,7 +213,10 @@ class SourcePatchTest {
         val root = tmpDir()
         val protectedPaths = listOf(
             ".git/config",
+            "mobile/.git/config",
             "local.properties",
+            "gradle.properties",
+            ".env.production",
             "release/upload-key.jks",
             "keys/signing.pem",
             "keys/private.key"
