@@ -9,12 +9,12 @@ import com.jarvis.app.model.ModelManager
 import org.json.JSONObject
 
 /**
- * Lets Friday's existing intelligence translate natural speech + the current
- * accessible screen into one bounded Android body action.
+ * Resolves spoken phone requests into bounded Android body actions.
  *
- * This is not a second model. Production uses the same ModelManager that
- * answers ordinary conversation. The planner emits a typed intent only; Jev
- * evaluates the proposed action and Android's own service executes it.
+ * The extensible local skill registry handles supported requests without a
+ * model. An optional local model can interpret requests outside that registry,
+ * but it only emits a typed proposal; Friday's policy organ and Android's own
+ * accessibility service still decide whether and how the action executes.
  */
 class PhoneActionPlanner(
     private val localModelReady: suspend () -> Boolean = { true },
