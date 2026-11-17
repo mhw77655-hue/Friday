@@ -74,12 +74,6 @@ class SandboxGateTest {
         )
     }
 
-    private fun emptyEvidence() = RepairVerificationEvidence(
-        candidateSuites = emptyList(),
-        regressionSuites = emptyList(),
-        resourceReport = ResourceBenchmark.ResourceReport(emptyList(), 0.0, 0)
-    )
-
     // ------------------------------------------------------------------
     // Fixtures — same GoalPlanner as DiagnoseRepairIntegrationTest
     // ------------------------------------------------------------------
@@ -265,9 +259,9 @@ class SandboxGateTest {
         // 1. observeAndDiagnose: reads real XML failures
         // 2. proposeRepair: generates the broken patch via scripted LLM
         // 3. apply: writes the broken patch to GoalPlanner.kt
-        // 4. verify: verifier returns empty (normal verification passes)
+        // 4. verify: independent candidate, baseline and resource evidence all pass
         // 5. conclude: sandbox stress test catches the broken spec BEFORE gate
-        val result = loop.repair(requirement, "") { _ -> emptyEvidence() }
+        val result = loop.repair(requirement, "") { _ -> validEvidence() }
 
         // The sandbox gate must catch the broken candidate
         assertEquals(SelfRepairLoop.Outcome.SANDBOX_REJECTED, result.outcome)
