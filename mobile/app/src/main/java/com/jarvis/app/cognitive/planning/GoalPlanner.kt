@@ -426,7 +426,8 @@ class GoalPlanner(
             effective.any { it.status == PlanStepStatus.PAUSED } -> PlanStatus.PAUSED
             effective.any { it.isSkipped } && effective.any { it.isCompleted } &&
                 effective.all { it.isCompleted || it.isSkipped } -> PlanStatus.PARTIAL
-            effective.any { it.isCompleted } -> PlanStatus.EXECUTING
+            // Completed prerequisites do not mean the plan is currently executing.
+            // A pending replacement/downstream step remains PENDING until dispatched.
             else -> PlanStatus.PENDING
         }
     }
