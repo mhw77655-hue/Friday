@@ -135,8 +135,8 @@ class GradleXmlFailureObserver(private val resultsDir: File) {
             if (testcase.getElementsByTagName("skipped").length > 0) skipped++
         }
 
-        require(failures.size + skipped <= total) {
-            "inconsistent JUnit counts in $file: tests=$total failures/errors=${failures.size} skipped=$skipped"
+        require(nodes.length == total && failures.size + skipped <= total) {
+            "inconsistent JUnit counts in $file: tests=$total cases=${nodes.length} failures/errors=${failures.size} skipped=$skipped"
         }
         return TestSuiteObservation(
             suiteName = suiteName,
