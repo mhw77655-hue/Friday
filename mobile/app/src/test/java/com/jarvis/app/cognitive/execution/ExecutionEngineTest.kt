@@ -296,8 +296,11 @@ class ExecutionEngineTest {
         val driver = FakeDriver(GoalPlanner(PartialStrategy), graphOf(PartialStrategy))
         val summary = engineOf(alwaysOk(), driver).runToTerminal()
 
-        assertEquals(ExecutionStatus.BLOCKED, summary.status)
+        // One prerequisite step completed before the remaining dependent
+        // branches became blocked: report partial progress, not total blockage.
+        assertEquals(ExecutionStatus.PARTIAL, summary.status)
         assertTrue(driver.events.any { it is CognitiveEngine.CognitiveEvent.StepBlocked })
+        assertTrue(driver.events.any { it is CognitiveEngine.CognitiveEvent.PlanExecutionPartial })
     }
 
     @Test
