@@ -186,7 +186,19 @@ class EvolutionEngine(
                 )
 
                 // COMPARE + SELECT at the gate
-                val decision = gate.decide(evaluation, regressionTests, resource)
+                // A new capability has no previous behavior to regress.
+                // Prove absence against BOTH registries; never infer it merely
+                // from an empty generated baseline suite.
+                val verifiedNewCapability =
+                    baselineTests.isEmpty() &&
+                    registry.provides(requirement.capability).isEmpty() &&
+                    genomeRegistry.bestFor(requirement.capability) == null
+                val decision = gate.decide(
+                    evaluation,
+                    regressionTests,
+                    resource,
+                    baselineAbsenceVerified = verifiedNewCapability
+                )
                 val record = EvaluatedCandidate(
                     genome = child,
                     implementation = gen.implementation,
@@ -214,7 +226,11 @@ class EvolutionEngine(
                         version = child.version + 1
                     )
                 )
-                appendLog("Candidate ${gen.id} [${gen.synthesizerName}] → ${decision.verdict} (score ${"%.3f".format(decision.score)}): ${decision.reasons.joinToString("; ").ifBlank { "all evidence gates passed" }}")
+                appendLog("Candidate ${gen.id} [${gen.synthesizerName}] → ${decision.verdict} (score ${"%.3f".format(decision.score)}): " +
+                    (decision.reasons.joinToString("; ").ifBlank {
+                        if (decision.baselineAbsenceVerified) "no prior capability existed; absence verified against both registries; all candidate/resource evidence passed"
+                        else "all evidence gates passed"
+                    }))
             } finally {
                 governor.release(gen.id)
             }
