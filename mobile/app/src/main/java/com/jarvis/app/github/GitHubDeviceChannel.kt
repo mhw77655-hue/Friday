@@ -35,9 +35,9 @@ import java.util.concurrent.TimeUnit
  */
 internal fun collectNewDeviceChannelComments(
     lastSeenId: Long,
-    fetchPage: (Int) -> List<JSONObject>,
     pageSize: Int = 100,
-    maxPages: Int = 100
+    maxPages: Int = 100,
+    fetchPage: (Int) -> List<JSONObject>
 ): List<JSONObject> {
     require(pageSize > 0 && maxPages > 0)
     val unseen = mutableListOf<JSONObject>()
