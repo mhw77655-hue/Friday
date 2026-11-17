@@ -7,10 +7,13 @@ import com.jarvis.app.selfrepair.SourcePatch
  * [com.jarvis.app.validation.PromotionGate].
  *
  * Takes a repaired candidate (a [SourcePatch] produced by
- * [com.jarvis.app.selfrepair.SelfRepairLoop]) and runs it against
- * deliberately adversarial inputs — boundary values, malformed data,
- * concurrent-style repeated calls — in isolation. Returns a pass/fail
- * result with failure detail if the candidate broke.
+ * [com.jarvis.app.selfrepair.SelfRepairLoop]) and runs a faithful executable
+ * representation against deliberately adversarial inputs. A backend may
+ * report pass only if the executed artifact is demonstrably derived from the
+ * supplied patch. A synthetic always-successful spec is not verification.
+ *
+ * This gate is additional evidence, not a replacement for compiling and
+ * testing the actual patched source in the repository's CI environment.
  *
  * Two implementations:
  *  - [LocalTestSandboxExecutor]: real, working — runs the candidate through
