@@ -126,6 +126,9 @@ fun SettingsScreen() {
     var autonomousEvolution by remember(resumeSignal) {
         mutableStateOf(com.jarvis.app.github.FridayEvolutionScheduler.isEnabled(context))
     }
+    var shareAggregateEvidence by remember(resumeSignal) {
+        mutableStateOf(com.jarvis.app.github.FridayEvolutionScheduler.isAggregateEvidenceEnabled(context))
+    }
     var shizukuDozeStatus by remember { mutableStateOf("Not checked.") }
     var keepFridayAlive by remember(resumeSignal) {
         mutableStateOf(com.jarvis.app.runtime.FridayRuntimeController.isEnabled(context))
@@ -374,8 +377,31 @@ fun SettingsScreen() {
                 colors = SwitchDefaults.colors(checkedTrackColor = JarvisColors.CoreIdle)
             )
         }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Share aggregate self-study evidence", style = JarvisType.Body)
+                Text(
+                    if (shareAggregateEvidence) "Owner-authorized · content-free runtime metrics"
+                    else "Off · scheduled cycles use vision and repository evidence only",
+                    style = JarvisType.Technical
+                )
+            }
+            Switch(
+                checked = shareAggregateEvidence,
+                enabled = githubConnected,
+                onCheckedChange = { enabled ->
+                    shareAggregateEvidence = enabled
+                    com.jarvis.app.github.FridayEvolutionScheduler.setAggregateEvidenceEnabled(context, enabled)
+                },
+                colors = SwitchDefaults.colors(checkedTrackColor = JarvisColors.CoreIdle)
+            )
+        }
         Text(
-            text = "Scheduled cycles send your vision requirements but no phone telemetry or conversations. GitHub proposals are public because this repository is public. Every change remains a draft PR: Friday does not silently merge, sign, release or install her own APK. You review and install a verified build.",
+            text = "This separate opt-in lets Friday's builder use aggregate evidence from her own runtime: experience/association counts, plan outcome counts (including skipped and blocked), capability availability, self-study health and resource trends. It never sends raw memories, remembered facts, conversation text, user prompt history, user file contents, location, contacts, notifications, screen contents, microphone, camera or unique device identifiers. Because this repository is public, the aggregate technical summary is public too. Every change remains a draft PR; Friday still cannot merge, sign, release or install her APK.",
             style = JarvisType.Label,
             modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
         )

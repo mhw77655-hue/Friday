@@ -140,7 +140,7 @@ class GitHubDevelopmentClient(context: Context) {
      * At most one open proposal is allowed, and a new cycle is throttled to
      * twelve hours after the last request so a slow worker cannot be spammed.
      */
-    suspend fun submitVisionMaintenanceCycle(): String = withContext(Dispatchers.IO) {
+    suspend fun submitVisionMaintenanceCycle(includeAggregateEvidence: Boolean = false): String = withContext(Dispatchers.IO) {
         val token = tokenStore.read()
             ?: throw IllegalStateException("GitHub credential is unavailable; autonomous development paused.")
 
@@ -173,7 +173,19 @@ class GitHubDevelopmentClient(context: Context) {
                 JSONArray()
                     .put("The owner explicitly enabled scheduled autonomous development in Friday Settings.")
                     .put("The authoritative product intent is stored in .ralph/VISION.md and .ralph/OWNER_WORDS.md; inspect the original New Folder chats.zip when necessary.")
-                    .put("This scheduled request intentionally contains no phone telemetry, conversation data, files, location or personal content.")
+                    .put(
+                        if (includeAggregateEvidence) {
+                            "The owner separately enabled content-free aggregate runtime evidence. It contains counts, status names, capability keys and resource trends only; it contains no raw memories, facts, conversations, prompts, files, location, screen, microphone, camera or unique identifiers."
+                        } else {
+                            "This scheduled request intentionally contains no phone telemetry, conversation data, files, location or personal content."
+                        }
+                    )
+                    .apply {
+                        if (includeAggregateEvidence) {
+                            val aggregate = DevelopmentEvidenceCollector.collect()
+                            put("FRIDAY_AGGREGATE_RUNTIME_EVIDENCE_JSON (content-free; no personal content): ${aggregate.toJsonString()}")
+                        }
+                    }
             )
             .put(
                 "acceptance_criteria",
@@ -181,6 +193,7 @@ class GitHubDevelopmentClient(context: Context) {
                     .put("Choose one meaningful gap by comparing the actual source and tests with the owner's vision, not by adding a generic chatbot feature.")
                     .put("Implement a coherent vertical slice and focused regression tests; do not silently narrow the requested outcome.")
                     .put("Run repository-builder contract tests, Android debug assembly and JVM unit tests; report exact results.")
+                    .put("If aggregate runtime evidence is attached, use it as empirical context to select a real capability gap; do not infer or request private memory content.")
                     .put("Open an isolated draft PR only. Never merge, sign, release, install or modify the running app.")
                     .put("State what remains unimplemented and which target-phone checks cannot be proven by GitHub Actions.")
             )
@@ -188,7 +201,13 @@ class GitHubDevelopmentClient(context: Context) {
                 "risks",
                 JSONArray()
                     .put("The coding worker's patch is untrusted until owner review.")
-                    .put("The repository is public; the request contains product instructions but no device telemetry.")
+                    .put(
+                        if (includeAggregateEvidence) {
+                            "The repository is public; owner-approved aggregate runtime evidence is public too, but no raw personal content is sent."
+                        } else {
+                            "The repository is public; this scheduled request contains product instructions but no device telemetry."
+                        }
+                    )
                     .put("A hosted build does not prove behavior on the owner's handset.")
             )
             .put("rollback_expectation", "Close the draft PR and discard its isolated proposal branch. The installed Friday app remains unchanged.")
@@ -202,8 +221,10 @@ class GitHubDevelopmentClient(context: Context) {
                 "privacy_review",
                 JSONObject()
                     .put("status", "approved")
-                    .put("reviewed_by", "owner-enabled-autonomous-evolution-setting")
+                    .put("reviewed_by", if (includeAggregateEvidence) "owner-enabled-autonomous-evolution-and-aggregate-evidence-settings" else "owner-enabled-autonomous-evolution-setting")
                     .put("reviewed_at", now)
+                    .put("aggregate_runtime_evidence_enabled", includeAggregateEvidence)
+                    .put("aggregate_runtime_evidence_scope", if (includeAggregateEvidence) "counts_statuses_capability_keys_resource_trends_only" else "none")
             )
 
         val bytes = requestJson.toString().toByteArray(Charsets.UTF_8)
@@ -243,7 +264,7 @@ class GitHubDevelopmentClient(context: Context) {
             }
         }
         prefs.edit().putString(KEY_LAST_REQUEST, requestId).putString(KEY_LAST_REQUEST_AT, now).apply()
-        "Autonomous cycle $requestId dispatched. Friday will propose one evidence-backed improvement as a draft PR; it will not install or merge it."
+        "Autonomous cycle $requestId dispatched ${if (includeAggregateEvidence) "with aggregate runtime evidence" else "using owner vision and repository evidence only"}. Friday will propose one improvement as a draft PR; it will not install or merge it."
     }
 
     private fun hasAnyOpenProposal(token: String): Boolean {

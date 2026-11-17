@@ -25,7 +25,9 @@ class FridayEvolutionWorker(
     override suspend fun doWork(): Result {
         if (!FridayEvolutionScheduler.isEnabled(applicationContext)) return Result.success()
         return try {
-            GitHubDevelopmentClient(applicationContext).submitVisionMaintenanceCycle()
+            GitHubDevelopmentClient(applicationContext).submitVisionMaintenanceCycle(
+                includeAggregateEvidence = FridayEvolutionScheduler.isAggregateEvidenceEnabled(applicationContext)
+            )
             // Start recurring work only after the immediate cycle completes;
             // this prevents the two workers from racing into duplicate builds.
             FridayEvolutionScheduler.ensurePeriodic(applicationContext)
@@ -42,12 +44,23 @@ class FridayEvolutionWorker(
 object FridayEvolutionScheduler {
     private const val PREFS = "friday_autonomous_evolution"
     private const val KEY_ENABLED = "enabled"
+    private const val KEY_SHARE_AGGREGATE_EVIDENCE = "share_aggregate_evidence"
     private const val UNIQUE_PERIODIC = "friday-autonomous-evolution"
     private const val UNIQUE_NOW = "friday-autonomous-evolution-now"
 
     fun isEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY_ENABLED, false)
+
+    /** Content-free runtime evidence is a separate owner opt-in, off by default. */
+    fun isAggregateEvidenceEnabled(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_SHARE_AGGREGATE_EVIDENCE, false)
+
+    fun setAggregateEvidenceEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().putBoolean(KEY_SHARE_AGGREGATE_EVIDENCE, enabled).apply()
+    }
 
     fun enable(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

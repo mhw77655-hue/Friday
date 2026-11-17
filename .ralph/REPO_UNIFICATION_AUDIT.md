@@ -212,3 +212,39 @@ The separate `EvolutionLoop` prototype is not the production self-builder: its t
 5. Unify `FridayIndividual` identity lineage with `SelfModel`, continuity and memory.
 6. Add custom GGUF import into private storage as an optional capability.
 7. Run the full on-device acceptance suite: no-model start, identity/experience persistence, voice input/output, Shizuku, screen capture, camera/video, reboot/background survival, signed update and rollback.
+
+
+## 11. Handoff correction — 2026-11-17 13:45 +02:00
+
+This section supersedes any earlier statement in this audit that PR #26 is still open or that the consolidated line has not reached `main`.
+
+### Current canonical line
+
+- PR #26 **was merged** into the default branch `main` on 2026-11-17.
+- Current canonical main commit at this check: `7d0d67e9a1307647763d54b4657379b79dd601e0`.
+- The merge includes the model-independent individual/embodiment/device-repair work from PR #19 and the phone runtime, Shizuku bridge and owner-grounded development bridge from PR #23.
+- `audit/friday-unification` is now an integration/history reference, not the release branch to continue building from.
+- The main build workflow is present on `main`; the earlier default-branch activation blocker described in this audit has been resolved by the merge.
+
+### PR #27 — live runtime evidence bridge
+
+- PR #27 is the active follow-on: [Friday: direct self-development from content-free runtime evidence](https://github.com/mhw77655-hue/Friday/pull/27).
+- Its head branch is `feat/friday-lived-state-development-bridge`, based directly on `main`, and was 10 commits ahead of `main` at this check.
+- It changes the runtime evidence collector, the autonomous development request path, Settings consent controls, and the builder request schema/validator. The evidence is aggregate-only and has a separate opt-in; the default remains off.
+- The first observed PR validation on commit `303733ec1dff4a6c20e64356d827ed9abe36e928` completed Android debug APK assembly successfully, passed builder safety tests and workflow lint, but failed the JVM suite: 1,517 tests ran, with one failure in `DevelopmentEvidenceSnapshotTest`. The failing assertion rejected the permitted `next_focus_count` field because it matched the broader `next_focus` substring.
+- The test was then changed to parse the emitted JSON structurally and assert that the aggregate `next_focus_count` exists while the legacy free-text `next_focus` field does not. The latest recorded test correction is commit `71c7107ed7d36408afc3308957e2058471f6bab5`.
+- No CI run or status check for that corrected commit was visible at the time of this update. Therefore PR #27 remains **unvalidated**; do not infer that the corrected test passes from the code change alone.
+
+### Remaining truth — the goal is still not met
+
+- PR #27 improves the coding worker's empirical context. It does not make Friday's source changes self-approving, self-signing, self-installing or self-recovering.
+- The current builder remains a proposal pipeline: it creates draft PRs and runs hosted CI. It does not complete a safe phone-side update loop or autonomously continue past an outstanding proposal.
+- One canonical persistent identity across `FridayIndividual`, `SelfModel`, memory, continuity and update lineage is still unresolved.
+- Model-free development and learning still require real-composition Life Tests that block replay of the original episode and prove later behavioural change is caused by the developmental mechanism.
+- No target-phone acceptance has been established by this repository check. APK assembly and JVM tests cannot establish microphone/STT/TTS behavior, Shizuku operations, background survival, no-model usefulness, or safe installation/rollback on the handset.
+
+### Privacy status — owner decision required
+
+- GitHub repository metadata still reports `mhw77655-hue/Friday` as **public**.
+- The earlier audit records that the original owner conversation/device archives remain tracked in repository history. Their removal from the current tree would not erase public historical commits.
+- Repository visibility has not been changed. Do not upload further personal archives or private runtime data. The owner should decide whether to make the repository private and whether historical content requires a history rewrite; do not perform either operation without explicit authorization.
