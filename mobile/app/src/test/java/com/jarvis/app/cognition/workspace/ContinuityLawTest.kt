@@ -95,6 +95,18 @@ class ContinuityLawTest {
     /** The first committed recorded turn's id — never hard-coded, so the fixture can grow. */
     private fun firstTurnId(): String = recordedTurns().turns.first().turnId
 
+    @Test
+    fun `revision requirements grow with accepted history and remain bounded`() {
+        assertEquals(2, ContinuityLaw.requiredEvidenceClaims(0))
+        assertEquals(3, ContinuityLaw.requiredEvidenceClaims(1))
+        assertEquals(4, ContinuityLaw.requiredEvidenceClaims(2))
+        assertEquals(4, ContinuityLaw.requiredEvidenceClaims(100))
+
+        assertEquals(5_000L, ContinuityLaw.requiredIntervalMs(0))
+        assertEquals(10_000L, ContinuityLaw.requiredIntervalMs(1))
+        assertEquals(60_000L, ContinuityLaw.requiredIntervalMs(100))
+    }
+
     // ── AC1: evidence count, on the real path ───────────────────────────────────
 
     @Test
