@@ -105,6 +105,13 @@ def _number(value: Any, field: str, maximum: float = 1e12) -> None:
         raise RequestValidationError(f"{field} must be finite and within bounds")
 
 
+def _finite_number(value: Any, field: str, minimum: float = -1e12, maximum: float = 1e12) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise RequestValidationError(f"{field} must be a number")
+    if not math.isfinite(value) or value < minimum or value > maximum:
+        raise RequestValidationError(f"{field} must be finite and within bounds")
+
+
 def _identifier(value: Any, field: str, maximum: int = 160) -> None:
     if not isinstance(value, str) or len(value) > maximum or not SAFE_IDENTIFIER.fullmatch(value):
         raise RequestValidationError(f"{field} must be a bounded identifier, not free text")
@@ -139,7 +146,9 @@ def _validate_self_study(value: Any) -> None:
     for field in SELF_STUDY_INTEGER_FIELDS:
         _integer(value[field], f"self_study.{field}")
     _number(value["average_cpu_load_ema_percent"], "self_study.average_cpu_load_ema_percent", 100)
-    _number(value["liquid_prediction_error"], "self_study.liquid_prediction_error")
+    _finite_number(value["liquid_prediction_error"], "self_study.liquid_prediction_error")
+    if value["minimum_battery_percent"] > 100:
+        raise RequestValidationError("self_study.minimum_battery_percent must be between 0 and 100")
     _identifier_list(value["declared_missing_capability_keys"], "self_study.declared_missing_capability_keys", 20)
     _identifier_list(value["known_limitation_keys"], "self_study.known_limitation_keys", 20)
     _identifier_list(value["organ_strategy_keys"], "self_study.organ_strategy_keys", 24)
