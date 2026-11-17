@@ -152,15 +152,20 @@ data class SourcePatch(
         require(requested.none { it.toString() == "." || it.toString() == ".." }) {
             "dot and parent path segments are forbidden"
         }
-        require(requested.firstOrNull()?.toString() != ".git") {
+        require(requested.none { it.toString() == ".git" }) {
             "patches may not modify Git metadata"
         }
         val filename = requested.fileName?.toString()?.lowercase().orEmpty()
         require(
-            filename !in setOf("local.properties", "id_rsa", "id_ed25519") &&
-                listOf(".jks", ".keystore", ".p12", ".pfx", ".pem", ".key").none(filename::endsWith)
+            filename !in setOf(
+                "local.properties", "gradle.properties", "keystore.properties",
+                "credentials.properties", "secrets.properties", ".env",
+                "id_rsa", "id_ed25519"
+            ) &&
+                !filename.startsWith(".env.") &&
+                listOf(".jks", ".keystore", ".p12", ".pfx", ".pem", ".key", ".p8", ".gpg").none(filename::endsWith)
         ) {
-            "patches may not modify local credentials or signing material"
+            "patches may not modify local credentials, environment secrets, or signing material"
         }
         val canonicalRoot = root.canonicalFile.toPath()
         val canonicalTarget = File(root, relativePath).canonicalFile.toPath()
