@@ -266,7 +266,7 @@ This section supersedes stale statements above about PR #27, the default branch,
 
 - PR #27, the content-free, separately consented runtime-evidence bridge, was merged. Workflow run #1318 (`44076535362`) completed successfully: builder safety tests, workflow lint, Android debug APK assembly, APK artifact upload, JVM unit-test task, JUnit artifact upload and the JUnit summary step all completed successfully.
 - PR #16 was closed without merging. Main already has `VideoIntakeRepository`, Android video share-intent handling, private video storage, keyframe extraction, TikTok export-link intake and the Video Experience screen. Merging its separate `VideoInboxRepository` / `VideoLibraryScreen` would create a competing video library. Main also has `ExpectationStateEngine` on the live cognitive turn path; adding the branch's separate `HunchEngine` and fixed one-organ `LiquidTaskComposer` would create a second predictive authority rather than improve the existing one.
-- The old `audit/friday-continuity-threshold` work was not merged wholesale. Its useful history-scaled evidence/interval idea has been ported selectively into PR #28 and its arithmetic was hardened to preserve configured minimums and avoid overflow.
+- The old `audit/continuity-threshold` work was not merged wholesale. Its useful history-scaled evidence/interval idea has been ported selectively into PR #28 and its arithmetic was hardened to preserve configured minimums and avoid overflow.
 - `audit/friday-developmental-seed` was not merged wholesale. Its `DevelopmentalChoiceLoop` only chooses between hard-coded response styles and appends the choice to a model prompt. It does not change the no-model cognitive path or establish general outcome-driven development.
 - `audit/friday-independent-life-core` was rejected as a whole. It introduces another identity/life record and a timer-driven reflection counter; that duplicates the canonical individual and does not prove later behavioral change.
 - `audit/friday-reconstruction` was not merged wholesale. Its broad diff is predominantly an old package/tree reconstruction and does not justify replacing the current Android application line.
@@ -299,7 +299,7 @@ This section supersedes stale statements above about PR #27, the default branch,
 
 - Active draft PR: https://github.com/mhw77655-hue/Friday/pull/28
 - Branch: `rebuild/friday-coherent-individual`
-- Latest candidate at this update: `5fc2150eb5e65dede255df6d4b5b54b5715765ec`.
+- Latest code candidate before the audit/comment corrections: `5fc2150eb5e65dede255df6d4b5b54b5715765ec`.
 - It moves `FridayIndividual` construction ahead of `SelfModel`, binds `SelfModel` directly to the individual's durable identity, removes the competing Android SharedPreferences identity source, and exposes the same persistent ID through `SelfIdentity`.
 - It adds the persistent ID to `ReplayCheck` core identity facts and tests that replacing the ID is continuity drift.
 - It corrects `Claim.isLive` so resolved predictions remain in history but no longer appear as live current predictions.
