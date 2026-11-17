@@ -258,18 +258,32 @@ jobs:
         run: |
           set -euo pipefail
           BRANCH="friday-proposals/$REQUEST_ID"
-          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
-            echo "Proposal branch already exists: $BRANCH. Refusing to overwrite it." >&2
-            exit 5
-          fi
           git config user.name "friday-proposal-publisher"
           git config user.email "friday-proposal-publisher@users.noreply.github.com"
           git checkout -b "$BRANCH"
           git commit -m "proposal: Friday development request $REQUEST_ID"
           git remote set-url origin "https://github.com/$REPOSITORY.git"
           gh auth setup-git
-          git push origin "$BRANCH"
-          gh pr create \
+
+          # A previous run may have pushed the branch but failed before PR
+          # creation. Reuse it only when its tree exactly matches this validated
+          # patch; never overwrite a different proposal with the same request id.
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            git fetch origin "$BRANCH"
+            if ! git diff --quiet FETCH_HEAD HEAD; then
+              echo "Existing proposal branch differs from this validated patch: $BRANCH. Refusing to overwrite it." >&2
+              exit 5
+            fi
+            git reset --hard FETCH_HEAD
+            echo "Reusing the exact existing proposal branch: $BRANCH"
+          else
+            git push origin "$BRANCH"
+          fi
+
+          EXISTING_PR="$(gh pr list --repo "$REPOSITORY" --head "$BRANCH" --state open --json url --jq '.[0].url // empty')"
+          if [[ -n "$EXISTING_PR" ]]; then
+            echo "Existing open proposal: $EXISTING_PR"
+          elif ! gh pr create \
             --repo "$REPOSITORY" \
             --base main \
             --head "$BRANCH" \
@@ -286,7 +300,15 @@ jobs:
 
           The coding worker had repository read permission only. This publisher
           is a separate trusted job. No automatic merge, release, signing or
-          installation is performed."
+          installation is performed." >"$RUNNER_TEMP/friday-pr-create.log" 2>&1; then
+            cat "$RUNNER_TEMP/friday-pr-create.log" >&2
+            if grep -Fq "GitHub Actions is not permitted to create or approve pull requests" "$RUNNER_TEMP/friday-pr-create.log"; then
+              echo "::error title=Repository setting required::Enable 'Allow GitHub Actions to create and approve pull requests' in Settings > Actions > General > Workflow permissions." >&2
+              echo "Settings page: https://github.com/$REPOSITORY/settings/actions" >&2
+              echo "The validated proposal branch was preserved. Re-run the same request after enabling the setting." >&2
+            fi
+            exit 1
+          fi
 
           gh workflow run build.yml --repo "$REPOSITORY" --ref "$BRANCH"
 
