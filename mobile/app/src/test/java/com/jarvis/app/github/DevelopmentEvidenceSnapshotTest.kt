@@ -1,7 +1,8 @@
 package com.jarvis.app.github
 
+import org.json.JSONObject
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DevelopmentEvidenceSnapshotTest {
@@ -29,95 +30,96 @@ class DevelopmentEvidenceSnapshotTest {
             selfStudy = null
         )
 
-        val json = snapshot.toJsonString()
+        val json = JSONObject(snapshot.toJsonString())
 
-        assertTrue(json.contains("experience_count" + ":12"))
-        assertTrue(json.contains("association_count" + ":29"))
-        assertTrue(json.contains("PARTIAL"))
-        assertTrue(json.contains("SKIPPED" + ":1"))
-        assertTrue(json.contains("BLOCKED" + ":3"))
-        assertTrue(json.contains("aggregate_only_no_content"))
+        assertEquals(12, json.getInt("experience_count"))
+        assertEquals(29, json.getInt("association_count"))
+        assertEquals("PARTIAL", json.getString("plan_status"))
+        val outcomes = json.getJSONObject("plan_step_status_counts")
+        assertEquals(1, outcomes.getInt("SKIPPED"))
+        assertEquals(3, outcomes.getInt("BLOCKED"))
+        assertEquals("aggregate_only_no_content", json.getString("privacy_scope"))
     }
 
     @Test
     fun `snapshot schema has no fields for private memory content or identity identifiers`() {
-        val snapshot = DevelopmentEvidenceSnapshot(
-            observedAtMs = 1L,
-            runtimeReadiness = "Ready",
-            identityRecordPresent = true,
-            experienceCount = 1,
-            associationCount = 1,
-            planStatus = null,
-            planStepStatusCounts = emptyMap(),
-            capabilityStage = null,
-            availableCapabilityKeys = emptyList(),
-            missingCapabilityKeys = emptyList(),
-            symbioticMode = null,
-            symbioticContextTokenBudget = null,
-            symbioticMaxConcurrentExpensiveTasks = null,
-            symbioticMemoryReserveMb = null,
-            selfStudy = null
+        val json = JSONObject(
+            DevelopmentEvidenceSnapshot(
+                observedAtMs = 1L,
+                runtimeReadiness = "Ready",
+                identityRecordPresent = true,
+                experienceCount = 1,
+                associationCount = 1,
+                planStatus = null,
+                planStepStatusCounts = emptyMap(),
+                capabilityStage = null,
+                availableCapabilityKeys = emptyList(),
+                missingCapabilityKeys = emptyList(),
+                symbioticMode = null,
+                symbioticContextTokenBudget = null,
+                symbioticMaxConcurrentExpensiveTasks = null,
+                symbioticMemoryReserveMb = null,
+                selfStudy = null
+            ).toJsonString()
         )
 
-        val json = snapshot.toJsonString()
-
-        assertFalse(json.contains("identity_id"))
-        assertFalse(json.contains("remembered_fact"))
-        assertFalse(json.contains("conversation_text"))
-        assertFalse(json.contains("feature_names"))
+        assertFalse(json.has("identity_id"))
+        assertFalse(json.has("remembered_fact"))
+        assertFalse(json.has("conversation_text"))
+        assertFalse(json.has("feature_names"))
     }
 
     @Test
     fun `self study evidence exports only aggregate next focus count`() {
-        val snapshot = DevelopmentEvidenceSnapshot(
-            observedAtMs = 1234L,
-            runtimeReadiness = "Ready",
-            identityRecordPresent = true,
-            experienceCount = 1,
-            associationCount = 2,
-            planStatus = null,
-            planStepStatusCounts = emptyMap(),
-            capabilityStage = null,
-            availableCapabilityKeys = emptyList(),
-            missingCapabilityKeys = emptyList(),
-            symbioticMode = null,
-            symbioticContextTokenBudget = null,
-            symbioticMaxConcurrentExpensiveTasks = null,
-            symbioticMemoryReserveMb = null,
-            selfStudy = DevelopmentEvidenceSnapshot.SelfStudyEvidence(
-                sourceRevision = "abc123",
-                sourceFileCount = 1,
-                sourceSymbolCount = 2,
-                sourcePackageCount = 1,
-                sourceDependencyEdgeCount = 0,
-                graphNodeCount = 1,
-                graphEdgeCount = 0,
-                reachableNodeCount = 1,
-                unreachableNodeCount = 0,
-                missingInvariantCount = 0,
-                declaredMissingCapabilityKeys = emptyList(),
-                knownLimitationKeys = emptyList(),
-                hostSamples = 1,
-                minimumAvailableMemoryMb = 100,
-                averageCpuLoadEmaPercent = 1.0,
-                thermalPressureSamples = 0,
-                lowMemorySamples = 0,
-                additionalMemoryReserveMb = 100,
-                maximumObservedProcessPssMb = 100,
-                minimumBatteryPercent = 80,
-                liquidGeneration = 1,
-                liquidPredictionError = 0.0,
-                organStrategyKeys = emptyList(),
-                organFailureCounts = emptyMap(),
-                nextFocusCount = 3
-            )
+        val json = JSONObject(
+            DevelopmentEvidenceSnapshot(
+                observedAtMs = 1234L,
+                runtimeReadiness = "Ready",
+                identityRecordPresent = true,
+                experienceCount = 1,
+                associationCount = 2,
+                planStatus = null,
+                planStepStatusCounts = emptyMap(),
+                capabilityStage = null,
+                availableCapabilityKeys = emptyList(),
+                missingCapabilityKeys = emptyList(),
+                symbioticMode = null,
+                symbioticContextTokenBudget = null,
+                symbioticMaxConcurrentExpensiveTasks = null,
+                symbioticMemoryReserveMb = null,
+                selfStudy = DevelopmentEvidenceSnapshot.SelfStudyEvidence(
+                    sourceRevision = "abc123",
+                    sourceFileCount = 1,
+                    sourceSymbolCount = 2,
+                    sourcePackageCount = 1,
+                    sourceDependencyEdgeCount = 0,
+                    graphNodeCount = 1,
+                    graphEdgeCount = 0,
+                    reachableNodeCount = 1,
+                    unreachableNodeCount = 0,
+                    missingInvariantCount = 0,
+                    declaredMissingCapabilityKeys = emptyList(),
+                    knownLimitationKeys = emptyList(),
+                    hostSamples = 1,
+                    minimumAvailableMemoryMb = 100,
+                    averageCpuLoadEmaPercent = 1.0,
+                    thermalPressureSamples = 0,
+                    lowMemorySamples = 0,
+                    additionalMemoryReserveMb = 100,
+                    maximumObservedProcessPssMb = 100,
+                    minimumBatteryPercent = 80,
+                    liquidGeneration = 1,
+                    liquidPredictionError = 0.0,
+                    organStrategyKeys = emptyList(),
+                    organFailureCounts = emptyMap(),
+                    nextFocusCount = 3
+                )
+            ).toJsonString()
         )
+        val selfStudy = json.getJSONObject("self_study")
 
-        val json = snapshot.toJsonString()
-
-        assertTrue(json.contains("next_focus_count" + ":3"))
-        // The legacy free-text field must not be exported; next_focus_count is allowed.
-        assertFalse(json.contains("next_focus" + ":"))
-        assertFalse(json.contains("internal-node-id"))
+        assertEquals(3, selfStudy.getInt("next_focus_count"))
+        assertFalse(selfStudy.has("next_focus"))
+        assertFalse(json.toString().contains("internal-node-id"))
     }
 }
