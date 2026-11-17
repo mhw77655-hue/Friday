@@ -36,7 +36,7 @@ class FridayEvolutionWorker(
                 return Result.retry()
             }
             val localReflection = if (includeAggregateEvidence) {
-                com.jarvis.app.JarvisEngine.applicationSelfStudy?.latestReflection()
+                com.jarvis.app.JarvisEngine.applicationSelfStudy?.latestModelFreeReflection()
             } else {
                 null
             }
