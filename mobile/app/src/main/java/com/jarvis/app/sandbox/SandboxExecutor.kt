@@ -18,9 +18,8 @@ import com.jarvis.app.selfrepair.SourcePatch
  * Two implementations:
  *  - [LocalTestSandboxExecutor]: real, working — runs the candidate through
  *    the existing Mutated Environments test harness with adversarial inputs.
- *  - [CloudVmSandboxExecutor]: explicit stub — throws
- *    [NotImplementedError] with a TODO documenting exactly what cloud VM
- *    infrastructure it needs.
+ *  - [CloudVmSandboxExecutor]: explicit unavailable stub — returns a failed
+ *    result so callers fail closed until cloud VM infrastructure exists.
  *
  * This subsystem is TEST-AND-TOOLING-ONLY: not instantiated in the live
  * [com.jarvis.app.JarvisEngine].
