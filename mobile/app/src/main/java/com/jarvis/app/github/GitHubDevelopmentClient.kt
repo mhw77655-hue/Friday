@@ -140,7 +140,14 @@ class GitHubDevelopmentClient(context: Context) {
      * At most one open proposal is allowed, and a new cycle is throttled to
      * twelve hours after the last request so a slow worker cannot be spammed.
      */
-    suspend fun submitVisionMaintenanceCycle(includeAggregateEvidence: Boolean = false): String = withContext(Dispatchers.IO) {
+    suspend fun submitVisionMaintenanceCycle(
+        reflection: ApplicationSelfStudy.Reflection,
+        includeAggregateEvidence: Boolean = false
+    ): String = withContext(Dispatchers.IO) {
+        require(reflection.modelFree && reflection.hasDevelopmentRequest) {
+            "Friday has not selected a verified model-free development focus; no generic request may be dispatched."
+        }
+        val selectedGoal = requireNotNull(reflection.developmentRequest).take(3_000)
         val token = tokenStore.read()
             ?: throw IllegalStateException("GitHub credential is unavailable; autonomous development paused.")
 
@@ -166,18 +173,25 @@ class GitHubDevelopmentClient(context: Context) {
             .put("source_revision", "main")
             .put(
                 "intended_outcome",
-                "Run one autonomous, bounded development cycle for Friday. Read .ralph/VISION.md and .ralph/OWNER_WORDS.md, inspect the current implementation and tests, identify the highest-impact gap between the owner's intended outcome and the actual working system, then implement one coherent improvement. Preserve Friday as one continuing individual across local and cloud resources. Do not substitute chatbot features for identity, continuity, perception, cognition, agency, embodiment, adaptation or self-development. If no safe, evidence-backed improvement can be selected, report the blocker instead of inventing work."
+                "FRIDAY'S MODEL-FREE SELF-STUDY SELECTED THIS DEVELOPMENT GOAL:\\n$selectedGoal\\n\\nTreat this as Friday's chosen goal, not a suggestion to replace with a generic chatbot feature or a different task. Read .ralph/VISION.md and .ralph/OWNER_WORDS.md, then independently verify the selected evidence against the actual source and tests. If the reported gap is false, obsolete or contrary to the owner's vision, stop and explain the contradiction instead of inventing replacement work. Implement the smallest coherent, owner-aligned correction. Preserve Friday as one continuing individual across local and cloud resources."
             )
             .put(
                 "evidence",
                 JSONArray()
                     .put("The owner explicitly enabled scheduled autonomous development in Friday Settings.")
                     .put("The authoritative product intent is stored in .ralph/VISION.md and .ralph/OWNER_WORDS.md; inspect the original New Folder chats.zip when necessary.")
+                    .put("Friday selected the goal through the installed model-free structural reflection path; no language model was required to choose it.")
+                    .put("Installed source revision: ${reflection.sourceRevision}")
+                    .put("Self-study summary: ${reflection.summary}")
+                    .put("Self-study findings: ${reflection.findings.joinToString(" | ").take(3000)}")
+                    .put("Self-study next actions: ${reflection.nextActions.joinToString(" | ").take(2000)}")
+                    .put("Self-study evidence gaps: ${reflection.evidenceGaps.joinToString(" | ").take(2000)}")
+                    .put("Self-study constraints: ${reflection.constraints.joinToString(" | ").take(2000)}")
                     .put(
                         if (includeAggregateEvidence) {
                             "The owner separately enabled content-free aggregate runtime evidence. It contains counts, status names, capability keys and resource trends only; it contains no raw memories, facts, conversations, prompts, files, location, screen, microphone, camera or unique identifiers."
                         } else {
-                            "This scheduled request intentionally contains no phone telemetry, conversation data, files, location or personal content."
+                            "This scheduled request intentionally contains no phone telemetry, conversation data, files, location or personal content beyond the approved structural reflection."
                         }
                     )
                     .apply {
@@ -190,10 +204,10 @@ class GitHubDevelopmentClient(context: Context) {
             .put(
                 "acceptance_criteria",
                 JSONArray()
-                    .put("Choose one meaningful gap by comparing the actual source and tests with the owner's vision, not by adding a generic chatbot feature.")
+                    .put("Implement the exact development goal selected by Friday's model-free self-study; do not replace it with a different task.")
                     .put("Implement a coherent vertical slice and focused regression tests; do not silently narrow the requested outcome.")
                     .put("Run repository-builder contract tests, Android debug assembly and JVM unit tests; report exact results.")
-                    .put("If aggregate runtime evidence is attached, use it as empirical context to select a real capability gap; do not infer or request private memory content.")
+                    .put("Verify Friday's structural evidence against the actual source and tests; if it is wrong, obsolete or contrary to the owner's vision, stop and report the contradiction.")
                     .put("Open an isolated draft PR only. Never merge, sign, release, install or modify the running app.")
                     .put("State what remains unimplemented and which target-phone checks cannot be proven by GitHub Actions.")
             )
