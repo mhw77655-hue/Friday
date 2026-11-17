@@ -169,7 +169,7 @@ class ReplayCheck(
     private fun renderFacts(): Map<String, String> {
         val facts = LinkedHashMap<String, String>()
 
-        // CORE: the live values, unless a CORE claim reached the workspace — a
+        // CORE: the live persistent ID and profile values, unless a CORE claim reached the workspace — a
         // claim that contradicts the live source IS the drift this catches.
         facts[ChangeLayer.IDENTITY_PREFIX + "id"] = coreIdentity.persistentId ?: UNKNOWN
         facts[ChangeLayer.IDENTITY_PREFIX + "name"] =
