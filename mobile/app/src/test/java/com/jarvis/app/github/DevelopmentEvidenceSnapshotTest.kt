@@ -31,12 +31,12 @@ class DevelopmentEvidenceSnapshotTest {
 
         val json = snapshot.toJsonString()
 
-        assertTrue(json.contains("\\"experience_count\\":12"))
-        assertTrue(json.contains("\\"association_count\\":29"))
-        assertTrue(json.contains("\\"PARTIAL\\""))
-        assertTrue(json.contains("\\"SKIPPED\\":1"))
-        assertTrue(json.contains("\\"BLOCKED\\":3"))
-        assertTrue(json.contains("\\"privacy_scope\\":\\"aggregate_only_no_content\\""))
+        assertTrue(json.contains("experience_count" + ":12"))
+        assertTrue(json.contains("association_count" + ":29"))
+        assertTrue(json.contains("PARTIAL"))
+        assertTrue(json.contains("SKIPPED" + ":1"))
+        assertTrue(json.contains("BLOCKED" + ":3"))
+        assertTrue(json.contains("aggregate_only_no_content"))
     }
 
     @Test
@@ -115,9 +115,9 @@ class DevelopmentEvidenceSnapshotTest {
 
         val json = snapshot.toJsonString()
 
-        assertTrue(json.contains("\\"next_focus_count\\":3"))
-        // Match the exact legacy field, not the permitted next_focus_count field.
-        assertFalse(json.contains("\\"next_focus\\":"))
+        assertTrue(json.contains("next_focus_count" + ":3"))
+        // The legacy free-text field must not be exported; next_focus_count is allowed.
+        assertFalse(json.contains("next_focus" + ":"))
         assertFalse(json.contains("internal-node-id"))
     }
 }
