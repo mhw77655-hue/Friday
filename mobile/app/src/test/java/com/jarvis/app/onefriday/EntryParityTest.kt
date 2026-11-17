@@ -47,6 +47,23 @@ class AndroidCompositionContractTest {
     }
 
     @Test
+    fun `typed and spoken input share one body-owned action router`() {
+        val conversation = source("src/main/java/com/jarvis/app/ui/screens/ConversationScreen.kt")
+        val viewModel = source("src/main/java/com/jarvis/app/ui/viewmodel/ConversationViewModel.kt")
+        val body = source("src/main/java/com/jarvis/app/body/BodyCoordinator.kt")
+
+        assertTrue(conversation.contains("bodyCoordinator.submitText(input)"))
+        assertFalse(conversation.contains("conversationViewModel.send(input)"))
+        assertFalse(viewModel.contains("LatencyLayer.onUserInput(text)"))
+        assertTrue(body.contains("fun submitText(text: String)"))
+        assertTrue(body.contains("private suspend fun routeInputText(text: String)"))
+        assertTrue(body.contains("PhoneCommandInterpreter.parse(text)"))
+        assertTrue(body.contains("PhoneActionPlanner.isLikelyDeviceRequest(text)"))
+        assertTrue(body.contains("LatencyLayer.ackOnly(spoken, feedback)"))
+        assertFalse(body.contains("private fun routeSpokenText"))
+    }
+
+    @Test
     fun `Android build configuration has no Termux toolchain dependency`() {
         val gradleProperties = source("gradle.properties")
         val appBuild = source("mobile/app/build.gradle.kts")
