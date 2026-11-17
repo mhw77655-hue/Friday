@@ -78,7 +78,7 @@ class IntentInference(
 
     /** Extract explicitly stated intent from text */
     private fun extractExplicitIntent(text: String): ExplicitIntent {
-        val lower = text.lowercase().trim()
+        var lower = text.lowercase().trim()
         if (lower.isBlank()) {
             return ExplicitIntent(IntentState.UNKNOWN, 0.0f, "", emptyList())
         }
@@ -116,6 +116,9 @@ class IntentInference(
                     entities = extractEntities(command)
                 )
             }
+            // Strip Friday's address before classifying the remaining utterance
+            // as a question, correction, teaching statement, or conversation.
+            if (command.isNotBlank()) lower = command
         }
 
         // Meta-cognitive patterns — checked before generic question/teaching so
