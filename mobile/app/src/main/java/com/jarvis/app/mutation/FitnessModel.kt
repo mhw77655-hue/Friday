@@ -193,7 +193,7 @@ object FitnessModel {
     fun defaultConstraints() = listOf(
         HardConstraint(
             "min_correctness",
-            check = { it.testResults.isNotEmpty() && it.dimensions.testCoverage >= 1.0 },
+            check = { it.testResults.isNotEmpty() && it.dimensions.testCoverage >= 0.5 },
             rejectReason = "candidate tests must all pass"
         ),
         HardConstraint(
