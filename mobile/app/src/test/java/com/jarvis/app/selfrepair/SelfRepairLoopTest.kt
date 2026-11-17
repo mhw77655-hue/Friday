@@ -218,6 +218,44 @@ class SelfRepairLoopTest {
     }
 
     @Test
+    fun `empty verification restores the applied patch`() = runBlocking {
+        val root = tmpDir()
+        writePlannerFixture(root)
+        copyXmlFixture(root)
+        val h = harness()
+        val (loop, _) = loopWith(root, h)
+
+        val result = loop.repair(
+            RepairRequirement("GoalPlanner", "Retain failed nodes", emptyList()),
+            "CapabilityExecutorTest"
+        ) { _ -> emptyList() }
+
+        assertEquals(SelfRepairLoop.Outcome.VALIDATION_FAILED, result.outcome)
+        assertEquals(miniPlannerSource, File(root, "com/example/planner/GoalPlanner.kt").readText())
+        assertFalse(File(root, "com/example/planner/GoalPlanner.kt.selfrepair.bak").exists())
+        assertTrue(h.surface.currentFailures.value.any { it.subsystem == "SELF_REPAIR" })
+    }
+
+    @Test
+    fun `verifier exception restores the applied patch`() = runBlocking {
+        val root = tmpDir()
+        writePlannerFixture(root)
+        copyXmlFixture(root)
+        val h = harness()
+        val (loop, _) = loopWith(root, h)
+
+        val result = loop.repair(
+            RepairRequirement("GoalPlanner", "Retain failed nodes", emptyList()),
+            "CapabilityExecutorTest"
+        ) { throw IllegalStateException("Gradle verification unavailable") }
+
+        assertEquals(SelfRepairLoop.Outcome.VALIDATION_FAILED, result.outcome)
+        assertEquals(miniPlannerSource, File(root, "com/example/planner/GoalPlanner.kt").readText())
+        assertFalse(File(root, "com/example/planner/GoalPlanner.kt.selfrepair.bak").exists())
+        assertTrue(h.surface.currentFailures.value.any { it.subsystem == "SELF_REPAIR" })
+    }
+
+    @Test
     fun `full cycle produces PROMOTED and organism is registered`() = runBlocking {
         val root = tmpDir()
         writePlannerFixture(root)
