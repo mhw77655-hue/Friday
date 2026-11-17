@@ -26,6 +26,7 @@ import com.jarvis.app.validation.GateVerdict
 import com.jarvis.app.validation.PromotionGate
 import com.jarvis.app.validation.ResourceBenchmark
 import java.io.File
+import kotlinx.coroutines.CancellationException
 
 /**
  * The missing Observe / Diagnose / Repair step of the evolution loop.
@@ -184,8 +185,36 @@ class SelfRepairLoop(
         apply(patch)
         log.add("repair: applied ${patch.edits.size} edit(s)")
 
-        val verification = verifier.verify(patch)
-        return conclude(requirement, diagnosis, patch, verification, log)
+        val verification = try {
+            verifier.verify(patch)
+        } catch (cancelled: CancellationException) {
+            restore(patch)
+            throw cancelled
+        } catch (failure: Throwable) {
+            restore(patch)
+            log.add("repair: verification failed; patch restored (${failure.message?.take(200)})")
+            recordWarning("Self-repair verification failed; patch restored: ${failure.message?.take(200)}")
+            return Result(Outcome.VALIDATION_FAILED, diagnosis, patch, null, null, emptyList(), log)
+        }
+
+        if (verification.isEmpty()) {
+            restore(patch)
+            log.add("repair: verifier returned no test observations; patch restored")
+            recordWarning("Self-repair verifier returned no test observations; patch restored")
+            return Result(Outcome.VALIDATION_FAILED, diagnosis, patch, null, null, emptyList(), log)
+        }
+
+        return try {
+            conclude(requirement, diagnosis, patch, verification, log)
+        } catch (cancelled: CancellationException) {
+            restore(patch)
+            throw cancelled
+        } catch (failure: Throwable) {
+            restore(patch)
+            log.add("repair: verification gate failed; patch restored (${failure.message?.take(200)})")
+            recordWarning("Self-repair verification gate failed; patch restored: ${failure.message?.take(200)}")
+            Result(Outcome.VALIDATION_FAILED, diagnosis, patch, null, null, verification, log)
+        }
     }
 
     /**
