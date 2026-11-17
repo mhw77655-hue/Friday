@@ -16,6 +16,7 @@ import com.jarvis.app.evolution.RollbackController
 import com.jarvis.app.validation.PromotionGate
 import com.jarvis.app.mutation.FitnessModel
 import com.jarvis.app.validation.ResourceBenchmark
+import com.jarvis.app.sandbox.SandboxExecutor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
