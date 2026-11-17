@@ -91,10 +91,9 @@ class MutantEnvironment(
 
     /** Resource test: measure latency + coarse heap delta over N warm runs. */
     suspend fun benchmark(instance: MutantInstance, iterations: Int = 20): List<FitnessModel.BenchmarkOutcome> {
+        require(iterations > 0) { "benchmark iterations must be positive" }
         val probe = instance.implementation.tests.firstOrNull { it.expected.isNotEmpty() }
-            ?: return listOf(
-                FitnessModel.BenchmarkOutcome("no_probe", "latency_ms", 0.0, "ms")
-            )
+            ?: return emptyList()
         val input = probe.input
         // Warmup (JIT + memoization) excluded from the average.
         repeat(5) { sandbox.run(instance.implementation.spec, input) }
@@ -110,8 +109,7 @@ class MutantEnvironment(
         val avgLatency = latencies.average()
         return listOf(
             FitnessModel.BenchmarkOutcome("latency", "latency_ms", avgLatency, "ms"),
-            FitnessModel.BenchmarkOutcome("memory", "memory_mb", (gcAfter - gcBefore).coerceAtLeast(0.0), "mb"),
-            FitnessModel.BenchmarkOutcome("cpu", "cpu_percent", 0.0, "%")
+            FitnessModel.BenchmarkOutcome("memory", "memory_mb", (gcAfter - gcBefore).coerceAtLeast(0.0), "mb")
         )
     }
 
