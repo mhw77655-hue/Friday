@@ -122,11 +122,15 @@ class IdentityContext(
         val socialLines = snapshot.socialLines
 
         val selfSummary = if (snapshot.selfReferential) {
-            val id = selfModel.identity()
+            val continuity = selfModel.continuitySnapshot()
+            val id = continuity.identity
             val caps = selfModel.capabilities().take(8).joinToString(", ") { it.name }
             val lims = selfModel.limitations().take(4).joinToString(", ") { it.capabilityId }
-            "identity=${id.name}${id.pronouns?.let { " (${it})" }.orEmpty()} v${id.version}; capabilities: ${caps.ifBlank { "(none)" }}; " +
-                "limitations: ${lims.ifBlank { "(none)" }}"
+            val goals = continuity.activeGoals.take(3).joinToString("; ").ifBlank { "none" }
+            "identity=${id.name}${id.pronouns?.let { " (${it})" }.orEmpty()} v${id.version}; " +
+                "continuity: experiences=${continuity.experience.experienceCount}, " +
+                "learned_associations=${continuity.experience.associationCount}, active_goals=$goals; " +
+                "capabilities: ${caps.ifBlank { "(none)" }}; limitations: ${lims.ifBlank { "(none)" }}"
         } else {
             null
         }
