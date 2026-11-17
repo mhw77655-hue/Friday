@@ -76,7 +76,8 @@ class ApplicationSelfStudy(
         val nextActions: List<String>,
         val developmentRequest: String?,
         val constraints: List<String>,
-        val evidenceGaps: List<String>
+        val evidenceGaps: List<String>,
+        val modelFree: Boolean = false
     ) {
         val hasDevelopmentRequest: Boolean
             get() = !developmentRequest.isNullOrBlank()
@@ -105,9 +106,113 @@ class ApplicationSelfStudy(
                 nextActions = parseStoredList(props.getProperty("nextActions").orEmpty()),
                 developmentRequest = developmentRequest,
                 constraints = parseStoredList(props.getProperty("constraints").orEmpty()),
-                evidenceGaps = parseStoredList(props.getProperty("evidenceGaps").orEmpty())
+                evidenceGaps = parseStoredList(props.getProperty("evidenceGaps").orEmpty()),
+                modelFree = props.getProperty("modelFree", "false").toBoolean()
             )
         }.getOrNull()
+    }
+
+    /**
+     * Produces and persists a development focus from installed, content-free
+     * structural evidence. This path never calls a model and deliberately does
+     * not turn manifest-only missing capabilities into feature requests.
+     */
+    fun reflectFromEvidence(report: Report, nowMs: Long = System.currentTimeMillis()): Reflection {
+        val sourceReady = report.sourceRevision.isNotBlank() && report.sourceFileCount > 0
+        val repeatedFailures = report.organFailureCounts.entries
+            .filter { it.value >= 2 }
+            .sortedByDescending { it.value }
+            .take(3)
+
+        val findings = buildList {
+            report.missingInvariantIds.take(4).forEach { add("Missing wiring invariant: $it") }
+            report.unreachableNodeIds.take(4).forEach { add("Unreachable runtime graph node: $it") }
+            report.organFailureCounts.entries.sortedByDescending { it.value }.take(3)
+                .forEach { (organ, count) -> add("Observed organ failures: $organ=$count") }
+            if (report.hostSamples < 20) add("Host resource sample count is low: ${report.hostSamples}")
+            report.missingCapabilityKeys.take(2).forEach {
+                add("Manifest-declared missing capability (not an approved feature request): $it")
+            }
+            report.knownLimitationKeys.take(2).forEach {
+                add("Declared limitation requiring owner-vision review: $it")
+            }
+        }.distinct().take(8)
+
+        val developmentRequest = when {
+            !sourceReady -> null
+            report.missingInvariantIds.isNotEmpty() -> {
+                val ids = report.missingInvariantIds.take(5).joinToString(", ")
+                "Friday's model-free self-study identified missing runtime wiring invariants: $ids. Inspect the actual repository source, production composition and tests; verify each reported gap is real and required by the owner's vision. Repair the smallest coherent, owner-aligned defect and add a regression test. Do not create a parallel subsystem or weaken identity, continuity, authorization, permission, provenance, signing, release or rollback protections."
+            }
+            report.unreachableNodeIds.isNotEmpty() -> {
+                val ids = report.unreachableNodeIds.take(5).joinToString(", ")
+                "Friday's model-free self-study identified unreachable runtime graph nodes: $ids. Trace their actual production call paths in the repository and tests. If a node is an intended owner-aligned capability, connect the existing implementation to the canonical Android composition root; if obsolete or duplicate, document and remove or quarantine it. Do not add a second authority or weaken identity, continuity, authorization, permission, provenance, signing, release or rollback protections."
+            }
+            repeatedFailures.isNotEmpty() -> {
+                val failures = repeatedFailures.joinToString(", ") { "${it.key}=${it.value}" }
+                "Friday's model-free self-study observed repeated organ failures: $failures. Inspect the actual source and failure evidence, reproduce the failing path, and fix the smallest verified root cause with a regression test. Do not mistake ordinary resource pressure or a single transient failure for a code defect."
+            }
+            else -> null
+        }
+
+        val nextActions = if (developmentRequest == null) {
+            listOf("Continue collecting runtime and structural evidence; no code change was selected because no sufficiently supported defect was found.")
+        } else {
+            listOf(
+                "Verify the selected finding against actual repository source and existing tests.",
+                "Identify the canonical implementation and reuse it instead of adding a competing subsystem.",
+                "Make the smallest source-level correction and add a regression test.",
+                "Run the full Android build, builder safety tests, workflow lint and JVM suite; stop on any failure."
+            )
+        }
+
+        val evidenceGaps = buildList {
+            if (!sourceReady) add("The installed build has no usable source-index revision/file count; no repository development request was generated.")
+            if (sourceReady) add("The Android package contains source-index metadata, not the full Kotlin source tree. The repository worker must inspect actual source before editing.")
+            if (report.sourceDependencyEdgeCount == 0) add("The packaged source index reports no dependency edges; reachability conclusions may be incomplete.")
+            if (report.hostSamples < 20) add("Fewer than 20 host samples are available; resource trends are not sufficient for a code-change decision.")
+            if (report.missingCapabilityKeys.isNotEmpty()) add("Missing capability manifest keys are declarations, not proof that the owner wants those features implemented.")
+            if (report.knownLimitationKeys.isNotEmpty()) add("Known limitations require comparison with the owner's vision; they are not automatically development goals.")
+            if (report.thermalPressureSamples > 0 || report.lowMemorySamples > 0) {
+                add("Thermal or low-memory samples are runtime constraints; do not convert them into source changes without a reproduced defect.")
+            }
+        }.distinct().take(8)
+
+        val summary = buildString {
+            append("Model-free structural reflection for ")
+            append(report.sourceRevision.ifBlank { "unknown source revision" })
+            append(": ")
+            append(report.missingInvariantIds.size)
+            append(" missing invariants, ")
+            append(report.unreachableNodeIds.size)
+            append(" unreachable nodes, and ")
+            append(report.organFailureCounts.values.sum())
+            append(" observed organ failures across ")
+            append(report.organFailureCounts.size)
+            append(" organ(s). ")
+            append(if (developmentRequest == null) "No sufficiently supported code change was selected." else "A bounded development focus was selected from runtime evidence.")
+        }.take(1200)
+
+        val reflection = Reflection(
+            createdAtMs = nowMs,
+            sourceRevision = report.sourceRevision,
+            summary = summary,
+            findings = findings,
+            nextActions = nextActions,
+            developmentRequest = developmentRequest,
+            constraints = listOf(
+                "The structural report is evidence, not source-code proof; inspect repository source and tests.",
+                "Do not treat manifest-only missing capabilities or known limitations as owner-approved feature requests.",
+                "Do not weaken persistent identity, continuity replay, owner authorization, permission gates, provenance, signing, release or rollback protections.",
+                "Do not use conversation text, private memory content, credentials or personal runtime data as development evidence.",
+                "The coding worker is untrusted; create a draft proposal and require hosted validation."
+            ),
+            evidenceGaps = evidenceGaps,
+            modelFree = true
+        )
+        persistReflection(reflection)
+        latestReflection = reflection
+        return reflection
     }
 
     /**
@@ -179,7 +284,7 @@ class ApplicationSelfStudy(
         val json = extractJson(result.content) ?: return null
         val developmentRequest = json.optString("development_request").trim()
             .takeIf { it.isNotBlank() && it.length <= 1600 }
-        val reflection = Reflection(
+        val parsed = Reflection(
             createdAtMs = nowMs,
             sourceRevision = report.sourceRevision,
             summary = json.optString("summary").trim().take(1200),
@@ -189,6 +294,24 @@ class ApplicationSelfStudy(
             constraints = jsonArrayStrings(json.optJSONArray("constraints"), 8),
             evidenceGaps = jsonArrayStrings(json.optJSONArray("evidence_gaps"), 8)
         )
+        // Optional model reasoning may enrich evidence, but cannot replace or
+        // invent the development goal selected by the model-free evidence pass.
+        val structural = latestReflection?.takeIf {
+            it.sourceRevision == report.sourceRevision && it.modelFree
+        }
+        val reflection = if (structural == null) {
+            parsed
+        } else {
+            parsed.copy(
+                summary = (structural.summary + " Optional model enrichment: " + parsed.summary).take(1200),
+                findings = (structural.findings + parsed.findings).distinct().take(8),
+                nextActions = (structural.nextActions + parsed.nextActions).distinct().take(8),
+                developmentRequest = structural.developmentRequest,
+                constraints = (structural.constraints + parsed.constraints).distinct().take(8),
+                evidenceGaps = (structural.evidenceGaps + parsed.evidenceGaps).distinct().take(8),
+                modelFree = true
+            )
+        }
         persistReflection(reflection)
         latestReflection = reflection
         return reflection
@@ -229,6 +352,7 @@ class ApplicationSelfStudy(
             setProperty("developmentRequest", reflection.developmentRequest.orEmpty())
             setProperty("constraints", JSONArray(reflection.constraints).toString())
             setProperty("evidenceGaps", JSONArray(reflection.evidenceGaps).toString())
+            setProperty("modelFree", reflection.modelFree.toString())
         }
         file.outputStream().use { props.store(it, "Friday self-study reflection; proposals only") }
     }
