@@ -150,8 +150,8 @@ class ApplicationSelfStudyTest {
                     CapabilityManifest(
                         stage = 1,
                         updated = "test",
-                        capabilities = mapOf("voice" to false),
-                        knownLimitations = mapOf("streaming_voice" to "not yet complete")
+                        capabilities = mapOf("voice" to true),
+                        knownLimitations = emptyMap()
                     )
                 },
                 hostSnapshot = { null },
@@ -166,9 +166,9 @@ class ApplicationSelfStudyTest {
 
             assertTrue(reflection.hasDevelopmentRequest)
             assertTrue(reflection.developmentRequest!!.contains("unreachable.experimental"))
-            assertTrue(reflection.findings.any { it.contains("unreachable runtime components") })
-            assertTrue(reflection.constraints.any { it.contains("models remain optional") })
-            assertTrue(reflection.evidenceGaps.any { it.contains("Kotlin source text") })
+            assertTrue(reflection.findings.any { it.contains("unreachable runtime component") })
+            assertTrue(reflection.constraints.any { it.contains("manifest-only missing capabilities") })
+            assertTrue(reflection.evidenceGaps.any { it.contains("Kotlin source tree") })
             assertEquals("revision-model-free", reflection.sourceRevision)
             assertTrue(File(dir, "self-study/latest-reflection.properties").isFile)
             assertEquals(reflection, createStudy().latestReflection())
@@ -191,8 +191,8 @@ class ApplicationSelfStudyTest {
                     CapabilityManifest(
                         stage = 1,
                         updated = "test",
-                        capabilities = mapOf("voice" to true),
-                        knownLimitations = emptyMap()
+                        capabilities = mapOf("voice" to false),
+                        knownLimitations = mapOf("streaming_voice" to "not yet complete")
                     )
                 },
                 hostSnapshot = {
