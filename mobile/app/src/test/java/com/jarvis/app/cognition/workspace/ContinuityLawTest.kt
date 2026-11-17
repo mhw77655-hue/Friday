@@ -81,7 +81,8 @@ class ContinuityLawTest {
     private fun coreIdentity(): CoreIdentity = CoreIdentity(
         name = com.jarvis.app.identity.SeededFridayIdentitySource.name(),
         version = com.jarvis.app.identity.SeededFridayIdentitySource.version(),
-        userNodeName = com.jarvis.app.identity.WorldModelService.USER_NODE_NAME
+        userNodeName = com.jarvis.app.identity.WorldModelService.USER_NODE_NAME,
+        persistentId = "seeded-test-identity"
     )
 
     private fun replayCheck(): ReplayCheck = ReplayCheck(
@@ -95,6 +96,15 @@ class ContinuityLawTest {
     private fun firstTurnId(): String = recordedTurns().turns.first().turnId
 
     // ── AC1: evidence count, on the real path ───────────────────────────────────
+
+    @Test
+    fun `replay includes the canonical persistent individual ID as a core invariant`() {
+        val rendered = replayCheck().replay().renders.first()
+        assertEquals(
+            "seeded-test-identity",
+            rendered.identityFacts["identity:id"]
+        )
+    }
 
     @Test
     fun `AC1 a slow change with insufficient evidence is rejected, and the same change is accepted once the evidence is real`() {
