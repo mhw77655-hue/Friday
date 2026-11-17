@@ -329,7 +329,8 @@ class TurnPathAssembly private constructor(
                     coreIdentity = CoreIdentity(
                         name = identity.name,
                         version = identity.version,
-                        userNodeName = WorldModelService.USER_NODE_NAME
+                        userNodeName = WorldModelService.USER_NODE_NAME,
+                        persistentId = identity.persistentId
                     ),
                     fixture = fixture
                 )
