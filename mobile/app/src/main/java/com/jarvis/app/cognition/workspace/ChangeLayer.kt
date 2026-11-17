@@ -48,7 +48,7 @@ enum class ChangeLayer {
     companion object {
         /**
          * Namespace the CORE self-model fields are addressed under in a
-         * [Claim.target]: the real [SelfIdentity] fields are a bare `name` and
+         * [Claim.target]: the real [SelfIdentity] fields are a bare `id`, `name` and
          * `version`, and a target is shared with the other identity kinds, so the
          * self-model's own claims carry this prefix. This is a claim-level field
          * namespace, NOT a graph predicate — the graph predicate vocabulary
@@ -76,7 +76,7 @@ enum class ChangeLayer {
          * non-identity field as derived from a live source, while a field that
          * cannot be classified at all is an error.
          */
-        val SELF_MODEL_IDENTITY_FIELDS: List<String> = listOf("name", "version")
+        val SELF_MODEL_IDENTITY_FIELDS: List<String> = listOf("id", "name", "version")
 
         /**
          * The layer of a change to [target] of kind [kind].
