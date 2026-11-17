@@ -5,6 +5,7 @@ import com.jarvis.app.mutant.DeterministicSpec
 import com.jarvis.app.mutant.ResourceSandbox
 import com.jarvis.app.mutant.SpecOutput
 import com.jarvis.app.selfrepair.SourcePatch
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -25,15 +26,7 @@ import kotlinx.coroutines.withContext
  */
 class LocalTestSandboxExecutor(
     private val sandbox: ResourceSandbox = ResourceSandbox(defaultTimeoutMs = 2_000),
-    private val specProducer: (SourcePatch) -> AlgorithmSpec = { patch ->
-        DeterministicSpec(
-            capability = "self_repair",
-            description = patch.rationale.ifBlank { "repaired candidate" },
-            source = patch.edits.joinToString("\n\n") { "${it.file}\n---\n${it.replace}" },
-            strategy = AlgorithmSpec.Strategy.DETERMINISTIC,
-            fn = { _ -> SpecOutput.Success(mapOf("repaired" to true)) }
-        )
-    }
+    private val specProducer: (SourcePatch) -> AlgorithmSpec
 ) : SandboxExecutor {
 
     override suspend fun stressTest(
@@ -67,7 +60,9 @@ class LocalTestSandboxExecutor(
                         )
                     }
                 }
-            } catch (t: Throwable) {
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (t: Exception) {
                 failures += SandboxExecutor.StressFailure(
                     input = input,
                     expected = "no unhandled exception",
