@@ -305,6 +305,16 @@ class BodyCoordinator(
     }
 
     /**
+     * Typed conversation input enters the same body-owned routing path as
+     * recognized speech. This keeps phone actions, confirmation, and ordinary
+     * cognition consistent across input modalities.
+     */
+    fun submitText(text: String) {
+        val normalized = text.trim()
+        if (normalized.isNotEmpty()) emitEvent(BodyEvent.UserInput(normalized))
+    }
+
+    /**
      * Toggle the Android microphone interaction without exposing the body's
      * transport lifecycle as Friday's identity or inner state.
      *
@@ -339,58 +349,77 @@ class BodyCoordinator(
     private fun handleEvent(event: BodyEvent) {
         val currentState = _state.value
         val newState = BodyStateMachine.next(currentState, event)
+        var inputTextToRoute: String? = null
 
-        // Side effects that the pure table can't express: re-emissions that
-        // continue the turn once a new state is committed.
+        // All text modalities enter one router. Phone actions are intercepted
+        // before the cognitive/chat path; ordinary text enters LatencyLayer.
         when (event) {
-            is BodyEvent.SttResult ->
+            is BodyEvent.SttResult -> {
                 if (event.text.isNotBlank() && newState == BodyState.THINKING) {
-                    val spoken = event.text.trim()
-                    val hasPhoneIntent =
-                        com.jarvis.app.voice.PhoneCommandInterpreter.parse(spoken) != null ||
-                            phoneCommandOrchestrator.hasPendingConfirmation()
-                    if (hasPhoneIntent) {
-                        scope.launch {
-                            handlePhoneOutcome(phoneCommandOrchestrator.handle(spoken), spoken)
-                        }
-                    } else if (com.jarvis.app.voice.PhoneActionPlanner.isLikelyDeviceRequest(spoken)) {
-                        scope.launch {
-                            val screen = withContext(Dispatchers.Main.immediate) {
-                                com.jarvis.app.voice.FridayAccessibilityService.activeScreenSummary()
-                            }
-                            when (val plan = phoneActionPlanner.plan(spoken, screen)) {
-                                is com.jarvis.app.voice.PhoneActionPlanner.Result.Action ->
-                                    handlePhoneOutcome(
-                                        phoneCommandOrchestrator.handlePlanned(spoken, plan.command),
-                                        spoken
-                                    )
-                                is com.jarvis.app.voice.PhoneActionPlanner.Result.Clarification -> {
-                                    tts?.speak(plan.question)
-                                    emitEvent(BodyEvent.Reset)
-                                }
-                                com.jarvis.app.voice.PhoneActionPlanner.Result.NotPhoneAction ->
-                                    routeSpokenText(spoken)
-                                is com.jarvis.app.voice.PhoneActionPlanner.Result.Unavailable -> {
-                                    tts?.speak(plan.reason)
-                                    emitEvent(BodyEvent.Reset)
-                                }
-                            }
-                        }
-                    } else {
-                        routeSpokenText(spoken)
-                    }
+                    inputTextToRoute = event.text.trim()
                 }
-            is BodyEvent.UserInput ->
+            }
+            is BodyEvent.UserInput -> {
                 if (currentState == BodyState.SPEAKING) {
-                    beginTurn(event.text)
                     emitEvent(BodyEvent.BargeIn(event.text))
+                } else if (event.text.isNotBlank()) {
+                    if (currentState == BodyState.LISTENING || currentState == BodyState.HEARING ||
+                        currentState == BodyState.WAKE
+                    ) {
+                        speechRecognizer?.cancel()
+                    }
+                    // Also route while already THINKING: a second typed turn
+                    // must not disappear merely because the transport state
+                    // did not change.
+                    inputTextToRoute = event.text.trim()
                 }
+            }
             else -> {}
         }
 
         if (newState != currentState) {
             transitionTo(newState, event)
         }
+        // Route after committing the transport transition so an immediate
+        // action acknowledgment cannot race the state/visual update.
+        inputTextToRoute?.let { text -> scope.launch { routeInputText(text) } }
+    }
+
+    private suspend fun routeInputText(text: String) {
+        if (text.isBlank()) return
+        beginTurn(text)
+
+        val hasPhoneIntent =
+            com.jarvis.app.voice.PhoneCommandInterpreter.parse(text) != null ||
+                phoneCommandOrchestrator.hasPendingConfirmation()
+        if (hasPhoneIntent) {
+            handlePhoneOutcome(phoneCommandOrchestrator.handle(text), text)
+            return
+        }
+
+        if (com.jarvis.app.voice.PhoneActionPlanner.isLikelyDeviceRequest(text)) {
+            val screen = withContext(Dispatchers.Main.immediate) {
+                com.jarvis.app.voice.FridayAccessibilityService.activeScreenSummary()
+            }
+            when (val plan = phoneActionPlanner.plan(text, screen)) {
+                is com.jarvis.app.voice.PhoneActionPlanner.Result.Action ->
+                    handlePhoneOutcome(phoneCommandOrchestrator.handlePlanned(text, plan.command), text)
+                is com.jarvis.app.voice.PhoneActionPlanner.Result.Clarification ->
+                    handlePhoneFeedback(text, plan.question)
+                com.jarvis.app.voice.PhoneActionPlanner.Result.NotPhoneAction ->
+                    generateResponse(text)
+                is com.jarvis.app.voice.PhoneActionPlanner.Result.Unavailable ->
+                    handlePhoneFeedback(text, plan.reason)
+            }
+            return
+        }
+
+        generateResponse(text)
+    }
+
+    private fun handlePhoneFeedback(commandText: String, feedback: String) {
+        LatencyLayer.ackOnly(commandText, feedback)
+        emitEvent(BodyEvent.Reset)
     }
 
     /** Execute state transition with side effects. */
@@ -419,13 +448,9 @@ class BodyCoordinator(
                 // HEARING simply holds until the autonomous result (or the
                 // timeout) closes the recognition session.
             }
-            BodyState.THINKING -> {
-                val userText = (trigger as? BodyEvent.UserInput)?.text
-                    ?: (trigger as? BodyEvent.SttResult)?.text
-                if (!userText.isNullOrBlank()) {
-                    generateResponse(userText)
-                }
-            }
+            // Input is routed once in handleEvent so phone actions can be
+            // intercepted before the ordinary cognition path.
+            BodyState.THINKING -> Unit
             BodyState.RETRIEVING -> {
                 // Memory retrieval in progress - wait for MemoryRetrieved event
             }
@@ -504,11 +529,6 @@ class BodyCoordinator(
         }
     }
 
-    private fun routeSpokenText(spoken: String) {
-        beginTurn(spoken)
-        emitEvent(BodyEvent.UserInput(spoken))
-    }
-
     private fun handlePhoneOutcome(
         outcome: com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome?,
         spoken: String
@@ -525,11 +545,13 @@ class BodyCoordinator(
             is com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.Unavailable ->
                 outcome.explanation
             null -> {
-                routeSpokenText(spoken)
+                generateResponse(spoken)
                 return
             }
         }
-        tts?.speak(feedback)
+        // Record the action and its honest outcome in the same conversation
+        // stream as ordinary replies; never speak an invisible side-channel ack.
+        LatencyLayer.ackOnly(spoken, feedback)
         emitEvent(BodyEvent.Reset)
     }
 

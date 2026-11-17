@@ -51,7 +51,7 @@ fun ConversationScreen() {
 
     fun sendCurrentInput() {
         if (input.isNotBlank()) {
-            conversationViewModel.send(input)
+            bodyCoordinator.submitText(input)
             input = ""
         }
     }
