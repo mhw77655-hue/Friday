@@ -21,7 +21,7 @@ package com.jarvis.app.cognition.workspace
  *    REAL accumulated evidence claims support it and the previous accepted change
  *    to the same field is far enough in the past — and every accepted change is
  *    appended to a queryable [ChangeLog].
- *  - [CORE] state is identity itself: the `name` and `version` of
+ *  - [CORE] state is identity itself: the persistent `id`, `name` and `version` of
  *    [SelfModel.identity] ([SelfIdentity], read live from [IdentitySource]).
  *    This mechanism REJECTS a CORE change unconditionally: those fields stay
  *    governed by the pre-existing frozen-invariant path (`identity.root` is
