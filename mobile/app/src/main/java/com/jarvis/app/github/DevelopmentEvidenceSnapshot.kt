@@ -53,7 +53,8 @@ internal data class DevelopmentEvidenceSnapshot(
         val liquidPredictionError: Double,
         val organStrategyKeys: List<String>,
         val organFailureCounts: Map<String, Long>,
-        val nextFocus: List<String>
+        /** Count only; next-focus prose can contain internal identifiers. */
+        val nextFocusCount: Int
     ) {
         fun toJson(): JSONObject = JSONObject()
             .put("source_revision", sourceRevision.take(80))
@@ -80,7 +81,7 @@ internal data class DevelopmentEvidenceSnapshot(
             .put("liquid_prediction_error", liquidPredictionError)
             .put("organ_strategy_keys", stringArray(organStrategyKeys))
             .put("organ_failure_counts", longMap(organFailureCounts))
-            .put("next_focus", stringArray(nextFocus.map { it.take(160) }))
+            .put("next_focus_count", nextFocusCount.coerceAtLeast(0))
     }
 
     fun toJson(): JSONObject = JSONObject()
@@ -154,7 +155,8 @@ internal object DevelopmentEvidenceCollector {
                 organFailureCounts = it.organFailureCounts.toSortedMap().entries.take(24).associate { entry ->
                     entry.key.take(48) to entry.value
                 },
-                nextFocus = it.nextFocus.take(8).map { focus -> focus.take(160) }
+                // The focus strings contain internal IDs and prose; export only the count.
+                nextFocusCount = it.nextFocus.size
             )
         }
 

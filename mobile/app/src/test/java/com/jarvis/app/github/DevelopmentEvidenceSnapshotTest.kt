@@ -66,4 +66,57 @@ class DevelopmentEvidenceSnapshotTest {
         assertFalse(json.contains("conversation_text"))
         assertFalse(json.contains("feature_names"))
     }
+    @Test
+    fun `self study evidence exports only aggregate next focus count`() {
+        val snapshot = DevelopmentEvidenceSnapshot(
+            observedAtMs = 1234L,
+            runtimeReadiness = "Ready",
+            identityRecordPresent = true,
+            experienceCount = 1,
+            associationCount = 2,
+            planStatus = null,
+            planStepStatusCounts = emptyMap(),
+            capabilityStage = null,
+            availableCapabilityKeys = emptyList(),
+            missingCapabilityKeys = emptyList(),
+            symbioticMode = null,
+            symbioticContextTokenBudget = null,
+            symbioticMaxConcurrentExpensiveTasks = null,
+            symbioticMemoryReserveMb = null,
+            selfStudy = DevelopmentEvidenceSnapshot.SelfStudyEvidence(
+                sourceRevision = "abc123",
+                sourceFileCount = 1,
+                sourceSymbolCount = 2,
+                sourcePackageCount = 1,
+                sourceDependencyEdgeCount = 0,
+                graphNodeCount = 1,
+                graphEdgeCount = 0,
+                reachableNodeCount = 1,
+                unreachableNodeCount = 0,
+                missingInvariantCount = 0,
+                declaredMissingCapabilityKeys = emptyList(),
+                knownLimitationKeys = emptyList(),
+                hostSamples = 1,
+                minimumAvailableMemoryMb = 100,
+                averageCpuLoadEmaPercent = 1.0,
+                thermalPressureSamples = 0,
+                lowMemorySamples = 0,
+                additionalMemoryReserveMb = 100,
+                maximumObservedProcessPssMb = 100,
+                minimumBatteryPercent = 80,
+                liquidGeneration = 1,
+                liquidPredictionError = 0.0,
+                organStrategyKeys = emptyList(),
+                organFailureCounts = emptyMap(),
+                nextFocusCount = 3
+            )
+        )
+
+        val json = snapshot.toJsonString()
+
+        assertTrue(json.contains("\"next_focus_count\":3"))
+        assertFalse(json.contains("next_focus"))
+        assertFalse(json.contains("internal-node-id"))
+    }
+
 }
