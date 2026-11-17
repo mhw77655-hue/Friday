@@ -66,6 +66,9 @@ class BodyCoordinator(
     private val backgroundScope = CoroutineScope(scope.coroutineContext + backgroundJob)
     private val queueJob = SupervisorJob(scope.coroutineContext[Job])
     private val queueScope = CoroutineScope(scope.coroutineContext + queueJob)
+    private val shutdownStarted = AtomicBoolean(false)
+    private val eventConsumerJob: Job
+    private val inputConsumerJob: Job
 
     // ── State ──
     private val _state = MutableStateFlow(BodyState.IDLE)
@@ -81,11 +84,19 @@ class BodyCoordinator(
     private val _sessionStartMs = System.currentTimeMillis()
 
     // ── Event bus ──
-    private val eventQueue = SerializedMailbox<BodyEvent> { event, cause ->
+    private val eventQueue = SerializedMailbox<BodyEvent>(capacity = 512) { event, cause ->
         reportQueueFailure("event", event::class.simpleName ?: "unknown", cause)
+        if (event is BodyEvent.UserInput && event.text.isNotBlank()) {
+            runCatching {
+                LatencyLayer.ackOnly(event.text, "I couldn't accept that request because the input queue is full. Please try again.")
+            }
+        }
     }
-    private val inputQueue = SerializedMailbox<String> { text, cause ->
+    private val inputQueue = SerializedMailbox<String>(capacity = 128) { text, cause ->
         reportQueueFailure("input", text.take(80), cause)
+        runCatching {
+            LatencyLayer.ackOnly(text, "I couldn't process that request because Friday's input queue is full. Please try again.")
+        }
     }
     private val _events = MutableSharedFlow<BodyEvent>(extraBufferCapacity = 32)
     val events: SharedFlow<BodyEvent> = _events.asSharedFlow()
@@ -151,8 +162,8 @@ class BodyCoordinator(
     init {
         // One consumer per queue preserves event and command ordering. Platform
         // callbacks never suspend, and queued inputs are not discarded under load.
-        queueScope.launch { eventLoop() }
-        queueScope.launch { inputLoop() }
+        eventConsumerJob = queueScope.launch { eventLoop() }
+        inputConsumerJob = queueScope.launch { inputLoop() }
         observeFridayReplies()
 
         // Initialize subsystems
@@ -310,7 +321,13 @@ class BodyCoordinator(
     private suspend fun eventLoop() {
         try {
             eventQueue.consume { event ->
-                _events.tryEmit(event)
+                if (!_events.tryEmit(event)) {
+                    reportQueueFailure(
+                        "observer",
+                        event::class.simpleName ?: "unknown",
+                        IllegalStateException("body event observer flow is full")
+                    )
+                }
                 try {
                     handleEvent(event)
                 } catch (cancelled: kotlinx.coroutines.CancellationException) {
@@ -377,7 +394,7 @@ class BodyCoordinator(
                 operation = "enqueue",
                 severity = com.jarvis.app.failure.FailureSeverity.ERROR,
                 category = com.jarvis.app.failure.FailureCategory.LATENCY,
-                message = "A body $queue item was rejected because its consumer is closed.",
+                message = "A body $queue item was rejected because its bounded queue is full or closed.",
                 source = "BodyCoordinator",
                 cause = cause?.message,
                 recoverability = com.jarvis.app.failure.Recoverability.RECOVERABLE,
@@ -795,8 +812,12 @@ class BodyCoordinator(
 
     /** Shutdown all subsystems. */
     fun shutdown() {
-        // Stop producers/collectors first, then drain queued events and routed
-        // inputs. The injected application scope remains alive for other organs.
+        if (!shutdownStarted.compareAndSet(false, true)) return
+
+        // Stop producers first. Closing the event mailbox lets its consumer
+        // drain accepted events; eventLoop closes the input mailbox in finally,
+        // and the input consumer then drains accepted commands. Only after both
+        // consumers finish is their child job cancelled.
         backgroundJob.cancel()
         eventQueue.close()
         micJob?.cancel()
@@ -805,5 +826,11 @@ class BodyCoordinator(
         tts?.stop()
         presenceMonitor?.stop()
         warmupExecutor.shutdown()
+
+        scope.launch {
+            eventConsumerJob.join()
+            inputConsumerJob.join()
+            queueJob.cancel()
+        }
     }
 }
