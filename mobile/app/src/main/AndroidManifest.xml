@@ -3,18 +3,31 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
-
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <application
         android:networkSecurityConfig="@xml/network_security_config"
         android:name=".JarvisApplication"
-        android:label="Friday"
+        android:label="FRIDAY"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+
         <activity
             android:name=".MainActivity"
             android:exported="true">
@@ -22,12 +35,23 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
         </activity>
 
-        <!-- R1 voice substrate: the voice capability habitat runs in its own
-             :voice process so native voice inference can never crash the app
-             process. The VoiceOrganismHost (app process) supervises and
-             rebuilds this process from its environment recipe on death. -->
         <service
             android:name=".runtime.FridayRuntimeService"
             android:exported="false"
@@ -48,14 +72,54 @@
             </intent-filter>
         </receiver>
 
+        <!-- Voice inference remains isolated from the identity/UI process. -->
         <service
             android:name=".voice.VoiceService"
             android:process=":voice"
             android:exported="false" />
 
+        <!-- Native GGUF inference runs outside the UI/identity process. -->
+        <service
+            android:name=".model.InferenceService"
+            android:process=":inference"
+            android:exported="false" />
+
+        <service
+            android:name=".voice.FridayVoiceInteractionService"
+            android:process=":assistant"
+            android:label="Friday"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.voice.VoiceInteractionService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.voice_interaction"
+                android:resource="@xml/friday_voice_interaction" />
+        </service>
+
+        <service
+            android:name=".voice.FridayVoiceInteractionSessionService"
+            android:process=":voiceassistant"
+            android:permission="android.permission.BIND_VOICE_INTERACTION"
+            android:exported="true" />
+
+        <service
+            android:name=".voice.FridayAccessibilityService"
+            android:label="Friday phone control"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/friday_accessibility_service" />
+        </service>
+
         <service
             android:name=".JarvisNotificationListener"
-            android:label="JARVIS Notification Access"
+            android:label="Friday Notification Access"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
             android:exported="true">
             <intent-filter>
