@@ -23,6 +23,21 @@ class FitnessModelEvidenceTest {
     }
 
     @Test
+    fun `missing test observations do not imply perfect reliability`() {
+        val result = FitnessModel.evaluate(
+            candidateId = "no-tests",
+            testResults = emptyList(),
+            benchmarkResults = emptyList(),
+            hardConstraints = emptyList()
+        )
+
+        assertEquals(0.0, result.dimensions.correctness, 0.0)
+        assertEquals(0.0, result.dimensions.reliability, 0.0)
+        assertEquals(0.0, result.dimensions.failureRate, 0.0)
+        assertEquals(0.0, result.dimensions.testCoverage, 0.0)
+    }
+
+    @Test
     fun `non-finite and negative metrics do not produce perfect scores`() {
         val result = FitnessModel.evaluate(
             candidateId = "invalid-benchmarks",
