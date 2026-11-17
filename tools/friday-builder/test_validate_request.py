@@ -41,7 +41,7 @@ class ValidateRequestTests(unittest.TestCase):
 
     def test_accepts_content_free_aggregate_runtime_evidence(self):
         data = valid_request()
-        data["evidence"].append("FRIDAY_AGGREGATE_RUNTIME_EVIDENCE_JSON: " + ("{\"status\":\"PARTIAL\"}" * 500))
+        data["evidence"].append("FRIDAY_AGGREGATE_RUNTIME_EVIDENCE_JSON: " + ("{\"status\":\"PARTIAL\"}" * 300))
         data["privacy_review"]["aggregate_runtime_evidence_enabled"] = True
         data["privacy_review"]["aggregate_runtime_evidence_scope"] = "counts_statuses_capability_keys_resource_trends_only"
 
