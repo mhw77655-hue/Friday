@@ -1371,7 +1371,7 @@ class CognitiveEngine(
      */
     suspend fun classifyIntent(
         turn: String,
-        localInference: IntentInferenceResult? = null
+        localInference: IntentInference.IntentInferenceResult? = null
     ): IntentCategory {
         val local = localInference ?: intentInference.infer(turn, getCurrentState())
         val localCategory = when (local.finalIntent) {
