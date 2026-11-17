@@ -14,15 +14,15 @@ import kotlinx.coroutines.withContext
  * [ResourceSandbox] with deliberately adversarial inputs (boundary values,
  * malformed data, concurrent-style repeated calls).
  *
- * This is a REAL, working implementation: it runs the repaired candidate
- * through adversarial inputs and catches broken candidates that would
- * otherwise reach [com.jarvis.app.validation.PromotionGate].
+ * This is a spec-level test harness, not a Kotlin source compiler. It runs an
+ * explicitly supplied [specProducer] result through adversarial inputs. The
+ * caller must prove that this executable spec faithfully represents the
+ * source patch; this class cannot infer that relationship by itself.
  *
- * The [specProducer] function maps a [SourcePatch] to the executable
- * [AlgorithmSpec] that the patch produces — the test harness provides this
- * to avoid requiring a Kotlin compiler on-device.
- *
- * NOT instantiated in the live [com.jarvis.app.JarvisEngine].
+ * It is therefore suitable for deterministic tests, not proof that a
+ * repository source patch is safe. Actual patched source still requires
+ * isolated Gradle compilation and regression tests. It is not instantiated
+ * in the live [com.jarvis.app.JarvisEngine].
  */
 class LocalTestSandboxExecutor(
     private val sandbox: ResourceSandbox = ResourceSandbox(defaultTimeoutMs = 2_000),
