@@ -83,9 +83,15 @@ class IntentInference(
             return ExplicitIntent(IntentState.UNKNOWN, 0.0f, "", emptyList())
         }
 
-        // Direct command patterns
-        if (lower.startsWith("jarvis") || lower.startsWith("hey jarvis")) {
-            val command = lower.removePrefix("jarvis").removePrefix("hey jarvis").trim()
+        // Direct address patterns. Friday is the owner's chosen assistant
+        // identity; Jarvis remains accepted only as a legacy wake phrase.
+        val addressedPrefix = listOf("hey friday", "friday", "hey jarvis", "jarvis")
+            .firstOrNull { prefix ->
+                lower == prefix || lower.startsWith("$prefix ") ||
+                    lower.startsWith("$prefix,") || lower.startsWith("$prefix:")
+            }
+        if (addressedPrefix != null) {
+            val command = lower.removePrefix(addressedPrefix).trim().trimStart(',', ':').trim()
             return ExplicitIntent(
                 type = IntentState.COMMAND,
                 confidence = 0.9f,
