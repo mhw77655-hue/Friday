@@ -34,9 +34,8 @@ object JarvisOrganGraph {
         ))
 
         // ONE-2-COMPOSITION: the ONE composition root, as a real ENTRY organ.
-        // Both hosts construct this exact class — the phone through
-        // JarvisEngine.init, the JVM/Termux host through TermuxJarvisServer — so
-        // one graph can finally describe one Friday. It is the ORDER of
+        // Android is the sole production host and constructs this exact class through
+        // JarvisEngine.init. Desktop JVM tests use test doubles; they are not hosts. It is the ORDER of
         // CONSTRUCTION, not a cognitive role: it holds no cognitive logic and
         // settles no meaning, which is why it is registered here next to the
         // entry it builds rather than as an organ that understands anything.
@@ -45,12 +44,12 @@ object JarvisOrganGraph {
             name = "TurnPathAssembly",
             organType = SystemGraph.OrganType.ENTRY,
             qualifiedClassName = "com.jarvis.app.onefriday.TurnPathAssembly",
-            description = "ONE-2-COMPOSITION: the single composition root for the turn path. Builds " +
-                "HumanCore, the memory substrate, the identity/emotion/social/continuity stack, the " +
-                "capability fabric, the single ModelManager + ResourceGovernor + LatencyPipeline and " +
-                "the CognitiveEngine — from a platform adapter that supplies only storage, a resource " +
-                "reading, the clock, speech/UI sinks and the host's stores. Not a cognitive role: a " +
-                "replaceable order of construction, identical on every host."
+            description = "ONE-2-COMPOSITION: the single composition root for Friday's turn path. It builds " +
+                "the memory substrate, identity/emotion/social/continuity stack, capability fabric, " +
+                "single ModelManager + ResourceGovernor + LatencyPipeline and CognitiveEngine. The " +
+                "legacy Human Core is quarantined outside the production turn path. The platform " +
+                "adapter supplies storage, resource readings, clock, speech/UI sinks and host stores. " +
+                "Not a cognitive role: a replaceable order of construction."
         ))
         // The platform adapter is INFRA, not an organ: it is the seam where a
         // host's platform ends and the turn path begins.
@@ -65,12 +64,6 @@ object JarvisOrganGraph {
         ))
 
         // Core organs
-        g.registerNode(SystemGraph.SystemNode(
-            id = "core.humanCore",
-            name = "HumanCore",
-            organType = SystemGraph.OrganType.CORE,
-            qualifiedClassName = "com.jarvis.app.humancore.HumanCore"
-        ))
         g.registerNode(SystemGraph.SystemNode(
             id = "core.bodyCoordinator",
             name = "BodyCoordinator",
@@ -101,8 +94,8 @@ object JarvisOrganGraph {
 
         // COGNITION-WORKSPACE (Gate 3c): the shared cognitive workspace is a REAL
         // COGNITIVE organ, not a PLANNED placeholder. InMemoryWorkspace is
-        // constructed at the single production composition point (JarvisEngine.init
-        // and its JVM twin TermuxJarvisServer) and handed to BOTH migrated organs:
+        // constructed at the single Android production composition point (JarvisEngine.init)
+        // and handed to both migrated organs:
         // the estimator publishes each turn's MENTAL_STATE claim into it, and the
         // context-window assembler reads that claim and publishes the assembled
         // CONTEXT_WINDOW claim back. In-memory and per-turn by construction — no
@@ -123,8 +116,8 @@ object JarvisOrganGraph {
 
         // CONTINUITY-LAW (Gate 3c): the gate every change to identity-adjacent
         // state passes through, and the ONE place a ChangeLayer is enforced. REAL
-        // COGNITIVE organ: constructed at the production composition points
-        // (JarvisEngine.init and its JVM twin TermuxJarvisServer) over the shared
+        // COGNITIVE organ: constructed at the Android production composition point
+        // (JarvisEngine.init) over the shared
         // workspace and a real durable FileChangeLog. FAST self-model state is
         // unrestricted (SelfModel derives it from a live source every call), SLOW
         // state (the persona:<trait> facts PersonaTuner persists, the
@@ -148,7 +141,7 @@ object JarvisOrganGraph {
                 "committed set of recorded turns and judges them against a human-authored CORE-fact " +
                 "expectation, so a change that bypasses this gate shows up as drift. CONSTRUCTION-SITE " +
                 "GROUND TRUTH: built in JarvisEngine.init (JarvisEngine.kt:392, over a real durable log " +
-                "at JarvisEngine.kt:389) and in its JVM twin TermuxJarvisServer (TermuxJarvisServer.kt:286)."
+                "at JarvisEngine.kt:389) ; desktop tests exercise the same contract with test doubles."
         ))
 
         // Memory organs
@@ -399,18 +392,14 @@ object JarvisOrganGraph {
             qualifiedClassName = "com.jarvis.app.research.universal.UniversalResearchEngine"
         ))
 
-        // Builder organs (TOOLBUILDER-RESEARCH-CONSUMER-WIRING — the ToolBuilder
-        // stack, constructed in JarvisEngine.init via ToolBuilderComposition with
-        // the real UniversalResearchEngine handed to its research consumer seam)
+        // Owner-binding chain uses Friday's protected owner-binding port; it
+        // does not depend on the quarantined Human Core legacy subsystem.
         g.registerNode(SystemGraph.SystemNode(
-            id = "builder.toolBuilder",
-            name = "ToolBuilder",
-            organType = SystemGraph.OrganType.BUILDER,
-            qualifiedClassName = "com.jarvis.app.builder.ToolBuilder"
+            id = "identity.ownerBindingPort",
+            name = "OwnerBindingPort",
+            organType = SystemGraph.OrganType.IDENTITY,
+            qualifiedClassName = "com.jarvis.app.identity.owner.OwnerBindingPort"
         ))
-
-        // Owner-binding chain (PHASE-B — the real owner-binding entry point
-        // over the real HumanCore relationship store)
         g.registerNode(SystemGraph.SystemNode(
             id = "identity.ownerBiometricBinder",
             name = "OwnerBiometricBinder",
@@ -502,9 +491,8 @@ object JarvisOrganGraph {
             description = "The single real backend behind the populated ON_DEMAND_REASONING tier: its wake loads jarvis-reasoning:latest (ModelManager.defaultModelId) and tier-served generations route /api/chat to that modelId via GenerateRequest.modelId (REASONING-TIER-MODEL-GROUND-TRUTH-AND-WIRE)"
         ))
         // VOICE-FORGE-EGYPTIAN-KAREN-TTS: the spoken-reply VoiceForge backend is
-        // a REAL organ — VoiceForgeBackend (MODEL, not PLANNED) constructed in
-        // JarvisEngine.init at the SAME composition point as the other model
-        // backends and in TermuxJarvisServer (AC2). The reply-path organ that
+        // a REAL Android organ — VoiceForgeBackend (MODEL, not PLANNED) constructed in
+        // JarvisEngine.init alongside the other model backends (AC2). The reply-path organ that
         // owns spoken output (entry.latencyPipeline.fullSpeak) DEPENDS_ON it.
         g.registerNode(SystemGraph.SystemNode(
             id = "voice.voiceForge",
@@ -514,7 +502,7 @@ object JarvisOrganGraph {
             description = "VOICE-FORGE-EGYPTIAN-KAREN-TTS (2026-09-12): the on-device spoken-reply speech backend " +
                 "(Chatterbox Multilingual runtime + Egyptian fine-tune via VoiceForgeAdapter over voiceforge/voiceforge_server.py). " +
                 "Constructed in JarvisEngine.init at the same composition point as the model backends (JarvisEngine.kt:175-189, " +
-                "backend at :185) and in TermuxJarvisServer (TermuxJarvisServer.kt:232) — AC2. The live reply sink " +
+                "backend at :185) — AC2. The live reply sink " +
                 "(JarvisEngine.kt:591) routes full replies through it; platform TTS is only the AC3(c) failure fallback."
         ))
         // BUILD-TWIN-ARM64-VERIFICATION: the infra verification twin is a REAL
@@ -532,7 +520,7 @@ object JarvisOrganGraph {
             qualifiedClassName = "com.jarvis.app.buildtwin.BuildTwinVerifier",
             description = "BUILD-TWIN-ARM64-VERIFICATION (2026-09-13): the ARM64-native CPU-only " +
                 "6-8GB verification twin gate (BuildTwinVerifier + HttpTwinHealthProbe + " +
-                "LocalTwinCommandRunner + IncidentReportWriter, constructed on the TermuxJarvisServer " +
+                "LocalTwinCommandRunner + IncidentReportWriter, used by external build-verification tooling " +
                 "composition root) that authorizes copying hardware-sensitive artifacts to the phone " +
                 "only on twin-healthy:true + GGUF-step-exit-0; provisioned on demand via " +
                 ".ralph/buildtwin/provision.sh + teardown.sh."
@@ -558,7 +546,7 @@ object JarvisOrganGraph {
             description = "CONTINUITY-GATE-ENFORCED-SEAM (2026-09-14): the typed registry every " +
                 "organ contributing to the generation payload registers into at construction " +
                 "time. COGNITIVE organ (real production class). Constructed at AC2 ground-truth " +
-                "sites JarvisEngine.kt:502 and TermuxJarvisServer.kt:207 at the SAME composition " +
+                "sites JarvisEngine.kt:502 in the Android composition " +
                 "point as the identity/emotion/social stack it guards; per-turn the engine builds " +
                 "a ContinuityGate.Snapshot that IdentityContext and the ContextWindowAssembler " +
                 "consult exclusively — the ONLY parameter surface the generation payload accepts, " +
@@ -617,17 +605,15 @@ object JarvisOrganGraph {
         // bodyCoordinator is genuinely constructed in JarvisEngine.init and is
         // reached in the reply path, so it gains an inbound edge from the entry.
         // ONE-2-COMPOSITION: the composition root builds the entry point and the
-        // real Human Core wiring, and reads its supply from the platform adapter.
+        // Friday's cognitive turn path and model manager are assembled once;
+        // platform ports supply host capabilities without owning cognition.
         g.addEdge("entry.compositionRoot", "entry.latencyPipeline", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
-        g.addEdge("entry.compositionRoot", "core.humanCore", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("entry.compositionRoot", "cognitive.engine", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("entry.compositionRoot", "model.modelManager", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("entry.compositionRoot", "entry.platformPorts", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
-        g.addEdge("entry.latencyPipeline", "core.humanCore", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("entry.latencyPipeline", "cognitive.engine", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("entry.latencyPipeline", "core.bodyCoordinator", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("core.bodyCoordinator", "cognitive.engine", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
-        g.addEdge("core.bodyCoordinator", "core.humanCore", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("core.bodyCoordinator", "model.modelManager", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("cognitive.engine", "cognitive.contextWindowAssembler", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("cognitive.engine", "memory.blendedRetriever", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
@@ -712,14 +698,10 @@ object JarvisOrganGraph {
         // JarvisEngine.init and their genuine dependency/call paths.
         g.addEdge("research.universalResearchEngine", "cloud.cloudModelRouter", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
 
-        // TOOLBUILDER-RESEARCH-CONSUMER-WIRING edge: the UniversalResearchEngine's
-        // output flows into the ToolBuilder's research consumer seam (constructor-
-        // injected through ToolBuilderComposition), and the builder places its own
-        // research call through the engine — invite/consume both directions.
-        g.addEdge("research.universalResearchEngine", "builder.toolBuilder", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
-        g.addEdge("builder.toolBuilder", "research.universalResearchEngine", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
-
-        g.addEdge("identity.ownerBiometricBinder", "core.humanCore", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        // The repository-side proposal worker is deliberately not represented as
+        // an active Android organ: request synchronization and worker-result
+        // reconciliation are not implemented yet.
+        g.addEdge("identity.ownerBiometricBinder", "identity.ownerBindingPort", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("android.riskGate", "identity.ownerBiometricBinder", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
         g.addEdge("android.deviceControlRouter", "android.riskGate", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("android.deviceControlRouter", "android.mediaSessionBackend", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
@@ -771,6 +753,49 @@ object JarvisOrganGraph {
         g.addEdge("social.confidentialityFirewall", "continuity.continuityGate", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("memory.blendedRetriever", "continuity.continuityGate", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("model.reasoningTier", "continuity.continuityGate", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
+
+        // FRIDAY-OWNED DECISION TOOL: TypeSafe Jev is an optional provider behind
+        // a native Friday contract; the local policy remains available offline.
+        g.registerNode(SystemGraph.SystemNode(
+            id = "capability.phoneDecisionTool",
+            name = "FridayPhoneDecisionTool",
+            organType = SystemGraph.OrganType.CAPABILITY,
+            qualifiedClassName = "com.jarvis.app.voice.FridayPhoneDecisionTool",
+            description = "Friday-owned typed phone-action decision contract; Jev is an optional hosted provider, never the Android executor."
+        ))
+        // HOST STUDY / NANO LIQUID SYMBIOSIS: this is the Android host adapter
+        // that observes device resources and learns bounded organ strategies.
+        g.registerNode(SystemGraph.SystemNode(
+            id = "symbiosis.nanoSymbioticController",
+            name = "NanoSymbioticController",
+            organType = SystemGraph.OrganType.ANDROID,
+            qualifiedClassName = "com.jarvis.app.symbiosis.NanoSymbioticController",
+            description = "Studies this Android host and gates organ resource use using observed memory, CPU, thermal and battery outcomes."
+        ))
+        // APPLICATION SELF-STUDY: periodic WorkManager slices inspect this same
+        // graph, the capability manifest and the host/organ evidence.
+        g.registerNode(SystemGraph.SystemNode(
+            id = "selfstudy.applicationSelfStudy",
+            name = "ApplicationSelfStudy",
+            organType = SystemGraph.OrganType.INFRA,
+            qualifiedClassName = "com.jarvis.app.selfstudy.ApplicationSelfStudy",
+            description = "Read-only study of the installed architecture graph, declared capabilities, wiring and measured organ outcomes."
+        ))
+        g.registerNode(SystemGraph.SystemNode(
+            id = "selfstudy.workManager",
+            name = "ApplicationSelfStudyWorker",
+            organType = SystemGraph.OrganType.INFRA,
+            qualifiedClassName = "com.jarvis.app.selfstudy.ApplicationSelfStudyWorker",
+            description = "Android persistent background scheduling for bounded, resource-gated self-study slices."
+        ))
+        g.addEdge("entry.compositionRoot", "capability.phoneDecisionTool", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        g.addEdge("core.bodyCoordinator", "capability.phoneDecisionTool", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        g.addEdge("entry.compositionRoot", "symbiosis.nanoSymbioticController", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        g.addEdge("entry.compositionRoot", "selfstudy.applicationSelfStudy", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        g.addEdge("selfstudy.applicationSelfStudy", "symbiosis.nanoSymbioticController", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
+        g.addEdge("selfstudy.applicationSelfStudy", "entry.compositionRoot", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
+        g.addEdge("entry.compositionRoot", "selfstudy.workManager", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
+        g.addEdge("selfstudy.workManager", "selfstudy.applicationSelfStudy", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
 
         return g
     }

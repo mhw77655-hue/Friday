@@ -54,6 +54,25 @@ class GenomeRegistryTest {
     }
 
     @Test
+    fun `restores the full capability index after an aborted promotion`() {
+        val registry = GenomeRegistry()
+        val clamp = genome("clamp-v1", setOf("clamp"))
+        val normalize = genome("normalize-v1", setOf("normalize"))
+        registry.register(clamp)
+        registry.register(normalize)
+        val snapshot = registry.allBest()
+        val previousCurrent = registry.currentBest.value
+
+        registry.setCurrentBest(null)
+        assertEquals(0, registry.count())
+
+        registry.restoreBestByCapability(snapshot, previousCurrent)
+
+        assertEquals(setOf("clamp", "normalize"), registry.allBest().keys)
+        assertEquals(previousCurrent?.id, registry.currentBest.value?.id)
+    }
+
+    @Test
     fun `newer version replaces older for the same capability`() {
         val registry = GenomeRegistry()
         val v1 = GenomeBuilder("cap").capability("clamp").build().copy(version = 1, healthState = GenomeHealth.HEALTHY)

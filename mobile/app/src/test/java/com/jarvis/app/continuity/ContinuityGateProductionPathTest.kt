@@ -3,7 +3,7 @@ package com.jarvis.app.continuity
 import com.jarvis.app.humancore.protocol.StyledResponse
 import com.jarvis.app.latency.LatencyPipeline
 import com.jarvis.app.model.FakeModelBackend
-import com.jarvis.app.termux.TermuxJarvisServer
+import com.jarvis.app.jvmtest.JvmCompositionHarness
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -12,7 +12,7 @@ import org.junit.Test
 
 /**
  * CONTINUITY-GATE-ENFORCED-SEAM AC5 — proof through the EXACT production call
- * path (TermuxJarvisServer -> LatencyPipeline -> CognitiveEngine.process ->
+ * path (JvmCompositionHarness -> LatencyPipeline -> CognitiveEngine.process ->
  * ContinuityGate.snapshotForTurn -> IdentityContext.gatherForTurn(snapshot) /
  * ContextWindowAssembler.assembleFrom(snapshot) -> the outgoing generation
  * payload) that every migrated contribution still reaches the real generation
@@ -33,16 +33,13 @@ import org.junit.Test
 class ContinuityGateProductionPathTest {
 
     private fun recordingPipeline(
-        server: TermuxJarvisServer,
+        server: JvmCompositionHarness,
         captured: MutableList<String>
     ): LatencyPipeline = LatencyPipeline(
         dispatch = { it() },
         scheduleDelayed = { _, _ -> },
         bridgeSend = { captured.add(it) },
         bridgeStatus = { server.modelManager.status.value },
-        beginExchange = { _, _ -> null },
-        express = { reply, _ -> StyledResponse.Approved(reply) },
-        completeExchange = { _, _, _, _, _ -> },
         sessionContext = { null },
         cognitiveEngine = server.engine
     )
@@ -50,7 +47,7 @@ class ContinuityGateProductionPathTest {
     @Test
     fun `the production gate registry carries every migrated organ contribution`(): Unit =
         runBlocking {
-            val server = TermuxJarvisServer(port = 0, backendOverride = FakeModelBackend())
+            val server = JvmCompositionHarness(port = 0, backendOverride = FakeModelBackend())
             try {
                 val kinds = server.continuityGate.contributions().map { it.kind }.toSet()
                 assertTrue(
@@ -85,7 +82,7 @@ class ContinuityGateProductionPathTest {
     @Test
     fun `Egyptian Arabic dialect signal reaches the outgoing payload through the gate`(): Unit =
         runBlocking {
-            val server = TermuxJarvisServer(port = 0, backendOverride = FakeModelBackend())
+            val server = JvmCompositionHarness(port = 0, backendOverride = FakeModelBackend())
             val captured = mutableListOf<String>()
             val pipeline = recordingPipeline(server, captured)
             try {
@@ -107,7 +104,7 @@ class ContinuityGateProductionPathTest {
     @Test
     fun `confidential fact is blocked for the unauthorized interlocutor in the live path`(): Unit =
         runBlocking {
-            val server = TermuxJarvisServer(port = 0, backendOverride = FakeModelBackend())
+            val server = JvmCompositionHarness(port = 0, backendOverride = FakeModelBackend())
             val captured = mutableListOf<String>()
             val pipeline = recordingPipeline(server, captured)
             try {
@@ -157,7 +154,7 @@ class ContinuityGateProductionPathTest {
     @Test
     fun `trust tier differentiation is real for the same input through the gate`(): Unit =
         runBlocking {
-            val server = TermuxJarvisServer(port = 0, backendOverride = FakeModelBackend())
+            val server = JvmCompositionHarness(port = 0, backendOverride = FakeModelBackend())
             val captured = mutableListOf<String>()
             val pipeline = recordingPipeline(server, captured)
             try {

@@ -12,7 +12,7 @@ import com.jarvis.app.memory.MemoryImportanceScorer
 import com.jarvis.app.memory.RawEpisodicEntry
 import com.jarvis.app.memory.TestEmbeddingProvider
 import com.jarvis.app.model.FakeModelBackend
-import com.jarvis.app.termux.TermuxJarvisServer
+import com.jarvis.app.jvmtest.JvmCompositionHarness
 import com.jarvis.app.trace.JsonlTurnTraceStore
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -36,7 +36,7 @@ import java.io.File
  *    Then derivedFrom(M1) returns EXACTLY {S (SUMMARY), index-M1 (INDEX_ENTRY)}
  *    and sourcesOf(S) equals exactly {M1, M2}.
  *  - AC2: a REAL turn through the production composition root
- *    ([TermuxJarvisServer] → its [LatencyPipeline] → [com.jarvis.app.cognitive.CognitiveEngine.process])
+ *    ([JvmCompositionHarness] → its [LatencyPipeline] → [com.jarvis.app.cognitive.CognitiveEngine.process])
  *    that retrieves M1 appends one TRACE_RECORD naming retrievedMemoryIds, so
  *    derivedFrom(M1) includes the trace record id.
  *  - AC3: a NEW [JsonlProvenanceLedger] over the same file (simulated restart)
@@ -50,7 +50,7 @@ import java.io.File
 class ProvenanceProductionWiringTest {
 
     private val files = mutableListOf<File>()
-    private val servers = mutableListOf<TermuxJarvisServer>()
+    private val servers = mutableListOf<JvmCompositionHarness>()
 
     @After
     fun tearDown() {
@@ -84,16 +84,13 @@ class ProvenanceProductionWiringTest {
         }
 
     private fun recordingPipeline(
-        server: TermuxJarvisServer,
+        server: JvmCompositionHarness,
         captured: MutableList<String>
     ): LatencyPipeline = LatencyPipeline(
         dispatch = { it() },
         scheduleDelayed = { _, _ -> },
         bridgeSend = { captured.add(it) },
         bridgeStatus = { server.modelManager.status.value },
-        beginExchange = { _, _ -> null },
-        express = { reply, _ -> StyledResponse.Approved(reply) },
-        completeExchange = { _, _, _, _, _ -> },
         sessionContext = { null },
         cognitiveEngine = server.engine
     )
@@ -102,7 +99,7 @@ class ProvenanceProductionWiringTest {
         ledger: ProvenanceLedger,
         traceStore: JsonlTurnTraceStore,
         memoryOverride: MemoryStorePort
-    ): TermuxJarvisServer = TermuxJarvisServer(
+    ): JvmCompositionHarness = JvmCompositionHarness(
         port = 0,
         backendOverride = FakeModelBackend(),
         turnTraceStore = traceStore,

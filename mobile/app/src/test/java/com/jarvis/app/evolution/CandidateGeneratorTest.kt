@@ -58,6 +58,28 @@ class CandidateGeneratorTest {
     }
 
     @Test
+    fun `failed synthesizer is retained as diagnostic evidence`() = runBlocking {
+        val broken = object : SpecSynthesizer {
+            override val name = "broken-model"
+            override val strategy = com.jarvis.app.mutant.AlgorithmSpec.Strategy.DETERMINISTIC
+            override fun canHandle(genome: com.jarvis.app.genome.Genome, requirement: CapabilityRequirement) = true
+            override suspend fun synthesize(
+                genome: com.jarvis.app.genome.Genome,
+                requirement: CapabilityRequirement
+            ): CandidateImplementation = throw IllegalStateException("model endpoint unavailable")
+        }
+        val generator = CandidateGenerator(listOf(broken))
+        val genome = GenomeBuilder("parent").capability("clamp").build()
+
+        generator.beginGeneration()
+        assertTrue(generator.generate(genome, requirement).isEmpty())
+        assertEquals(
+            listOf("broken-model: IllegalStateException: model endpoint unavailable"),
+            generator.lastFailures()
+        )
+    }
+
+    @Test
     fun `cached candidate memoizes repeated input`() = runBlocking {
         val cached = CachedSpecSynthesizer().synthesize(GenomeBuilder("p").capability("clamp").build(), requirement)
         val spec = cached.spec as com.jarvis.app.mutant.CachedSpec

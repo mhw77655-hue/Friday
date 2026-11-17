@@ -1,8 +1,11 @@
 package com.jarvis.app.builder
 
+import com.jarvis.app.cognitive.capability.CapabilityFabric
 import com.jarvis.app.evolution.CandidateGenerator
 import com.jarvis.app.evolution.DEFAULT_SYNTHESIZERS
 import com.jarvis.app.evolution.EvolutionEngine
+import com.jarvis.app.evolution.LlmSpecSynthesizer
+import com.jarvis.app.mutation.LlmSynthesisProvider
 import com.jarvis.app.evolution.PromotionController
 import com.jarvis.app.evolution.RollbackController
 import com.jarvis.app.failure.FailureSurface
@@ -65,7 +68,9 @@ object ToolBuilderComposition {
         failureSurface: FailureSurface,
         fileStorage: FileStorage,
         scope: CoroutineScope,
-        workspacesDir: File
+        workspacesDir: File,
+        llmSynthesisProvider: LlmSynthesisProvider? = null,
+        cognitiveCapabilityFabric: CapabilityFabric? = null
     ): Stack {
         val sandbox = ResourceSandbox()
         val factory = EnvironmentFactory(failureSurface, workspacesDir)
@@ -74,9 +79,15 @@ object ToolBuilderComposition {
         val mutantEnv = MutantEnvironment(factory, backend, sandbox, ArtifactManager(fileStorage))
 
         val registry = MicroSystemRegistry()
-        val genomeRegistry = GenomeRegistry()
         val governor = ResourceGovernor()
         val archive = GenomeArchive(fileStorage, scope)
+        // Restore evolutionary metadata before gap detection so a known genome
+        // is never mistaken for a never-seen capability. Executable tools still
+        // require a verified artifact/rehydration path before they are callable.
+        archive.loadFromDisk()
+        val genomeRegistry = GenomeRegistry().apply {
+            archive.allAccepted().forEach(::register)
+        }
         val router = CapabilityRouter(registry, failureSurface)
         val gns = GlobalNervousSystem(
             router = router,
@@ -88,15 +99,22 @@ object ToolBuilderComposition {
             failureSurface = failureSurface
         )
 
-        val promotion = PromotionController(registry, archive, genomeRegistry, failureSurface, sandbox)
-        val rollback = RollbackController(registry, archive, genomeRegistry, failureSurface)
+        val synthesizers = DEFAULT_SYNTHESIZERS + listOfNotNull(llmSynthesisProvider?.let(::LlmSpecSynthesizer))
+        val candidateGenerator = CandidateGenerator(synthesizers)
+
+        val promotion = PromotionController(
+            registry, archive, genomeRegistry, failureSurface, sandbox, cognitiveCapabilityFabric
+        )
+        val rollback = RollbackController(
+            registry, archive, genomeRegistry, failureSurface, cognitiveCapabilityFabric
+        )
         val evolution = EvolutionEngine(
             archive = archive,
             registry = registry,
             genomeRegistry = genomeRegistry,
             governor = governor,
             failureSurface = failureSurface,
-            candidateGenerator = CandidateGenerator(DEFAULT_SYNTHESIZERS),
+            candidateGenerator = candidateGenerator,
             mutantEnv = mutantEnv,
             testRunner = CandidateTestRunner(mutantEnv),
             failureRunner = FailureTestRunner(mutantEnv),
@@ -116,8 +134,7 @@ object ToolBuilderComposition {
             archive = archive,
             governor = governor,
             failureSurface = failureSurface,
-            nervousSystem = gns,
-            candidateGenerator = CandidateGenerator(DEFAULT_SYNTHESIZERS)
+            nervousSystem = gns
         )
 
         return Stack(builder, registry, genomeRegistry, archive, governor, failureSurface, gns, rollback, sandbox, scope)

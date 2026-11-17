@@ -23,6 +23,7 @@ import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
 import java.io.BufferedInputStream
 import java.io.File
 import java.io.FileInputStream
+import java.security.MessageDigest
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
 import java.net.URL
@@ -46,6 +47,8 @@ class VoiceModelManager(
     private val context: Context,
     private val governor: ResourceGovernor?,
     private val scope: CoroutineScope,
+    /** Returns a denial reason when the adaptive host policy refuses this model. */
+    private val admissionGate: ((VoiceModelEntry) -> String?)? = null,
     private val onFailure: (FailureReport) -> Unit = {}
 ) {
 
@@ -80,7 +83,13 @@ class VoiceModelManager(
     fun isPresent(id: String): Boolean {
         val entry = VoiceModelManifest.byId(id) ?: return false
         val dir = modelDirFor(entry)
-        return File(dir, entry.modelFile).exists()
+        return containsRequiredFiles(dir, entry)
+    }
+
+    private fun containsRequiredFiles(dir: File, entry: VoiceModelEntry): Boolean {
+        val primary = listOf(entry.modelFile, entry.tokensFile, entry.voicesFile)
+            .filter { it.isNotBlank() }
+        return (primary + entry.requiredFiles).distinct().all { File(dir, it).exists() }
     }
 
     private fun modelDirFor(entry: VoiceModelEntry): File = File(modelsDir, entry.id)
@@ -88,7 +97,7 @@ class VoiceModelManager(
     /** All files present for [entry] (model + tokens + voices). */
     fun modelFiles(entry: VoiceModelEntry): Map<String, File>? {
         val dir = modelDirFor(entry)
-        if (!File(dir, entry.modelFile).exists()) return null
+        if (!containsRequiredFiles(dir, entry)) return null
         return mapOf(
             "model" to File(dir, entry.modelFile),
             "tokens" to File(dir, entry.tokensFile),
@@ -104,6 +113,11 @@ class VoiceModelManager(
     suspend fun acquire(entry: VoiceModelEntry): Result<File> = withContext(Dispatchers.IO) {
         val s = status(entry.id)
         // Admission first: refuse to even start a download we can't afford to load.
+        val adaptiveDenial = admissionGate?.invoke(entry)
+        if (!adaptiveDenial.isNullOrBlank()) {
+            s.update { it.copy(state = ModelState.FAILED, error = adaptiveDenial) }
+            return@withContext Result.failure(IllegalStateException(adaptiveDenial))
+        }
         val governor = governor
         if (governor != null && !governor.canAdmit(entry.expectedRamMb, entry.expectedCpuPercent)) {
             s.update { it.copy(state = ModelState.FAILED, error = "resource admission denied") }
@@ -126,8 +140,8 @@ class VoiceModelManager(
         }
 
         val dir = modelDirFor(entry)
-        if (!File(dir, entry.modelFile).exists()) {
-            s.update { it.copy(state = ModelState.FAILED, error = "model files missing after download") }
+        if (!containsRequiredFiles(dir, entry)) {
+            s.update { it.copy(state = ModelState.FAILED, error = "one or more required model files are missing after download") }
             return@withContext Result.failure(RuntimeException("model files missing after download"))
         }
 
@@ -222,6 +236,22 @@ class VoiceModelManager(
             }
             conn.disconnect()
 
+            entry.archiveSha256?.let { expected ->
+                val digest = MessageDigest.getInstance("SHA-256")
+                FileInputStream(tmpArchive).use { input ->
+                    val buffer = ByteArray(128 * 1024)
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n < 0) break
+                        digest.update(buffer, 0, n)
+                    }
+                }
+                val actual = digest.digest().joinToString("") { "%02x".format(it.toInt() and 0xff) }
+                check(actual.equals(expected, ignoreCase = true)) {
+                    "SHA-256 mismatch for voice model archive ${entry.id}"
+                }
+            }
+
             // Extract tar.bz2 into the extract dir, then rename atomically.
             // The archive root is one top-level directory (e.g. "kokoro-int8-en-v0_19/")
             // which may contain nested data (e.g. "espeak-ng-data/") — strip only the
@@ -233,7 +263,7 @@ class VoiceModelManager(
                         var entryStream = tar.nextEntry
                         while (entryStream != null) {
                             val relative = entryStream.name.split('/').drop(1).joinToString("/")
-                            if (relative.isNotEmpty()) {
+                            if (relative.isNotEmpty() && !relative.startsWith("test_wavs/")) {
                                 val outFile = File(tmpExtract, relative)
                                 if (entryStream.isDirectory) {
                                     outFile.mkdirs()
@@ -250,7 +280,7 @@ class VoiceModelManager(
                 }
             }
             tmpArchive.delete()
-            if (File(tmpExtract, entry.modelFile).exists()) {
+            if (containsRequiredFiles(tmpExtract, entry)) {
                 target.deleteRecursively()
                 if (!tmpExtract.renameTo(target)) {
                     target.mkdirs()

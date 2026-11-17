@@ -11,6 +11,7 @@
 #include <vector>
 #include <mutex>
 #include <thread>
+#include <sys/resource.h>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -87,6 +88,13 @@ static int64_t elapsed_ms(std::chrono::steady_clock::time_point start) {
         std::chrono::steady_clock::now() - start).count();
 }
 
+// Process peak RSS is an Android-wide process signal, not a per-model allocation.
+static int64_t process_peak_rss_bytes() {
+    struct rusage usage {};
+    if (getrusage(RUSAGE_SELF, &usage) != 0) return 0;
+    return static_cast<int64_t>(usage.ru_maxrss) * 1024LL;
+}
+
 // ------------------------------------------------------------------
 // llama.cpp logging callback
 // ------------------------------------------------------------------
@@ -121,11 +129,10 @@ static void prewarm_thread_func(LlamaModel* model) {
     ctx_params.yarn_beta_slow = 1.0f;
     ctx_params.yarn_orig_ctx = 0;
     ctx_params.defrag_thold = -1.0f;
-    ctx_params.callbacks = nullptr;
     ctx_params.type_k = GGML_TYPE_F16;
     ctx_params.type_v = GGML_TYPE_F16;
     ctx_params.offload_kqv = model->config.n_gpu_layers > 0;
-    ctx_params.flash_attn = model->config.flash_attn;
+    ctx_params.flash_attn_type = model->config.flash_attn ? LLAMA_FLASH_ATTN_TYPE_ENABLED : LLAMA_FLASH_ATTN_TYPE_DISABLED;
 
     model->ctx = llama_init_from_model(model->model, ctx_params);
 
@@ -138,7 +145,7 @@ static void prewarm_thread_func(LlamaModel* model) {
     }
 
     model->metrics.load_time_ms = elapsed_ms(model->load_start);
-    model->metrics.peak_ram_bytes = ggml_used_mem(model->ctx);
+    model->metrics.peak_ram_bytes = process_peak_rss_bytes();
     model->metrics.current_ram_bytes = model->metrics.peak_ram_bytes;
 
     set_state_locked(model, LLAMA_STATE_READY);
@@ -169,11 +176,9 @@ LlamaModel* llama_model_create(const LlamaModelConfig* config) {
     // Model load params
     llama_model_params model_params = llama_model_default_params();
     model_params.n_gpu_layers = config->n_gpu_layers;
-    model_params.use_mmap = config->use_mmap;
-    model_params.use_mlock = config->use_mlock;
     model_params.vocab_only = false;
     model_params.progress_callback = nullptr;
-    model_params.progress_user_data = nullptr;
+    model_params.progress_callback_user_data = nullptr;
 
     LOGI("Loading model from %s", config->model_path);
     model->model = llama_model_load_from_file(config->model_path, model_params);
@@ -322,44 +327,54 @@ const char* llama_model_generate(
         return nullptr;
     }
 
-    // Sampling params
-    llama_sampling_params sparams = llama_sampling_default_params();
-    sparams.temp = gc->temperature > 0 ? gc->temperature : model->config.temp;
-    sparams.top_k = gc->top_k > 0 ? gc->top_k : model->config.top_k;
-    sparams.top_p = gc->top_p > 0 ? gc->top_p : model->config.top_p;
-    sparams.penalty_repeat = gc->repeat_penalty > 0 ? gc->repeat_penalty : model->config.repeat_penalty;
-    sparams.penalty_last_n = model->config.repeat_last_n;
-    sparams.penalty_freq = 0.0f;
-    sparams.penalty_present = 0.0f;
-    sparams.mirostat = 0;
-    sparams.mirostat_tau = 5.0f;
-    sparams.mirostat_eta = 0.1f;
-    sparams.grammar = nullptr;
-    sparams.n_probs = 0;
+    // llama.cpp's supported sampler chain. This replaces the removed
+    // pre-v1 sampling-context API and keeps generation entirely in-process.
+    const float temperature = gc->temperature > 0 ? gc->temperature : model->config.temp;
+    const int top_k = gc->top_k > 0 ? gc->top_k : model->config.top_k;
+    const float top_p = gc->top_p > 0 ? gc->top_p : model->config.top_p;
+    const float repeat_penalty = gc->repeat_penalty > 0
+        ? gc->repeat_penalty : model->config.repeat_penalty;
 
-    // Stop sequences
+    auto sampler_params = llama_sampler_chain_default_params();
+    llama_sampler* sampler = llama_sampler_chain_init(sampler_params);
+    if (!sampler) {
+        set_error_locked(model, "Failed to create sampler chain");
+        set_state_locked(model, LLAMA_STATE_IDLE);
+        return nullptr;
+    }
+    if (top_k > 0) llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
+    if (top_p < 1.0f) llama_sampler_chain_add(sampler, llama_sampler_init_top_p(top_p, 1));
+    llama_sampler_chain_add(
+        sampler,
+        llama_sampler_init_penalties(
+            llama_vocab_n_tokens(vocab),
+            model->config.repeat_last_n,
+            repeat_penalty,
+            0.0f,
+            0.0f
+        )
+    );
+    if (temperature <= 0.0f) {
+        llama_sampler_chain_add(sampler, llama_sampler_init_greedy());
+    } else {
+        llama_sampler_chain_add(sampler, llama_sampler_init_temp(temperature));
+        llama_sampler_chain_add(sampler, llama_sampler_init_dist(model->config.seed));
+    }
+
+    // Stop sequences are checked against decoded output after each token.
     std::vector<std::string> stop_strings;
     if (gc->stop_sequences && gc->stop_sequence_count > 0) {
         for (int i = 0; i < gc->stop_sequence_count; i++) {
             stop_strings.emplace_back(gc->stop_sequences[i]);
         }
     }
-    // Add EOS token as stop
     stop_strings.emplace_back("</s>");
-
-    // Create sampling context
-    llama_sampling_context* ctx_sampling = llama_sampling_init(sparams);
-    if (!ctx_sampling) {
-        set_error_locked(model, "Failed to create sampling context");
-        set_state_locked(model, LLAMA_STATE_IDLE);
-        return nullptr;
-    }
 
     // Feed prompt
     llama_batch batch = llama_batch_get_one(model->prompt_tokens_cache.data(), n_tokens);
     if (llama_decode(model->ctx, batch) != 0) {
         set_error_locked(model, "Failed to process prompt");
-        llama_sampling_free(ctx_sampling);
+        llama_sampler_free(sampler);
         set_state_locked(model, LLAMA_STATE_IDLE);
         return nullptr;
     }
@@ -382,16 +397,20 @@ const char* llama_model_generate(
         }
 
         // Sample next token
-        llama_token token = llama_sampling_sample(ctx_sampling, model->ctx, nullptr);
-        if (token == llama_token_eos(vocab)) {
+        llama_token token = llama_sampler_sample(sampler, model->ctx, -1);
+        if (token == llama_vocab_eos(vocab)) {
             LOGI("EOS token generated");
             break;
         }
 
         // Decode token to text
-        char token_str[256];
+        char token_str[1024];
         int n = llama_token_to_piece(vocab, token, token_str, sizeof(token_str), 0, true);
         if (n > 0) {
+            if (n >= static_cast<int>(sizeof(token_str))) {
+                LOGW("Token piece exceeded the decode buffer");
+                continue;
+            }
             token_str[n] = '\0';
             generated_text += token_str;
             generated_tokens.push_back(token);
@@ -438,12 +457,12 @@ const char* llama_model_generate(
 
     auto gen_time = elapsed_ms(model->generation_start);
     model->metrics.tokens_per_sec = model->completion_tokens / (gen_time / 1000.0f);
-    model->metrics.current_ram_bytes = ggml_used_mem(model->ctx);
+    model->metrics.current_ram_bytes = process_peak_rss_bytes();
     if (model->metrics.current_ram_bytes > model->metrics.peak_ram_bytes) {
         model->metrics.peak_ram_bytes = model->metrics.current_ram_bytes;
     }
 
-    llama_sampling_free(ctx_sampling);
+    llama_sampler_free(sampler);
 
     // Final callback
     if (gc->stream && token_cb) {
@@ -574,8 +593,8 @@ int llama_tokenizer_count(LlamaTokenizer* tokenizer, const char* text) {
 // ------------------------------------------------------------------
 // Utility functions
 // ------------------------------------------------------------------
-const char* llama_version() {
-    static std::string version = "llama.cpp " + std::string(llama_version_string());
+const char* jarvis_llama_version() {
+    static std::string version = "llama.cpp b12248";
     return version.c_str();
 }
 

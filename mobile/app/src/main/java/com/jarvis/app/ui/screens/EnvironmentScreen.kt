@@ -178,7 +178,7 @@ private fun ActiveEnvironmentCard(environment: EnvironmentProfile) {
                     )
                 }
                 Text(
-                    text = "ACTIVE",
+                    text = "SELECTED",
                     style = JarvisType.Technical.copy(fontSize = 10.sp, color = JarvisColors.CoreSuccess)
                 )
             }
@@ -194,6 +194,11 @@ private fun ActiveEnvironmentCard(environment: EnvironmentProfile) {
                 InfoChip("Tools", environment.toolsAvailable.size.toString())
                 InfoChip("Latency", environment.latencyPreference.name)
             }
+            Text(
+                "Selected environment policy only. This does not prove model weights are installed or loaded; verify model runtime separately in Model Manager.",
+                style = JarvisType.Technical.copy(fontSize = 10.sp, color = JarvisColors.TextSecondary),
+                modifier = Modifier.padding(top = 10.dp)
+            )
         }
     }
 }
@@ -238,7 +243,7 @@ private fun EnvironmentCard(
                 }
                 if (isActive) {
                     Text(
-                        text = "ACTIVE",
+                        text = "SELECTED",
                         style = JarvisType.Technical.copy(fontSize = 10.sp, color = JarvisColors.CoreSuccess)
                     )
                 }

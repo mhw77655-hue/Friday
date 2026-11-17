@@ -4,7 +4,7 @@ import com.jarvis.app.humancore.protocol.StyledResponse
 import com.jarvis.app.language.EgyptianArabicDialectDetector
 import com.jarvis.app.latency.LatencyPipeline
 import com.jarvis.app.model.FakeModelBackend
-import com.jarvis.app.termux.TermuxJarvisServer
+import com.jarvis.app.jvmtest.JvmCompositionHarness
 import com.jarvis.app.voice.VoiceForgeBackend.VoiceForgeOutcome
 import com.jarvis.app.voice.VoiceForgeSynthesisResponse.Audio
 import kotlinx.coroutines.flow.first
@@ -14,23 +14,19 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * VOICE-FORGE-EGYPTIAN-KAREN-TTS AC3: the REAL production call path
- * (TermuxJarvisServer -> LatencyPipeline -> CognitiveEngine.process ->
- * model generation -> spoken-output seam) with a recording fake swapped in
- * ONLY at the final HTTP hop (the VoiceForgeSynthesizer seam).
+ * Legacy VoiceForge experiment: this test exercises a test-only JVM harness,
+ * not Friday's Android production speech path. Friday's live voice is provided
+ * by VoiceOrganismHost / VoiceService / VoiceOutputPath and Sherpa-ONNX.
  *
- * Every object between the server and the synthesizer is the real production
- * class — the same mirror-the-last-hop discipline as
- * ReasoningTierServeGroundTruthTest / DialectIntegrationTest. The reply-shaped
- * text that reaches [VoiceForgeBackend.synthesize] is the final assistant
- * text, verified against the one the model authority produced.
+ * Retained only to regression-test the retired VoiceForge adapter in isolation.
+ * It must never be used as evidence of the in-app voice capability.
  */
 class VoiceForgeProductionCallPathTest {
 
     private var activeUserText = ""
 
     private fun recordingPipeline(
-        server: TermuxJarvisServer,
+        server: JvmCompositionHarness,
         outgoingPayloads: MutableList<String>,
         spoken: MutableList<String>,
         outcomes: MutableList<VoiceForgeOutcome>
@@ -53,14 +49,11 @@ class VoiceForgeProductionCallPathTest {
             }
             outcomes.add(outcome)
         },
-        beginExchange = { _, _ -> null },
-        express = { reply, _ -> StyledResponse.Approved(reply) },
-        completeExchange = { _, _, _, _, _ -> },
         sessionContext = { null },
         cognitiveEngine = server.engine
     )
 
-    private suspend fun driveReply(pipeline: LatencyPipeline, server: TermuxJarvisServer, userText: String): String {
+    private suspend fun driveReply(pipeline: LatencyPipeline, server: JvmCompositionHarness, userText: String): String {
         activeUserText = userText
         pipeline.onUserInput(userText)
         val finalReply = server.modelManager.lastReply.first { it.isNotBlank() }
@@ -92,7 +85,7 @@ class VoiceForgeProductionCallPathTest {
     fun `egyptian flagged turn - final text reaches adapter with egyptian checkpoint and tuned params`(): Unit =
         runBlocking {
             val synth = RecordingVoiceForgeSynthesizer()
-            val server = TermuxJarvisServer(
+            val server = JvmCompositionHarness(
                 port = 0,
                 backendOverride = FakeModelBackend(),
                 voiceForgeSynthesizerOverride = synth
@@ -120,7 +113,7 @@ class VoiceForgeProductionCallPathTest {
     fun `english turn - final text reaches adapter with base checkpoint`(): Unit =
         runBlocking {
             val synth = RecordingVoiceForgeSynthesizer()
-            val server = TermuxJarvisServer(
+            val server = JvmCompositionHarness(
                 port = 0,
                 backendOverride = FakeModelBackend(),
                 voiceForgeSynthesizerOverride = synth
@@ -144,7 +137,7 @@ class VoiceForgeProductionCallPathTest {
     fun `synthesis failure falls back to platform speech instead of silence`(): Unit =
         runBlocking {
             val synth = RecordingVoiceForgeSynthesizer(RecordingVoiceForgeSynthesizer.Mode.FAIL)
-            val server = TermuxJarvisServer(
+            val server = JvmCompositionHarness(
                 port = 0,
                 backendOverride = FakeModelBackend(),
                 voiceForgeSynthesizerOverride = synth

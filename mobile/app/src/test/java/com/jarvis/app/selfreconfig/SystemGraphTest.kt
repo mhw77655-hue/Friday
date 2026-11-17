@@ -134,7 +134,6 @@ class SystemGraphTest {
 
         val expectedIds = listOf(
             "entry.latencyPipeline",
-            "core.humanCore",
             "core.bodyCoordinator",
             "cognitive.engine",
             "cognitive.contextWindowAssembler",
@@ -163,12 +162,15 @@ class SystemGraphTest {
             "safety.approvalMechanism",
             "safety.circuitBreaker",
             "research.universalResearchEngine",
-            "builder.toolBuilder",
             "identity.ownerBiometricBinder",
             "android.riskGate",
             "android.deviceControlRouter",
             "android.mediaSessionBackend",
-            "android.screenBridgeBackend"
+            "android.screenBridgeBackend",
+            "capability.phoneDecisionTool",
+            "symbiosis.nanoSymbioticController",
+            "selfstudy.applicationSelfStudy",
+            "selfstudy.workManager"
         )
 
         for (id in expectedIds) {
@@ -366,7 +368,7 @@ class SystemGraphTest {
         // Construction-site ground truth (AC2) is captured on the node.
         assertTrue(
             "voice forge node carries the ground-truth construction-site description",
-            node.description.contains("JarvisEngine.kt:175-189") && node.description.contains("TermuxJarvisServer.kt:232")
+            node.description.contains("JarvisEngine.kt:175-189") && node.description.contains("JarvisEngine.init")
         )
     }
 
@@ -518,7 +520,7 @@ class SystemGraphTest {
         assertTrue(
             "the law node carries its construction-site ground truth",
             node.description.contains("JarvisEngine.kt:392") &&
-                node.description.contains("TermuxJarvisServer.kt:286")
+                node.description.contains("desktop tests exercise the same contract with test doubles")
         )
     }
 
@@ -601,7 +603,7 @@ class SystemGraphTest {
         assertTrue(
             "verification twin node carries the ground-truth provisioning/architecture description",
             node.description.contains(".ralph/buildtwin/provision.sh") &&
-                node.description.contains("TermuxJarvisServer")
+                node.description.contains("external build-verification tooling")
         )
     }
 
@@ -1052,7 +1054,7 @@ class SystemGraphTest {
             reachable.contains("entry.latencyPipeline")
         )
         assertTrue(
-            "the root builds the cognitive engine over real Human Core calls",
+            "the root builds Friday's own cognitive engine",
             reachable.contains("cognitive.engine")
         )
         assertTrue(
@@ -1060,8 +1062,16 @@ class SystemGraphTest {
             reachable.contains("model.modelManager")
         )
         assertTrue(
-            "the root wires the legacy Human Core, not a stub of it",
-            reachable.contains("core.humanCore")
+            "the quarantined legacy Human Core must remain outside Friday's production turn path",
+            !reachable.contains("core.humanCore")
+        )
+        assertTrue(
+            "the root receives platform-specific supply through the single PlatformPorts boundary",
+            reachable.contains("entry.platformPorts")
+        )
+        assertTrue(
+            "the root uses the single Nano Symbiotic Controller",
+            reachable.contains("symbiosis.nanoSymbioticController")
         )
     }
 }

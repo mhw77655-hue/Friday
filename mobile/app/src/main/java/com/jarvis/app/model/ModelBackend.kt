@@ -54,8 +54,8 @@ interface ModelBackend {
  * what cannot happen yet and why.
  */
 const val MODEL_SERVER_UNREACHABLE_REPLY: String =
-    "My model server is unreachable right now, so I cannot answer that yet. " +
-        "I will keep trying and answer as soon as it is back."
+    "My offline model server is unreachable or the resident model is not installed. I am still here; " +
+        "install the resident model in Friday's Model Manager and I can retry."
 
 /**
  * Configuration for a model load. [modelPath] is the on-device model file the

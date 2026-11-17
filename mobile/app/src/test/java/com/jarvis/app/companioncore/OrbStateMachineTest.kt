@@ -41,7 +41,12 @@ class OrbStateMachineTest {
     // ------------------------------------------------------------------ mode mapping
 
     @Test
-    fun `every presence mode maps to a reactor state and clip`() {
+    fun `canonical present mode maps to the continuous breathing expression`() {
+        assertMapping(PresenceMode.PRESENT, ReactorEngine.ReactorSpecState.IDLE, OrbClip.IDLE_BREATHE)
+    }
+
+    @Test
+    fun `legacy mode labels retain visual compatibility only`() {
         assertMapping(PresenceMode.ASLEEP, ReactorEngine.ReactorSpecState.SLEEPING, OrbClip.SLEEP_DIM)
         assertMapping(PresenceMode.WAKING, ReactorEngine.ReactorSpecState.IDLE, OrbClip.WAKE_BLOOM)
         assertMapping(PresenceMode.IDLE, ReactorEngine.ReactorSpecState.IDLE, OrbClip.IDLE_BREATHE)

@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * a frozen, tick-stamped [EmotionSnapshot] to every expressive consumer, so
  * no subsystem reads `CompanionSignal.emotionVector` directly and no consumer
  * can observe a half-tick (cross-channel consistency by construction). All
- * consumers collect [snapshots] rather than querying `HumanCoreIntegration`
+ * consumers collect [snapshots] rather than querying Friday's runtime binding
  * independently (spec §2.9 Android strategy).
  *
  * ## Stale → neutral fallback (spec §2.30, audit M-15)
@@ -35,7 +35,7 @@ class EmotionExpressionLayer(
 
     /**
      * Called by the Presence Engine tick loop once per tick with the current
-     * signal. The staleness decision is owned by `HumanCoreIntegration`
+     * signal. The staleness decision is owned by `FridayRuntimeIntegration`
      * (spec §2.30); the layer simply honors it — stale → neutral, fresh →
      * mirror.
      */

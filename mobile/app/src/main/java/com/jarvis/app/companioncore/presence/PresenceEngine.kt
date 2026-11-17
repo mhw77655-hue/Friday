@@ -14,36 +14,35 @@ import kotlinx.coroutines.flow.asStateFlow
 /**
  * §2.1 — Presence Engine.
  *
- * Root coordinator of the Companion Core. Owns the single 7-state
- * `presence_mode` (ASLEEP, WAKING, IDLE, LISTENING, THINKING, SPEAKING,
- * SHUTTING_DOWN) and arbitrates which ONE is active at any moment — exactly
- * one mode system-wide (spec §3 invariant 1). No other subsystem sets
+ * Root coordinator of the Companion Core. Owns one continuous PRESENT baseline
+ * with transient body interactions (LISTENING, SPEAKING, SHUTTING_DOWN). Legacy
+ * ASLEEP/WAKING/IDLE/THINKING labels are normalized to PRESENT; work is an
+ * activity of the same individual, never a separate existence mode. No other subsystem sets
  * `presence_mode` directly; they enqueue a [TransitionRequest] and this engine
  * resolves it once per [tick] against the priority table.
  *
  * ## Arbitration (spec §2.1)
- * Priority: Shutdown > Wake > user-interrupt > Listening > Speaking >
- * Thinking > Idle (ASLEEP is the lowest / boot state). Of simultaneous
+ * Priority: Shutdown > user-interrupt > Listening > Speaking > PRESENT. Of simultaneous
  * requests the highest-priority wins; on a tie the most-recently-queued wins
  * and the loser is surfaced through [onRejected] — never silently dropped
  * (spec §2.1 failure handling). A single FIFO of pending requests is drained
  * once per tick.
  *
  * ## Stale-signal fallback (audit M-15)
- * If the §2.30 signal is stale, the engine falls back to IDLE rather than
- * freezing in a stale mode — unless a hard shutdown is already in progress
+ * If the §2.30 signal is stale, the engine returns to PRESENT rather than
+ * freezing in a stale interaction — unless a hard shutdown is already in progress
  * (a stale signal must not yank an orderly shutdown).
  *
  * ## Action derivation (spec §2.1)
- * Reads `current_action` each tick to infer Listening/Thinking/Idle boundaries
- * when no explicit request is pending. A dwell prevents 30Hz flapping.
+ * Reads `current_action` each tick to infer when Friday is attending to input;
+ * generation and completed work leave her in PRESENT. A dwell prevents 30Hz flapping.
  *
  * Pure-JVM: the clock is injectable; [tick] is deterministic and exhaustively
- * testable (7×7 transition table, priority races, staleness).
+ * testable (canonical-mode transitions, priority races, staleness and legacy normalization).
  */
 class PresenceEngine(
     private val nowMs: () -> Long = { System.currentTimeMillis() },
-    initialMode: PresenceMode = PresenceMode.ASLEEP
+    initialMode: PresenceMode = PresenceMode.PRESENT
 ) {
 
     /** One queued request to change the presence mode. */
@@ -64,11 +63,11 @@ class PresenceEngine(
     private val pending = ArrayDeque<TransitionRequest>()
 
     @Volatile
-    private var currentMode: PresenceMode = initialMode
+    private var currentMode: PresenceMode = canonicalMode(initialMode)
     private var modeEnteredAtMs: Long = nowMs()
 
     private val _state: MutableStateFlow<CompanionState> =
-        MutableStateFlow(CompanionState.initial().copy(presenceMode = initialMode))
+        MutableStateFlow(CompanionState.initial().copy(presenceMode = canonicalMode(initialMode)))
     /** The current CompanionState — broadcast to all subsystems each tick. */
     val state: StateFlow<CompanionState> = _state.asStateFlow()
 
@@ -90,29 +89,33 @@ class PresenceEngine(
         reason: String,
         priority: Int = priorityOf(mode)
     ) {
-        pending.addLast(TransitionRequest(mode, requester, reason, priority, nowMs()))
+        pending.addLast(TransitionRequest(canonicalMode(mode), requester, reason, priority, nowMs()))
     }
 
-    /** User-interrupt: an explicit user action preempts Listening/Speaking/Thinking. */
-    fun interruptToIdle(requester: String, reason: String) {
+    /** User-interrupt changes attention while Friday remains continuously present. */
+    fun interruptToPresent(requester: String, reason: String) {
         requestTransition(
-            mode = PresenceMode.IDLE,
+            mode = PresenceMode.PRESENT,
             requester = requester,
             reason = reason,
             priority = PRIORITY_USER_INTERRUPT
         )
     }
 
+    /** Compatibility alias; the target is PRESENT, never an idle/existence state. */
+    @Deprecated("Use interruptToPresent")
+    fun interruptToIdle(requester: String, reason: String) = interruptToPresent(requester, reason)
+
     /** Blocking, immediate transition — used only by boot/init (no request FIFO). */
     fun force(mode: PresenceMode, requester: String, reason: String) {
         pending.clear()
-        applyTransition(mode, requester, reason)
+        applyTransition(canonicalMode(mode), requester, reason)
     }
 
     /**
      * One tick — driven by the Engine Tick Lane (Phase 2 / plan §1.6).
      * 1. Resolve the best pending explicit request (priority arbitration).
-     * 2. Stale signal → IDLE fallback (unless shutting down).
+     * 2. Stale signal → PRESENT fallback (unless shutting down).
      * 3. Otherwise derive Listening/Thinking/Idle from [signal.currentAction]
      *    once the suggestion has dwelled [ACTION_DWELL_TICKS] ticks.
      * Then emit a fresh [CompanionState].
@@ -131,18 +134,17 @@ class PresenceEngine(
                 // Never freeze in a stale mode; never yank an orderly shutdown;
                 // and never cut the WAKING bloom — the CompanionCore startup
                 // handoff owns WAKING→IDLE once the §12 window elapses (audit F7).
-                if (currentMode != PresenceMode.IDLE &&
-                    currentMode != PresenceMode.SHUTTING_DOWN &&
-                    currentMode != PresenceMode.WAKING
+                if (currentMode != PresenceMode.PRESENT &&
+                    currentMode != PresenceMode.SHUTTING_DOWN
                 ) {
-                    applyTransition(PresenceMode.IDLE, "PresenceEngine", "stale-signal-fallback")
+                    applyTransition(PresenceMode.PRESENT, "PresenceEngine", "stale-signal-fallback")
                 }
             } else {
                 deriveFromAction(signal.currentAction)
             }
         }
 
-        val attention = if (signal.currentAction == CurrentAction.IDLE) {
+        val attention = if (signal.currentAction == CurrentAction.IDLE && !observedUserPresent) {
             AttentionTarget.NONE
         } else {
             AttentionTarget.USER
@@ -188,19 +190,22 @@ class PresenceEngine(
     }
 
     private fun applyTransition(mode: PresenceMode, requester: String, reason: String) {
+        val canonical = canonicalMode(mode)
         val from = currentMode
-        if (from == mode) return
-        currentMode = mode
+        if (from == canonical) return
+        currentMode = canonical
         modeEnteredAtMs = nowMs()
-        onTransition(from, mode, reason)
+        onTransition(from, canonical, reason)
     }
 
     /** Dwell-guarded action → mode suggestion (spec §2.1 "infer ... boundaries"). */
     private fun deriveFromAction(action: CurrentAction) {
         val suggested = when (action) {
             CurrentAction.RECEIVING_INPUT -> PresenceMode.LISTENING
-            CurrentAction.GENERATING, CurrentAction.TOOL_CALL -> PresenceMode.THINKING
-            CurrentAction.IDLE, CurrentAction.DONE -> PresenceMode.IDLE
+            // Generating, tool use and completed work are activities of the
+            // same continuously present individual, not separate existence modes.
+            CurrentAction.GENERATING, CurrentAction.TOOL_CALL,
+            CurrentAction.IDLE, CurrentAction.DONE -> PresenceMode.PRESENT
         }
         if (suggested == currentMode) {
             actionDwell = 0
@@ -218,6 +223,13 @@ class PresenceEngine(
         }
     }
 
+    @Volatile private var observedUserPresent: Boolean = false
+
+    /** Update transient camera-derived presence; no identity or image is retained. */
+    fun reportUserPresence(present: Boolean) {
+        observedUserPresent = present
+    }
+
     private var actionSuggestion: PresenceMode? = null
     private var actionDwell: Int = 0
 
@@ -232,18 +244,26 @@ class PresenceEngine(
         const val PRIORITY_IDLE = 100
         const val PRIORITY_ASLEEP = 0
 
-        /** Canonical arbitration table (spec §2.1): Shutdown > Wake > user-interrupt > Listening > Speaking > Thinking > Idle. */
+        /** Legacy modes are mapped to the persistent presence baseline. */
+        fun canonicalMode(mode: PresenceMode): PresenceMode = when (mode) {
+            PresenceMode.ASLEEP, PresenceMode.WAKING, PresenceMode.IDLE, PresenceMode.THINKING ->
+                PresenceMode.PRESENT
+            else -> mode
+        }
+
+        /** Canonical arbitration table: shutdown > user interrupt > listening > speaking > present. */
         private val TABLE = mapOf(
-            PresenceMode.SHUTTING_DOWN to PRIORITY_SHUTTING_DOWN,
-            PresenceMode.WAKING to PRIORITY_WAKING,
+            PresenceMode.PRESENT to PRIORITY_IDLE,
             PresenceMode.LISTENING to PRIORITY_LISTENING,
             PresenceMode.SPEAKING to PRIORITY_SPEAKING,
-            PresenceMode.THINKING to PRIORITY_THINKING,
+            PresenceMode.SHUTTING_DOWN to PRIORITY_SHUTTING_DOWN,
+            PresenceMode.ASLEEP to PRIORITY_ASLEEP,
+            PresenceMode.WAKING to PRIORITY_WAKING,
             PresenceMode.IDLE to PRIORITY_IDLE,
-            PresenceMode.ASLEEP to PRIORITY_ASLEEP
+            PresenceMode.THINKING to PRIORITY_THINKING
         )
 
-        fun priorityOf(mode: PresenceMode): Int = TABLE.getValue(mode)
+        fun priorityOf(mode: PresenceMode): Int = TABLE.getValue(canonicalMode(mode))
 
         /** Consecutive ticks an action-derived suggestion must persist before applying. */
         const val ACTION_DWELL_TICKS = 3

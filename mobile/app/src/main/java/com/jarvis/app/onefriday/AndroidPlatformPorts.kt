@@ -4,13 +4,14 @@ import android.content.Context
 import com.jarvis.app.ObsidianSync
 import com.jarvis.app.companioncore.presence.CompanionCoreHolder
 import com.jarvis.app.failure.FailureSurface
-import com.jarvis.app.humancore.HumanCore
-import com.jarvis.app.humancore.protocol.SessionContext
+import com.jarvis.app.turn.TurnContext
+import com.jarvis.app.identity.IdentitySource
 import com.jarvis.app.latency.AckSpeech
 import com.jarvis.app.latency.LatencyLayer
 import com.jarvis.app.latency.WarmupEngine
 import com.jarvis.app.model.AndroidResourceSnapshot
 import com.jarvis.app.model.ResourceSnapshot
+import com.jarvis.app.symbiosis.NanoSymbioticController
 import kotlinx.coroutines.CoroutineScope
 import java.util.Calendar
 
@@ -30,16 +31,14 @@ class AndroidPlatformPorts(
     override val storageDir: java.io.File,
     private val scope: CoroutineScope,
     private val memoryStore: com.jarvis.app.body.MemoryStorePort,
-    private val humanCoreStorage: com.jarvis.app.humancore.store.StoragePort,
-    private val humanCoreMemorySink: (com.jarvis.app.humancore.mod.MemoryAnnotation) -> Unit,
     private val failureSurface: FailureSurface,
     private val modelBackend: com.jarvis.app.model.ModelBackend,
-    private val voiceSynthesizer: com.jarvis.app.voice.VoiceForgeSynthesizer,
     private val clock: () -> Long = { System.currentTimeMillis() },
     private val turnTraceStore: com.jarvis.app.trace.TurnTraceStore? = null,
     private val threadTracker: com.jarvis.app.threads.ThreadTracker? = null,
     private val provenanceLedger: com.jarvis.app.memory.provenance.ProvenanceLedger? = null,
-    private val adapterManifest: com.jarvis.app.memory.provenance.AdapterManifest? = null
+    private val adapterManifest: com.jarvis.app.memory.provenance.AdapterManifest? = null,
+    private val nanoSymbiosis: NanoSymbioticController? = null
 ) : PlatformPorts {
 
     override fun modelScope(): CoroutineScope = scope
@@ -49,7 +48,17 @@ class AndroidPlatformPorts(
      * time. The old app wiring built exactly this governor; nothing about it
      * changed — it just moved behind the port.
      */
-    override fun resourceSnapshot(): ResourceSnapshot = AndroidResourceSnapshot(context)
+    override fun resourceSnapshot(): ResourceSnapshot =
+        nanoSymbiosis?.resourceSnapshot() ?: AndroidResourceSnapshot(context)
+
+    override fun recordWorkloadOutcome(
+        organ: String,
+        succeeded: Boolean,
+        latencyMs: Long,
+        peakMemoryMb: Long
+    ) {
+        nanoSymbiosis?.recordOutcome(organ, succeeded, latencyMs, peakMemoryMb)
+    }
 
     override fun nowMs(): Long = clock()
 
@@ -70,20 +79,46 @@ class AndroidPlatformPorts(
         WarmupEngine.prime()
     }
 
+    override fun hasLanguageModel(modelManager: com.jarvis.app.model.ModelManager): Boolean {
+        val provider = modelManager.activeProvider.value
+        val health = modelManager.providerHealth.value
+        return provider.providerType != com.jarvis.app.env.ModelProviderType.HEURISTIC &&
+            health.isHealthy && health.modelLoaded
+    }
+
     /**
      * The same per-turn session context the app built, now derived from the
      * injected clock so one Friday has exactly one notion of "now".
      */
-    override fun sessionContext(): SessionContext {
-        val snapshot = HumanCore.snapshot()
-        val presence = snapshot?.presence
+    override fun identitySource(): IdentitySource {
+        val preferences = context.getSharedPreferences("friday_identity_record", Context.MODE_PRIVATE)
+        return object : IdentitySource {
+            override fun name(): String? = preferences.getString("name", "Friday")
+            override fun version(): Int = preferences.getInt("version", 1)
+            override fun pronouns(): String? = preferences.getString("pronouns", "she/her")
+        }
+    }
+
+    /**
+     * Read and update only the local last-interaction timestamp. Unknown
+     * presence/away state remains null; it is never inferred from missing
+     * sensor/runtime evidence or fabricated as an all-clear observation.
+     */
+    override fun sessionContext(): TurnContext {
+        val now = clock()
+        val preferences = context.getSharedPreferences("friday_turn_session", Context.MODE_PRIVATE)
+        val lastInteraction = preferences.getLong("last_interaction_at_ms", 0L)
+        val secondsSinceLastContact = lastInteraction.takeIf { it > 0L && now >= it }
+            ?.let { (now - it) / 1_000L }
+        preferences.edit().putLong("last_interaction_at_ms", now).apply()
+
         val calendar = Calendar.getInstance()
-        calendar.timeInMillis = clock()
-        return SessionContext(
-            channel = SessionContext.Channel.MOBILE_APP,
+        calendar.timeInMillis = now
+        return TurnContext(
+            channel = TurnContext.Channel.ANDROID_APP,
             localHour = calendar.get(Calendar.HOUR_OF_DAY),
-            secondsSinceLastContact = snapshot?.secondsSinceLastContact,
-            wasAway = presence?.mode != com.jarvis.app.humancore.protocol.PresenceState.Mode.ACTIVE,
+            secondsSinceLastContact = secondsSinceLastContact,
+            wasAway = null,
             prosody = null
         )
     }
@@ -114,20 +149,15 @@ class AndroidPlatformPorts(
         failureSurface.report(report)
     }
 
-    override fun humanCoreStorage(): com.jarvis.app.humancore.store.StoragePort = humanCoreStorage
-
-    override fun humanCoreMemorySink(): ((com.jarvis.app.humancore.mod.MemoryAnnotation) -> Unit)? =
-        humanCoreMemorySink
-
     override fun stores(): PlatformStores = AndroidPlatformStores(
         context = context,
         memoryStore = memoryStore,
         backend = modelBackend,
-        voiceSynthesizer = voiceSynthesizer,
         traceStore = turnTraceStore,
         threads = threadTracker,
         provenance = provenanceLedger,
-        adapters = adapterManifest
+        adapters = adapterManifest,
+        clock = clock
     )
 
     override fun failureSurface(): FailureSurface = failureSurface
@@ -147,15 +177,15 @@ class AndroidPlatformStores(
     private val context: Context,
     private val memoryStore: com.jarvis.app.body.MemoryStorePort,
     private val backend: com.jarvis.app.model.ModelBackend,
-    private val voiceSynthesizer: com.jarvis.app.voice.VoiceForgeSynthesizer,
     private val traceStore: com.jarvis.app.trace.TurnTraceStore? = null,
     private val threads: com.jarvis.app.threads.ThreadTracker? = null,
     private val provenance: com.jarvis.app.memory.provenance.ProvenanceLedger? = null,
-    private val adapters: com.jarvis.app.memory.provenance.AdapterManifest? = null
+    private val adapters: com.jarvis.app.memory.provenance.AdapterManifest? = null,
+    private val clock: () -> Long = { System.currentTimeMillis() }
 ) : PlatformStores {
 
     override fun graphStore(): com.jarvis.app.memory.MemoryGraphStore =
-        com.jarvis.app.memory.AndroidMemoryGraphStore(context)
+        com.jarvis.app.memory.AndroidMemoryGraphStore(context, clock = clock)
 
     override fun embeddingProvider(): com.jarvis.app.memory.EmbeddingProvider =
         com.jarvis.app.memory.NeuralEmbeddingProvider()
@@ -166,8 +196,6 @@ class AndroidPlatformStores(
         com.jarvis.app.capability.CapabilityRegistryHolder.get()
 
     override fun modelBackend(): com.jarvis.app.model.ModelBackend = backend
-
-    override fun voiceSynthesizer(): com.jarvis.app.voice.VoiceForgeSynthesizer = voiceSynthesizer
 
     override fun turnTraceStore(): com.jarvis.app.trace.TurnTraceStore? = traceStore
 

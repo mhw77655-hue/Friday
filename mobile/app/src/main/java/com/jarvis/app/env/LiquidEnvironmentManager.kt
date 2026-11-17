@@ -1,7 +1,6 @@
 package com.jarvis.app.env
 
 import android.content.Context
-import com.jarvis.app.humancore.HumanCore
 import com.jarvis.app.humancore.store.FileStorage
 import com.jarvis.app.model.ModelManager
 import com.jarvis.app.runtime.RuntimeBinder
@@ -31,7 +30,6 @@ import kotlinx.coroutines.launch
 class LiquidEnvironmentManager(
     private val context: Context,
     private val fileStorage: FileStorage,
-    private val humanCore: HumanCore,
     private val modelManager: ModelManager,
     private val runtimeBinder: RuntimeBinder,
     private val scope: CoroutineScope
@@ -178,29 +176,29 @@ class LiquidEnvironmentManager(
             }
         }
 
-        // 3. Configure HumanCore memory policy
-        // humanCore.setMemoryPolicy(profile.memoryPolicy)  // no such API today — conceptual hook; HumanCore's own memory store is unchanged across env switches
+        // 3. Retain Friday's independent memory policy
+        // Friday's cognitive composition owns memory policy independently of provider switches.
 
         // 4. Apply permission policy (affects DecisionGate)
         // This is a conceptual hook - DecisionGate reads from environment
-        // humanCore.setPermissionPolicy(profile.permissionPolicy)
+        // Friday's permission gate consumes the active profile.
 
         // 5. Configure available tools
-        // humanCore.setAvailableTools(profile.toolsAvailable)
+        // Capability availability is evaluated by Friday's capability fabric.
 
         // 6. Apply sync behavior (affects ObsidianSync)
-        // humanCore.setSyncBehavior(profile.syncBehavior)
+        // Sync policy is handled by the repository/continuity layer.
 
         // 7. Apply latency preference (affects LatencyLayer)
         // latencyLayer.setLatencyPreference(profile.latencyPreference)
 
         // 8. Apply offline behavior
-        // humanCore.setOfflineBehavior(profile.offlineBehavior)
+        // Offline behaviour belongs to Friday's host/resource policy.
 
         // 9. Apply UI behavior (emitted via lifecycle event for UI to react)
 
         // 10. Apply safety restrictions
-        // humanCore.setSafetyRestrictions(profile.safetyRestrictions)
+        // Safety restrictions remain in the local authorization path.
 
         Result.success(Unit)
     } catch (e: Exception) {

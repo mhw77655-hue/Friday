@@ -12,8 +12,8 @@ import com.jarvis.app.nervous.CapabilityRouter
  *
  * The check is three-layered:
  *   1. a live registered organism provides it  → no gap
- *   2. a healthy archived genome (current best) provides it → capability exists
- *      but is not resident; can be re-hydrated, not invented
+ *   2. a healthy archived genome exists but its executable artifact is not
+ *      resident → rebuild/recover is required (metadata alone is not executable)
  *   3. nothing → a real gap: search + synthesis is required
  */
 class CapabilityGapDetector(
@@ -37,10 +37,10 @@ class CapabilityGapDetector(
         if (bestGenome != null) {
             return GapAnalysis(
                 capability = capability,
-                gap = false,
-                status = "KNOWN_GOOD_UNRESIDENT",
+                gap = true,
+                status = "KNOWN_GOOD_ARTIFACT_MISSING",
                 genomeId = bestGenome.id,
-                note = "genome exists; re-hydrate instead of inventing"
+                note = "genome metadata exists, but no executable artifact is resident; recover or rebuild before use"
             )
         }
         return GapAnalysis(

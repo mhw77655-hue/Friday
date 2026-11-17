@@ -1,13 +1,12 @@
 package com.jarvis.app.body
 
 /**
- * Pure nervous-system transition table. [next] maps (current state, event) →
- * next state and carries no side effects, so the whole communication
- * state machine is unit-testable without Android.
+ * Pure Android I/O transport transition table. [next] maps microphone,
+ * recognizer and playback session events to transport lifecycle changes.
+ * It is not a model of Friday's identity, cognition, personality or inner life.
  *
- * The coordinator layers side effects on top: re-emitting UserInput when an
- * STT result lands, BargeIn when a UserInput hits speech, TTS cut on
- * interruption, etc.
+ * Meaning-making and development live in Friday's individual cognitive
+ * substrate; this adapter only coordinates platform I/O and interruption.
  */
 object BodyStateMachine {
 

@@ -6,7 +6,6 @@ import com.jarvis.app.cognitive.capability.CapabilityFabric
 import com.jarvis.app.cognitive.capability.FakeCapability
 import com.jarvis.app.cognitive.capability.descriptor
 import com.jarvis.app.cognitive.capability.testImmune
-import com.jarvis.app.humancore.HumanCore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -46,7 +45,6 @@ class StepExecutionLoopTest {
             memoryStore = object : MemoryStorePort {
                 override fun queryMemories(query: String, limit: Int) = emptyList<MemoryItem>()
             },
-            humanCore = HumanCore,
             capabilityFabric = fabric
         )
 
@@ -268,7 +266,6 @@ class StepExecutionLoopTest {
         memoryStore = object : MemoryStorePort {
             override fun queryMemories(query: String, limit: Int) = emptyList<MemoryItem>()
         },
-        humanCore = HumanCore,
         capabilityFabric = fabric,
         decompositionComplete = complete
     )

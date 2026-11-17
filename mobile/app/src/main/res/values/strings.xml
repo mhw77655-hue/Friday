@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friday_accessibility_description">Allows Friday to carry out voice-requested navigation and actions using Android accessibility controls. Enable only if you want phone-wide voice control.</string>
+</resources>

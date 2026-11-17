@@ -1,7 +1,7 @@
 package com.jarvis.app.builder
 
-import com.jarvis.app.evolution.CandidateGenerator
 import com.jarvis.app.evolution.EvolutionEngine
+import com.jarvis.app.evolution.PromotionReceipt
 import com.jarvis.app.evolution.GenomeFactory
 import com.jarvis.app.failure.FailureCategory
 import com.jarvis.app.failure.FailureReport
@@ -39,8 +39,7 @@ class ToolBuilder(
     private val archive: GenomeArchive,
     private val governor: ResourceGovernor,
     private val failureSurface: FailureSurface,
-    private val nervousSystem: GlobalNervousSystem? = null,
-    private val candidateGenerator: CandidateGenerator? = null
+    private val nervousSystem: GlobalNervousSystem? = null
 ) {
 
     /**
@@ -83,7 +82,7 @@ class ToolBuilder(
         // same path JarvisEngine.requestResearch() exposes. The candidates are
         // carried on the build record so the builder genuinely consumes — not
         // merely touches — the engine's output.
-        val researchPersisted = research?.let { engine ->
+        val researchPersisted = research?.takeIf { spec.researchFirst }?.let { engine ->
             engine.researchPersist(
                 spec.description,
                 targetDomains = emptySet(),
@@ -95,18 +94,40 @@ class ToolBuilder(
                 "cross-domain research surfaced ${result.candidates.size} mechanism(s) (stored=${result.storedCount})"
         }
         val researchCandidates = researchPersisted?.candidates.orEmpty()
+        if (spec.requireVerifiedResearch && researchCandidates.none { it.evidence.isProof }) {
+            return BuildResult(
+                spec = spec,
+                built = false,
+                gapDetected = true,
+                status = "RESEARCH_NOT_VERIFIED",
+                message = "verified research was required, but no VERIFIED mechanism with sufficient evidence was found",
+                researchNote = researchNote,
+                researchCandidates = researchCandidates
+            )
+        }
 
-        // DESIGN: derive the child genome from the behavior
-        val parent = GenomeFactory.genomeFor(spec.toRequirement())
+        // Research output is passed into synthesis as evidence-labeled hypotheses,
+        // rather than being merely logged beside the generated capability.
+        val usableResearch = if (spec.requireVerifiedResearch) researchCandidates.filter { it.evidence.isProof } else researchCandidates
+        val enrichedRequirement = spec.toRequirement().copy(
+            constraints = spec.constraints + usableResearch.take(3).map { candidate ->
+                "Research ${candidate.evidence.status} (confidence=${candidate.confidence}): " +
+                    "${candidate.principle}. Sketch: ${candidate.implementationSketch}. " +
+                    "Treat this as an experiment input, not established truth."
+            }
+        )
+
+        // DESIGN: derive the child genome from the enriched behavioral requirement.
+        val parent = GenomeFactory.genomeFor(enrichedRequirement)
 
         // EVOLVE through the full loop inside the mutant habitat
         val run = evolution.evolve(
             parent = parent,
-            requirement = spec.toRequirement(),
-            mutateFirst = true
+            requirement = enrichedRequirement
         )
 
         if (!run.promoted || run.receipt == null || run.best == null) {
+            val diagnostics = evolution.log.value.takeLast(16).joinToString(" | ") { it.message }
             failureSurface.report(
                 FailureReport(
                     subsystem = "BUILDER",
@@ -122,7 +143,7 @@ class ToolBuilder(
                 built = false,
                 gapDetected = true,
                 status = "EVOLUTION_REJECTED",
-                message = "evolution ran but the gate rejected all candidates",
+                message = "evolution ran but the gate rejected all candidates. Diagnostics: $diagnostics",
                 candidates = run.candidates,
                 researchNote = researchNote,
                 researchCandidates = researchCandidates
@@ -147,6 +168,7 @@ class ToolBuilder(
             strategy = best.implementation.spec.strategy.name,
             fitness = best.decision.score,
             rollbackPoint = receipt.rollbackPoint?.previousGenomeId,
+            promotionReceipt = receipt,
             candidates = run.candidates,
             message = "built + promoted '${spec.capability}' (${best.implementation.spec.strategy.name}) — callable=${discovered}",
             researchNote = researchNote,
@@ -156,8 +178,17 @@ class ToolBuilder(
 
     /** Convenience: search-first, then build with the discovered principle. */
     suspend fun buildWithResearch(spec: ToolSpecification, research: UniversalResearchEngine): BuildResult {
-        val researchResult = research.research(spec.description)
-        return build(spec.copy(researchFirst = true, description = spec.description))
+        return ToolBuilder(
+            gapDetector = gapDetector,
+            research = research,
+            evolution = evolution,
+            registry = registry,
+            genomeRegistry = genomeRegistry,
+            archive = archive,
+            governor = governor,
+            failureSurface = failureSurface,
+            nervousSystem = nervousSystem
+        ).build(spec.copy(researchFirst = true))
     }
 }
 
@@ -172,6 +203,8 @@ data class BuildResult(
     val strategy: String? = null,
     val fitness: Double? = null,
     val rollbackPoint: String? = null,
+    /** Full rollback receipt; the previous capability index cannot be reconstructed from an id alone. */
+    val promotionReceipt: PromotionReceipt? = null,
     val candidates: List<com.jarvis.app.evolution.EvaluatedCandidate> = emptyList(),
     val message: String,
     val researchNote: String? = null,

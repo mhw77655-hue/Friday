@@ -477,4 +477,42 @@ class CapabilityExecutorTest {
         assertEquals(first, second)
         assertEquals(ExecutionStatus.COMPLETED, first.first)
     }
+    @Test
+    fun `all skipped steps terminate as skipped with reasons not success`() = runBlocking {
+        val planner = GoalPlanner(FullStrategy)
+        var graph = graphOf(FullStrategy)
+        graph.nodes.map { it.id }.forEach { id -> graph = planner.skipNode(graph, id, "not required for this run") }
+        val driver = FakeDriver(planner, graph)
+        val exec = CapabilityExecutor(CapabilityFabric(testImmune(), emit = {}), driver, goalPlanner = planner)
+
+        val summary = exec.run()
+
+        assertEquals(ExecutionStatus.SKIPPED, summary.status)
+        assertEquals(3, summary.stepsSkipped)
+        assertEquals(0, summary.stepsCompleted)
+        assertEquals(3, summary.skippedStepIds.size)
+        assertTrue(summary.skippedReasons.values.all { it == "not required for this run" })
+        assertTrue(driver.events.any { it is CognitiveEvent.PlanExecutionSkipped })
+        assertFalse(driver.events.any { it is CognitiveEvent.PlanExecutionCompleted })
+    }
+
+    @Test
+    fun `completed plus skipped and blocked steps terminate as partial`() = runBlocking {
+        val planner = GoalPlanner(FullStrategy)
+        var graph = graphOf(FullStrategy)
+        graph = planner.completeNode(graph, "sg1:s1", "done a")
+        graph = planner.skipNode(graph, "sg2:s1", "optional branch omitted")
+        val driver = FakeDriver(planner, graph)
+        val exec = CapabilityExecutor(CapabilityFabric(testImmune(), emit = {}), driver, goalPlanner = planner)
+
+        val summary = exec.run()
+
+        assertEquals(ExecutionStatus.PARTIAL, summary.status)
+        assertEquals(1, summary.stepsSkipped)
+        assertEquals(listOf("sg2:s1"), summary.skippedStepIds)
+        assertTrue(summary.blockedStepIds.contains("sg3:s1"))
+        assertTrue(driver.events.any { it is CognitiveEvent.PlanExecutionPartial })
+        assertFalse(driver.events.any { it is CognitiveEvent.PlanExecutionCompleted })
+    }
+
 }

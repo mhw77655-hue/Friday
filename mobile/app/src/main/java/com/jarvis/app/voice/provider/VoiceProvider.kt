@@ -85,7 +85,9 @@ data class VoiceSynthesisParams(
     /** word → pronunciation hint (integrated with the app VocabularyStore). */
     val pronunciationHints: Map<String, String> = emptyMap(),
     /** Caller-scoped id for cancellation/telemetry correlation. */
-    val utteranceId: String = "voice_${System.currentTimeMillis()}"
+    val utteranceId: String = "voice_${System.currentTimeMillis()}",
+    /** App-private WAV path for optional zero-shot reference voice synthesis. */
+    val referenceAudioPath: String? = null
 )
 
 /** Synthesis outcome. [audioFile] points at [VoiceProvider.synthesize]'s outFile on success. */

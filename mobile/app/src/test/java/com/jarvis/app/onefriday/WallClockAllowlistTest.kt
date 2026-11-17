@@ -121,8 +121,9 @@ class WallClockAllowlistTest {
     /** How many direct wall-clock reads a file still contains. */
     private val ALLOWED: Map<String, Int> = buildMap {
         // ── body: the keyword memory port, presence and context assembly ──────
+        put("JarvisEngine.kt", 1)
         put("body/AdaptiveContextBuilder.kt", 4)
-        put("body/BodyCoordinator.kt", 9)
+        put("body/BodyCoordinator.kt", 6)
         put("body/MemoryPromotion.kt", 1)
         put("body/MemoryStore.kt", 6)
         put("body/PresenceMonitor.kt", 5)
@@ -136,11 +137,11 @@ class WallClockAllowlistTest {
         put("capability/CapabilityRegistry.kt", 1)
 
         // ── cognitive: the turn itself ────────────────────────────────────────
-        put("cognitive/CognitiveEngine.kt", 20)
+        put("cognitive/CognitiveEngine.kt", 10)
         put("cognitive/CognitiveState.kt", 11)
         put("cognitive/AttentionEngine.kt", 6)
         put("cognitive/WorkingMemory.kt", 7)
-        put("cognitive/ContextWindowAssembler.kt", 2)
+        put("cognitive/ContextWindowAssembler.kt", 1)
         put("cognitive/IntentInference.kt", 2)
         put("cognitive/CognitiveContextBuilder.kt", 1)
         put("cognitive/TaskWorkingMemory.kt", 1)
@@ -150,6 +151,9 @@ class WallClockAllowlistTest {
         put("cognitive/execution/ExecutionEngine.kt", 2)
         put("cognitive/immune/ImmuneMemory.kt", 1)
         put("cognitive/planning/PlanGraph.kt", 1)
+        put("cognitive/seed/FridayIndividual.kt", 1)
+        put("cognitive/seed/FridaySeedSubstrate.kt", 1)
+        put("cognitive/seed/FridayModelFreeMind.kt", 1)
 
         // ── cognitive memory: quarantine-era stores, record stamps only ───────
         put("cognitive/memory/ContinuityManager.kt", 2)
@@ -179,7 +183,7 @@ class WallClockAllowlistTest {
 
         // ── identity ──────────────────────────────────────────────────────────
         put("identity/PersonaTuner.kt", 1)
-        put("identity/WorldModelService.kt", 5)
+        put("identity/WorldModelService.kt", 1)
         put("identity/owner/PlatformBiometricPromptResultMapper.kt", 1)
 
         // ── latency: the timers the AC names as the honest exception ──────────
@@ -188,17 +192,18 @@ class WallClockAllowlistTest {
         put("latency/WarmupEngine.kt", 1)
 
         // ── memory ────────────────────────────────────────────────────────────
-        put("memory/AndroidMemoryGraphStore.kt", 2)
+        put("memory/AndroidMemoryGraphStore.kt", 1)
         put("memory/BlendedMemoryRetriever.kt", 1)
         put("memory/ConsolidationDaemon.kt", 1)
         put("memory/MemoryConsolidationLoop.kt", 1)
         put("memory/MemoryGraphStore.kt", 1)
-        put("memory/MemoryImportanceScorer.kt", 2)
+        put("memory/MemoryImportanceScorer.kt", 1)
         put("memory/provenance/AdapterManifest.kt", 2)
         put("memory/provenance/ForgetTombstone.kt", 1)
 
         // ── model ─────────────────────────────────────────────────────────────
         put("model/ModelManager.kt", 1)
+        put("model/InAppLlamaModelBackend.kt", 5)
         put("model/ModelProvider.kt", 1)
         put("model/adapters/HeuristicAdapter.kt", 1)
         put("model/adapters/LlamaCppAdapter.kt", 3)
@@ -208,17 +213,17 @@ class WallClockAllowlistTest {
         // ── the admission governor the root constructs ────────────────────────
         put("resource/ResourceGovernor.kt", 1)
 
-        // ── the composition root and its two hosts ────────────────────────────
-        put("onefriday/AndroidPlatformPorts.kt", 1)
-        put("termux/TermuxJarvisServer.kt", 3)
+        // ── the Android composition root ─────────────────────────────────────
+        put("onefriday/AndroidPlatformPorts.kt", 2)
         put("resolution/FuzzyCommandResolver.kt", 1)
         put("threads/ThreadObjects.kt", 1)
     }
 
     /** Why each file is allowed to keep exactly that many reads. */
     private val REASONS: Map<String, String> = buildMap {
+        put("JarvisEngine.kt", "the single Android root clock; it is passed into the platform adapter and the production turn-path time seams")
         put("body/AdaptiveContextBuilder.kt", "context-build latency pair plus the prompt's own current-time line; the age read is the recency sort key")
-        put("body/BodyCoordinator.kt", "session/model-idle bookkeeping and the Human Core exchange timestamp; no turn decision depends on the value")
+        put("body/BodyCoordinator.kt", "session start, two turn-event timestamps, reasoning activity timestamps, and the reasoning idle-grace comparison; body lifecycle bookkeeping, not cognitive time")
         put("body/MemoryPromotion.kt", "id suffix for a promoted preference record")
         put("body/MemoryStore.kt", "keyword-memory record timestamps, id counter seed and the hours-ago recency column")
         put("body/PresenceMonitor.kt", "device presence sampling: last-interaction stamps and the away-gap read, which is a physical observation")
@@ -229,11 +234,11 @@ class WallClockAllowlistTest {
 
         put("capability/CapabilityRegistry.kt", "a capability's last-activated stamp, so an idle capability can be recognised")
 
-        put("cognitive/CognitiveEngine.kt", "the four turn-trace latency pairs (a real elapsed interval, not a turn clock) plus the ids and timestamps of the records a turn writes")
+        put("cognitive/CognitiveEngine.kt", "one constructor fallback for isolated hosts plus nine monotonic System.nanoTime measurements for stage durations, never cognitive timestamps")
         put("cognitive/CognitiveState.kt", "state-record createdAt/lastAccessed/timestamp defaults and the uncertainty-profile clock")
         put("cognitive/AttentionEngine.kt", "attention-event timestamps and the time-since-seen decay inputs")
         put("cognitive/WorkingMemory.kt", "working-memory access-order stamps and the age reads that evict an item")
-        put("cognitive/ContextWindowAssembler.kt", "retrieval instant default and the assembled window's own timestamp")
+        put("cognitive/ContextWindowAssembler.kt", "constructor fallback for isolated callers; production supplies the shared injected nowMs")
         put("cognitive/IntentInference.kt", "inference-event timestamps on the record the turn keeps")
         put("cognitive/CognitiveContextBuilder.kt", "assembled-context timestamp")
         put("cognitive/TaskWorkingMemory.kt", "task-entry timestamp default")
@@ -243,6 +248,9 @@ class WallClockAllowlistTest {
         put("cognitive/execution/ExecutionEngine.kt", "execution started-at and last-executed-at stamps")
         put("cognitive/immune/ImmuneMemory.kt", "injected nowMs default for immune records")
         put("cognitive/planning/PlanGraph.kt", "plan-node createdAt default")
+        put("cognitive/seed/FridayIndividual.kt", "initial local identity creation timestamp; production receives the composition-root clock")
+        put("cognitive/seed/FridaySeedSubstrate.kt", "experience journal observation timestamp; production receives the composition-root clock")
+        put("cognitive/seed/FridayModelFreeMind.kt", "device-local time and date answers use the current instant in the device timezone; this is presentation of current local time, not a learning or cognitive-decision timestamp")
 
         put("cognitive/memory/ContinuityManager.kt", "reconstruction stamp and the hours-ago recency read")
         put("cognitive/memory/ContinuityPersistence.kt", "persisted document clock field and per-record created/updated/accessed fallbacks on read")
@@ -268,23 +276,24 @@ class WallClockAllowlistTest {
         put("humancore/HumanCore.kt", "injected clock default, session-end instant default and the legacy session-gap observation")
 
         put("identity/PersonaTuner.kt", "durable adjustment record timestamp")
-        put("identity/WorldModelService.kt", "asOfTime defaults: 'facts valid as of now' is a query parameter, not a stored clock")
+        put("identity/WorldModelService.kt", "constructor fallback for isolated callers; the composition root injects the shared platform clock")
         put("identity/owner/PlatformBiometricPromptResultMapper.kt", "biometric result timestamp on a device-only mapper")
 
         put("latency/LatencyLayer.kt", "the pipeline's own nowMs DEFAULT; the ONE root overrides it with the host clock, which is what InjectedClockTest proves")
         put("latency/SpeechEngine.kt", "temp-file name for a synthesized clip (uniqueness, not elapsed time)")
         put("latency/WarmupEngine.kt", "warm-up window read; a device warm-up timer")
 
-        put("memory/AndroidMemoryGraphStore.kt", "sqlite row timestamp on insert and the FTS sync stamp on write")
+        put("memory/AndroidMemoryGraphStore.kt", "constructor fallback only; AndroidPlatformStores passes the root-owned clock to SQLite")
         put("memory/BlendedMemoryRetriever.kt", "retrieval nowMs default; recency scoring callers pass the turn's instant")
         put("memory/ConsolidationDaemon.kt", "consolidate() nowMs default so a scheduled pass can pass its own instant")
         put("memory/MemoryConsolidationLoop.kt", "consolidation-record timestamp default")
         put("memory/MemoryGraphStore.kt", "asOfTime default on the historical-validity query")
-        put("memory/MemoryImportanceScorer.kt", "nowMs defaults on score/decayedStrength; the caller supplies the turn's instant")
+        put("memory/MemoryImportanceScorer.kt", "constructor fallback for isolated tests; TurnPathAssembly injects PlatformPorts.nowMs")
         put("memory/provenance/AdapterManifest.kt", "registry-state read and the JSONL line's own timestamp")
         put("memory/provenance/ForgetTombstone.kt", "tombstone forgotten-at stamp")
 
         put("model/ModelManager.kt", "the injected clock default; the ONE root passes the host clock, so the tier cooldown is host-time")
+        put("model/InAppLlamaModelBackend.kt", "monotonic elapsed-time measurements around native model load and generation; these are performance durations, not turn timestamps")
         put("model/ModelProvider.kt", "provider health check timestamp")
         put("model/adapters/HeuristicAdapter.kt", "the canned 'today's date' answer of a non-model fallback adapter")
         put("model/adapters/LlamaCppAdapter.kt", "request latency pair and the telemetry latency field")
@@ -293,8 +302,7 @@ class WallClockAllowlistTest {
 
         put("resource/ResourceGovernor.kt", "the admission record's last-activity stamp — written and never read for a decision")
 
-        put("onefriday/AndroidPlatformPorts.kt", "the phone adapter's clock DEFAULT; production passes the platform's own clock")
-        put("termux/TermuxJarvisServer.kt", "in-memory store defaults and the JVM host's clock value handed to the adapter")
+        put("onefriday/AndroidPlatformPorts.kt", "two adapter constructor defaults (AndroidPlatformPorts and AndroidPlatformStores); Android root supplies their shared clock")
         put("resolution/FuzzyCommandResolver.kt", "nowMs default on the recency-aware match")
         put("threads/ThreadObjects.kt", "the tracker's injected now default; a host that wants host-time decay passes it")
     }
@@ -305,7 +313,7 @@ class WallClockAllowlistTest {
         "anchor", "body", "builder", "capability", "cloud", "cognition", "cognitive",
         "continuity", "emotion", "failure", "humancore", "identity", "language",
         "latency", "memory", "model", "onefriday", "policy", "resolution",
-        "resource", "selfreconfig", "social", "termux", "threads", "trace"
+        "resource", "selfreconfig", "social", "threads", "trace"
     )
 
     /**

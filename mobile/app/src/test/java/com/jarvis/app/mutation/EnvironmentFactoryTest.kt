@@ -131,7 +131,6 @@ class EnvironmentFactoryTest {
         val root = tmpDir()
         val factory = EnvironmentFactory(FailureSurface(), root)
         factory.registerBackend("process", StubBackend("process"))
-        factory.registerBackend("termux", StubBackend("termux"))
-        assertEquals(setOf("process", "termux"), factory.backendNames())
+        assertEquals(setOf("process"), factory.backendNames())
     }
 }

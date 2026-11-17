@@ -5,13 +5,13 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Remote HTTP binding (spec §2.30) — polls an HF-Space `/api/status`-class
- * endpoint on the I/O lane and caches the last-known-good [RawCoreState], so
+ * Remote HTTP runtime binding (optional research adapter) — polls an HF-Space `/api/status`-class
+ * endpoint on the I/O lane and caches the last-known-good [FridayRuntimeSnapshot], so
  * [read] never blocks the caller (spec §2.30: remote-binding network calls
  * must never block the render thread; last-known-good used on any stall).
  *
  * ## Phase 1 scope (plan §4.2 GAP rows)
- * The remote endpoint's exact field names are a spec §4 open item. This
+ * The remote endpoint's exact field names remain provider-specific. This
  * binding therefore accepts an injectable [fetchJson] (returns the raw JSON
  * status body) and a [parseJson] (maps it to [RawCoreState]). Defaults:
  * - [fetchJson] performs an HTTP GET against [endpointUrl] via the injected
@@ -22,12 +22,12 @@ import java.util.concurrent.atomic.AtomicLong
  *   Companion Core does.
  *
  * ## Parity (audit M-8)
- * Both bindings implement the same [HumanCoreBinding] interface and both
+ * Both bindings implement the same [FridayRuntimeBinding] interface and both
  * produce [RawCoreState]; the parity test feeds equivalent state to a mock
  * local snapshot and a mock remote payload and asserts identical
  * [com.jarvis.app.companioncore.contract.CompanionSignal] output.
  */
-class RemoteHumanCoreBinding(
+class RemoteFridayRuntimeBinding(
     private val endpointUrl: String = DEFAULT_ENDPOINT_URL,
     private val httpGet: (String) -> String? = { url ->
         try {
@@ -36,19 +36,19 @@ class RemoteHumanCoreBinding(
             null
         }
     },
-    private val parseJson: (String) -> RawCoreState = ::parseStatusJson,
+    private val parseJson: (String) -> FridayRuntimeSnapshot = ::parseStatusJson,
     private val refreshIntervalMs: Long = DEFAULT_REFRESH_INTERVAL_MS,
     private val nowMs: () -> Long = { System.currentTimeMillis() }
-) : HumanCoreBinding {
+) : FridayRuntimeBinding {
 
-    override val label: String = "remote"
+    override val label: String = "remote-friday-runtime"
     override val schemaVersion: Int = SCHEMA_VERSION
 
     private val executor = Executors.newSingleThreadScheduledExecutor { r ->
         Thread(r, "companioncore-remote-binding").apply { isDaemon = true }
     }
 
-    @Volatile private var lastKnownGood: RawCoreState = RawCoreState.empty(nowMs())
+    @Volatile private var lastKnownGood: FridayRuntimeSnapshot = RawCoreState.empty(nowMs())
     @Volatile private var healthy: Boolean = false
     private val lastRefreshMs = AtomicLong(0L)
 
@@ -70,7 +70,7 @@ class RemoteHumanCoreBinding(
     }
 
     /** Never blocks: returns the cached last-known-good (empty until first poll). */
-    override fun read(): RawCoreState = lastKnownGood
+    override fun read(): FridayRuntimeSnapshot = lastKnownGood
 
     override fun isHealthy(): Boolean = healthy
 
@@ -88,7 +88,7 @@ class RemoteHumanCoreBinding(
          * optional; unknown fields are ignored; absent emotion fields map to
          * null (→ neutral), never a fabricated default.
          */
-        fun parseStatusJson(body: String): RawCoreState {
+        fun parseStatusJson(body: String): FridayRuntimeSnapshot {
             val obj = org.json.JSONObject(body)
             fun optDouble(key: String): Double? =
                 if (obj.has(key) && !obj.isNull(key)) obj.getDouble(key) else null
@@ -103,7 +103,7 @@ class RemoteHumanCoreBinding(
                 }.getOrNull()
             }
 
-            return RawCoreState(
+            return FridayRuntimeSnapshot(
                 ts = optLong("ts") ?: System.currentTimeMillis(),
                 moodValence = optDouble("valence"),
                 moodArousal = optDouble("arousal"),
@@ -115,10 +115,14 @@ class RemoteHumanCoreBinding(
                 lastUserSignals = emptyMap(),
                 presenceModeName = optString("presence_mode"),
                 currentActionRaw = rawAction,
-                bridgeStatus = null,
+                bridgeStatus = optString("bridge_status"),
                 lastUtteranceText = optString("last_utterance_text"),
                 fabricationEvidence = obj.optBoolean("fabrication_flag", false)
             )
         }
     }
 }
+
+/** Transitional adapter name; this class parses Friday runtime evidence only. */
+@Deprecated("Use RemoteFridayRuntimeBinding.")
+typealias RemoteHumanCoreBinding = RemoteFridayRuntimeBinding

@@ -9,9 +9,9 @@ import kotlin.io.walkTopDown
 /**
  * Build-time dependency-graph lint (spec §2.30 Testing, audit R-I6) as a JVM
  * test: scans the Companion Core main source tree and enforces the §2.30
- * choke point — NO Companion Core module outside the integration set may
- * import Human Core internals — plus the sole-writer discipline (only
- * `HumanCoreIntegration` owns a `MutableStateFlow<CompanionSignal>`).
+ * boundary — no Companion Core module may import the quarantined Human Core —
+ * plus the sole-writer discipline (only `FridayRuntimeIntegration` owns a
+ * `MutableStateFlow<CompanionSignal>`).
  *
  * This is a source-scan, not a review checklist: it reads the actual `.kt`
  * files under `src/main/java/com/jarvis/app/companioncore` and fails the
@@ -19,20 +19,12 @@ import kotlin.io.walkTopDown
  */
 class DependencyLintTest {
 
-    /** The §2.30 integration set — the only files permitted to import HC. */
-    private val allowedHcFiles = setOf(
-        "HumanCoreIntegration.kt",
-        "LocalHumanCoreBinding.kt"
-    )
-
     @Test
     fun `no companion core subsystem imports human core internals`() {
         val files = companionCoreSources()
         assertTrue("no Companion Core sources found — check path resolution", files.isNotEmpty())
 
-        val violations = files.filter { file ->
-            file.name !in allowedHcFiles && containsHcImport(file)
-        }
+        val violations = files.filter(::containsHcImport)
 
         assertTrue(
             "Companion Core subsystems bypass the §2.30 choke point: " +
@@ -46,15 +38,15 @@ class DependencyLintTest {
         val files = companionCoreSources()
         // The flow's element type is inferred (no explicit <CompanionSignal>),
         // so match the initializer pattern: a MutableStateFlow producing a
-        // CompanionSignal. Only HumanCoreIntegration may declare one.
+        // CompanionSignal. Only FridayRuntimeIntegration may declare one.
         val writers = files.filter { file ->
             Regex("MutableStateFlow[^\\n]*CompanionSignal").containsMatchIn(file.readText()) ||
                 Regex("StateFlow<CompanionSignal>").containsMatchIn(file.readText())
         }
         assertTrue(
-            "sole-writer discipline violated; only HumanCoreIntegration may own " +
+            "sole-writer discipline violated; only FridayRuntimeIntegration may own " +
                 "the CompanionSignal flow: ${writers.joinToString { it.name }}",
-            writers.map { it.name } == listOf("HumanCoreIntegration.kt")
+            writers.map { it.name } == listOf("FridayRuntimeIntegration.kt")
         )
     }
 
@@ -70,7 +62,7 @@ class DependencyLintTest {
 
     private fun containsHcImport(file: File): Boolean {
         val text = file.readText()
-        // import com.jarvis.app.humancore or a fully-qualified humancore usage.
+        // import of the quarantined legacy package is prohibited in production.
         return text.contains("import com.jarvis.app.humancore") ||
             text.contains("com.jarvis.app.humancore.")
     }

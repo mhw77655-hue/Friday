@@ -1,5 +1,6 @@
 package com.jarvis.app.evolution
 
+import com.jarvis.app.cognitive.capability.CapabilityFabric
 import com.jarvis.app.failure.FailureCategory
 import com.jarvis.app.failure.FailureReport
 import com.jarvis.app.failure.FailureSeverity
@@ -16,9 +17,9 @@ import com.jarvis.app.microsystem.MicroSystemRegistry
  *   1. unregister the promoted organism (it is no longer callable),
  *   2. archive the promoted genome as REJECTED — never deleted, the failure is
  *      preserved in the archive (§14),
- *   3. restore the previous current-best genome (if any) as HEALTHY and repoint
- *      the Genome Registry; the previous organism, if it is still registered,
- *      becomes the live implementation again,
+ *   3. restore the complete previous capability index (not just one pointer) and
+ *      current-best genome as HEALTHY; previously registered organisms remain
+ *      callable,
  *   4. report the rollback on the canonical failure surface (WARNING).
  *
  * Rolling back never destroys evolutionary history: the rejected genome and
@@ -28,11 +29,13 @@ class RollbackController(
     private val registry: MicroSystemRegistry,
     private val archive: GenomeArchive,
     private val genomeRegistry: GenomeRegistry,
-    private val failureSurface: FailureSurface
+    private val failureSurface: FailureSurface,
+    private val cognitiveCapabilityFabric: CapabilityFabric? = null
 ) {
 
     suspend fun rollback(receipt: PromotionReceipt, reason: String): RollbackResult {
         // 1. the promoted organism is no longer callable
+        cognitiveCapabilityFabric?.unregister(receipt.systemId)
         registry.unregister(receipt.systemId)
 
         // 2. the promoted genome is archived REJECTED (history preserved)
@@ -42,9 +45,17 @@ class RollbackController(
         }
 
         // 3. restore the previous current-best, if there was one
-        val restoredGenome = receipt.rollbackPoint?.previousGenomeId?.let { archive.get(it) }
-        if (restoredGenome != null) {
-            archive.put(restoredGenome.copy(healthState = GenomeHealth.HEALTHY))
+        val rollbackPoint = receipt.rollbackPoint
+        val previousCapabilityIndex = rollbackPoint?.previousCapabilityGenomeIds.orEmpty()
+            .mapNotNull { (capability, genomeId) ->
+                archive.get(genomeId)?.let { capability to it.copy(healthState = GenomeHealth.HEALTHY) }
+            }.toMap()
+        val restoredGenome = rollbackPoint?.previousGenomeId?.let { archive.get(it)?.copy(healthState = GenomeHealth.HEALTHY) }
+        if (previousCapabilityIndex.isNotEmpty()) {
+            previousCapabilityIndex.values.forEach(archive::put)
+            genomeRegistry.restoreBestByCapability(previousCapabilityIndex, restoredGenome)
+        } else if (restoredGenome != null) {
+            archive.put(restoredGenome)
             genomeRegistry.setCurrentBest(restoredGenome)
         } else {
             genomeRegistry.setCurrentBest(null)

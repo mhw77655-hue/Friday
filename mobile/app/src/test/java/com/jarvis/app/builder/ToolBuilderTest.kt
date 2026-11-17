@@ -1,13 +1,20 @@
 package com.jarvis.app.builder
 
+import com.jarvis.app.cognitive.capability.CapabilityFabric
+import com.jarvis.app.cognitive.execution.ActionRequest
+import com.jarvis.app.cognitive.immune.ImmuneSystem
 import com.jarvis.app.evolution.Behavior
 import com.jarvis.app.evolution.RollbackController
 import com.jarvis.app.failure.FailureCategory
 import com.jarvis.app.failure.FailureSurface
 import com.jarvis.app.genome.GenomeArchive
+import com.jarvis.app.genome.GenomeBuilder
 import com.jarvis.app.genome.GenomeHealth
 import com.jarvis.app.genome.GenomeRegistry
 import com.jarvis.app.humancore.store.FileStorage
+import com.jarvis.app.model.GenerateRequest
+import com.jarvis.app.model.GenerateResult
+import com.jarvis.app.mutation.LlmSynthesisProvider
 import com.jarvis.app.microsystem.MicroSystemRegistry
 import com.jarvis.app.nervous.GlobalNervousSystem
 import com.jarvis.app.research.universal.UniversalResearchEngine
@@ -150,6 +157,114 @@ class ToolBuilderTest {
         assertFalse(h.gns.hasCapability("reverse_words"))
         assertFalse(h.registry.has(result.providerId!!))
         h.scope.cancel()
+    }
+
+    @Test
+    fun `production composition uses Friday model to synthesize a custom capability`() = runBlocking {
+        val root = tmpDir()
+        val scope = CoroutineScope(Dispatchers.IO)
+        val response = """
+            ```synth
+            # capability: word_count
+            words = split(trim(text), " ")
+            result = size(words)
+            TEST two_words | input text="hello world" | expect result=2
+            TEST missing_input | input | error undefined variable 'text'
+            ```
+        """.trimIndent()
+        var modelCalls = 0
+        val provider = LlmSynthesisProvider(complete = { _: GenerateRequest ->
+            modelCalls++
+            GenerateResult(content = response)
+        })
+        val cognitiveFabric = CapabilityFabric(ImmuneSystem(surface = FailureSurface()))
+        val stack = ToolBuilderComposition.build(
+            research = UniversalResearchEngine(),
+            failureSurface = FailureSurface(),
+            fileStorage = FileStorage(root),
+            scope = scope,
+            workspacesDir = File(root, "workspaces"),
+            llmSynthesisProvider = provider,
+            cognitiveCapabilityFabric = cognitiveFabric
+        )
+
+        val priorGenome = GenomeBuilder("prior-existing-tool")
+            .capability("existing_tool")
+            .build()
+            .copy(healthState = com.jarvis.app.genome.GenomeHealth.HEALTHY)
+        stack.archive.put(priorGenome)
+        stack.genomeRegistry.register(priorGenome)
+
+        val spec = ToolSpecification(
+            capability = "word_count",
+            description = "count whitespace-separated words in text",
+            behavior = Behavior.Custom(capability = "word_count", port = "text", type = "String"),
+            constraints = listOf("pure function", "no side effects")
+        )
+        val result = stack.builder.build(spec)
+
+        assertTrue("build status=${result.status}; ${result.message}", result.built)
+        assertTrue("the live model-backed synthesizer must be called", modelCalls > 0)
+        val routed = stack.gns.route("word_count", mapOf("text" to "one two three"))
+        assertTrue("legacy nervous-system route failed: ${routed.lastError}", routed.success)
+        assertEquals(3.0, (routed.result?.data as? Map<*, *>)?.get("result"))
+
+        // The same promoted implementation is also exposed to the primary
+        // CognitiveEngine fabric; Friday does not build tools into a parallel,
+        // unreachable registry.
+        val cognitiveCall = cognitiveFabric.invoker.invoke(
+            ActionRequest(
+                planId = "self-build-integration",
+                stepId = "word-count",
+                action = "word_count",
+                description = "Count the words in the supplied text",
+                context = mapOf("text" to "one two three")
+            )
+        )
+        assertTrue("cognitive fabric could not invoke the promoted tool: ${cognitiveCall.resolution}", cognitiveCall.success)
+        assertEquals("3.0", cognitiveCall.result?.output?.get("result"))
+
+        val rolledBack = stack.rollback.rollback(
+            result.promotionReceipt
+                ?: error("a promoted build must retain its complete rollback receipt"),
+            "verify cognitive-fabric rollback"
+        )
+        assertTrue(rolledBack.success)
+        assertTrue(cognitiveFabric.registry.lookupByOperation("word_count").isEmpty())
+        assertTrue(
+            "rollback must preserve unrelated existing capability mappings",
+            "existing_tool" in stack.genomeRegistry.allBest()
+        )
+        scope.cancel()
+    }
+
+    @Test
+    fun `startup restores archived genome metadata but does not mistake it for an executable tool`() = runBlocking {
+        val root = tmpDir()
+        val storage = FileStorage(root)
+        val scope = CoroutineScope(Dispatchers.IO)
+        val archived = GenomeBuilder("archived-tool-genome")
+            .capability("archived_tool")
+            .build()
+            .copy(healthState = com.jarvis.app.genome.GenomeHealth.HEALTHY)
+        try {
+            GenomeArchive(storage, scope).put(archived)
+            Thread.sleep(250)
+            val stack = ToolBuilderComposition.build(
+                research = UniversalResearchEngine(),
+                failureSurface = FailureSurface(),
+                fileStorage = storage,
+                scope = scope,
+                workspacesDir = File(root, "workspaces")
+            )
+            assertEquals("archived-tool-genome", stack.genomeRegistry.bestFor("archived_tool")?.id)
+            val gap = CapabilityGapDetector(stack.registry, stack.genomeRegistry).detect("archived_tool")
+            assertTrue(gap.gap)
+            assertEquals("KNOWN_GOOD_ARTIFACT_MISSING", gap.status)
+            stack.scope.cancel()
+        } finally {
+            scope.cancel()
+        }
     }
 
     @Test

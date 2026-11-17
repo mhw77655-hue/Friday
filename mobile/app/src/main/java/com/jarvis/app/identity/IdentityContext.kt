@@ -105,7 +105,7 @@ class IdentityContext(
 
         // PERSON-RELATIONSHIP-MODEL-AND-CONFIDENTIALITY-FIREWALL AC3: the
         // firewall gate runs HERE, BEFORE the generation suffix below is
-        // assembled and long before HumanCore.express sees the reply — a
+        // assembled and before the response is delivered — a
         // confidential-to-one-person fact with no authorized-disclosure entry
         // for this interlocutor is blocked from ever reaching generation. The
         // firewall instance arrives ONLY via the gate's snapshot — never from
@@ -125,7 +125,7 @@ class IdentityContext(
             val id = selfModel.identity()
             val caps = selfModel.capabilities().take(8).joinToString(", ") { it.name }
             val lims = selfModel.limitations().take(4).joinToString(", ") { it.capabilityId }
-            "identity=${id.name} v${id.version}; capabilities: ${caps.ifBlank { "(none)" }}; " +
+            "identity=${id.name}${id.pronouns?.let { " (${it})" }.orEmpty()} v${id.version}; capabilities: ${caps.ifBlank { "(none)" }}; " +
                 "limitations: ${lims.ifBlank { "(none)" }}"
         } else {
             null

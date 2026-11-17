@@ -222,6 +222,22 @@ class ThreadObjectsTest {
             tracker.resurface_policy(2L, "El safar gamed awy").isEmpty())
     }
 
+    @Test
+    fun `a 72-hour fake-clock advance expires a stale open thought`() {
+        var now = 1_000L
+        val tracker = ThreadTracker(
+            minimumHoldTurns = 1,
+            maximumOpenTurns = 10,
+            minimumHoldMs = 0L,
+            maximumOpenMs = 48L * 60L * 60L * 1_000L,
+            now = { now }
+        )
+        tracker.ingestTurn(1L, THREE_THOUGHTS)
+        now += 72L * 60L * 60L * 1_000L
+        assertTrue("a thread older than its 48-hour decay window must not resurface",
+            tracker.resurface_policy(2L, "El safar gamed awy").isEmpty())
+    }
+
     // ── AC5 ───────────────────────────────────────────────────────────────
 
     @Test

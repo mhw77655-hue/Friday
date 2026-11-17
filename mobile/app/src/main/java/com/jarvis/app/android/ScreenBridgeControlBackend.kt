@@ -34,8 +34,7 @@ class ScreenBridgeControlBackend : ControlBackend {
         if (action.actionType != ActionType.SCREENSCAPE_SUMMARY) {
             return VerificationEvidence(VerificationStage.NOT_ATTEMPTED, id, "unsupported action ${action.actionType}")
         }
-        ScreenBridge.captureScreenSummary()
-        val text = ScreenBridge.lastScreenText.value
+        val text = ScreenBridge.captureScreenSummary()
         return if (text.isNotBlank() && text != "not bound") {
             VerificationEvidence(VerificationStage.VERIFIED, id, text.take(200))
         } else {

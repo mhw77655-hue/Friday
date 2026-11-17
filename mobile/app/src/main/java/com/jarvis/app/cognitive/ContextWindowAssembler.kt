@@ -60,7 +60,9 @@ class ContextWindowAssembler(
      * per-turn mental state as a claim instead of computing it through a named
      * estimator, and publishes the assembled window as a claim of its own.
      */
-    private val workspace: Workspace? = null
+    private val workspace: Workspace? = null,
+    /** Shared host clock for retrieval recency and context provenance. */
+    private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) {
     /**
      * A single turn in the assembled context window.
@@ -131,7 +133,7 @@ class ContextWindowAssembler(
 
         // Cross-session memories (optional)
         val crossSessionMems = if (blendedRetriever != null && currentTurnText.isNotBlank()) {
-            val retrieved = blendedRetriever.retrieve(currentTurnText, now = System.currentTimeMillis())
+            val retrieved = blendedRetriever.retrieve(currentTurnText, now = nowMs())
             // PERSON-RELATIONSHIP-MODEL-AND-CONFIDENTIALITY-FIREWALL AC3
             // galaxy seam: the SAME real closed-world gate that guards the
             // identity suffix ALSO gates this raw [RankedMemory] list — BEFORE
@@ -249,7 +251,7 @@ class ContextWindowAssembler(
                 },
                 confidence = 1.0,
                 sourceOrgan = SOURCE_ORGAN,
-                createdAt = System.currentTimeMillis(),
+                createdAt = nowMs(),
                 supersedes = ws.current(ClaimKind.CONTEXT_WINDOW)?.id
             )
         )

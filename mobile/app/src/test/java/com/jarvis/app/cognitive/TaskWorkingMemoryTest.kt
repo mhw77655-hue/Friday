@@ -114,7 +114,6 @@ class TaskWorkingMemoryTest {
             memoryStore = object : com.jarvis.app.body.MemoryStorePort {
                 override fun queryMemories(query: String, limit: Int) = emptyList<com.jarvis.app.body.MemoryItem>()
             },
-            humanCore = com.jarvis.app.humancore.HumanCore
         )
         val twm = engine.getTaskWorkingMemory()
         assertNotNull(twm)

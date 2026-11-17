@@ -20,70 +20,34 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.jarvis.app.body.BodyCoordinator
-import com.jarvis.app.body.BodyState
-import com.jarvis.app.body.VisualState
-import com.jarvis.app.companioncore.contract.PresenceMode
-import com.jarvis.app.companioncore.presence.CompanionCoreHolder
-import com.jarvis.app.companioncore.render.OrbRenderParams
-import com.jarvis.app.companioncore.resource.MobileResourceManagement
-import com.jarvis.app.companioncore.ui.PresenceOrb
-import com.jarvis.app.JarvisEngine
-import com.jarvis.app.ui.components.HorizonArc
 import com.jarvis.app.ui.components.pressScale
 import com.jarvis.app.ui.components.rememberCapabilitySnapshot
+import com.jarvis.app.JarvisMic
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flowOf
 
 /**
- * Home — the presence surface.
- *
- * The orb is driven entirely by the Companion Core (Phase 2): [PresenceOrb]
- * collects the Engine Tick Lane's resolved [OrbRenderParams] internally, so
- * 30Hz tick emissions never recompose this screen (audit R-P2). The label
- * below collects only the rarely-changing presence mode. The old
- * battery/network/brain → OrbState label chains that drove the orb
- * (`HomeViewModel`/`DiagnosticsViewModel`) are retired — the orb is state-
- * driven from the presence engine, not fabricated from collectors.
+ * Home — Friday's persistent visual embodiment. It is intentionally not
+ * gated by the model, body coordinator, or a finite presence-state enum.
+ * Optional voice telemetry may modulate the continuously evolving topology,
+ * but the visual identity remains present when those subsystems are absent.
  */
 @Composable
 fun HomeScreen(onOpenTools: () -> Unit) {
-    val core = remember { CompanionCoreHolder.instance() }
-    val bodySlot = com.jarvis.app.ui.EngineAccess.bodyCoordinator()
-    val bodyCoordinator = bodySlot.value
-    if (bodyCoordinator == null) {
-        com.jarvis.app.ui.WakingSurface(bodySlot.readiness)
-        return
-    }
-    val bodyState by bodyCoordinator.state.collectAsStateWithLifecycle()
-    val visualState by bodyCoordinator.visualState.collectAsStateWithLifecycle()
-
-    // Presence-orb input flow. MainActivity ensures the core is built before
-    // first composition; the static-idle fallback keeps this robust to any
-    // entry point that composes Home without the engine (e.g. previews/tests).
-    val orbParams = remember {
-        core?.renderParams ?: MutableStateFlow(OrbRenderParams.idle()).asStateFlow()
-    }
-
-    // Rarely-changing label source (mode changes on explicit transitions only).
-    val modeFlow = remember { core?.presenceMode ?: flowOf(PresenceMode.ASLEEP) }
-    val mode: PresenceMode by modeFlow.collectAsStateWithLifecycle(
-        initialValue = core?.currentPresenceMode ?: PresenceMode.ASLEEP
-    )
-
-    // §2.31 render-lane inputs (budget for fps pacing, suspension for
-    // background). Fallbacks are static-idle when the engine is absent.
-    val orbBudget = remember {
-        core?.budget ?: MutableStateFlow<MobileResourceManagement.ResourceBudget?>(null)
-    }
-    val orbSuspended = remember { core?.suspended ?: MutableStateFlow(false) }
+    val voiceSlot = com.jarvis.app.ui.EngineAccess.voiceOutputPath()
+    val voiceOutput = voiceSlot.value
+    val outputActive by (voiceOutput?.isSpeaking ?: flowOf(false)).collectAsStateWithLifecycle(initialValue = false)
+    val outputLevel by (voiceOutput?.audioLevel ?: flowOf(0f)).collectAsStateWithLifecycle(initialValue = 0f)
+    // Use the actual incoming microphone energy as well as outgoing PCM energy.
+    // The avatar responds to acoustic evidence, not a fixed listening/thinking/speaking pose.
+    val inputLevel by JarvisMic.lastLevel.collectAsStateWithLifecycle(initialValue = 0)
+    val acousticActivity = outputActive || inputLevel > 35
+    val acousticLevel = maxOf(outputLevel, (inputLevel / 120f).coerceIn(0f, 1f))
 
     val capsSnapshot by rememberCapabilitySnapshot()
-    val activeCount = remember(capsSnapshot) { capsSnapshot?.count { it.value } ?: 0 }
-    val totalCount = remember(capsSnapshot) { capsSnapshot?.size ?: 0 }
+    val enabledCount = remember(capsSnapshot) { capsSnapshot?.count { it.value } ?: 0 }
+    val manifestCount = remember(capsSnapshot) { capsSnapshot?.size ?: 0 }
 
     Column(
         modifier = Modifier
@@ -99,74 +63,30 @@ fun HomeScreen(onOpenTools: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            PresenceOrb(
-                params = orbParams,
-                size = 200.dp,
-                onFrameReport = { start, duration -> core?.reportFrame(start, duration) },
-                budget = orbBudget,
-                suspended = orbSuspended,
-                masterTimeOf = core?.let { c -> { n: Long -> c.masterElapsedNanos(n) } }
-                    ?: { n: Long -> n },
-                framePeriodNanos = core?.let { c -> { f: Double -> c.framePeriodNanos(f) } }
-                    ?: { f: Double -> if (f > 0.0) (1_000_000_000L / f).toLong() else 0L }
-            )
-            Spacer(modifier = Modifier.height(14.dp))
-            HorizonArc(
-                progress = if (totalCount > 0) activeCount.toFloat() / totalCount else 0f,
-                color = JarvisColors.CoreIdle
+            com.jarvis.app.ui.components.FridayAvatar(
+                size = 280.dp,
+                voiceActive = acousticActivity,
+                voiceLevel = acousticLevel,
+                morphologySeed = com.jarvis.app.JarvisEngine.fridayIndividual?.identity?.morphologySeed ?: 0L
             )
             Spacer(modifier = Modifier.height(14.dp))
             Text(
-                text = "JARVIS — ${presenceLabel(mode)}",
+                text = "FRIDAY",
                 style = JarvisType.Display,
-                textAlign = TextAlign.Center
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "Body: ${bodyStateLabel(bodyState)}",
-                style = JarvisType.Label.copy(color = JarvisColors.TextSecondary),
                 textAlign = TextAlign.Center
             )
         }
 
         CapabilitySummaryBar(
-            active = activeCount,
-            total = totalCount,
+            enabled = enabledCount,
+            total = manifestCount,
             onTap = onOpenTools
         )
     }
 }
 
-/** Readable label for the single presence mode (§2.1). */
-private fun presenceLabel(mode: PresenceMode): String = when (mode) {
-    PresenceMode.ASLEEP -> "asleep"
-    PresenceMode.WAKING -> "waking"
-    PresenceMode.IDLE -> "idle"
-    PresenceMode.LISTENING -> "listening"
-    PresenceMode.THINKING -> "thinking"
-    PresenceMode.SPEAKING -> "speaking"
-    PresenceMode.SHUTTING_DOWN -> "shutting down"
-}
-
-/** Readable label for body state. */
-private fun bodyStateLabel(state: BodyState): String = when (state) {
-    BodyState.IDLE -> "idle"
-    BodyState.WAKE -> "wake detected"
-    BodyState.LISTENING -> "listening"
-    BodyState.HEARING -> "processing speech"
-    BodyState.THINKING -> "thinking"
-    BodyState.RETRIEVING -> "retrieving memory"
-    BodyState.RESPONDING -> "preparing response"
-    BodyState.SPEAKING -> "speaking"
-    BodyState.INTERRUPTED -> "interrupted"
-    BodyState.LEARNING -> "learning"
-    BodyState.ERROR -> "error"
-    BodyState.USER_PRESENT -> "user present"
-    BodyState.USER_ABSENT -> "user absent"
-}
-
 @Composable
-private fun CapabilitySummaryBar(active: Int, total: Int, onTap: () -> Unit) {
+private fun CapabilitySummaryBar(enabled: Int, total: Int, onTap: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -176,9 +96,15 @@ private fun CapabilitySummaryBar(active: Int, total: Int, onTap: () -> Unit) {
             .padding(PaddingValues(horizontal = 16.dp, vertical = 16.dp)),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = "$active of $total capabilities active",
-            style = JarvisType.Body.copy(color = JarvisColors.TextSecondary)
-        )
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "$enabled of $total capability entries enabled",
+                style = JarvisType.Body.copy(color = JarvisColors.TextSecondary)
+            )
+            Text(
+                text = "Manifest flags are not proof of end-to-end operation",
+                style = JarvisType.Technical.copy(color = JarvisColors.TextSecondary)
+            )
+        }
     }
 }

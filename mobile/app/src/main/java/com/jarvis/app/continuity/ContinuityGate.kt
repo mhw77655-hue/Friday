@@ -44,7 +44,9 @@ class ContinuityGate(
     /** IDENTITY/EMOTION: per-turn mental-state hypothesis (ephemeral, never persisted). */
     private val mentalStateEstimator: UserMentalStateEstimator? = null,
     /** Maximum number of cross-session memories admitted into one snapshot. */
-    val maxCrossSessionMemories: Int = 5
+    val maxCrossSessionMemories: Int = 5,
+    /** Shared host clock for retrieval recency. */
+    private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) {
 
     enum class SignalKind {
@@ -189,7 +191,7 @@ class ContinuityGate(
         // BEFORE any node becomes a formatted `[Cross-session memory]` line.
         val crossSession: List<RankedMemory> =
             if (blendedRetriever != null && userText.isNotBlank()) {
-                val retrieved = blendedRetriever.retrieve(userText, now = System.currentTimeMillis())
+                val retrieved = blendedRetriever.retrieve(userText, now = nowMs())
                 val gated = confidentialityFirewall
                     ?.filterRankedMemoriesForInterlocutor(retrieved, interlocutor)
                     ?: retrieved

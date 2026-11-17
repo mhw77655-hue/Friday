@@ -1,7 +1,7 @@
 package com.jarvis.app.humancore.store
 
 /**
- * The five logical stores owned by the Human Core (§0.6).
+ * Logical stores owned by the Human Core (§0.6) plus isolated technical stores for app subsystems.
  *
  * Each store is independently persistable and independently recoverable
  * (§0.17, §0.11) — losing one must never cascade into another. The store is
@@ -26,6 +26,8 @@ enum class StoreKind(val fileName: String) {
     DIALOGUE("dialogue.jsonl"),
     /** Nervous-system failure history (JSONL, failure surface → disk). */
     FAILURES("failures.jsonl"),
+    /** Evolutionary genome history; isolated atomic snapshot, never dialogue JSONL. */
+    GENOME_ARCHIVE("genome_archive.json"),
     /** Cognitive continuity: consolidated memories with provenance and
      *  lifecycle state (survives process restart). */
     CONSOLIDATED_MEMORY("consolidated_memory.json"),

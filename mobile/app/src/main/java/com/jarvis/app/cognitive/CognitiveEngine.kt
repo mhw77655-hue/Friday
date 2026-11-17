@@ -9,8 +9,7 @@ import com.jarvis.app.failure.ContainmentStatus
 import com.jarvis.app.failure.DegradationLevel
 import com.jarvis.app.failure.FailureCause
 import com.jarvis.app.failure.FailureEvent
-import com.jarvis.app.humancore.HumanCore
-import com.jarvis.app.humancore.protocol.SessionContext
+import com.jarvis.app.turn.TurnContext
 import com.jarvis.app.model.ModelManager
 import com.jarvis.app.cognitive.capability.CapabilityExecutor
 import com.jarvis.app.cognitive.capability.CapabilityFabric
@@ -49,14 +48,12 @@ import java.util.concurrent.atomic.AtomicLong
  * This is the main entry point for cognitive processing.
  *
  * Dependencies: memory is consumed through [MemoryStorePort] (never the
- * Android-coupled concrete store) so the engine stays JVM-testable. [humanCore]
- * is the reserved integration point for a future Build — today the engine does
- * not call into it (no heavy runtime wiring yet).
+ * Android-coupled concrete store) so the engine stays JVM-testable. Friday's
+ * cognitive engine has no dependency on the quarantined Human Core.
  */
 class CognitiveEngine(
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO),
     private val memoryStore: MemoryStorePort,
-    private val humanCore: HumanCore,
     private val modelManager: ModelManager? = null,
     private val config: Config = Config(),
     private val goalPlanner: GoalPlanner = GoalPlanner(),
@@ -215,7 +212,11 @@ class CognitiveEngine(
      * names the other. Null keeps the pre-workspace behavior byte-for-byte (the
      * assembler simply has no workspace to publish into or read from).
      */
-    private val workspace: com.jarvis.app.cognition.workspace.Workspace? = null
+    private val workspace: com.jarvis.app.cognition.workspace.Workspace? = null,
+    /** Lightweight successor-state learning inside the same cognitive turn. */
+    private val expectationEngine: com.jarvis.app.prediction.ExpectationStateEngine? = null,
+    /** Shared host clock for durable timestamps and time-dependent cognition. */
+    private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) : PlanDriver {
 
     private val intentInference = IntentInference(scope)
@@ -230,7 +231,8 @@ class CognitiveEngine(
         salienceScorer,
         blendedRetriever = blendedRetriever,
         confidentialityFirewall = identityContext?.confidentialityFirewall,
-        workspace = workspace
+        workspace = workspace,
+        nowMs = nowMs
     )
     /**
      * CONTINUITY-GATE-ENFORCED-SEAM: the generation seam this engine balances.
@@ -246,7 +248,8 @@ class CognitiveEngine(
             personRelationshipModel = identityContext?.personRelationshipModel,
             confidentialityFirewall = identityContext?.confidentialityFirewall,
             blendedRetriever = blendedRetriever,
-            mentalStateEstimator = identityContext?.mentalStateEstimator
+            mentalStateEstimator = identityContext?.mentalStateEstimator,
+            nowMs = nowMs
         )
     private val attentionEngine = AttentionEngine(scope)
     private val contextBuilder = CognitiveContextBuilder(scope, continuity = continuity, modelContext = modelContext)
@@ -308,7 +311,8 @@ class CognitiveEngine(
          * context for this turn (formatted prompt suffix), when an
          * [IdentityContext] is wired. Null when Stage-03 identity is not wired.
          */
-        val identityContextSuffix: String? = null
+        val identityContextSuffix: String? = null,
+        val predictiveState: com.jarvis.app.prediction.SituationPrediction? = null
     )
 
     /**
@@ -318,7 +322,7 @@ class CognitiveEngine(
      */
     suspend fun process(
         userText: String,
-        sessionContext: SessionContext? = null,
+        sessionContext: TurnContext? = null,
         memoryItems: List<MemoryItem> = emptyList(),
         modelCall: (suspend (String) -> String)? = null,
         sendBlock: ((String) -> Unit)? = null,
@@ -328,20 +332,27 @@ class CognitiveEngine(
          * the ConfidentialityFirewall gate and per-person surfaces know which
          * interlocutor they are serving. Null means the owner (Venon).
          */
-        interlocutor: String? = null
+        interlocutor: String? = null,
+        /** Skip model wake/admission when Friday runs her local cognition alone. */
+        allowModelWake: Boolean = true
     ): CognitiveTurnResult {
         // TURN-TRACE stage timing: the "embed" stage is the input-understanding
         // phase — intent inference + the representational context built by
         // processInput (including its working-memory retrieval).
-        val embedStartMs = System.currentTimeMillis()
+        val embedStartNs = System.nanoTime()
         val cognitiveResult = processInput(userText, sessionContext)
-        val embedMs = System.currentTimeMillis() - embedStartMs
+        val embedMs = (System.nanoTime() - embedStartNs) / 1_000_000L
 
         // FORGET-PROPAGATION: an explicit forget/remember directive is routed
         // through the real propagation path BEFORE pronoun/clarification routing,
         // so a forget turn is never misrouted and never reaches the model bridge.
         val directiveResult = handleMemoryDirective(userText, cognitiveResult, embedMs)
-        if (directiveResult != null) return directiveResult
+        if (directiveResult != null) {
+            val broadForget = Regex("(?i)\\b(forget|erase|delete)\\b.*\\b(all|everything|entire history|all memories)\\b")
+                .containsMatchIn(userText)
+            if (broadForget) expectationEngine?.clearPerson(com.jarvis.app.identity.WorldModelService.USER_NODE_NAME)
+            return directiveResult
+        }
 
         // If pronoun resolution is ambiguous, short-circuit with NEEDS_CLARIFICATION
         if (cognitiveResult.pronounResolution.ambiguous) {
@@ -373,6 +384,12 @@ class CognitiveEngine(
         // task. A null/disabled tracker is a no-op (AC7).
         threadTracker?.ingestTurn(cognitiveResult.turnIndex, userText)
 
+        // THINKING-WITHOUT-THINKING: learn from coarse interaction state, not raw
+        // content. Owner history is not mixed with an explicitly named person.
+        val predictiveState = if (interlocutor == null) {
+            expectationEngine?.observeTurn(buildSituationState(userText, sessionContext))
+        } else null
+
         // Classify intent via LLM seam and route accordingly
         val intentCategory = classifyIntent(userText)
         val decision = intentToDecision(intentCategory)
@@ -384,7 +401,7 @@ class CognitiveEngine(
         // (resident vs ON_DEMAND_REASONING) can ride the snapshot as the
         // gate's MODEL_TIER contribution (CONTINUITY-GATE-ENFORCED-SEAM).
         val admissionOutcome =
-            if (decision == TurnDecision.DIRECT_REPLY && modelManager != null && cognitiveAdmissionPolicy != null) {
+            if (allowModelWake && decision == TurnDecision.DIRECT_REPLY && modelManager != null && cognitiveAdmissionPolicy != null) {
                 cognitiveAdmissionPolicy.serveTurn(cognitiveResult.finalState.uncertainty) {
                     modelManager.wake(
                         com.jarvis.app.model.OrganRole.REASONING,
@@ -422,7 +439,7 @@ class CognitiveEngine(
         // TURN-TRACE stage timing: the "retrieve" stage spans the gate snapshot,
         // the context-window assembly from it, and the identity gather-for-turn
         // — i.e. every retrieved-memory / context contribution to the payload.
-        val retrieveStartMs = System.currentTimeMillis()
+        val retrieveStartNs = System.nanoTime()
         val mentioned = cognitiveResult.intentResult.explicitIntent.entities
             .map { it.name }
         val selfReferential = userText.lowercase().matches(
@@ -474,7 +491,7 @@ class CognitiveEngine(
             } else {
                 null
             }
-        val retrieveMs = System.currentTimeMillis() - retrieveStartMs
+        val retrieveMs = (System.nanoTime() - retrieveStartNs) / 1_000_000L
 
         // Phase A Galaxy Memory write-back: a durable fact stated in a
         // DIRECT_REPLY turn is written to the graph store through the existing
@@ -508,14 +525,14 @@ class CognitiveEngine(
 
         // TURN-TRACE stage timing: the "prompt-build" stage is the single
         // generation-payload concatenation of the contributions assembled above.
-        val promptBuildStartMs = System.currentTimeMillis()
+        val promptBuildStartNs = System.nanoTime()
         val fullContextMessage = userText + galaxyContext + (identitySuffix ?: "") +
             buildThreadContext(cognitiveResult.turnIndex, userText)
-        val promptBuildMs = System.currentTimeMillis() - promptBuildStartMs
+        val promptBuildMs = (System.nanoTime() - promptBuildStartNs) / 1_000_000L
 
         // TURN-TRACE stage timing: the "generate" stage is the model call — the
         // synchronous reply through the bridge/sendWithContext/modelCall seam.
-        val generateStartMs = System.currentTimeMillis()
+        val generateStartNs = System.nanoTime()
         val responseText = when (decision) {
             TurnDecision.DIRECT_REPLY -> {
                 if (sendBlock != null) {
@@ -533,7 +550,7 @@ class CognitiveEngine(
             TurnDecision.PLAN -> null
             TurnDecision.NEEDS_CLARIFICATION -> null
         }
-        val generateMs = System.currentTimeMillis() - generateStartMs
+        val generateMs = (System.nanoTime() - generateStartNs) / 1_000_000L
 
         // REASONING-TIER-MODEL-GROUND-TRUTH-AND-WIRE turn teardown: the booked
         // reasoning handle was consumed by send() above when the generation went
@@ -554,7 +571,7 @@ class CognitiveEngine(
         if (reasoningWoken && modelManager != null) {
             modelManager.release(com.jarvis.app.model.OrganRole.REASONING)
         }
-        val postProcessMs = System.currentTimeMillis() - generateStartMs - generateMs
+        val postProcessMs = (System.nanoTime() - generateStartNs) / 1_000_000L - generateMs
 
         // TURN-TRACE: write one structured, append-only, local record for this
         // real production turn (AC1/AC2/AC3/AC4). Pure logging — the pre-trace
@@ -568,7 +585,13 @@ class CognitiveEngine(
             outputText = responseText,
             generationPayload = fullContextMessage,
             crossSessionMemories = galaxyMems.map { it.content },
-            stageTimingsMs = traceTimings(embedMs, retrieveMs, promptBuildMs, generateMs, postProcessMs)
+            stageTimingsMs = traceTimings(embedMs, retrieveMs, promptBuildMs, generateMs, postProcessMs),
+            predictions = predictiveState?.let {
+                listOf(com.jarvis.app.trace.TurnTrace.TracePrediction(
+                    description = "successor=${it.likelyNext}; baseline=${"%.3f".format(it.baselineConfidence)}; reflexEligible=${it.reflexEligible}",
+                    confidence = it.confidence
+                ))
+            } ?: emptyList()
         )
 
         return CognitiveTurnResult(
@@ -578,7 +601,8 @@ class CognitiveEngine(
             servedDegraded = admissionOutcome?.degraded,
             crossSessionMemories = if (blendedRetriever != null) galaxyMems else null,
             assembledMentalState = assembledMentalState,
-            identityContextSuffix = identitySuffix
+            identityContextSuffix = identitySuffix,
+            predictiveState = predictiveState
         )
     }
 
@@ -587,6 +611,43 @@ class CognitiveEngine(
      * enabled. Null/disabled ⇒ no-op — the trace file provably stays the same
      * size across the turn (AC5 negative control).
      */
+    private fun buildSituationState(
+        userText: String,
+        context: TurnContext?
+    ): com.jarvis.app.prediction.SituationState {
+        val trimmed = userText.trim()
+        val firstWord = trimmed.lowercase().split(Regex("\\s+")).firstOrNull().orEmpty()
+        val messageKind = when {
+            trimmed.endsWith("?") || firstWord in setOf("what", "why", "how", "when", "where", "who", "can", "could", "is", "are", "do", "does") -> "question"
+            firstWord in setOf("build", "create", "make", "write", "find", "search", "check", "show", "tell", "explain", "fix", "implement", "compare", "research") -> "request"
+            else -> "statement"
+        }
+        val wordCount = trimmed.split(Regex("\\s+")).count { it.isNotBlank() }
+        val lengthBucket = when {
+            wordCount <= 8 -> "short"
+            wordCount <= 35 -> "medium"
+            else -> "long"
+        }
+        val gapSeconds = context?.secondsSinceLastContact
+        val gapBucket = when {
+            gapSeconds == null -> "unknown"
+            gapSeconds < 300 -> "recent"
+            gapSeconds < 3600 -> "hour"
+            else -> "long"
+        }
+        return com.jarvis.app.prediction.SituationState(
+            personKey = com.jarvis.app.identity.WorldModelService.USER_NODE_NAME,
+            fields = mapOf(
+                "channel" to (context?.channel ?: "unknown"),
+                "hourBand" to (context?.localHour?.div(4)?.toString() ?: "unknown"),
+                "wasAway" to (context?.wasAway?.toString() ?: "unknown"),
+                "gapBand" to gapBucket,
+                "messageKind" to messageKind,
+                "lengthBand" to lengthBucket
+            )
+        )
+    }
+
     private fun recordTurnTrace(
         turnIndex: Long,
         inputText: String,
@@ -597,6 +658,7 @@ class CognitiveEngine(
         generationPayload: String?,
         crossSessionMemories: List<String>,
         stageTimingsMs: Map<String, Long>,
+        predictions: List<com.jarvis.app.trace.TurnTrace.TracePrediction> = emptyList(),
         // FORGET-PROPAGATION (AC6): when true the text-bearing fields are
         // blanked AT WRITE so the forget turn's own trace never carries the
         // forgotten content — the record still exists, with id, turn index,
@@ -605,16 +667,16 @@ class CognitiveEngine(
     ) {
         val store = turnTraceStore ?: return
         if (!store.enabled) return
-        val recordId = "turn-${turnIndex}-${System.currentTimeMillis()}"
+        val recordId = "turn-${turnIndex}-${nowMs()}"
         store.append(
             TurnTraceRecord(
                 id = recordId,
                 turnIndex = turnIndex,
-                timestampMs = System.currentTimeMillis(),
+                timestampMs = nowMs(),
                 inputText = if (redactText) "" else inputText,
                 decision = decision.name,
                 retrievedMemoryIds = retrievedMemoryIds,
-                predictions = emptyList(),
+                predictions = predictions,
                 promptSections = if (redactText) promptSections.map { it.copy(preview = "") } else promptSections,
                 outputText = if (redactText) null else outputText,
                 generationPayload = if (redactText) null else generationPayload,
@@ -673,7 +735,7 @@ class CognitiveEngine(
             predicate = WRITEBACK_PREDICATE,
             `object` = assertion,
             source = "live-turn",
-            validFrom = System.currentTimeMillis()
+            validFrom = nowMs()
         )
         store.recordSignals(
             nodeId,
@@ -760,21 +822,20 @@ class CognitiveEngine(
     data class Config(
         val autoPopulateWorkingMemory: Boolean = true,
         val autoPopulateAttention: Boolean = true,
-        val syncWithHumanCore: Boolean = true,
         val maxContextTokens: Int = 2048
     )
 
     /** Process a user input through the full cognitive cycle */
     suspend fun processInput(
         userText: String,
-        sessionContext: SessionContext? = null
+        sessionContext: TurnContext? = null
     ): CognitiveResult {
         val turnIndex = turnCounter.incrementAndGet()
 
         // 1. Update cognitive state with new turn
         var state = _cognitiveState.value.copyWith(
             turnIndex = turnIndex,
-            timestamp = System.currentTimeMillis(),
+            timestamp = nowMs(),
             sessionContext = sessionContext
         )
 
@@ -914,10 +975,10 @@ class CognitiveEngine(
 
         // Also add current user input as context memory
         val contextItem = MemoryItem(
-            id = "ctx_${System.currentTimeMillis()}",
+            id = "ctx_${nowMs()}",
             type = MemoryType.CONTEXT,
             content = "User: $userText",
-            timestamp = System.currentTimeMillis(),
+            timestamp = nowMs(),
             tags = listOf("context", "user", "current"),
             relevance = 0.9f
         )
@@ -937,7 +998,7 @@ class CognitiveEngine(
     ) {
         // User input - high salience, urgency
         attentionEngine.submit(AttentionItem(
-            id = "attn_input_${System.currentTimeMillis()}",
+            id = "attn_input_${nowMs()}",
             content = "User said: $userText",
             source = AttentionSource.USER_INPUT,
             salience = 0.9f,
@@ -948,7 +1009,7 @@ class CognitiveEngine(
 
         // Intent inference result
         attentionEngine.submit(AttentionItem(
-            id = "attn_intent_${System.currentTimeMillis()}",
+            id = "attn_intent_${nowMs()}",
             content = "Intent: ${intentResult.finalIntent.name} (conf: ${"%.2f".format(intentResult.confidence)})",
             source = AttentionSource.INTERNAL_REASONING,
             salience = 0.8f,
@@ -960,7 +1021,7 @@ class CognitiveEngine(
         // Ambiguity if present
         if (intentResult.ambiguity.isAmbiguous) {
             attentionEngine.submit(AttentionItem(
-                id = "attn_ambiguity_${System.currentTimeMillis()}",
+                id = "attn_ambiguity_${nowMs()}",
                 content = "Ambiguous intent: ${intentResult.ambiguity.primaryAmbiguity}",
                 source = AttentionSource.INTERNAL_REASONING,
                 salience = 0.7f,
@@ -973,7 +1034,7 @@ class CognitiveEngine(
         // Unknowns
         for (unknown in intentResult.unknowns.take(3)) {
             attentionEngine.submit(AttentionItem(
-                id = "attn_unknown_${System.currentTimeMillis()}_${unknown.type.ordinal}",
+                id = "attn_unknown_${nowMs()}_${unknown.type.ordinal}",
                 content = "Unknown: ${unknown.description}",
                 source = AttentionSource.INTERNAL_REASONING,
                 salience = 0.6f,
@@ -1199,7 +1260,7 @@ class CognitiveEngine(
             ?: throw IllegalStateException("No CapabilityFabric wired for runNext")
 
         // Build a single-node plan for this subgoal
-        val goalId = "task_${System.currentTimeMillis()}"
+        val goalId = "task_${nowMs()}"
         val node = com.jarvis.app.cognitive.planning.PlanNode(
             id = "${goalId}:s1",
             description = subgoal.description,
@@ -1611,9 +1672,27 @@ class CognitiveEngine(
         ) : CognitiveEvent
         data class StepFailed(val planId: String, val stepId: String, val cause: String?, val retryable: Boolean) : CognitiveEvent
         data class StepRetrying(val planId: String, val stepId: String, val attempt: Int, val nextAttempt: Int) : CognitiveEvent
-        data class StepBlocked(val planId: String, val stepId: String?, val blockedNodeIds: List<String>) : CognitiveEvent
+        data class StepBlocked(
+            val planId: String,
+            val stepId: String?,
+            val blockedNodeIds: List<String>,
+            val blockedBy: Map<String, List<String>> = emptyMap()
+        ) : CognitiveEvent
         data class ReplanTriggered(val planId: String, val failedNodeId: String, val cause: String) : CognitiveEvent
         data class PlanExecutionCompleted(val planId: String, val stepsCompleted: Int) : CognitiveEvent
+        data class PlanExecutionPartial(
+            val planId: String,
+            val stepsCompleted: Int,
+            val skippedStepIds: List<String>,
+            val skippedReasons: Map<String, String>,
+            val blockedNodeIds: List<String>,
+            val blockedBy: Map<String, List<String>>
+        ) : CognitiveEvent
+        data class PlanExecutionSkipped(
+            val planId: String,
+            val skippedStepIds: List<String>,
+            val skippedReasons: Map<String, String>
+        ) : CognitiveEvent
         data class PlanExecutionFailed(val planId: String, val cause: String?, val stepsCompleted: Int) : CognitiveEvent
         data class PlanExecutionCancelled(val planId: String) : CognitiveEvent
 

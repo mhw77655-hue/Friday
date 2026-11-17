@@ -5,8 +5,8 @@ import android.os.Build
 import android.os.BatteryManager
 import android.os.PowerManager
 import com.jarvis.app.companioncore.engine.CompanionClock
-import com.jarvis.app.companioncore.engine.HumanCoreIntegration
-import com.jarvis.app.companioncore.engine.LocalHumanCoreBinding
+import com.jarvis.app.companioncore.engine.FridayRuntimeIntegration
+import com.jarvis.app.companioncore.engine.FridayLocalRuntimeBinding
 import com.jarvis.app.companioncore.render.AnimationController
 import com.jarvis.app.companioncore.render.OrbStateMachine
 import com.jarvis.app.companioncore.resource.MobileResourceManagement
@@ -56,7 +56,10 @@ object CompanionCoreHolder {
         // Principle 4 / Hard Invariant 5, audit F5).
         val nowEpoch = { clock.nowEpochMs() }
         val built = CompanionCore(
-            integration = HumanCoreIntegration(LocalHumanCoreBinding(), nowMs = nowEpoch),
+            integration = FridayRuntimeIntegration(
+                FridayLocalRuntimeBinding(nowMs = nowEpoch),
+                nowMs = nowEpoch
+            ),
             presenceEngine = PresenceEngine(nowMs = nowEpoch),
             orbStateMachine = OrbStateMachine(),
             animationController = AnimationController(clock),

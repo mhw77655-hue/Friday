@@ -13,6 +13,7 @@ import com.jarvis.app.cognition.workspace.RecordedTurns
 import com.jarvis.app.cognition.workspace.ReplayCheck
 import com.jarvis.app.cognition.workspace.Workspace
 import com.jarvis.app.cognitive.CognitiveEngine
+import com.jarvis.app.cognitive.seed.FridayIndividual
 import com.jarvis.app.cognitive.capability.CapabilityFabric
 import com.jarvis.app.cognitive.immune.ImmuneSystem
 import com.jarvis.app.continuity.ContinuityGate
@@ -24,11 +25,6 @@ import com.jarvis.app.failure.FailureSeverity
 import com.jarvis.app.failure.FailureSurface
 import com.jarvis.app.failure.Recoverability
 import com.jarvis.app.failure.RecoveryAction
-import com.jarvis.app.humancore.HumanCore
-import com.jarvis.app.humancore.pipeline.PerceptionResult
-import com.jarvis.app.humancore.protocol.SessionContext
-import com.jarvis.app.humancore.protocol.StyledResponse
-import com.jarvis.app.identity.HumanCoreIdentitySource
 import com.jarvis.app.identity.IdentityContext
 import com.jarvis.app.identity.MentalStateHypothesis
 import com.jarvis.app.identity.PersonaTuner
@@ -44,6 +40,8 @@ import com.jarvis.app.memory.EmbeddingProvider
 import com.jarvis.app.memory.MemoryGraphStore
 import com.jarvis.app.memory.MemoryImportanceScorer
 import com.jarvis.app.memory.SignalSplitScorer
+import com.jarvis.app.prediction.ExpectationStateEngine
+import com.jarvis.app.prediction.JsonFileExpectationStore
 import com.jarvis.app.model.CognitiveAdmissionPolicy
 import com.jarvis.app.model.ModelBackend
 import com.jarvis.app.model.ModelManager
@@ -55,22 +53,16 @@ import com.jarvis.app.resolution.CapabilityMemoryIndex
 import com.jarvis.app.resolution.FuzzyCommandResolver
 import com.jarvis.app.social.ConfidentialityFirewall
 import com.jarvis.app.social.PersonRelationshipModel
-import com.jarvis.app.voice.VoiceForgeBackend
-import com.jarvis.app.voice.VoiceForgeConfig
 
 /**
  * ONE-2-COMPOSITION: the ONE composition root for the turn path.
  *
- * Before this there were two. The phone built one Friday inside
- * `JarvisEngine.init`; the Termux/plain-JVM host built a second, different one
- * inside `TermuxJarvisServer` — same organs on paper, different behaviour in
- * practice: the JVM host stubbed the legacy Human Core's three turn calls to
- * no-ops, reported an all-clear resource snapshot, and skipped the emotion tier
- * on the per-turn mental-state reading. Evidence gathered on one did not speak
- * for the other, which is the deviation VISION.md Section 12 discloses.
+ * A plain-JVM harness exists only in test sources to exercise this same root
+ * with deterministic doubles. It is not a product host and is never packaged
+ * in Friday. Android is the only production host.
  *
  * This class builds the turn path ONCE. Everything that decides a cognitive
- * outcome is decided here, for every host:
+ * outcome is decided here for Friday's Android production runtime:
  *
  *   storage dir / device reading / clock / speech sinks / stores -> [PlatformPorts]
  *   claim workspace, memory, identity, emotion, social, continuity,
@@ -85,8 +77,8 @@ import com.jarvis.app.voice.VoiceForgeConfig
  * pipelines and permanent cognitive ownership.
  *
  * Not an ORGAN (no cognitive role, per Section 4). A composition root is the
- * order of construction, and it is replaceable: both hosts construct this exact
- * class, so replacing it replaces both.
+ * order of construction. Desktop tests may assemble this same root with test
+ * doubles, but AndroidPlatformPorts is the only production adapter.
  */
 class TurnPathAssembly private constructor(
     /** The claim store every migrated organ publishes into and reads from. */
@@ -118,47 +110,87 @@ class TurnPathAssembly private constructor(
     val replayCheck: ReplayCheck?,
     val memoryStore: MemoryStorePort,
     val backend: ModelBackend,
-    val voiceForgeBackend: VoiceForgeBackend,
     val resourceGovernor: ResourceGovernor,
     val modelManager: ModelManager,
     val cognitiveAdmissionPolicy: CognitiveAdmissionPolicy,
     val anchorEngine: AnchorEngine,
     val engine: CognitiveEngine,
-    /** The turn entry point, wired over the ports and the real Human Core. */
+    /** Persistent app-local individual identity and model-free seed. */
+    val individual: FridayIndividual,
+    /** Friday's turn entry point, wired from the shared cognitive engine and platform ports. */
     val pipeline: LatencyPipeline,
-    /** The legacy Human Core turn facade this Friday speaks through. */
-    val humanCoreTurnPort: HumanCoreTurnPort,
     /** The adapter this Friday was built from. */
     val ports: PlatformPorts
 ) {
 
+    /**
+     * Stable, open-key fingerprint of the cognitive composition this root owns.
+     * Platform-supplied leaves are intentionally excluded: their concrete
+     * implementations are recorded separately by [platformFingerprint].
+     *
+     * Life Tests persist this map in evidence packs so a model or host change
+     * cannot silently make two scenarios exercise different compositions.
+     */
+    val componentFingerprint: Map<String, String> = linkedMapOf(
+        "workspace" to workspace.javaClass.name,
+        "retriever" to retriever.javaClass.name,
+        "signalScorer" to signalScorer.javaClass.name,
+        "worldModel" to worldModel.javaClass.name,
+        "userProfile" to userProfile.javaClass.name,
+        "mentalStateEstimator" to mentalStateEstimator.javaClass.name,
+        "emotionFusion" to emotionFusion.javaClass.name,
+        "selfModel" to selfModel.javaClass.name,
+        "personaTuner" to personaTuner.javaClass.name,
+        "identityContext" to identityContext.javaClass.name,
+        "personRelationshipModel" to personRelationshipModel.javaClass.name,
+        "confidentialityFirewall" to confidentialityFirewall.javaClass.name,
+        "capabilityFabric" to capabilityFabric.javaClass.name,
+        "capabilityRouter" to capabilityRouter.javaClass.name,
+        "fuzzyCommandResolver" to fuzzyCommandResolver.javaClass.name,
+        "capabilityMemoryIndex" to capabilityMemoryIndex.javaClass.name,
+        "cloudModelRouter" to cloudModelRouter.javaClass.name,
+        "dialectDetector" to dialectDetector.javaClass.name,
+        "continuityGate" to continuityGate.javaClass.name,
+        "changeLog" to changeLog.javaClass.name,
+        "continuityLaw" to continuityLaw.javaClass.name,
+        "replayCheck" to (replayCheck?.javaClass?.name ?: "absent"),
+        "resourceGovernor" to resourceGovernor.javaClass.name,
+        "modelManager" to modelManager.javaClass.name,
+        "cognitiveAdmissionPolicy" to cognitiveAdmissionPolicy.javaClass.name,
+        "anchorEngine" to anchorEngine.javaClass.name,
+        "engine" to engine.javaClass.name,
+        "individual" to individual.javaClass.name,
+        "pipeline" to pipeline.javaClass.name,
+    )
+
+    /** Concrete host-provided leaves, kept separate from root-owned cognition. */
+    val platformFingerprint: Map<String, String> = linkedMapOf(
+        "ports" to ports.javaClass.name,
+        "failureSurface" to failureSurface.javaClass.name,
+        "graphStore" to graphStore.javaClass.name,
+        "embeddingProvider" to embeddingProvider.javaClass.name,
+        "memoryStore" to memoryStore.javaClass.name,
+        "backend" to backend.javaClass.name,
+        "capabilityRegistry" to capabilityRegistry.javaClass.name
+    )
+
     companion object {
 
-        /** The local model host both platforms talk to today. */
+        /** The local model endpoint configured by the Android app today. */
         const val OLLAMA_HOST: String = "127.0.0.1:8080"
 
-        /** The resident model both platforms load today. */
+        /** The resident model configured by the Android app today. */
         const val RESIDENT_MODEL: String = "jarvis-resident:latest"
 
         /**
          * Build the whole turn path for [ports].
          *
          * There is exactly ONE ModelManager, ONE ResourceGovernor and ONE
-         * LatencyPipeline per Friday, and both hosts get them from here — that
-         * sameness is the whole point, since the two old compositions differed
-         * in exactly this wiring.
+         * LatencyPipeline per Friday. The Android app obtains all three from
+         * this root; test fixtures may assemble it without becoming product hosts.
          */
         fun assemble(ports: PlatformPorts): TurnPathAssembly {
             val stores = ports.stores()
-
-            // ── The legacy Human Core, exactly as the app wires it ─────────────
-            // Quarantined scaffolding (VISION.md Section 12): constructed here so
-            // every host reaches the same singleton, and called below through
-            // the real facade on every host. Nothing is added to it.
-            HumanCore.init(
-                storage = ports.humanCoreStorage(),
-                memorySink = ports.humanCoreMemorySink()
-            )
 
             // ── Memory substrate: real store, real scorer, real retrieval ──────
             val graphStore = stores.graphStore()
@@ -166,7 +198,8 @@ class TurnPathAssembly private constructor(
             val retriever = BlendedMemoryRetriever(
                 graphStore,
                 embeddingProvider,
-                MemoryImportanceScorer(embeddingProvider = embeddingProvider)
+                MemoryImportanceScorer(embeddingProvider = embeddingProvider, nowMs = { ports.nowMs() }),
+                nowMs = { ports.nowMs() }
             )
             val signalScorer = SignalSplitScorer(embeddingProvider)
             val capabilityMemoryIndex = CapabilityMemoryIndex(graphStore)
@@ -175,20 +208,20 @@ class TurnPathAssembly private constructor(
             val workspace = InMemoryWorkspace()
 
             // ── Identity: self, user, world, persona ──────────────────────────
-            val worldModel = WorldModelService(graphStore, retriever)
+            val worldModel = WorldModelService(graphStore, retriever, nowMs = { ports.nowMs() })
             val userProfile = UserProfile(worldModel)
             val personaTuner = PersonaTuner(worldModel)
             val stageHistory = PrdStageHistorySource(
                 listOf(ports.storageDir.resolve("ralph/prd.json").absolutePath)
             )
             val selfModel = SelfModel(
-                identitySource = HumanCoreIdentitySource(),
+                identitySource = ports.identitySource(),
                 capabilityRegistry = stores.capabilityRegistry(),
                 stageHistory = stageHistory
             )
 
             // ── Emotion: the Tier-1 reader feeds the ONE estimator seam ────────
-            // One estimator, one hypothesis per turn, for every host. The emotion
+            // One estimator and one hypothesis per turn in the Android runtime. The emotion
             // reading rides the existing identity path instead of opening a
             // second one.
             val emotionFusion = FusionLayerTier1()
@@ -250,14 +283,11 @@ class TurnPathAssembly private constructor(
                 // LAUNCH-OLLAMA-DOWN: an absent model server is a typed gap that
                 // is announced once per down-episode on the ONE failure surface,
                 // and the recovery is recorded when the server answers again.
-                failureSurface = failureSurface
+                failureSurface = failureSurface,
+                workloadOutcomeRecorder = { organ, succeeded, latencyMs, peakMemoryMb ->
+                    ports.recordWorkloadOutcome(organ, succeeded, latencyMs, peakMemoryMb)
+                }
             )
-            // The legacy Human Core's model port reads this at call time, so
-            // binding it here is enough. It is a dependency direction (this root
-            // -> legacy port), never the reverse.
-            com.jarvis.app.humancore.mod.ModelBackend.requestChat = { messages, maxTokens, timeoutMs ->
-                modelManager.requestChat(messages, maxTokens, timeoutMs)
-            }
             val cognitiveAdmissionPolicy = CognitiveAdmissionPolicy()
             val anchorEngine = AnchorEngine(modelManager, cognitiveAdmissionPolicy)
 
@@ -297,15 +327,31 @@ class TurnPathAssembly private constructor(
                 personRelationshipModel = personRelationshipModel,
                 confidentialityFirewall = confidentialityFirewall,
                 blendedRetriever = retriever,
-                mentalStateEstimator = mentalStateEstimator
+                mentalStateEstimator = mentalStateEstimator,
+                nowMs = { ports.nowMs() }
             )
+
+            // ── Predictive state: compact JEPA-inspired successor learning ───────
+            val expectationEngine = ExpectationStateEngine(
+                JsonFileExpectationStore(ports.storageDir.resolve("cognition/expectation_state.json")),
+                clock = { ports.nowMs() }
+            )
+
+            // ── Friday's model-independent seed ─────────────────────────────────
+            // This local experience substrate belongs to the app, not to any
+            // model backend. It remains available when all optional models are
+            // absent and persists under app-private storage across restarts.
+            val individual = FridayIndividual(
+                directory = ports.storageDir.resolve("friday"),
+                nowMs = { ports.nowMs() }
+            )
+            val modelFreeMind = individual.expression
 
             // ── The cognitive engine: the one route a turn takes ───────────────
             val memoryStore = stores.memoryStore()
             val engine = CognitiveEngine(
                 scope = ports.modelScope(),
                 memoryStore = memoryStore,
-                humanCore = HumanCore,
                 modelManager = modelManager,
                 cognitiveAdmissionPolicy = cognitiveAdmissionPolicy,
                 blendedRetriever = retriever,
@@ -319,15 +365,15 @@ class TurnPathAssembly private constructor(
                 provenanceLedger = stores.provenanceLedger(),
                 memoryForgetter = ports.memoryForgetter(),
                 signalScorer = signalScorer,
-                workspace = workspace
+                workspace = workspace,
+                expectationEngine = expectationEngine,
+                nowMs = { ports.nowMs() }
             )
 
             // ── The entry point ────────────────────────────────────────────────
-            // Wired identically for every host: the real Human Core facade, the
-            // host's speech/UI sinks, and the host's clock. The JVM host used to
-            // hand this constructor three no-op lambdas; it now gets the same
-            // calls the phone gets.
-            val humanCoreTurnPort = HumanCoreTurnPort()
+            // Friday's single cognitive engine produces the reply. This layer
+            // only schedules the turn, transports the input/output, and records
+            // its trace; no legacy fixed-pass authority surrounds her reasoning.
             val pipeline = LatencyPipeline(
                 dispatch = { block -> ports.runTurnWork(block) },
                 scheduleDelayed = { ms, block -> ports.runLater(ms, block) },
@@ -360,14 +406,13 @@ class TurnPathAssembly private constructor(
                     }
                 },
                 bridgeStatus = { modelManager.status.value },
-                beginExchange = { text, context -> humanCoreTurnPort.beginExchange(text, context) },
-                express = { reply, context -> humanCoreTurnPort.express(reply, context) },
-                completeExchange = { userText, reply, styled, ts, perception ->
-                    humanCoreTurnPort.completeExchange(userText, reply, styled, ts, perception)
-                },
                 sessionContext = { ports.sessionContext() },
                 nowMs = { ports.nowMs() },
-                cognitiveEngine = engine
+                cognitiveEngine = engine,
+                modelFreeReply = modelFreeMind::respond,
+                modelAvailable = { ports.hasLanguageModel(modelManager) },
+                experienceObserver = modelFreeMind::observe,
+                outcomeObserver = modelFreeMind::observeOutcome
             )
 
             return TurnPathAssembly(
@@ -399,25 +444,20 @@ class TurnPathAssembly private constructor(
                 replayCheck = replayCheck,
                 memoryStore = memoryStore,
                 backend = backend,
-                voiceForgeBackend = VoiceForgeBackend(
-                    synthesizer = stores.voiceSynthesizer(),
-                    audioPromptPath = VoiceForgeConfig.DEFAULT_ASSET_PATH
-                ),
                 resourceGovernor = resourceGovernor,
                 modelManager = modelManager,
                 cognitiveAdmissionPolicy = cognitiveAdmissionPolicy,
                 anchorEngine = anchorEngine,
                 engine = engine,
+                individual = individual,
                 pipeline = pipeline,
-                humanCoreTurnPort = humanCoreTurnPort,
                 ports = ports
             )
         }
 
         /**
-         * The real local-model backend, over the shared local Ollama host. The
-         * phone and the JVM host both reach a local model the same way; the phone
-         * passes its process Context in through its own adapter instead.
+         * Legacy local-model adapter retained for explicit tests/tools. The
+         * Android production path uses ProcessIsolatedModelBackend instead.
          */
         fun localModelBackend(
             host: String = OLLAMA_HOST,
@@ -429,31 +469,4 @@ class TurnPathAssembly private constructor(
             return OllamaModelBackend(adapter)
         }
     }
-}
-
-/**
- * ONE-2-COMPOSITION: the legacy Human Core's turn facade, as this Friday speaks
- * through it.
- *
- * A port, not a mechanism: it adds nothing to [HumanCore] and decides nothing.
- * It exists so the three turn calls the entry pipeline makes are one named,
- * inspectable seam instead of three lambdas written separately per host — which
- * is exactly how the JVM host ended up with no-ops no test could see.
- */
-class HumanCoreTurnPort(
-    private val humanCore: HumanCore = HumanCore
-) {
-    fun beginExchange(userText: String, context: SessionContext?): PerceptionResult? =
-        humanCore.beginExchange(userText, context)
-
-    fun express(reasoningReply: String, context: SessionContext?): StyledResponse =
-        humanCore.express(reasoningReply, context)
-
-    fun completeExchange(
-        userText: String,
-        reasoningReply: String,
-        styled: StyledResponse,
-        ts: Long,
-        perception: PerceptionResult?
-    ) = humanCore.completeExchange(userText, reasoningReply, styled, ts, perception)
 }

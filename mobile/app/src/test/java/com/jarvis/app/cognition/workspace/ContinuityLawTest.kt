@@ -79,8 +79,8 @@ class ContinuityLawTest {
     )
 
     private fun coreIdentity(): CoreIdentity = CoreIdentity(
-        name = "JARVIS",
-        version = 1,
+        name = com.jarvis.app.identity.SeededFridayIdentitySource.name(),
+        version = com.jarvis.app.identity.SeededFridayIdentitySource.version(),
         userNodeName = com.jarvis.app.identity.WorldModelService.USER_NODE_NAME
     )
 
@@ -357,7 +357,10 @@ class ContinuityLawTest {
         )
         assertTrue(
             "the drift must carry the human-authored expectation that broke",
-            verdict.drifts.any { it.expected == "JARVIS" && it.actual == "HAL-9000" }
+            verdict.drifts.any {
+                it.expected == com.jarvis.app.identity.SeededFridayIdentitySource.name() &&
+                    it.actual == "HAL-9000"
+            }
         )
     }
 
@@ -409,9 +412,8 @@ class ContinuityLawTest {
         // The fixture is only evidence if its expectations describe THIS
         // repository's real identity, so the source of each one is asserted
         // rather than assumed.
-        val fallback = com.jarvis.app.humancore.fallback.FallbackIdentity.record
-        val expectedName = fallback.name
-        val expectedVersion = fallback.version.toString()
+        val expectedName = com.jarvis.app.identity.SeededFridayIdentitySource.name()
+        val expectedVersion = com.jarvis.app.identity.SeededFridayIdentitySource.version().toString()
         val expectedUser = com.jarvis.app.identity.WorldModelService.USER_NODE_NAME
         val facts = replayCheck().replay().render(firstTurnId())!!.identityFacts
         assertEquals(expectedName, facts["identity:name"])

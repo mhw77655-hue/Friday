@@ -74,16 +74,24 @@ class EngineReadinessGate {
      * Typed accessor returning an [EngineSlot]. Never throws.
      */
     fun <T : Any> slot(provider: () -> T?): EngineSlot<T> {
-        val s = _state.value
-        return if (s is EngineReadinessState.Ready) {
-            val v = runCatching { provider() }.getOrNull()
-            if (v != null) {
-                EngineSlot(EngineReadinessState.Ready, v)
+        val state = _state.value
+        if (state !is EngineReadinessState.Ready) {
+            return EngineSlot.notReady(state)
+        }
+
+        return try {
+            val value = provider()
+            if (value != null) {
+                EngineSlot.ready(value)
             } else {
-                EngineSlot(s, null)
+                EngineSlot.notReady(
+                    EngineReadinessState.FailedToWake(
+                        IllegalStateException("Engine reported ready but the requested organ is unavailable")
+                    )
+                )
             }
-        } else {
-            EngineSlot(s, null)
+        } catch (failure: Throwable) {
+            EngineSlot.notReady(EngineReadinessState.FailedToWake(failure))
         }
     }
 

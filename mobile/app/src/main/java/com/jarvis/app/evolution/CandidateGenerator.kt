@@ -3,6 +3,7 @@ package com.jarvis.app.evolution
 import com.jarvis.app.genome.Genome
 import com.jarvis.app.mutant.AlgorithmSpec
 import com.jarvis.app.mutant.CandidateImplementation
+import kotlinx.coroutines.CancellationException
 
 /**
  * Multi-hybrid Candidate Generator (§6 — "divide and outperform").
@@ -18,6 +19,21 @@ import com.jarvis.app.mutant.CandidateImplementation
  */
 class CandidateGenerator(private val synthesizers: List<SpecSynthesizer>) {
 
+    private val failureLock = Any()
+    @Volatile private var synthesisFailures: List<String> = emptyList()
+
+    /** Failures from the most recent generation cycle, retained for diagnosis. */
+    fun lastFailures(): List<String> = synthesisFailures
+
+    /** Begin a fresh objective without discarding failures from the prior objective elsewhere. */
+    fun beginGeneration() {
+        synchronized(failureLock) { synthesisFailures = emptyList() }
+    }
+
+    private fun recordFailure(message: String) {
+        synchronized(failureLock) { synthesisFailures = synthesisFailures + message }
+    }
+
     /** Every strategy flavor that participated in the last generation. */
     val strategies: List<AlgorithmSpec.Strategy> get() = synthesizers.map { it.strategy }.distinct()
 
@@ -27,9 +43,12 @@ class CandidateGenerator(private val synthesizers: List<SpecSynthesizer>) {
             if (!synth.canHandle(genome, requirement)) return@mapNotNull null
             val impl = try {
                 synth.synthesize(genome, requirement)
-            } catch (t: Throwable) {
-                // A failed synthesis is a loud miss — the caller sees no
-                // candidate for this strategy rather than a silent gap.
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                // Preserve the failure as evidence. A missing candidate must
+                // never look like a synthesizer that was not even attempted.
+                recordFailure("${synth.name}: ${failure.javaClass.simpleName}: ${failure.message.orEmpty()}")
                 return@mapNotNull null
             }
             GeneratedCandidate(
@@ -41,8 +60,8 @@ class CandidateGenerator(private val synthesizers: List<SpecSynthesizer>) {
             )
         }
 
-    fun canGenerateAny(requirement: CapabilityRequirement): Boolean =
-        synthesizers.any { BehaviorSynthesizer.supports(requirement.behavior) }
+    fun canGenerateAny(genome: Genome, requirement: CapabilityRequirement): Boolean =
+        synthesizers.any { it.canHandle(genome, requirement) }
 }
 
 /** One independent candidate: the child genome + its executable implementation. */

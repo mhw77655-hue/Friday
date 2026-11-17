@@ -34,6 +34,27 @@ object VoiceModelManifest {
         latencyMs = 350
     )
 
+
+    /** Piper VITS Amy Low — compact, speed-first English US voice for phone CPU inference. */
+    val piperEnglishAmyLow = VoiceModelEntry(
+        id = "piper-en-us-amy-low",
+        providerId = "piper",
+        displayName = "Piper English US (Amy · Low)",
+        languages = setOf("en"),
+        sizeMb = 64,
+        expectedRamMb = 128,
+        expectedCpuPercent = 18.0,
+        downloadUrl = "$BASE_URL/vits-piper-en_US-amy-low.tar.bz2",
+        archiveFileName = "vits-piper-en_US-amy-low.tar.bz2",
+        modelFile = "en_US-amy-low.onnx",
+        tokensFile = "tokens.txt",
+        voicesFile = "",
+        speakerCount = 1,
+        quality = com.jarvis.app.voice.provider.VoiceQuality.MEDIUM,
+        startupCostMs = 2_500,
+        latencyMs = 180
+    )
+
     /** kokoro-en-v0_19 (fp32) — slightly higher quality, ~3x the download. */
     val kokoroEnFp32 = kokoroEnInt8.copy(
         id = "kokoro-en-v0_19",
@@ -63,7 +84,64 @@ object VoiceModelManifest {
         latencyMs = 400
     )
 
-    val ALL: List<VoiceModelEntry> = listOf(kokoroEnInt8, kokoroEnFp32, kokoroMultiLangInt8)
+    /**
+     * Nabra-82M Arabic int8 Kokoro pack. Offline Arabic speech, but MSA rather
+     * than Egyptian dialect; use as a truthful local Arabic baseline.
+     * Archive SHA-256: e7c644fabb1529190de9a2f7d6044f88c26bf6d9b717ad41ef5d2b748e01459b.
+     */
+    val nabraArabicInt8 = VoiceModelEntry(
+        id = "nabra-82m-arabic-int8",
+        providerId = "sherpa-arabic",
+        displayName = "Nabra Arabic (int8 · MSA)",
+        languages = linkedSetOf("ar-EG", "ar"),
+        sizeMb = 85,
+        expectedRamMb = 190,
+        expectedCpuPercent = 28.0,
+        downloadUrl = "$BASE_URL/nabra-82m-arabic-int8.tar.bz2",
+        archiveFileName = "nabra-82m-arabic-int8.tar.bz2",
+        modelFile = "model.int8.onnx",
+        tokensFile = "tokens.txt",
+        voicesFile = "voices.bin",
+        speakerCount = 1,
+        quality = com.jarvis.app.voice.provider.VoiceQuality.HIGH,
+        startupCostMs = 4_000,
+        latencyMs = 500,
+        archiveSha256 = "e7c644fabb1529190de9a2f7d6044f88c26bf6d9b717ad41ef5d2b748e01459b"
+    )
+
+    /**
+     * Pocket TTS int8 — offline English zero-shot voice cloning from a WAV
+     * reference. No transcript is required. The ~99MB pack is downloaded only
+     * when a reference voice is actually used; it is never bundled or preloaded.
+     */
+    val pocketTtsEnInt8 = VoiceModelEntry(
+        id = "pocket-tts-int8-en-2026-01-26",
+        providerId = "pocket",
+        displayName = "Pocket TTS English (int8 · reference cloning)",
+        languages = setOf("en"),
+        sizeMb = 150,
+        expectedRamMb = 512,
+        expectedCpuPercent = 35.0,
+        downloadUrl = "$BASE_URL/sherpa-onnx-pocket-tts-int8-2026-01-26.tar.bz2",
+        archiveFileName = "sherpa-onnx-pocket-tts-int8-2026-01-26.tar.bz2",
+        modelFile = "lm_flow.int8.onnx",
+        tokensFile = "vocab.json",
+        voicesFile = "token_scores.json",
+        speakerCount = 1,
+        quality = com.jarvis.app.voice.provider.VoiceQuality.HIGH,
+        startupCostMs = 12_000,
+        latencyMs = 1_200,
+        archiveSha256 = "2f3b88823cbbb9bf0b2477ec8ae7b3fec417b3a87b6bb5f256dba66f2ad967cb",
+        requiredFiles = listOf(
+            "lm_main.int8.onnx",
+            "encoder.onnx",
+            "decoder.int8.onnx",
+            "text_conditioner.onnx",
+            "vocab.json",
+            "token_scores.json"
+        )
+    )
+    val ALL: List<VoiceModelEntry> = listOf(piperEnglishAmyLow, kokoroEnInt8, kokoroEnFp32, kokoroMultiLangInt8, nabraArabicInt8, pocketTtsEnInt8)
 
     fun byId(id: String): VoiceModelEntry? = ALL.firstOrNull { it.id == id }
 }
@@ -89,5 +167,9 @@ data class VoiceModelEntry(
     val speakerCount: Int,
     val quality: com.jarvis.app.voice.provider.VoiceQuality,
     val startupCostMs: Long,
-    val latencyMs: Long
+    val latencyMs: Long,
+    /** Optional SHA-256 of the downloaded archive, verified before extraction. */
+    val archiveSha256: String? = null,
+    /** Additional files required by multi-graph TTS packs. */
+    val requiredFiles: List<String> = emptyList()
 )

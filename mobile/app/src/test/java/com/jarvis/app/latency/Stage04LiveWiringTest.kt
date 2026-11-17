@@ -4,7 +4,6 @@ import com.jarvis.app.body.MemoryItem
 import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.cognitive.CognitiveEngine
 import com.jarvis.app.cognitive.UserModel
-import com.jarvis.app.humancore.HumanCore
 import com.jarvis.app.model.CognitiveAdmissionPolicy
 import com.jarvis.app.model.FakeModelBackend
 import com.jarvis.app.model.FakeResourceSnapshot
@@ -89,7 +88,6 @@ class Stage04LiveWiringTest {
         val engine = CognitiveEngine(
             scope = CoroutineScope(Dispatchers.IO),
             memoryStore = EmptyMemoryStore(),
-            humanCore = HumanCore,
             modelManager = modelManager,
             cognitiveAdmissionPolicy = policy
         )
@@ -99,9 +97,6 @@ class Stage04LiveWiringTest {
             scheduleDelayed = { _, _ -> },
             bridgeSend = { sentThroughBridge++ },
             bridgeStatus = { "idle" },
-            beginExchange = { _, _ -> null },
-            express = { reply, _ -> com.jarvis.app.humancore.protocol.StyledResponse.Approved(reply) },
-            completeExchange = { _, _, _, _, _ -> },
             sessionContext = { null },
             cognitiveEngine = engine
         )

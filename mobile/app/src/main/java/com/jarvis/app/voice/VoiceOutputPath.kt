@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.RandomAccessFile
+import kotlin.math.sqrt
 
 private const val TAG = "VoiceOutputPath"
 
@@ -46,8 +47,26 @@ class VoiceOutputPath(
     private val _isSpeaking = MutableStateFlow(false)
     val isSpeaking: StateFlow<Boolean> = _isSpeaking.asStateFlow()
 
+    // Normalized RMS from the PCM window currently reaching AudioTrack. This is
+    // presentation telemetry, not speech recognition or a phoneme/viseme claim.
+    private val _audioLevel = MutableStateFlow(0f)
+    val audioLevel: StateFlow<Float> = _audioLevel.asStateFlow()
+
     @Volatile private var cancelled = false
+    @Volatile private var nativePlaybackActive = false
     private var job: Job? = null
+
+    init {
+        // The legacy fallback queues TTS asynchronously. Mirror its actual
+        // playback callback state rather than the speak() enqueue call.
+        fallback?.let { fallbackPath ->
+            scope.launch {
+                fallbackPath.isSpeaking.collect { active ->
+                    if (!nativePlaybackActive) _isSpeaking.value = active
+                }
+            }
+        }
+    }
 
     /** Speak [text] through the habitat, per sentence, with legacy fallback. */
     fun speak(text: String, language: String? = null, voiceId: String? = null, vocabulary: VocabularyStore? = null) {
@@ -61,9 +80,16 @@ class VoiceOutputPath(
             try {
                 for (segment in segment(text)) {
                     if (cancelled) break
-                    val spoken = habitatSpeak(segment, lang, voiceId ?: profile.preferredVoice, profile, vocabulary)
-                    if (!spoken && fallback != null) {
-                        runCatching { fallback.speakStreaming(segment, vocabulary ?: emptyVocabulary()) }
+                    // Route Arabic-script segments to the offline Arabic model even
+                    // when the saved default profile language is English.
+                    val segmentLanguage = if (containsArabic(segment)) "ar-EG" else lang
+                    val spoken = habitatSpeak(segment, segmentLanguage, voiceId ?: profile.preferredVoice, profile, vocabulary)
+                    if (!spoken && fallback != null && profile.referenceAudioPath.isNullOrBlank()) {
+                        // Never silently substitute a different voice after the
+                        // owner explicitly selected Friday's reference identity.
+                        fallback.speakStreaming(segment, vocabulary ?: emptyVocabulary())
+                    } else if (!spoken && !profile.referenceAudioPath.isNullOrBlank()) {
+                        Log.w(TAG, "Reference voice synthesis failed; refusing to substitute an unrelated voice")
                     }
                 }
             } catch (e: Throwable) {
@@ -71,7 +97,10 @@ class VoiceOutputPath(
             } finally {
                 // Only this utterance may clear the speaking flag — an earlier
                 // cancelled job must not stomp the current one's state.
-                if (job === this) _isSpeaking.value = false
+                if (job === this) {
+                    _isSpeaking.value = false
+                    _audioLevel.value = 0f
+                }
             }
         }
         job = myJob
@@ -80,6 +109,9 @@ class VoiceOutputPath(
     /** Stop playback and ask the habitat to cancel in-flight synthesis. */
     fun interrupt() {
         cancelled = true
+        nativePlaybackActive = false
+        _isSpeaking.value = false
+        _audioLevel.value = 0f
         runCatching { host.cancelVoice() }
         runCatching { fallback?.interrupt() }
         job?.cancel()
@@ -103,7 +135,8 @@ class VoiceOutputPath(
             speechRate = profile.speechRate,
             pitch = profile.pitch,
             pronunciationHints = pronunciationHintsOf(segment, vocabulary),
-            utteranceId = "utter_${System.currentTimeMillis()}"
+            utteranceId = "utter_${System.currentTimeMillis()}",
+            referenceAudioPath = profile.referenceAudioPath
         )
         val audio = withContext(Dispatchers.IO) {
             host.synthesizeText(
@@ -145,9 +178,20 @@ class VoiceOutputPath(
         return try {
             track.write(pcm, 0, pcm.size)
             track.play()
+            nativePlaybackActive = true
+            _isSpeaking.value = true
+            val bytesPerFrame = channels.coerceAtLeast(1) * 2
+            val totalFrames = pcm.size / bytesPerFrame
+            val windowFrames = (sampleRate / 25).coerceAtLeast(1)
             while (track.playState == AudioTrack.PLAYSTATE_PLAYING && !cancelled) {
+                val playedFrames = track.playbackHeadPosition.coerceAtLeast(0).coerceAtMost(totalFrames)
+                val firstFrame = (playedFrames - windowFrames).coerceAtLeast(0)
+                val firstByte = firstFrame * bytesPerFrame
+                val endByte = playedFrames * bytesPerFrame
+                _audioLevel.value = pcmWindowLevel(pcm, firstByte, endByte)
                 Thread.sleep(20)
             }
+            _audioLevel.value = 0f
             runCatching { track.stop() }
             true
         } catch (e: Throwable) {
@@ -155,6 +199,9 @@ class VoiceOutputPath(
             false
         } finally {
             runCatching { track.release() }
+            nativePlaybackActive = false
+            _isSpeaking.value = fallback?.isSpeaking?.value ?: false
+            _audioLevel.value = 0f
         }
     }
 
@@ -196,9 +243,12 @@ class VoiceOutputPath(
 
     // ───────────────────────────────────────────────── segmentation + hints
 
+    private fun containsArabic(text: String): Boolean =
+        text.any { it in '\u0600'..'\u06FF' || it in '\u0750'..'\u077F' || it in '\u08A0'..'\u08FF' }
+
     private fun segment(text: String): List<String> =
         text.trim()
-            .split(Regex("(?<=[.!?。！？])\\s+|\\n+"))
+            .split(Regex("(?<=[.!?。！？؟؛،])\\s+|\\n+"))
             .map { it.trim() }
             .filter { it.isNotEmpty() }
 
@@ -212,4 +262,24 @@ class VoiceOutputPath(
     }
 
     private fun emptyVocabulary(): VocabularyStore = VocabularyStore(context)
+}
+
+
+/** RMS amplitude for a little-endian PCM16 byte window, normalized for UI motion. */
+internal fun pcmWindowLevel(pcm: ByteArray, startByte: Int, endByte: Int): Float {
+    val start = startByte.coerceIn(0, pcm.size).let { if (it % 2 == 0) it else it - 1 }
+    val end = endByte.coerceIn(start, pcm.size).let { if (it % 2 == 0) it else it - 1 }
+    if (end <= start) return 0f
+    var sumSquares = 0.0
+    var count = 0
+    var index = start
+    while (index + 1 < end) {
+        val sample = (((pcm[index + 1].toInt() shl 8) or (pcm[index].toInt() and 0xFF))).toShort().toInt()
+        val normalized = sample / 32768.0
+        sumSquares += normalized * normalized
+        count++
+        index += 2
+    }
+    if (count == 0) return 0f
+    return (sqrt(sumSquares / count) * 3.5).toFloat().coerceIn(0f, 1f)
 }

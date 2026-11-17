@@ -13,14 +13,10 @@ import com.jarvis.app.voice.JarvisSpeechRecognizer
 import com.jarvis.app.voice.PlatformHotwordSupportPort
 import com.jarvis.app.voice.PlatformSpeechRecognizerPort
 import com.jarvis.app.latency.LatencyLayer
-import com.jarvis.app.humancore.HumanCore
-import com.jarvis.app.humancore.protocol.SessionContext
-import com.jarvis.app.humancore.protocol.StyledResponse
-import com.jarvis.app.humancore.protocol.Exchange
-import com.jarvis.app.humancore.protocol.IntegrationContext
-import com.jarvis.app.humancore.mod.MemoryInterface
-import com.jarvis.app.companioncore.engine.HumanCoreIntegration
+import com.jarvis.app.companioncore.engine.FridayRuntimeIntegration
 import com.jarvis.app.model.ModelManager
+import com.jarvis.app.body.LanguageRouter
+import com.jarvis.app.voice.VoiceOutputPath
 import com.jarvis.app.model.OrganRole
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.runBlocking
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -44,21 +41,22 @@ import java.util.concurrent.ConcurrentHashMap
 private const val TAG = "BodyCoordinator"
 
 /**
- * The Nervous System Coordinator — central state machine for JARVIS communication body.
+ * Android interaction coordinator for microphone capture, platform speech
+ * recognition, playback interruption and presence events. Its finite
+ * transport lifecycle is an adapter for Android I/O only; it is not Friday's
+ * identity, cognition, personality or model of inner life.
  *
- * Single-threaded via a dedicated executor; deterministic behavior.
+ * Event handling is serialized on a dedicated executor.
  */
 class BodyCoordinator(
     private val context: Context,
     private val modelManager: ModelManager,
-    private val humanCore: HumanCore,
-    private val companionIntegration: HumanCoreIntegration,
     private val languageRouter: LanguageRouter,
-    private val memoryStore: MemoryStore,
+    private val companionIntegration: FridayRuntimeIntegration,
     private val failureSurface: com.jarvis.app.failure.FailureSurface,
     private val recoveryController: com.jarvis.app.failure.RecoveryController,
     private val scope: CoroutineScope,
-    private val cognitiveEngine: com.jarvis.app.cognitive.CognitiveEngine? = null
+    private val phoneDecisionTool: com.jarvis.app.voice.FridayPhoneDecisionTool? = null
 ) {
 
     // ── State ──
@@ -71,9 +69,6 @@ class BodyCoordinator(
     private val _conversationContext = MutableStateFlow(ConversationContext())
     val conversationContext: StateFlow<ConversationContext> = _conversationContext.asStateFlow()
 
-    private val _lastRetrievedMemory = MutableStateFlow<List<MemoryItem>>(emptyList())
-    private val _lastUserText = MutableStateFlow<String>("")
-    private val _lastStyled = MutableStateFlow<StyledResponse?>(null)
     private val _turnIndex = AtomicLong(0)
     private val _sessionStartMs = System.currentTimeMillis()
 
@@ -88,6 +83,29 @@ class BodyCoordinator(
     private var tts: JarvisTts? = null
     private var ttsRetryCount = 0
     private var modelRetryCount = 0
+    private val phoneActionPlanner by lazy {
+        com.jarvis.app.voice.PhoneActionPlanner(modelManager)
+    }
+    private val phoneCommandOrchestrator by lazy {
+        com.jarvis.app.voice.PhoneCommandOrchestrator(
+            decisionTool = {
+                phoneDecisionTool ?: com.jarvis.app.voice.FridayPhoneDecisionTool { utterance, description, risk ->
+                    val key = com.jarvis.app.voice.JevApiKeyStore(context).read()
+                    if (key == null) null else {
+                        com.jarvis.app.voice.JevDecisionClient(
+                            com.jarvis.app.voice.JevApiKeyProvider { key }
+                        ).judgePhoneAction(utterance, description, risk)
+                    }
+                }
+            },
+            remoteConfigured = { com.jarvis.app.voice.JevApiKeyStore(context).read() != null },
+            execute = { command ->
+                withContext(Dispatchers.Main.immediate) {
+                    com.jarvis.app.voice.PhoneCommandInterpreter.dispatch(command)
+                }
+            }
+        )
+    }
 
     /** Result of the always-on-hotword availability probe (AC1); drives the
      *  wake strategy. [HotwordAvailability.UNKNOWN]/[UNSUPPORTED] → the manual
@@ -99,16 +117,14 @@ class BodyCoordinator(
     val vocabularyStore: VocabularyStore
         get() = _vocabularyStore
 
-    // ── Memory subsystem ──
-    // memoryStore is injected (JarvisEngine owns the single process-wide
-    // instance); vocabulary store is internal to the body. The platform STT
-    // (Arabic-capable push-to-talk) surfaces failures to the nervous system.
+    // Vocabulary store is internal to the body; STT failures surface through
+    // the shared nervous-system failure surface.
     private val _vocabularyStore = VocabularyStore(context, scope,
         onFailure = { r -> failureSurface.report(r) })
 
     // ── Model lifecycle ──
-    private val modelIdleTimer = AtomicLong(0)
-    private val isModelWarm = AtomicBoolean(false)
+    private val reasoningLastUsedAtMs = AtomicLong(0)
+    private val isReasoningWarm = AtomicBoolean(false)
     private val executor = Executors.newSingleThreadExecutor { r ->
         Thread(r, "jarvis-body-coordinator").apply { isDaemon = true }
     }
@@ -120,11 +136,52 @@ class BodyCoordinator(
     private var currentUtteranceAudio: ShortArray? = null
 
     init {
-        // Start the event loop
+        // Start the event loop and mirror Friday's shared turn/output path.
         scope.launch { eventLoop() }
+        observeFridayReplies()
 
         // Initialize subsystems
         initializeSubsystems()
+    }
+
+    /**
+     * Reflect replies from Friday's one turn pipeline into the body activity
+     * state. The body never starts a second model request or post-processes
+     * reply content.
+     */
+    private fun observeFridayReplies() {
+        scope.launch {
+            var observedAssistantTurns = LatencyLayer.turns.value.count { it.fromJarvis }
+            LatencyLayer.turns.collect { turns ->
+                val assistantTurns = turns.filter { it.fromJarvis }
+                if (assistantTurns.size < observedAssistantTurns) {
+                    observedAssistantTurns = assistantTurns.size
+                }
+                if (assistantTurns.size > observedAssistantTurns) {
+                    assistantTurns.drop(observedAssistantTurns).forEach { turn ->
+                        if (turn.text.isNotBlank()) {
+                            _conversationContext.value = _conversationContext.value.copy(
+                                recentJarvisTexts = (_conversationContext.value.recentJarvisTexts + turn.text).takeLast(10)
+                            )
+                            emitEvent(BodyEvent.ResponseGenerated(turn.text))
+                            emitEvent(BodyEvent.ResponseChunk(turn.text, isFinal = true))
+                        }
+                    }
+                    observedAssistantTurns = assistantTurns.size
+                }
+            }
+        }
+    }
+
+    /** Attach the isolated voice output state to the body activity machine. */
+    fun attachVoiceOutput(output: VoiceOutputPath) {
+        scope.launch {
+            output.isSpeaking.collect { speaking ->
+                if (!speaking && _state.value == BodyState.SPEAKING) {
+                    emitEvent(BodyEvent.TtsEnd)
+                }
+            }
+        }
     }
 
     /** Initialize all voice subsystems and wire them. */
@@ -145,6 +202,7 @@ class BodyCoordinator(
             onStatusChanged = { s -> SpeechBridge.updateStatus(s) }
         )
         val sttAvailable = speechRecognizer?.isAvailable() ?: false
+        SpeechBridge.updateStatus(if (sttAvailable) "ready; waiting for an explicit listening request" else "unavailable")
         Log.i(TAG, "Platform STT: ${if (sttAvailable) "available" else "UNAVAILABLE"}")
         if (!sttAvailable) {
             // Honest degradation: no platform recognizer service installed, so
@@ -246,6 +304,32 @@ class BodyCoordinator(
         eventChannel.trySend(event)
     }
 
+    /**
+     * Toggle the Android microphone interaction without exposing the body's
+     * transport lifecycle as Friday's identity or inner state.
+     *
+     * A second tap ends recognition. A tap during output/processing interrupts
+     * the current interaction, resets the transport, and begins a fresh capture.
+     */
+    fun toggleListening() {
+        when (_state.value) {
+            BodyState.LISTENING, BodyState.WAKE, BodyState.HEARING -> {
+                speechRecognizer?.cancel()
+                emitEvent(BodyEvent.Reset)
+            }
+            BodyState.SPEAKING, BodyState.RESPONDING, BodyState.THINKING, BodyState.RETRIEVING -> {
+                emitEvent(BodyEvent.BargeIn(""))
+                emitEvent(BodyEvent.Reset)
+                emitEvent(BodyEvent.SpeechStart)
+            }
+            BodyState.IDLE -> emitEvent(BodyEvent.SpeechStart)
+            else -> {
+                emitEvent(BodyEvent.Reset)
+                emitEvent(BodyEvent.SpeechStart)
+            }
+        }
+    }
+
     /** Tag the in-flight turn so failures during it correlate to one TURN-id. */
     private fun beginTurn(text: String) {
         failureSurface.currentTurnId = failureSurface.newTurnId()
@@ -261,21 +345,46 @@ class BodyCoordinator(
         when (event) {
             is BodyEvent.SttResult ->
                 if (event.text.isNotBlank() && newState == BodyState.THINKING) {
-                    beginTurn(event.text)
-                    emitEvent(BodyEvent.UserInput(event.text))
+                    val spoken = event.text.trim()
+                    val hasPhoneIntent =
+                        com.jarvis.app.voice.PhoneCommandInterpreter.parse(spoken) != null ||
+                            phoneCommandOrchestrator.hasPendingConfirmation()
+                    if (hasPhoneIntent) {
+                        scope.launch {
+                            handlePhoneOutcome(phoneCommandOrchestrator.handle(spoken), spoken)
+                        }
+                    } else if (com.jarvis.app.voice.PhoneActionPlanner.isLikelyDeviceRequest(spoken)) {
+                        scope.launch {
+                            val screen = withContext(Dispatchers.Main.immediate) {
+                                com.jarvis.app.voice.FridayAccessibilityService.activeScreenSummary()
+                            }
+                            when (val plan = phoneActionPlanner.plan(spoken, screen)) {
+                                is com.jarvis.app.voice.PhoneActionPlanner.Result.Action ->
+                                    handlePhoneOutcome(
+                                        phoneCommandOrchestrator.handlePlanned(spoken, plan.command),
+                                        spoken
+                                    )
+                                is com.jarvis.app.voice.PhoneActionPlanner.Result.Clarification -> {
+                                    tts?.speak(plan.question)
+                                    emitEvent(BodyEvent.Reset)
+                                }
+                                com.jarvis.app.voice.PhoneActionPlanner.Result.NotPhoneAction ->
+                                    routeSpokenText(spoken)
+                                is com.jarvis.app.voice.PhoneActionPlanner.Result.Unavailable -> {
+                                    tts?.speak(plan.reason)
+                                    emitEvent(BodyEvent.Reset)
+                                }
+                            }
+                        }
+                    } else {
+                        routeSpokenText(spoken)
+                    }
                 }
             is BodyEvent.UserInput ->
                 if (currentState == BodyState.SPEAKING) {
                     beginTurn(event.text)
                     emitEvent(BodyEvent.BargeIn(event.text))
                 }
-            is BodyEvent.MemoryRetrieved -> {
-                // Memory retrieved - store it and continue to RESPONDING
-                _lastRetrievedMemory.value = event.items
-                if (_state.value == BodyState.RETRIEVING) {
-                    emitEvent(BodyEvent.ResponseGenerated(""))
-                }
-            }
             else -> {}
         }
 
@@ -311,11 +420,9 @@ class BodyCoordinator(
                 // timeout) closes the recognition session.
             }
             BodyState.THINKING -> {
-                companionIntegration.onFastPathAck()
                 val userText = (trigger as? BodyEvent.UserInput)?.text
                     ?: (trigger as? BodyEvent.SttResult)?.text
                 if (!userText.isNullOrBlank()) {
-                    triggerMemoryRetrieval(userText)
                     generateResponse(userText)
                 }
             }
@@ -323,16 +430,9 @@ class BodyCoordinator(
                 // Memory retrieval in progress - wait for MemoryRetrieved event
             }
             BodyState.RESPONDING -> {
-                companionIntegration.onFirstSegmentReady()
-                val userText = _lastUserText.value
-                val styled = _lastStyled.value
-                if (!userText.isNullOrBlank() && styled != null) {
-                    completeExchangeWithMemory(userText, styled)
-                }
+                // LatencyLayer already owns reply delivery and speech.
             }
-            BodyState.SPEAKING -> {
-                companionIntegration.onUtteranceCompleted()
-            }
+            BodyState.SPEAKING -> Unit
             BodyState.INTERRUPTED -> {
                 handleInterruption(trigger)
             }
@@ -343,7 +443,7 @@ class BodyCoordinator(
                 handleError(trigger as? BodyEvent.ErrorOccurred)
             }
             BodyState.IDLE -> {
-                resetIdleTimer()
+                scheduleReasoningRelease()
             }
             BodyState.USER_PRESENT -> {
                 companionIntegration.sendUserPresenceEvent(
@@ -366,75 +466,7 @@ class BodyCoordinator(
         }
     }
 
-    /** Trigger memory retrieval before model generation. */
-    private fun triggerMemoryRetrieval(query: String) {
-        _state.value = BodyState.RETRIEVING
-        executor.execute {
-            val context = buildMemoryQueryContext()
-            val items = memoryStore.retrieve(query, context)
-            scope.launch {
-                emitEvent(BodyEvent.MemoryRetrieved(items))
-            }
-        }
-    }
-
-    /**
-     * Route the voice utterance into the live turn pipeline. LatencyLayer owns
-     * ack speech, the deep brain call, reply completion and the Companion Core
-     * reactor seams — the coordinator stays a thin nervous-system front-end.
-     */
-    private fun generateResponse(text: String) {
-        _lastUserText.value = text
-        executor.execute {
-            // Get memory context for the model
-            val memoryItems = _lastRetrievedMemory.value
-
-            // Build session context
-            val sessionContext = SessionContext(
-                channel = SessionContext.Channel.MOBILE_APP,
-                localHour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY),
-                secondsSinceLastContact = null,
-                wasAway = false,
-                prosody = null
-            )
-
-            // Run HumanCore perception
-            val perception = humanCore.beginExchange(text, sessionContext)
-
-            // Route turn through CognitiveEngine -> ModelManager
-            val engine = cognitiveEngine
-            val modelResponse = if (engine != null) {
-                runBlocking {
-                    val turnResult = engine.process(text, sessionContext, memoryItems)
-                    turnResult.responseText ?: modelManager.sendWithContext(text, memoryItems)
-                }
-            } else {
-                modelManager.sendWithContext(text, memoryItems)
-            }
-
-            // Run expression pass with memory context
-            val styled = humanCore.express(modelResponse, sessionContext)
-            _lastStyled.value = styled
-
-            // Complete exchange through HumanCore
-            if (perception != null) {
-                humanCore.completeExchange(text, modelResponse, styled, System.currentTimeMillis(), perception)
-            }
-
-            // Transition to RESPONDING state
-            scope.launch {
-                emitEvent(BodyEvent.ResponseGenerated(styled.outboundText))
-            }
-        }
-    }
-
-    /**
-     * Tap-to-trigger / push-to-talk recognition: start the platform STT
-     * recognizer with the current language's locale. It self-endpoints on the
-     * user's silence and delivers one result; the result routes straight into
-     * the event loop. This is the SAME production voice-input path used for
-     * the (deleted) Vosk/sherpa stack — now pure android.speech.SpeechRecognizer.
-     */
+    /** Start the Android platform speech recognizer using Friday's current language route. */
     private fun startPlatformRecognition() {
         val recognizer = speechRecognizer
         if (recognizer == null || !recognizer.isAvailable()) {
@@ -472,91 +504,51 @@ class BodyCoordinator(
         }
     }
 
-    /** Build context for memory query. */
-    private fun buildMemoryQueryContext(): List<MemoryItem> {
-        val ctx = _conversationContext.value
-        val items = mutableListOf<MemoryItem>()
-        // Add recent conversation as context
-        ctx.recentUserTexts.forEachIndexed { i, text ->
-            items.add(MemoryItem("ctx_$i", MemoryType.CONTEXT, text, System.currentTimeMillis(), emptyList(), 1.0f))
-        }
-        return items
+    private fun routeSpokenText(spoken: String) {
+        beginTurn(spoken)
+        emitEvent(BodyEvent.UserInput(spoken))
     }
 
-    /**
-     * Complete the exchange when a deep reply lands - wire MemoryRetrieved
-     * into the LatencyLayer and HumanCore flow.
-     */
-    private fun completeExchangeWithMemory(userText: String, styled: StyledResponse) {
-        // Get the memory items from the last retrieval
-        val memoryItems = _lastRetrievedMemory.value
-
-        // Build session context with memory
-        val sessionContext = SessionContext(
-            channel = SessionContext.Channel.MOBILE_APP,
-            localHour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY),
-            secondsSinceLastContact = null,
-            wasAway = false,
-            prosody = null
-        )
-
-        // Run expression pass with memory context
-        val finalStyled = humanCore.express(styled.outboundText, sessionContext)
-
-        // Annotate for memory persistence
-        humanCore.memoryInterface?.annotateExchange(
-            com.jarvis.app.humancore.protocol.Exchange(
-                userText = userText,
-                reasoningReply = styled.outboundText,
-                styled = finalStyled,
-                ts = System.currentTimeMillis()
-            ),
-            com.jarvis.app.humancore.protocol.IntegrationContext(
-                affect = null,
-                deviation = null,
-                vulnerabilityShared = false,
-                mentionsJarvis = false
-            )
-        )
-
-        // Store memory items if relevant
-        if (memoryItems.isNotEmpty()) {
-            memoryStore.storeConversation(
-                userText = userText,
-                assistantText = finalStyled.outboundText,
-                memoryItems = memoryItems
-            )
+    private fun handlePhoneOutcome(
+        outcome: com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome?,
+        spoken: String
+    ) {
+        val feedback = when (outcome) {
+            is com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.ActionResult ->
+                phoneActionFeedback(outcome.result)
+            is com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.ConfirmationNeeded ->
+                "I need your confirmation to ${outcome.description}. Say yes to proceed, or say cancel."
+            com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.Cancelled ->
+                "Cancelled."
+            is com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.Rejected ->
+                "I won't perform that phone action. ${outcome.explanation}"
+            is com.jarvis.app.voice.PhoneCommandOrchestrator.Outcome.Unavailable ->
+                outcome.explanation
+            null -> {
+                routeSpokenText(spoken)
+                return
+            }
         }
-
-        // Speak the final response with vocabulary-aware TTS
-        speakWithVocabulary(finalStyled.outboundText)
-
-        // Signal utterance completion
-        companionIntegration.onUtteranceCompleted()
-
-        // Return to IDLE
+        tts?.speak(feedback)
         emitEvent(BodyEvent.Reset)
     }
 
+    private fun phoneActionFeedback(result: com.jarvis.app.voice.PhoneControlResult): String = when (result) {
+        com.jarvis.app.voice.PhoneControlResult.Success -> "Done."
+        is com.jarvis.app.voice.PhoneControlResult.NotFound -> "I couldn't find ${result.target} on the current screen."
+        is com.jarvis.app.voice.PhoneControlResult.Ambiguous ->
+            "I found ${result.matches} controls labelled ${result.target}. Which one do you mean?"
+        is com.jarvis.app.voice.PhoneControlResult.Unavailable -> result.reason
+        is com.jarvis.app.voice.PhoneControlResult.UserActionRequired -> result.reason
+    }
+
     /**
-     * Speak text with vocabulary pronunciation hints.
+     * Spoken text enters the same installed Friday turn pipeline as typed text.
+     * The BodyCoordinator owns capture, interruption and presence only; it
+     * does not create a second reasoning, Human Core or reply-styling route.
      */
-    private fun speakWithVocabulary(text: String) {
-        // R2: speak through the isolated `:voice` habitat first (Kokoro via the
-        // capability contract); the legacy streaming path remains the fallback
-        // when the habitat isn't ready. The body always answers.
-        val voiceOutput = try { JarvisEngine.getVoiceOutputPath() } catch (e: Exception) { null }
-        if (voiceOutput != null) {
-            voiceOutput.speak(text, vocabulary = vocabularyStore)
-            return
-        }
-        val streamingTts = try { JarvisEngine.getStreamingTts() } catch (e: Exception) { null }
-        if (streamingTts != null) {
-            streamingTts.speakStreaming(text, vocabularyStore)
-        } else {
-            // Fallback to legacy TTS
-            tts?.speak(text)
-        }
+    private fun generateResponse(text: String) {
+        LatencyLayer.onUserInput(text)
     }
 
     /** Handle interruption (barge-in). */
@@ -624,10 +616,10 @@ class BodyCoordinator(
 
     /** Update visual state for Orb renderer. */
     private fun updateVisualState(bodyState: BodyState) {
-        val snapshot = humanCore.snapshot()
-        val emotion = (snapshot?.moodValence ?: 0.0).toFloat()
-        val arousal = (snapshot?.moodArousal ?: 0.0).toFloat()
-        val alert = companionIntegration.hcAlertLevel()
+        // Do not fabricate an affect estimate when no validated source exists.
+        val emotion = 0f
+        val arousal = 0f
+        val alert = companionIntegration.alertLevel()
         val userPresent = bodyState in setOf(BodyState.USER_PRESENT, BodyState.WAKE, BodyState.LISTENING)
 
         _visualState.value = VisualState(
@@ -650,8 +642,8 @@ class BodyCoordinator(
         executor.execute {
             try {
                 modelManager.send("") // Warm ping
-                isModelWarm.set(true)
-                modelIdleTimer.set(System.currentTimeMillis())
+                isReasoningWarm.set(true)
+                reasoningLastUsedAtMs.set(System.currentTimeMillis())
                 Log.i(TAG, "Model warmed")
             } catch (e: Exception) {
                 Log.w(TAG, "Model warm failed: ${e.message}")
@@ -673,26 +665,25 @@ class BodyCoordinator(
         }
     }
 
-    /** Reset idle timer for model unload. */
-    private fun resetIdleTimer() {
-        modelIdleTimer.set(System.currentTimeMillis())
+    /** Start a resource grace period for the on-demand reasoning organ; Friday remains present on the resident anchor. */
+    private fun scheduleReasoningRelease() {
+        reasoningLastUsedAtMs.set(System.currentTimeMillis())
         scope.launch {
-            delay(BodyConfig.MODEL_IDLE_UNLOAD_MS)
-            checkModelIdle()
+            delay(BodyConfig.REASONING_RELEASE_GRACE_MS)
+            releaseReasoningIfQuiet()
         }
     }
 
     /**
-     * Idle conversational organ: release the reasoning tier so ModelManager's
-     * cooldown sweep unloads it from memory (RAM strategy: idle models leave
-     * memory). Model lifecycle is owned by ModelManager — this is a release,
-     * not a direct unload.
+     * Release only the on-demand reasoning organ after its grace period.
+     * The RESIDENT organ remains anchored, so Friday's continuous identity and
+     * lightweight cognition are not unloaded. ModelManager owns the actual cooldown/unload.
      */
-    private fun checkModelIdle() {
-        if (System.currentTimeMillis() - modelIdleTimer.get() >= BodyConfig.MODEL_IDLE_UNLOAD_MS) {
-            if (isModelWarm.getAndSet(false)) {
+    private fun releaseReasoningIfQuiet() {
+        if (System.currentTimeMillis() - reasoningLastUsedAtMs.get() >= BodyConfig.REASONING_RELEASE_GRACE_MS) {
+            if (isReasoningWarm.getAndSet(false)) {
                 modelManager.release(OrganRole.REASONING)
-                Log.i(TAG, "Model idle timeout - released reasoning tier")
+                Log.i(TAG, "Reasoning organ released after quiet grace period; resident anchor remains loaded")
             }
         }
     }

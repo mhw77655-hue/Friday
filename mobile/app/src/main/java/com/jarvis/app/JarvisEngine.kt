@@ -9,9 +9,7 @@ import com.jarvis.app.body.LanguageRouter
 import com.jarvis.app.body.MemoryStore
 import com.jarvis.app.body.StreamingTts
 import com.jarvis.app.body.VisualStateBridge
-import com.jarvis.app.companioncore.engine.HumanCoreIntegration
 import com.jarvis.app.env.LiquidEnvironmentManager
-import com.jarvis.app.humancore.HumanCore
 import com.jarvis.app.humancore.store.FileStorage
 import com.jarvis.app.memory.BlendedMemoryRetriever
 import com.jarvis.app.model.ModelManager
@@ -36,12 +34,18 @@ data class CapabilityManifest(
 }
 
 object JarvisEngine {
-    private val thread = HandlerThread("JarvisEngine").apply { start() }
-    private val handler = Handler(thread.looper)
+    // Do not start a thread while the singleton class is being initialized.
+    // init() first marks readiness WAKING, then touches this lazy pair inside
+    // its failure boundary so a HandlerThread/Looper startup failure becomes
+    // FailedToWake rather than a class-initialization crash before the gate exists.
+    private val thread: HandlerThread by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        HandlerThread("JarvisEngine").apply { start() }
+    }
+    private val handler: Handler by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        Handler(thread.looper)
+    }
 
-    @Volatile private var started = false
-    @Volatile var initialized: Boolean = false
-        private set
+    @Volatile private var bootstrapStarted = false
     val readinessGate = EngineReadinessGate()
     val readinessState: kotlinx.coroutines.flow.StateFlow<EngineReadinessState> get() = readinessGate.state
     val currentReadiness: EngineReadinessState get() = readinessGate.current
@@ -66,17 +70,12 @@ object JarvisEngine {
         private set
     @Volatile var modelManager: ModelManager? = null
         private set
+    /** NAE's live host-adaptation organ. */
+    @Volatile var nanoSymbiosis: com.jarvis.app.symbiosis.NanoSymbioticController? = null
+        private set
     @Volatile var ollamaModelBackend: com.jarvis.app.model.OllamaModelBackend? = null
         private set
-    // VOICE-FORGE-EGYPTIAN-KAREN-TTS: the spoken-reply speech backend, built at
-    // the SAME composition point as the other model backends (see init()). The
-    // live reply sink routes full replies through it; the platform TTS path is
-    // only the failure fallback.
-    @Volatile var voiceForgeBackend: com.jarvis.app.voice.VoiceForgeBackend? = null
-        private set
-    // ONE-2-COMPOSITION: the adapter the ONE composition root builds that single
-    // backend from. Exposed so the adapter exists before the turn path does.
-    @Volatile var voiceForgeSynthesizer: com.jarvis.app.voice.VoiceForgeSynthesizer? = null
+    @Volatile var offlineModelBackend: com.jarvis.app.model.ProcessIsolatedModelBackend? = null
         private set
     @Volatile var runtimeBinder: RuntimeBinder? = null
         private set
@@ -91,6 +90,8 @@ object JarvisEngine {
     @Volatile var bootstrapManager: com.jarvis.app.bootstrap.BootstrapManager? = null
         private set
     @Volatile var cognitiveEngine: com.jarvis.app.cognitive.CognitiveEngine? = null
+        private set
+    @Volatile var fridayIndividual: com.jarvis.app.cognitive.seed.FridayIndividual? = null
         private set
     // CONTINUITY-LAW (Gate 3c): the change gate and the drift check built in
     // init() over the shared workspace and a real durable local change log. Same
@@ -163,54 +164,43 @@ object JarvisEngine {
     @Volatile var androidDeviceControlRouter: com.jarvis.app.android.DeviceControlRouter? = null
         private set
 
-    // Builder stack (TOOLBUILDER-RESEARCH-CONSUMER-WIRING) — the ToolBuilder,
-    // constructed in init() via ToolBuilderComposition with the real
-    // UniversalResearchEngine as its research consumer seam. Hosted via
-    // requestBuild() when a capability gap surfaces.
-    @Volatile var toolBuilder: com.jarvis.app.builder.ToolBuilder? = null
-        private set
-
     @Volatile var systemGraph: com.jarvis.app.selfreconfig.SystemGraph? = null
+        private set
+    @Volatile var applicationSelfStudy: com.jarvis.app.selfstudy.ApplicationSelfStudy? = null
+        private set
+    @Volatile var phoneDecisionTool: com.jarvis.app.voice.FridayPhoneDecisionTool? = null
         private set
 
     fun init(context: Context) {
-        if (started) return
-        started = true
-        initialized = true
+        if (bootstrapStarted) return
+        bootstrapStarted = true
         readinessGate.markWaking()
+        try {
         val appContext = context.applicationContext
         this.appContext = appContext
 
+        // Create the failure surface before other fallible bootstrap work so
+        // even storage/backend construction failures can be recorded.
+        val failureSurface = com.jarvis.app.failure.FailureSurface()
+        this.failureSurface = failureSurface
+
         // Synchronous section: pure object-graph construction (no network, no
         // disk beyond mkdirs, no coroutine launches beyond each store's lazy
-        // load). Runs on the main thread before any screen composes, so every
-        // getX() helper can assume these singletons are non-null.
+        // load). Readiness remains WAKING until every required organ is wired.
         val fileStorage = FileStorage(appContext.filesDir)
         // LAUNCH-OLLAMA-DOWN: the failure surface exists BEFORE the scope, so
         // the ONE engine scope can record an uncaught organ failure into it.
         // The scope is built by the shared containment factory — never a bare
         // CoroutineScope, which has no supervisor and no exception handler (the
         // shape that killed main and :voice when the model server was down).
-        val failureSurface = com.jarvis.app.failure.FailureSurface()
         val scope = com.jarvis.app.failure.EngineContainment.scope(
             name = "jarvis-engine",
             failureSurface = failureSurface,
             dispatcher = Dispatchers.Main
         )
-        // LOCAL-MODEL-BACKEND-GROUND-TRUTH-AND-BUILD: the ONE production
-        // ModelBackend is the real OllamaModelBackend performing actual HTTP
-        // against the local Ollama server (127.0.0.1:8080, model
-        // 'jarvis-resident' — the imported LFM2.5-1.2B GGUF). ModelManager is
-        // wired to it via the backend ctor param; there is no second loader.
-        // The adapter is (re)configured here each init, so the backend and the
-        // sent/text path share the same real HTTP transport and model id.
-        val ollamaAdapter = com.jarvis.app.model.adapters.OllamaAdapter(appContext).apply {
-            configure(
-                com.jarvis.app.env.ModelSource.Local(OLLAMA_LOCAL_PATH_8080),
-                com.jarvis.app.model.config.ProviderConfig(modelId = OLLAMA_RESIDENT_MODEL)
-            )
-        }
-        val ollamaModelBackend = com.jarvis.app.model.OllamaModelBackend(ollamaAdapter)
+        // The app process never loads llama.cpp JNI. It proxies model lifecycle
+        // to :inference, which owns the native runtime and its own NAE governor.
+        val offlineModelBackend = com.jarvis.app.model.ProcessIsolatedModelBackend(appContext)
         // ADAPTER-MANIFEST: the real adapter manifest, constructed here — before
         // the ModelManager — so the ONE model-loading path carries the load gate
         // from its first load. JSON Lines under filesDir/memory/adapters.jsonl.
@@ -224,26 +214,8 @@ object JarvisEngine {
         // composition root builds it (with the ONE ResourceGovernor reading this
         // phone's live resource state) once the stores it needs exist; building a
         // second one here is exactly the duplication this story removes.
-        JarvisEngine.ollamaModelBackend = ollamaModelBackend
+        JarvisEngine.offlineModelBackend = offlineModelBackend
         JarvisEngine.adapterManifest = adapterManifest
-
-        // VOICE-FORGE-EGYPTIAN-KAREN-TTS (AC2): VoiceForgeAdapter +
-        // VoiceForgeBackend constructed HERE — the SAME composition point as
-        // the other model backends (OllamaAdapter/OllamaModelBackend above).
-        // Same local-server + thin-adapter pattern: a real Python Chatterbox
-        // Multilingual server in Termux (voiceforge/voiceforge_server.py, base
-        // weights = Egyptian fine-tune) behind a real okhttp Kotlin adapter.
-        // The platform-TTS fallback is supplied per-reply by the live speech
-        // sink (see setStreamingSpeak below), so this file owns the primary
-        // voice and never recurses into it.
-        val voiceForgeAdapter = com.jarvis.app.voice.VoiceForgeAdapter(appContext)
-        voiceForgeAdapter.configure(
-            com.jarvis.app.voice.VoiceForgeConfig(authToken = com.jarvis.app.voice.VoiceForgeConfig.DEFAULT_AUTH_TOKEN)
-        )
-        // ONE-2-COMPOSITION: the VoiceForgeBackend is built by the ONE
-        // composition root from this adapter, so there is one of them; the
-        // public handle below is bound to that one inside init.
-        JarvisEngine.voiceForgeSynthesizer = voiceForgeAdapter
 
         val sessionManager = com.jarvis.app.session.SessionManager(appContext, fileStorage, scope)
         val taskInbox = com.jarvis.app.inbox.LocalTaskInbox(fileStorage, scope)
@@ -261,15 +233,14 @@ object JarvisEngine {
         val failureStore = com.jarvis.app.failure.FailureStore(fileStorage, scope)
         val recoveryController = com.jarvis.app.failure.RecoveryController(failureSurface, scope)
         failureStore.attach(failureSurface)
-        this.failureSurface = failureSurface
         this.failureStore = failureStore
         this.recoveryController = recoveryController
         this.selfDiagnosis = com.jarvis.app.failure.SelfDiagnosis(failureSurface)
 
-        // The Human Core model port (§0.15) is bound by the ONE composition
-        // root inside init, over the same ModelManager this Friday uses.
+        // Friday's cognitive and identity path is assembled once below by
+        // TurnPathAssembly; no legacy Human Core model port is constructed.
 
-        handler.post {
+        val wiringPosted = handler.post {
             try {
                 wiringLatchForTesting?.await()
                 wiringThrowForTesting?.let { throw it }
@@ -277,16 +248,15 @@ object JarvisEngine {
             com.jarvis.app.approval.ApprovalGate.init(appContext.filesDir)
             com.jarvis.app.approval.TaskExecutor.init(appContext.filesDir)
 
-            // The legacy Human Core (§0.4: the backend never owns identity,
-            // personality, emotion, or internal state) is constructed by the ONE
-            // composition root below, over this host's storage and its optional
-            // annotation sink.
+            // Friday's identity, continuity and cognitive organs are built by
+            // the single TurnPathAssembly below; the legacy Human Core is not
+            // initialized or consulted by the product turn path.
 
             loadCapabilityManifest(appContext)
 
-            // Companion Core (Phase 2): presence engine + orb render state.
-            // Reads Human Core state through the §2.30 adapter and runs its own
-            // Engine Tick Lane loop (30Hz foreground / 0.1Hz background).
+            // Companion Core: presentation-only presence engine + orb render
+            // state. It consumes FridayRuntimeIntegration evidence and runs its
+            // own Engine Tick Lane loop (30Hz foreground / 0.1Hz background).
             com.jarvis.app.companioncore.presence.CompanionCoreHolder.init(appContext)
 
             // Body Coordinator: the nervous system for communication body.
@@ -299,7 +269,7 @@ object JarvisEngine {
             val memoryStore = MemoryStore(appContext, scope, onFailure = { r -> failureSurface.report(r) })
             val streamingTts = StreamingTts(appContext, languageRouter, scope, onFailure = { r -> failureSurface.report(r) })
 
-            // Get HumanCoreIntegration from CompanionCoreHolder
+            // Get FridayRuntimeIntegration from CompanionCoreHolder
             val companionIntegration = com.jarvis.app.companioncore.presence.CompanionCoreHolder.instance()?.integration
                 ?: throw IllegalStateException("CompanionCoreHolder not initialized")
 
@@ -327,13 +297,23 @@ object JarvisEngine {
             )
             JarvisEngine.turnTraceStore = turnTraceStore
 
-            val threadTracker = com.jarvis.app.threads.ThreadTracker()
+            val clock: () -> Long = { System.currentTimeMillis() }
+            val threadTracker = com.jarvis.app.threads.ThreadTracker(now = clock)
             JarvisEngine.threadTracker = threadTracker
 
             val provenanceLedger = com.jarvis.app.memory.provenance.JsonlProvenanceLedger(
                 file = java.io.File(appContext.filesDir, "memory/provenance.jsonl")
             )
             JarvisEngine.provenanceLedger = provenanceLedger
+
+            // NAE starts observing this host before the turn path is assembled.
+            // Its monitor is low-frequency and stores aggregate workload metrics only.
+            val nanoSymbiosis = com.jarvis.app.symbiosis.NanoSymbioticController(
+                context = appContext,
+                storageDir = appContext.filesDir
+            )
+            nanoSymbiosis.start(scope)
+            this.nanoSymbiosis = nanoSymbiosis
 
             // ── The ONE turn path ─────────────────────────────────────────────
             val assembly = com.jarvis.app.onefriday.TurnPathAssembly.assemble(
@@ -342,40 +322,22 @@ object JarvisEngine {
                     storageDir = appContext.filesDir,
                     scope = scope,
                     memoryStore = memoryStore,
-                    // The legacy Human Core's own durable storage, and the
-                    // optional sink its memory annotations flow into (the
-                    // relationship-context sidecar plus local retrieval). The
-                    // root calls HumanCore.init itself, identically on every
-                    // host — see §0.4 ownership: the backend never owns identity,
-                    // personality, emotion, or internal state.
-                    humanCoreStorage = fileStorage,
-                    humanCoreMemorySink = { annotation ->
-                        ObsidianSync.logAnnotated(
-                            userText = annotation.userText,
-                            jarvisText = annotation.jarvisText,
-                            ts = annotation.ts,
-                            tags = annotation.tags
-                        )
-                        JarvisEngine.getMemoryStore()?.storeConversation(
-                            userText = annotation.userText,
-                            assistantText = annotation.jarvisText
-                        )
-                    },
                     failureSurface = failureSurface,
-                    modelBackend = ollamaModelBackend,
-                    voiceSynthesizer = JarvisEngine.voiceForgeSynthesizer!!,
+                    modelBackend = offlineModelBackend,
+                    clock = clock,
                     turnTraceStore = turnTraceStore,
                     threadTracker = threadTracker,
                     provenanceLedger = provenanceLedger,
-                    adapterManifest = adapterManifest
+                    adapterManifest = adapterManifest,
+                    nanoSymbiosis = nanoSymbiosis
                 )
             )
+            this.fridayIndividual = assembly.individual
             // ONE ModelManager, ONE ResourceGovernor, ONE LatencyPipeline per
             // Friday. The pipeline is installed into the latency layer BEFORE
             // init, so the layer adopts this one instead of building a second.
             val modelManager = assembly.modelManager
             this.modelManager = modelManager
-            this.voiceForgeBackend = assembly.voiceForgeBackend
             com.jarvis.app.latency.LatencyLayer.installPipeline(assembly.pipeline)
 
             val graphStore = assembly.graphStore
@@ -428,39 +390,23 @@ object JarvisEngine {
             // Demand-driven (no autonomous loop): constructed with the real
             // CloudModelRouter as its cloud-reasoning channel and a real
             // mechanisms store. Invoked via requestResearch() only when a
-            // capability gap or hard problem is surfaced. Its designed consumer
-            // seam (ToolBuilder.research) is wired below through the real
-            // ToolBuilderComposition stack.
+            // capability gap or hard problem is surfaced. Repository research
+            // remains available as an evidence source, but Android deliberately
+            // has no source-builder consumer; repository construction is external.
             val universalResearchEngine = com.jarvis.app.research.universal.UniversalResearchEngine(
                 cloudRouter = cloudModelRouter,
                 store = com.jarvis.app.research.universal.InMemoryMechanismsStore()
             )
 
-            // ── TOOLBUILDER-RESEARCH-CONSUMER-WIRING: Builder stack ─────────
-            // The ToolBuilder is the UniversalResearchEngine's only designed
-            // consumer. It is constructed through ToolBuilderComposition — the
-            // single production construction point for the gap→design→build→test
-            // →promote→register→rollback stack — with the real engine handed to
-            // its research seam. Dormant until a capability gap invokes
-            // requestBuild(); never writes production code, everything inside the
-            // mutant habitat (§15, §22).
-            val builderStack = com.jarvis.app.builder.ToolBuilderComposition.build(
-                research = universalResearchEngine,
-                failureSurface = failureSurface,
-                fileStorage = fileStorage,
-                scope = scope,
-                workspacesDir = java.io.File(appContext.filesDir, "builder-workspaces")
-            )
-
             // ── Phase B: Owner-binding chain ─────────────────────────────────
-            // The real owner-binding entry point over the REAL HumanCore
-            // relationship store. The app binds after a successful platform
+            // The real owner-binding entry point over Friday's Android Keystore-backed
+            // owner relationship store. The app binds after a successful platform
             // BiometricPrompt by mapping the result with
             // PlatformBiometricPromptResultMapper.toSuccess and calling bind();
             // the binder is JVM-safe, so the chain is provable through a JVM
             // harness (phase-A technique).
             val ownerBiometricBinder = com.jarvis.app.identity.owner.OwnerBiometricBinder(
-                com.jarvis.app.identity.owner.HumanCoreOwnerBindingPort()
+                com.jarvis.app.identity.owner.AndroidOwnerBindingPort(appContext)
             )
 
             // ── Phase B: Android capability adapter stack ───────────────────
@@ -491,6 +437,24 @@ object JarvisEngine {
             val systemGraph = com.jarvis.app.selfreconfig.JarvisOrganGraph.build()
             JarvisEngine.systemGraph = systemGraph
 
+            // Friday studies her own installed architecture continuously in
+            // bounded slices. This is not an "idle mode": the study lane is a
+            // separate background activity alongside presence and conversation.
+            val selfStudy = com.jarvis.app.selfstudy.ApplicationSelfStudy(
+                graph = systemGraph,
+                reportFile = java.io.File(appContext.filesDir, "self-study/latest.properties"),
+                capabilitySnapshot = { capabilities },
+                hostSnapshot = { nanoSymbiosis.hostStudySnapshot() },
+                liquidSnapshot = { nanoSymbiosis.liquidSnapshot() },
+                sourceIndexSnapshot = {
+                    com.jarvis.app.selfstudy.ApplicationSourceIndex.read(appContext.assets)
+                }
+            )
+            JarvisEngine.applicationSelfStudy = selfStudy
+            // WorkManager keeps this small study lane scheduled across process
+            // recreation and reboot; Android still chooses the exact run window.
+            com.jarvis.app.selfstudy.ApplicationSelfStudyScheduler.schedule(appContext)
+
             // Store process-scoped singletons before anything else so they are
             // accessible to any subsystem that needs them.
             JarvisEngine.graphStore = graphStore
@@ -505,7 +469,6 @@ object JarvisEngine {
             JarvisEngine.ownerBiometricBinder = ownerBiometricBinder
             JarvisEngine.androidRiskGate = androidRiskGate
             JarvisEngine.androidDeviceControlRouter = androidDeviceControlRouter
-            JarvisEngine.toolBuilder = builderStack.builder
             JarvisEngine.anchorEngine = anchorEngine
             // The anchor establishes the resident tier as the runtime's stable
             // base at boot (the tier the cooldown sweep never auto-unloads).
@@ -542,17 +505,25 @@ object JarvisEngine {
             memoryConsolidationLoop.startIdleLoop()
             JarvisEngine.memoryConsolidationLoop = memoryConsolidationLoop
 
+            val jevDecisionClient = com.jarvis.app.voice.JevDecisionClient(
+                com.jarvis.app.voice.JevApiKeyProvider {
+                    com.jarvis.app.voice.JevApiKeyStore(appContext).read()
+                }
+            )
+            val phoneDecisionTool = com.jarvis.app.voice.FridayPhoneDecisionTool { utterance, description, risk ->
+                jevDecisionClient.judgePhoneAction(utterance, description, risk)
+            }
+            JarvisEngine.phoneDecisionTool = phoneDecisionTool
+
             val bodyCoordinator = BodyCoordinator(
                 context = appContext,
                 modelManager = modelManager,
-                humanCore = HumanCore,
-                companionIntegration = companionIntegration,
                 languageRouter = languageRouter,
-                memoryStore = memoryStore,
+                companionIntegration = companionIntegration,
                 failureSurface = failureSurface,
                 recoveryController = recoveryController,
                 scope = scope,
-                cognitiveEngine = cognitiveEngine
+                phoneDecisionTool = phoneDecisionTool
             )
 
             val visualStateBridge = VisualStateBridge(
@@ -595,6 +566,7 @@ object JarvisEngine {
                 profileStore = voiceProfileStore
             )
             JarvisEngine.voiceOutputPath = voiceOutputPath
+            bodyCoordinator.attachVoiceOutput(voiceOutputPath)
 
             val voiceMicroSystem = com.jarvis.app.voice.VoiceOrganismMicroSystem(voiceHost)
             JarvisEngine.voiceMicroSystem = voiceMicroSystem
@@ -619,24 +591,19 @@ object JarvisEngine {
                 )
             )
 
-            // Streaming reply TTS: sentence-level synthesis with per-segment
-            // language routing (English + Egyptian Arabic + code-switching).
-            // Uses vocabulary pronunciation hints for learned words.
-            // VOICE-FORGE-EGYPTIAN-KAREN-TTS: JARVIS's own spoken replies are
-            // rendered by the real on-device VoiceForge backend (Chatterbox
-            // Multilingual runtime + Egyptian fine-tune) — the platform
-            // TextToSpeech path below is ONLY the AC3(c) failure fallback.
+            // Friday speaks through her in-app :voice habitat. The habitat owns
+            // sherpa-onnx and its downloaded model packs; the app process only
+            // plays the resulting PCM through AudioTrack. No Termux Chatterbox
+            // server or localhost speech service is part of the live path.
             val legacyReplySpeech: (String) -> Unit = { text ->
                 val tts = JarvisEngine.getStreamingTts()
                 runCatching { tts.speakStreaming(text, getBodyCoordinator().vocabularyStore) }
                     .onFailure { tts.speak(text) }
             }
             com.jarvis.app.latency.LatencyLayer.setStreamingSpeak { text ->
-                val backend = JarvisEngine.voiceForgeBackend
-                if (backend != null) {
-                    scope.launch {
-                        backend.synthesize(text, signal = null, platformFallback = legacyReplySpeech)
-                    }
+                val output = JarvisEngine.voiceOutputPath
+                if (output != null) {
+                    output.speak(text, vocabulary = getBodyCoordinator().vocabularyStore)
                 } else {
                     legacyReplySpeech(text)
                 }
@@ -655,7 +622,6 @@ object JarvisEngine {
             val environmentManager = LiquidEnvironmentManager(
                 context = appContext,
                 fileStorage = fileStorage,
-                humanCore = HumanCore,
                 modelManager = modelManager,
                 runtimeBinder = runtimeBinder,
                 scope = scope
@@ -683,6 +649,28 @@ object JarvisEngine {
                         userMessage = "Failed to wake engine"
                     )
                 )
+            }
+        }
+        if (!wiringPosted) {
+            throw IllegalStateException("Engine handler thread rejected the wiring task")
+        }
+        } catch (t: Throwable) {
+            readinessGate.markFailed(t)
+            val report = com.jarvis.app.failure.FailureReport(
+                subsystem = "JarvisEngine",
+                operation = "init-synchronous-bootstrap",
+                severity = com.jarvis.app.failure.FailureSeverity.CRITICAL,
+                category = com.jarvis.app.failure.FailureCategory.LIFECYCLE,
+                message = "Engine bootstrap failed before asynchronous wiring: ${t.message}",
+                cause = "${t.javaClass.name}: ${t.message}",
+                userMessage = "Failed to wake engine"
+            )
+            val surface = failureSurface
+            if (surface != null) {
+                runCatching { surface.report(report) }
+                    .onFailure { android.util.Log.e("JarvisEngine", "Could not publish bootstrap failure", it) }
+            } else {
+                android.util.Log.e("JarvisEngine", report.message, t)
             }
         }
     }
@@ -713,6 +701,57 @@ object JarvisEngine {
         }
     }
 
+    /**
+     * Run one bounded self-study cycle alongside Friday's continuous presence.
+     * The same local model reflects on her installed architecture and phone;
+     * a safe pure-tool proposal may enter her existing isolated Capability
+     * Foundry when the phone has enough headroom.
+     */
+    suspend fun runApplicationSelfStudySlice(): Boolean {
+        val study = applicationSelfStudy ?: return false
+        val governor = nanoSymbiosis ?: return false
+        // The learned background-organ budget is a real scheduling input:
+        // when host pressure drives it to zero, self-study yields completely.
+        if (!governor.liquidSnapshot().organs
+                .getValue(com.jarvis.app.symbiosis.SymbioticOrgan.BACKGROUND)
+                .let { it.backgroundWeight > 0.0 }
+        ) return false
+        val resources = governor.resourceSnapshot()
+        if (resources.availableMemoryMb < 900L ||
+            resources.thermalLevel >= 2 ||
+            (resources.batteryPercent < 20 && !resources.isCharging)
+        ) return false
+
+        val report = study.study()
+        val manager = modelManager
+        val anchor = anchorEngine
+        // Reflection stays local-only. No second model is loaded and no screen,
+        // conversation or private user data is sent to a cloud model.
+        if (manager?.activeProvider?.value?.providerType == com.jarvis.app.env.ModelProviderType.LLAMA_CPP &&
+            anchor != null
+        ) {
+            try {
+                if (!anchor.anchorHeld()) anchor.anchor()
+                val afterAnchor = governor.resourceSnapshot()
+                if (afterAnchor.availableMemoryMb >= 1100L &&
+                    afterAnchor.thermalLevel < 2 &&
+                    (afterAnchor.batteryPercent >= 20 || afterAnchor.isCharging)
+                ) {
+                    // Reflection is advisory evidence only. Source changes,
+                    // code execution, tests and builds belong to the connected
+                    // repository development environment, never this APK.
+                    study.reflect(report, manager)
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // The factual study report remains useful if reflection or a
+                // candidate build fails. The next scheduled slice can retry.
+            }
+        }
+        return true
+    }
+
     fun run(block: () -> Unit) {
         handler.post(block)
     }
@@ -733,6 +772,7 @@ object JarvisEngine {
     fun selfDiagnosisSlot(): EngineSlot<com.jarvis.app.failure.SelfDiagnosis> = readinessGate.slot { selfDiagnosis }
     fun environmentManagerSlot(): EngineSlot<LiquidEnvironmentManager> = readinessGate.slot { environmentManager }
     fun modelManagerSlot(): EngineSlot<ModelManager> = readinessGate.slot { modelManager }
+    fun fridayIndividualSlot(): EngineSlot<com.jarvis.app.cognitive.seed.FridayIndividual> = readinessGate.slot { fridayIndividual }
     fun sessionManagerSlot(): EngineSlot<com.jarvis.app.session.SessionManager> = readinessGate.slot { sessionManager }
     fun taskInboxSlot(): EngineSlot<com.jarvis.app.inbox.LocalTaskInbox> = readinessGate.slot { taskInbox }
     fun approvalQueueSlot(): EngineSlot<com.jarvis.app.approvals.LocalApprovalQueue> = readinessGate.slot { approvalQueue }
@@ -741,8 +781,7 @@ object JarvisEngine {
     fun appContextSlot(): EngineSlot<Context> = readinessGate.slot { appContext }
 
     internal fun resetForTesting() {
-        started = false
-        initialized = false
+        bootstrapStarted = false
         readinessGate.resetForTesting()
         wiringLatchForTesting = null
         wiringThrowForTesting = null
@@ -834,22 +873,6 @@ object JarvisEngine {
             "JarvisEngine.init() must run first"
         }
         return engine.researchPersist(gapDescription, targetDomains, maxResults)
-    }
-
-    /**
-     * Hosted ToolBuilder call path (§15 "CreateTool"): builds (or retrieves)
-     * a tool for [spec] through the real ToolBuilder — which runs the full
-     * persisted §7 research sweep through the UniversalResearchEngine and its
-     * real channels before evolving a candidate inside the mutant habitat.
-     * Suspend; call when a capability gap surfaces.
-     */
-    suspend fun requestBuild(
-        spec: com.jarvis.app.builder.ToolSpecification
-    ): com.jarvis.app.builder.BuildResult {
-        val builder = checkNotNull(toolBuilder) {
-            "JarvisEngine.init() must run first"
-        }
-        return builder.build(spec)
     }
 
     /**

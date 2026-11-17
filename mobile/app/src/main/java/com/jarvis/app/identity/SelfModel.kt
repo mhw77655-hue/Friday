@@ -1,7 +1,6 @@
 package com.jarvis.app.identity
 
 import com.jarvis.app.capability.CapabilityRegistry
-import com.jarvis.app.humancore.HumanCore
 
 /**
  * Persistent, evidence-linked self-model of JARVIS's own identity, goals,
@@ -10,7 +9,7 @@ import com.jarvis.app.humancore.HumanCore
  * SARSI principle held throughout: every claim the SelfModel exposes is
  * evidence-linked to a real, checkable source. It NEVER asserts something about
  * itself that isn't traceable to a system fact:
- *  - [identity]            <- live [IdentitySource] (production: [HumanCore] fields)
+ *  - [identity]            <- the owner-supplied Friday identity record (read-only on the turn path)
  *  - [capabilities]        <- live [CapabilityRegistry] (the source of truth)
  *  - [limitations]         <- derived from real registry health/state
  *  - [confidence]          <- a computed signal from live registry state
@@ -26,11 +25,12 @@ class SelfModel(
     private val goalSource: GoalSource = GoalSource { emptyList() }
 ) {
 
-    /** JARVIS's fixed identity, read live from [IdentitySource] (HumanCore). */
+    /** Friday's current identity, read live from the supplied [IdentitySource]. */
     fun identity(): SelfIdentity {
         val name = identitySource.name() ?: "unknown"
         val version = identitySource.version() ?: 0
-        return SelfIdentity(name = name, version = version)
+        val pronouns = identitySource.pronouns()
+        return SelfIdentity(name = name, version = version, pronouns = pronouns)
     }
 
     /** Exactly what the live [CapabilityRegistry] currently reports. */
@@ -99,10 +99,11 @@ class SelfModel(
     fun goals(): List<String> = goalSource.currentGoals()
 }
 
-/** JARVIS's stable identity as reported by [IdentitySource]. */
+/** Friday's current self-identity as reported by [IdentitySource]. */
 data class SelfIdentity(
     val name: String,
-    val version: Int
+    val version: Int,
+    val pronouns: String? = null
 )
 
 /** A real limitation derived from registry state - not a fabricated string. */
@@ -131,20 +132,20 @@ data class StageMilestone(
 )
 
 /**
- * Source of JARVIS's identity. Production reads real [HumanCore] fields, so
- * the SelfModel never keeps a duplicate copy.
+ * Read-only source of Friday's current identity record. Revision must only be
+ * changed through the owner-authorized identity administration path.
  */
 interface IdentitySource {
-    /** Identity name, or null when HumanCore identity is unavailable. */
     fun name(): String?
-    /** Identity version, or null when unknown/unavailable. */
     fun version(): Int?
+    fun pronouns(): String? = null
 }
 
-/** Production [IdentitySource] that reads Live [HumanCore] snapshot fields. */
-class HumanCoreIdentitySource : IdentitySource {
-    override fun name(): String? = HumanCore.snapshot()?.identityName
-    override fun version(): Int? = HumanCore.snapshot()?.identityVersion
+/** Initial owner-supplied identity seed; it does not expose a mutation path. */
+object SeededFridayIdentitySource : IdentitySource {
+    override fun name(): String = "Friday"
+    override fun version(): Int = 1
+    override fun pronouns(): String = "she/her"
 }
 
 /** Source of current active goals (production: CognitiveEngine TaskWorkingMemory). */

@@ -23,6 +23,12 @@ class VoiceProfileStore(context: Context) {
         val arr = JSONArray(raw)
         val profiles = (0 until arr.length()).mapNotNull { i ->
             decode(arr.getJSONObject(i))
+        }.map { profile ->
+            // Preserve the persisted id for compatibility while correcting
+            // the built-in profile's former JARVIS display name.
+            if (profile.id == DefaultJarvisVoiceProfile.id &&
+                profile.name.equals("Jarvis", ignoreCase = true)
+            ) profile.copy(name = DefaultJarvisVoiceProfile.name) else profile
         }
         return profiles.ifEmpty { listOf(DefaultJarvisVoiceProfile) }
     }
@@ -55,6 +61,8 @@ class VoiceProfileStore(context: Context) {
         .put("fallbackProviders", JSONArray(p.fallbackProviders))
         .put("quality", p.qualityPreference.name)
         .put("resource", p.resourcePreference.name)
+        .put("referenceAudioPath", p.referenceAudioPath ?: JSONObject.NULL)
+        .put("referenceTranscript", p.referenceTranscript ?: JSONObject.NULL)
 
     private fun decode(o: JSONObject): VoiceProfile? = runCatching {
         val pron = mutableMapOf<String, String>()
@@ -81,7 +89,9 @@ class VoiceProfileStore(context: Context) {
             qualityPreference = runCatching { VoiceQuality.valueOf(o.optString("quality")) }
                 .getOrDefault(VoiceQuality.HIGH),
             resourcePreference = runCatching { ResourcePreference.valueOf(o.optString("resource")) }
-                .getOrDefault(ResourcePreference.BALANCED)
+                .getOrDefault(ResourcePreference.BALANCED),
+            referenceAudioPath = o.optString("referenceAudioPath").takeIf { it.isNotBlank() && it != "null" },
+            referenceTranscript = o.optString("referenceTranscript").takeIf { it.isNotBlank() && it != "null" }
         )
     }.getOrNull()
 

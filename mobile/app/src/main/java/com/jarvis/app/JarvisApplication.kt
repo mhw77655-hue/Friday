@@ -1,6 +1,10 @@
 package com.jarvis.app
 
 import android.app.Application
+import android.app.ActivityManager
+import android.os.Build
+import android.os.Process
+import java.io.File
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
@@ -9,6 +13,14 @@ import androidx.lifecycle.ProcessLifecycleOwner
 class JarvisApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        // Preserve a sanitized crash signature for the next user-exported report.
+        // Install in every process so isolated voice/inference crashes are visible too.
+        com.jarvis.app.diagnostics.CrashJournal.install(this)
+        // Android creates a separate Application instance in every declared
+        // process (:voice, :inference, assistant/session). Only the product
+        // process owns Friday's cognitive composition root and lifecycle.
+        // Secondary capability habitats construct only their own organs.
+        if (currentProcessName() != packageName) return
         JarvisEngine.init(this)
 
         // Process-scoped background/foreground for the Companion Core (plan
@@ -29,5 +41,15 @@ class JarvisApplication : Application() {
                 }
             }
         })
+    }
+
+    private fun currentProcessName(): String? {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return Application.getProcessName()
+        val pid = Process.myPid()
+        val manager = getSystemService(ACTIVITY_SERVICE) as ActivityManager
+        return manager.runningAppProcesses?.firstOrNull { it.pid == pid }?.processName
+            ?: runCatching {
+                File("/proc/self/cmdline").readText().substringBefore('\u0000').trim()
+            }.getOrNull()
     }
 }

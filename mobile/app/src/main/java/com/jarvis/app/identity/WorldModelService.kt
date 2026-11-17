@@ -32,7 +32,9 @@ import com.jarvis.app.memory.RankedMemory
 class WorldModelService(
     private val graphStore: MemoryGraphStore,
     /** Optional; supplies the existing retrieval mechanism for [getRecentlyRelevantEntities]. */
-    private val blendedRetriever: BlendedMemoryRetriever? = null
+    private val blendedRetriever: BlendedMemoryRetriever? = null,
+    /** Shared host clock for all default as-of queries. */
+    private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) {
 
     /** The reserved subject under which the User Model's own node lives. */
@@ -56,7 +58,7 @@ class WorldModelService(
      * `(name,"type",T)` tag) and the currently-valid facts about it.
      * Returns null when the entity has no facts at [asOfTime].
      */
-    fun getEntity(name: String, asOfTime: Long = System.currentTimeMillis()): WorldEntity? {
+    fun getEntity(name: String, asOfTime: Long = nowMs()): WorldEntity? {
         val facts = getFactsAbout(name, asOfTime)
         if (facts.isEmpty()) return null
         val typeTag = facts.firstOrNull { it.predicate == TYPE_PREDICATE }?.`object`
@@ -84,7 +86,7 @@ class WorldModelService(
     }
 
     /** The currently-valid value of durable preference [key], or null. */
-    fun getUserPreference(key: String, asOfTime: Long = System.currentTimeMillis()): String? {
+    fun getUserPreference(key: String, asOfTime: Long = nowMs()): String? {
         val facts = getFactsAbout(USER_NODE_NAME, asOfTime)
         return facts.firstOrNull { it.predicate == "preference:$key" }?.`object`
     }
@@ -105,7 +107,7 @@ class WorldModelService(
     }
 
     /** All currently-valid facts on the User Model's own node. */
-    fun userNodeFacts(asOfTime: Long = System.currentTimeMillis()): List<MemoryNode> =
+    fun userNodeFacts(asOfTime: Long = nowMs()): List<MemoryNode> =
         getFactsAbout(USER_NODE_NAME, asOfTime)
 
     /**
@@ -113,7 +115,7 @@ class WorldModelService(
      * supersession-aware, bi-temporal result [MemoryGraphStore.query] returns;
      * no divergent re-derivation.
      */
-    fun getFactsAbout(entityId: String, asOfTime: Long = System.currentTimeMillis()): List<MemoryNode> =
+    fun getFactsAbout(entityId: String, asOfTime: Long = nowMs()): List<MemoryNode> =
         graphStore.query(subject = entityId, asOfTime = asOfTime)
 
     /**
@@ -127,7 +129,7 @@ class WorldModelService(
     fun getRelationships(
         entityId: String,
         maxHops: Int = 2,
-        asOfTime: Long = System.currentTimeMillis()
+        asOfTime: Long = nowMs()
     ): List<WorldRelationship> {
         val allNodes = graphStore.query(asOfTime = asOfTime)
         if (allNodes.isEmpty()) return emptyList()
@@ -172,9 +174,9 @@ class WorldModelService(
         limit: Int = 5
     ): List<WorldEntity> {
         val retriever = blendedRetriever ?: return emptyList()
-        return retriever.retrieve(context)
+        return retriever.retrieve(context, now = nowMs())
             .take(limit)
-            .mapNotNull { result -> getEntity(result.node.subject) }
+            .mapNotNull { result -> getEntity(result.node.subject, asOfTime = nowMs()) }
             .distinctBy { it.name }
     }
 }

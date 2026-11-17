@@ -113,11 +113,17 @@ kotlin {
 }
 
 dependencies {
+    // Camera-based presence perception is optional at runtime but must compile.
+    implementation("androidx.camera:camera-camera2:1.4.2")
+    implementation("androidx.camera:camera-lifecycle:1.4.2")
+    implementation("androidx.camera:camera-view:1.4.2")
+    implementation("com.google.mlkit:face-detection:16.1.7")
     implementation("androidx.navigation:navigation-compose:2.8.4")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.8.4")
     implementation("androidx.lifecycle:lifecycle-process:2.8.4")
+    implementation("androidx.work:work-runtime-ktx:2.10.1")
     implementation("androidx.activity:activity-compose:1.9.1")
     implementation(platform("androidx.compose:compose-bom:2024.09.00"))
     implementation("androidx.compose.ui:ui")
@@ -166,20 +172,6 @@ dependencies {
     androidTestImplementation("androidx.test:core-ktx:1.6.1")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("junit:junit:4.13.2")
-}
-
-// TERMUX-LIVE-INSTANCE-BROWSER-INTERFACE (AC6): the exact copy-paste run command
-// for the standalone JVM entry point. Runs TermuxJarvisServer's main() on the
-// JVM with the unit-test classpath (real production main classes + JVM deps).
-val runTermuxJarvisServer by tasks.registering(JavaExec::class) {
-    group = "application"
-    description = "Run the JARVIS Termux live instance (localhost browser interface)."
-    val mainOut = tasks.named("compileDebugKotlin", KotlinCompile::class).get().destinationDirectory
-    val testOut = tasks.named("compileDebugUnitTestKotlin", KotlinCompile::class).get().destinationDirectory
-    val runtimeCp = configurations.named("debugUnitTestRuntimeClasspath").get()
-    classpath = files(mainOut.get().asFileTree, testOut.get().asFileTree, runtimeCp)
-    mainClass.set("com.jarvis.app.termux.TermuxJarvisServer")
-    // Pass-through: --port=8081 --ollama=127.0.0.1:8080 --model=<id>
 }
 
 // ---------------------------------------------------------------------------

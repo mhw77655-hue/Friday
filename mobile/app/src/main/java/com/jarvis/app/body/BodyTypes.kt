@@ -8,18 +8,19 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * The central nervous system state machine for JARVIS's communication body.
- * Single source of truth for all subsystem coordination.
+ * Internal event/transaction state for Friday's communication body.
+ * These are organ execution stages, not modes of Friday's existence or identity.
+ * Continuous presence is owned separately by CompanionCore/PresenceEngine.
  */
 enum class BodyState {
     // Core communication states
-    IDLE,
+    IDLE,          // Ready for the next event; not an "idle Friday" state
     WAKE,           // Wake word detected, waiting for command
     LISTENING,      // Actively capturing user speech
     HEARING,        // Speech captured, processing/understanding
 
     // Processing states
-    THINKING,       // Model generating response
+    THINKING,       // Internal model-processing stage; not a presence mode
     RETRIEVING,     // Memory retrieval in progress
 
     // Output states
@@ -110,6 +111,7 @@ data class VisualState(
     val emotionArousal: Float = 0f,
     val speaking: Boolean = false,
     val listening: Boolean = false,
+    /** Legacy internal processing indicator; never drives a presence/existence mode. */
     val thinking: Boolean = false,
     val alertLevel: com.jarvis.app.companioncore.contract.AlertLevel = com.jarvis.app.companioncore.contract.AlertLevel.NONE,
     val userPresent: Boolean = false,
@@ -126,7 +128,7 @@ object BodyConfig {
     val MODEL_WARMUP_TIMEOUT_MS = 10000L
     val TTS_FIRST_CHUNK_TIMEOUT_MS = 2000L
     val INTERRUPT_WINDOW_MS = 500L
-    val IDLE_TIMEOUT_MS = 300000L // 5 min
+
 
     // Memory
     const val MAX_CONTEXT_TURNS = 10
@@ -134,7 +136,8 @@ object BodyConfig {
     const val MEMORY_RELEVANCE_THRESHOLD = 0.3f
 
     // Model lifecycle
-    const val MODEL_IDLE_UNLOAD_MS = 120000L // 2 min
+    /** Grace period before releasing the on-demand reasoning organ; resident anchor stays loaded. */
+    const val REASONING_RELEASE_GRACE_MS = 120000L
     const val MODEL_MAX_CONCURRENT = 1
 
     // Retry

@@ -3,7 +3,7 @@ package com.jarvis.app.social
 import com.jarvis.app.humancore.protocol.StyledResponse
 import com.jarvis.app.latency.LatencyPipeline
 import com.jarvis.app.model.FakeModelBackend
-import com.jarvis.app.termux.TermuxJarvisServer
+import com.jarvis.app.jvmtest.JvmCompositionHarness
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -12,7 +12,7 @@ import org.junit.Test
 
 /**
  * PERSON-RELATIONSHIP-MODEL-AND-CONFIDENTIALITY-FIREWALL AC6 — proof through
- * the EXACT production call path (TermuxJarvisServer -> LatencyPipeline ->
+ * the EXACT production call path (JvmCompositionHarness -> LatencyPipeline ->
  * CognitiveEngine.process -> IdentityContext.gatherForTurn/Firewall ->
  * formatForPrompt -> the outgoing generation payload).
  *
@@ -29,16 +29,13 @@ import org.junit.Test
 class PersonRelationshipProductionPathTest {
 
     private fun recordingPipeline(
-        server: TermuxJarvisServer,
+        server: JvmCompositionHarness,
         captured: MutableList<String>
     ): LatencyPipeline = LatencyPipeline(
         dispatch = { it() },
         scheduleDelayed = { _, _ -> },
         bridgeSend = { captured.add(it) },
         bridgeStatus = { server.modelManager.status.value },
-        beginExchange = { _, _ -> null },
-        express = { reply, _ -> StyledResponse.Approved(reply) },
-        completeExchange = { _, _, _, _, _ -> },
         sessionContext = { null },
         cognitiveEngine = server.engine
     )
@@ -46,7 +43,7 @@ class PersonRelationshipProductionPathTest {
     @Test
     fun `confidential fact is blocked for the unauthorized interlocutor in the live path`(): Unit =
         runBlocking {
-            val server = TermuxJarvisServer(port = 0, backendOverride = FakeModelBackend())
+            val server = JvmCompositionHarness(port = 0, backendOverride = FakeModelBackend())
             val captured = mutableListOf<String>()
             val pipeline = recordingPipeline(server, captured)
             try {
@@ -98,7 +95,7 @@ class PersonRelationshipProductionPathTest {
     @Test
     fun `trust tier differentiation is real for the same input`(): Unit =
         runBlocking {
-            val server = TermuxJarvisServer(port = 0, backendOverride = FakeModelBackend())
+            val server = JvmCompositionHarness(port = 0, backendOverride = FakeModelBackend())
             val captured = mutableListOf<String>()
             val pipeline = recordingPipeline(server, captured)
             try {

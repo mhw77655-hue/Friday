@@ -63,7 +63,10 @@ class ModelManager(
     private val failureSurface: com.jarvis.app.failure.FailureSurface? = null,
     // Launch the background cooldown sweep on this manager's scope. Tests run
     // sweeps manually (autoSweep = false) to stay deterministic.
-    private val autoSweep: Boolean = true
+    private val autoSweep: Boolean = true,
+    // NAE learns from real model-load outcomes; this callback stores aggregate
+    // evidence only and cannot influence the current load's result.
+    private val workloadOutcomeRecorder: ((String, Boolean, Long, Long) -> Unit)? = null
 ) {
     // One down-episode, one entry: the flag is what makes "not one per retry"
     // true by construction rather than a property of the surface's dedupe.
@@ -431,8 +434,8 @@ class ModelManager(
                 category = com.jarvis.app.failure.FailureCategory.MODEL,
                 message = MODEL_GAP_MESSAGE,
                 source = "ModelManager",
-                cause = "model '${handle.modelId}' could not be loaded: the model server is unreachable",
-                dependency = "model-server",
+                cause = "model '${handle.modelId}' could not be loaded by Friday's in-app runtime; its weights may be missing or the native engine may have failed",
+                dependency = "offline-model-runtime",
                 recoverability = com.jarvis.app.failure.Recoverability.RETRYABLE,
                 recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY,
                 userMessage = MODEL_SERVER_UNREACHABLE_REPLY
@@ -452,7 +455,7 @@ class ModelManager(
         surface.recover(
             aggregateKey = MODEL_GAP_KEY,
             result = com.jarvis.app.failure.RecoveryResult.SUCCESS,
-            message = "model server reachable again",
+            message = "Friday's in-app model runtime is available again",
             action = com.jarvis.app.failure.RecoveryAction.RETRY
         )
     }
@@ -477,6 +480,7 @@ class ModelManager(
             }
             is LoadOutcome.InFlight -> return outcome.deferred.await()
             is LoadOutcome.Lead -> {
+                val loadStartedAt = clock()
                 val handle = try {
                     modelBackend.loadModel(
                         ModelBackendConfig(
@@ -485,11 +489,13 @@ class ModelManager(
                         )
                     )
                 } catch (e: Exception) {
+                    workloadOutcomeRecorder?.invoke(tier.name, false, (clock() - loadStartedAt).coerceAtLeast(0L), 0L)
                     synchronized(lifecycleLock) { inflight.remove(tier) }
                     outcome.deferred.completeExceptionally(e)
                     throw e
                 }
                 if (!modelBackend.isAvailable(handle)) {
+                    workloadOutcomeRecorder?.invoke(tier.name, false, (clock() - loadStartedAt).coerceAtLeast(0L), 0L)
                     // A typed gap, not a warm tier: announce it once and do NOT
                     // cache it, so the next request genuinely retries and the
                     // anchor reports honestly that it is not held.
@@ -498,6 +504,7 @@ class ModelManager(
                     outcome.deferred.complete(handle)
                     return handle
                 }
+                workloadOutcomeRecorder?.invoke(tier.name, true, (clock() - loadStartedAt).coerceAtLeast(0L), 0L)
                 reportRecovered()
                 synchronized(lifecycleLock) {
                     cachedByTier[tier] = handle
@@ -684,7 +691,7 @@ class ModelManager(
         internal const val MODEL_SUBSYSTEM = "MODEL"
         internal const val MODEL_LOAD_OPERATION = "load"
         internal const val MODEL_GAP_MESSAGE =
-            "The model server is unreachable, so no model can be served yet."
+            "Friday's offline model is missing or the in-app inference runtime is unavailable."
         internal const val MODEL_GAP_KEY = "$MODEL_SUBSYSTEM|$MODEL_LOAD_OPERATION|$MODEL_GAP_MESSAGE"
 
         const val MAX_RETRIES = 2

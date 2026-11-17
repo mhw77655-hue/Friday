@@ -31,10 +31,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jarvis.app.body.BodyCoordinator
-import com.jarvis.app.body.BodyState
-import com.jarvis.app.body.VisualState
-import com.jarvis.app.JarvisEngine
-import com.jarvis.app.latency.LatencyLayer
 import com.jarvis.app.ui.components.StateChip
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
@@ -50,10 +46,7 @@ fun ConversationScreen() {
         com.jarvis.app.ui.WakingSurface(bodySlot.readiness)
         return
     }
-    val bodyState by bodyCoordinator.state.collectAsStateWithLifecycle()
-    val visualState by bodyCoordinator.visualState.collectAsStateWithLifecycle()
     val turns by conversationViewModel.turns.collectAsStateWithLifecycle()
-    val phase by conversationViewModel.phase.collectAsStateWithLifecycle()
     var input by remember { mutableStateOf("") }
 
     fun sendCurrentInput() {
@@ -74,17 +67,11 @@ fun ConversationScreen() {
             items(turns) { turn -> TurnRow(turn) }
         }
 
-        // Latency-first affordance: as soon as input is sent, JARVIS is
-        // acknowledged and visibly working even while the deep reasoning is
-        // still producing the full answer. Hidden at IDLE.
-        ThinkingRow(phase)
-
         InputRow(
             value = input,
             onValueChange = { input = it },
             onSend = { sendCurrentInput() },
-            bodyCoordinator = bodyCoordinator,
-            bodyState = bodyState
+            bodyCoordinator = bodyCoordinator
         )
     }
 }
@@ -97,26 +84,7 @@ private fun ContextStrip() {
             .background(JarvisColors.SurfacePanel)
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
-        Text(text = "Synced to Obsidian vault", style = JarvisType.Label)
-    }
-}
-
-@Composable
-private fun ThinkingRow(phase: LatencyLayer.Phase) {
-    val label = when (phase) {
-        LatencyLayer.Phase.ACKNOWLEDGING -> "JARVIS is listening"
-        LatencyLayer.Phase.THINKING -> "JARVIS is thinking"
-        LatencyLayer.Phase.THINKING_LONG -> "JARVIS is still thinking"
-        LatencyLayer.Phase.REPLYING -> "JARVIS is replying"
-        LatencyLayer.Phase.IDLE -> null
-    } ?: return
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.Start
-    ) {
-        Text(text = label, style = JarvisType.Label, color = JarvisColors.TextSecondary)
+        Text(text = "FRIDAY · conversation", style = JarvisType.Label)
     }
 }
 
@@ -148,7 +116,7 @@ private fun TurnRow(turn: Turn) {
 }
 
 @Composable
-private fun InputRow(value: String, onValueChange: (String) -> Unit, onSend: () -> Unit, bodyCoordinator: BodyCoordinator, bodyState: BodyState) {
+private fun InputRow(value: String, onValueChange: (String) -> Unit, onSend: () -> Unit, bodyCoordinator: BodyCoordinator) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -159,7 +127,7 @@ private fun InputRow(value: String, onValueChange: (String) -> Unit, onSend: () 
             value = value,
             onValueChange = onValueChange,
             modifier = Modifier.weight(1f),
-            placeholder = { Text("Message JARVIS", style = JarvisType.Body) },
+            placeholder = { Text("Message Friday", style = JarvisType.Body) },
             singleLine = true,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
             keyboardActions = KeyboardActions(onSend = { onSend() }),
@@ -172,25 +140,10 @@ private fun InputRow(value: String, onValueChange: (String) -> Unit, onSend: () 
             Text(text = "SEND", style = JarvisType.Label)
         }
         TextButton(
-            onClick = {
-                // Wire mic to body coordinator - toggle listening
-                if (bodyState == BodyState.LISTENING || bodyState == BodyState.WAKE) {
-                    // Already listening, could stop
-                } else {
-                    // Signal body coordinator to start listening
-                    bodyCoordinator.emitEvent(com.jarvis.app.body.BodyEvent.SpeechStart)
-                }
-            },
+            onClick = { bodyCoordinator.toggleListening() },
             enabled = true
         ) {
-            Text(
-                text = when (bodyState) {
-                    BodyState.LISTENING, BodyState.WAKE -> "STOP"
-                    BodyState.SPEAKING -> "INTERRUPT"
-                    else -> "MIC"
-                },
-                style = JarvisType.Label
-            )
+            Text(text = "MIC", style = JarvisType.Label)
         }
     }
 }

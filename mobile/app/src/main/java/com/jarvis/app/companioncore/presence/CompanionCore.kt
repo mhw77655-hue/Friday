@@ -6,13 +6,12 @@ import com.jarvis.app.companioncore.contract.RenderIntent
 import com.jarvis.app.companioncore.contract.UserPresenceEvent
 import com.jarvis.app.companioncore.contract.VisualState
 import com.jarvis.app.companioncore.engine.CompanionClock
-import com.jarvis.app.companioncore.engine.HumanCoreIntegration
+import com.jarvis.app.companioncore.engine.FridayRuntimeIntegration
 import com.jarvis.app.companioncore.render.AnimationController
 import com.jarvis.app.companioncore.render.OrbRenderParams
 import com.jarvis.app.companioncore.render.OrbStateMachine
 import com.jarvis.app.companioncore.resource.MobileResourceManagement
 import com.jarvis.app.companioncore.resource.MobileResourceManagement.DeviceConditions
-import com.jarvis.app.vf.motion.MotionEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -31,7 +30,7 @@ import kotlinx.coroutines.isActive
  * framework-UI calls, <1ms per tick) and the fixed per-tick fan-out order:
  *
  * ```
- * HumanCoreIntegration.tick()  (§2.30 signal + §2.9 emotion)
+ * FridayRuntimeIntegration.tick()  (§2.30 signal + §2.9 emotion)
  *         └──► PresenceEngine.tick()   (§2.1 — owns presence_mode, sole producer of CompanionState)
  *                 └──► OrbStateMachine  (§2.6 — pure params + §1 RenderIntent)
  *                         └──► AnimationController.submit(intent)  (§2.21 arbitration)
@@ -47,7 +46,7 @@ import kotlinx.coroutines.isActive
  * Pure-JVM testable: all collaborators are injectable; [tick] is deterministic.
  */
 class CompanionCore(
-    val integration: HumanCoreIntegration,
+    val integration: FridayRuntimeIntegration,
     val presenceEngine: PresenceEngine,
     private val orbStateMachine: OrbStateMachine,
     val animationController: AnimationController,
@@ -83,7 +82,6 @@ class CompanionCore(
     private var backgrounded: Boolean = false
 
     private var tickJob: Job? = null
-    private var wokeOnce: Boolean = false
 
     /** The current CompanionState — emitted by the Presence Engine each tick. */
     val state: StateFlow<CompanionState> get() = presenceEngine.state
@@ -120,10 +118,10 @@ class CompanionCore(
     /** Start the tick loop on [scope] (the Engine Tick Lane). Idempotent. */
     fun start(scope: CoroutineScope) {
         if (tickJob != null) return
-        if (!wokeOnce) {
-            wokeOnce = true
-            presenceEngine.requestTransition(PresenceMode.WAKING, "CompanionCore", "cold-start")
-        }
+        // Starting the render/presence lane does not wake Friday from an
+        // existential sleep state. She is continuously present; this only
+        // attaches the current Android lifecycle to her embodied expression.
+        presenceEngine.requestTransition(PresenceMode.PRESENT, "CompanionCore", "presence-lane-start")
         tickJob = scope.launch {
             while (isActive) {
                 tick()
@@ -146,15 +144,7 @@ class CompanionCore(
         integration.tick()
         val signal = integration.signal.value
         val emotion = integration.emotionLayer.snapshots.value
-        val alert = integration.hcAlertLevel()
-
-        // Wake handoff: the WAKING bloom lasts the §12 startup window, then
-        // the engine settles to IDLE unless something explicit preempts it.
-        if (presenceEngine.mode == PresenceMode.WAKING &&
-            nowMs() - presenceEngine.modeEnteredAt >= MotionEngine.DurStartupShutdown
-        ) {
-            presenceEngine.requestTransition(PresenceMode.IDLE, "CompanionCore", "wake-complete")
-        }
+        val alert = integration.alertLevel()
 
         presenceEngine.tick(
             signal = signal,
@@ -218,6 +208,13 @@ class CompanionCore(
         backgrounded = false
         resourceManagement.setBackgroundSuspended(false)
         _suspended.value = false
+        integration.sendUserPresenceEvent(
+            UserPresenceEvent(
+                eventType = UserPresenceEvent.EventType.DEVICE_FOREGROUNDED,
+                timestamp = nowMs(),
+                confidence = 1.0
+            )
+        )
         integration.sendUserPresenceEvent(
             UserPresenceEvent(
                 eventType = UserPresenceEvent.EventType.USER_PRESENT,

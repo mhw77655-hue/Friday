@@ -10,12 +10,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import android.widget.Toast
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,7 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jarvis.app.DiagnosticsViewModel
-import com.jarvis.app.JarvisEngine
+import com.jarvis.app.DiagnosticLevel
 import com.jarvis.app.ui.components.StateChip
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
@@ -40,8 +43,22 @@ private data class SystemRow(val name: String, val stateLabel: String, val dotCo
 @Composable
 fun SystemScreen() {
     val diagnosticsViewModel: DiagnosticsViewModel = viewModel()
-    val brainStatus by remember { EngineAccess.modelManager().value?.status ?: MutableStateFlow("idle") }
-        .collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val reportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            val result = runCatching {
+                context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use {
+                    it.write(diagnosticsViewModel.createExportReport())
+                } ?: error("Could not open the selected destination.")
+            }
+            val message = if (result.isSuccess) "Friday diagnostic report exported."
+                else "Report export failed: " + (result.exceptionOrNull()?.message ?: "unknown error")
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
+    }
+    val brainStatus by diagnosticsViewModel.modelRuntimeText.collectAsStateWithLifecycle()
     val networkText by diagnosticsViewModel.networkText.collectAsStateWithLifecycle()
     val batteryText by diagnosticsViewModel.batteryText.collectAsStateWithLifecycle()
     val shizukuText by diagnosticsViewModel.shizukuText.collectAsStateWithLifecycle()
@@ -52,6 +69,12 @@ fun SystemScreen() {
     val voiceSubstrateText by diagnosticsViewModel.voiceSubstrateText.collectAsStateWithLifecycle()
     val screenText by diagnosticsViewModel.screenText.collectAsStateWithLifecycle()
     val failureText by diagnosticsViewModel.failureText.collectAsStateWithLifecycle()
+    val individualMemoryText by diagnosticsViewModel.individualMemoryText.collectAsStateWithLifecycle()
+    val diagnosticFindings by diagnosticsViewModel.diagnosticFindings.collectAsStateWithLifecycle()
+    val diagnosticRunning by diagnosticsViewModel.diagnosticRunning.collectAsStateWithLifecycle()
+    val selfDiagnosticFindings by diagnosticsViewModel.selfDiagnosticFindings.collectAsStateWithLifecycle()
+    val selfDiagnosticAt by diagnosticsViewModel.selfDiagnosticAt.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { diagnosticsViewModel.runSelfDiagnosis() }
 
     val rows = listOf(
         SystemRow("Brain", brainStatus, brainDotColor(brainStatus), brainStatus),
@@ -69,6 +92,7 @@ fun SystemScreen() {
             voiceSubstrateText
         ),
         SystemRow("Screen", screenText.removePrefix("Screen: "), genericDotColor(screenText), screenText),
+        SystemRow("Friday Memory", individualMemoryText.removePrefix("Friday individual: "), if (individualMemoryText.contains("present")) JarvisColors.CoreSuccess else JarvisColors.CoreWarning, individualMemoryText),
         SystemRow(
             "Failures",
             failureText.removePrefix("Failures: "),
@@ -83,14 +107,86 @@ fun SystemScreen() {
             .background(JarvisColors.SurfaceBase)
             .padding(16.dp)
     ) {
-        LazyColumn {
-            items(rows) { row -> SystemRowView(row) }
-        }
         Button(
-            onClick = { diagnosticsViewModel.crashVoiceSubstrate() },
+            onClick = { reportLauncher.launch("friday-device-report.json") },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Crash voice process (R1 isolation demo)")
+            Text("Export full diagnostic report")
+        }
+        Text(
+            "Includes device, resource, model, voice, memory, network and failure state. " +
+                "Excludes chat messages, speech transcripts, notification contents and credentials.",
+            style = JarvisType.Technical,
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
+        Button(
+            onClick = { diagnosticsViewModel.runFullDiagnostic() },
+            enabled = !diagnosticRunning,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(if (diagnosticRunning) "Running active diagnostics..." else "Run full system diagnosis")
+        }
+        Button(
+            onClick = { diagnosticsViewModel.runSelfDiagnosis() },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Run Friday architecture and autonomy diagnosis")
+        }
+        selfDiagnosticAt?.let { checkedAt ->
+            Text(
+                "Self-diagnosis: ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(checkedAt))} · ${selfDiagnosticFindings.count { it.level == DiagnosticLevel.FAILURE }} failures · ${selfDiagnosticFindings.count { it.level == DiagnosticLevel.WARNING }} warnings",
+                style = JarvisType.Technical,
+                modifier = Modifier.padding(vertical = 6.dp)
+            )
+        }
+        LazyColumn(modifier = Modifier.weight(1f)) {
+            items(rows) { row -> SystemRowView(row) }
+            item {
+                Text(
+                    "DIAGNOSTIC FINDINGS (${diagnosticFindings.size})",
+                    style = JarvisType.Technical,
+                    modifier = Modifier.padding(top = 18.dp, bottom = 8.dp)
+                )
+            }
+            if (diagnosticFindings.isEmpty()) {
+                item { Text("No diagnostic run has completed yet.", style = JarvisType.Technical) }
+            }
+            items(diagnosticFindings) { finding ->
+                val color = when (finding.severity) {
+                    com.jarvis.app.diagnostics.DiagnosticSeverity.PASS -> JarvisColors.CoreSuccess
+                    com.jarvis.app.diagnostics.DiagnosticSeverity.INFO -> JarvisColors.CoreIdle
+                    com.jarvis.app.diagnostics.DiagnosticSeverity.WARNING -> JarvisColors.CoreAttention
+                    com.jarvis.app.diagnostics.DiagnosticSeverity.ERROR -> JarvisColors.CoreWarning
+                }
+                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                    Text("${finding.severity.name} · ${finding.title}", color = color, style = JarvisType.Technical)
+                    Text("Observed: ${finding.observed}", style = JarvisType.Technical)
+                    Text("Assessment: ${finding.likelyCause}", style = JarvisType.Technical)
+                    Text("Action: ${finding.recommendedAction}", style = JarvisType.Technical)
+                }
+            }
+            item {
+                Text(
+                    "FRIDAY SELF-DIAGNOSIS (${selfDiagnosticFindings.size})",
+                    style = JarvisType.Technical,
+                    modifier = Modifier.padding(top = 18.dp, bottom = 8.dp)
+                )
+            }
+            if (selfDiagnosticFindings.isEmpty()) {
+                item { Text("No Friday self-diagnosis has completed yet.", style = JarvisType.Technical) }
+            }
+            items(selfDiagnosticFindings, key = { it.id }) { finding ->
+                val color = when (finding.level) {
+                    DiagnosticLevel.PASS -> JarvisColors.CoreSuccess
+                    DiagnosticLevel.WARNING -> JarvisColors.CoreAttention
+                    DiagnosticLevel.FAILURE -> JarvisColors.CoreWarning
+                }
+                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                    Text("${finding.level.name} · ${finding.title}", color = color, style = JarvisType.Technical)
+                    Text(finding.detail, style = JarvisType.Technical)
+                    finding.recommendation?.let { Text("Action: $it", style = JarvisType.Technical) }
+                }
+            }
         }
     }
 }
@@ -120,10 +216,11 @@ private fun substrateDotColor(text: String): Color {
 }
 
 private fun brainDotColor(status: String) = when {
-    status == "sending (local)" -> JarvisColors.CoreThinking
-    status.startsWith("local brain unreachable") -> JarvisColors.CoreWarning
-    status == "ok (local)" -> JarvisColors.CoreSuccess
-    else -> JarvisColors.CoreIdle
+    status.startsWith("loaded:") -> JarvisColors.CoreSuccess
+    status.startsWith("model-free fallback") -> JarvisColors.CoreIdle
+    status.contains("no model confirmed loaded") -> JarvisColors.CoreWarning
+    status.contains("unavailable") -> JarvisColors.CoreWarning
+    else -> JarvisColors.CoreUnknown
 }
 
 private fun batteryDotColor(text: String): Color {
@@ -156,7 +253,8 @@ private fun genericDotColor(text: String): Color {
             JarvisColors.CoreIdle
 
         t.contains("granted") || t.contains("capturing") || t.contains("connected") ||
-            t.contains("heard") || t.contains("wifi") || t.contains("cellular") ->
+            t.contains("heard") || t.contains("wifi") || t.contains("cellular") ||
+            t.contains("energy monitor active") || t.contains("ready; waiting") ->
             JarvisColors.CoreSuccess
 
         else -> JarvisColors.CoreUnknown

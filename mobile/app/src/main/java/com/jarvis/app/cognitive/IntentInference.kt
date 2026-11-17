@@ -1,6 +1,6 @@
 package com.jarvis.app.cognitive
 
-import com.jarvis.app.humancore.protocol.SessionContext
+import com.jarvis.app.turn.TurnContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 
@@ -29,7 +29,7 @@ class IntentInference(
     suspend fun infer(
         userText: String,
         cognitiveState: CognitiveState,
-        sessionContext: SessionContext? = null
+        sessionContext: TurnContext? = null
     ): IntentInferenceResult {
         // 0. Empty/blank input is not an intent — short-circuit to UNKNOWN
         if (userText.isBlank()) {
@@ -176,7 +176,7 @@ class IntentInference(
     private fun inferFromContext(
         userText: String,
         cognitiveState: CognitiveState,
-        sessionContext: SessionContext?
+        sessionContext: TurnContext?
     ): InferredIntent {
         val contextSignals = mutableListOf<ContextSignal>()
         var inferredType = IntentState.UNKNOWN
@@ -237,7 +237,7 @@ class IntentInference(
 
         // Signal: Session context
         sessionContext?.let { ctx ->
-            if (ctx.wasAway) {
+            if (ctx.wasAway == true) {
                 contextSignals.add(ContextSignal("session_resume", 0.7f, "User returning after absence"))
             }
             if ((ctx.secondsSinceLastContact ?: 0) > 3600) {

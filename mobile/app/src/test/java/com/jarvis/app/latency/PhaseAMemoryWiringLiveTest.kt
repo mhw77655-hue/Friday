@@ -4,7 +4,6 @@ import com.jarvis.app.body.MemoryItem
 import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.cognitive.CognitiveEngine
 import com.jarvis.app.cognitive.UserModel
-import com.jarvis.app.humancore.HumanCore
 import com.jarvis.app.memory.BlendedMemoryRetriever
 import com.jarvis.app.memory.FakeMemoryGraphStore
 import com.jarvis.app.memory.MemoryGraphStore
@@ -86,7 +85,6 @@ class PhaseAMemoryWiringLiveTest {
         val engine = CognitiveEngine(
             scope = CoroutineScope(Dispatchers.IO),
             memoryStore = EmptyMemoryStore(),
-            humanCore = HumanCore,
             blendedRetriever = retriever,
             graphStore = graphStore
         )
@@ -96,9 +94,6 @@ class PhaseAMemoryWiringLiveTest {
             scheduleDelayed = { _, _ -> },
             bridgeSend = { sentThroughBridge.add(it) },
             bridgeStatus = { "idle" },
-            beginExchange = { _, _ -> null },
-            express = { reply, _ -> com.jarvis.app.humancore.protocol.StyledResponse.Approved(reply) },
-            completeExchange = { _, _, _, _, _ -> },
             sessionContext = { null },
             cognitiveEngine = engine
         )
@@ -182,16 +177,12 @@ class PhaseAMemoryWiringLiveTest {
             val engine = CognitiveEngine(
                 scope = CoroutineScope(Dispatchers.IO),
                 memoryStore = EmptyMemoryStore(),
-                humanCore = HumanCore
             )
             val pipeline = LatencyPipeline(
                 dispatch = { it() },
                 scheduleDelayed = { _, _ -> },
                 bridgeSend = { sent.add(it) },
                 bridgeStatus = { "idle" },
-                beginExchange = { _, _ -> null },
-                express = { reply, _ -> com.jarvis.app.humancore.protocol.StyledResponse.Approved(reply) },
-                completeExchange = { _, _, _, _, _ -> },
                 sessionContext = { null },
                 cognitiveEngine = engine
             )

@@ -5,7 +5,6 @@ import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.cognitive.CognitiveEngine
 import com.jarvis.app.cognitive.DecisionOption
 import com.jarvis.app.cognitive.Goal
-import com.jarvis.app.humancore.HumanCore
 import com.jarvis.app.cognitive.planning.DecompositionStrategy
 import com.jarvis.app.cognitive.planning.GoalPlanner
 import com.jarvis.app.cognitive.planning.StepSpec
@@ -57,7 +56,6 @@ class ExecutionIntegrationTest {
         engine = CognitiveEngine(
             scope = scope,
             memoryStore = FakeMemoryStore(),
-            humanCore = HumanCore,
             config = CognitiveEngine.Config(),
             goalPlanner = GoalPlanner(strategy)
         )

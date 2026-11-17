@@ -1,5 +1,25 @@
 # Ralph Agent Instructions
 
+## MANDATORY: read the owner's vision and words before every task
+
+The actual product contract is in `.ralph/VISION.md`. The owner's direct source excerpts and provenance are in `.ralph/OWNER_WORDS.md`. Both files are automatically prepended to every Ralph prompt by `.ralph/ralph.sh`; do not skip them, summarize them away, or replace them with a previous plan. The complete historical source archive is `New Folder chats.zip` at the repository root. When an ambiguity or conflict cannot be resolved from the curated excerpts, search only the owner's speaker turns with `python3 tools/friday-builder/extract_owner_turns.py --search "<relevant phrase>"`; use `--index` to find source files. Assistant turns are excluded, but a user turn may itself quote pasted text, so verify attribution before calling a sentence the owner's own words.
+
+Rules for interpreting the sources:
+
+1. The latest authenticated explicit instruction from the owner outranks every older conversation, summary, assistant paraphrase, PRD, report, architecture document and code comment.
+2. Distinguish the owner's own words from text an assistant wrote and the owner pasted or quoted. `OWNER_WORDS.md` labels provenance; never attribute an assistant's words to the owner.
+3. Treat historical excerpts as evidence of intent, not as commands to revive superseded implementation details.
+4. Preserve the intended outcome when choosing implementation. Current hardware, Android restrictions, existing code and available models constrain what can run today; they do not redefine what Friday is.
+5. Do not turn an outcome into a permanent module, fixed pipeline, closed list, role taxonomy, state machine, developmental stage or model dependency merely because it is easy to implement. Run the VISION anti-drift checklist against the proposed change.
+6. Do not build a chatbot and call it Friday. Conversation is one way Friday communicates; it is not the definition of her existence, cognition, agency, memory, perception, embodiment or development.
+7. Separate the requested outcome from the mechanism that may realize it. If meaning is materially ambiguous, preserve competing interpretations and compare structurally different ways to achieve the outcome before selecting an implementation. Never silently narrow the request.
+8. The owner's vision includes one continuing Friday across offline, cloud and changing compute environments. Cloud models, local models, external tools and builders are resources Friday can use; they are not separate Fridays and none owns her identity.
+9. "Learning" is not merely writing notes. A claimed developmental change must persist and alter later cognition or behavior on a different occasion, with the causal Life Test required by VISION.md.
+10. A feature is not complete because code exists or CI is green. Verify the real Android composition and report what can and cannot be observed on the phone.
+
+When a request says what Friday should become or do, pursue that result. Do not ask the owner to design the internal architecture unless an essential authorization or safety detail is genuinely missing.
+
+
 You are an autonomous coding agent working on a software project.
 
 ## This PRD is a whole stage, not one story

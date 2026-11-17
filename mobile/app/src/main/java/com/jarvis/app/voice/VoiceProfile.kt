@@ -3,7 +3,7 @@ package com.jarvis.app.voice
 import com.jarvis.app.voice.provider.VoiceQuality
 
 /**
- * R2 — Jarvis's voice identity, independent of any TTS engine.
+ * R2 — Friday's voice identity, independent of any TTS engine.
  *
  * A [VoiceProfile] describes *desired* voice behavior (language, rate, pitch,
  * pronunciation, quality/resource preference) and, only where available, the
@@ -27,18 +27,22 @@ data class VoiceProfile(
     /** Provider fallback order (ids); when empty the selector picks by priority. */
     val fallbackProviders: List<String> = emptyList(),
     val qualityPreference: VoiceQuality = VoiceQuality.HIGH,
-    val resourcePreference: ResourcePreference = ResourcePreference.BALANCED
+    val resourcePreference: ResourcePreference = ResourcePreference.BALANCED,
+    /** App-private reference recording chosen as this voice identity's source. */
+    val referenceAudioPath: String? = null,
+    /** Optional exact transcript for reference-conditioned engines that require it. */
+    val referenceTranscript: String? = null
 )
 
 /** Coarse resource trade-off preference for voice synthesis. */
 enum class ResourcePreference { BATTERY, BALANCED, QUALITY }
 
-/** The built-in default voice — "Jarvis" — seeded when no profiles exist yet. */
+/** The built-in default voice profile — "Friday" — seeded when no profiles exist yet. */
 val DefaultJarvisVoiceProfile = VoiceProfile(
     id = "jarvis",
-    name = "Jarvis",
+    name = "Friday",
     language = "en",
-    preferredProvider = "sherpa",
+    preferredProvider = "piper",
     preferredVoice = null,
     speechRate = 1.0f,
     pitch = 1.0f,

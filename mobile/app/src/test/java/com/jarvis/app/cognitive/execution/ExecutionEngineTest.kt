@@ -296,8 +296,11 @@ class ExecutionEngineTest {
         val driver = FakeDriver(GoalPlanner(PartialStrategy), graphOf(PartialStrategy))
         val summary = engineOf(alwaysOk(), driver).runToTerminal()
 
-        assertEquals(ExecutionStatus.BLOCKED, summary.status)
+        // One prerequisite step completed before the remaining dependent
+        // branches became blocked: report partial progress, not total blockage.
+        assertEquals(ExecutionStatus.PARTIAL, summary.status)
         assertTrue(driver.events.any { it is CognitiveEngine.CognitiveEvent.StepBlocked })
+        assertTrue(driver.events.any { it is CognitiveEngine.CognitiveEvent.PlanExecutionPartial })
     }
 
     @Test
@@ -358,4 +361,37 @@ class ExecutionEngineTest {
         assertEquals(s1.stepsCompleted, s2.stepsCompleted)
         assertEquals(s1.stepsFailed, s2.stepsFailed)
     }
+    @Test
+    fun `all skipped steps terminate as skipped and preserve reasons`() = runBlocking {
+        val planner = GoalPlanner(strategy)
+        var graph = graphOf(strategy)
+        graph.nodes.map { it.id }.forEach { id -> graph = planner.skipNode(graph, id, "not required") }
+        val driver = FakeDriver(planner, graph)
+
+        val summary = engineOf(alwaysOk(), driver).runToTerminal()
+
+        assertEquals(ExecutionStatus.SKIPPED, summary.status)
+        assertEquals(3, summary.stepsSkipped)
+        assertEquals(3, summary.skippedReasons.size)
+        assertTrue(driver.events.any { it is CognitiveEngine.CognitiveEvent.PlanExecutionSkipped })
+        assertFalse(driver.events.any { it is CognitiveEngine.CognitiveEvent.PlanExecutionCompleted })
+    }
+
+    @Test
+    fun `completed plus skipped and blocked steps terminate as partial`() = runBlocking {
+        val planner = GoalPlanner(strategy)
+        var graph = graphOf(strategy)
+        graph = planner.completeNode(graph, "sg1:s1", "done a")
+        graph = planner.skipNode(graph, "sg2:s1", "optional step omitted")
+        val driver = FakeDriver(planner, graph)
+
+        val summary = engineOf(alwaysOk(), driver).runToTerminal()
+
+        assertEquals(ExecutionStatus.PARTIAL, summary.status)
+        assertEquals(1, summary.stepsSkipped)
+        assertTrue(summary.blockedStepIds.contains("sg3:s1"))
+        assertTrue(driver.events.any { it is CognitiveEngine.CognitiveEvent.PlanExecutionPartial })
+        assertFalse(driver.events.any { it is CognitiveEngine.CognitiveEvent.PlanExecutionCompleted })
+    }
+
 }

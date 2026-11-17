@@ -4,9 +4,8 @@ import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.capability.CapabilityRegistry
 import com.jarvis.app.failure.FailureReport
 import com.jarvis.app.failure.FailureSurface
-import com.jarvis.app.humancore.mod.MemoryAnnotation
-import com.jarvis.app.humancore.protocol.SessionContext
-import com.jarvis.app.humancore.store.StoragePort
+import com.jarvis.app.turn.TurnContext
+import com.jarvis.app.identity.IdentitySource
 import com.jarvis.app.memory.EmbeddingProvider
 import com.jarvis.app.memory.MemoryGraphStore
 import com.jarvis.app.memory.provenance.AdapterManifest
@@ -15,7 +14,6 @@ import com.jarvis.app.model.ModelBackend
 import com.jarvis.app.model.ResourceSnapshot
 import com.jarvis.app.threads.ThreadTracker
 import com.jarvis.app.trace.TurnTraceStore
-import com.jarvis.app.voice.VoiceForgeSynthesizer
 import kotlinx.coroutines.CoroutineScope
 import java.io.File
 
@@ -25,17 +23,16 @@ import java.io.File
  *
  * This file deliberately imports NO android.* type. That is the whole point of
  * the split: the turn path is platform-free, so the thing that names the
- * platform is this interface and its two implementations
- * ([JvmPlatformPorts] for the Termux/plain-JVM host, `AndroidPlatformPorts` for
- * the phone), never the organs.
+ * platform is this interface and its sole production implementation
+ * (`AndroidPlatformPorts` for the phone), never the organs. JVM adapters are test-only.
  *
- * What belongs here is only what genuinely differs between two hosts running
- * the SAME individual: where durable files go, what the device looks like right
+ * What belongs here is only what genuinely differs between the Android host
+ * and a test fixture: where durable files go, what the device looks like right
  * now, what time it is, where speech and turn-state go, and which store
  * implementations the platform can offer. Everything else — the claim
  * workspace, the identity/emotion/social/continuity stack, the cognitive engine,
- * the admission governor's policy, the Human Core wiring — is decided ONCE, in
- * [TurnPathAssembly], for every host.
+ * the turn-context and owner-seeded identity boundaries — is decided ONCE, in
+ * [TurnPathAssembly] in the Android app; JVM fixtures are test-only.
  *
  * It is an adapter, not an owner: nothing here decides a cognitive outcome, and
  * nothing here is a cognitive role (VISION.md Section 4 / Section 13).
@@ -55,6 +52,9 @@ interface PlatformPorts {
      * the root pretending the device is healthy.
      */
     fun resourceSnapshot(): ResourceSnapshot
+
+    /** Aggregate outcome feedback for NAE; hosts without an adaptive observer may ignore it. */
+    fun recordWorkloadOutcome(organ: String, succeeded: Boolean, latencyMs: Long, peakMemoryMb: Long = 0L) = Unit
 
     /** The turn clock. Injected so a host (or a harness) owns time. */
     fun nowMs(): Long
@@ -77,8 +77,14 @@ interface PlatformPorts {
     /** Warm the model so the first real reply is not a cold load. */
     fun warmModel()
 
-    /** The per-turn session context, or null when the host has no session to describe. */
-    fun sessionContext(): SessionContext?
+    /** Whether the phone currently has a real language model available. Test hosts default to true. */
+    fun hasLanguageModel(modelManager: com.jarvis.app.model.ModelManager): Boolean = true
+
+    /** The read-only Friday identity record seeded by the owner/admin path. */
+    fun identitySource(): IdentitySource
+
+    /** The per-turn session evidence; unavailable fields remain null. */
+    fun sessionContext(): TurnContext?
 
     /** Turn-state signals the host's UI/companion surface consumes. */
     fun onUserSubmitted()
@@ -91,16 +97,6 @@ interface PlatformPorts {
 
     /** Where a turn-path failure is reported. Never swallowed inside the root. */
     fun reportFailure(report: FailureReport)
-
-    /** The legacy Human Core's durable storage for this host. */
-    fun humanCoreStorage(): StoragePort
-
-    /**
-     * Optional sink for the legacy Human Core's memory annotations. Null means
-     * this host does not mirror them anywhere — the Human Core itself is
-     * untouched either way.
-     */
-    fun humanCoreMemorySink(): ((MemoryAnnotation) -> Unit)? = null
 
     /** The store implementations this platform can actually offer. */
     fun stores(): PlatformStores
@@ -142,9 +138,6 @@ interface PlatformStores {
 
     /** The single model backend the one loading authority uses. */
     fun modelBackend(): ModelBackend
-
-    /** The speech synthesizer the spoken-reply backend drives. */
-    fun voiceSynthesizer(): VoiceForgeSynthesizer
 
     /** Optional per-turn trace store; null disables tracing honestly. */
     fun turnTraceStore(): TurnTraceStore?

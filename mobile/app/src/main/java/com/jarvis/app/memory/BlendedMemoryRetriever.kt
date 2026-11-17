@@ -72,7 +72,9 @@ class BlendedMemoryRetriever(
      * from relationship strength: same subject+predicate (0.9) > same subject
      * (0.6) > same predicate only (0.4); unrelated nodes have 0 weight.
      */
-    private val edgeWeight: (MemoryNode, MemoryNode) -> Float = ::defaultBlendedEdgeWeight
+    private val edgeWeight: (MemoryNode, MemoryNode) -> Float = ::defaultBlendedEdgeWeight,
+    /** Shared host clock used when a caller does not supply an explicit as-of time. */
+    private val nowMs: () -> Long = { System.currentTimeMillis() }
 ) {
 
     companion object {
@@ -108,9 +110,9 @@ class BlendedMemoryRetriever(
     fun retrieve(
         query: String,
         context: String = "",
-        now: Long = System.currentTimeMillis()
+        now: Long = nowMs()
     ): List<RankedMemory> {
-        val allNodes = graphStore.query()
+        val allNodes = graphStore.query(asOfTime = now)
         if (allNodes.isEmpty()) return emptyList()
 
         // ── STEP 1: binary-quantized Hamming seeds ────────────────────────

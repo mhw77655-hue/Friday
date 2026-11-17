@@ -1,7 +1,7 @@
 package com.jarvis.app.social
 
 import com.jarvis.app.identity.WorldModelService
-import com.jarvis.app.termux.TermuxJarvisServer
+import com.jarvis.app.jvmtest.JvmCompositionHarness
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -16,8 +16,8 @@ import org.junit.Test
  */
 class PersonRelationshipModelTest {
 
-    private fun freshModel(): Triple<TermuxJarvisServer.InMemoryGraph, WorldModelService, PersonRelationshipModel> {
-        val graphStore = TermuxJarvisServer.InMemoryGraph()
+    private fun freshModel(): Triple<JvmCompositionHarness.InMemoryGraph, WorldModelService, PersonRelationshipModel> {
+        val graphStore = JvmCompositionHarness.InMemoryGraph()
         val worldModel = WorldModelService(graphStore)
         return Triple(graphStore, worldModel, PersonRelationshipModel(graphStore, worldModel))
     }

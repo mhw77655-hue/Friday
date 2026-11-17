@@ -1,6 +1,5 @@
 package com.jarvis.app.latency
 
-import com.jarvis.app.humancore.protocol.StyledResponse
 import com.jarvis.app.ui.viewmodel.Turn
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -24,7 +23,7 @@ class LatencyPipelineTest {
         var fastAck = 0
         var firstSegment = 0
         var utteranceDone = 0
-        var completeCount = 0
+        var deliveryCount = 0
         var status = "ok (local)"
 
         fun pipeline(): LatencyPipeline = LatencyPipeline(
@@ -40,10 +39,11 @@ class LatencyPipelineTest {
             reactorUtteranceDone = { utteranceDone++ },
             bridgeSend = { sent += it },
             bridgeStatus = { status },
-            beginExchange = { _, _ -> null },
-            express = { reply, _ -> StyledResponse.Approved(reply) },
-            completeExchange = { _, _, _, _, _ -> completeCount++ },
             sessionContext = { null },
+            replyDelivery = { reply ->
+                deliveryCount++
+                reply.trim()
+            },
             nowMs = { 0L }
         )
     }
@@ -97,12 +97,42 @@ class LatencyPipelineTest {
         assertEquals(listOf("hi there"), r.fullSpoken)
         assertEquals(1, r.firstSegment)
         assertEquals(1, r.utteranceDone)
-        assertEquals(1, r.completeCount)
+        assertEquals(1, r.deliveryCount)
         assertEquals(
             listOf(Turn(fromJarvis = true, text = "hi there", verified = true)),
             p.turns.value.filter { it.fromJarvis }
         )
         assertTrue(r.logged.contains(true to "hi there"))
+    }
+
+    @Test
+    fun `reply delivery boundary normalizes the reply before recording and speech`() {
+        val r = Recorder()
+        val p = r.pipeline()
+
+        p.onUserInput("hello")
+        p.onReplyReady("  hello from Friday  ")
+
+        assertEquals(listOf("hello from Friday"), r.fullSpoken)
+        assertEquals(
+            listOf(Turn(fromJarvis = true, text = "hello from Friday", verified = true)),
+            p.turns.value.filter { it.fromJarvis }
+        )
+        assertEquals(1, r.deliveryCount)
+    }
+
+    @Test
+    fun `reply without a pending user exchange is discarded as stale`() {
+        val r = Recorder()
+        val p = r.pipeline()
+
+        p.onReplyReady("late reply from an earlier turn")
+
+        assertTrue(r.fullSpoken.isEmpty())
+        assertTrue(p.turns.value.isEmpty())
+        assertEquals(0, r.firstSegment)
+        assertEquals(0, r.utteranceDone)
+        assertEquals(0, r.deliveryCount)
     }
 
     @Test
@@ -119,7 +149,34 @@ class LatencyPipelineTest {
             listOf("reply-1", "reply-2"),
             p.turns.value.filter { it.fromJarvis }.map { it.text }
         )
-        assertEquals(2, r.completeCount)
+        assertEquals(2, r.deliveryCount)
+    }
+
+    @Test
+    fun noModelProviderUsesFridayLocalIndividualImmediately() {
+        val spoken = mutableListOf<String>()
+        val sentToModel = mutableListOf<String>()
+        val observed = mutableListOf<String>()
+        val p = LatencyPipeline(
+            dispatch = { it() },
+            scheduleDelayed = { _, _ -> },
+            fullSpeak = { spoken += it },
+            bridgeSend = { sentToModel += it },
+            modelFreeReply = { "Friday's local reply to: $it" },
+            modelAvailable = { false },
+            experienceObserver = { observed += it }
+        )
+
+        p.onUserInput("hello without a model")
+
+        assertEquals(listOf("hello without a model"), observed)
+        assertTrue(sentToModel.isEmpty())
+        assertEquals(
+            listOf("Friday's local reply to: hello without a model"),
+            p.turns.value.filter { it.fromJarvis }.map { it.text }
+        )
+        assertEquals(listOf("Friday's local reply to: hello without a model"), spoken)
+        assertEquals(LatencyLayer.Phase.IDLE, p.phase.value)
     }
 
     // ------------------------------------------------------ fallback ladder
@@ -171,6 +228,76 @@ class LatencyPipelineTest {
         assertEquals(1, p.turns.value.filter { it.fromJarvis }.size)
     }
 
+    @Test
+    fun `confirmed model failure falls back to Friday's independent local expression`() {
+        val spoken = mutableListOf<String>()
+        val experience = mutableListOf<String>()
+        val outcomes = mutableListOf<Pair<String, String>>()
+        val p = LatencyPipeline(
+            dispatch = { it() },
+            scheduleDelayed = { _, _ -> },
+            fullSpeak = { spoken += it },
+            bridgeSend = {},
+            bridgeStatus = { "local brain unreachable after 3 attempts" },
+            modelFreeReply = { input -> "Friday received locally: $input" },
+            experienceObserver = { experience += it },
+            outcomeObserver = { input, output -> outcomes += input to output }
+        )
+
+        p.onUserInput("a new experience")
+        p.onBridgeStatus("local brain unreachable after 3 attempts")
+
+        assertEquals(listOf("a new experience"), experience)
+        assertEquals(
+            listOf("Friday received locally: a new experience"),
+            p.turns.value.filter { it.fromJarvis }.map { it.text }
+        )
+        assertEquals(listOf("Friday received locally: a new experience"), spoken)
+        assertEquals(LatencyLayer.Phase.IDLE, p.phase.value)
+        assertTrue(outcomes.isEmpty())
+    }
+
+    @Test
+    fun `observed model reply becomes a local experience outcome`() {
+        val outcomes = mutableListOf<Pair<String, String>>()
+        val p = LatencyPipeline(
+            dispatch = { it() },
+            scheduleDelayed = { _, _ -> },
+            bridgeSend = {},
+            bridgeStatus = { "ok (local)" },
+            outcomeObserver = { input, output -> outcomes += input to output }
+        )
+
+        p.onUserInput("the unfamiliar lever")
+        p.onReplyReady("it opens the panel")
+
+        assertEquals(listOf("the unfamiliar lever" to "it opens the panel"), outcomes)
+    }
+
+    @Test
+    fun `timeout uses local expression when no model reply ever arrives`() {
+        val spoken = mutableListOf<String>()
+        val scheduled = mutableListOf<Pair<Long, () -> Unit>>()
+        val p = LatencyPipeline(
+            dispatch = { it() },
+            scheduleDelayed = { ms, block -> scheduled += ms to block },
+            fullSpeak = { spoken += it },
+            bridgeSend = {},
+            bridgeStatus = { "idle" },
+            modelFreeReply = { "Local response to: $it" }
+        )
+
+        p.onUserInput("survive without a model")
+        scheduled.first { it.first == LatencyPipeline.RESPONSE_TIMEOUT_MS }.second()
+
+        assertEquals(listOf("Local response to: survive without a model"), spoken)
+        assertEquals(
+            listOf("Local response to: survive without a model"),
+            p.turns.value.filter { it.fromJarvis }.map { it.text }
+        )
+        assertEquals(LatencyLayer.Phase.IDLE, p.phase.value)
+    }
+
     // ------------------------------------------------------------- ack only
 
     @Test
@@ -189,7 +316,7 @@ class LatencyPipelineTest {
         )
         assertEquals(listOf("Let me check the screen."), r.spoken)
         assertEquals(emptyList<String>(), r.sent)
-        assertTrue(r.completeCount == 0)
+        assertTrue(r.deliveryCount == 0)
 
         r.scheduled.first { it.first == LatencyPipeline.ACK_ONLY_IDLE_MS }.second()
         assertEquals(LatencyLayer.Phase.IDLE, p.phase.value)

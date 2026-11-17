@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.IBinder
 import android.os.Process
+import android.os.Debug
 import android.os.SystemClock
 import android.util.Log
 import com.jarvis.app.voice.provider.SherpaTtsVoiceProvider
@@ -18,9 +19,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import com.jarvis.app.symbiosis.NanoSymbioticController
 import java.util.concurrent.TimeUnit
 
 private const val TAG = "VoiceService"
@@ -51,20 +54,52 @@ class VoiceService : Service() {
     private lateinit var registry: VoiceProviderRegistry
     private lateinit var selector: VoiceProviderSelector
     private lateinit var modelManager: VoiceModelManager
+    private lateinit var symbiosis: NanoSymbioticController
     private lateinit var failureController: VoiceFailureController
     private lateinit var providers: List<VoiceProvider>
 
     override fun onCreate() {
         super.onCreate()
         failureController = VoiceFailureController { report -> Log.w(TAG, report.message) }
+        // Voice is its own resource habitat. It measures the physical phone,
+        // learns from synthesis outcomes, and gates expensive voice-model loads.
+        val voiceStorage = File(filesDir, "voice").apply { mkdirs() }
+        symbiosis = NanoSymbioticController(this, voiceStorage)
+        symbiosis.start(scope)
         modelManager = VoiceModelManager(
             context = this,
-            governor = null, // the habitat admits itself; the host reports pressure
+            governor = null,
             scope = scope,
+            admissionGate = { entry ->
+                val admission = symbiosis.admitModel(
+                    modelBytes = entry.sizeMb * 1024L * 1024L,
+                    requestedContextTokens = 512
+                )
+                if (admission.allowed) null else admission.reason
+            },
             onFailure = { report -> Log.w(TAG, report.message) }
         )
         registry = VoiceProviderRegistry().apply {
-            register(SherpaTtsVoiceProvider(modelManager), priority = VoiceProviderRegistry.HIGH_PRIORITY)
+            // Speed-first English default: compact Piper VITS Low model.
+            register(
+                SherpaTtsVoiceProvider(modelManager, VoiceModelManifest.piperEnglishAmyLow, id = "piper"),
+                priority = VoiceProviderRegistry.HIGH_PRIORITY
+            )
+            // Keep Kokoro available as the higher-quality optional voice.
+            register(
+                SherpaTtsVoiceProvider(modelManager, VoiceModelManifest.kokoroEnInt8, id = "sherpa"),
+                priority = VoiceProviderRegistry.HIGH_PRIORITY + 10
+            )
+            register(
+                SherpaTtsVoiceProvider(modelManager, VoiceModelManifest.nabraArabicInt8, id = "sherpa-arabic"),
+                priority = VoiceProviderRegistry.HIGH_PRIORITY
+            )
+            // Optional zero-shot English voice cloning; model weights are fetched
+            // on first use and remain isolated in the :voice process.
+            register(
+                SherpaTtsVoiceProvider(modelManager, VoiceModelManifest.pocketTtsEnInt8, id = "pocket"),
+                priority = VoiceProviderRegistry.HIGH_PRIORITY + 20
+            )
             register(SystemTtsVoiceProvider(this@VoiceService), priority = VoiceProviderRegistry.DEFAULT_PRIORITY)
         }
         selector = VoiceProviderSelector(registry)
@@ -86,6 +121,7 @@ class VoiceService : Service() {
     override fun onDestroy() {
         providers.forEach { runCatching { it.release() } }
         scheduler.close()
+        scope.cancel()
         super.onDestroy()
     }
 
@@ -105,8 +141,8 @@ class VoiceService : Service() {
             val params = parseOptions(optionsJson)
             val profile = com.jarvis.app.voice.DefaultJarvisVoiceProfile.copy(
                 language = language.ifBlank { "en" },
-                preferredProvider = null,
-                preferredVoice = voiceId.ifBlank { null },
+                preferredProvider = if (!params.referenceAudioPath.isNullOrBlank()) "pocket" else "piper",
+                preferredVoice = if (!params.referenceAudioPath.isNullOrBlank()) "reference" else voiceId.ifBlank { null },
                 speechRate = params.speechRate,
                 pitch = params.pitch,
                 pronunciation = params.pronunciationHints
@@ -223,6 +259,12 @@ class VoiceService : Service() {
                     provider.synthesize(text, language, voiceId, params, outFile)
                 }
                 val wallMs = SystemClock.elapsedRealtime() - t0
+                service.symbiosis.recordOutcome(
+                    organ = "voice_synthesis:${provider.id}",
+                    succeeded = result.success,
+                    latencyMs = wallMs,
+                    peakMemoryMb = Debug.getPss().toLong().coerceAtLeast(0L) / 1024L
+                )
                 if (result.success) {
                     VoiceMetrics.recordSynthesis(provider.id, language, wallMs, result.durationMs, result.sampleRate)
                     json(true, sampleRate = result.sampleRate, channels = result.channels, durationMs = result.durationMs)
@@ -231,6 +273,12 @@ class VoiceService : Service() {
                     json(false, error = result.error ?: "synthesis failed")
                 }
             } catch (e: Throwable) {
+                service.symbiosis.recordOutcome(
+                    organ = "voice_synthesis:${provider.id}",
+                    succeeded = false,
+                    latencyMs = (SystemClock.elapsedRealtime() - t0).coerceAtLeast(0L),
+                    peakMemoryMb = Debug.getPss().toLong().coerceAtLeast(0L) / 1024L
+                )
                 service.failureController.onSynthesisFailure(provider.id, e.message)
                 json(false, error = e.message ?: "synthesis threw")
             }
@@ -244,7 +292,8 @@ class VoiceService : Service() {
                     speechRate = o.optDouble("speechRate", 1.0).toFloat().takeIf { it > 0 } ?: 1.0f,
                     pitch = o.optDouble("pitch", 1.0).toFloat().takeIf { it > 0 } ?: 1.0f,
                     pronunciationHints = emptyMap(),
-                    utteranceId = o.optString("utteranceId", "voice_${System.currentTimeMillis()}")
+                    utteranceId = o.optString("utteranceId", "voice_${System.currentTimeMillis()}"),
+                    referenceAudioPath = o.optString("referenceAudioPath").takeIf { it.isNotBlank() && it != "null" }
                 )
             }.getOrDefault(VoiceSynthesisParams())
         }

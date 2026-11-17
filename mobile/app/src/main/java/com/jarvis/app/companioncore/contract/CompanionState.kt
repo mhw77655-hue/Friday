@@ -9,7 +9,7 @@ package com.jarvis.app.companioncore.contract
  * the sole producer; until then callers use [initial] for type-level wiring
  * only — no Phase-1 subsystem depends on a live `CompanionState`.
  *
- * @property presenceMode exactly one mode system-wide (§3 invariant 1).
+ * @property presenceMode the continuously present identity with transient listening/speaking/shutdown expressions.
  * @property emotionVector mirrored from Human Core via §2.30/§2.9, never
  *   mutated locally (§1).
  * @property attentionTarget where JARVIS's attention is aimed.
@@ -29,7 +29,7 @@ data class CompanionState(
     companion object {
         /** A safe, all-neutral initial state. */
         fun initial(): CompanionState = CompanionState(
-            presenceMode = PresenceMode.IDLE,
+            presenceMode = PresenceMode.PRESENT,
             emotionVector = EmotionVector(valence = 0.0, arousal = 0.5, confidence = 0.0),
             attentionTarget = AttentionTarget.NONE,
             activeTheme = null,
@@ -39,10 +39,17 @@ data class CompanionState(
     }
 }
 
-/** The seven presence modes (§1) — owned exclusively by the Presence Engine. */
-enum class PresenceMode { ASLEEP, WAKING, IDLE, LISTENING, THINKING, SPEAKING, SHUTTING_DOWN }
+/** Canonical presence expressions; legacy labels normalize to PRESENT in PresenceEngine. */
+enum class PresenceMode {
+    PRESENT, LISTENING, SPEAKING, SHUTTING_DOWN,
+    /** Legacy activity labels are normalized to PRESENT by PresenceEngine. */
+    @Deprecated("Friday is continuously present; use PRESENT") ASLEEP,
+    @Deprecated("Friday is continuously present; use PRESENT") WAKING,
+    @Deprecated("Friday is continuously present; use PRESENT") IDLE,
+    @Deprecated("Processing is an activity, not a presence mode; use PRESENT") THINKING
+}
 
-/** Where JARVIS's attention is aimed (§1). */
+/** Where Friday's attention is aimed. */
 enum class AttentionTarget { USER, NONE, NOTIFICATION, SELF_TASK }
 
 /** Pending preemption reasons (§1 interrupt_flags bitset). */

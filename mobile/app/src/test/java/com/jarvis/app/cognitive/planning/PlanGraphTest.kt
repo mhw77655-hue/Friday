@@ -129,4 +129,34 @@ class PlanGraphTest {
         val a = plan.steps.first { it.id == "a" }
         assertEquals(listOf("b"), a.dependencies)
     }
+    @Test
+    fun `derived blocking clears after the failed prerequisite is recovered`() {
+        val original = listOf(
+            node("root").copy(status = PlanStepStatus.FAILED),
+            node("child", listOf("root"))
+        )
+        val blocked = computeBlocked(original)
+        val childBlocked = blocked.first { it.id == "child" }
+        assertTrue(childBlocked.blocked)
+        assertEquals(listOf("root"), childBlocked.blockedBy)
+
+        val recovered = blocked.map { if (it.id == "root") it.copy(status = PlanStepStatus.COMPLETED) else it }
+        val recomputed = computeBlocked(recovered)
+        val childReady = recomputed.first { it.id == "child" }
+        assertFalse(childReady.blocked)
+        assertTrue(childReady.blockedBy.isEmpty())
+    }
+
+    @Test
+    fun `skipped nodes are not reported as completed`() {
+        val graph = PlanGraph(
+            goalId = "g",
+            goalDescription = "skip",
+            nodes = listOf(node("a").copy(status = PlanStepStatus.SKIPPED, skipReason = "not required"))
+        )
+        assertFalse(graph.isComplete)
+        assertEquals(listOf("a"), graph.skippedNodeIds)
+        assertEquals("not required", graph.skippedReasons["a"])
+    }
+
 }

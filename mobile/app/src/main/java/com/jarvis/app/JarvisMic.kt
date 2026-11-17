@@ -66,37 +66,81 @@ object JarvisMic {
     private var lastSpeechAtMs = 0L
 
     @SuppressLint("MissingPermission")
+    @Synchronized
     fun start(scope: CoroutineScope) {
-        if (_isRecording.value) return
+        // MainActivity and BodyCoordinator may both request the same process
+        // microphone during startup. Serialize acquisition so they can never
+        // open competing AudioRecord instances.
+        if (_isRecording.value || audioRecord != null) return
 
-        val minBufSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
+        val minBufSize = runCatching {
+            AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
+        }.getOrDefault(-1)
         if (minBufSize <= 0) {
             _lastLevel.value = -1
             return
         }
 
-        val record = AudioRecord(
-            MediaRecorder.AudioSource.MIC,
-            SAMPLE_RATE,
-            CHANNEL_CONFIG,
-            AUDIO_FORMAT,
-            minBufSize * 2
-        )
+        val record = try {
+            AudioRecord(
+                MediaRecorder.AudioSource.MIC,
+                SAMPLE_RATE,
+                CHANNEL_CONFIG,
+                AUDIO_FORMAT,
+                minBufSize * 2
+            )
+        } catch (_: SecurityException) {
+            _lastLevel.value = -1
+            return
+        } catch (_: IllegalStateException) {
+            _lastLevel.value = -1
+            return
+        }
 
         if (record.state != AudioRecord.STATE_INITIALIZED) {
+            runCatching { record.release() }
+            _lastLevel.value = -1
+            return
+        }
+
+        try {
+            record.startRecording()
+            if (record.recordingState != AudioRecord.RECORDSTATE_RECORDING) {
+                runCatching { record.stop() }
+                runCatching { record.release() }
+                _lastLevel.value = -1
+                return
+            }
+        } catch (_: SecurityException) {
+            runCatching { record.release() }
+            _lastLevel.value = -1
+            return
+        } catch (_: IllegalStateException) {
+            runCatching { record.release() }
             _lastLevel.value = -1
             return
         }
 
         audioRecord = record
-        record.startRecording()
         _isRecording.value = true
 
         job = scope.launch(Dispatchers.Default) {
-            val buffer = ShortArray(minBufSize)
-            while (isActive) {
-                val read = record.read(buffer, 0, buffer.size)
-                if (read > 0) {
+            try {
+                val buffer = ShortArray(minBufSize)
+                while (isActive) {
+                    val read = try {
+                        record.read(buffer, 0, buffer.size)
+                    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                        throw cancelled
+                    } catch (_: Throwable) {
+                        -1
+                    }
+                    if (read < 0) {
+                        _lastLevel.value = -1
+                        break
+                    }
+                    if (read == 0) continue
+
                     var sum = 0.0
                     for (i in 0 until read) {
                         sum += buffer[i] * buffer[i].toDouble()
@@ -108,11 +152,11 @@ object JarvisMic {
                     synchronized(bufferLock) {
                         if (rms > SPEECH_RMS_THRESHOLD) {
                             if (speechStartPos == null) {
-                                speechStartPos = writePos // mark BEFORE this chunk is written in
+                                speechStartPos = writePos
                             }
                             lastSpeechAtMs = now
                         } else if (speechStartPos != null && now - lastSpeechAtMs > SILENCE_HANG_MS) {
-                            speechStartPos = null // utterance closed; next speech opens a new one
+                            speechStartPos = null
                             _speechEnded.tryEmit(Unit)
                         }
 
@@ -120,6 +164,22 @@ object JarvisMic {
                             ringBuffer[writePos] = buffer[i]
                             writePos = (writePos + 1) % ringBuffer.size
                             if (writePos == 0) filled = true
+                        }
+                    }
+                }
+            } finally {
+                synchronized(this@JarvisMic) {
+                    // Only the owner of the currently published recorder may
+                    // release it. stop() can detach it while read() is blocked.
+                    if (audioRecord === record) {
+                        runCatching { record.stop() }
+                        runCatching { record.release() }
+                        audioRecord = null
+                        job = null
+                        _isRecording.value = false
+                        synchronized(bufferLock) {
+                            speechStartPos = null
+                            lastSpeechAtMs = 0L
                         }
                     }
                 }
@@ -158,13 +218,21 @@ object JarvisMic {
         out
     }
 
+    @Synchronized
     fun stop() {
-        job?.cancel()
+        val activeJob = job
         job = null
-        audioRecord?.stop()
-        audioRecord?.release()
+        activeJob?.cancel()
+        val record = audioRecord
         audioRecord = null
+        if (record != null) {
+            runCatching { record.stop() }
+            runCatching { record.release() }
+        }
         _isRecording.value = false
-        speechStartPos = null
+        synchronized(bufferLock) {
+            speechStartPos = null
+            lastSpeechAtMs = 0L
+        }
     }
 }

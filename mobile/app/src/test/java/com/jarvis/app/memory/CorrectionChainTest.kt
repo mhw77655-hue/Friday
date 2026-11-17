@@ -3,7 +3,7 @@ package com.jarvis.app.memory
 import com.jarvis.app.humancore.protocol.StyledResponse
 import com.jarvis.app.latency.LatencyPipeline
 import com.jarvis.app.model.FakeModelBackend
-import com.jarvis.app.termux.TermuxJarvisServer
+import com.jarvis.app.jvmtest.JvmCompositionHarness
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -19,8 +19,8 @@ import java.util.Collections
  * and consolidation never inflates a fact's confidence.
  *
  * Every fixture is driven through the REAL conversation composition —
- * TermuxJarvisServer → its LatencyPipeline → CognitiveEngine.process — over the
- * real production graph store class ([TermuxJarvisServer.InMemoryGraph]) and the
+ * JvmCompositionHarness → its LatencyPipeline → CognitiveEngine.process — over the
+ * real production graph store class ([JvmCompositionHarness.InMemoryGraph]) and the
  * real [ConsolidationDaemon]. The only thing a test swaps is the final bridge hop
  * (a recording `bridgeSend` that captures the assembled generation payload), so
  * "recall", "the assembled prompt" and "the stored chain" are all read off the
@@ -33,7 +33,7 @@ import java.util.Collections
  */
 class CorrectionChainTest {
 
-    private val servers = mutableListOf<TermuxJarvisServer>()
+    private val servers = mutableListOf<JvmCompositionHarness>()
 
     @After
     fun tearDown() {
@@ -78,8 +78,8 @@ class CorrectionChainTest {
 
     // ── real-path harness ─────────────────────────────────────────────────────
 
-    private fun newServer(graph: MemoryGraphStore): TermuxJarvisServer =
-        TermuxJarvisServer(
+    private fun newServer(graph: MemoryGraphStore): JvmCompositionHarness =
+        JvmCompositionHarness(
             port = 0,
             backendOverride = FakeModelBackend(),
             graphStoreOverride = graph
@@ -91,16 +91,13 @@ class CorrectionChainTest {
      * turn inline, so `onUserInput` has fully completed when it returns.
      */
     private fun recordingPipeline(
-        server: TermuxJarvisServer,
+        server: JvmCompositionHarness,
         captured: MutableList<String>
     ): LatencyPipeline = LatencyPipeline(
         dispatch = { it() },
         scheduleDelayed = { _, _ -> },
         bridgeSend = { captured.add(it) },
         bridgeStatus = { server.modelManager.status.value },
-        beginExchange = { _, _ -> null },
-        express = { reply, _ -> StyledResponse.Approved(reply) },
-        completeExchange = { _, _, _, _, _ -> },
         sessionContext = { null },
         cognitiveEngine = server.engine
     )
@@ -174,7 +171,7 @@ class CorrectionChainTest {
     @Test
     fun `AC1 AC2 a correction supersedes the old assertion on the real conversation path`(): Unit =
         runBlocking {
-            val graph = TermuxJarvisServer.InMemoryGraph()
+            val graph = JvmCompositionHarness.InMemoryGraph()
             val server = newServer(graph)
             val captured = captures()
             val pipeline = recordingPipeline(server, captured)
@@ -238,7 +235,7 @@ class CorrectionChainTest {
     @Test
     fun `AC4 an egyptian arabic correction produces the same chain behaviour`(): Unit =
         runBlocking {
-            val graph = TermuxJarvisServer.InMemoryGraph()
+            val graph = JvmCompositionHarness.InMemoryGraph()
             val server = newServer(graph)
             val pipeline = recordingPipeline(server, captures())
 
@@ -270,7 +267,7 @@ class CorrectionChainTest {
     @Test
     fun `AC3 ten consolidation passes move accessibility only and never a stored signal`(): Unit =
         runBlocking {
-            val graph = TermuxJarvisServer.InMemoryGraph()
+            val graph = JvmCompositionHarness.InMemoryGraph()
             val server = newServer(graph)
             val pipeline = recordingPipeline(server, captures())
 
@@ -345,7 +342,7 @@ class CorrectionChainTest {
     fun `AC5 a consolidation that raises confidence fails AC3 on the same fixture`(): Unit =
         runBlocking {
             // The IDENTICAL real fixture: the same two turns, the same graph.
-            val graph = TermuxJarvisServer.InMemoryGraph()
+            val graph = JvmCompositionHarness.InMemoryGraph()
             val server = newServer(graph)
             val pipeline = recordingPipeline(server, captures())
             pipeline.onUserInput(FIRST)

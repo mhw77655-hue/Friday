@@ -34,10 +34,13 @@ fun MoreSheet(
                 "Sessions" to "sessions",
                 "Environment" to "environment",
                 "Model Manager" to "model",
+                "Model-Free Device Lab" to "model_simulation",
+                "Visual Presence" to "vision",
+                "Video Experience" to "video_knowledge",
+                "Voice Studio" to "voice_studio",
                 "Memory" to "memory",
                 "Tools" to "tools",
                 "System" to "system",
-                "Sandbox" to "sandbox",
                 "Settings" to "settings"
             ).forEach { (label, route) ->
                 Text(

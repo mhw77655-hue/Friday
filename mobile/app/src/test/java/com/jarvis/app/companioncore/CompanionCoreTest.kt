@@ -13,7 +13,6 @@ import com.jarvis.app.companioncore.render.AnimationController
 import com.jarvis.app.companioncore.render.OrbClip
 import com.jarvis.app.companioncore.render.OrbStateMachine
 import com.jarvis.app.companioncore.resource.MobileResourceManagement
-import com.jarvis.app.vf.motion.MotionEngine
 import com.jarvis.app.vf.reactor.ReactorEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,7 +26,7 @@ import org.junit.Test
  * §2.1/§1.6 — Companion Core coordinator tests.
  *
  * The Engine Tick Lane fan-out (integration → presence engine → orb state
- * machine → render intent/params), the wake→idle handoff, alert override →
+ * machine → render intent/params), continuous presence attachment, alert override →
  * render params, the voice/visualization hook, lifecycle background presence
  * handling, and the frame-budget watchdog inbound channel. All driven
  * deterministically via [CompanionCore.tick].
@@ -82,13 +81,13 @@ class CompanionCoreTest {
     @Test
     fun `tick fans out through integration, engine and state machine`() {
         val (core, _) = build()
-        core.presenceEngine.requestTransition(PresenceMode.THINKING, "test", "pipeline")
+        core.presenceEngine.requestTransition(PresenceMode.PRESENT, "test", "model-work")
         core.tick()
 
-        assertEquals(PresenceMode.THINKING, core.presenceEngine.mode)
-        assertEquals(ReactorEngine.ReactorSpecState.THINKING, core.renderParams.value.reactorState)
-        assertEquals(OrbClip.THINKING_SWIRL, core.renderParams.value.clip)
-        assertEquals(OrbClip.THINKING_SWIRL.visualState, core.renderIntent.value.visualState)
+        assertEquals(PresenceMode.PRESENT, core.presenceEngine.mode)
+        assertEquals(ReactorEngine.ReactorSpecState.IDLE, core.renderParams.value.reactorState)
+        assertEquals(OrbClip.IDLE_BREATHE, core.renderParams.value.clip)
+        assertEquals(OrbClip.IDLE_BREATHE.visualState, core.renderIntent.value.visualState)
         assertNotNull(core.animationController.currentIntent)
     }
 
@@ -102,26 +101,24 @@ class CompanionCoreTest {
     }
 
     @Test
-    fun `waking hands off to idle after the startup window`() {
+    fun `legacy waking request never changes Friday's continuous presence`() {
         val (core, _) = build()
-        core.presenceEngine.requestTransition(PresenceMode.WAKING, "test", "wake")
+        core.presenceEngine.requestTransition(PresenceMode.WAKING, "legacy-caller", "wake")
         core.tick()
-        assertEquals(PresenceMode.WAKING, core.presenceEngine.mode)
-
-        clock.advance(MotionEngine.DurStartupShutdown + 1)
+        assertEquals(PresenceMode.PRESENT, core.presenceEngine.mode)
+        clock.advance(60_000)
         core.tick()
-        assertEquals(PresenceMode.IDLE, core.presenceEngine.mode)
+        assertEquals(PresenceMode.PRESENT, core.presenceEngine.mode)
     }
 
     @Test
-    fun `start is idempotent and cold-starts a single wake`() {
+    fun `start is idempotent and attaches the presence lane without waking from sleep`() {
         val (core, _) = build()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         try {
             core.start(scope)
-            // The cold-start WAKING request is queued and applied on the
-            // first tick (Unconfined runs the launch body immediately).
-            assertEquals(PresenceMode.WAKING, core.presenceEngine.mode)
+            // The lane starts over the already-present identity; no asleep/waking phase.
+            assertEquals(PresenceMode.PRESENT, core.presenceEngine.mode)
             core.start(scope) // idempotent — must not double-request
         } finally {
             core.stop()

@@ -50,7 +50,11 @@ class FakeModelBackend(
         private set
 
     /** Total [generate] calls served against loaded handles. */
-    var generateCount: Int = 0
+    @Volatile var generateCount: Int = 0
+        private set
+
+    /** Last actual prompt sent through the test backend, for turn-path assertions. */
+    @Volatile var lastPrompt: String? = null
         private set
 
     /** Snapshot of currently-loaded handles. */
@@ -69,6 +73,7 @@ class FakeModelBackend(
             "FakeModelBackend.generate called with unloaded handle ${handle.id} (${handle.modelId})"
         }
         delay(generateLatencyMs)
+        lastPrompt = prompt
         generateCount++
         return cannedResponse(prompt)
     }

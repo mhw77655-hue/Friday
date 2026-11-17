@@ -5,16 +5,11 @@ import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.cognition.workspace.Claim
 import com.jarvis.app.cognition.workspace.ClaimKind
 import com.jarvis.app.failure.FailureSurface
-import com.jarvis.app.humancore.store.FileStorage
 import com.jarvis.app.model.FakeModelBackend
+import com.jarvis.app.memory.TestEmbeddingProvider
 import com.jarvis.app.model.ModelTier
 import com.jarvis.app.model.OrganRole
 import com.jarvis.app.model.ResourceSnapshot
-import com.jarvis.app.termux.TermuxJarvisServer
-import com.jarvis.app.voice.VoiceForgeHealth
-import com.jarvis.app.voice.VoiceForgeSynthesisRequest
-import com.jarvis.app.voice.VoiceForgeSynthesisResponse
-import com.jarvis.app.voice.VoiceForgeSynthesizer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -48,16 +43,6 @@ class InjectedClockTest {
     /** 72 hours, the jump the AC names. */
     private val seventyTwoHours = 72L * 60L * 60L * 1000L
 
-    private class SilentSpeech : VoiceForgeSynthesizer {
-        override suspend fun synthesize(
-            request: VoiceForgeSynthesisRequest
-        ): VoiceForgeSynthesisResponse =
-            throw UnsupportedOperationException("this test never synthesizes audio")
-
-        override suspend fun health(): VoiceForgeHealth =
-            throw UnsupportedOperationException("this test never probes the speech host")
-    }
-
     private class NoMemories : MemoryStorePort {
         override fun queryMemories(query: String, limit: Int): List<MemoryItem> = emptyList()
     }
@@ -69,15 +54,13 @@ class InjectedClockTest {
             storageDir = compositionDir("clock"),
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined),
             stores = JvmPlatformStores(
-                graphStore = TermuxJarvisServer.InMemoryGraph(),
-                embeddingProvider = TermuxJarvisServer.DeterministicEmbedding(),
+                graphStore = FakeMemoryGraphStore(),
+                embeddingProvider = TestEmbeddingProvider(),
                 memoryStore = NoMemories(),
                 backend = FakeModelBackend(),
-                voiceSynthesizer = SilentSpeech()
             ),
             snapshot = { ResourceSnapshot.alwaysHealthy() },
             clock = clock,
-            humanCoreStorage = FileStorage(compositionDir("clock-humancore")),
             // The slow path is deliberately NOT run here: every behaviour under
             // test is a fast-path or organ-level clock rule, and isolating them
             // keeps this test about the clock rather than about the engine.

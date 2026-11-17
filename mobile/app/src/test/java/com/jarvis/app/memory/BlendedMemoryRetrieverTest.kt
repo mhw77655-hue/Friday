@@ -177,6 +177,23 @@ class BlendedMemoryRetrieverTest {
         assertNotNull("important must be returned", importantResult)
     }
 
+    @Test
+    fun `retrieval recency follows the injected clock across a 72-hour advance`() {
+        val store = FakeMemoryGraphStore()
+        addNode(store, "aging", "user", "remembers", "a useful old fact", validFrom = 1_000L)
+        var now = 1_000L
+        val retriever = BlendedMemoryRetriever(
+            graphStore = store,
+            embeddingProvider = provider,
+            scorer = scorer,
+            nowMs = { now }
+        )
+        val freshScore = retriever.retrieve("useful old fact", "useful old fact").single().score
+        now += 72L * 60L * 60L * 1_000L
+        val agedScore = retriever.retrieve("useful old fact", "useful old fact").single().score
+        assertTrue("72-hour-old memory must receive a lower recency-weighted score", agedScore < freshScore)
+    }
+
     // ── AC4: "described, not named" via seed-then-traverse ────────────────
 
     @Test

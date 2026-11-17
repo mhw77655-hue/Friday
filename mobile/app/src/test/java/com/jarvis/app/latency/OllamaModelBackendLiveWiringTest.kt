@@ -6,7 +6,6 @@ import com.jarvis.app.cognitive.CognitiveEngine
 import com.jarvis.app.cognitive.UserModel
 import com.jarvis.app.env.ModelProviderType
 import com.jarvis.app.env.ModelSource
-import com.jarvis.app.humancore.HumanCore
 import com.jarvis.app.model.CognitiveAdmissionPolicy
 import com.jarvis.app.model.FakeResourceSnapshot
 import com.jarvis.app.model.ModelManager
@@ -92,7 +91,6 @@ class OllamaModelBackendLiveWiringTest {
         val engine = CognitiveEngine(
             scope = CoroutineScope(Dispatchers.IO),
             memoryStore = EmptyMemoryStore(),
-            humanCore = HumanCore,
             modelManager = modelManager,
             cognitiveAdmissionPolicy = policy
         )
@@ -102,9 +100,6 @@ class OllamaModelBackendLiveWiringTest {
             scheduleDelayed = { _, _ -> },
             bridgeSend = { text -> modelManager.send(text) },
             bridgeStatus = { "idle" },
-            beginExchange = { _, _ -> null },
-            express = { reply, _ -> com.jarvis.app.humancore.protocol.StyledResponse.Approved(reply) },
-            completeExchange = { _, _, _, _, _ -> },
             sessionContext = { null },
             cognitiveEngine = engine
         )

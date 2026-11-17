@@ -1,6 +1,7 @@
 package com.jarvis.app.genome
 
 import com.jarvis.app.humancore.store.FileStorage
+import com.jarvis.app.humancore.store.StoreKind
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -81,6 +82,112 @@ class GenomeArchiveTest {
             val loaded = reloaded.loadFromDisk()
             assertTrue(loaded >= 1)
             assertNotNull(reloaded.get("persisted"))
+        } finally {
+            scope2.cancel()
+        }
+    }
+
+    @Test
+    fun `genome archive never writes into the Human Core dialogue store`() = runBlocking {
+        val scope = CoroutineScope(Dispatchers.Default)
+        val storage = FileStorage(tmpDir())
+        val dialogueRecord = """{"role":"user","content":"keep this conversation"}"""
+        storage.append(StoreKind.DIALOGUE, dialogueRecord)
+        val before = storage.read(StoreKind.DIALOGUE)
+
+        try {
+            val archive = GenomeArchive(storage, scope)
+            archive.put(genome("isolated-genome"))
+            Thread.sleep(200)
+
+            assertEquals(before, storage.read(StoreKind.DIALOGUE))
+            assertNotNull(storage.read(StoreKind.GENOME_ARCHIVE))
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `archive round trips the complete genome contract and provenance`() = runBlocking {
+        val dir = tmpDir()
+        val scope = CoroutineScope(Dispatchers.Default)
+        val original = GenomeBuilder("full-genome")
+            .version(4)
+            .parentLineage(listOf(Genome.ROOT_LINEAGE, "parent-genome"))
+            .capability("custom_tool")
+            .input("text", "String", nullable = false, desc = "source text")
+            .output("result", "Number", desc = "computed value")
+            .dependency("text-normalizer")
+            .runtime(minSdk = 26, isolation = IsolationLevel.SEPARATE_PROCESS)
+            .model("resident", "LLM", required = true, maxMemoryMb = 700)
+            .tool("text-normalizer", required = true)
+            .environment(network = true, permissions = setOf("INTERNET"))
+            .commContract(inputTopics = setOf("tool.input"), outputTopics = setOf("tool.output"))
+            .resourceBudget(maxMemoryMb = 320, maxCpuPercent = 24.0, priority = 3)
+            .latencyBudget(maxFirstTokenMs = 1200, maxFullResponseMs = 8000)
+            .safety(SafetyConstraint.USER_ACTION_REQUIRED)
+            .test("known input", TestType.UNIT, "returns a stable value")
+            .benchmark("latency", "ms", 100.0)
+            .fitness("quality", 0.97)
+            .mutationOperator(MutationOperator.ALGORITHM_MUTATION)
+            .author("Friday")
+            .sourceContext("generated from a verified capability gap")
+            .build()
+            .copy(
+                runtimeRequirements = RuntimeRequirements(
+                    minSdk = 26,
+                    maxConcurrency = 2,
+                    requiresMainThread = false,
+                    requiresBackground = true,
+                    isolation = IsolationLevel.SEPARATE_PROCESS
+                ),
+                modelRequirements = ModelRequirements(listOf(ModelSlot("resident", "LLM", "Q4", 700, true))),
+                toolRequirements = listOf(ToolRequirement("text-normalizer", true)),
+                environmentRequirements = EnvironmentRequirements(
+                    networkAccess = true,
+                    fileAccess = setOf("app-private"),
+                    sensors = setOf("microphone"),
+                    permissions = setOf("INTERNET"),
+                    batteryMinPercent = 25,
+                    thermalOk = false
+                ),
+                communicationContract = CommunicationContract(
+                    inputTopics = setOf("tool.input"),
+                    outputTopics = setOf("tool.output"),
+                    requestTopics = setOf("tool.request"),
+                    resultTopics = setOf("tool.result"),
+                    confidenceThreshold = 0.8f,
+                    priority = 2,
+                    maxInflight = 3
+                ),
+                resourceBudget = ResourceBudget(320, 24.0, 55.0, 3, true, 700),
+                latencyBudget = LatencyBudget(1200, 8000, 900),
+                compatibilityRequirements = CompatibilityRequirements(
+                    requiresGenomeIds = setOf("parent-genome"),
+                    incompatibleGenomeIds = setOf("unsafe-genome"),
+                    requiredCapabilities = setOf("text-normalizer")
+                ),
+                healthState = GenomeHealth.HEALTHY,
+                provenance = Provenance(
+                    author = "Friday",
+                    createdMs = 123456789L,
+                    lastMutation = "bounded optimization",
+                    mutationOperator = MutationOperator.ALGORITHM_MUTATION,
+                    sourceContext = "generated from a verified capability gap"
+                )
+            )
+        try {
+            GenomeArchive(FileStorage(dir), scope).put(original)
+            Thread.sleep(250)
+        } finally {
+            scope.cancel()
+        }
+
+        val scope2 = CoroutineScope(Dispatchers.Default)
+        try {
+            val restored = GenomeArchive(FileStorage(dir), scope2)
+            assertTrue(restored.loadFromDisk() >= 1)
+            assertEquals(original, restored.get("full-genome"))
         } finally {
             scope2.cancel()
         }

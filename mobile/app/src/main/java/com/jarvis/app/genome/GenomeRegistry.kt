@@ -42,6 +42,13 @@ class GenomeRegistry {
 
     fun allBest(): Map<String, Genome> = bestByCapability.toMap()
 
+    /** Restore a complete capability index after an aborted multi-organ promotion. */
+    fun restoreBestByCapability(snapshot: Map<String, Genome>, currentBest: Genome?) {
+        bestByCapability.clear()
+        bestByCapability.putAll(snapshot.filterValues { it.isAccepted() })
+        _currentBest.value = currentBest?.takeIf { it.isAccepted() }
+    }
+
     fun count(): Int = bestByCapability.size
 
     /**

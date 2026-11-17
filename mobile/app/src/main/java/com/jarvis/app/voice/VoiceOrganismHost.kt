@@ -181,6 +181,7 @@ class VoiceOrganismHost(
             .put("speechRate", p.speechRate.toDouble())
             .put("pitch", p.pitch.toDouble())
             .put("utteranceId", p.utteranceId)
+            .put("referenceAudioPath", p.referenceAudioPath ?: org.json.JSONObject.NULL)
             .toString()
     }.getOrDefault("{}")
 

@@ -43,6 +43,9 @@ object EngineAccess {
     fun modelManager(): EngineSlot<ModelManager> =
         JarvisEngine.modelManagerSlot()
 
+    fun fridayIndividual(): EngineSlot<com.jarvis.app.cognitive.seed.FridayIndividual> =
+        JarvisEngine.fridayIndividualSlot()
+
     fun sessionManager(): EngineSlot<com.jarvis.app.session.SessionManager> =
         JarvisEngine.sessionManagerSlot()
 
@@ -60,6 +63,12 @@ object EngineAccess {
 
     fun failureSurface(): EngineSlot<com.jarvis.app.failure.FailureSurface> =
         JarvisEngine.failureSurfaceSlot()
+
+    fun voiceOrganismHost(): EngineSlot<com.jarvis.app.voice.VoiceOrganismHost> =
+        JarvisEngine.voiceOrganismHostSlot()
+
+    fun voiceOutputPath(): EngineSlot<com.jarvis.app.voice.VoiceOutputPath> =
+        JarvisEngine.voiceOutputPathSlot()
 }
 
 /**

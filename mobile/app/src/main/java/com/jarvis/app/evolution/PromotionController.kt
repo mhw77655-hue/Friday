@@ -1,5 +1,7 @@
 package com.jarvis.app.evolution
 
+import com.jarvis.app.cognitive.capability.CapabilityFabric
+import com.jarvis.app.cognitive.capability.CapabilityRegistry
 import com.jarvis.app.failure.FailureCategory
 import com.jarvis.app.failure.FailureReport
 import com.jarvis.app.failure.FailureSeverity
@@ -18,7 +20,7 @@ import com.jarvis.app.mutant.ResourceSandbox
  * and the production body.
  *
  * Promotion is a single transaction with a rollback point:
- *   1. snapshot the previous current-best (the rollback point),
+ *   1. snapshot the full previous capability index and current-best pointer,
  *   2. archive the promoted genome as HEALTHY,
  *   3. swap the Genome Registry's current-best pointer,
  *   4. build and register the callable SpecMicroSystem so the nervous system
@@ -34,7 +36,8 @@ class PromotionController(
     private val archive: GenomeArchive,
     private val genomeRegistry: GenomeRegistry,
     private val failureSurface: FailureSurface,
-    private val sandbox: ResourceSandbox = ResourceSandbox()
+    private val sandbox: ResourceSandbox = ResourceSandbox(),
+    private val cognitiveCapabilityFabric: CapabilityFabric? = null
 ) {
 
     suspend fun promote(
@@ -42,6 +45,7 @@ class PromotionController(
         implementation: CandidateImplementation
     ): PromotionReceipt {
         val previousBest = genomeRegistry.currentBest.value
+        val previousCapabilityIndex = genomeRegistry.allBest()
         val previousSystemId = previousBest?.let { prev ->
             registry.all().firstOrNull { it.genome.id == prev.id }?.id
         }
@@ -49,7 +53,8 @@ class PromotionController(
         val rollbackPoint = RollbackPoint(
             previousGenomeId = previousBest?.id,
             previousSystemId = previousSystemId,
-            timestampMs = System.currentTimeMillis()
+            timestampMs = System.currentTimeMillis(),
+            previousCapabilityGenomeIds = previousCapabilityIndex.mapValues { (_, previous) -> previous.id }
         )
 
         val healthy = genome.copy(healthState = GenomeHealth.HEALTHY)
@@ -62,6 +67,7 @@ class PromotionController(
 
         // 4. build + register the callable organism; on failure roll back the
         //    partial promotion instead of leaving a half-installed capability.
+        var cognitiveCapabilityRegistered = false
         try {
             val organism = SpecMicroSystem(
                 id = systemId,
@@ -74,9 +80,19 @@ class PromotionController(
             organism.initialize()
             organism.onPromoted()
             registry.register(organism)
+            val fabric = cognitiveCapabilityFabric
+            if (fabric != null) {
+                when (val result = fabric.register(com.jarvis.app.builder.SpecMicroSystemCapability(organism))) {
+                    is CapabilityRegistry.RegisterResult.Ok -> cognitiveCapabilityRegistered = true
+                    is CapabilityRegistry.RegisterResult.Duplicate ->
+                        throw IllegalStateException("cognitive capability already registered: ${result.id}")
+                }
+            }
         } catch (t: Throwable) {
+            if (cognitiveCapabilityRegistered) cognitiveCapabilityFabric?.unregister(systemId)
             registry.unregister(systemId)
-            genomeRegistry.setCurrentBest(previousBest)
+            genomeRegistry.restoreBestByCapability(previousCapabilityIndex, previousBest)
+            archive.put(healthy.copy(healthState = GenomeHealth.REJECTED))
             failureSurface.report(
                 FailureReport(
                     subsystem = "EVOLUTION",
@@ -118,7 +134,9 @@ class PromotionController(
 data class RollbackPoint(
     val previousGenomeId: String?,
     val previousSystemId: String?,
-    val timestampMs: Long
+    val timestampMs: Long,
+    /** Every capability -> genome mapping before this promotion, for exact rollback. */
+    val previousCapabilityGenomeIds: Map<String, String> = emptyMap()
 )
 
 data class PromotionReceipt(

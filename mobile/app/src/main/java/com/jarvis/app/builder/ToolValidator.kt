@@ -17,8 +17,17 @@ object ToolValidator {
         val issues = mutableListOf<String>()
         if (spec.capability.isBlank()) issues += "capability must not be blank"
         if (spec.description.isBlank()) issues += "description must not be blank"
-        if (!com.jarvis.app.evolution.BehaviorSynthesizer.supports(spec.behavior)) {
-            issues += "behavior '${spec.behavior.capabilityName}' is not supported by any synthesizer"
+        val hasDeterministicSynthesizer = com.jarvis.app.evolution.BehaviorSynthesizer.supports(spec.behavior)
+        val hasModelSynthesisContract = spec.behavior is com.jarvis.app.evolution.Behavior.Custom &&
+            spec.behavior.capability.isNotBlank() &&
+            spec.behavior.port.isNotBlank() &&
+            spec.behavior.type in setOf("String", "Number", "Boolean", "Double", "Long", "Int")
+        if (spec.behavior is com.jarvis.app.evolution.Behavior.Custom &&
+            spec.behavior.capability != spec.capability) {
+            issues += "custom behavior capability must match the requested capability"
+        }
+        if (!hasDeterministicSynthesizer && !hasModelSynthesisContract) {
+            issues += "behavior '${spec.behavior.capabilityName}' has no valid synthesis contract"
         }
         if (spec.maxMemoryMb <= 0) issues += "memory budget must be positive"
         if (spec.maxCpuPercent <= 0 || spec.maxCpuPercent > 100) issues += "cpu budget must be in 0-100"

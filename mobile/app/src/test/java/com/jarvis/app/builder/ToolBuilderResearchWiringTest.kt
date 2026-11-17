@@ -60,9 +60,8 @@ class ToolBuilderResearchWiringTest {
         override fun generate(prompt: String): CloudResult = CloudResult.Success(reply, id)
     }
 
-    /** The same production composition JarvisEngine.init() hosts for
-     *  requestBuild() — ToolBuilderComposition over the real engine. */
-    private fun productionBuilderStack(
+    /** Test-only mechanism harness; never constructed by the Android production composition. */
+    private fun isolatedBuilderTestStack(
         root: File,
         research: UniversalResearchEngine
     ): ToolBuilderComposition.Stack {
@@ -85,7 +84,7 @@ class ToolBuilderResearchWiringTest {
             cloudRouter = CloudModelRouter(listOf(MechanismCloudProvider("free-model-1", cloudMechanismsText))),
             store = store
         )
-        val stack = productionBuilderStack(root, engine)
+        val stack = isolatedBuilderTestStack(root, engine)
 
         assertEquals(0, store.count())
 
@@ -122,9 +121,9 @@ class ToolBuilderResearchWiringTest {
     }
 
     @Test
-    fun `the tool builder is constructed by the same production composition JarvisEngine init hosts`() {
+    fun `the isolated tool builder harness can construct its mechanisms for tests`() {
         val root = tmpDir()
-        val stack = productionBuilderStack(root, UniversalResearchEngine())
+        val stack = isolatedBuilderTestStack(root, UniversalResearchEngine())
 
         assertNotNull("composition must construct the ToolBuilder", stack.builder)
         assertNotNull(stack.registry)
@@ -137,15 +136,17 @@ class ToolBuilderResearchWiringTest {
     }
 
     @Test
-    fun `organ graph maps the tool builder node and the research consumer edge`() {
+    fun `repository builder is not exposed as an in-app execution organ`() {
         val graph = JarvisOrganGraph.build()
 
-        val node = graph.node("builder.toolBuilder")
-        assertNotNull("builder.toolBuilder must be a registered organ", node)
-        assertEquals("com.jarvis.app.builder.ToolBuilder", node!!.qualifiedClassName)
         assertTrue(
-            "research.universalResearchEngine -> builder.toolBuilder edge must exist",
-            graph.edgesFrom("research.universalResearchEngine").any { it.toId == "builder.toolBuilder" }
+            "ToolBuilder must not be an Android organ: repository work is proposed to a separate worker",
+            graph.node("builder.toolBuilder") == null
+        )
+        assertNotNull("the production research organ remains available", graph.node("research.universalResearchEngine"))
+        assertTrue(
+            "the production composition must not dispatch directly into a repository-writer organ",
+            graph.edgesFrom("entry.compositionRoot").none { it.toId == "builder.toolBuilder" }
         )
     }
 }

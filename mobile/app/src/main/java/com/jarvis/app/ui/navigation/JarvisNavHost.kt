@@ -40,6 +40,7 @@ import com.jarvis.app.ui.screens.HomeScreen
 import com.jarvis.app.ui.screens.MemoryScreen
 import com.jarvis.app.ui.screens.MissionsScreen
 import com.jarvis.app.ui.screens.ModelScreen
+import com.jarvis.app.ui.screens.ModelSimulationScreen
 import com.jarvis.app.ui.screens.MoreSheet
 import com.jarvis.app.ui.screens.SandboxScreen
 import com.jarvis.app.ui.screens.SettingsScreen
@@ -47,13 +48,9 @@ import com.jarvis.app.ui.screens.SessionsScreen
 import com.jarvis.app.ui.screens.SystemScreen
 import com.jarvis.app.ui.screens.TaskInboxScreen
 import com.jarvis.app.ui.screens.ToolsScreen
-import com.jarvis.app.ui.screens.getAlertStore
-import com.jarvis.app.ui.screens.getApprovalQueue
-import com.jarvis.app.ui.screens.getBootstrapManager
-import com.jarvis.app.ui.screens.getEnvironmentManager
-import com.jarvis.app.ui.screens.getModelManager
-import com.jarvis.app.ui.screens.getSessionManager
-import com.jarvis.app.ui.screens.getTaskInbox
+import com.jarvis.app.ui.screens.VisionScreen
+import com.jarvis.app.ui.screens.VideoKnowledgeScreen
+import com.jarvis.app.ui.screens.VoiceStudioScreen
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
 
@@ -72,6 +69,10 @@ private const val ROUTE_SESSIONS = "sessions"
 private const val ROUTE_BOOTSTRAP = "bootstrap"
 private const val ROUTE_ENVIRONMENT = "environment"
 private const val ROUTE_MODEL = "model"
+private const val ROUTE_MODEL_SIMULATION = "model_simulation"
+private const val ROUTE_VISION = "vision"
+private const val ROUTE_VIDEO_KNOWLEDGE = "video_knowledge"
+private const val ROUTE_VOICE_STUDIO = "voice_studio"
 
 /**
  * Living-UI pass: real screen transitions. Design spec §25/§6 rule out
@@ -161,13 +162,52 @@ fun JarvisNavHost() {
             composable(ROUTE_SYSTEM) { SystemScreen() }
             composable(ROUTE_SANDBOX) { SandboxScreen() }
             composable(ROUTE_SETTINGS) { SettingsScreen() }
-            composable(ROUTE_TASK_INBOX) { TaskInboxScreen(taskInbox = getTaskInbox()!!, onNavigate = ::navigateToTab) }
-            composable(ROUTE_APPROVALS) { ApprovalsScreen(approvalQueue = getApprovalQueue()!!, onNavigate = ::navigateToTab) }
-            composable(ROUTE_ALERTS) { AlertsScreen(alertStore = getAlertStore()!!, onNavigate = ::navigateToTab) }
-            composable(ROUTE_SESSIONS) { SessionsScreen(sessionManager = getSessionManager()!!, onNavigate = ::navigateToTab) }
-            composable(ROUTE_ENVIRONMENT) { EnvironmentScreen(environmentManager = getEnvironmentManager()!!, onNavigate = ::navigateToTab) }
-            composable(ROUTE_MODEL) { ModelScreen(modelManager = getModelManager()!!, onNavigate = ::navigateToTab) }
-            composable(ROUTE_BOOTSTRAP) { BootstrapScreen(bootstrapManager = getBootstrapManager()!!, onComplete = { navigateToTab(ROUTE_HOME) }) }
+            composable(ROUTE_TASK_INBOX) {
+                val slot = EngineAccess.taskInbox()
+                val manager = slot.value
+                if (manager == null) WakingSurface(slot.readiness)
+                else TaskInboxScreen(taskInbox = manager, onNavigate = ::navigateToTab)
+            }
+            composable(ROUTE_APPROVALS) {
+                val slot = EngineAccess.approvalQueue()
+                val queue = slot.value
+                if (queue == null) WakingSurface(slot.readiness)
+                else ApprovalsScreen(approvalQueue = queue, onNavigate = ::navigateToTab)
+            }
+            composable(ROUTE_ALERTS) {
+                val slot = EngineAccess.alertStore()
+                val store = slot.value
+                if (store == null) WakingSurface(slot.readiness)
+                else AlertsScreen(alertStore = store, onNavigate = ::navigateToTab)
+            }
+            composable(ROUTE_SESSIONS) {
+                val slot = EngineAccess.sessionManager()
+                val manager = slot.value
+                if (manager == null) WakingSurface(slot.readiness)
+                else SessionsScreen(sessionManager = manager, onNavigate = ::navigateToTab)
+            }
+            composable(ROUTE_ENVIRONMENT) {
+                val slot = EngineAccess.environmentManager()
+                val manager = slot.value
+                if (manager == null) WakingSurface(slot.readiness)
+                else EnvironmentScreen(environmentManager = manager, onNavigate = ::navigateToTab)
+            }
+            composable(ROUTE_MODEL) {
+                val slot = EngineAccess.modelManager()
+                val manager = slot.value
+                if (manager == null) WakingSurface(slot.readiness)
+                else ModelScreen(modelManager = manager, onNavigate = ::navigateToTab)
+            }
+            composable(ROUTE_MODEL_SIMULATION) { ModelSimulationScreen() }
+            composable(ROUTE_VISION) { VisionScreen() }
+            composable(ROUTE_VIDEO_KNOWLEDGE) { VideoKnowledgeScreen() }
+            composable(ROUTE_VOICE_STUDIO) { VoiceStudioScreen() }
+            composable(ROUTE_BOOTSTRAP) {
+                val slot = EngineAccess.bootstrapManager()
+                val manager = slot.value
+                if (manager == null) WakingSurface(slot.readiness)
+                else BootstrapScreen(bootstrapManager = manager, onComplete = { navigateToTab(ROUTE_HOME) })
+            }
         }
 
         if (moreSheetOpen) {
