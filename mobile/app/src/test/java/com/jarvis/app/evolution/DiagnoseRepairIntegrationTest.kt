@@ -19,6 +19,7 @@ import com.jarvis.app.selfrepair.RepairVerificationEvidence
 import com.jarvis.app.selfrepair.SelfRepairLoop
 import com.jarvis.app.selfrepair.SourcePatch
 import com.jarvis.app.selfrepair.TestSuiteObservation
+import com.jarvis.app.sandbox.SandboxExecutor
 import com.jarvis.app.validation.PromotionGate
 import com.jarvis.app.validation.ResourceBenchmark
 import kotlinx.coroutines.CoroutineScope
