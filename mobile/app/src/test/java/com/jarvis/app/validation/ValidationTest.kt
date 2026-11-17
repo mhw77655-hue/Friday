@@ -136,9 +136,20 @@ class ValidationTest {
                 FitnessModel.TestOutcome("u1", passed = true),
                 FitnessModel.TestOutcome("f1", passed = true)
             ),
-            benchmarkResults = listOf(FitnessModel.BenchmarkOutcome("latency", "latency_ms", 5.0, "ms"))
+            benchmarkResults = listOf(
+                FitnessModel.BenchmarkOutcome("latency", "latency_ms", 5.0, "ms"),
+                FitnessModel.BenchmarkOutcome("memory", "memory_mb", 4.0, "mb")
+            )
         )
-        val decision = gate.decide(clean, baseline, ResourceBenchmark.ResourceReport(emptyList(), 5.0, 10))
+        val cleanResource = ResourceBenchmark.ResourceReport(
+            benchmarks = listOf(
+                FitnessModel.BenchmarkOutcome("latency", "latency_ms", 5.0, "ms"),
+                FitnessModel.BenchmarkOutcome("memory", "memory_mb", 4.0, "mb")
+            ),
+            averageLatencyMs = 5.0,
+            iterations = 10
+        )
+        val decision = gate.decide(clean, baseline, cleanResource)
         assertEquals(GateVerdict.PROMOTE, decision.verdict)
         assertTrue(decision.reasons.isEmpty())
     }
@@ -151,9 +162,20 @@ class ValidationTest {
         val slow = FitnessModel.evaluate(
             candidateId = "c",
             testResults = listOf(FitnessModel.TestOutcome("u1", passed = true)),
-            benchmarkResults = listOf(FitnessModel.BenchmarkOutcome("latency", "latency_ms", 9.0, "ms"))
+            benchmarkResults = listOf(
+                FitnessModel.BenchmarkOutcome("latency", "latency_ms", 3_000.0, "ms"),
+                FitnessModel.BenchmarkOutcome("memory", "memory_mb", 4.0, "mb")
+            )
         )
-        val decision = gate.decide(slow, baseline, ResourceBenchmark.ResourceReport(emptyList(), 3_000.0, 10))
+        val slowResource = ResourceBenchmark.ResourceReport(
+            benchmarks = listOf(
+                FitnessModel.BenchmarkOutcome("latency", "latency_ms", 3_000.0, "ms"),
+                FitnessModel.BenchmarkOutcome("memory", "memory_mb", 4.0, "mb")
+            ),
+            averageLatencyMs = 3_000.0,
+            iterations = 10
+        )
+        val decision = gate.decide(slow, baseline, slowResource)
         assertEquals(GateVerdict.MUTATE, decision.verdict)
     }
 
@@ -170,7 +192,18 @@ class ValidationTest {
             benchmarkResults = listOf(FitnessModel.BenchmarkOutcome("latency", "latency_ms", 1.0, "ms"))
         )
         // Two independent reasons (regression + over-budget latency) ⇒ reject.
-        val decision = gate.decide(perfect, regression, ResourceBenchmark.ResourceReport(emptyList(), 3_000.0, 10))
+        val decision = gate.decide(
+            perfect,
+            regression,
+            ResourceBenchmark.ResourceReport(
+                benchmarks = listOf(
+                    FitnessModel.BenchmarkOutcome("latency", "latency_ms", 3_000.0, "ms"),
+                    FitnessModel.BenchmarkOutcome("memory", "memory_mb", 4.0, "mb")
+                ),
+                averageLatencyMs = 3_000.0,
+                iterations = 10
+            )
+        )
         assertEquals(GateVerdict.REJECT, decision.verdict)
         assertTrue(decision.reasons.any { it.startsWith("regression") })
     }
