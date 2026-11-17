@@ -170,7 +170,7 @@ class DiagnoseRepairIntegrationTest {
     }
 
     private fun validEvidence(
-        candidateSuites: List<TestSuiteObservation> = validEvidence(),
+        candidateSuites: List<TestSuiteObservation> = listOf(TestSuiteObservation("CapabilityExecutorTest", 18, emptyList())),
         regressionSuites: List<TestSuiteObservation> = listOf(TestSuiteObservation("BaselineSuite", 18, emptyList()))
     ): RepairVerificationEvidence = RepairVerificationEvidence(
         candidateSuites = candidateSuites,
