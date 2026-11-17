@@ -18,8 +18,8 @@ import org.json.JSONObject
  */
 class PhoneActionPlanner(
     private val localModelReady: suspend () -> Boolean = { true },
-    private val complete: suspend (GenerateRequest) -> GenerateResult,
-    private val localSkills: LocalPhoneActionSkillRegistry = LocalPhoneActionSkillRegistry.default()
+    private val localSkills: LocalPhoneActionSkillRegistry = LocalPhoneActionSkillRegistry.default(),
+    private val complete: suspend (GenerateRequest) -> GenerateResult
 ) {
     constructor(modelManager: ModelManager) : this(
         localModelReady = {
@@ -52,7 +52,7 @@ class PhoneActionPlanner(
         if (!isLikelyDeviceRequest(utterance)) return Result.NotPhoneAction
         if (!localModelReady()) {
             return Result.Unavailable(
-                "No installed model-free phone skill safely matches this request yet. Nothing was changed, and no screen context was sent to a cloud model."
+                "No installed model-free phone skill safely matches this request yet. Nothing was changed. No screen context was sent to a cloud model."
             )
         }
 
