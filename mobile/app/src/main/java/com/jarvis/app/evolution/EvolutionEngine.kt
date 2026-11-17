@@ -88,7 +88,13 @@ class EvolutionEngine(
         hardConstraints: List<FitnessModel.HardConstraint> = gate.constraints,
         weights: FitnessModel.FitnessWeights = FitnessModel.FitnessWeights(),
         mutateFirst: Boolean = false,
-        maxCandidates: Int = 8
+        maxCandidates: Int = 8,
+        /**
+         * A real verifier must re-run the affected test suite after a source
+         * patch is applied. Without one, self-repair is disabled: an empty
+         * observation list is not evidence of success.
+         */
+        repairVerifier: SelfRepairLoop.RepairVerifier? = null
     ): EvolutionRunResult {
         _state.value = EvolutionState.GENERATING
         appendLog("Evolution for ${parent.id} — capability '${requirement.capability}' (${requirement.behavior.capabilityName})")
@@ -235,7 +241,7 @@ class EvolutionEngine(
             // a ROLLED_BACK verdict means the repair was reverted and the loop
             // terminates as before.
             // ---------------------------------------------------------------
-            if (selfRepairLoop != null) {
+            if (selfRepairLoop != null && repairVerifier != null) {
                 _state.value = EvolutionState.DIAGNOSING
                 appendLog("Triggering diagnose/repair — no candidate passed the gate")
                 val repairReq = RepairRequirement(
@@ -244,13 +250,7 @@ class EvolutionEngine(
                     constraints = requirement.constraints
                 )
                 val repairResult = try {
-                    selfRepairLoop.repair(repairReq, "") { patch ->
-                        // Re-run the affected suite after the patch was applied.
-                        // In the test-and-tooling harness this is provided by
-                        // the verifier lambda; for now we return empty (the
-                        // harness supplies the real verifier).
-                        emptyList()
-                    }
+                    selfRepairLoop.repair(repairReq, "", repairVerifier)
                 } catch (t: Throwable) {
                     appendLog("Diagnose/repair failed: ${t.message?.take(200)}")
                     recordFailure("Self-repair cycle failed: ${t.message?.take(200)}")
@@ -280,6 +280,8 @@ class EvolutionEngine(
                         EvolutionRunResult(promoted = false, best = null, candidates = evaluated)
                     }
                 }
+            } else if (selfRepairLoop != null) {
+                appendLog("Self-repair not run: no real post-patch test verifier was supplied")
             }
 
             _state.value = EvolutionState.IDLE
