@@ -65,13 +65,14 @@ class DevelopmentRequestOutboxTest {
     }
 
     @Test
-    fun `maximum supported owner instruction plus system context is accepted`() {
+    fun `maximum trusted request outcome length is accepted and oversized input rejected`() {
         val outbox = DevelopmentRequestOutbox(tempDir())
-        val fullInstruction = "x".repeat(4047)
 
-        val outcome = outbox.enqueue(draft(outcome = fullInstruction))
+        val maximum = outbox.enqueue(draft(outcome = "x".repeat(4000)))
+        val oversized = outbox.enqueue(draft(outcome = "x".repeat(4001), logicalKey = "oversized"))
 
-        assertTrue("The full 3500-character user input plus system context must fit.", outcome is EnqueueOutcome.Enqueued)
+        assertTrue("The trusted validator accepts 4000 characters.", maximum is EnqueueOutcome.Enqueued)
+        assertTrue("The Android outbox must reject what the trusted validator rejects.", oversized is EnqueueOutcome.Rejected)
     }
 
     @Test
