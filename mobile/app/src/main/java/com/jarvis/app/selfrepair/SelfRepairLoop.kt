@@ -254,12 +254,21 @@ class SelfRepairLoop(
             log.addAll(stressResult.log)
         }
 
-        val observed = verification.firstOrNull()
-            ?: throw IllegalArgumentException("verification produced no suite observation")
+        require(verification.isNotEmpty()) {
+            "verification produced no suite observation"
+        }
+        require(verification.all { it.totalTests > 0 && it.failures.size <= it.totalTests }) {
+            "verification contained an empty or inconsistent test suite"
+        }
 
-        val testOutcomes = observed.toTestOutcomes()
+        // Every suite returned by the real verifier participates in the gate.
+        // Looking only at the first suite could otherwise hide a regression in
+        // a later suite and incorrectly promote the patch.
+        val observed = verification.first()
+        val testOutcomes = verification.flatMap { it.toTestOutcomes() }
+        val suiteIdentity = verification.joinToString("_") { it.suiteName }
         val evaluation = FitnessModel.evaluate(
-            candidateId = "selfrepair_${observed.suiteName}",
+            candidateId = "selfrepair_${suiteIdentity}",
             testResults = testOutcomes,
             benchmarkResults = emptyList()
         )
