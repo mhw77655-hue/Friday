@@ -221,7 +221,7 @@ class GitHubDevelopmentClient(context: Context) {
                 "privacy_review",
                 JSONObject()
                     .put("status", "approved")
-                    .put("reviewed_by", "owner-enabled-autonomous-evolution-setting")
+                    .put("reviewed_by", if (includeAggregateEvidence) "owner-enabled-autonomous-evolution-and-aggregate-evidence-settings" else "owner-enabled-autonomous-evolution-setting")
                     .put("reviewed_at", now)
                     .put("aggregate_runtime_evidence_enabled", includeAggregateEvidence)
                     .put("aggregate_runtime_evidence_scope", if (includeAggregateEvidence) "counts_statuses_capability_keys_resource_trends_only" else "none")

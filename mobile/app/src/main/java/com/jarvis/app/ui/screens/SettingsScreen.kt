@@ -401,7 +401,7 @@ fun SettingsScreen() {
             )
         }
         Text(
-            text = "This separate opt-in lets Friday's builder use aggregate evidence from her own runtime: experience/association counts, plan outcome counts (including skipped and blocked), capability availability, self-study health and resource trends. It never sends raw memories, remembered facts, conversation text, prompts, files, location, contacts, notifications, screen contents, microphone, camera or unique device identifiers. Because this repository is public, the aggregate technical summary is public too. Every change remains a draft PR; Friday still cannot merge, sign, release or install her APK.",
+            text = "This separate opt-in lets Friday's builder use aggregate evidence from her own runtime: experience/association counts, plan outcome counts (including skipped and blocked), capability availability, self-study health and resource trends. It never sends raw memories, remembered facts, conversation text, user prompt history, user file contents, location, contacts, notifications, screen contents, microphone, camera or unique device identifiers. Because this repository is public, the aggregate technical summary is public too. Every change remains a draft PR; Friday still cannot merge, sign, release or install her APK.",
             style = JarvisType.Label,
             modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
         )
