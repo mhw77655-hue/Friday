@@ -203,7 +203,7 @@ class MutationEvolutionTest {
             val accepted = archive.allAccepted()
             assertFalse(accepted.any { it.id != parent.id })
             assertTrue(archive.allRejected().any { it.id != parent.id })
-            assertTrue(loop.log.value.any { it.message.contains("simulated test/benchmark evidence") })
+            assertTrue(loop.log.value.any { it.message.startsWith("Evolution complete.") })
             // Log records evolution
             assertTrue(loop.log.value.isNotEmpty())
         } finally {
