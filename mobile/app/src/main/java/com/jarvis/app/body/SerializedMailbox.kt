@@ -5,14 +5,20 @@ import kotlinx.coroutines.channels.Channel
 /**
  * Ordered mailbox for low-volume body events and user commands.
  *
- * UNLIMITED is intentional because Android/platform callbacks are synchronous
- * and cannot suspend. One consumer owns each mailbox. A closed mailbox is the
- * only normal rejection and is surfaced through [onRejected].
+ * Android/platform callbacks are synchronous and cannot suspend, so producers
+ * use trySend. The mailbox is bounded to prevent an event storm from growing
+ * without limit; overflow and closed-mailbox rejection are surfaced through
+ * [onRejected] rather than silently dropping work.
  */
 internal class SerializedMailbox<T>(
+    private val capacity: Int = DEFAULT_CAPACITY,
     private val onRejected: (item: T, cause: Throwable?) -> Unit = { _, _ -> }
 ) {
-    private val channel = Channel<T>(Channel.UNLIMITED)
+    init {
+        require(capacity > 0) { "mailbox capacity must be positive" }
+    }
+
+    private val channel = Channel<T>(capacity)
 
     fun enqueue(item: T): Boolean {
         val result = channel.trySend(item)
@@ -29,5 +35,9 @@ internal class SerializedMailbox<T>(
     /** Close the producer side; the consumer drains all already accepted items. */
     fun close() {
         channel.close()
+    }
+
+    companion object {
+        const val DEFAULT_CAPACITY = 256
     }
 }
