@@ -163,6 +163,122 @@ jobs:
               raise SystemExit(f'JUnit reports {f} failures and {e} errors.')
           PY
 
+  full-source-audit:
+    name: Whole-repository source inventory and Kotlin vision audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout without persisting credentials
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Inventory every tracked code file and audit all production Kotlin
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/friday-source-audit"
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+          import subprocess
+          import sys
+
+          root = pathlib.Path.cwd()
+          out = pathlib.Path(os.environ["RUNNER_TEMP"]) / "friday-source-audit"
+          paths = subprocess.check_output(["git", "ls-files", "-z"]).decode("utf-8").split("\0")
+          paths = [p for p in paths if p]
+          source_suffixes = {
+              ".kt", ".kts", ".java", ".py", ".go", ".js", ".ts", ".tsx", ".jsx",
+              ".sh", ".yml", ".yaml", ".gradle", ".xml", ".toml", ".properties",
+          }
+          inventory = []
+          total_lines = 0
+          for name in paths:
+              if pathlib.PurePosixPath(name).suffix.lower() not in source_suffixes:
+                  continue
+              content = (root / name).read_text(encoding="utf-8", errors="replace")
+              count = len(content.splitlines())
+              total_lines += count
+              inventory.append((name, count))
+          inventory.sort()
+          (out / "source-inventory.tsv").write_text(
+              "lines\tpath\n" + "".join(f"{count}\t{name}\n" for name, count in inventory),
+              encoding="utf-8",
+          )
+
+          production_kotlin = [
+              name for name in paths
+              if name.startswith("mobile/app/src/main/java/") and name.endswith(".kt")
+          ]
+          if not production_kotlin:
+              raise SystemExit("No production Kotlin source files were found.")
+          command = [
+              sys.executable, ".ralph/audit.py", "--paths", *production_kotlin,
+              "--no-model", "--out-dir", str(out),
+          ]
+          subprocess.run(command, check=True)
+          subprocess.run([
+              sys.executable, ".ralph/audit.py", "--self-audit",
+              "--no-model", "--out-dir", str(out),
+          ], check=True)
+
+          subprocess.run([sys.executable, "-m", "compileall", "-q", ".ralph", "tools/friday-builder"], check=True)
+          shell_files = [name for name in paths if name.endswith(".sh")]
+          for name in shell_files:
+              subprocess.run(["bash", "-n", name], check=True)
+
+          audit_summaries = []
+          for report in sorted(out.glob("audit_*.json")):
+              data = json.loads(report.read_text(encoding="utf-8"))
+              audit_summaries.append({
+                  "report": report.name,
+                  "deviations": len(data.get("deviations", [])),
+                  "observations": len(data.get("observations", [])),
+                  "model_calls": data.get("model_calls", 0),
+              })
+          summary = [
+              f"Tracked code/config files inventoried: {len(inventory)}",
+              f"Tracked code/config lines inventoried: {total_lines}",
+              f"Production Kotlin files passed through the whole-file vision audit: {len(production_kotlin)}",
+              f"Python files syntax-compiled: {sum(name.endswith('.py') for name in paths)}",
+              f"Shell scripts syntax-checked: {len(shell_files)}",
+              "Audit results (findings are reported, not silently treated as a pass):",
+          ]
+          summary.extend(
+              f"- {item['report']}: {item['deviations']} deviations, "
+              f"{item['observations']} observations, {item['model_calls']} model calls"
+              for item in audit_summaries
+          )
+          (out / "summary.txt").write_text("\n".join(summary) + "\n", encoding="utf-8")
+          print("\n".join(summary))
+          PY
+
+      - name: Publish source-audit summary
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/friday-source-audit/summary.txt" ]; then
+            cat "$RUNNER_TEMP/friday-source-audit/summary.txt" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Whole-repository source audit did not produce a summary." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload whole-repository source audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-whole-repository-source-audit
+          path: ${{ runner.temp }}/friday-source-audit/
+          if-no-files-found: warn
+          retention-days: 14
+
   report-failure:
     # Always inspect the build job's final result. This job is intentionally
     # skipped only when the build job succeeded; cancellation remains distinct.
