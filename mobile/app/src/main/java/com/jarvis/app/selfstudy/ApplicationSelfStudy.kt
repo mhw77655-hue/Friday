@@ -194,6 +194,98 @@ class ApplicationSelfStudy(
         return reflection
     }
 
+    /**
+     * Form a conservative development goal using only deterministic, locally
+     * observed evidence. This path is always available without a language model.
+     * It does not claim source comprehension: the repository worker must inspect
+     * actual source and tests before proposing a patch.
+     */
+    fun reflectModelFree(
+        report: Report,
+        nowMs: Long = System.currentTimeMillis()
+    ): Reflection {
+        val findings = buildList {
+            if (report.missingInvariantIds.isNotEmpty()) {
+                add("Observed missing runtime invariants: ${report.missingInvariantIds.joinToString()}")
+            }
+            if (report.unreachableNodeIds.isNotEmpty()) {
+                add("Observed unreachable runtime components: ${report.unreachableNodeIds.joinToString()}")
+            }
+            if (report.organFailureCounts.isNotEmpty()) {
+                add("Observed organ failures: ${report.organFailureCounts.entries.sortedByDescending { it.value }.joinToString { "${it.key}=${it.value}" }}")
+            }
+            if (report.declaredMissingCapabilities.isNotEmpty()) {
+                add("Capability manifest declares unavailable capabilities: ${report.declaredMissingCapabilities.joinToString()}")
+            }
+            if (report.knownLimitationIds.isNotEmpty()) {
+                add("Capability manifest records known limitations: ${report.knownLimitationIds.joinToString()}")
+            }
+            if (report.sourceRevision.isBlank() || report.sourceFileCount <= 0) {
+                add("Packaged source architecture metadata is missing or incomplete")
+            } else if (report.sourceDependencyEdgeCount <= 0) {
+                add("Packaged source architecture metadata contains no dependency edges")
+            }
+        }
+
+        val request = when {
+            report.missingInvariantIds.isNotEmpty() ->
+                "Inspect the actual repository source and tests for the observed missing runtime invariants ${report.missingInvariantIds.joinToString()}. Identify the real cause, implement the smallest coherent repair that preserves Friday's full individual architecture, and add production-composition regression tests. Do not infer source details from Android metadata."
+            report.unreachableNodeIds.isNotEmpty() ->
+                "Trace the observed unreachable runtime components ${report.unreachableNodeIds.joinToString()} through the actual repository source and production composition. Determine whether each is intentionally dormant, obsolete, or incorrectly disconnected; repair only proven wiring gaps and add integration tests. Do not activate every organ by default or create a fixed cognitive state machine."
+            report.organFailureCounts.isNotEmpty() -> {
+                val worst = report.organFailureCounts.entries
+                    .sortedWith(compareByDescending<Map.Entry<String, Long>> { it.value }.thenBy { it.key })
+                    .take(3)
+                "Investigate the observed organ failure counts ${worst.joinToString { "${it.key}=${it.value}" }} against actual source, traces and tests. Reproduce the failure, identify its cause, and implement a bounded repair with regression coverage; do not treat counts alone as proof of root cause."
+            }
+            report.declaredMissingCapabilities.isNotEmpty() ->
+                "Inspect why the live system declares these capabilities unavailable: ${report.declaredMissingCapabilities.joinToString()}. Verify actual registration, permissions, health and callable production paths before changing code; implement only a proven missing vertical slice with tests."
+            report.knownLimitationIds.isNotEmpty() ->
+                "Investigate the recorded capability limitations ${report.knownLimitationIds.joinToString()} in actual source and tests. Select one limitation whose cause and acceptance criteria can be verified, then implement a coherent repair without narrowing Friday to a chatbot."
+            report.sourceRevision.isBlank() || report.sourceFileCount <= 0 ->
+                "Repair the build-time source architecture index so the installed app can identify its source revision and tracked source structure. Keep it metadata-only; the repository worker must inspect source text."
+            report.sourceDependencyEdgeCount <= 0 ->
+                "Inspect the build-time source-index generator: the packaged index reports no dependency edges. Verify the generator against actual imports and add deterministic tests before using the index for architectural conclusions."
+            else -> null
+        }
+
+        val evidenceGaps = buildList {
+            if (report.sourceRevision.isBlank()) add("No source revision is available in the packaged index.")
+            if (report.sourceFileCount <= 0) add("No tracked source-file count is available.")
+            if (report.sourceDependencyEdgeCount <= 0) add("No source dependency edges are available.")
+            if (report.hostSamples < 20L) add("Phone resource observations are still below the 20-sample minimum.")
+            add("The installed app contains structural metadata, not the Kotlin source text.")
+            add("No target-device acceptance result is inferred from this report.")
+        }
+        val constraints = listOf(
+            "Android is Friday's deployed body, not a source editor or build environment.",
+            "A repository worker must inspect actual source and tests before implementing.",
+            "No source patch, test run, build, merge, signing, release or installation is claimed.",
+            "Preserve model-independent identity and continuity; models remain optional extra computation."
+        )
+        val reflection = Reflection(
+            createdAtMs = nowMs,
+            sourceRevision = report.sourceRevision,
+            summary = if (request == null) {
+                "No source-level change was selected: this study found no sufficiently specific structural gap."
+            } else {
+                "Model-free self-study selected one evidence-backed repository investigation from observed runtime and architecture facts."
+            },
+            findings = findings.take(8),
+            nextActions = if (request == null) {
+                listOf("Continue bounded observation and reassess when new evidence appears.")
+            } else {
+                listOf("Send the bounded request to the repository development environment.", "Require source inspection, regression tests and independent CI.")
+            },
+            developmentRequest = request?.take(1600),
+            constraints = constraints,
+            evidenceGaps = evidenceGaps
+        )
+        persistReflection(reflection)
+        latestReflection = reflection
+        return reflection
+    }
+
     private fun extractJson(raw: String): JSONObject? {
         val start = raw.indexOf('{')
         val end = raw.lastIndexOf('}')
