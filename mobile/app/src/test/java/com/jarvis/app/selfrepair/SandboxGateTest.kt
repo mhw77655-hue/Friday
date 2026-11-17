@@ -14,8 +14,10 @@ import com.jarvis.app.mutant.DeterministicSpec
 import com.jarvis.app.mutant.ResourceSandbox
 import com.jarvis.app.mutant.SpecOutput
 import com.jarvis.app.mutation.LlmSynthesisProvider
+import com.jarvis.app.mutation.FitnessModel
 import com.jarvis.app.sandbox.LocalTestSandboxExecutor
 import com.jarvis.app.validation.PromotionGate
+import com.jarvis.app.validation.ResourceBenchmark
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -53,6 +55,24 @@ class SandboxGateTest {
 
     private fun tmpDir(): File = File.createTempFile("sandbox-gate-test", "").apply {
         delete(); mkdirs(); tempDirs += this
+    }
+
+    private fun validEvidence(): RepairVerificationEvidence {
+        val passed = TestSuiteObservation("CapabilityExecutorTest", 18, emptyList())
+        val baselinePassed = TestSuiteObservation("BaselineSuite", 18, emptyList())
+        val resource = ResourceBenchmark.ResourceReport(
+            benchmarks = listOf(
+                FitnessModel.BenchmarkOutcome("latency", "latency_ms", 12.0, "ms"),
+                FitnessModel.BenchmarkOutcome("memory", "memory_mb", 1.0, "mb")
+            ),
+            averageLatencyMs = 12.0,
+            iterations = 20
+        )
+        return RepairVerificationEvidence(
+            candidateSuites = listOf(passed),
+            regressionSuites = listOf(baselinePassed),
+            resourceReport = resource
+        )
     }
 
     // ------------------------------------------------------------------
@@ -240,9 +260,9 @@ class SandboxGateTest {
         // 1. observeAndDiagnose: reads real XML failures
         // 2. proposeRepair: generates the broken patch via scripted LLM
         // 3. apply: writes the broken patch to GoalPlanner.kt
-        // 4. verify: verifier returns empty (normal verification passes)
+        // 4. verify: independent candidate, baseline and resource evidence all pass
         // 5. conclude: sandbox stress test catches the broken spec BEFORE gate
-        val result = loop.repair(requirement, "") { _ -> emptyList() }
+        val result = loop.repair(requirement, "") { _ -> validEvidence() }
 
         // The sandbox gate must catch the broken candidate
         assertEquals(SelfRepairLoop.Outcome.SANDBOX_REJECTED, result.outcome)
@@ -334,7 +354,7 @@ class SandboxGateTest {
         // and the sandbox stress test passes (good spec handles all inputs)
         // → conclude() proceeds to the gate → gate PROMOTES
         val result = loop.repair(requirement, "") { _ ->
-            listOf(TestSuiteObservation("CapabilityExecutorTest", 18, emptyList()))
+            validEvidence()
         }
 
         // The sandbox gate passes; the gate promotes
