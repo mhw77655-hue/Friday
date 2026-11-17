@@ -16,7 +16,7 @@ SPEC.loader.exec_module(AUDIT)
 
 class VisionAuditSeverityTest(unittest.TestCase):
     def test_closed_enum_is_an_observation_not_an_automatic_vision_violation(self):
-        source = "enum class Mode { IDLE, ACTIVE }"
+        source = "enum class Mode { IDLE, ACTIVE, }"
         file = SimpleNamespace(
             path="Example.kt",
             text=source,
@@ -43,7 +43,7 @@ fun classify(input: String): Mode = when (input) {
             path="Example.kt",
             text=source,
             added={
-                1: "enum class Mode { IDLE, ACTIVE }",
+                1: "enum class Mode { IDLE, ACTIVE, }",
                 2: "fun classify(input: String): Mode = when (input) {",
                 3: '    "idle" -> Mode.IDLE',
                 4: "    else -> Mode.ACTIVE",
