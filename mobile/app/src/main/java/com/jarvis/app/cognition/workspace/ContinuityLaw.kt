@@ -240,15 +240,25 @@ class ContinuityLaw(
         fun requiredEvidenceClaims(
             acceptedChanges: Int,
             base: Int = DEFAULT_MIN_EVIDENCE_CLAIMS
-        ): Int = (base + acceptedChanges.coerceAtLeast(0) * EVIDENCE_STEP)
-            .coerceAtMost(MAX_EVIDENCE_CLAIMS)
+        ): Int {
+            val initial = base.coerceAtLeast(0)
+            val ceiling = maxOf(MAX_EVIDENCE_CLAIMS, initial)
+            val proposed = initial.toLong() +
+                acceptedChanges.coerceAtLeast(0).toLong() * EVIDENCE_STEP
+            return minOf(proposed, ceiling.toLong()).toInt()
+        }
 
         /** Required real elapsed time for a field with this much accepted history. */
         fun requiredIntervalMs(
             acceptedChanges: Int,
             base: Long = DEFAULT_MIN_INTERVAL_MS
-        ): Long = (base * (acceptedChanges.coerceAtLeast(0) + 1L))
-            .coerceAtMost(MAX_INTERVAL_MS)
+        ): Long {
+            val initial = base.coerceAtLeast(0L)
+            val multiplier = acceptedChanges.coerceAtLeast(0).toLong() + 1L
+            val ceiling = maxOf(MAX_INTERVAL_MS, initial)
+            if (multiplier == 0L || initial == 0L) return initial
+            return if (initial > ceiling / multiplier) ceiling else initial * multiplier
+        }
 
         /**
          * Base REAL elapsed milliseconds between accepted changes before the
