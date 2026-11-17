@@ -461,7 +461,7 @@ class DevelopmentRequestOutbox(
         }
         if (!isIsoTimestamp(createdAt)) return "created_at must be an ISO-8601 timestamp with a timezone."
         validateText(draft.sourceRevision, "source_revision", 128)?.let { return it }
-        validateText(draft.intendedOutcome, "intended_outcome", 4500)?.let { return it }
+        validateText(draft.intendedOutcome, "intended_outcome", 4000)?.let { return it }
         validateList(draft.evidence, "evidence", 1, 12, 8000)?.let { return it }
         validateList(draft.acceptanceCriteria, "acceptance_criteria", 1, 12, 600)?.let { return it }
         validateList(draft.risks, "risks", 0, 8, 500)?.let { return it }
