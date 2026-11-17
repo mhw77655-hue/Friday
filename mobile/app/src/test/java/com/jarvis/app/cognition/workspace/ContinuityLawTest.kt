@@ -256,12 +256,12 @@ class ContinuityLawTest {
         assertEquals("direct", restored.valueOf("persona:directness"))
         assertEquals(11_000L, restoredLog.lastChangeAt("persona:directness"))
 
-        // TWO real proposals, so the evidence count is satisfied and the interval
-        // is the only remaining reason a refusal could have. One proposal would
-        // be refused for want of evidence whether or not the interval survived —
-        // a test that passes for the wrong reason proves nothing.
+        // The field already has one accepted change, so the history-scaled
+        // evidence floor is now three independent proposals. Supply all three
+        // after restart so the final refusal can only be caused by the interval.
         restored.propose(persona("c-3", "directness", "playful"))
-        val refused = restored.propose(persona("c-4", "directness", "playful"))
+        restored.propose(persona("c-4", "directness", "playful"))
+        val refused = restored.propose(persona("c-5", "directness", "playful"))
         assertTrue(
             "the interval survived the restart — an in-memory counter would have forgotten it",
             refused.isRejected
