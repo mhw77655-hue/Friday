@@ -38,6 +38,46 @@ class FitnessModelEvidenceTest {
         assertFalse(result.hardConstraintsPassed)
     }
 
+
+    @Test
+    fun `one invalid sample invalidates the whole metric dimension and gate`() {
+        val result = FitnessModel.evaluate(
+            candidateId = "mixed-invalid-benchmarks",
+            testResults = listOf(FitnessModel.TestOutcome("pass", true)),
+            benchmarkResults = listOf(
+                FitnessModel.BenchmarkOutcome("latency-good", "latency_ms", 12.0, "ms"),
+                FitnessModel.BenchmarkOutcome("latency-bad", "latency_ms", Double.NaN, "ms"),
+                FitnessModel.BenchmarkOutcome("memory", "memory_mb", 4.0, "mb")
+            )
+        )
+        assertEquals(0.0, result.dimensions.latency, 0.0)
+        assertFalse(result.hardConstraintsPassed)
+    }
+
+    @Test
+    fun `default weighted score is normalized to the unit interval`() {
+        val result = FitnessModel.evaluate(
+            candidateId = "default-weights",
+            testResults = listOf(FitnessModel.TestOutcome("pass", true)),
+            benchmarkResults = listOf(
+                FitnessModel.BenchmarkOutcome("latency", "latency_ms", 0.0, "ms"),
+                FitnessModel.BenchmarkOutcome("memory", "memory_mb", 0.0, "mb"),
+                FitnessModel.BenchmarkOutcome("cpu", "cpu_percent", 0.0, "%"),
+                FitnessModel.BenchmarkOutcome("energy", "energy_mah", 0.0, "mAh")
+            ),
+            hardConstraints = emptyList()
+        )
+        assertTrue(result.score in 0.0..1.0)
+    }
+
+    @Test
+    fun `non-finite fitness weights are rejected`() {
+        val result = runCatching {
+            FitnessModel.FitnessWeights(correctness = Double.NaN)
+        }
+        assertTrue(result.isFailure)
+    }
+
     @Test
     fun `configured fitness weights affect evaluation score`() {
         val result = FitnessModel.evaluate(
