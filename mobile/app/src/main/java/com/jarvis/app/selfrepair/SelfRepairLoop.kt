@@ -79,9 +79,10 @@ class SelfRepairLoop(
      * Gate 2: isolated stress-test sandbox. Runs the repaired candidate
      * against adversarial inputs (boundary values, malformed data,
      * concurrent-style repeated calls) BEFORE [PromotionGate] sees it.
-     * When null the sandbox gate is simply skipped.
+     * A sandbox is mandatory: absence or execution failure must never bypass
+     * this gate and leave a candidate eligible for promotion.
      */
-    private val sandboxExecutor: SandboxExecutor? = null
+    private val sandboxExecutor: SandboxExecutor
 ) {
 
     /** Return candidate tests, independent baseline regressions, and measured resource evidence. */
@@ -247,25 +248,38 @@ class SelfRepairLoop(
         val candidateSuites = evidence.candidateSuites
         val regressionSuites = evidence.regressionSuites
 
-        // Gate 2: sandbox stress test — runs BEFORE [PromotionGate] and
-        // independently of verification results.
-        if (sandboxExecutor != null) {
-            log.add("sandboxGate: running adversarial stress test")
-            val stressResult = sandboxExecutor.stressTest(patch, requirement.requirement)
-            if (!stressResult.passed) {
-                val failureDetail = stressResult.failures.joinToString("; ") { it.description }
-                log.add("sandboxGate: REJECTED — $failureDetail")
-                recordWarning("Self-repair candidate rejected by sandbox gate: $failureDetail")
-                restore(patch)
-                log.add("sandboxGate: patch restored from backups")
-                return Result(
-                    Outcome.SANDBOX_REJECTED, diagnosis, patch, null, null,
-                    candidateSuites, log + stressResult.log
-                )
-            }
-            log.add("sandboxGate: PASSED — candidate survived adversarial inputs")
-            log.addAll(stressResult.log)
+        // Gate 2: sandbox stress test — mandatory and before [PromotionGate].
+        // Missing, failed, or unavailable sandbox evidence cannot be bypassed.
+        log.add("sandboxGate: running adversarial stress test")
+        val stressResult = try {
+            sandboxExecutor.stressTest(patch, requirement.requirement)
+        } catch (cancelled: CancellationException) {
+            restore(patch)
+            throw cancelled
+        } catch (failure: Exception) {
+            restore(patch)
+            val detail = failure.message?.take(200) ?: failure.javaClass.simpleName
+            log.add("sandboxGate: unavailable or failed; patch restored ($detail)")
+            recordWarning("Self-repair sandbox unavailable; patch restored: $detail")
+            return Result(
+                Outcome.VALIDATION_FAILED, diagnosis, patch, null, null,
+                candidateSuites, log
+            )
         }
+        if (!stressResult.passed) {
+            val failureDetail = stressResult.failures.joinToString("; ") { it.description }
+                .ifBlank { "sandbox returned a failed result without details" }
+            log.add("sandboxGate: REJECTED — $failureDetail")
+            recordWarning("Self-repair candidate rejected by sandbox gate: $failureDetail")
+            restore(patch)
+            log.add("sandboxGate: patch restored from backups")
+            return Result(
+                Outcome.SANDBOX_REJECTED, diagnosis, patch, null, null,
+                candidateSuites, log + stressResult.log
+            )
+        }
+        log.add("sandboxGate: PASSED — candidate survived adversarial inputs")
+        log.addAll(stressResult.log)
 
         require(candidateSuites.isNotEmpty()) { "verification produced no candidate test suites" }
         require(regressionSuites.isNotEmpty()) { "verification produced no independent baseline regression suites" }
