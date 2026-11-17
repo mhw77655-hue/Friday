@@ -61,6 +61,7 @@ data class SourcePatch(
             // created. Preserve the original exception if recovery also fails.
             createdBackups.asReversed().forEach { (target, backup) ->
                 runCatching { moveReplacing(backup, target) }
+                    .onFailure(failure::addSuppressed)
             }
             throw failure
         }
@@ -75,9 +76,29 @@ data class SourcePatch(
         require(missing.isEmpty()) {
             "rollback point missing; refusing to claim restoration: ${missing.joinToString()}"
         }
-        // Validate every rollback point before restoring any target, so a
-        // missing backup cannot leave a partially restored multi-file patch.
-        targets.forEach { target -> moveReplacing(backupFor(target), target) }
+        // Stage copies of every rollback point before replacing any target.
+        // Keep the original backups until all replacements succeed, so a
+        // partial filesystem failure can be retried without losing recovery data.
+        val stagedRestores = linkedMapOf<File, File>()
+        try {
+            targets.forEach { target ->
+                val temporary = Files.createTempFile(
+                    target.parentFile.toPath(),
+                    ".${target.name}.",
+                    ".selfrepair.restore"
+                )
+                Files.copy(backupFor(target).toPath(), temporary, REPLACE_EXISTING)
+                stagedRestores[target] = temporary.toFile()
+            }
+            stagedRestores.forEach { (target, temporary) ->
+                moveReplacing(temporary, target)
+            }
+            targets.forEach { target -> Files.deleteIfExists(backupFor(target).toPath()) }
+        } finally {
+            stagedRestores.values.forEach { temporary ->
+                Files.deleteIfExists(temporary.toPath())
+            }
+        }
     }
 
     private fun stage(root: File): Pair<LinkedHashMap<File, String>, List<String>> {
@@ -130,6 +151,16 @@ data class SourcePatch(
         require(!requested.isAbsolute) { "absolute paths are forbidden" }
         require(requested.none { it.toString() == "." || it.toString() == ".." }) {
             "dot and parent path segments are forbidden"
+        }
+        require(requested.firstOrNull()?.toString() != ".git") {
+            "patches may not modify Git metadata"
+        }
+        val filename = requested.fileName?.toString()?.lowercase().orEmpty()
+        require(
+            filename !in setOf("local.properties", "id_rsa", "id_ed25519") &&
+                listOf(".jks", ".keystore", ".p12", ".pfx", ".pem", ".key").none(filename::endsWith)
+        ) {
+            "patches may not modify local credentials or signing material"
         }
         val canonicalRoot = root.canonicalFile.toPath()
         val canonicalTarget = File(root, relativePath).canonicalFile.toPath()
@@ -195,8 +226,9 @@ data class SourcePatch(
                 ?: throw IllegalStateException("patch block ${blockIndex + 1}: missing FIND: marker")
             val replaceMarker = Regex("(?m)^REPLACE:\\s*$").find(body)
                 ?: throw IllegalStateException("patch block ${blockIndex + 1}: missing REPLACE: marker")
-            require(findMarker.range.first < replaceMarker.range.first) {
-                "patch block ${blockIndex + 1}: FIND must precede REPLACE"
+            require(fileMatch.range.first < findMarker.range.first &&
+                findMarker.range.first < replaceMarker.range.first) {
+                "patch block ${blockIndex + 1}: FILE, FIND and REPLACE must appear in that order"
             }
 
             val file = fileMatch.groupValues[1].trim()
