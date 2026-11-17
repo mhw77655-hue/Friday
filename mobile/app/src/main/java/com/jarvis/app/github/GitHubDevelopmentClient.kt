@@ -100,7 +100,7 @@ class GitHubDevelopmentClient(context: Context) {
         val outbox = DevelopmentRequestOutbox(app.filesDir)
         val draft = DevelopmentRequestDraft(
             intendedOutcome = "OWNER'S DIRECT BUILD INSTRUCTIONS (primary source of intent):\n" + userWords +
-                "\n\nTreat these words as the product requirement, not merely a chatbot prompt. Inspect the complete existing repository and relevant tests, infer the coherent implementation, preserve the owner's stated vision, implement the requested work end-to-end, add regression tests, and report anything that cannot be completed with evidence. Do not silently narrow the request to a cosmetic or chatbot-only change. The attached device snapshot is diagnostic context, not the product requirement.",
+                "\n\nTreat these words as the product requirement, not a chatbot prompt. Inspect relevant source, vision documents and tests; infer a coherent end-to-end implementation that preserves the owner's intent. Add regression tests and report uncompleted work with evidence. Do not reduce the request to cosmetic/chatbot changes. The device snapshot is diagnostic context, not the product requirement.",
             evidence = listOf(
                 deviceSnapshot(),
                 "The snapshot was explicitly sent from Friday Settings by the device owner. It contains technical device health only, not conversation or personal content."
