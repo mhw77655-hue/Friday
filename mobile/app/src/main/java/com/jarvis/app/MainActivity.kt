@@ -10,7 +10,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.lifecycleScope
 import com.jarvis.app.video.VideoIntakeRepository
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
@@ -38,13 +37,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         handleSharedVideoIntent(intent)
-        if (
-            intent.getBooleanExtra(
-                com.jarvis.app.voice.FridayVoiceInteractionSession.EXTRA_FRIDAY_VOICE_INVOCATION,
-                false
-            ) && ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
-                PackageManager.PERMISSION_GRANTED
-        ) beginAssistantListening()
         ShizukuBridge.init()
         // KWS/Vosk/TTS are owned by JarvisEngine, started once in
         // JarvisApplication.onCreate() — never re-initialized or released
@@ -63,6 +55,11 @@ class MainActivity : ComponentActivity() {
         } else {
             micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
+        if (hasMicPermission && intent.getBooleanExtra(
+                com.jarvis.app.voice.FridayVoiceInteractionSession.EXTRA_FRIDAY_VOICE_INVOCATION,
+                false
+            )
+        ) beginAssistantListening()
 
         // Ensure the Companion Core is built before the first composition
         // renders the presence orb. JarvisEngine.init runs async on its engine
@@ -90,23 +87,6 @@ class MainActivity : ComponentActivity() {
             ) {
                 // This visible-activity handoff is the permitted place to
                 // restore microphone capture after boot or service restart.
-                com.jarvis.app.runtime.FridayRuntimeController.startWithMicrophone(this)
-            } else {
-                com.jarvis.app.runtime.FridayRuntimeController.startCore(this)
-            }
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        ShizukuBridge.refresh()
-        if (ShizukuBridge.isGranted.value) {
-            ScreenBridge.bind(applicationContext)
-        }
-        if (com.jarvis.app.runtime.FridayRuntimeController.isEnabled(this)) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
-                PackageManager.PERMISSION_GRANTED
-            ) {
                 com.jarvis.app.runtime.FridayRuntimeController.startWithMicrophone(this)
             } else {
                 com.jarvis.app.runtime.FridayRuntimeController.startCore(this)
