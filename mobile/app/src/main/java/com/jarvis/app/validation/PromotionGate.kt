@@ -43,9 +43,15 @@ class PromotionGate(
             reasons += "candidate: $passed/${evaluation.testResults.size} tests passed"
         }
 
-        val candidateNames = evaluation.testResults.map { it.name }.toSet()
-        val regressionNames = regression.map { it.name }.toSet()
-        if (candidateNames.intersect(regressionNames).isNotEmpty()) {
+        val candidateIds = evaluation.testResults.map { it.name }
+        val regressionIds = regression.map { it.name }
+        if (candidateIds.any(String::isBlank) || candidateIds.toSet().size != candidateIds.size) {
+            reasons += "candidate: test identifiers must be nonblank and unique"
+        }
+        if (regressionIds.any(String::isBlank) || regressionIds.toSet().size != regressionIds.size) {
+            reasons += "regression: baseline test identifiers must be nonblank and unique"
+        }
+        if (candidateIds.toSet().intersect(regressionIds.toSet()).isNotEmpty()) {
             reasons += "regression: baseline test identifiers overlap candidate tests"
         }
 
@@ -75,6 +81,10 @@ class PromotionGate(
         val measuredAverageLatency = latencyMeasurements.takeIf { validLatency }?.average()
         val averageMatchesMeasurements = measuredAverageLatency != null &&
             abs(measuredAverageLatency - resource.averageLatencyMs) <= 0.001
+        val evaluationEvidenceMatchesResource = sameMeasurementsByMetric(
+            evaluation.benchmarkResults,
+            resource.benchmarks
+        )
         val validResourceEvidence =
             resource.iterations > 0 &&
                 resource.averageLatencyMs.isFinite() &&
@@ -82,7 +92,8 @@ class PromotionGate(
                 validLatency &&
                 validMemory &&
                 allMeasurementsValid &&
-                averageMatchesMeasurements
+                averageMatchesMeasurements &&
+                evaluationEvidenceMatchesResource
         if (!validResourceEvidence) {
             reasons += "resource: missing or invalid measured latency/memory benchmark evidence"
         } else if (resource.averageLatencyMs > maxLatencyMs) {
@@ -107,6 +118,25 @@ class PromotionGate(
             testCoverage = evaluation.dimensions.testCoverage,
             correctness = evaluation.dimensions.correctness
         )
+    }
+
+    /**
+     * The fitness score and promotion decision must refer to the same measured
+     * run. Otherwise a caller could score one candidate's cheap measurements
+     * while presenting a different, still-valid resource report to the gate.
+     */
+    private fun sameMeasurementsByMetric(
+        evaluated: List<FitnessModel.BenchmarkOutcome>,
+        reported: List<FitnessModel.BenchmarkOutcome>
+    ): Boolean {
+        val metrics = evaluated.map { it.metric }.toSet() + reported.map { it.metric }.toSet()
+        return metrics.all { metric ->
+            val left = evaluated.filter { it.metric == metric }.map { it.value }.sorted()
+            val right = reported.filter { it.metric == metric }.map { it.value }.sorted()
+            left.size == right.size && left.zip(right).all { (a, b) ->
+                a.isFinite() && b.isFinite() && abs(a - b) <= 0.001
+            }
+        }
     }
 }
 
