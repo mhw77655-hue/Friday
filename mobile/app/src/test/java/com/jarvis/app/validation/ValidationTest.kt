@@ -189,7 +189,10 @@ class ValidationTest {
         val perfect = FitnessModel.evaluate(
             candidateId = "c",
             testResults = listOf(FitnessModel.TestOutcome("u1", passed = true)),
-            benchmarkResults = listOf(FitnessModel.BenchmarkOutcome("latency", "latency_ms", 1.0, "ms"))
+            benchmarkResults = listOf(
+                FitnessModel.BenchmarkOutcome("latency", "latency_ms", 3_000.0, "ms"),
+                FitnessModel.BenchmarkOutcome("memory", "memory_mb", 4.0, "mb")
+            )
         )
         // Two independent reasons (regression + over-budget latency) ⇒ reject.
         val decision = gate.decide(
