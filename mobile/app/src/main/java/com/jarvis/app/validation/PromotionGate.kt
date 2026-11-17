@@ -2,6 +2,7 @@ package com.jarvis.app.validation
 
 import com.jarvis.app.mutation.FitnessModel
 import com.jarvis.app.validation.ResourceBenchmark.ResourceReport
+import kotlin.math.abs
 
 /**
  * Promotion Gate (§20, §24): the review gate between sandbox and production.
@@ -35,6 +36,12 @@ class PromotionGate(
             reasons += "candidate: $passed/${evaluation.testResults.size} tests passed"
         }
 
+        val candidateNames = evaluation.testResults.map { it.name }.toSet()
+        val regressionNames = regression.map { it.name }.toSet()
+        if (candidateNames.intersect(regressionNames).isNotEmpty()) {
+            reasons += "regression: baseline test identifiers overlap candidate tests"
+        }
+
         val regressionRate = if (regression.isEmpty()) {
             reasons += "regression: no baseline test evidence"
             0.0
@@ -45,18 +52,24 @@ class PromotionGate(
             reasons += "regression: ${regression.count { it.passed }}/${regression.size} baseline tests pass"
         }
 
-        val validLatency = resource.benchmarks.any {
-            it.metric == "latency_ms" && it.value.isFinite() && it.value >= 0.0
-        }
+        val latencyMeasurements = resource.benchmarks
+            .filter { it.metric == "latency_ms" }
+            .map { it.value }
+        val validLatency = latencyMeasurements.isNotEmpty() &&
+            latencyMeasurements.all { it.isFinite() && it >= 0.0 }
         val validMemory = resource.benchmarks.any {
             it.metric == "memory_mb" && it.value.isFinite() && it.value >= 0.0
         }
+        val measuredAverageLatency = latencyMeasurements.takeIf { validLatency }?.average()
+        val averageMatchesMeasurements = measuredAverageLatency != null &&
+            abs(measuredAverageLatency - resource.averageLatencyMs) <= 0.001
         val validResourceEvidence =
             resource.iterations > 0 &&
                 resource.averageLatencyMs.isFinite() &&
                 resource.averageLatencyMs >= 0.0 &&
                 validLatency &&
-                validMemory
+                validMemory &&
+                averageMatchesMeasurements
         if (!validResourceEvidence) {
             reasons += "resource: missing or invalid measured latency/memory benchmark evidence"
         } else if (resource.averageLatencyMs > maxLatencyMs) {
