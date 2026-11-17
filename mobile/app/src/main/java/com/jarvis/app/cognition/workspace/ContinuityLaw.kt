@@ -121,8 +121,15 @@ class ContinuityLaw(
         )
         workspace.publish(evidenceCopy)
         val evidenceIds = (priorEvidence.map { it.id } + claim.id).distinct()
+        // A field that has already survived accepted changes becomes more
+        // established. Its next revision therefore requires more independent
+        // evidence and a longer real interval. Both curves are bounded so the
+        // floor cannot make a legitimate future correction impossible.
+        val acceptedChanges = changeLog.entriesFor(field).size
+        val requiredClaims = requiredEvidenceClaims(acceptedChanges, minEvidenceClaims)
+        val requiredInterval = requiredIntervalMs(acceptedChanges, minIntervalMs)
 
-        if (evidenceIds.size < minEvidenceClaims) {
+        if (evidenceIds.size < requiredClaims) {
             return ChangeDecision(
                 claimId = claim.id,
                 target = field,
@@ -138,14 +145,14 @@ class ContinuityLaw(
 
         val at = now()
         val lastChangeAt = changeLog.lastChangeAt(field)
-        if (lastChangeAt != null && at - lastChangeAt < minIntervalMs) {
+        if (lastChangeAt != null && at - lastChangeAt < requiredInterval) {
             return ChangeDecision(
                 claimId = claim.id,
                 target = field,
                 layer = layer,
                 accepted = false,
                 reason = "rate limited: '$field' was last accepted at $lastChangeAt and only " +
-                    "${at - lastChangeAt}ms of real time have passed (minimum ${minIntervalMs}ms)",
+                    "${at - lastChangeAt}ms of real time have passed (minimum ${requiredInterval}ms for a field with ${acceptedChanges} prior accepted change(s))",
                 evidenceClaimIds = evidenceIds,
                 entry = null
             )
@@ -225,6 +232,29 @@ class ContinuityLaw(
          * the same field, so durable identity-adjacent state cannot be rewritten
          * turn after turn.
          */
+        /** Extra independent claims required per previously accepted change. */
+        const val EVIDENCE_STEP: Int = 1
+
+        /** The evidence requirement is bounded to keep legitimate revision possible. */
+        const val MAX_EVIDENCE_CLAIMS: Int = 4
+
+        /** The time requirement is bounded for the same reason. */
+        const val MAX_INTERVAL_MS: Long = 60_000L
+
+        /** Required independent claims for a field with this much accepted history. */
+        fun requiredEvidenceClaims(
+            acceptedChanges: Int,
+            base: Int = DEFAULT_MIN_EVIDENCE_CLAIMS
+        ): Int = (base + acceptedChanges.coerceAtLeast(0) * EVIDENCE_STEP)
+            .coerceAtMost(MAX_EVIDENCE_CLAIMS)
+
+        /** Required real elapsed time for a field with this much accepted history. */
+        fun requiredIntervalMs(
+            acceptedChanges: Int,
+            base: Long = DEFAULT_MIN_INTERVAL_MS
+        ): Long = (base * (acceptedChanges.coerceAtLeast(0) + 1L))
+            .coerceAtMost(MAX_INTERVAL_MS)
+
         const val DEFAULT_MIN_INTERVAL_MS: Long = 5_000L
 
         /**
