@@ -27,6 +27,43 @@ import java.util.concurrent.TimeUnit
  * Every command must be authored by the repository owner and expire quickly.
  * Issue comments and replies are public because the Friday repository is public.
  */
+/**
+ * Fetches every comment newer than [lastSeenId], including older pages when
+ * more than 100 comments arrived between polls. GitHub returns pages newest
+ * first; stop only after a page reaches the saved cursor. A hard page limit
+ * fails closed rather than advancing the cursor past unprocessed commands.
+ */
+internal fun collectNewDeviceChannelComments(
+    lastSeenId: Long,
+    pageSize: Int = 100,
+    maxPages: Int = 100,
+    fetchPage: (Int) -> List<JSONObject>
+): List<JSONObject> {
+    require(pageSize > 0 && maxPages > 0)
+    val unseen = mutableListOf<JSONObject>()
+    var reachedCursor = false
+    for (page in 1..maxPages) {
+        val comments = fetchPage(page)
+        if (comments.isEmpty()) {
+            reachedCursor = true
+            break
+        }
+        val ids = comments.map { it.optLong("id", 0L) }.filter { it > 0L }
+        if (ids.size != comments.size) {
+            throw IOException("GitHub returned a device-channel comment without a valid id.")
+        }
+        unseen += comments.filter { it.optLong("id", 0L) > lastSeenId }
+        if (ids.minOrNull()!! <= lastSeenId || comments.size < pageSize) {
+            reachedCursor = true
+            break
+        }
+    }
+    if (!reachedCursor) {
+        throw IOException("Device-channel pagination exceeded $maxPages pages; cursor was not advanced.")
+    }
+    return unseen.distinctBy { it.optLong("id", 0L) }.sortedBy { it.optLong("id", 0L) }
+}
+
 class GitHubDeviceChannel(context: Context) {
     private val app = context.applicationContext
     private val tokenStore = GitHubTokenStore(app)
@@ -97,17 +134,23 @@ class GitHubDeviceChannel(context: Context) {
         val number = prefs.getInt(KEY_ISSUE_NUMBER, 0)
         if (number <= 0) return@withContext "No device channel has been paired."
         val lastSeen = prefs.getLong(KEY_LAST_COMMENT_ID, 0L)
-        val request = apiRequest(token, "/issues/$number/comments?per_page=100&sort=created&direction=desc", "GET")
-        val comments = http.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw IOException("Device command poll failed (HTTP ${response.code}).")
-            JSONArray(response.body?.string().orEmpty())
+        val orderedComments = collectNewDeviceChannelComments(lastSeen) { page ->
+            val request = apiRequest(
+                token,
+                "/issues/$number/comments?per_page=100&sort=created&direction=desc&page=$page",
+                "GET"
+            )
+            http.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) {
+                    throw IOException("Device command poll failed on page $page (HTTP ${response.code}).")
+                }
+                val comments = JSONArray(response.body?.string().orEmpty())
+                (0 until comments.length()).map { comments.getJSONObject(it) }
+            }
         }
         var cursor = lastSeen
         var handled = 0
         val seenIds = prefs.getStringSet(KEY_SEEN_COMMAND_IDS, emptySet()).orEmpty().toMutableSet()
-        val orderedComments = (0 until comments.length())
-            .map { comments.getJSONObject(it) }
-            .sortedBy { it.optLong("id", 0L) }
         for (comment in orderedComments) {
             val commentId = comment.optLong("id", 0L)
             if (commentId <= cursor) continue
