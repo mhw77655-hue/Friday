@@ -190,7 +190,13 @@ class SelfRepairLoopTest {
         ) = SandboxExecutor.StressResult(passed = true, log = listOf("explicit test-only sandbox stub"))
     }
 
-    private fun loopWith(tmpRoot: File, h: Harness, diagText: String = scriptedDiagnosis, repairText: String = scriptedRepair): Pair<SelfRepairLoop, LlmSynthesisProvider> {
+    private fun loopWith(
+        tmpRoot: File,
+        h: Harness,
+        diagText: String = scriptedDiagnosis,
+        repairText: String = scriptedRepair,
+        sandbox: SandboxExecutor = passingSandbox
+    ): Pair<SelfRepairLoop, LlmSynthesisProvider> {
         var callCount = 0
         val diagnoser = DiagnosisEngine(
             complete = { _ ->
@@ -216,7 +222,7 @@ class SelfRepairLoopTest {
             failureSurface = h.surface,
             promotionController = h.promoCtrl,
             rollbackController = h.rollbackCtrl,
-            sandboxExecutor = passingSandbox
+            sandboxExecutor = sandbox
         )
         return loop to synth
     }
@@ -287,6 +293,34 @@ class SelfRepairLoopTest {
             RepairRequirement("GoalPlanner", "Retain failed nodes", emptyList()),
             "CapabilityExecutorTest"
         ) { throw IllegalStateException("Gradle verification unavailable") }
+
+        assertEquals(SelfRepairLoop.Outcome.VALIDATION_FAILED, result.outcome)
+        assertEquals(miniPlannerSource, File(root, "com/example/planner/GoalPlanner.kt").readText())
+        assertFalse(File(root, "com/example/planner/GoalPlanner.kt.selfrepair.${result.patch!!.transactionId}.bak").exists())
+        assertTrue(h.surface.currentFailures.value.any { it.subsystem == "SELF_REPAIR" })
+    }
+
+
+    @Test
+    fun `sandbox exception restores patch and prevents promotion`() = runBlocking {
+        val root = tmpDir()
+        writePlannerFixture(root)
+        copyXmlFixture(root)
+        val h = harness()
+        val brokenSandbox = object : SandboxExecutor {
+            override suspend fun stressTest(
+                patch: SourcePatch,
+                candidateDescription: String
+            ): SandboxExecutor.StressResult {
+                throw IllegalStateException("sandbox unavailable")
+            }
+        }
+        val (loop, _) = loopWith(root, h, sandbox = brokenSandbox)
+
+        val result = loop.repair(
+            RepairRequirement("GoalPlanner", "Retain failed nodes", emptyList()),
+            "CapabilityExecutorTest"
+        ) { _ -> validEvidence() }
 
         assertEquals(SelfRepairLoop.Outcome.VALIDATION_FAILED, result.outcome)
         assertEquals(miniPlannerSource, File(root, "com/example/planner/GoalPlanner.kt").readText())
