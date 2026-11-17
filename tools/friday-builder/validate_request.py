@@ -17,6 +17,11 @@ REQUEST_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 SAFE_IDENTIFIER = re.compile(r"^[A-Za-z0-9_.$:/-]{1,160}$")
 SAFE_STATUS = re.compile(r"^[A-Z_]{1,48}$")
 AGGREGATE_MARKER = "FRIDAY_AGGREGATE_RUNTIME_EVIDENCE_JSON (content-free; no personal content): "
+MODEL_FREE_REFLECTION_MARKER = "FRIDAY_MODEL_FREE_SELF_STUDY_REFLECTION_JSON (owner-consented structural evidence): "
+MODEL_FREE_REFLECTION_ALLOWED = {
+    "source_revision", "summary", "findings", "next_actions",
+    "development_request", "constraints", "evidence_gaps", "privacy_scope",
+}
 SECRET_PATTERNS = (
     re.compile(r"gh[pousr]_[A-Za-z0-9]{20,}"),
     re.compile(r"github_pat_[A-Za-z0-9_]{20,}"),
@@ -204,6 +209,45 @@ def _validate_aggregate_payload(evidence: list[str], consent: bool) -> None:
         _validate_self_study(payload["self_study"])
 
 
+def _validate_model_free_reflection(evidence: list[str], consent: bool) -> bool:
+    matches = [item for item in evidence if MODEL_FREE_REFLECTION_MARKER in item]
+    if not consent:
+        if matches:
+            raise RequestValidationError("model-free self-study evidence was included without separate owner consent")
+        return False
+    if not matches:
+        return False
+    if len(matches) != 1 or not matches[0].startswith(MODEL_FREE_REFLECTION_MARKER):
+        raise RequestValidationError("model-free self-study evidence must have exactly one marked payload")
+    raw = matches[0][len(MODEL_FREE_REFLECTION_MARKER):].strip()
+    if not raw or len(raw.encode("utf-8")) > MAX_AGGREGATE_BYTES:
+        raise RequestValidationError("model-free self-study evidence exceeds the 8 KiB limit")
+    try:
+        payload = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RequestValidationError("model-free self-study evidence is not valid JSON") from exc
+    if not isinstance(payload, dict):
+        raise RequestValidationError("model-free self-study evidence must be a JSON object")
+    unknown = set(payload) - MODEL_FREE_REFLECTION_ALLOWED
+    missing = MODEL_FREE_REFLECTION_ALLOWED - set(payload)
+    if unknown or missing:
+        raise RequestValidationError("model-free self-study evidence contains unsupported or missing fields")
+
+    revision = payload["source_revision"]
+    if not isinstance(revision, str) or len(revision) > 128:
+        raise RequestValidationError("model-free self-study source_revision must be a bounded string")
+    _text(payload["summary"], "model_free.summary", 1200)
+    _list(payload["findings"], "model_free.findings", 8, 400)
+    _list(payload["next_actions"], "model_free.next_actions", 8, 400)
+    if payload["development_request"] is not None:
+        _text(payload["development_request"], "model_free.development_request", 1600)
+    _list(payload["constraints"], "model_free.constraints", 8, 400)
+    _list(payload["evidence_gaps"], "model_free.evidence_gaps", 8, 400)
+    if payload["privacy_scope"] != "model_free_structural_self_study_only":
+        raise RequestValidationError("model-free self-study privacy scope is unsupported")
+    return True
+
+
 def validate_request(data: Any, expected_id: str | None = None) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise RequestValidationError("request root must be an object")
@@ -247,12 +291,20 @@ def validate_request(data: Any, expected_id: str | None = None) -> dict[str, Any
     aggregate_scope = review.get("aggregate_runtime_evidence_scope", "none")
     if not isinstance(aggregate_enabled, bool):
         raise RequestValidationError("privacy_review.aggregate_runtime_evidence_enabled must be boolean")
-    allowed_scopes = {"none", "counts_statuses_capability_keys_resource_trends_only"}
+    allowed_scopes = {
+        "none",
+        "counts_statuses_capability_keys_resource_trends_only",
+        "aggregate_metrics_and_model_free_structural_self_study_no_personal_content",
+    }
     if not isinstance(aggregate_scope, str) or aggregate_scope not in allowed_scopes:
         raise RequestValidationError("privacy_review.aggregate_runtime_evidence_scope is unsupported")
     if aggregate_enabled != (aggregate_scope != "none"):
         raise RequestValidationError("aggregate evidence consent and scope do not match")
     _validate_aggregate_payload(evidence, aggregate_enabled)
+    model_free_present = _validate_model_free_reflection(evidence, aggregate_enabled)
+    model_free_scope = aggregate_scope == "aggregate_metrics_and_model_free_structural_self_study_no_personal_content"
+    if model_free_present != model_free_scope:
+        raise RequestValidationError("model-free self-study evidence and privacy scope do not match")
 
     serialized = json.dumps(data, ensure_ascii=True)
     if any(pattern.search(serialized) for pattern in SECRET_PATTERNS):
