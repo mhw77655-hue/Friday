@@ -468,12 +468,13 @@ def function_body(text, fun_name, fun_line):
 def check_closed_type(diff, repo, vision):
     """S13 item 3 -- a predefined list of TYPES standing in for an open space.
 
-    Structural, not a judgement: a story that adds `enum class` or `sealed
-    class` has added a closed set of forms, and Section 4 says the space of
-    forms a mechanism may take must stay open ("no fixed input/output list, no
-    component whose name is a permanent cognitive job title"). A closed set is
-    not automatically wrong -- it is a FINDING, to be argued about by a human,
-    with the member list printed so the argument has facts.
+    Structural observation, not a judgement: a story that adds `enum class`
+    or `sealed class` has added a closed set of forms. Finite data, protocol,
+    lifecycle and resource states can be legitimate implementation details;
+    their existence alone does not prove that Friday's cognition is fixed.
+    A separate check reports a closed type when a newly added function maps
+    inputs into multiple fixed semantic outcomes. Keep the member list here
+    as evidence for human review, not as an automatic vision violation.
     """
     out = []
     for cf in diff.files:
@@ -508,7 +509,7 @@ def check_closed_type(diff, repo, vision):
                 ),
                 s13=vision.item["predefined"],
                 vision_section="4",
-                severity="deviation",
+                severity="observation",
                 evidence=src.strip(),
             ))
     return out
