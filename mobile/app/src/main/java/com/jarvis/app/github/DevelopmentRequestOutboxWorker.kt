@@ -26,7 +26,7 @@ class DevelopmentRequestOutboxWorker(
         val outbox = DevelopmentRequestOutbox(applicationContext.filesDir)
         when {
             !outbox.hasPending() -> Result.success()
-            !GitHubTokenStore(applicationContext).isConfigured() -> Result.retry()
+            !GitHubTokenStore(applicationContext).isConfigured() -> Result.success()
             else -> {
                 outbox.deliverPending(GitHubDevelopmentRequestDelivery(applicationContext))
                 // hasPending() also covers a DELIVERING claim whose lease has not
@@ -46,8 +46,10 @@ object DevelopmentRequestOutboxScheduler {
     private const val UNIQUE_WORK = "friday-development-request-outbox"
 
     /** Schedule only when durable work exists; safe to call on every app start. */
-    fun ensureScheduled(context: Context) {
+    fun ensureScheduled(context: Context, appendIfActive: Boolean = false) {
         val app = context.applicationContext
+        // Keep requests durable while disconnected from GitHub; token-save will schedule delivery.
+        if (!GitHubTokenStore(app).isConfigured()) return
         if (!DevelopmentRequestOutbox(app.filesDir).hasPending()) return
         val request = OneTimeWorkRequestBuilder<DevelopmentRequestOutboxWorker>()
             .setConstraints(
@@ -56,11 +58,11 @@ object DevelopmentRequestOutboxScheduler {
                     .setRequiresStorageNotLow(true)
                     .build()
             )
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.MINUTES)
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
         WorkManager.getInstance(app).enqueueUniqueWork(
             UNIQUE_WORK,
-            ExistingWorkPolicy.APPEND_OR_REPLACE,
+            if (appendIfActive) ExistingWorkPolicy.APPEND_OR_REPLACE else ExistingWorkPolicy.KEEP,
             request
         )
     }
