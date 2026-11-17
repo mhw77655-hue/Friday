@@ -1,18 +1,11 @@
 package com.jarvis.app.selfrepair
 
 import com.jarvis.app.failure.FailureSurface
-import com.jarvis.app.genome.GenomeArchive
-import com.jarvis.app.humancore.store.FileStorage
-import com.jarvis.app.microsystem.MicroSystemRegistry
 import com.jarvis.app.model.GenerateResult
 import com.jarvis.app.model.FinishReason
 import com.jarvis.app.model.TokenUsage
-import com.jarvis.app.genome.GenomeHealth
-import com.jarvis.app.genome.GenomeRegistry
 import com.jarvis.app.mutation.LlmSynthesisProvider
 import com.jarvis.app.mutation.SynthesisRequest
-import com.jarvis.app.evolution.PromotionController
-import com.jarvis.app.evolution.RollbackController
 import com.jarvis.app.validation.PromotionGate
 import com.jarvis.app.mutation.FitnessModel
 import com.jarvis.app.validation.ResourceBenchmark
@@ -32,10 +25,10 @@ import java.io.File
 
 /**
  * End-to-end proof that the Observe / Diagnose / Repair cycle drives the
- * real PromotionGate and RollbackController. Uses the REAL fixture XML
- * (shipped in test-resources) for the observe step, a temporary-copy of a
+ * real PromotionGate and the source-patch restore path. Uses the REAL fixture
+ * XML (shipped in test-resources) for observation, a temporary copy of a
  * mini-GoalPlanner file as the repair target, and scripted model transcripts
- * for the diagnose / repair steps.
+ * for diagnose / repair. It deliberately does not register a fake runtime tool.
  */
 class SelfRepairLoopTest {
 
@@ -62,27 +55,14 @@ class SelfRepairLoopTest {
     // ------------------------------------------------------------------
 
     private data class Harness(
-        val archive: GenomeArchive,
-        val registry: MicroSystemRegistry,
-        val genomeRegistry: GenomeRegistry,
         val surface: FailureSurface,
-        val promoCtrl: PromotionController,
-        val rollbackCtrl: RollbackController,
         val gate: PromotionGate
     )
 
-    private fun harness(): Harness {
-        val dir = tmpDir()
-        val storage = FileStorage(dir)
-        val archive = GenomeArchive(storage, scope)
-        val registry = MicroSystemRegistry()
-        val genomeRegistry = GenomeRegistry()
-        val surface = FailureSurface()
-        val promo = PromotionController(registry, archive, genomeRegistry, surface)
-        val rollback = RollbackController(registry, archive, genomeRegistry, surface)
-        val gate = PromotionGate()
-        return Harness(archive, registry, genomeRegistry, surface, promo, rollback, gate)
-    }
+    private fun harness(): Harness = Harness(
+        surface = FailureSurface(),
+        gate = PromotionGate()
+    )
 
     // ------------------------------------------------------------------
     // Fixtures — mini GoalPlanner.kt as the repair target
@@ -217,12 +197,7 @@ class SelfRepairLoopTest {
             diagnoser = diagnoser,
             synthesizer = synth,
             gate = h.gate,
-            archive = h.archive,
-            registry = h.registry,
-            genomeRegistry = h.genomeRegistry,
             failureSurface = h.surface,
-            promotionController = h.promoCtrl,
-            rollbackController = h.rollbackCtrl,
             sandboxExecutor = sandbox
         )
         return loop to synth
@@ -330,7 +305,7 @@ class SelfRepairLoopTest {
     }
 
     @Test
-    fun `full cycle produces PROMOTED and organism is registered`() = runBlocking {
+    fun `full cycle returns a verified source patch without fake runtime registration`() = runBlocking {
         val root = tmpDir()
         writePlannerFixture(root)
         copyXmlFixture(root)
@@ -342,21 +317,20 @@ class SelfRepairLoopTest {
             "CapabilityExecutorTest"
         ) { _ -> validEvidence() }
 
-        assertEquals(SelfRepairLoop.Outcome.PROMOTED, result.outcome)
+        assertEquals(SelfRepairLoop.Outcome.PATCH_VERIFIED, result.outcome)
         assertNotNull(result.diagnosis)
         assertNotNull(result.patch)
         assertEquals("GoalPlanner.replan", result.diagnosis!!.faultyUnit)
         assertTrue(result.patch!!.edits.isNotEmpty())
-        assertNotNull(result.receipt)
 
         // patch actually written
         assertTrue(File(root, "com/example/planner/GoalPlanner.kt").readText().contains("FAILED"))
         // backup exists
         assertTrue(File(root, "com/example/planner/GoalPlanner.kt.selfrepair.${result.patch!!.transactionId}.bak").exists())
 
-        // genome promoted and organism registered
-        assertTrue(h.registry.has(result.receipt!!.systemId))
-        assertTrue(h.archive.get(result.receipt.genomeId) != null)
+        // Source repair is not a micro-system capability. No fake runtime
+        // organism is registered by this tool.
+        assertTrue(result.log.any { it.contains("sourcePatch: VERIFIED") })
     }
 
     @Test
@@ -381,21 +355,19 @@ class SelfRepairLoopTest {
     }
 
     @Test
-    fun `conclude can rollback a previously promoted repair on regression`() = runBlocking {
+    fun `conclude restores a previously verified source patch after regression`() = runBlocking {
         val root = tmpDir()
         writePlannerFixture(root)
         copyXmlFixture(root)
         val h = harness()
         val (loop, _) = loopWith(root, h)
 
-        // promote first
+        // Verify first; the source patch remains applied pending trusted repository promotion.
         val promoted = loop.repair(
             RepairRequirement("GoalPlanner", "Retain failed nodes", emptyList()),
             "CapabilityExecutorTest"
         ) { _ -> validEvidence() }
-        assertEquals(SelfRepairLoop.Outcome.PROMOTED, promoted.outcome)
-        val receipt = promoted.receipt!!
-        assertTrue(h.registry.has(receipt.systemId))
+        assertEquals(SelfRepairLoop.Outcome.PATCH_VERIFIED, promoted.outcome)
 
         // now simulate a regression
         val regression = loop.conclude(
@@ -405,9 +377,9 @@ class SelfRepairLoopTest {
             failingEvidence()
         )
         assertEquals(SelfRepairLoop.Outcome.ROLLED_BACK, regression.outcome)
-        // organism unregistered by rollback controller
-        assertFalse(h.registry.has(receipt.systemId))
-        assertEquals(GenomeHealth.REJECTED, h.archive.get(receipt.genomeId)?.healthState)
+        // The source file is restored from its backup; no runtime registry
+        // promotion or rollback is involved.
+        assertEquals(miniPlannerSource, File(root, "com/example/planner/GoalPlanner.kt").readText())
     }
 
     @Test
