@@ -23,18 +23,42 @@ class PromotionGate(
     fun decide(
         evaluation: FitnessModel.EvaluationResult,
         regression: List<FitnessModel.TestOutcome>,
-        resource: ResourceReport
+        resource: ResourceReport,
+        requireResourceEvidence: Boolean = true
     ): GateDecision {
         val reasons = mutableListOf<String>()
+        var reject = false
 
         if (!evaluation.hardConstraintsPassed) {
             reasons += evaluation.hardConstraintFailures.ifEmpty { listOf("hard constraints failed") }
+            reject = true
         }
-        val regressionRate = if (regression.isEmpty()) 1.0 else regression.count { it.passed }.toDouble() / regression.size
-        if (regressionRate < minRegressionPassRate) {
+
+        val candidateFailures = evaluation.testResults.count { !it.passed }
+        if (candidateFailures > 0) {
+            reasons += "candidate tests failed: $candidateFailures/${evaluation.testResults.size}"
+            reject = true
+        }
+
+        val regressionRate = if (regression.isEmpty()) 0.0 else regression.count { it.passed }.toDouble() / regression.size
+        if (regression.isEmpty()) {
+            reasons += "no baseline test evidence"
+            reject = true
+        } else if (regressionRate < minRegressionPassRate) {
             reasons += "regression: ${regression.count { it.passed }}/${regression.size} baseline tests fail"
+            reject = true
         }
-        if (resource.averageLatencyMs > maxLatencyMs) {
+
+        if (requireResourceEvidence && resource.iterations <= 0) {
+            reasons += "no resource evidence"
+            reject = true
+        }
+        if (!resource.averageLatencyMs.isFinite() || resource.averageLatencyMs < 0.0 ||
+            resource.benchmarks.any { !it.value.isFinite() || it.value < 0.0 }
+        ) {
+            reasons += "resource measurements are invalid"
+            reject = true
+        } else if (resource.averageLatencyMs > maxLatencyMs) {
             reasons += "latency ${resource.averageLatencyMs}ms exceeds ${maxLatencyMs}ms budget"
         }
 
@@ -42,7 +66,7 @@ class PromotionGate(
             reasons.isEmpty() -> GateVerdict.PROMOTE
             // Works but underperforms on a bounded number of resource dimensions
             // → a mutation of the current candidate may fix it (§5).
-            evaluation.dimensions.correctness >= 0.8 && reasons.size <= 1 -> GateVerdict.MUTATE
+            !reject && evaluation.dimensions.correctness >= 0.8 && reasons.size <= 1 -> GateVerdict.MUTATE
             else -> GateVerdict.REJECT
         }
 

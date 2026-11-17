@@ -261,14 +261,16 @@ class SelfRepairLoop(
         val evaluation = FitnessModel.evaluate(
             candidateId = "selfrepair_${observed.suiteName}",
             testResults = testOutcomes,
-            benchmarkResults = emptyList()
+            benchmarkResults = emptyList(),
+            hardConstraints = FitnessModel.defaultConstraints(requireBenchmarkEvidence = false)
         )
         val decision = gate.decide(
             evaluation = evaluation,
             regression = testOutcomes,
             resource = ResourceBenchmark.ResourceReport(
                 benchmarks = emptyList(), averageLatencyMs = 0.0, iterations = 0
-            )
+            ),
+            requireResourceEvidence = false
         )
         log.add("gate: ${decision.verdict} (${decision.reasons.joinToString("; ").ifEmpty { "clean" }})")
 

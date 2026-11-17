@@ -67,10 +67,11 @@ object FitnessModel {
         val hardConstraintsPassed: Boolean,
         val hardConstraintFailures: List<String>,
         val testResults: List<TestOutcome>,
-        val benchmarkResults: List<BenchmarkOutcome>
+        val benchmarkResults: List<BenchmarkOutcome>,
+        val weights: FitnessWeights = FitnessWeights()
     ) {
         val passed: Boolean get() = hardConstraintsPassed
-        val score: Double get() = dimensions.weightedScore()
+        val score: Double get() = dimensions.weightedScore(weights)
     }
 
     /** Evaluate a candidate: check hard constraints, then score dimensions. */
@@ -89,7 +90,8 @@ object FitnessModel {
             hardConstraintsPassed = true,
             hardConstraintFailures = emptyList(),
             testResults = testResults,
-            benchmarkResults = benchmarkResults
+            benchmarkResults = benchmarkResults,
+            weights = weights
         )
         for (c in hardConstraints) {
             if (!c.check(provisional)) {
@@ -99,7 +101,8 @@ object FitnessModel {
 
         return provisional.copy(
             hardConstraintsPassed = constraintFailures.isEmpty(),
-            hardConstraintFailures = constraintFailures
+            hardConstraintFailures = constraintFailures,
+            weights = weights
         )
     }
 
@@ -139,19 +142,15 @@ object FitnessModel {
     ): FitnessDimensions {
         val total = testResults.size.coerceAtLeast(1)
         val passed = testResults.count { it.passed }
-        val avgLatency = benchmarkResults.filter { it.metric == "latency_ms" }.map { it.value }.average().let { if (it.isNaN()) 0.0 else it }
-        val avgMemory = benchmarkResults.filter { it.metric == "memory_mb" }.map { it.value }.average().let { if (it.isNaN()) 0.0 else it }
-        val avgCpu = benchmarkResults.filter { it.metric == "cpu_percent" }.map { it.value }.average().let { if (it.isNaN()) 0.0 else it }
-        val avgEnergy = benchmarkResults.filter { it.metric == "energy_mah" }.map { it.value }.average().let { if (it.isNaN()) 0.0 else it }
         val failures = testResults.count { !it.passed }
 
         return FitnessDimensions(
             correctness = (passed.toDouble() / total),
             reliability = ((total - failures).toDouble() / total),
-            latency = 1.0 - (avgLatency / 5000.0).coerceIn(0.0, 1.0),
-            memoryCost = 1.0 - (avgMemory / 2048.0).coerceIn(0.0, 1.0),
-            cpuCost = 1.0 - (avgCpu / 100.0).coerceIn(0.0, 1.0),
-            energyCost = 1.0 - (avgEnergy / 500.0).coerceIn(0.0, 1.0),
+            latency = normalizedCost(benchmarkResults, "latency_ms", 5000.0),
+            memoryCost = normalizedCost(benchmarkResults, "memory_mb", 2048.0),
+            cpuCost = normalizedCost(benchmarkResults, "cpu_percent", 100.0),
+            energyCost = normalizedCost(benchmarkResults, "energy_mah", 500.0),
             failureRate = ((total - failures).toDouble() / total),
             compatibility = 1.0, // default: fully compatible
             maintainability = 0.5, // default: neutral
@@ -159,10 +158,29 @@ object FitnessModel {
         )
     }
 
-    fun defaultConstraints() = listOf(
-        HardConstraint("min_correctness", check = { it.dimensions.testCoverage >= 0.5 }, rejectReason = "test coverage below 0.5"),
-        HardConstraint("max_memory", check = { it.dimensions.memoryCost >= 0.0 }, rejectReason = "memory cost invalid")
-    )
+    private fun normalizedCost(
+        benchmarkResults: List<BenchmarkOutcome>,
+        metric: String,
+        worst: Double
+    ): Double {
+        val values = benchmarkResults.filter { it.metric == metric }.map { it.value }
+        if (values.isEmpty() || values.any { !it.isFinite() || it < 0.0 }) return 0.0
+        return 1.0 - (values.average() / worst).coerceIn(0.0, 1.0)
+    }
+
+    fun defaultConstraints(requireBenchmarkEvidence: Boolean = true): List<HardConstraint> = buildList {
+        if (requireBenchmarkEvidence) {
+            add(
+                HardConstraint(
+                    "benchmark_evidence",
+                    check = { it.benchmarkResults.isNotEmpty() && it.benchmarkResults.all { b -> b.value.isFinite() && b.value >= 0.0 } },
+                    rejectReason = "benchmark evidence missing or invalid"
+                )
+            )
+        }
+        add(HardConstraint("min_correctness", check = { it.dimensions.testCoverage >= 0.5 }, rejectReason = "test coverage below 0.5"))
+        add(HardConstraint("max_memory", check = { it.dimensions.memoryCost >= 0.0 }, rejectReason = "memory cost invalid"))
+    }
 
     data class TestOutcome(
         val name: String,

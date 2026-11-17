@@ -65,6 +65,14 @@ class PromotionGateTest {
     }
 
     @Test
+    fun `candidate without benchmark evidence is rejected`() {
+        val noBenchmarks = evaluation(benchmarks = emptyList())
+        val decision = gate.decide(noBenchmarks, listOf(passing), validResource())
+        assertEquals(GateVerdict.REJECT, decision.verdict)
+        assertTrue(decision.reasons.any { it.contains("benchmark") })
+    }
+
+    @Test
     fun `non-finite resource measurements are rejected`() {
         val invalid = ResourceBenchmark.ResourceReport(
             benchmarks = listOf(
