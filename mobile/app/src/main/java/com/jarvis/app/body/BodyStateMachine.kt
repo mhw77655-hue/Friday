@@ -42,7 +42,7 @@ object BodyStateMachine {
         }
 
         is BodyEvent.UserInput -> when (current) {
-            BodyState.HEARING, BodyState.WAKE, BodyState.IDLE -> BodyState.THINKING
+            BodyState.HEARING, BodyState.WAKE, BodyState.LISTENING, BodyState.IDLE -> BodyState.THINKING
             BodyState.SPEAKING -> BodyState.INTERRUPTED   // barge-in during speech
             BodyState.INTERRUPTED -> BodyState.THINKING
             else -> current
