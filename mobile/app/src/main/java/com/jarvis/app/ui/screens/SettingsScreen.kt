@@ -81,6 +81,8 @@ fun SettingsScreen() {
     var personaText by remember { mutableStateOf(prefs.getString(KEY_PERSONA, "") ?: "") }
     var offlineMode by remember { mutableStateOf(prefs.getBoolean(KEY_OFFLINE_MODE, true)) }
     var recallLimit by remember { mutableStateOf(prefs.getString(KEY_RECALL_LIMIT, "") ?: "") }
+    var jevApiKey by remember { mutableStateOf("") }
+    var jevConfigured by remember { mutableStateOf(com.jarvis.app.voice.JevApiKeyStore(context).read() != null) }
     val githubTokenStore = remember { com.jarvis.app.github.GitHubTokenStore(context) }
     var githubToken by remember { mutableStateOf("") }
     var fridayBuildInstructions by remember { mutableStateOf("") }
@@ -103,6 +105,9 @@ fun SettingsScreen() {
     // until some unrelated recomposition happened to occur.
     var resumeSignal by remember { mutableIntStateOf(0) }
     val lifecycleOwner = LocalLifecycleOwner.current
+    val phoneControlConnected = remember(resumeSignal) {
+        com.jarvis.app.voice.FridayAccessibilityService.isEnabled()
+    }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) resumeSignal++
@@ -171,6 +176,63 @@ fun SettingsScreen() {
 
         SectionLabel("VOICE")
         Text(text = "TTS voice: en-GB (system)", style = JarvisType.Technical)
+
+        SectionLabel("JEV DEVICE-DECISION ENGINE")
+        Text(
+            text = "Optional TypeSafe Jev cloud decision support. Friday's local command layer handles bounded actions; an optional local model may help form more complex phone-action plans. A redacted proposed action and risk tier may be sent to Jev for review. Screen snapshots and literal text-entry payloads stay on-device. Jev cannot execute actions or grant permissions; consequential actions still require Friday's confirmation. The key is encrypted with Android Keystore.",
+            style = JarvisType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        OutlinedTextField(
+            value = jevApiKey,
+            onValueChange = { jevApiKey = it },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("TypeSafe API key", style = JarvisType.Body) },
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = JarvisColors.SurfaceHairline,
+                unfocusedBorderColor = JarvisColors.SurfaceHairline
+            )
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Button(
+                onClick = {
+                    if (jevApiKey.isNotBlank()) {
+                        runCatching { com.jarvis.app.voice.JevApiKeyStore(context).save(jevApiKey) }
+                            .onSuccess { jevConfigured = true; jevApiKey = "" }
+                    }
+                },
+                enabled = jevApiKey.isNotBlank()
+            ) { Text("Save Jev key") }
+            TextButton(onClick = {
+                com.jarvis.app.voice.JevApiKeyStore(context).clear()
+                jevConfigured = false
+                jevApiKey = ""
+            }) { Text("Remove key") }
+        }
+        Text(
+            text = if (jevConfigured) "Jev credential stored securely; decision calls require internet." else "Jev not configured — Friday continues with local deterministic command handling.",
+            style = JarvisType.Technical
+        )
+
+        SectionLabel("PHONE CONTROL")
+        Text(
+            text = "Enable Android Accessibility only if you want Friday to perform approved on-screen actions. Android keeps this permission under your control.",
+            style = JarvisType.Label,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(if (phoneControlConnected) "Accessibility enabled" else "Accessibility not enabled", style = JarvisType.Technical)
+            Button(onClick = { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }) {
+                Text(if (phoneControlConnected) "Manage" else "Enable")
+            }
+        }
+
 
         SectionLabel("GITHUB DEVELOPMENT LINK")
         Text(
