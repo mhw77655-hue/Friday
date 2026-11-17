@@ -80,6 +80,7 @@ class FridayIndividual(
             output.writeLong(created.createdAtMs)
             output.writeLong(created.morphologySeed)
             output.flush()
+            output.fd.sync()
         }
         if (!temporary.renameTo(file)) {
             temporary.delete()
