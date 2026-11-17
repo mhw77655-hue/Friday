@@ -255,7 +255,7 @@ class SandboxGateTest {
 
         // Patch was applied then restored from backups by the sandbox gate
         assertFalse("backup should be cleaned up after sandbox rollback",
-            File(root, "com/example/planner/GoalPlanner.kt.selfrepair.bak").exists())
+            File(root, "com/example/planner/GoalPlanner.kt.selfrepair.${result.patch!!.transactionId}.bak").exists())
         assertEquals("source restored to original after sandbox rejection",
             miniPlannerSource,
             File(root, "com/example/planner/GoalPlanner.kt").readText())

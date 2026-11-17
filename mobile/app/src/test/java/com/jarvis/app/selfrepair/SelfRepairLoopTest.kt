@@ -208,7 +208,7 @@ class SelfRepairLoopTest {
         // empty results dir → observer throws; put an empty fixture instead
         root.resolve("results").mkdirs()
         root.resolve("results/TEST-clean.xml").writeText(
-            """<?xml version="1.0"?><testsuite name="clean" tests="5" failures="0"><testcase classname="C" name="a"/></testsuite>"""
+            """<?xml version="1.0"?><testsuite name="clean" tests="1" failures="0"><testcase classname="C" name="a"/></testsuite>"""
         )
         val result = loop.repair(
             RepairRequirement("com", "req", emptyList()),
@@ -232,7 +232,7 @@ class SelfRepairLoopTest {
 
         assertEquals(SelfRepairLoop.Outcome.VALIDATION_FAILED, result.outcome)
         assertEquals(miniPlannerSource, File(root, "com/example/planner/GoalPlanner.kt").readText())
-        assertFalse(File(root, "com/example/planner/GoalPlanner.kt.selfrepair.bak").exists())
+        assertFalse(File(root, "com/example/planner/GoalPlanner.kt.selfrepair.${result.patch!!.transactionId}.bak").exists())
         assertTrue(h.surface.currentFailures.value.any { it.subsystem == "SELF_REPAIR" })
     }
 
@@ -251,7 +251,7 @@ class SelfRepairLoopTest {
 
         assertEquals(SelfRepairLoop.Outcome.VALIDATION_FAILED, result.outcome)
         assertEquals(miniPlannerSource, File(root, "com/example/planner/GoalPlanner.kt").readText())
-        assertFalse(File(root, "com/example/planner/GoalPlanner.kt.selfrepair.bak").exists())
+        assertFalse(File(root, "com/example/planner/GoalPlanner.kt.selfrepair.${result.patch!!.transactionId}.bak").exists())
         assertTrue(h.surface.currentFailures.value.any { it.subsystem == "SELF_REPAIR" })
     }
 
@@ -278,7 +278,7 @@ class SelfRepairLoopTest {
         // patch actually written
         assertTrue(File(root, "com/example/planner/GoalPlanner.kt").readText().contains("FAILED"))
         // backup exists
-        assertTrue(File(root, "com/example/planner/GoalPlanner.kt.selfrepair.bak").exists())
+        assertTrue(File(root, "com/example/planner/GoalPlanner.kt.selfrepair.${result.patch!!.transactionId}.bak").exists())
 
         // genome promoted and organism registered
         assertTrue(h.registry.has(result.receipt!!.systemId))
@@ -301,7 +301,7 @@ class SelfRepairLoopTest {
         assertEquals(SelfRepairLoop.Outcome.ROLLED_BACK, result.outcome)
         // patch restored from backup
         assertEquals(miniPlannerSource, File(root, "com/example/planner/GoalPlanner.kt").readText())
-        assertFalse(File(root, "com/example/planner/GoalPlanner.kt.selfrepair.bak").exists())
+        assertFalse(File(root, "com/example/planner/GoalPlanner.kt.selfrepair.${result.patch!!.transactionId}.bak").exists())
         // failure surface warning recorded
         assertTrue(h.surface.currentFailures.value.any { it.subsystem == "SELF_REPAIR" })
     }
