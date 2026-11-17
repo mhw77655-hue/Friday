@@ -190,7 +190,7 @@ class SelfRepairLoop(
         } catch (cancelled: CancellationException) {
             restore(patch)
             throw cancelled
-        } catch (failure: Throwable) {
+        } catch (failure: Exception) {
             restore(patch)
             log.add("repair: verification failed; patch restored (${failure.message?.take(200)})")
             recordWarning("Self-repair verification failed; patch restored: ${failure.message?.take(200)}")
@@ -209,7 +209,7 @@ class SelfRepairLoop(
         } catch (cancelled: CancellationException) {
             restore(patch)
             throw cancelled
-        } catch (failure: Throwable) {
+        } catch (failure: Exception) {
             restore(patch)
             log.add("repair: verification gate failed; patch restored (${failure.message?.take(200)})")
             recordWarning("Self-repair verification gate failed; patch restored: ${failure.message?.take(200)}")
