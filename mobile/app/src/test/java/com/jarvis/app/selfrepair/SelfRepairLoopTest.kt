@@ -14,6 +14,8 @@ import com.jarvis.app.mutation.SynthesisRequest
 import com.jarvis.app.evolution.PromotionController
 import com.jarvis.app.evolution.RollbackController
 import com.jarvis.app.validation.PromotionGate
+import com.jarvis.app.mutation.FitnessModel
+import com.jarvis.app.validation.ResourceBenchmark
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -148,6 +150,31 @@ class SelfRepairLoopTest {
         )
     )
 
+    private fun validResourceReport() = ResourceBenchmark.ResourceReport(
+        benchmarks = listOf(
+            FitnessModel.BenchmarkOutcome("latency", "latency_ms", 12.0, "ms"),
+            FitnessModel.BenchmarkOutcome("memory", "memory_mb", 1.0, "mb")
+        ),
+        averageLatencyMs = 12.0,
+        iterations = 20
+    )
+
+    private fun validEvidence(
+        candidateSuites: List<TestSuiteObservation> = listOf(allPassObservation()),
+        regressionSuites: List<TestSuiteObservation> = listOf(allPassObservation()),
+        resourceReport: ResourceBenchmark.ResourceReport = validResourceReport()
+    ) = RepairVerificationEvidence(candidateSuites, regressionSuites, resourceReport)
+
+    private fun failingEvidence() = validEvidence(
+        regressionSuites = listOf(failingObservation())
+    )
+
+    private fun emptyEvidence() = RepairVerificationEvidence(
+        candidateSuites = emptyList(),
+        regressionSuites = emptyList(),
+        resourceReport = ResourceBenchmark.ResourceReport(emptyList(), 0.0, 0)
+    )
+
     // ------------------------------------------------------------------
     // Loop constructor
     // ------------------------------------------------------------------
@@ -213,7 +240,7 @@ class SelfRepairLoopTest {
         val result = loop.repair(
             RepairRequirement("com", "req", emptyList()),
             "clean"
-        ) { _ -> emptyList() }
+        ) { _ -> emptyEvidence() }
         assertEquals(SelfRepairLoop.Outcome.NOTHING_TO_REPAIR, result.outcome)
     }
 
@@ -228,7 +255,7 @@ class SelfRepairLoopTest {
         val result = loop.repair(
             RepairRequirement("GoalPlanner", "Retain failed nodes", emptyList()),
             "CapabilityExecutorTest"
-        ) { _ -> emptyList() }
+        ) { _ -> emptyEvidence() }
 
         assertEquals(SelfRepairLoop.Outcome.VALIDATION_FAILED, result.outcome)
         assertEquals(miniPlannerSource, File(root, "com/example/planner/GoalPlanner.kt").readText())
@@ -266,7 +293,7 @@ class SelfRepairLoopTest {
         val result = loop.repair(
             RepairRequirement("GoalPlanner", "Retain failed nodes", emptyList()),
             "CapabilityExecutorTest"
-        ) { _ -> listOf(allPassObservation()) }
+        ) { _ -> validEvidence() }
 
         assertEquals(SelfRepairLoop.Outcome.PROMOTED, result.outcome)
         assertNotNull(result.diagnosis)
@@ -296,7 +323,7 @@ class SelfRepairLoopTest {
         val result = loop.repair(
             RepairRequirement("GoalPlanner", "Retain failed nodes", emptyList()),
             "CapabilityExecutorTest"
-        ) { _ -> listOf(failingObservation()) }
+        ) { _ -> failingEvidence() }
 
         assertEquals(SelfRepairLoop.Outcome.ROLLED_BACK, result.outcome)
         // patch restored from backup
@@ -318,7 +345,7 @@ class SelfRepairLoopTest {
         val promoted = loop.repair(
             RepairRequirement("GoalPlanner", "Retain failed nodes", emptyList()),
             "CapabilityExecutorTest"
-        ) { _ -> listOf(allPassObservation()) }
+        ) { _ -> validEvidence() }
         assertEquals(SelfRepairLoop.Outcome.PROMOTED, promoted.outcome)
         val receipt = promoted.receipt!!
         assertTrue(h.registry.has(receipt.systemId))
@@ -328,7 +355,7 @@ class SelfRepairLoopTest {
             RepairRequirement("GoalPlanner", "Retain failed nodes", emptyList()),
             promoted.diagnosis!!,
             promoted.patch!!,
-            listOf(failingObservation())
+            failingEvidence()
         )
         assertEquals(SelfRepairLoop.Outcome.ROLLED_BACK, regression.outcome)
         // organism unregistered by rollback controller
