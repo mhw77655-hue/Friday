@@ -24,6 +24,20 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 /**
+ * Pure dispatch guard shared by the phone worker and JVM regression tests.
+ * An existing proposal blocks a new cycle even on a freshly installed device
+ * that has no local request history yet.
+ */
+internal fun shouldDispatchAutonomousCycle(
+    hasOpenProposal: Boolean,
+    previousRequestAt: Instant?,
+    now: Instant,
+    cooldownSeconds: Long = 12L * 60L * 60L
+): Boolean =
+    !hasOpenProposal &&
+        (previousRequestAt == null || !previousRequestAt.isAfter(now.minusSeconds(cooldownSeconds)))
+
+/**
  * Phone-initiated GitHub connection.
  *
  * It sends one explicitly requested, privacy-bounded device snapshot to the
@@ -144,16 +158,18 @@ class GitHubDevelopmentClient(context: Context) {
         val token = tokenStore.read()
             ?: throw IllegalStateException("GitHub credential is unavailable; autonomous development paused.")
 
-        val previousId = prefs.getString(KEY_LAST_REQUEST, null)
-        if (previousId != null) {
-            if (hasAnyOpenProposal(token)) {
-                return@withContext "Autonomous development is waiting for owner review of the existing proposal."
-            }
-            val previousAt = prefs.getString(KEY_LAST_REQUEST_AT, null)?.let { value ->
-                runCatching { Instant.parse(value) }.getOrNull()
-            }
-            if (previousAt != null && previousAt.isAfter(Instant.now().minusSeconds(AUTONOMOUS_CYCLE_COOLDOWN_SECONDS))) {
-                return@withContext "The previous development cycle is still settling; no duplicate request was sent."
+        // Query GitHub on every device, including first-run installs. Local
+        // preferences are not authoritative: another phone or a manual request
+        // may already have an open Friday proposal.
+        val openProposal = hasAnyOpenProposal(token)
+        val previousAt = prefs.getString(KEY_LAST_REQUEST_AT, null)?.let { value ->
+            runCatching { Instant.parse(value) }.getOrNull()
+        }
+        if (!shouldDispatchAutonomousCycle(openProposal, previousAt, Instant.now())) {
+            return@withContext if (openProposal) {
+                "Autonomous development is waiting for owner review of the existing proposal."
+            } else {
+                "The previous development cycle is still settling; no duplicate request was sent."
             }
         }
 
@@ -385,7 +401,6 @@ class GitHubDevelopmentClient(context: Context) {
         private const val KEY_LAST_REQUEST_AT = "last_request_at"
         private const val MAX_REQUEST_BYTES = 32 * 1024
         private const val MAX_WORKFLOW_INPUT_CHARS = 60_000
-        private const val AUTONOMOUS_CYCLE_COOLDOWN_SECONDS = 12L * 60L * 60L
         private const val MB = 1024L * 1024L
         private val JSON_MEDIA_TYPE = "application/vnd.github+json; charset=utf-8".toMediaType()
     }
