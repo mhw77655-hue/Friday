@@ -59,6 +59,14 @@ class PromotionGateTest {
     }
 
     @Test
+    fun `duplicate candidate test identifiers are rejected`() {
+        val duplicated = listOf(passing, passing.copy(passed = true))
+        val decision = gate.decide(evaluation(duplicated), listOf(baselinePassing), validResource())
+        assertEquals(GateVerdict.REJECT, decision.verdict)
+        assertTrue(decision.reasons.any { it.contains("nonblank and unique") })
+    }
+
+    @Test
     fun `baseline regression failures are never promoted`() {
         val decision = gate.decide(evaluation(), listOf(baselinePassing, failing), validResource())
         assertEquals(GateVerdict.REJECT, decision.verdict)
@@ -132,7 +140,7 @@ class PromotionGateTest {
             averageLatencyMs = 3_000.0,
             iterations = 20
         )
-        val decision = gate.decide(evaluation(), listOf(baselinePassing), slow)
+        val decision = gate.decide(evaluation(benchmarks = slow.benchmarks), listOf(baselinePassing), slow)
         assertEquals(GateVerdict.MUTATE, decision.verdict)
     }
 }
