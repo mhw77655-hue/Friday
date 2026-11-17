@@ -263,26 +263,39 @@ class SelfRepairLoop(
         log.add("sandboxGate: PASSED — candidate survived adversarial inputs")
         log.addAll(stressResult.log)
 
-        require(candidateSuites.isNotEmpty()) { "verification produced no candidate test suites" }
-        require(regressionSuites.isNotEmpty()) { "verification produced no independent baseline regression suites" }
-        val candidateSuiteNames = candidateSuites.map { it.suiteName }.toSet()
-        val regressionSuiteNames = regressionSuites.map { it.suiteName }.toSet()
-        require(candidateSuiteNames.size == candidateSuites.size &&
-            regressionSuiteNames.size == regressionSuites.size) {
-            "verification contains duplicate suite names"
-        }
-        require(candidateSuiteNames.intersect(regressionSuiteNames).isEmpty()) {
-            "candidate and baseline verification suites must be independent"
-        }
-        (candidateSuites + regressionSuites).forEach { suite ->
-            require(suite.totalTests > 0) { "verification suite '${suite.suiteName}' contains no tests" }
-            require(suite.skippedTests == 0) { "verification suite '${suite.suiteName}' contains skipped tests" }
-            require(suite.failures.size + suite.skippedTests <= suite.totalTests) {
-                "verification suite '${suite.suiteName}' has inconsistent failure/skipped counts"
+        val evidenceFailure = runCatching {
+            require(candidateSuites.isNotEmpty()) { "verification produced no candidate test suites" }
+            require(regressionSuites.isNotEmpty()) { "verification produced no independent baseline regression suites" }
+            val candidateSuiteNames = candidateSuites.map { it.suiteName }.toSet()
+            val regressionSuiteNames = regressionSuites.map { it.suiteName }.toSet()
+            require(candidateSuiteNames.size == candidateSuites.size &&
+                regressionSuiteNames.size == regressionSuites.size) {
+                "verification contains duplicate suite names"
             }
-            require(suite.suiteName.isNotBlank()) {
-                "verification suite name must not be blank"
+            require(candidateSuiteNames.intersect(regressionSuiteNames).isEmpty()) {
+                "candidate and baseline verification suites must be independent"
             }
+            (candidateSuites + regressionSuites).forEach { suite ->
+                require(suite.totalTests > 0) { "verification suite '${suite.suiteName}' contains no tests" }
+                require(suite.skippedTests == 0) { "verification suite '${suite.suiteName}' contains skipped tests" }
+                require(suite.failures.size + suite.skippedTests <= suite.totalTests) {
+                    "verification suite '${suite.suiteName}' has inconsistent failure/skipped counts"
+                }
+                require(suite.suiteName.isNotBlank()) {
+                    "verification suite name must not be blank"
+                }
+            }
+        }.exceptionOrNull()
+
+        if (evidenceFailure != null) {
+            // conclude() is also a public step-wise entry point. Invalid
+            // evidence must restore the patch here, not rely on repair()'s
+            // outer catch to do it for callers that invoke conclude directly.
+            restore(patch)
+            val detail = evidenceFailure.message?.take(200) ?: evidenceFailure.javaClass.simpleName
+            log.add("verification: invalid evidence; patch restored ($detail)")
+            recordWarning("Self-repair verification evidence rejected; patch restored: $detail")
+            return Result(Outcome.VALIDATION_FAILED, diagnosis, patch, null, candidateSuites, log)
         }
 
         val candidateOutcomes = candidateSuites.flatMap { it.toTestOutcomes() }
@@ -293,16 +306,24 @@ class SelfRepairLoop(
                 "resource iterations=${resource.iterations}"
         )
 
-        val evaluation = FitnessModel.evaluate(
-            candidateId = "selfrepair_${candidateSuites.joinToString("_") { it.suiteName }}",
-            testResults = candidateOutcomes,
-            benchmarkResults = resource.benchmarks
-        )
-        val decision = gate.decide(
-            evaluation = evaluation,
-            regression = regressionOutcomes,
-            resource = resource
-        )
+        val decision = try {
+            val evaluation = FitnessModel.evaluate(
+                candidateId = "selfrepair_${candidateSuites.joinToString("_") { it.suiteName }}",
+                testResults = candidateOutcomes,
+                benchmarkResults = resource.benchmarks
+            )
+            gate.decide(
+                evaluation = evaluation,
+                regression = regressionOutcomes,
+                resource = resource
+            )
+        } catch (failure: Exception) {
+            restore(patch)
+            val detail = failure.message?.take(200) ?: failure.javaClass.simpleName
+            log.add("verification: evidence evaluation failed; patch restored ($detail)")
+            recordWarning("Self-repair evidence evaluation failed; patch restored: $detail")
+            return Result(Outcome.VALIDATION_FAILED, diagnosis, patch, null, candidateSuites, log)
+        }
         log.add("gate: ${decision.verdict} (${decision.reasons.joinToString("; ").ifEmpty { "clean" }})")
 
         return when (decision.verdict) {
