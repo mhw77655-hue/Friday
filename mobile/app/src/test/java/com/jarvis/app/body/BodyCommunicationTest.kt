@@ -22,6 +22,18 @@ class BodyCommunicationTest {
     }
 
     @Test
+    fun `typed input takes over listening and a second turn remains routable while thinking`() {
+        assertEquals(
+            BodyState.THINKING,
+            BodyStateMachine.next(BodyState.LISTENING, BodyEvent.UserInput("open settings"))
+        )
+        assertEquals(
+            BodyState.THINKING,
+            BodyStateMachine.next(BodyState.THINKING, BodyEvent.UserInput("next request"))
+        )
+    }
+
+    @Test
     fun `blank stt result returns to idle instead of thinking`() {
         var s = BodyState.WAKE
         s = BodyStateMachine.next(s, BodyEvent.SttResult("", 0.8f, "en"))
