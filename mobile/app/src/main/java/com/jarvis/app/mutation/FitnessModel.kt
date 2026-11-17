@@ -71,7 +71,9 @@ object FitnessModel {
             require(values.all { it.isFinite() && it >= 0.0 }) {
                 "fitness weights must be finite and non-negative"
             }
-            require(values.any { it > 0.0 }) { "at least one fitness weight must be positive" }
+            require(values.sum().isFinite() && values.any { it > 0.0 }) {
+                "fitness weights must have a finite positive total"
+            }
         }
 
         internal fun totalWeight(): Double =
