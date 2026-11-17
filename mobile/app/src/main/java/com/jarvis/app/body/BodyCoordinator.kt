@@ -22,7 +22,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -46,7 +45,8 @@ private const val TAG = "BodyCoordinator"
  * transport lifecycle is an adapter for Android I/O only; it is not Friday's
  * identity, cognition, personality or model of inner life.
  *
- * Event handling is serialized on a dedicated executor.
+ * State events and routed user inputs each have a single consumer. Events remain
+ * responsive to interruption while routed commands execute sequentially.
  */
 class BodyCoordinator(
     private val context: Context,
@@ -58,6 +58,17 @@ class BodyCoordinator(
     private val scope: CoroutineScope,
     private val phoneDecisionTool: com.jarvis.app.voice.FridayPhoneDecisionTool? = null
 ) {
+
+    // Child scopes keep coordinator-owned collectors from leaking into the
+    // application scope. Queue consumers use a separate job so shutdown can
+    // close and drain their mailboxes after background producers stop.
+    private val backgroundJob = SupervisorJob(scope.coroutineContext[Job])
+    private val backgroundScope = CoroutineScope(scope.coroutineContext + backgroundJob)
+    private val queueJob = SupervisorJob(scope.coroutineContext[Job])
+    private val queueScope = CoroutineScope(scope.coroutineContext + queueJob)
+    private val shutdownStarted = AtomicBoolean(false)
+    private val eventConsumerJob: Job
+    private val inputConsumerJob: Job
 
     // ── State ──
     private val _state = MutableStateFlow(BodyState.IDLE)
@@ -73,7 +84,20 @@ class BodyCoordinator(
     private val _sessionStartMs = System.currentTimeMillis()
 
     // ── Event bus ──
-    private val eventChannel = Channel<BodyEvent>(capacity = 64)
+    private val eventQueue = SerializedMailbox<BodyEvent>(capacity = 512) { event, cause ->
+        reportQueueFailure("event", event::class.simpleName ?: "unknown", cause)
+        if (event is BodyEvent.UserInput && event.text.isNotBlank()) {
+            runCatching {
+                LatencyLayer.ackOnly(event.text, "I couldn't accept that request because the input queue is full. Please try again.")
+            }
+        }
+    }
+    private val inputQueue = SerializedMailbox<String>(capacity = 128) { text, cause ->
+        reportQueueFailure("input", text.take(80), cause)
+        runCatching {
+            LatencyLayer.ackOnly(text, "I couldn't process that request because Friday's input queue is full. Please try again.")
+        }
+    }
     private val _events = MutableSharedFlow<BodyEvent>(extraBufferCapacity = 32)
     val events: SharedFlow<BodyEvent> = _events.asSharedFlow()
 
@@ -119,14 +143,14 @@ class BodyCoordinator(
 
     // Vocabulary store is internal to the body; STT failures surface through
     // the shared nervous-system failure surface.
-    private val _vocabularyStore = VocabularyStore(context, scope,
+    private val _vocabularyStore = VocabularyStore(context, backgroundScope,
         onFailure = { r -> failureSurface.report(r) })
 
     // ── Model lifecycle ──
     private val reasoningLastUsedAtMs = AtomicLong(0)
     private val isReasoningWarm = AtomicBoolean(false)
-    private val executor = Executors.newSingleThreadExecutor { r ->
-        Thread(r, "jarvis-body-coordinator").apply { isDaemon = true }
+    private val warmupExecutor = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "jarvis-model-warmup").apply { isDaemon = true }
     }
 
     // ── Presence ──
@@ -136,8 +160,10 @@ class BodyCoordinator(
     private var currentUtteranceAudio: ShortArray? = null
 
     init {
-        // Start the event loop and mirror Friday's shared turn/output path.
-        scope.launch { eventLoop() }
+        // One consumer per queue preserves event and command ordering. Platform
+        // callbacks never suspend, and queued inputs are not discarded under load.
+        eventConsumerJob = queueScope.launch { eventLoop() }
+        inputConsumerJob = queueScope.launch { inputLoop() }
         observeFridayReplies()
 
         // Initialize subsystems
@@ -150,7 +176,7 @@ class BodyCoordinator(
      * reply content.
      */
     private fun observeFridayReplies() {
-        scope.launch {
+        backgroundScope.launch {
             var observedAssistantTurns = LatencyLayer.turns.value.count { it.fromJarvis }
             LatencyLayer.turns.collect { turns ->
                 val assistantTurns = turns.filter { it.fromJarvis }
@@ -175,7 +201,7 @@ class BodyCoordinator(
 
     /** Attach the isolated voice output state to the body activity machine. */
     fun attachVoiceOutput(output: VoiceOutputPath) {
-        scope.launch {
+        backgroundScope.launch {
             output.isSpeaking.collect { speaking ->
                 if (!speaking && _state.value == BodyState.SPEAKING) {
                     emitEvent(BodyEvent.TtsEnd)
@@ -241,7 +267,7 @@ class BodyCoordinator(
         startMic()
 
         // Presence monitor
-        presenceMonitor = PresenceMonitor(context, scope) { present ->
+        presenceMonitor = PresenceMonitor(context, backgroundScope) { present ->
             emitEvent(BodyEvent.UserPresenceChanged(present))
         }
         presenceMonitor?.start()
@@ -254,7 +280,7 @@ class BodyCoordinator(
         // STT path (which owns live mic recognition during LISTENING). Speech
         // input is handled on the LISTENING transition via the platform
         // recognizer — there is no Vosk/sherpa continuous decode to bridge.
-        scope.launch {
+        backgroundScope.launch {
             JarvisMic.speechEnded.collect {
                 // Only act when we were actively listening to a push-to-talk turn.
                 if (_state.value == BodyState.LISTENING || _state.value == BodyState.WAKE) {
@@ -268,9 +294,9 @@ class BodyCoordinator(
     }
 
     private fun startMic() {
-        micJob = scope.launch(Dispatchers.Default) {
+        micJob = backgroundScope.launch(Dispatchers.Default) {
             try {
-                JarvisMic.start(scope)
+                JarvisMic.start(backgroundScope)
             } catch (t: Throwable) {
                 if (t is kotlinx.coroutines.CancellationException) throw t
                 Log.e(TAG, "Mic start failed: ${t.message}")
@@ -293,15 +319,89 @@ class BodyCoordinator(
 
     /** Main event loop — single-threaded coordination. */
     private suspend fun eventLoop() {
-        for (event in eventChannel) {
-            _events.tryEmit(event)
-            handleEvent(event)
+        try {
+            eventQueue.consume { event ->
+                if (!_events.tryEmit(event)) {
+                    reportQueueFailure(
+                        "observer",
+                        event::class.simpleName ?: "unknown",
+                        IllegalStateException("body event observer flow is full")
+                    )
+                }
+                try {
+                    handleEvent(event)
+                } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    runCatching {
+                        failureSurface.report(
+                            com.jarvis.app.failure.FailureReport(
+                                subsystem = "BODY_EVENT_LOOP",
+                                operation = "handle",
+                                severity = com.jarvis.app.failure.FailureSeverity.ERROR,
+                                category = com.jarvis.app.failure.FailureCategory.LATENCY,
+                                message = "Body event could not be handled; the event was recorded as a failure.",
+                                source = "BodyCoordinator",
+                                cause = failure.message,
+                                recoverability = com.jarvis.app.failure.Recoverability.RECOVERABLE,
+                                recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY
+                            )
+                        )
+                    }
+                }
+            }
+        } finally {
+            // Even a broken reporter must not leave the downstream input queue open.
+            inputQueue.close()
         }
     }
 
-    /** Emit an event to the coordinator. */
+    /** Emit an event to the coordinator without silently dropping it. */
     fun emitEvent(event: BodyEvent) {
-        eventChannel.trySend(event)
+        eventQueue.enqueue(event)
+    }
+
+    /** User commands are processed in arrival order through one route owner. */
+    private suspend fun inputLoop() {
+        inputQueue.consume { text ->
+            try {
+                routeInputText(text)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                runCatching { failureSurface.report(
+                    com.jarvis.app.failure.FailureReport(
+                        subsystem = "BODY_INPUT_ROUTER",
+                        operation = "route",
+                        severity = com.jarvis.app.failure.FailureSeverity.ERROR,
+                        category = com.jarvis.app.failure.FailureCategory.LATENCY,
+                        message = "Friday could not route an input; the failure was recorded.",
+                        source = "BodyCoordinator",
+                        cause = failure.message,
+                        recoverability = com.jarvis.app.failure.Recoverability.RECOVERABLE,
+                        recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY
+                    )
+                ) }
+                runCatching { LatencyLayer.ackOnly(text, "I couldn't complete that request. The failure has been recorded.") }
+            }
+        }
+    }
+
+    private fun reportQueueFailure(queue: String, item: String, cause: Throwable?) {
+        runCatching { failureSurface.report(
+            com.jarvis.app.failure.FailureReport(
+                subsystem = "BODY_${queue.uppercase()}_QUEUE",
+                operation = "enqueue",
+                severity = com.jarvis.app.failure.FailureSeverity.ERROR,
+                category = com.jarvis.app.failure.FailureCategory.LATENCY,
+                message = "A body $queue item was rejected because its bounded queue is full or closed.",
+                source = "BodyCoordinator",
+                cause = cause?.message,
+                recoverability = com.jarvis.app.failure.Recoverability.RECOVERABLE,
+                recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY,
+                metadata = mapOf("item" to item.take(120))
+            )
+        ) }
     }
 
     /**
@@ -382,7 +482,7 @@ class BodyCoordinator(
         }
         // Route after committing the transport transition so an immediate
         // action acknowledgment cannot race the state/visual update.
-        inputTextToRoute?.let { text -> scope.launch { routeInputText(text) } }
+        inputTextToRoute?.let(inputQueue::enqueue)
     }
 
     private suspend fun routeInputText(text: String) {
@@ -630,7 +730,7 @@ class BodyCoordinator(
                 recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY
             )
         )
-        scope.launch {
+        backgroundScope.launch {
             delay(2000)
             emitEvent(BodyEvent.Reset)
         }
@@ -661,7 +761,7 @@ class BodyCoordinator(
 
     /** Warm up the model for fast first response. */
     private fun warmModel() {
-        executor.execute {
+        warmupExecutor.execute {
             try {
                 modelManager.send("") // Warm ping
                 isReasoningWarm.set(true)
@@ -690,7 +790,7 @@ class BodyCoordinator(
     /** Start a resource grace period for the on-demand reasoning organ; Friday remains present on the resident anchor. */
     private fun scheduleReasoningRelease() {
         reasoningLastUsedAtMs.set(System.currentTimeMillis())
-        scope.launch {
+        backgroundScope.launch {
             delay(BodyConfig.REASONING_RELEASE_GRACE_MS)
             releaseReasoningIfQuiet()
         }
@@ -712,11 +812,25 @@ class BodyCoordinator(
 
     /** Shutdown all subsystems. */
     fun shutdown() {
+        if (!shutdownStarted.compareAndSet(false, true)) return
+
+        // Stop producers first. Closing the event mailbox lets its consumer
+        // drain accepted events; eventLoop closes the input mailbox in finally,
+        // and the input consumer then drains accepted commands. Only after both
+        // consumers finish is their child job cancelled.
+        backgroundJob.cancel()
+        eventQueue.close()
         micJob?.cancel()
         JarvisMic.stop()
         speechRecognizer?.cancel()
         tts?.stop()
         presenceMonitor?.stop()
-        executor.shutdown()
+        warmupExecutor.shutdown()
+
+        scope.launch {
+            eventConsumerJob.join()
+            inputConsumerJob.join()
+            queueJob.cancel()
+        }
     }
 }
