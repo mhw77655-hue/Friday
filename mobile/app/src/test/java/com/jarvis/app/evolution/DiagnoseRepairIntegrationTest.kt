@@ -167,12 +167,7 @@ class DiagnoseRepairIntegrationTest {
             diagnoser = diagnoser,
             synthesizer = synth,
             gate = h.gate,
-            archive = h.archive,
-            registry = h.registry,
-            genomeRegistry = h.genomeRegistry,
             failureSurface = h.surface,
-            promotionController = h.promoCtrl,
-            rollbackController = h.rollbackCtrl,
             sandboxExecutor = passingSandbox
         )
         return loop to diagnoser
@@ -240,21 +235,15 @@ class DiagnoseRepairIntegrationTest {
         assertTrue("repair should retain failed nodes", repaired.contains("FAILED"))
         assertTrue("backup should exist", File(root, "com/example/planner/GoalPlanner.kt.selfrepair.${patch.transactionId}.bak").exists())
 
-        // VERIFY + GATE: all tests pass → PROMOTED
+        // VERIFY + GATE: evidence passes; source patch is verified, not runtime-promoted
         val result = loop.conclude(
             requirement, diag, patch,
             validEvidence()
         )
-        assertEquals(SelfRepairLoop.Outcome.PROMOTED, result.outcome)
-        assertNotNull(result.receipt)
-        assertTrue(h.registry.has(result.receipt!!.systemId))
-
-        // The genome is promoted in the archive
-        val genomeId = result.receipt!!.genomeId
-        val genome = h.archive.get(genomeId)
-        assertNotNull(genome)
-        assertTrue("genome should be promoted with a valid health state",
-            genome!!.healthState == GenomeHealth.HEALTHY || genome.healthState == GenomeHealth.TESTING)
+        assertEquals(SelfRepairLoop.Outcome.PATCH_VERIFIED, result.outcome)
+        assertTrue(result.log.any { it.contains("sourcePatch: VERIFIED") })
+        assertTrue("source patch should remain applied for trusted repository publication",
+            File(root, "com/example/planner/GoalPlanner.kt").readText().contains("FAILED"))
     }
 
     @Test
