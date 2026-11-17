@@ -146,6 +146,32 @@ class SelfModelTest {
     // ── AC6: no method returns an ungrounded assertion ────────────────────
 
     @Test
+    fun `continuity snapshot joins identity experience history and live goals`() {
+        val source = MutableIdentitySource("Friday", 1)
+        val model = SelfModel(
+            identitySource = source,
+            capabilityRegistry = registry(),
+            stageHistory = StageHistorySource { emptyList() },
+            goalSource = GoalSource { listOf("finish continuity", "recover unfinished work") },
+            experienceStats = {
+                ExperienceContinuityStats(
+                    experienceCount = 12,
+                    associationCount = 31,
+                    latestExperienceAtMs = 9_000L
+                )
+            }
+        )
+
+        val snapshot = model.continuitySnapshot()
+
+        assertEquals("Friday", snapshot.identity.name)
+        assertEquals(12, snapshot.experience.experienceCount)
+        assertEquals(31, snapshot.experience.associationCount)
+        assertEquals(9_000L, snapshot.experience.latestExperienceAtMs)
+        assertEquals(listOf("finish continuity", "recover unfinished work"), snapshot.activeGoals)
+    }
+
+    @Test
     fun `goals come from the injected goal source`() {
         val m = SelfModel(
             identitySource = MutableIdentitySource("x", 1),
