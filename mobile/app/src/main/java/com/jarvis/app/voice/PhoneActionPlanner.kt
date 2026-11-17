@@ -18,7 +18,8 @@ import org.json.JSONObject
  */
 class PhoneActionPlanner(
     private val localModelReady: suspend () -> Boolean = { true },
-    private val complete: suspend (GenerateRequest) -> GenerateResult
+    private val complete: suspend (GenerateRequest) -> GenerateResult,
+    private val localSkills: LocalPhoneActionSkillRegistry = LocalPhoneActionSkillRegistry.default()
 ) {
     constructor(modelManager: ModelManager) : this(
         localModelReady = {
@@ -36,11 +37,22 @@ class PhoneActionPlanner(
     }
 
     suspend fun plan(utterance: String, screenSnapshot: String): Result {
-        if (!isLikelyDeviceRequest(utterance)) return Result.NotPhoneAction
         if (utterance.isBlank()) return Result.NotPhoneAction
+
+        // First resolve supported body skills locally. This path does not load,
+        // wake or call a model; execution still passes through Friday's policy
+        // organ and the Android accessibility bridge.
+        when (val local = localSkills.resolve(utterance)) {
+            is LocalPhoneActionSkillRegistry.Resolution.Action -> return Result.Action(local.command)
+            is LocalPhoneActionSkillRegistry.Resolution.Clarification ->
+                return Result.Clarification(local.question)
+            LocalPhoneActionSkillRegistry.Resolution.NotMatched -> Unit
+        }
+
+        if (!isLikelyDeviceRequest(utterance)) return Result.NotPhoneAction
         if (!localModelReady()) {
             return Result.Unavailable(
-                "Natural phone control needs Friday's on-device model. No screen context was sent to a cloud model."
+                "No installed model-free phone skill safely matches this request yet. Nothing was changed, and no screen context was sent to a cloud model."
             )
         }
 
@@ -173,7 +185,8 @@ class PhoneActionPlanner(
         )
 
         fun isLikelyDeviceRequest(utterance: String): Boolean =
-            DEVICE_INTENT.containsMatchIn(utterance)
+            DEVICE_INTENT.containsMatchIn(utterance) ||
+                LocalPhoneActionSkillRegistry.default().mayMatch(utterance)
         
         private const val SYSTEM_PROMPT = """
             You are Friday's phone-action planning faculty. Friday is the intelligence
