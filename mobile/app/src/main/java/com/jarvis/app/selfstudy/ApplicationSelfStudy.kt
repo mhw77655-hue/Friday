@@ -130,10 +130,10 @@ class ApplicationSelfStudy(
             report.organFailureCounts.entries.sortedByDescending { it.value }.take(3)
                 .forEach { (organ, count) -> add("Observed organ failures: $organ=$count") }
             if (report.hostSamples < 20) add("Host resource sample count is low: ${report.hostSamples}")
-            report.missingCapabilityKeys.take(2).forEach {
+            report.declaredMissingCapabilities.take(2).forEach {
                 add("Manifest-declared missing capability (not an approved feature request): $it")
             }
-            report.knownLimitationKeys.take(2).forEach {
+            report.knownLimitationIds.take(2).forEach {
                 add("Declared limitation requiring owner-vision review: $it")
             }
         }.distinct().take(8)
@@ -171,8 +171,8 @@ class ApplicationSelfStudy(
             if (sourceReady) add("The Android package contains source-index metadata, not the full Kotlin source tree. The repository worker must inspect actual source before editing.")
             if (report.sourceDependencyEdgeCount == 0) add("The packaged source index reports no dependency edges; reachability conclusions may be incomplete.")
             if (report.hostSamples < 20) add("Fewer than 20 host samples are available; resource trends are not sufficient for a code-change decision.")
-            if (report.missingCapabilityKeys.isNotEmpty()) add("Missing capability manifest keys are declarations, not proof that the owner wants those features implemented.")
-            if (report.knownLimitationKeys.isNotEmpty()) add("Known limitations require comparison with the owner's vision; they are not automatically development goals.")
+            if (report.declaredMissingCapabilities.isNotEmpty()) add("Missing capability manifest keys are declarations, not proof that the owner wants those features implemented.")
+            if (report.knownLimitationIds.isNotEmpty()) add("Known limitations require comparison with the owner's vision; they are not automatically development goals.")
             if (report.thermalPressureSamples > 0 || report.lowMemorySamples > 0) {
                 add("Thermal or low-memory samples are runtime constraints; do not convert them into source changes without a reproduced defect.")
             }
