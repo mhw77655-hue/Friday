@@ -168,3 +168,47 @@ Do not merge PR #23 alone into main. It would leave the older main composition a
 The repository is not empty and the previous work was not worthless. It contains a model-independent individual seed, persistent experience, a real Android composition, voice and visual presence foundations, resource adaptation, device diagnostics, Shizuku integration and a hosted development worker.
 
 But those pieces are not yet one coherent, continuously self-developing Friday. The most important missing bridge is not another chat feature or another model. It is the verified, phone-owned development/update cycle, built on a unified identity and runtime. This audit branch exists to make that consolidation explicit and testable.
+
+
+## 10. Live verification addendum — 2026-11-17
+
+### Consolidation and CI
+
+- The working integration line is `audit/friday-unification`; PR #26 proposes it as the default-branch consolidation. It includes the PR #19 individual/embodiment/device-repair line and PR #23 phone-runtime/development-bridge line. The PR is open and has not been merged.
+- The integration tree has one Android Gradle module, `:mobile:app`, with approximately 471 production Kotlin files and 241 Kotlin test files. This is a large app, not a small chat UI.
+- Push run #1295 on code revision `e9c13fdb6a36133011a40d0d83b8072a66d76437` passed owner-word verification, builder safety tests, workflow lint, debug APK assembly and all 1,514 JVM tests (0 failures, 0 errors, 0 skipped). The debug APK was 74,643,567 bytes; its artifact ZIP was 41,118,568 bytes. This is a CI debug build, not a stable release-signed update and not physical-device proof.
+- The execution ledger was corrected so a deliberate skip is not success, a recovered failed node does not permanently block its downstream path, a completed prerequisite does not falsely label a pending plan as executing, and a run with completed plus blocked work reports PARTIAL while still emitting the blocker event. The summary retains skip reasons and prerequisite blockers.
+- The pull-request event build must also pass on the final PR head before the integration is merged. No physical-device validation has been performed.
+
+### Default-branch activation defect in the self-development path
+
+The current `main` branch lacks both `.github/workflows/friday-builder-proposal.yml` and `.ralph/OWNER_WORDS.md`. The Android `GitHubDevelopmentClient` dispatches the proposal workflow against `main`, and the workflow checks out `main` as its trusted source. Therefore the phone's development request cannot reach the intended worker until the consolidated branch is promoted to the default branch. This is not a cosmetic mismatch; it prevents the current phone-to-builder path from activating.
+
+Even after promotion, the existing workflow intentionally creates an isolated **draft PR only**. It never merges, signs, releases or installs. The scheduled worker also stops proposing while a prior Friday proposal remains open. That is a safe proposal system, not the owner's requested no-repeated-review self-build/update loop. A one-time, explicit owner policy for bounded automatic promotion, artifact signing, phone-side verification, installation and rollback remains to be engineered.
+
+The separate `EvolutionLoop` prototype is not the production self-builder: its test/benchmark hooks simulate outcomes, and it is not part of the main `TurnPathAssembly` composition. Do not claim that the app already rewrites, tests and rebuilds its own Android source on-device.
+
+### Additional owner-request mismatches
+
+- **Arbitrary local models:** the current offline library exposes five curated GGUF assets. `ModelPathResolver` can resolve a custom `.gguf` filename only after it is already copied into Friday-owned storage, but `ModelScreen` has no general file-import flow. The app still does not let the owner freely bring an arbitrary compatible model into its private model vault. This is optional compute and must never gate Friday's existence.
+- **Learning:** the model-free seed can persist observations and associations, but broad causal learning/generalization is not established. The real-composition Life Test with replay blocked and developmental mechanism disabled remains absent.
+- **Symbiosis:** `NanoSymbioticController`, `NanoSymbioticPolicy` and `LiquidSymbiosisEngine` are already integrated. PR #14's separate Nano-Liquid governor would duplicate this path; port only a demonstrably unique model-management feature, not the second governor.
+- **Video:** the integrated path imports media and extracts keyframes; the phone-state `JepaLatentPredictor` is a small resource-dynamics model, not semantic visual JEPA. PR #16 remains experimental and must not be described as video understanding.
+- **Cognitive openness:** the Android composition still wires a fixed cognitive/turn route. The root composition boundary is useful, but it must not harden into permanent ownership of cognitive outcomes.
+
+### Repository exposure and branch hygiene
+
+- GitHub reports this repository as **public**. The original `New Folder chats.zip` and `New folder.zip` remain tracked on the default branch and are publicly retrievable. They contain owner conversations and device material. No repository-visibility change or history purge has been performed.
+- A tree scan found no obvious standalone `.env`, `local.properties`, signing-key or certificate files in the integration tree. This is not a complete historical secret scan and does not make the public archives safe.
+- The 201 temporary extracted transcript/screenshot files and the one-off extraction workflow were removed from the current integration tree after review. The original ZIPs remain authoritative; `extract_owner_turns.py` reads the chat ZIP directly. This reduces redundant source-diff exposure but does not purge those files from prior public Git history.
+- The repository has 41 branch refs and ten open PRs. The integration PR currently changes 328 files after removing the temporary extracted copies. PR #14 (duplicate governor) and PR #16 (video/JEPA experiment) remain separate; do not force-merge them. Preserve old refs until each unique change has been classified.
+
+### Immediate next gates
+
+1. Finish PR #26's own CI on its latest head.
+2. Decide repository visibility before promoting conversation archives to the default branch; changing visibility is an owner decision and has not been done.
+3. Promote the integration line to `main` only after that decision, so the phone's builder workflow and owner-word contract exist on the default branch.
+4. Implement the bounded no-back-and-forth development/update loop without weakening the protected continuity/security floor.
+5. Unify `FridayIndividual` identity lineage with `SelfModel`, continuity and memory.
+6. Add custom GGUF import into private storage as an optional capability.
+7. Run the full on-device acceptance suite: no-model start, identity/experience persistence, voice input/output, Shizuku, screen capture, camera/video, reboot/background survival, signed update and rollback.
