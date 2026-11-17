@@ -262,7 +262,17 @@ fun SettingsScreen() {
                         .onSuccess {
                             githubConnected = true
                             githubToken = ""
-                            githubStatus = "GitHub token encrypted and saved on this phone."
+                            runCatching {
+                                com.jarvis.app.github.FridayEvolutionScheduler.enable(context)
+                            }
+                                .onSuccess {
+                                    autonomousEvolution = true
+                                    githubStatus = "GitHub token saved securely. Friday's autonomous development is enabled and the first cycle is queued."
+                                }
+                                .onFailure {
+                                    autonomousEvolution = com.jarvis.app.github.FridayEvolutionScheduler.isEnabled(context)
+                                    githubStatus = "GitHub token saved securely, but the first development cycle could not be scheduled: ${it.message ?: "unknown error"}"
+                                }
                         }
                         .onFailure { githubStatus = it.message ?: "Could not save GitHub token." }
                 },
@@ -347,7 +357,7 @@ fun SettingsScreen() {
 
         SectionLabel("AUTONOMOUS DEVELOPMENT")
         Text(
-            text = "When enabled, Friday checks in about every 12 hours and asks her repository builder to find one meaningful gap against your original vision, implement it, test it and open a draft proposal. Existing open proposals block duplicate cycles. This is optional and uses GitHub Actions as extra compute; it does not make Friday's identity or local runtime depend on a model.",
+            text = "Saving a valid GitHub token starts this automatically: Friday queues her first development cycle and then checks in about every 12 hours. She asks the repository builder to inspect her vision and implementation, make one evidence-backed improvement, test it and open a draft proposal. Existing open proposals block duplicate cycles. You can pause this here at any time. GitHub Actions is extra compute, not Friday's identity; aggregate device evidence remains a separate opt-in.",
             style = JarvisType.Label,
             modifier = Modifier.padding(bottom = 8.dp)
         )
