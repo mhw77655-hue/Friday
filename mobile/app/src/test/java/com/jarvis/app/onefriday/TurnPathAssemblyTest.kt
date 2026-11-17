@@ -104,6 +104,7 @@ class TurnPathAssemblyTest {
         assertNotNull("the real cognitive engine", assembly.engine)
         assertNotNull("the entry pipeline", assembly.pipeline)
         assertEquals("Friday", assembly.selfModel.identity().name)
+        assertEquals(assembly.individual.identity.id, assembly.selfModel.identity().persistentId)
         assertEquals("she/her", assembly.selfModel.identity().pronouns)
         assertTrue(assembly.componentFingerprint.keys.none { it.contains("HumanCore", ignoreCase = true) })
         assertNotNull("the real memory graph store", assembly.graphStore)
@@ -170,6 +171,11 @@ class TurnPathAssemblyTest {
         assertEquals("Friday", identity.name)
         assertEquals("she/her", identity.pronouns)
         assertEquals(1, identity.version)
+        assertEquals(
+            "SelfModel and the model-free seed must expose the same persistent individual identity",
+            assembly.individual.identity.id,
+            identity.persistentId
+        )
         assertTrue(
             "the composition fingerprint must not expose a Human Core facade",
             assembly.componentFingerprint.keys.none { it.contains("HumanCore", ignoreCase = true) }
