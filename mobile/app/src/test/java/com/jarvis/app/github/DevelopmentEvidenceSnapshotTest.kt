@@ -31,12 +31,12 @@ class DevelopmentEvidenceSnapshotTest {
 
         val json = snapshot.toJsonString()
 
-        assertTrue(json.contains("\"experience_count\":12"))
-        assertTrue(json.contains("\"association_count\":29"))
-        assertTrue(json.contains("\"PARTIAL\""))
-        assertTrue(json.contains("\"SKIPPED\":1"))
-        assertTrue(json.contains("\"BLOCKED\":3"))
-        assertTrue(json.contains("\"privacy_scope\":\"aggregate_only_no_content\""))
+        assertTrue(json.contains("\\"experience_count\\":12"))
+        assertTrue(json.contains("\\"association_count\\":29"))
+        assertTrue(json.contains("\\"PARTIAL\\""))
+        assertTrue(json.contains("\\"SKIPPED\\":1"))
+        assertTrue(json.contains("\\"BLOCKED\\":3"))
+        assertTrue(json.contains("\\"privacy_scope\\":\\"aggregate_only_no_content\\""))
     }
 
     @Test
@@ -66,6 +66,7 @@ class DevelopmentEvidenceSnapshotTest {
         assertFalse(json.contains("conversation_text"))
         assertFalse(json.contains("feature_names"))
     }
+
     @Test
     fun `self study evidence exports only aggregate next focus count`() {
         val snapshot = DevelopmentEvidenceSnapshot(
@@ -114,9 +115,9 @@ class DevelopmentEvidenceSnapshotTest {
 
         val json = snapshot.toJsonString()
 
-        assertTrue(json.contains("\"next_focus_count\":3"))
-        assertFalse(json.contains("next_focus"))
+        assertTrue(json.contains("\\"next_focus_count\\":3"))
+        // Match the exact legacy field, not the permitted next_focus_count field.
+        assertFalse(json.contains("\\"next_focus\\":"))
         assertFalse(json.contains("internal-node-id"))
     }
-
 }
