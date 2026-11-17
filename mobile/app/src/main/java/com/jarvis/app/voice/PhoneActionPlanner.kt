@@ -36,6 +36,10 @@ class PhoneActionPlanner(
         data class Unavailable(val reason: String) : Result
     }
 
+    /** Used by the body router so injected skills can claim their own language. */
+    fun shouldHandle(utterance: String): Boolean =
+        DEVICE_INTENT.containsMatchIn(utterance) || localSkills.mayMatch(utterance)
+
     suspend fun plan(utterance: String, screenSnapshot: String): Result {
         if (utterance.isBlank()) return Result.NotPhoneAction
 
