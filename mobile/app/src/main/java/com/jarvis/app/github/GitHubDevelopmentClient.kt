@@ -231,7 +231,7 @@ class GitHubDevelopmentClient(context: Context) {
                     .put("The authoritative product intent is stored in .ralph/VISION.md and .ralph/OWNER_WORDS.md; inspect the original New Folder chats.zip when necessary.")
                     .put(
                         if (includeAggregateEvidence) {
-                            "The owner separately enabled content-free aggregate runtime evidence. It contains counts, status names, capability keys and resource trends only; it contains no raw memories, facts, conversations, prompts, files, location, screen, microphone, camera or unique identifiers."
+                            "The owner separately enabled content-free aggregate runtime evidence and model-free structural self-study sharing. The payload contains aggregate counts, status names, capability keys, resource trends and bounded architecture findings/goals only; it contains no raw memories, facts, conversations, prompts, files, location, screen, microphone, camera or unique identifiers."
                         } else {
                             "This scheduled request intentionally contains no phone telemetry, conversation data, files, location or personal content."
                         }
@@ -283,7 +283,7 @@ class GitHubDevelopmentClient(context: Context) {
                     .put("reviewed_by", if (includeAggregateEvidence) "owner-enabled-autonomous-evolution-and-aggregate-evidence-settings" else "owner-enabled-autonomous-evolution-setting")
                     .put("reviewed_at", now)
                     .put("aggregate_runtime_evidence_enabled", includeAggregateEvidence)
-                    .put("aggregate_runtime_evidence_scope", if (includeAggregateEvidence) "counts_statuses_capability_keys_resource_trends_only" else "none")
+                    .put("aggregate_runtime_evidence_scope", if (includeAggregateEvidence) "aggregate_metrics_and_model_free_structural_self_study_no_personal_content" else "none")
             )
 
         val bytes = requestJson.toString().toByteArray(Charsets.UTF_8)
