@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "request_id": "bootstrap-queue-20261118",
+  "created_at": "2026-11-18T00:00:00Z",
+  "source_revision": "main",
+  "intended_outcome": "Implement a durable, deduplicated Android offline development-request outbox for Friday. Requests must survive app process death and device restarts, reuse the repository's existing persistence where appropriate, and provide a safe path for queued requests to be delivered to the GitHub development workflow when connectivity returns. This is an outbox, not a chatbot feature and not a model-dependent feature.",
+  "evidence": [
+    "Owner-directed development requirement: implement a durable deduplicated Android offline development request outbox that survives process death, reuses existing persistence, and has enqueue, deduplication, restart/recovery, and invalid-request tests.",
+    "The previous builder attempt reached source implementation but failed because OpenCode tried to copy a scratch file from /tmp and the headless permission prompt was rejected. The worker scratch-directory fix is now merged to main."
+  ],
+  "acceptance_criteria": [
+    "Inspect existing Android persistence, GitHub bridge, request models, and lifecycle before adding new abstractions.",
+    "Implement durable enqueue and deduplication with stable request identity; repeated enqueue of the same logical request must not create duplicate pending work.",
+    "Queued requests survive process death and are recovered after application restart without relying on an in-memory singleton.",
+    "Invalid, oversized, malformed, or unsafe requests are rejected without corrupting valid queued work.",
+    "Add focused JVM tests for enqueue, deduplication, restart/recovery, invalid input, and delivery-state transitions.",
+    "Run the relevant JVM unit tests and report exact executed test counts and results.",
+    "Do not modify .github/, .ralph/, tools/friday-builder/, request inbox files, signing/release/update paths, credentials, or permission settings.",
+    "Do not merge, sign, release, or install anything; publish only an isolated draft PR."
+  ],
+  "risks": [
+    "Incorrect deduplication could suppress distinct requests or duplicate delivery.",
+    "Process death during enqueue or delivery could lose or replay work unless state transitions are atomic and idempotent.",
+    "Existing persistence may have constraints that require adapting the design rather than creating a parallel store."
+  ],
+  "rollback_expectation": "Close the draft PR and discard its isolated branch. Existing Friday identity, memory, phone permissions, signing, release, update, and installed app state must remain unchanged.",
+  "unresolved_questions": [
+    "Which existing persistence component is the correct owner for durable request state?",
+    "What delivery acknowledgement semantics already exist in the GitHub phone bridge?"
+  ],
+  "privacy_review": {
+    "status": "approved",
+    "reviewed_by": "owner-directed-code-only-request-no-personal-content",
+    "reviewed_at": "2026-11-18T00:00:00Z"
+  }
+}
