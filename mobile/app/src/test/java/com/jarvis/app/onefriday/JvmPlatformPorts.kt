@@ -4,8 +4,6 @@ import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.capability.CapabilityRegistry
 import com.jarvis.app.failure.FailureReport
 import com.jarvis.app.turn.TurnContext
-import com.jarvis.app.identity.IdentitySource
-import com.jarvis.app.identity.SeededFridayIdentitySource
 import com.jarvis.app.memory.EmbeddingProvider
 import com.jarvis.app.memory.MemoryGraphStore
 import com.jarvis.app.memory.provenance.AdapterManifest
@@ -49,8 +47,7 @@ class JvmPlatformPorts(
     private val utteranceDoneSignal: () -> Unit,
     private val failureSink: (FailureReport) -> Unit,
     private val failureSurface: com.jarvis.app.failure.FailureSurface,
-    private val forgetter: com.jarvis.app.memory.provenance.MemoryForgetter? = null,
-    private val identity: IdentitySource = SeededFridayIdentitySource
+    private val forgetter: com.jarvis.app.memory.provenance.MemoryForgetter? = null
 ) : PlatformPorts {
 
     override fun failureSurface(): com.jarvis.app.failure.FailureSurface = failureSurface
@@ -76,8 +73,6 @@ class JvmPlatformPorts(
     override fun warmModel() = warmer()
 
     override fun sessionContext(): TurnContext? = session()
-
-    override fun identitySource(): IdentitySource = identity
 
     override fun onUserSubmitted() = submittedSignal()
 
