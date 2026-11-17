@@ -208,7 +208,7 @@ class SelfRepairLoopTest {
         // empty results dir → observer throws; put an empty fixture instead
         root.resolve("results").mkdirs()
         root.resolve("results/TEST-clean.xml").writeText(
-            """<?xml version="1.0"?><testsuite name="clean" tests="5" failures="0"><testcase classname="C" name="a"/></testsuite>"""
+            """<?xml version="1.0"?><testsuite name="clean" tests="1" failures="0"><testcase classname="C" name="a"/></testsuite>"""
         )
         val result = loop.repair(
             RepairRequirement("com", "req", emptyList()),
