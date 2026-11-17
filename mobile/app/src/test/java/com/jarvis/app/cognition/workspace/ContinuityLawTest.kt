@@ -174,13 +174,14 @@ class ContinuityLawTest {
         // A new value for the SAME field, with its evidence complete, proposed in
         // the same instant: evidence is no longer the constraint — real time is.
         law.propose(persona("c-3", "directness", "playful"))
-        val tooSoon = law.propose(persona("c-4", "directness", "playful"))
+        law.propose(persona("c-4", "directness", "playful"))
+        val tooSoon = law.propose(persona("c-4b", "directness", "playful"))
         assertTrue("a second accepted change to one field inside the interval is refused", tooSoon.isRejected)
         assertTrue("the refusal says why: ${tooSoon.reason}", tooSoon.reason.contains("rate limited"))
         assertEquals("the accepted value is untouched by the refused change", "direct", law.valueOf("persona:directness"))
         assertEquals(1L, log.count())
 
-        now += ContinuityLaw.DEFAULT_MIN_INTERVAL_MS
+        now += ContinuityLaw.requiredIntervalMs(1)
         val later = law.propose(persona("c-5", "directness", "playful"))
         assertTrue("after the real interval has passed, the change is accepted", later.isAccepted)
         assertEquals("playful", law.valueOf("persona:directness"))
@@ -209,6 +210,7 @@ class ContinuityLawTest {
         now += 10_000L
         law.propose(persona("c-3", "directness", "playful"))
         law.propose(persona("c-4", "directness", "playful"))
+        law.propose(persona("c-5", "directness", "playful"))
         val second = log.entriesFor("persona:directness").last()
         assertEquals("an accepted change records the value it REPLACED", "direct", second.oldValue)
         assertEquals("playful", second.newValue)
