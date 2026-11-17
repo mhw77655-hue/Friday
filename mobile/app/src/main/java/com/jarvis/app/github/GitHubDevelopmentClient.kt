@@ -1,5 +1,6 @@
 package com.jarvis.app.github
 
+import com.jarvis.app.selfstudy.ApplicationSelfStudy
 import android.app.ActivityManager
 import android.content.Context
 import android.net.ConnectivityManager
@@ -26,9 +27,9 @@ import java.util.concurrent.TimeUnit
 /**
  * Phone-initiated GitHub connection.
  *
- * It sends one explicitly requested, privacy-bounded device snapshot to the
- * repository's proposal workflow. No GitHub credential is embedded in source
- * or uploaded to GitHub; the token is read from GitHubTokenStore at call time.
+ * It sends Friday's model-free, evidence-selected development goal and an
+ * explicitly consented aggregate snapshot to the repository proposal workflow.
+ * No GitHub credential is embedded in source; the token is read at call time.
  */
 class GitHubDevelopmentClient(context: Context) {
     private val app = context.applicationContext
