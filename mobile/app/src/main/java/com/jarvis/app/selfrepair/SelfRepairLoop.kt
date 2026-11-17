@@ -193,7 +193,7 @@ class SelfRepairLoop(
             restore(patch)
             log.add("repair: verification failed; patch restored (${failure.message?.take(200)})")
             recordWarning("Self-repair verification failed; patch restored: ${failure.message?.take(200)}")
-            return Result(Outcome.VALIDATION_FAILED, diagnosis, patch, null, null, emptyList(), log)
+            return Result(Outcome.VALIDATION_FAILED, diagnosis, patch, null, emptyList(), log)
         }
 
         return try {
@@ -205,12 +205,12 @@ class SelfRepairLoop(
             restore(patch)
             log.add("repair: verification produced no usable evidence or gate failed; patch restored (${failure.message?.take(200)})")
             recordWarning("Self-repair verification produced no usable evidence or gate failed; patch restored: ${failure.message?.take(200)}")
-            Result(Outcome.VALIDATION_FAILED, diagnosis, patch, null, null, evidence.candidateSuites, log)
+            Result(Outcome.VALIDATION_FAILED, diagnosis, patch, null, evidence.candidateSuites, log)
         }
     }
 
     /**
-     * GATE + PROMOTE/ROLLBACK on real post-fix verification results. Called by
+     * GATE + VERIFY/RESTORE on real post-fix verification results. Called by
      * [repair] directly, or by the tooling flow after candidate tests, independent
      * baseline regressions, and resource measurements have all completed.
      *
@@ -256,7 +256,7 @@ class SelfRepairLoop(
             restore(patch)
             log.add("sandboxGate: patch restored from backups")
             return Result(
-                Outcome.SANDBOX_REJECTED, diagnosis, patch, null, null,
+                Outcome.SANDBOX_REJECTED, diagnosis, patch, null,
                 candidateSuites, log + stressResult.log
             )
         }
