@@ -7,7 +7,8 @@ import org.junit.Test
 
 class PromotionGateTest {
     private val passing = FitnessModel.TestOutcome("candidate-test", true)
-    private val failing = FitnessModel.TestOutcome("baseline-test", false, error = "regression")
+    private val baselinePassing = FitnessModel.TestOutcome("baseline-test", true)
+    private val failing = FitnessModel.TestOutcome("baseline-failing-test", false, error = "regression")
 
     private fun validBenchmarks() = listOf(
         FitnessModel.BenchmarkOutcome("latency", "latency_ms", 12.0, "ms"),
@@ -29,7 +30,7 @@ class PromotionGateTest {
 
     @Test
     fun `promotes only when candidate baseline and resource evidence are complete`() {
-        val decision = gate.decide(evaluation(), listOf(passing), validResource())
+        val decision = gate.decide(evaluation(), listOf(baselinePassing), validResource())
         assertEquals(GateVerdict.PROMOTE, decision.verdict)
         assertEquals(1.0, decision.regressionRate, 0.0)
     }
@@ -43,6 +44,26 @@ class PromotionGateTest {
     }
 
     @Test
+    fun `verified absence of a prior capability permits an empty regression suite`() {
+        val decision = gate.decide(
+            evaluation(),
+            emptyList(),
+            validResource(),
+            baselineAbsenceVerified = true
+        )
+        assertEquals(GateVerdict.PROMOTE, decision.verdict)
+        assertEquals(1.0, decision.regressionRate, 0.0)
+        assertTrue(decision.baselineAbsenceVerified)
+    }
+
+    @Test
+    fun `unverified empty regression suite remains rejected`() {
+        val decision = gate.decide(evaluation(), emptyList(), validResource())
+        assertEquals(GateVerdict.REJECT, decision.verdict)
+        assertTrue(!decision.baselineAbsenceVerified)
+    }
+
+    @Test
     fun `empty resource evidence is rejected`() {
         val empty = ResourceBenchmark.ResourceReport(emptyList(), 0.0, 0)
         val decision = gate.decide(evaluation(), listOf(passing), empty)
@@ -52,14 +73,22 @@ class PromotionGateTest {
 
     @Test
     fun `candidate test failures are never promoted`() {
-        val decision = gate.decide(evaluation(listOf(passing, failing)), listOf(passing), validResource())
+        val decision = gate.decide(evaluation(listOf(passing, failing)), listOf(baselinePassing), validResource())
         assertEquals(GateVerdict.REJECT, decision.verdict)
         assertTrue(decision.reasons.any { it.contains("candidate") })
     }
 
     @Test
+    fun `duplicate candidate test identifiers are rejected`() {
+        val duplicated = listOf(passing, passing.copy(passed = true))
+        val decision = gate.decide(evaluation(duplicated), listOf(baselinePassing), validResource())
+        assertEquals(GateVerdict.REJECT, decision.verdict)
+        assertTrue(decision.reasons.any { it.contains("nonblank and unique") })
+    }
+
+    @Test
     fun `baseline regression failures are never promoted`() {
-        val decision = gate.decide(evaluation(), listOf(passing, failing), validResource())
+        val decision = gate.decide(evaluation(), listOf(baselinePassing, failing), validResource())
         assertEquals(GateVerdict.REJECT, decision.verdict)
         assertTrue(decision.reasons.any { it.startsWith("regression:") })
     }
@@ -74,7 +103,50 @@ class PromotionGateTest {
             averageLatencyMs = Double.NaN,
             iterations = 20
         )
-        val decision = gate.decide(evaluation(), listOf(passing), invalid)
+        val decision = gate.decide(evaluation(), listOf(baselinePassing), invalid)
+        assertEquals(GateVerdict.REJECT, decision.verdict)
+    }
+
+
+    @Test
+    fun `candidate and baseline test identifiers must be independent`() {
+        val decision = gate.decide(evaluation(), listOf(passing), validResource())
+        assertEquals(GateVerdict.REJECT, decision.verdict)
+        assertTrue(decision.reasons.any { it.contains("identifiers overlap") })
+    }
+
+    @Test
+    fun `every resource measurement must be finite and non-negative`() {
+        val invalidMemory = ResourceBenchmark.ResourceReport(
+            benchmarks = validBenchmarks() + FitnessModel.BenchmarkOutcome(
+                "second-memory-sample", "memory_mb", Double.NaN, "mb"
+            ),
+            averageLatencyMs = 12.0,
+            iterations = 20
+        )
+        val decision = gate.decide(evaluation(), listOf(baselinePassing), invalidMemory)
+        assertEquals(GateVerdict.REJECT, decision.verdict)
+    }
+
+    @Test
+    fun `resource latency summary must match measured samples`() {
+        val inconsistent = ResourceBenchmark.ResourceReport(
+            benchmarks = validBenchmarks(),
+            averageLatencyMs = 1.0,
+            iterations = 20
+        )
+        val decision = gate.decide(evaluation(), listOf(baselinePassing), inconsistent)
+        assertEquals(GateVerdict.REJECT, decision.verdict)
+    }
+
+    @Test
+    fun `resource evidence requires both latency and memory metrics`() {
+        val missingMemory = ResourceBenchmark.ResourceReport(
+            benchmarks = listOf(FitnessModel.BenchmarkOutcome("latency", "latency_ms", 12.0, "ms")),
+            averageLatencyMs = 12.0,
+            iterations = 20
+        )
+        val decision = gate.decide(evaluation(), listOf(baselinePassing), missingMemory)
         assertEquals(GateVerdict.REJECT, decision.verdict)
     }
 
@@ -88,7 +160,7 @@ class PromotionGateTest {
             averageLatencyMs = 3_000.0,
             iterations = 20
         )
-        val decision = gate.decide(evaluation(), listOf(passing), slow)
+        val decision = gate.decide(evaluation(benchmarks = slow.benchmarks), listOf(baselinePassing), slow)
         assertEquals(GateVerdict.MUTATE, decision.verdict)
     }
 }

@@ -1,19 +1,15 @@
 package com.jarvis.app.selfrepair
 
 import com.jarvis.app.failure.FailureSurface
-import com.jarvis.app.genome.GenomeArchive
-import com.jarvis.app.humancore.store.FileStorage
-import com.jarvis.app.microsystem.MicroSystemRegistry
 import com.jarvis.app.model.GenerateResult
 import com.jarvis.app.model.FinishReason
 import com.jarvis.app.model.TokenUsage
-import com.jarvis.app.genome.GenomeHealth
-import com.jarvis.app.genome.GenomeRegistry
 import com.jarvis.app.mutation.LlmSynthesisProvider
 import com.jarvis.app.mutation.SynthesisRequest
-import com.jarvis.app.evolution.PromotionController
-import com.jarvis.app.evolution.RollbackController
 import com.jarvis.app.validation.PromotionGate
+import com.jarvis.app.mutation.FitnessModel
+import com.jarvis.app.validation.ResourceBenchmark
+import com.jarvis.app.sandbox.SandboxExecutor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -29,10 +25,10 @@ import java.io.File
 
 /**
  * End-to-end proof that the Observe / Diagnose / Repair cycle drives the
- * real PromotionGate and RollbackController. Uses the REAL fixture XML
- * (shipped in test-resources) for the observe step, a temporary-copy of a
+ * real PromotionGate and the source-patch restore path. Uses the REAL fixture
+ * XML (shipped in test-resources) for observation, a temporary copy of a
  * mini-GoalPlanner file as the repair target, and scripted model transcripts
- * for the diagnose / repair steps.
+ * for diagnose / repair. It deliberately does not register a fake runtime tool.
  */
 class SelfRepairLoopTest {
 
@@ -59,27 +55,14 @@ class SelfRepairLoopTest {
     // ------------------------------------------------------------------
 
     private data class Harness(
-        val archive: GenomeArchive,
-        val registry: MicroSystemRegistry,
-        val genomeRegistry: GenomeRegistry,
         val surface: FailureSurface,
-        val promoCtrl: PromotionController,
-        val rollbackCtrl: RollbackController,
         val gate: PromotionGate
     )
 
-    private fun harness(): Harness {
-        val dir = tmpDir()
-        val storage = FileStorage(dir)
-        val archive = GenomeArchive(storage, scope)
-        val registry = MicroSystemRegistry()
-        val genomeRegistry = GenomeRegistry()
-        val surface = FailureSurface()
-        val promo = PromotionController(registry, archive, genomeRegistry, surface)
-        val rollback = RollbackController(registry, archive, genomeRegistry, surface)
-        val gate = PromotionGate()
-        return Harness(archive, registry, genomeRegistry, surface, promo, rollback, gate)
-    }
+    private fun harness(): Harness = Harness(
+        surface = FailureSurface(),
+        gate = PromotionGate()
+    )
 
     // ------------------------------------------------------------------
     // Fixtures — mini GoalPlanner.kt as the repair target
@@ -142,17 +125,59 @@ class SelfRepairLoopTest {
 
     private fun allPassObservation() = TestSuiteObservation("CapabilityExecutorTest", 18, emptyList())
 
+    private fun baselinePassObservation() = TestSuiteObservation("BaselineSuite", 18, emptyList())
+
     private fun failingObservation() = TestSuiteObservation(
         "CapabilityExecutorTest", 18, listOf(
             TestFailureObservation("CapabilityExecutorTest", "re-recur", "AssertionError", "still broken", "trace")
         )
     )
 
+    private fun baselineFailingObservation() = failingObservation().copy(suiteName = "BaselineSuite")
+
+    private fun validResourceReport() = ResourceBenchmark.ResourceReport(
+        benchmarks = listOf(
+            FitnessModel.BenchmarkOutcome("latency", "latency_ms", 12.0, "ms"),
+            FitnessModel.BenchmarkOutcome("memory", "memory_mb", 1.0, "mb")
+        ),
+        averageLatencyMs = 12.0,
+        iterations = 20
+    )
+
+    private fun validEvidence(
+        candidateSuites: List<TestSuiteObservation> = listOf(allPassObservation()),
+        regressionSuites: List<TestSuiteObservation> = listOf(baselinePassObservation()),
+        resourceReport: ResourceBenchmark.ResourceReport = validResourceReport()
+    ) = RepairVerificationEvidence(candidateSuites, regressionSuites, resourceReport)
+
+    private fun failingEvidence() = validEvidence(
+        regressionSuites = listOf(baselineFailingObservation())
+    )
+
+    private fun emptyEvidence() = RepairVerificationEvidence(
+        candidateSuites = emptyList(),
+        regressionSuites = emptyList(),
+        resourceReport = ResourceBenchmark.ResourceReport(emptyList(), 0.0, 0)
+    )
+
     // ------------------------------------------------------------------
     // Loop constructor
     // ------------------------------------------------------------------
 
-    private fun loopWith(tmpRoot: File, h: Harness, diagText: String = scriptedDiagnosis, repairText: String = scriptedRepair): Pair<SelfRepairLoop, LlmSynthesisProvider> {
+    private val passingSandbox = object : SandboxExecutor {
+        override suspend fun stressTest(
+            patch: SourcePatch,
+            candidateDescription: String
+        ) = SandboxExecutor.StressResult(passed = true, log = listOf("explicit test-only sandbox stub"))
+    }
+
+    private fun loopWith(
+        tmpRoot: File,
+        h: Harness,
+        diagText: String = scriptedDiagnosis,
+        repairText: String = scriptedRepair,
+        sandbox: SandboxExecutor = passingSandbox
+    ): Pair<SelfRepairLoop, LlmSynthesisProvider> {
         var callCount = 0
         val diagnoser = DiagnosisEngine(
             complete = { _ ->
@@ -172,12 +197,8 @@ class SelfRepairLoopTest {
             diagnoser = diagnoser,
             synthesizer = synth,
             gate = h.gate,
-            archive = h.archive,
-            registry = h.registry,
-            genomeRegistry = h.genomeRegistry,
             failureSurface = h.surface,
-            promotionController = h.promoCtrl,
-            rollbackController = h.rollbackCtrl
+            sandboxExecutor = sandbox
         )
         return loop to synth
     }
@@ -213,7 +234,7 @@ class SelfRepairLoopTest {
         val result = loop.repair(
             RepairRequirement("com", "req", emptyList()),
             "clean"
-        ) { _ -> emptyList() }
+        ) { _ -> emptyEvidence() }
         assertEquals(SelfRepairLoop.Outcome.NOTHING_TO_REPAIR, result.outcome)
     }
 
@@ -228,12 +249,35 @@ class SelfRepairLoopTest {
         val result = loop.repair(
             RepairRequirement("GoalPlanner", "Retain failed nodes", emptyList()),
             "CapabilityExecutorTest"
-        ) { _ -> emptyList() }
+        ) { _ -> emptyEvidence() }
 
         assertEquals(SelfRepairLoop.Outcome.VALIDATION_FAILED, result.outcome)
         assertEquals(miniPlannerSource, File(root, "com/example/planner/GoalPlanner.kt").readText())
         assertFalse(File(root, "com/example/planner/GoalPlanner.kt.selfrepair.${result.patch!!.transactionId}.bak").exists())
         assertTrue(h.surface.currentFailures.value.any { it.subsystem == "SELF_REPAIR" })
+    }
+
+    @Test
+    fun `direct conclude with invalid evidence restores the applied patch`() = runBlocking {
+        val root = tmpDir()
+        writePlannerFixture(root)
+        val h = harness()
+        val (loop, _) = loopWith(root, h)
+        val requirement = RepairRequirement("GoalPlanner", "Retain failed nodes", emptyList())
+        val diagnosis = RepairDiagnosis(
+            rootCause = "failed node is discarded",
+            faultyUnit = "GoalPlanner.replan",
+            fixStrategy = "retain failed node as FAILED",
+            rationale = "preserve the failure record"
+        )
+        val patch = loop.proposeRepair(requirement, diagnosis)
+        loop.apply(patch)
+
+        val result = loop.conclude(requirement, diagnosis, patch, emptyEvidence())
+
+        assertEquals(SelfRepairLoop.Outcome.VALIDATION_FAILED, result.outcome)
+        assertEquals(miniPlannerSource, File(root, "com/example/planner/GoalPlanner.kt").readText())
+        assertFalse(File(root, "com/example/planner/GoalPlanner.kt.selfrepair.${patch.transactionId}.bak").exists())
     }
 
     @Test
@@ -255,8 +299,36 @@ class SelfRepairLoopTest {
         assertTrue(h.surface.currentFailures.value.any { it.subsystem == "SELF_REPAIR" })
     }
 
+
     @Test
-    fun `full cycle produces PROMOTED and organism is registered`() = runBlocking {
+    fun `sandbox exception restores patch and prevents promotion`() = runBlocking {
+        val root = tmpDir()
+        writePlannerFixture(root)
+        copyXmlFixture(root)
+        val h = harness()
+        val brokenSandbox = object : SandboxExecutor {
+            override suspend fun stressTest(
+                patch: SourcePatch,
+                candidateDescription: String
+            ): SandboxExecutor.StressResult {
+                throw IllegalStateException("sandbox unavailable")
+            }
+        }
+        val (loop, _) = loopWith(root, h, sandbox = brokenSandbox)
+
+        val result = loop.repair(
+            RepairRequirement("GoalPlanner", "Retain failed nodes", emptyList()),
+            "CapabilityExecutorTest"
+        ) { _ -> validEvidence() }
+
+        assertEquals(SelfRepairLoop.Outcome.VALIDATION_FAILED, result.outcome)
+        assertEquals(miniPlannerSource, File(root, "com/example/planner/GoalPlanner.kt").readText())
+        assertFalse(File(root, "com/example/planner/GoalPlanner.kt.selfrepair.${result.patch!!.transactionId}.bak").exists())
+        assertTrue(h.surface.currentFailures.value.any { it.subsystem == "SELF_REPAIR" })
+    }
+
+    @Test
+    fun `full cycle returns a verified source patch without fake runtime registration`() = runBlocking {
         val root = tmpDir()
         writePlannerFixture(root)
         copyXmlFixture(root)
@@ -266,23 +338,22 @@ class SelfRepairLoopTest {
         val result = loop.repair(
             RepairRequirement("GoalPlanner", "Retain failed nodes", emptyList()),
             "CapabilityExecutorTest"
-        ) { _ -> listOf(allPassObservation()) }
+        ) { _ -> validEvidence() }
 
-        assertEquals(SelfRepairLoop.Outcome.PROMOTED, result.outcome)
+        assertEquals(SelfRepairLoop.Outcome.PATCH_VERIFIED, result.outcome)
         assertNotNull(result.diagnosis)
         assertNotNull(result.patch)
         assertEquals("GoalPlanner.replan", result.diagnosis!!.faultyUnit)
         assertTrue(result.patch!!.edits.isNotEmpty())
-        assertNotNull(result.receipt)
 
         // patch actually written
         assertTrue(File(root, "com/example/planner/GoalPlanner.kt").readText().contains("FAILED"))
         // backup exists
         assertTrue(File(root, "com/example/planner/GoalPlanner.kt.selfrepair.${result.patch!!.transactionId}.bak").exists())
 
-        // genome promoted and organism registered
-        assertTrue(h.registry.has(result.receipt!!.systemId))
-        assertTrue(h.archive.get(result.receipt.genomeId) != null)
+        // Source repair is not a micro-system capability. No fake runtime
+        // organism is registered by this tool.
+        assertTrue(result.log.any { it.contains("sourcePatch: VERIFIED") })
     }
 
     @Test
@@ -296,7 +367,7 @@ class SelfRepairLoopTest {
         val result = loop.repair(
             RepairRequirement("GoalPlanner", "Retain failed nodes", emptyList()),
             "CapabilityExecutorTest"
-        ) { _ -> listOf(failingObservation()) }
+        ) { _ -> failingEvidence() }
 
         assertEquals(SelfRepairLoop.Outcome.ROLLED_BACK, result.outcome)
         // patch restored from backup
@@ -307,33 +378,31 @@ class SelfRepairLoopTest {
     }
 
     @Test
-    fun `conclude can rollback a previously promoted repair on regression`() = runBlocking {
+    fun `conclude restores a previously verified source patch after regression`() = runBlocking {
         val root = tmpDir()
         writePlannerFixture(root)
         copyXmlFixture(root)
         val h = harness()
         val (loop, _) = loopWith(root, h)
 
-        // promote first
+        // Verify first; the source patch remains applied pending trusted repository promotion.
         val promoted = loop.repair(
             RepairRequirement("GoalPlanner", "Retain failed nodes", emptyList()),
             "CapabilityExecutorTest"
-        ) { _ -> listOf(allPassObservation()) }
-        assertEquals(SelfRepairLoop.Outcome.PROMOTED, promoted.outcome)
-        val receipt = promoted.receipt!!
-        assertTrue(h.registry.has(receipt.systemId))
+        ) { _ -> validEvidence() }
+        assertEquals(SelfRepairLoop.Outcome.PATCH_VERIFIED, promoted.outcome)
 
         // now simulate a regression
         val regression = loop.conclude(
             RepairRequirement("GoalPlanner", "Retain failed nodes", emptyList()),
             promoted.diagnosis!!,
             promoted.patch!!,
-            listOf(failingObservation())
+            failingEvidence()
         )
         assertEquals(SelfRepairLoop.Outcome.ROLLED_BACK, regression.outcome)
-        // organism unregistered by rollback controller
-        assertFalse(h.registry.has(receipt.systemId))
-        assertEquals(GenomeHealth.REJECTED, h.archive.get(receipt.genomeId)?.healthState)
+        // The source file is restored from its backup; no runtime registry
+        // promotion or rollback is involved.
+        assertEquals(miniPlannerSource, File(root, "com/example/planner/GoalPlanner.kt").readText())
     }
 
     @Test

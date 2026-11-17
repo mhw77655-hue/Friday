@@ -7,17 +7,21 @@ import com.jarvis.app.selfrepair.SourcePatch
  * [com.jarvis.app.validation.PromotionGate].
  *
  * Takes a repaired candidate (a [SourcePatch] produced by
- * [com.jarvis.app.selfrepair.SelfRepairLoop]) and runs it against
- * deliberately adversarial inputs — boundary values, malformed data,
- * concurrent-style repeated calls — in isolation. Returns a pass/fail
- * result with failure detail if the candidate broke.
+ * [com.jarvis.app.selfrepair.SelfRepairLoop]) and runs a faithful executable
+ * representation against deliberately adversarial inputs. A backend may
+ * report pass only if the executed artifact is demonstrably derived from the
+ * supplied patch. A synthetic always-successful spec is not verification.
  *
- * Two implementations:
- *  - [LocalTestSandboxExecutor]: real, working — runs the candidate through
- *    the existing Mutated Environments test harness with adversarial inputs.
- *  - [CloudVmSandboxExecutor]: explicit stub — throws
- *    [NotImplementedError] with a TODO documenting exactly what cloud VM
- *    infrastructure it needs.
+ * This gate is additional evidence, not a replacement for compiling and
+ * testing the actual patched source in the repository's CI environment.
+ *
+ * Current implementations fail closed:
+ *  - [LocalTestSandboxExecutor] rejects because the in-process spec harness
+ *    cannot prove that an executable artifact was derived from the source patch.
+ *  - [CloudVmSandboxExecutor] rejects until a provisioned isolated VM exists.
+ *
+ * A test-only fake may be injected in unit tests to verify gate ordering, but
+ * that fake is not evidence that a real source patch is safe.
  *
  * This subsystem is TEST-AND-TOOLING-ONLY: not instantiated in the live
  * [com.jarvis.app.JarvisEngine].

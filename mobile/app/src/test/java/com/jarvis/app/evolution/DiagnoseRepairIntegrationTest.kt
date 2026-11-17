@@ -11,13 +11,17 @@ import com.jarvis.app.model.GenerateResult
 import com.jarvis.app.model.FinishReason
 import com.jarvis.app.model.TokenUsage
 import com.jarvis.app.mutation.LlmSynthesisProvider
+import com.jarvis.app.mutation.FitnessModel
 import com.jarvis.app.selfrepair.DiagnosisEngine
 import com.jarvis.app.selfrepair.GradleXmlFailureObserver
 import com.jarvis.app.selfrepair.RepairRequirement
+import com.jarvis.app.selfrepair.RepairVerificationEvidence
 import com.jarvis.app.selfrepair.SelfRepairLoop
 import com.jarvis.app.selfrepair.SourcePatch
 import com.jarvis.app.selfrepair.TestSuiteObservation
+import com.jarvis.app.sandbox.SandboxExecutor
 import com.jarvis.app.validation.PromotionGate
+import com.jarvis.app.validation.ResourceBenchmark
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -137,6 +141,13 @@ class DiagnoseRepairIntegrationTest {
         src.copyTo(dstDir.resolve("TEST-CapabilityExecutorTest.xml"), overwrite = true)
     }
 
+    private val passingSandbox = object : SandboxExecutor {
+        override suspend fun stressTest(
+            patch: SourcePatch,
+            candidateDescription: String
+        ) = SandboxExecutor.StressResult(passed = true, log = listOf("explicit test-only sandbox stub"))
+    }
+
     private fun buildLoop(root: File, h: Harness, diagText: String = scriptedDiagnosis, repairText: String = scriptedRepair): Pair<SelfRepairLoop, DiagnosisEngine> {
         val diagnoser = DiagnosisEngine(
             complete = { _ ->
@@ -156,15 +167,27 @@ class DiagnoseRepairIntegrationTest {
             diagnoser = diagnoser,
             synthesizer = synth,
             gate = h.gate,
-            archive = h.archive,
-            registry = h.registry,
-            genomeRegistry = h.genomeRegistry,
             failureSurface = h.surface,
-            promotionController = h.promoCtrl,
-            rollbackController = h.rollbackCtrl
+            sandboxExecutor = passingSandbox
         )
         return loop to diagnoser
     }
+
+    private fun validEvidence(
+        candidateSuites: List<TestSuiteObservation> = listOf(TestSuiteObservation("CapabilityExecutorTest", 18, emptyList())),
+        regressionSuites: List<TestSuiteObservation> = listOf(TestSuiteObservation("BaselineSuite", 18, emptyList()))
+    ): RepairVerificationEvidence = RepairVerificationEvidence(
+        candidateSuites = candidateSuites,
+        regressionSuites = regressionSuites,
+        resourceReport = ResourceBenchmark.ResourceReport(
+            benchmarks = listOf(
+                FitnessModel.BenchmarkOutcome("latency", "latency_ms", 12.0, "ms"),
+                FitnessModel.BenchmarkOutcome("memory", "memory_mb", 1.0, "mb")
+            ),
+            averageLatencyMs = 12.0,
+            iterations = 20
+        )
+    )
 
     // ------------------------------------------------------------------
     // Tests
@@ -212,21 +235,15 @@ class DiagnoseRepairIntegrationTest {
         assertTrue("repair should retain failed nodes", repaired.contains("FAILED"))
         assertTrue("backup should exist", File(root, "com/example/planner/GoalPlanner.kt.selfrepair.${patch.transactionId}.bak").exists())
 
-        // VERIFY + GATE: all tests pass → PROMOTED
+        // VERIFY + GATE: evidence passes; source patch is verified, not runtime-promoted
         val result = loop.conclude(
             requirement, diag, patch,
-            listOf(TestSuiteObservation("CapabilityExecutorTest", 18, emptyList()))
+            validEvidence()
         )
-        assertEquals(SelfRepairLoop.Outcome.PROMOTED, result.outcome)
-        assertNotNull(result.receipt)
-        assertTrue(h.registry.has(result.receipt!!.systemId))
-
-        // The genome is promoted in the archive
-        val genomeId = result.receipt!!.genomeId
-        val genome = h.archive.get(genomeId)
-        assertNotNull(genome)
-        assertTrue("genome should be promoted with a valid health state",
-            genome!!.healthState == GenomeHealth.HEALTHY || genome.healthState == GenomeHealth.TESTING)
+        assertEquals(SelfRepairLoop.Outcome.PATCH_VERIFIED, result.outcome)
+        assertTrue(result.log.any { it.contains("sourcePatch: VERIFIED") })
+        assertTrue("source patch should remain applied for trusted repository publication",
+            File(root, "com/example/planner/GoalPlanner.kt").readText().contains("FAILED"))
     }
 
     @Test
@@ -257,7 +274,7 @@ class DiagnoseRepairIntegrationTest {
                 )
             ))
         )
-        val result = loop.conclude(requirement, diag, patch, stillFailing)
+        val result = loop.conclude(requirement, diag, patch, validEvidence(candidateSuites = stillFailing))
 
         assertEquals(SelfRepairLoop.Outcome.ROLLED_BACK, result.outcome)
         assertFalse("backup should be cleaned up after rollback",

@@ -23,6 +23,7 @@ class ResourceBenchmark(private val mutantEnv: MutantEnvironment) {
     }
 
     suspend fun run(instance: MutantInstance, impl: CandidateImplementation, iterations: Int = 20): ResourceReport {
+        require(iterations > 0) { "resource benchmark iterations must be positive" }
         val benchmarks = mutantEnv.benchmark(instance, iterations)
         val latency = benchmarks.firstOrNull { it.metric.contains("latency") }
         return ResourceReport(

@@ -34,14 +34,16 @@ class CloudVmSandboxExecutor : SandboxExecutor {
     override suspend fun stressTest(
         patch: SourcePatch,
         candidateDescription: String
-    ): SandboxExecutor.StressResult {
-        throw NotImplementedError(
-            "CloudVmSandboxExecutor.stressTest() is not yet implemented. " +
-                "Requires: (1) a provisioned cloud VM with SSH/API access, " +
-                "(2) a way to ship the candidate + a clone of the affected module " +
-                "to it, (3) execution there in a matching runtime environment, " +
-                "(4) a result channel back (S3+polling or webhook). " +
-                "See TODO in CloudVmSandboxExecutor.kt for full requirements."
-        )
-    }
+    ): SandboxExecutor.StressResult = SandboxExecutor.StressResult(
+        passed = false,
+        failures = listOf(
+            SandboxExecutor.StressFailure(
+                input = emptyMap(),
+                expected = "configured isolated cloud VM execution",
+                actual = "cloud VM sandbox is not implemented",
+                description = "cloud VM sandbox unavailable; candidate must not be promoted"
+            )
+        ),
+        log = listOf("cloud VM sandbox unavailable; failing closed")
+    )
 }

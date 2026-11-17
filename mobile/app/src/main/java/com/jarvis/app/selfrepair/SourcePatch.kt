@@ -3,6 +3,7 @@ package com.jarvis.app.selfrepair
 import java.io.File
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
+import java.nio.file.LinkOption
 import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import java.nio.file.Paths
@@ -60,6 +61,7 @@ data class SourcePatch(
             // created. Preserve the original exception if recovery also fails.
             createdBackups.asReversed().forEach { (target, backup) ->
                 runCatching { moveReplacing(backup, target) }
+                    .onFailure(failure::addSuppressed)
             }
             throw failure
         }
@@ -67,9 +69,35 @@ data class SourcePatch(
 
     /** Restore only this patch's own transaction backups. */
     fun restoreFromBackup(root: File) {
-        edits.map { safeTarget(root, it.file) }.distinct().forEach { target ->
-            val backup = backupFor(target)
-            if (backup.isFile) moveReplacing(backup, target)
+        val targets = edits.map { safeTarget(root, it.file) }.distinct()
+        val missing = targets.filter { target ->
+            !Files.isRegularFile(backupFor(target).toPath(), LinkOption.NOFOLLOW_LINKS)
+        }
+        require(missing.isEmpty()) {
+            "rollback point missing; refusing to claim restoration: ${missing.joinToString()}"
+        }
+        // Stage copies of every rollback point before replacing any target.
+        // Keep the original backups until all replacements succeed, so a
+        // partial filesystem failure can be retried without losing recovery data.
+        val stagedRestores = linkedMapOf<File, File>()
+        try {
+            targets.forEach { target ->
+                val temporary = Files.createTempFile(
+                    target.parentFile.toPath(),
+                    ".${target.name}.",
+                    ".selfrepair.restore"
+                )
+                stagedRestores[target] = temporary.toFile()
+                Files.copy(backupFor(target).toPath(), temporary, REPLACE_EXISTING)
+            }
+            stagedRestores.forEach { (target, temporary) ->
+                moveReplacing(temporary, target)
+            }
+            targets.forEach { target -> Files.deleteIfExists(backupFor(target).toPath()) }
+        } finally {
+            stagedRestores.values.forEach { temporary ->
+                Files.deleteIfExists(temporary.toPath())
+            }
         }
     }
 
@@ -123,6 +151,21 @@ data class SourcePatch(
         require(!requested.isAbsolute) { "absolute paths are forbidden" }
         require(requested.none { it.toString() == "." || it.toString() == ".." }) {
             "dot and parent path segments are forbidden"
+        }
+        require(requested.none { it.toString() == ".git" }) {
+            "patches may not modify Git metadata"
+        }
+        val filename = requested.fileName?.toString()?.lowercase().orEmpty()
+        require(
+            filename !in setOf(
+                "local.properties", "gradle.properties", "keystore.properties",
+                "credentials.properties", "secrets.properties", ".env",
+                "id_rsa", "id_ed25519"
+            ) &&
+                !filename.startsWith(".env.") &&
+                listOf(".jks", ".keystore", ".p12", ".pfx", ".pem", ".key", ".p8", ".gpg").none(filename::endsWith)
+        ) {
+            "patches may not modify local credentials, environment secrets, or signing material"
         }
         val canonicalRoot = root.canonicalFile.toPath()
         val canonicalTarget = File(root, relativePath).canonicalFile.toPath()
@@ -188,8 +231,9 @@ data class SourcePatch(
                 ?: throw IllegalStateException("patch block ${blockIndex + 1}: missing FIND: marker")
             val replaceMarker = Regex("(?m)^REPLACE:\\s*$").find(body)
                 ?: throw IllegalStateException("patch block ${blockIndex + 1}: missing REPLACE: marker")
-            require(findMarker.range.first < replaceMarker.range.first) {
-                "patch block ${blockIndex + 1}: FIND must precede REPLACE"
+            require(fileMatch.range.first < findMarker.range.first &&
+                findMarker.range.first < replaceMarker.range.first) {
+                "patch block ${blockIndex + 1}: FILE, FIND and REPLACE must appear in that order"
             }
 
             val file = fileMatch.groupValues[1].trim()

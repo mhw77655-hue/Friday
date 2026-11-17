@@ -159,11 +159,15 @@ class EvolutionLoop(
         var promoted = false
         for (candidate in candidates) {
             if (candidate.evaluation.passed && candidate.evaluation == best) {
-                // Promotion
-                val promotedGenome = candidate.candidate.child.copy(healthState = GenomeHealth.HEALTHY)
-                archive.put(promotedGenome)
-                appendLog("PROMOTED: ${candidate.candidate.id}")
-                promoted = true
+                // This legacy loop's test and benchmark hooks are simulations,
+                // not independent execution of the synthesized artifact. They
+                // are useful for exercising orchestration, but can never prove
+                // that generated code works or is resource-safe. Keep the
+                // candidate unpromoted until a real MutantEnvironment verifier
+                // is connected to this loop.
+                val rejected = candidate.candidate.child.copy(healthState = GenomeHealth.REJECTED)
+                archive.put(rejected)
+                appendLog("NOT PROMOTED: ${candidate.candidate.id} — simulated test/benchmark evidence is not promotion evidence")
             } else if (!candidate.evaluation.passed) {
                 val rejected = candidate.candidate.child.copy(healthState = GenomeHealth.REJECTED)
                 archive.put(rejected)

@@ -63,9 +63,9 @@ class EvolutionEngine(
      * The Observe / Diagnose / Repair step — fires when every candidate is
      * rejected at the gate.  [SelfRepairLoop] sends the real test failure
      * transcripts to the model authority, gets a structured diagnosis, and
-     * produces a source-level repair gated by [PromotionGate] and
-     * [RollbackController].  When null the loop is simply skipped (the engine
-     * still works, just without self-repair).
+     * produces a source-level repair gated by [PromotionGate]. A verified
+     * patch is returned for trusted repository publication; it is not a
+     * runtime capability promotion. When null the loop is simply skipped.
      */
     private val selfRepairLoop: SelfRepairLoop? = null
 ) {
@@ -186,7 +186,19 @@ class EvolutionEngine(
                 )
 
                 // COMPARE + SELECT at the gate
-                val decision = gate.decide(evaluation, regressionTests, resource)
+                // A new capability has no previous behavior to regress.
+                // Prove absence against BOTH registries; never infer it merely
+                // from an empty generated baseline suite.
+                val verifiedNewCapability =
+                    baselineTests.isEmpty() &&
+                    registry.provides(requirement.capability).isEmpty() &&
+                    genomeRegistry.bestFor(requirement.capability) == null
+                val decision = gate.decide(
+                    evaluation,
+                    regressionTests,
+                    resource,
+                    baselineAbsenceVerified = verifiedNewCapability
+                )
                 val record = EvaluatedCandidate(
                     genome = child,
                     implementation = gen.implementation,
@@ -214,7 +226,11 @@ class EvolutionEngine(
                         version = child.version + 1
                     )
                 )
-                appendLog("Candidate ${gen.id} [${gen.synthesizerName}] → ${decision.verdict} (score ${"%.3f".format(decision.score)})")
+                appendLog("Candidate ${gen.id} [${gen.synthesizerName}] → ${decision.verdict} (score ${"%.3f".format(decision.score)}): " +
+                    (decision.reasons.joinToString("; ").ifBlank {
+                        if (decision.baselineAbsenceVerified) "no prior capability existed; absence verified against both registries; all candidate/resource evidence passed"
+                        else "all evidence gates passed"
+                    }))
             } finally {
                 governor.release(gen.id)
             }
@@ -263,16 +279,17 @@ class EvolutionEngine(
                 }")
 
                 return when (repairResult.outcome) {
-                    SelfRepairLoop.Outcome.PROMOTED -> {
-                        // The repair passed the gate — the organism's source
-                        // was fixed.  Return a synthetic promoted result so
-                        // the caller knows the loop produced a fix.
+                    SelfRepairLoop.Outcome.PATCH_VERIFIED -> {
+                        // Source verification is not runtime promotion. The
+                        // patch still needs the trusted repository publisher
+                        // and its CI/review gates before it reaches main.
+                        appendLog("Source patch verified; awaiting trusted repository publication and CI")
                         _state.value = EvolutionState.IDLE
                         EvolutionRunResult(
-                            promoted = true,
+                            promoted = false,
                             best = null,
                             candidates = evaluated,
-                            receipt = repairResult.receipt
+                            sourcePatchVerified = true
                         )
                     }
                     else -> {
@@ -355,7 +372,9 @@ data class EvolutionRunResult(
     val promoted: Boolean,
     val best: EvaluatedCandidate?,
     val candidates: List<EvaluatedCandidate>,
-    val receipt: PromotionReceipt? = null
+    val receipt: PromotionReceipt? = null,
+    /** True only when source-level repair evidence passed; not a runtime promotion. */
+    val sourcePatchVerified: Boolean = false
 )
 
 /** Flatten fitness dimensions for the archive record. */

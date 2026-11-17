@@ -185,7 +185,7 @@ class MutationEvolutionTest {
     // ── EvolutionLoop ──
 
     @Test
-    fun `evolution promotes passing candidate and archives lineage`() = runBlocking {
+    fun `evolution does not promote simulated test and benchmark outcomes`() = runBlocking {
         val scope = CoroutineScope(Dispatchers.Default)
         try {
             val archive = GenomeArchive(FileStorage(tmpDir()), scope)
@@ -197,11 +197,13 @@ class MutationEvolutionTest {
 
             val result = loop.evolve(parent, listOf(StubSynthesisProvider(true)))
 
-            assertTrue(result.promoted)
+            assertFalse(result.promoted)
             assertTrue(result.candidates.isNotEmpty())
-            // Archive contains promoted child
+            // Simulated outcomes are explicitly not accepted as proof.
             val accepted = archive.allAccepted()
-            assertTrue(accepted.any { it.id != parent.id })
+            assertFalse(accepted.any { it.id != parent.id })
+            assertTrue(archive.allRejected().any { it.id != parent.id })
+            assertTrue(loop.log.value.any { it.message.startsWith("Evolution complete.") })
             // Log records evolution
             assertTrue(loop.log.value.isNotEmpty())
         } finally {

@@ -188,6 +188,63 @@ class SourcePatchTest {
         assertEquals("before", File(root, "valid.kt").readText())
     }
 
+
+    @Test
+    fun `missing rollback point fails closed before restoring any target`() {
+        val root = tmpDir()
+        writeFixture(root, "a.kt", "before-a")
+        writeFixture(root, "b.kt", "before-b")
+        val patch = SourcePatch(listOf(
+            PatchEdit("a.kt", "before-a", "after-a"),
+            PatchEdit("b.kt", "before-b", "after-b")
+        ))
+        patch.applyTo(root)
+        File(root, "b.kt.selfrepair.${patch.transactionId}.bak").delete()
+
+        val result = runCatching { patch.restoreFromBackup(root) }
+
+        assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        assertEquals("after-a", File(root, "a.kt").readText())
+        assertEquals("after-b", File(root, "b.kt").readText())
+    }
+
+    @Test
+    fun `git metadata and local signing material are protected`() {
+        val root = tmpDir()
+        val protectedPaths = listOf(
+            ".git/config",
+            "mobile/.git/config",
+            "local.properties",
+            "gradle.properties",
+            ".env.production",
+            "release/upload-key.jks",
+            "keys/signing.pem",
+            "keys/private.key"
+        )
+        protectedPaths.forEach { path ->
+            val patch = SourcePatch(listOf(PatchEdit(path, "old", "new")))
+            assertTrue(
+                "expected protected path to be rejected: $path",
+                patch.validate(root).any { it.contains("unsafe path") }
+            )
+        }
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `patch parser requires file before find and replace`() {
+        SourcePatch.parse(
+            """
+            ```patch
+            FIND:
+            old
+            FILE: Target.kt
+            REPLACE:
+            new
+            ```
+            """.trimIndent()
+        )
+    }
+
     @Test
     fun `validate returns error for missing file`() {
         val root = tmpDir()
