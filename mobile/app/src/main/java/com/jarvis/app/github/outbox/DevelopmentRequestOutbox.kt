@@ -324,6 +324,9 @@ class DevelopmentRequestOutbox(
                 is DeliveryResult.Retryable -> {
                     markRetryableFailure(request.requestId, result.reason, nowMs())
                     retried++
+                    // Do not immediately reclaim the same pending item in this drain.
+                    // Let WorkManager apply backoff before attempting it again.
+                    break
                 }
                 is DeliveryResult.Permanent -> {
                     markPermanentFailure(request.requestId, result.reason, nowMs())
