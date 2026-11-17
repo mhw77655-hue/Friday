@@ -33,7 +33,7 @@ class VisionAuditSeverityTest(unittest.TestCase):
         self.assertIn("IDLE, ACTIVE", findings[0].detail)
 
     def test_function_that_maps_into_multiple_fixed_outcomes_remains_a_deviation(self):
-        source = """enum class Mode { IDLE, ACTIVE }
+        source = """enum class Mode { IDLE, ACTIVE, }
 fun classify(input: String): Mode = when (input) {
     "idle" -> Mode.IDLE
     else -> Mode.ACTIVE
