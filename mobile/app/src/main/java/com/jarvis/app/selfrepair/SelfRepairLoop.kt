@@ -27,11 +27,10 @@ import kotlinx.coroutines.CancellationException
  *   VERIFY    an injected [RepairVerifier] re-runs the affected suite FOR REAL
  *             (in tooling this boundary is crossed by invoking Gradle outside
  *             this process, then feeding the fresh results back via [conclude])
- *   GATE      [PromotionGate] decides from the real re-run results; only a
- *             PROMOTE verdict registers the repaired genome through
- *             a verified patch result is returned to the trusted repository
- *             publisher. A refused candidate is restored from its
- *             backups — never applied blind.
+ *   GATE      [PromotionGate] decides from the real re-run results. A passing
+ *             source patch is returned as PATCH_VERIFIED to the trusted
+ *             repository publisher; this tool never registers a fake runtime
+ *             organism. A refused candidate is restored from its backups.
  *
  * This subsystem is TEST-AND-TOOLING-ONLY: nothing here is instantiated in the
  * live JarvisEngine until the loop has proven itself reliable.
@@ -59,10 +58,9 @@ class SelfRepairLoop(
     private val failureSurface: FailureSurface,
     /**
      * Gate 2: isolated stress-test sandbox. Runs the repaired candidate
-     * against adversarial inputs (boundary values, malformed data,
-     * concurrent-style repeated calls) BEFORE [PromotionGate] sees it.
-     * A sandbox is mandatory: absence or execution failure must never bypass
-     * this gate and leave a candidate eligible for promotion.
+     * against adversarial inputs BEFORE [PromotionGate] sees it. A sandbox
+     * is mandatory: an unavailable executor or execution failure must never
+     * bypass this gate and leave a candidate eligible for verification.
      */
     private val sandboxExecutor: SandboxExecutor
 ) {
