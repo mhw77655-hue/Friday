@@ -92,12 +92,30 @@ class IntentInference(
             }
         if (addressedPrefix != null) {
             val command = lower.removePrefix(addressedPrefix).trim().trimStart(',', ':').trim()
-            return ExplicitIntent(
-                type = IntentState.COMMAND,
-                confidence = 0.9f,
-                extractedText = command,
-                entities = extractEntities(command)
-            )
+            val informationRequest = listOf(
+                "can you tell", "could you tell", "would you tell",
+                "can you explain", "could you explain", "can you describe", "could you describe"
+            ).any(command::startsWith)
+            val statementOrQuestionLead = listOf(
+                "is ", "was ", "are ", "were ", "what ", "how ", "why ", "when ",
+                "where ", "who ", "which ", "do you ", "did you ", "have you ",
+                "i think", "i feel", "i am ", "i'm ", "we ", "you ", "it ", "there "
+            ).any(command::startsWith)
+            val explicitActionRequest = listOf(
+                "please ", "help me ", "i want you to ", "i need you to ",
+                "can you ", "could you ", "would you ", "will you "
+            ).any(command::startsWith)
+
+            if (command.isNotBlank() && !informationRequest &&
+                (!statementOrQuestionLead || explicitActionRequest)
+            ) {
+                return ExplicitIntent(
+                    type = IntentState.COMMAND,
+                    confidence = 0.9f,
+                    extractedText = command,
+                    entities = extractEntities(command)
+                )
+            }
         }
 
         // Meta-cognitive patterns — checked before generic question/teaching so
@@ -117,7 +135,9 @@ class IntentInference(
         // Question patterns
         if (lower.endsWith("?") || lower.startsWith("what") || lower.startsWith("how") ||
             lower.startsWith("why") || lower.startsWith("when") || lower.startsWith("where") ||
-            lower.startsWith("who") || lower.startsWith("can you") || lower.startsWith("could you")) {
+            lower.startsWith("who") || lower.startsWith("are you") || lower.startsWith("do you") ||
+            lower.startsWith("did you") || lower.startsWith("is it") ||
+            lower.startsWith("can you") || lower.startsWith("could you")) {
             return ExplicitIntent(
                 type = IntentState.QUESTION,
                 confidence = 0.85f,
