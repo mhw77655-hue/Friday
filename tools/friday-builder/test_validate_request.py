@@ -1,6 +1,60 @@
 from __future__ import annotations
+
+import json
 import unittest
+
 from validate_request import RequestValidationError, validate_request
+
+
+AGGREGATE_MARKER = "FRIDAY_AGGREGATE_RUNTIME_EVIDENCE_JSON (content-free; no personal content): "
+
+
+def valid_aggregate_snapshot():
+    return {
+        "schema_version": 1,
+        "observed_at_ms": 1794916800000,
+        "privacy_scope": "aggregate_only_no_content",
+        "runtime_readiness": "Ready",
+        "identity_record_present": True,
+        "experience_count": 12,
+        "association_count": 29,
+        "plan_status": "PARTIAL",
+        "plan_step_status_counts": {"COMPLETED": 2, "SKIPPED": 1, "BLOCKED": 3},
+        "capability_stage": 2,
+        "available_capability_keys": ["VOICE_OUTPUT", "LOCAL_MEMORY"],
+        "missing_capability_keys": ["SEMANTIC_VIDEO"],
+        "symbiotic_mode": "BALANCED",
+        "symbiotic_context_token_budget": 2048,
+        "symbiotic_max_concurrent_expensive_tasks": 1,
+        "symbiotic_memory_reserve_mb": 256,
+        "self_study": {
+            "source_revision": "abc123",
+            "source_file_count": 10,
+            "source_symbol_count": 20,
+            "source_package_count": 3,
+            "source_dependency_edge_count": 9,
+            "graph_node_count": 12,
+            "graph_edge_count": 14,
+            "reachable_node_count": 11,
+            "unreachable_node_count": 1,
+            "missing_invariant_count": 2,
+            "declared_missing_capability_keys": ["SEMANTIC_VIDEO"],
+            "known_limitation_keys": ["MODEL_FREE_SEED"],
+            "host_samples": 4,
+            "minimum_available_memory_mb": 512,
+            "average_cpu_load_ema_percent": 22.5,
+            "thermal_pressure_samples": 0,
+            "low_memory_samples": 1,
+            "additional_memory_reserve_mb": 256,
+            "maximum_observed_process_pss_mb": 800,
+            "minimum_battery_percent": 35,
+            "liquid_generation": 7,
+            "liquid_prediction_error": 0.15,
+            "organ_strategy_keys": ["BALANCED"],
+            "organ_failure_counts": {"VOICE": 2},
+            "next_focus_count": 3,
+        },
+    }
 
 
 def valid_request():
@@ -15,6 +69,13 @@ def valid_request():
         "unresolved_questions": ["Does the target phone reproduce the issue?"],
         "privacy_review": {"status": "approved", "reviewed_by": "device-owner", "reviewed_at": "2026-11-16T12:00:00Z"}
     }
+
+
+def enable_aggregate_evidence(data):
+    data["evidence"].append(AGGREGATE_MARKER + json.dumps(valid_aggregate_snapshot(), separators=(",", ":")))
+    data["privacy_review"]["aggregate_runtime_evidence_enabled"] = True
+    data["privacy_review"]["aggregate_runtime_evidence_scope"] = "counts_statuses_capability_keys_resource_trends_only"
+    return data
 
 
 class ValidateRequestTests(unittest.TestCase):
@@ -40,10 +101,7 @@ class ValidateRequestTests(unittest.TestCase):
             validate_request(data)
 
     def test_accepts_content_free_aggregate_runtime_evidence(self):
-        data = valid_request()
-        data["evidence"].append("FRIDAY_AGGREGATE_RUNTIME_EVIDENCE_JSON: " + ("{\"status\":\"PARTIAL\"}" * 300))
-        data["privacy_review"]["aggregate_runtime_evidence_enabled"] = True
-        data["privacy_review"]["aggregate_runtime_evidence_scope"] = "counts_statuses_capability_keys_resource_trends_only"
+        data = enable_aggregate_evidence(valid_request())
 
         validated = validate_request(data)
 
@@ -53,6 +111,47 @@ class ValidateRequestTests(unittest.TestCase):
             "counts_statuses_capability_keys_resource_trends_only",
         )
         self.assertGreater(len(validated["evidence"][-1]), 600)
+
+    def test_rejects_aggregate_evidence_without_separate_consent(self):
+        data = valid_request()
+        data["evidence"].append(AGGREGATE_MARKER + json.dumps(valid_aggregate_snapshot()))
+        with self.assertRaisesRegex(RequestValidationError, "without separate owner consent"):
+            validate_request(data)
+
+    def test_requires_payload_when_aggregate_consent_is_enabled(self):
+        data = valid_request()
+        data["privacy_review"]["aggregate_runtime_evidence_enabled"] = True
+        data["privacy_review"]["aggregate_runtime_evidence_scope"] = "counts_statuses_capability_keys_resource_trends_only"
+        with self.assertRaisesRegex(RequestValidationError, "requires exactly one"):
+            validate_request(data)
+
+    def test_rejects_unknown_nested_aggregate_field(self):
+        data = valid_request()
+        snapshot = valid_aggregate_snapshot()
+        snapshot["remembered_facts"] = ["private"]
+        data["evidence"].append(AGGREGATE_MARKER + json.dumps(snapshot))
+        data["privacy_review"]["aggregate_runtime_evidence_enabled"] = True
+        data["privacy_review"]["aggregate_runtime_evidence_scope"] = "counts_statuses_capability_keys_resource_trends_only"
+        with self.assertRaisesRegex(RequestValidationError, "unsupported or missing fields"):
+            validate_request(data)
+
+    def test_rejects_free_text_in_aggregate_capability_keys(self):
+        data = valid_request()
+        snapshot = valid_aggregate_snapshot()
+        snapshot["available_capability_keys"] = ["the owner told Friday a private fact"]
+        data["evidence"].append(AGGREGATE_MARKER + json.dumps(snapshot))
+        data["privacy_review"]["aggregate_runtime_evidence_enabled"] = True
+        data["privacy_review"]["aggregate_runtime_evidence_scope"] = "counts_statuses_capability_keys_resource_trends_only"
+        with self.assertRaisesRegex(RequestValidationError, "not free text"):
+            validate_request(data)
+
+    def test_rejects_malformed_aggregate_json(self):
+        data = valid_request()
+        data["evidence"].append(AGGREGATE_MARKER + "{not-json")
+        data["privacy_review"]["aggregate_runtime_evidence_enabled"] = True
+        data["privacy_review"]["aggregate_runtime_evidence_scope"] = "counts_statuses_capability_keys_resource_trends_only"
+        with self.assertRaisesRegex(RequestValidationError, "not valid JSON"):
+            validate_request(data)
 
     def test_rejects_mismatched_aggregate_evidence_consent(self):
         data = valid_request()
