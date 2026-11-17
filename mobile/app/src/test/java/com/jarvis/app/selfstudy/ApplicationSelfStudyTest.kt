@@ -139,6 +139,73 @@ class ApplicationSelfStudyTest {
         }
     }
 
+    @Test
+    fun `model-free reflection selects and persists a bounded focus from structural evidence`() {
+        val dir = java.nio.file.Files.createTempDirectory("friday-model-free-reflection-").toFile()
+        try {
+            val reportFile = File(dir, "self-study/latest.properties")
+            fun createStudy() = ApplicationSelfStudy(
+                graph = graph(),
+                reportFile = reportFile,
+                capabilitySnapshot = { null },
+                hostSnapshot = { null },
+                liquidSnapshot = { null },
+                sourceIndexSnapshot = {
+                    ApplicationSourceIndex.Summary(1, "revision-42", 10, 30, 4)
+                }
+            )
+
+            val study = createStudy()
+            val report = study.study(nowMs = 100L)
+            val reflection = study.reflectFromEvidence(report, nowMs = 150L)
+
+            assertTrue(reflection.modelFree)
+            assertTrue(reflection.hasDevelopmentRequest)
+            assertTrue(reflection.developmentRequest!!.contains("model-free self-study"))
+            assertTrue(reflection.findings.any { it.contains("Unreachable runtime graph node") })
+            assertTrue(reflection.constraints.any { it.contains("identity") })
+            assertTrue(File(dir, "self-study/latest-reflection.properties").isFile)
+            assertEquals(reflection, createStudy().latestReflection())
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `optional model enrichment cannot replace the model-free selected development goal`() = kotlinx.coroutines.runBlocking {
+        val dir = java.nio.file.Files.createTempDirectory("friday-model-enrichment-").toFile()
+        try {
+            val reportFile = File(dir, "self-study/latest.properties")
+            val study = ApplicationSelfStudy(
+                graph = graph(),
+                reportFile = reportFile,
+                capabilitySnapshot = { null },
+                hostSnapshot = { null },
+                liquidSnapshot = { null },
+                sourceIndexSnapshot = {
+                    ApplicationSourceIndex.Summary(1, "revision-42", 10, 30, 4)
+                }
+            )
+            val report = study.study(nowMs = 100L)
+            val structural = study.reflectFromEvidence(report, nowMs = 150L)
+            val enriched = study.reflect(
+                report = report,
+                complete = {
+                    GenerateResult(
+                        content = """{"summary":"model enrichment","findings":["extra context"],"next_actions":["inspect source"],"development_request":"Invent a different feature.","constraints":[],"evidence_gaps":[]}"""
+                    )
+                },
+                nowMs = 200L
+            )
+
+            assertEquals(structural.developmentRequest, enriched?.developmentRequest)
+            assertTrue(enriched?.modelFree == true)
+            assertTrue(enriched?.findings?.contains("extra context") == true)
+        } finally {
+            dir.deleteRecursively()
+        }
+    }
+
     @Test fun `Friday model reflection creates and restores a repository development request`() = kotlinx.coroutines.runBlocking {
         val dir = java.nio.file.Files.createTempDirectory("friday-reflection-").toFile()
         try {
