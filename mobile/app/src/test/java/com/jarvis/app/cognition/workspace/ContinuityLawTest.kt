@@ -243,7 +243,8 @@ class ContinuityLawTest {
         // A NEW process: a new log and a new law over the SAME file. The
         // workspace starts empty, exactly as it would after a process death.
         val restoredLog = FileChangeLog(log.changeLogFile)
-        val restored = ContinuityLaw(InMemoryWorkspace(), restoredLog, now = { now })
+        val restoredWorkspace = InMemoryWorkspace()
+        val restored = ContinuityLaw(restoredWorkspace, restoredLog, now = { now })
         // EXACTLY ONE change was accepted above (c-1 is a suggestion, not a
         // change), so the file holds one line. The count is the number of
         // accepted changes on disk, not the number of proposals.
@@ -256,12 +257,16 @@ class ContinuityLawTest {
         assertEquals("direct", restored.valueOf("persona:directness"))
         assertEquals(11_000L, restoredLog.lastChangeAt("persona:directness"))
 
-        // The field already has one accepted change, so the history-scaled
-        // evidence floor is now three independent proposals. Supply all three
-        // after restart so the final refusal can only be caused by the interval.
+        // Evidence proposals must remain in the workspace even when they are
+        // not accepted as a change, so later turns can accumulate support.
         restored.propose(persona("c-3", "directness", "playful"))
+        assertEquals(1, restoredWorkspace.claims(ClaimKind.PERSONA_TRAIT).size)
         restored.propose(persona("c-4", "directness", "playful"))
+        assertEquals(2, restoredWorkspace.claims(ClaimKind.PERSONA_TRAIT).size)
+        // The third proposal meets the evidence floor; only the persisted
+        // real-time interval should prevent acceptance.
         val refused = restored.propose(persona("c-5", "directness", "playful"))
+        assertEquals(3, restoredWorkspace.claims(ClaimKind.PERSONA_TRAIT).size)
         assertTrue(
             "the interval survived the restart — an in-memory counter would have forgotten it",
             refused.isRejected
