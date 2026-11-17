@@ -6,18 +6,15 @@ import com.jarvis.app.validation.ResourceBenchmark.ResourceReport
 /**
  * Promotion Gate (§20, §24): the review gate between sandbox and production.
  *
- * A candidate is PROMOTED only when every hard constraint passes AND the
- * current baseline fully regresses cleanly AND the resource cost is within
- * budget. A partial performer is sent back to MUTATE; anything else is REJECTED
- * and preserved in the archive as failed. The gate never promotes a candidate
- * merely because it built or because its own tests pass in isolation.
+ * Promotion requires independent candidate tests, a non-empty baseline
+ * regression run, and measured resource evidence. Missing evidence is never
+ * interpreted as a perfect pass or zero-cost candidate.
  */
 class PromotionGate(
     private val hardConstraints: List<FitnessModel.HardConstraint> = FitnessModel.defaultConstraints(),
     private val minRegressionPassRate: Double = 1.0,
     private val maxLatencyMs: Long = 2_000
 ) {
-
     val constraints: List<FitnessModel.HardConstraint> get() = hardConstraints
 
     fun decide(
@@ -30,19 +27,49 @@ class PromotionGate(
         if (!evaluation.hardConstraintsPassed) {
             reasons += evaluation.hardConstraintFailures.ifEmpty { listOf("hard constraints failed") }
         }
-        val regressionRate = if (regression.isEmpty()) 1.0 else regression.count { it.passed }.toDouble() / regression.size
-        if (regressionRate < minRegressionPassRate) {
-            reasons += "regression: ${regression.count { it.passed }}/${regression.size} baseline tests fail"
+
+        if (evaluation.testResults.isEmpty()) {
+            reasons += "candidate: no test evidence"
+        } else if (evaluation.testResults.any { !it.passed }) {
+            val passed = evaluation.testResults.count { it.passed }
+            reasons += "candidate: $passed/${evaluation.testResults.size} tests passed"
         }
-        if (resource.averageLatencyMs > maxLatencyMs) {
+
+        val regressionRate = if (regression.isEmpty()) {
+            reasons += "regression: no baseline test evidence"
+            0.0
+        } else {
+            regression.count { it.passed }.toDouble() / regression.size
+        }
+        if (regression.isNotEmpty() && regressionRate < minRegressionPassRate) {
+            reasons += "regression: ${regression.count { it.passed }}/${regression.size} baseline tests pass"
+        }
+
+        val validLatency = resource.benchmarks.any {
+            it.metric == "latency_ms" && it.value.isFinite() && it.value >= 0.0
+        }
+        val validMemory = resource.benchmarks.any {
+            it.metric == "memory_mb" && it.value.isFinite() && it.value >= 0.0
+        }
+        val validResourceEvidence =
+            resource.iterations > 0 &&
+                resource.averageLatencyMs.isFinite() &&
+                resource.averageLatencyMs >= 0.0 &&
+                validLatency &&
+                validMemory
+        if (!validResourceEvidence) {
+            reasons += "resource: missing or invalid measured latency/memory benchmark evidence"
+        } else if (resource.averageLatencyMs > maxLatencyMs) {
             reasons += "latency ${resource.averageLatencyMs}ms exceeds ${maxLatencyMs}ms budget"
         }
 
         val verdict = when {
             reasons.isEmpty() -> GateVerdict.PROMOTE
-            // Works but underperforms on a bounded number of resource dimensions
-            // → a mutation of the current candidate may fix it (§5).
-            evaluation.dimensions.correctness >= 0.8 && reasons.size <= 1 -> GateVerdict.MUTATE
+            // A candidate may be mutated after a bounded performance/fitness
+            // issue, but it is never promoted while any evidence is missing.
+            evaluation.dimensions.correctness >= 0.8 && reasons.size == 1 &&
+                reasons.none { it.startsWith("regression:") || it.startsWith("resource:") || it.startsWith("candidate:") } ->
+                GateVerdict.MUTATE
             else -> GateVerdict.REJECT
         }
 
