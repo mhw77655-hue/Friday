@@ -102,7 +102,7 @@ def validate_request(data: Any, expected_id: str | None = None) -> dict[str, Any
     if not isinstance(aggregate_enabled, bool):
         raise RequestValidationError("privacy_review.aggregate_runtime_evidence_enabled must be boolean")
     allowed_scopes = {"none", "counts_statuses_capability_keys_resource_trends_only"}
-    if aggregate_scope not in allowed_scopes:
+    if not isinstance(aggregate_scope, str) or aggregate_scope not in allowed_scopes:
         raise RequestValidationError("privacy_review.aggregate_runtime_evidence_scope is unsupported")
     if aggregate_enabled != (aggregate_scope != "none"):
         raise RequestValidationError("aggregate evidence consent and scope do not match")
