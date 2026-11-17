@@ -87,8 +87,8 @@ data class SourcePatch(
                     ".${target.name}.",
                     ".selfrepair.restore"
                 )
-                Files.copy(backupFor(target).toPath(), temporary, REPLACE_EXISTING)
                 stagedRestores[target] = temporary.toFile()
+                Files.copy(backupFor(target).toPath(), temporary, REPLACE_EXISTING)
             }
             stagedRestores.forEach { (target, temporary) ->
                 moveReplacing(temporary, target)
