@@ -113,6 +113,24 @@ class PhoneActionPlannerTest {
 
         assertEquals(0, calls)
         assertTrue(result is PhoneActionPlanner.Result.Clarification)
+        assertTrue((result as PhoneActionPlanner.Result.Clarification).question.contains("increase the volume"))
+    }
+
+    @Test fun `natural navigation phrases resolve through the local skill registry`() = runBlocking {
+        var calls = 0
+        val planner = PhoneActionPlanner(
+            localModelReady = { false },
+            complete = { _: GenerateRequest ->
+                calls++
+                GenerateResult(content = """{"kind":"conversation"}""")
+            }
+        )
+
+        assertTrue(planner.shouldHandle("Take me to the home screen"))
+        val result = planner.plan("Take me to the home screen", "")
+
+        assertEquals(0, calls)
+        assertEquals(PhoneActionPlanner.Result.Action(PhoneControlCommand.Home), result)
     }
 
     @Test fun `local phone skill registry can be extended without changing the planner`() = runBlocking {
