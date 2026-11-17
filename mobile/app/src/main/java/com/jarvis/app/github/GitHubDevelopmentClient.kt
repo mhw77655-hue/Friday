@@ -16,6 +16,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
+import com.jarvis.app.selfstudy.ApplicationSelfStudy
 import org.json.JSONObject
 import java.io.IOException
 import java.time.Instant
@@ -44,6 +45,27 @@ internal fun shouldDispatchAutonomousCycle(
  * repository's proposal workflow. No GitHub credential is embedded in source
  * or uploaded to GitHub; the token is read from GitHubTokenStore at call time.
  */
+/**
+ * Serialize only the bounded model-free self-study reflection. This is a
+ * separate owner opt-in from autonomous development itself; without aggregate
+ * evidence consent, no on-device findings are sent to the public repository.
+ */
+internal fun modelFreeReflectionEvidence(
+    reflection: ApplicationSelfStudy.Reflection?,
+    aggregateEvidenceEnabled: Boolean
+): JSONObject? {
+    if (!aggregateEvidenceEnabled || reflection == null) return null
+    return JSONObject()
+        .put("source_revision", reflection.sourceRevision)
+        .put("summary", reflection.summary)
+        .put("findings", JSONArray(reflection.findings))
+        .put("next_actions", JSONArray(reflection.nextActions))
+        .put("development_request", reflection.developmentRequest ?: JSONObject.NULL)
+        .put("constraints", JSONArray(reflection.constraints))
+        .put("evidence_gaps", JSONArray(reflection.evidenceGaps))
+        .put("privacy_scope", "model_free_structural_self_study_only")
+}
+
 class GitHubDevelopmentClient(context: Context) {
     private val app = context.applicationContext
     private val tokenStore = GitHubTokenStore(app)
@@ -154,7 +176,13 @@ class GitHubDevelopmentClient(context: Context) {
      * At most one open proposal is allowed, and a new cycle is throttled to
      * twelve hours after the last request so a slow worker cannot be spammed.
      */
-    suspend fun submitVisionMaintenanceCycle(includeAggregateEvidence: Boolean = false): String = withContext(Dispatchers.IO) {
+    suspend fun submitVisionMaintenanceCycle(
+        includeAggregateEvidence: Boolean = false,
+        localReflection: ApplicationSelfStudy.Reflection? = null
+    ): String = withContext(Dispatchers.IO) {
+        require(localReflection == null || includeAggregateEvidence) {
+            "On-device self-study evidence requires its separate owner consent."
+        }
         val token = tokenStore.read()
             ?: throw IllegalStateException("GitHub credential is unavailable; autonomous development paused.")
 
@@ -182,7 +210,19 @@ class GitHubDevelopmentClient(context: Context) {
             .put("source_revision", "main")
             .put(
                 "intended_outcome",
-                "Run one autonomous, bounded development cycle for Friday. Read .ralph/VISION.md and .ralph/OWNER_WORDS.md, inspect the current implementation and tests, identify the highest-impact gap between the owner's intended outcome and the actual working system, then implement one coherent improvement. Preserve Friday as one continuing individual across local and cloud resources. Do not substitute chatbot features for identity, continuity, perception, cognition, agency, embodiment, adaptation or self-development. If no safe, evidence-backed improvement can be selected, report the blocker instead of inventing work."
+                buildString {
+                    append("Run one autonomous, bounded development cycle for Friday. Read .ralph/VISION.md and .ralph/OWNER_WORDS.md, inspect the current implementation and tests, identify the highest-impact gap between the owner's intended outcome and the actual working system, then implement one coherent improvement. Preserve Friday as one continuing individual across local and cloud resources. Do not substitute chatbot features for identity, continuity, perception, cognition, agency, embodiment, adaptation or self-development. If no safe, evidence-backed improvement can be selected, report the blocker instead of inventing work.")
+                    if (localReflection?.hasDevelopmentRequest == true) {
+                        appendLine()
+                        appendLine()
+                        appendLine("FRIDAY'S ON-DEVICE MODEL-FREE DEVELOPMENT GOAL (primary selection):")
+                        appendLine(localReflection.developmentRequest)
+                        append("Treat this as the specific observed gap to investigate, not as proof of its root cause. Inspect actual repository source and tests before changing anything.")
+                    } else if (localReflection != null) {
+                        appendLine()
+                        append("Friday's on-device model-free study selected no sufficiently specific source change. Do not invent a task from this empty goal; report a blocker or independently verify a stronger repository-side gap.")
+                    }
+                }
             )
             .put(
                 "evidence",
@@ -190,7 +230,9 @@ class GitHubDevelopmentClient(context: Context) {
                     .put("The owner explicitly enabled scheduled autonomous development in Friday Settings.")
                     .put("The authoritative product intent is stored in .ralph/VISION.md and .ralph/OWNER_WORDS.md; inspect the original New Folder chats.zip when necessary.")
                     .put(
-                        if (includeAggregateEvidence) {
+                        if (includeAggregateEvidence && localReflection != null) {
+                            "The owner separately enabled content-free aggregate runtime evidence and model-free structural self-study sharing. The payload contains aggregate counts, status names, capability keys, resource trends and bounded architecture findings/goals only; it contains no raw memories, facts, conversations, prompts, files, location, screen, microphone, camera or unique identifiers."
+                        } else if (includeAggregateEvidence) {
                             "The owner separately enabled content-free aggregate runtime evidence. It contains counts, status names, capability keys and resource trends only; it contains no raw memories, facts, conversations, prompts, files, location, screen, microphone, camera or unique identifiers."
                         } else {
                             "This scheduled request intentionally contains no phone telemetry, conversation data, files, location or personal content."
@@ -200,6 +242,9 @@ class GitHubDevelopmentClient(context: Context) {
                         if (includeAggregateEvidence) {
                             val aggregate = DevelopmentEvidenceCollector.collect()
                             put("FRIDAY_AGGREGATE_RUNTIME_EVIDENCE_JSON (content-free; no personal content): ${aggregate.toJsonString()}")
+                            modelFreeReflectionEvidence(localReflection, includeAggregateEvidence)?.let {
+                                put("FRIDAY_MODEL_FREE_SELF_STUDY_REFLECTION_JSON (owner-consented structural evidence): $it")
+                            }
                         }
                     }
             )
@@ -240,7 +285,14 @@ class GitHubDevelopmentClient(context: Context) {
                     .put("reviewed_by", if (includeAggregateEvidence) "owner-enabled-autonomous-evolution-and-aggregate-evidence-settings" else "owner-enabled-autonomous-evolution-setting")
                     .put("reviewed_at", now)
                     .put("aggregate_runtime_evidence_enabled", includeAggregateEvidence)
-                    .put("aggregate_runtime_evidence_scope", if (includeAggregateEvidence) "counts_statuses_capability_keys_resource_trends_only" else "none")
+                    .put(
+                        "aggregate_runtime_evidence_scope",
+                        when {
+                            !includeAggregateEvidence -> "none"
+                            localReflection != null -> "aggregate_metrics_and_model_free_structural_self_study_no_personal_content"
+                            else -> "counts_statuses_capability_keys_resource_trends_only"
+                        }
+                    )
             )
 
         val bytes = requestJson.toString().toByteArray(Charsets.UTF_8)

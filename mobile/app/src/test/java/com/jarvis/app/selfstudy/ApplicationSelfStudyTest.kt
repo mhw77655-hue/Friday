@@ -172,6 +172,7 @@ class ApplicationSelfStudyTest {
             assertEquals("revision-model-free", reflection.sourceRevision)
             assertTrue(File(dir, "self-study/latest-reflection.properties").isFile)
             assertEquals(reflection, createStudy().latestReflection())
+            assertEquals(reflection, createStudy().latestModelFreeReflection())
         } finally {
             dir.deleteRecursively()
         }
@@ -253,6 +254,7 @@ class ApplicationSelfStudyTest {
             )
             val study = createStudy()
             val report = study.study(nowMs = 100L)
+            val modelFreeReflection = study.reflectModelFree(report, nowMs = 150L)
             var systemPrompt = ""
             var prompt = ""
             val reflection = study.reflect(
@@ -290,6 +292,7 @@ class ApplicationSelfStudyTest {
 
             val restored = createStudy().latestReflection()
             assertEquals(reflection, restored)
+            assertEquals(modelFreeReflection, createStudy().latestModelFreeReflection())
         } finally {
             dir.deleteRecursively()
         }

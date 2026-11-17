@@ -7,6 +7,8 @@ from validate_request import RequestValidationError, validate_request
 
 
 AGGREGATE_MARKER = "FRIDAY_AGGREGATE_RUNTIME_EVIDENCE_JSON (content-free; no personal content): "
+MODEL_FREE_REFLECTION_MARKER = "FRIDAY_MODEL_FREE_SELF_STUDY_REFLECTION_JSON (owner-consented structural evidence): "
+MODEL_FREE_SCOPE = "aggregate_metrics_and_model_free_structural_self_study_no_personal_content"
 
 
 def valid_aggregate_snapshot():
@@ -55,6 +57,29 @@ def valid_aggregate_snapshot():
             "next_focus_count": 3,
         },
     }
+
+
+def valid_model_free_reflection():
+    return {
+        "source_revision": "abc123",
+        "summary": "One structural gap observed.",
+        "findings": ["Unreachable component: body.voice"],
+        "next_actions": ["Inspect production wiring."],
+        "development_request": "Investigate the unreachable body.voice component.",
+        "constraints": ["Inspect source; do not infer root cause."],
+        "evidence_gaps": ["Packaged metadata is not source comprehension."],
+        "privacy_scope": "model_free_structural_self_study_only",
+    }
+
+
+def enable_model_free_reflection(data):
+    enable_aggregate_evidence(data)
+    data["evidence"].append(
+        MODEL_FREE_REFLECTION_MARKER
+        + json.dumps(valid_model_free_reflection(), separators=(",", ":"))
+    )
+    data["privacy_review"]["aggregate_runtime_evidence_scope"] = MODEL_FREE_SCOPE
+    return data
 
 
 def valid_request():
@@ -111,6 +136,40 @@ class ValidateRequestTests(unittest.TestCase):
             "counts_statuses_capability_keys_resource_trends_only",
         )
         self.assertGreater(len(validated["evidence"][-1]), 600)
+
+    def test_accepts_bounded_model_free_self_study_with_separate_consent(self):
+        data = enable_model_free_reflection(valid_request())
+
+        validated = validate_request(data)
+
+        self.assertEqual(
+            validated["privacy_review"]["aggregate_runtime_evidence_scope"],
+            MODEL_FREE_SCOPE,
+        )
+        self.assertIn(MODEL_FREE_REFLECTION_MARKER, validated["evidence"][-1])
+
+    def test_rejects_model_free_self_study_without_separate_consent(self):
+        data = valid_request()
+        data["evidence"].append(
+            MODEL_FREE_REFLECTION_MARKER
+            + json.dumps(valid_model_free_reflection(), separators=(",", ":"))
+        )
+        with self.assertRaisesRegex(RequestValidationError, "without separate owner consent"):
+            validate_request(data)
+
+    def test_rejects_unknown_model_free_self_study_fields(self):
+        data = enable_model_free_reflection(valid_request())
+        payload = valid_model_free_reflection()
+        payload["conversation_text"] = "private"
+        data["evidence"][-1] = MODEL_FREE_REFLECTION_MARKER + json.dumps(payload)
+        with self.assertRaisesRegex(RequestValidationError, "unsupported or missing fields"):
+            validate_request(data)
+
+    def test_rejects_model_free_scope_without_matching_payload(self):
+        data = enable_aggregate_evidence(valid_request())
+        data["privacy_review"]["aggregate_runtime_evidence_scope"] = MODEL_FREE_SCOPE
+        with self.assertRaisesRegex(RequestValidationError, "evidence and privacy scope do not match"):
+            validate_request(data)
 
     def test_rejects_aggregate_evidence_without_separate_consent(self):
         data = valid_request()
