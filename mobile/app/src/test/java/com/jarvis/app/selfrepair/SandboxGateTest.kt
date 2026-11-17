@@ -16,6 +16,7 @@ import com.jarvis.app.mutant.SpecOutput
 import com.jarvis.app.mutation.LlmSynthesisProvider
 import com.jarvis.app.mutation.FitnessModel
 import com.jarvis.app.sandbox.LocalTestSandboxExecutor
+import com.jarvis.app.sandbox.SandboxExecutor
 import com.jarvis.app.validation.PromotionGate
 import com.jarvis.app.validation.ResourceBenchmark
 import kotlinx.coroutines.CoroutineScope
@@ -215,11 +216,7 @@ class SandboxGateTest {
             }
         )
 
-        val sandbox = ResourceSandbox(defaultTimeoutMs = 1000)
-        val sandboxExecutor = LocalTestSandboxExecutor(
-            sandbox = sandbox,
-            specProducer = { _ -> brokenSpec }
-        )
+        val sandboxExecutor = LocalTestSandboxExecutor()
 
         return SelfRepairLoop(
             repoRoot = root,
@@ -227,12 +224,7 @@ class SandboxGateTest {
             diagnoser = diagnoser,
             synthesizer = synth,
             gate = h.gate,
-            archive = h.archive,
-            registry = h.registry,
-            genomeRegistry = h.genomeRegistry,
             failureSurface = h.surface,
-            promotionController = h.promoCtrl,
-            rollbackController = h.rollbackCtrl,
             sandboxExecutor = sandboxExecutor
         )
     }
@@ -267,9 +259,6 @@ class SandboxGateTest {
         // The sandbox gate must catch the broken candidate
         assertEquals(SelfRepairLoop.Outcome.SANDBOX_REJECTED, result.outcome)
 
-        // No receipt — the candidate never reached PromotionGate
-        assertNull("no promotion receipt from sandbox rejection", result.receipt)
-
         // No gate decision — gate was never called
         assertNull("no gate decision from sandbox rejection", result.decision)
 
@@ -280,13 +269,10 @@ class SandboxGateTest {
             miniPlannerSource,
             File(root, "com/example/planner/GoalPlanner.kt").readText())
 
-        // The organism was NOT registered in the micro-system registry
-        assertEquals("no organism should be registered after sandbox rejection",
-            0, h.registry.count())
     }
 
     @Test
-    fun `sandbox gate passes when candidate survives adversarial inputs`() = runBlocking {
+    fun `test-only sandbox stub exercises the gate without claiming source isolation`() = runBlocking {
         scope = CoroutineScope(Dispatchers.IO)
         val root = tmpDir()
         writePlannerFixture(root)
@@ -306,28 +292,17 @@ class SandboxGateTest {
             }
         )
 
-        // A GOOD spec: handles empty input correctly (no crash)
-        val goodSpec: AlgorithmSpec = DeterministicSpec(
-            capability = "self_repair",
-            description = "Retain the failed node as a FAILED record",
-            source = scriptedDiagnosis,
-            strategy = AlgorithmSpec.Strategy.DETERMINISTIC,
-            fn = { input ->
-                @Suppress("UNCHECKED_CAST")
-                val nodes = (input["nodes"] as? List<String>) ?: emptyList()
-                @Suppress("UNCHECKED_CAST")
-                val failed = input["failed"] as? String ?: ""
-                val remaining = nodes.map { if (it == failed) "\$it:FAILED" else it }
-                // No crash: empty input returns empty list gracefully
-                SpecOutput.Success(mapOf("nodes" to remaining))
-            }
-        )
-
-        val sandbox = ResourceSandbox(defaultTimeoutMs = 1000)
-        val sandboxExecutor = LocalTestSandboxExecutor(
-            sandbox = sandbox,
-            specProducer = { _ -> goodSpec }
-        )
+        // This fake only proves that the control flow reaches PromotionGate.
+        // It is not a source-patch sandbox and must never be wired in production.
+        val sandboxExecutor = object : SandboxExecutor {
+            override suspend fun stressTest(
+                patch: SourcePatch,
+                candidateDescription: String
+            ) = SandboxExecutor.StressResult(
+                passed = true,
+                log = listOf("test-only stub; no source isolation claim")
+            )
+        }
 
         val loop = SelfRepairLoop(
             repoRoot = root,
@@ -350,17 +325,16 @@ class SandboxGateTest {
             constraints = emptyList()
         )
 
-        // The verifier returns a clean observation (all tests pass)
-        // and the sandbox stress test passes (good spec handles all inputs)
-        // → conclude() proceeds to the gate → gate PROMOTES
+        // The verifier returns clean evidence. The test-only sandbox stub
+        // permits the control flow to reach PromotionGate; it proves no
+        // source-level sandboxing or production promotion.
         val result = loop.repair(requirement, "") { _ ->
             validEvidence()
         }
 
-        // The sandbox gate passes; the gate promotes
-        assertEquals(SelfRepairLoop.Outcome.PROMOTED, result.outcome)
-        assertNotNull("receipt should exist after promotion", result.receipt)
-        assertTrue("organism should be registered", h.registry.has(result.receipt!!.systemId))
+        // The source patch is verified, not registered as a runtime organism.
+        assertEquals(SelfRepairLoop.Outcome.PATCH_VERIFIED, result.outcome)
+        assertTrue(result.log.any { it.contains("sourcePatch: VERIFIED") })
     }
 
     @Test
