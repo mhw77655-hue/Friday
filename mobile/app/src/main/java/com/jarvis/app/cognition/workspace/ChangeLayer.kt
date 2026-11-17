@@ -21,7 +21,7 @@ package com.jarvis.app.cognition.workspace
  *    REAL accumulated evidence claims support it and the previous accepted change
  *    to the same field is far enough in the past — and every accepted change is
  *    appended to a queryable [ChangeLog].
- *  - [CORE] state is identity itself: the `name` and `version` of
+ *  - [CORE] state is identity itself: the persistent `id`, `name` and `version` of
  *    [SelfModel.identity] ([SelfIdentity], read live from [IdentitySource]).
  *    This mechanism REJECTS a CORE change unconditionally: those fields stay
  *    governed by the pre-existing frozen-invariant path (`identity.root` is
@@ -48,7 +48,7 @@ enum class ChangeLayer {
     companion object {
         /**
          * Namespace the CORE self-model fields are addressed under in a
-         * [Claim.target]: the real [SelfIdentity] fields are a bare `name` and
+         * [Claim.target]: the real [SelfIdentity] fields are a bare `id`, `name` and
          * `version`, and a target is shared with the other identity kinds, so the
          * self-model's own claims carry this prefix. This is a claim-level field
          * namespace, NOT a graph predicate — the graph predicate vocabulary
@@ -76,7 +76,7 @@ enum class ChangeLayer {
          * non-identity field as derived from a live source, while a field that
          * cannot be classified at all is an error.
          */
-        val SELF_MODEL_IDENTITY_FIELDS: List<String> = listOf("name", "version")
+        val SELF_MODEL_IDENTITY_FIELDS: List<String> = listOf("id", "name", "version")
 
         /**
          * The layer of a change to [target] of kind [kind].

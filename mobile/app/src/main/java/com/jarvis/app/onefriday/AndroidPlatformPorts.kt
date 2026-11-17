@@ -5,7 +5,6 @@ import com.jarvis.app.ObsidianSync
 import com.jarvis.app.companioncore.presence.CompanionCoreHolder
 import com.jarvis.app.failure.FailureSurface
 import com.jarvis.app.turn.TurnContext
-import com.jarvis.app.identity.IdentitySource
 import com.jarvis.app.latency.AckSpeech
 import com.jarvis.app.latency.LatencyLayer
 import com.jarvis.app.latency.WarmupEngine
@@ -84,19 +83,6 @@ class AndroidPlatformPorts(
         val health = modelManager.providerHealth.value
         return provider.providerType != com.jarvis.app.env.ModelProviderType.HEURISTIC &&
             health.isHealthy && health.modelLoaded
-    }
-
-    /**
-     * The same per-turn session context the app built, now derived from the
-     * injected clock so one Friday has exactly one notion of "now".
-     */
-    override fun identitySource(): IdentitySource {
-        val preferences = context.getSharedPreferences("friday_identity_record", Context.MODE_PRIVATE)
-        return object : IdentitySource {
-            override fun name(): String? = preferences.getString("name", "Friday")
-            override fun version(): Int = preferences.getInt("version", 1)
-            override fun pronouns(): String? = preferences.getString("pronouns", "she/her")
-        }
     }
 
     /**

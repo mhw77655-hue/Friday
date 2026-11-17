@@ -207,6 +207,16 @@ class TurnPathAssembly private constructor(
             // ── The shared claim store: one instance, handed to every organ ────
             val workspace = InMemoryWorkspace()
 
+            // ── Friday's model-independent seed ─────────────────────────────────
+            // This local experience substrate belongs to the app, not to any
+            // model backend. It remains available when all optional models are
+            // absent and persists under app-private storage across restarts.
+            val individual = FridayIndividual(
+                directory = ports.storageDir.resolve("friday"),
+                nowMs = { ports.nowMs() }
+            )
+            val modelFreeMind = individual.expression
+
             // ── Identity: self, user, world, persona ──────────────────────────
             val worldModel = WorldModelService(graphStore, retriever, nowMs = { ports.nowMs() })
             val userProfile = UserProfile(worldModel)
@@ -215,7 +225,12 @@ class TurnPathAssembly private constructor(
                 listOf(ports.storageDir.resolve("ralph/prd.json").absolutePath)
             )
             val selfModel = SelfModel(
-                identitySource = ports.identitySource(),
+                identitySource = object : com.jarvis.app.identity.IdentitySource {
+                    override fun persistentId(): String = individual.identity.id
+                    override fun name(): String = individual.identity.name
+                    override fun version(): Int = 1
+                    override fun pronouns(): String = "she/her"
+                },
                 capabilityRegistry = stores.capabilityRegistry(),
                 stageHistory = stageHistory
             )
@@ -314,7 +329,8 @@ class TurnPathAssembly private constructor(
                     coreIdentity = CoreIdentity(
                         name = identity.name,
                         version = identity.version,
-                        userNodeName = WorldModelService.USER_NODE_NAME
+                        userNodeName = WorldModelService.USER_NODE_NAME,
+                        persistentId = identity.persistentId
                     ),
                     fixture = fixture
                 )
@@ -336,16 +352,6 @@ class TurnPathAssembly private constructor(
                 JsonFileExpectationStore(ports.storageDir.resolve("cognition/expectation_state.json")),
                 clock = { ports.nowMs() }
             )
-
-            // ── Friday's model-independent seed ─────────────────────────────────
-            // This local experience substrate belongs to the app, not to any
-            // model backend. It remains available when all optional models are
-            // absent and persists under app-private storage across restarts.
-            val individual = FridayIndividual(
-                directory = ports.storageDir.resolve("friday"),
-                nowMs = { ports.nowMs() }
-            )
-            val modelFreeMind = individual.expression
 
             // ── The cognitive engine: the one route a turn takes ───────────────
             val memoryStore = stores.memoryStore()

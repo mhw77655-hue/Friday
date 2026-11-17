@@ -5,7 +5,6 @@ import com.jarvis.app.capability.CapabilityRegistry
 import com.jarvis.app.failure.FailureReport
 import com.jarvis.app.failure.FailureSurface
 import com.jarvis.app.turn.TurnContext
-import com.jarvis.app.identity.IdentitySource
 import com.jarvis.app.memory.EmbeddingProvider
 import com.jarvis.app.memory.MemoryGraphStore
 import com.jarvis.app.memory.provenance.AdapterManifest
@@ -79,9 +78,6 @@ interface PlatformPorts {
 
     /** Whether the phone currently has a real language model available. Test hosts default to true. */
     fun hasLanguageModel(modelManager: com.jarvis.app.model.ModelManager): Boolean = true
-
-    /** The read-only Friday identity record seeded by the owner/admin path. */
-    fun identitySource(): IdentitySource
 
     /** The per-turn session evidence; unavailable fields remain null. */
     fun sessionContext(): TurnContext?

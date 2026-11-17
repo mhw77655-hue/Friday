@@ -121,15 +121,22 @@ class ContinuityLaw(
         )
         workspace.publish(evidenceCopy)
         val evidenceIds = (priorEvidence.map { it.id } + claim.id).distinct()
+        // A field that has already survived accepted changes becomes more
+        // established. Its next revision therefore requires more independent
+        // evidence and a longer real interval. Both curves are bounded so the
+        // floor cannot make a legitimate future correction impossible.
+        val acceptedChanges = changeLog.entriesFor(field).size
+        val requiredClaims = requiredEvidenceClaims(acceptedChanges, minEvidenceClaims)
+        val requiredInterval = requiredIntervalMs(acceptedChanges, minIntervalMs)
 
-        if (evidenceIds.size < minEvidenceClaims) {
+        if (evidenceIds.size < requiredClaims) {
             return ChangeDecision(
                 claimId = claim.id,
                 target = field,
                 layer = layer,
                 accepted = false,
                 reason = "insufficient accumulated evidence for '$field': ${evidenceIds.size} of " +
-                    "$minEvidenceClaims real claims state '${claim.payload}' — one turn is a " +
+                    "$requiredClaims real claims state '${claim.payload}' — one turn is a " +
                     "suggestion, not a change",
                 evidenceClaimIds = evidenceIds,
                 entry = null
@@ -138,14 +145,14 @@ class ContinuityLaw(
 
         val at = now()
         val lastChangeAt = changeLog.lastChangeAt(field)
-        if (lastChangeAt != null && at - lastChangeAt < minIntervalMs) {
+        if (lastChangeAt != null && at - lastChangeAt < requiredInterval) {
             return ChangeDecision(
                 claimId = claim.id,
                 target = field,
                 layer = layer,
                 accepted = false,
                 reason = "rate limited: '$field' was last accepted at $lastChangeAt and only " +
-                    "${at - lastChangeAt}ms of real time have passed (minimum ${minIntervalMs}ms)",
+                    "${at - lastChangeAt}ms of real time have passed (minimum ${requiredInterval}ms for a field with ${acceptedChanges} prior accepted change(s))",
                 evidenceClaimIds = evidenceIds,
                 entry = null
             )
@@ -220,10 +227,42 @@ class ContinuityLaw(
          */
         const val DEFAULT_MIN_EVIDENCE_CLAIMS: Int = 2
 
+        /** Extra independent claims required per previously accepted change. */
+        const val EVIDENCE_STEP: Int = 1
+
+        /** The evidence requirement is bounded to keep legitimate revision possible. */
+        const val MAX_EVIDENCE_CLAIMS: Int = 4
+
+        /** The time requirement is bounded for the same reason. */
+        const val MAX_INTERVAL_MS: Long = 60_000L
+
+        /** Required independent claims for a field with this much accepted history. */
+        fun requiredEvidenceClaims(
+            acceptedChanges: Int,
+            base: Int = DEFAULT_MIN_EVIDENCE_CLAIMS
+        ): Int {
+            val initial = base.coerceAtLeast(0)
+            val ceiling = maxOf(MAX_EVIDENCE_CLAIMS, initial)
+            val proposed = initial.toLong() +
+                acceptedChanges.coerceAtLeast(0).toLong() * EVIDENCE_STEP
+            return minOf(proposed, ceiling.toLong()).toInt()
+        }
+
+        /** Required real elapsed time for a field with this much accepted history. */
+        fun requiredIntervalMs(
+            acceptedChanges: Int,
+            base: Long = DEFAULT_MIN_INTERVAL_MS
+        ): Long {
+            val initial = base.coerceAtLeast(0L)
+            val multiplier = acceptedChanges.coerceAtLeast(0).toLong() + 1L
+            val ceiling = maxOf(MAX_INTERVAL_MS, initial)
+            if (multiplier == 0L || initial == 0L) return initial
+            return if (initial > ceiling / multiplier) ceiling else initial * multiplier
+        }
+
         /**
-         * Minimum REAL elapsed milliseconds between two accepted SLOW changes to
-         * the same field, so durable identity-adjacent state cannot be rewritten
-         * turn after turn.
+         * Base REAL elapsed milliseconds between accepted changes before the
+         * field's own accepted history increases the interval.
          */
         const val DEFAULT_MIN_INTERVAL_MS: Long = 5_000L
 

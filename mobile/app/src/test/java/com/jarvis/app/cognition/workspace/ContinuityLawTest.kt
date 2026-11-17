@@ -81,7 +81,8 @@ class ContinuityLawTest {
     private fun coreIdentity(): CoreIdentity = CoreIdentity(
         name = com.jarvis.app.identity.SeededFridayIdentitySource.name(),
         version = com.jarvis.app.identity.SeededFridayIdentitySource.version(),
-        userNodeName = com.jarvis.app.identity.WorldModelService.USER_NODE_NAME
+        userNodeName = com.jarvis.app.identity.WorldModelService.USER_NODE_NAME,
+        persistentId = "seeded-test-identity"
     )
 
     private fun replayCheck(): ReplayCheck = ReplayCheck(
@@ -94,7 +95,56 @@ class ContinuityLawTest {
     /** The first committed recorded turn's id — never hard-coded, so the fixture can grow. */
     private fun firstTurnId(): String = recordedTurns().turns.first().turnId
 
+    @Test
+    fun `revision requirements grow with accepted history and remain bounded`() {
+        assertEquals(2, ContinuityLaw.requiredEvidenceClaims(0))
+        assertEquals(3, ContinuityLaw.requiredEvidenceClaims(1))
+        assertEquals(4, ContinuityLaw.requiredEvidenceClaims(2))
+        assertEquals(4, ContinuityLaw.requiredEvidenceClaims(100))
+
+        assertEquals(5_000L, ContinuityLaw.requiredIntervalMs(0))
+        assertEquals(10_000L, ContinuityLaw.requiredIntervalMs(1))
+        assertEquals(60_000L, ContinuityLaw.requiredIntervalMs(100))
+        assertEquals(6, ContinuityLaw.requiredEvidenceClaims(0, base = 6))
+        assertEquals(6, ContinuityLaw.requiredEvidenceClaims(100, base = 6))
+        assertEquals(90_000L, ContinuityLaw.requiredIntervalMs(0, base = 90_000L))
+        assertEquals(90_000L, ContinuityLaw.requiredIntervalMs(100, base = 90_000L))
+    }
+
     // ── AC1: evidence count, on the real path ───────────────────────────────────
+
+    @Test
+    fun `replay includes the canonical persistent individual ID as a core invariant`() {
+        val rendered = replayCheck().replay().renders.first()
+        assertEquals(
+            "seeded-test-identity",
+            rendered.identityFacts["identity:id"]
+        )
+    }
+
+    @Test
+    fun `replay detects replacement of the persistent individual ID`() {
+        val fixture = recordedTurns()
+        val baselineCheck = ReplayCheck(
+            workspace = InMemoryWorkspace(),
+            changeLog = FileChangeLog(log.changeLogFile),
+            coreIdentity = CoreIdentity("Friday", 1, "user", "identity-before"),
+            fixture = fixture
+        )
+        val replacementCheck = ReplayCheck(
+            workspace = InMemoryWorkspace(),
+            changeLog = FileChangeLog(log.changeLogFile),
+            coreIdentity = CoreIdentity("Friday", 1, "user", "identity-after"),
+            fixture = fixture
+        )
+
+        val baseline = baselineCheck.replay()
+        val replacement = replacementCheck.replay()
+        val verdict = replacementCheck.verify(baseline, replacement)
+
+        assertFalse("replacing the individual ID must be detected as continuity drift", verdict.consistent)
+        assertTrue(verdict.drifts.any { it.field == "identity:id" })
+    }
 
     @Test
     fun `AC1 a slow change with insufficient evidence is rejected, and the same change is accepted once the evidence is real`() {
@@ -140,13 +190,14 @@ class ContinuityLawTest {
         // A new value for the SAME field, with its evidence complete, proposed in
         // the same instant: evidence is no longer the constraint — real time is.
         law.propose(persona("c-3", "directness", "playful"))
-        val tooSoon = law.propose(persona("c-4", "directness", "playful"))
+        law.propose(persona("c-4", "directness", "playful"))
+        val tooSoon = law.propose(persona("c-4b", "directness", "playful"))
         assertTrue("a second accepted change to one field inside the interval is refused", tooSoon.isRejected)
         assertTrue("the refusal says why: ${tooSoon.reason}", tooSoon.reason.contains("rate limited"))
         assertEquals("the accepted value is untouched by the refused change", "direct", law.valueOf("persona:directness"))
         assertEquals(1L, log.count())
 
-        now += ContinuityLaw.DEFAULT_MIN_INTERVAL_MS
+        now += ContinuityLaw.requiredIntervalMs(1)
         val later = law.propose(persona("c-5", "directness", "playful"))
         assertTrue("after the real interval has passed, the change is accepted", later.isAccepted)
         assertEquals("playful", law.valueOf("persona:directness"))
@@ -175,6 +226,7 @@ class ContinuityLawTest {
         now += 10_000L
         law.propose(persona("c-3", "directness", "playful"))
         law.propose(persona("c-4", "directness", "playful"))
+        law.propose(persona("c-5", "directness", "playful"))
         val second = log.entriesFor("persona:directness").last()
         assertEquals("an accepted change records the value it REPLACED", "direct", second.oldValue)
         assertEquals("playful", second.newValue)
@@ -191,7 +243,8 @@ class ContinuityLawTest {
         // A NEW process: a new log and a new law over the SAME file. The
         // workspace starts empty, exactly as it would after a process death.
         val restoredLog = FileChangeLog(log.changeLogFile)
-        val restored = ContinuityLaw(InMemoryWorkspace(), restoredLog, now = { now })
+        val restoredWorkspace = InMemoryWorkspace()
+        val restored = ContinuityLaw(restoredWorkspace, restoredLog, now = { now })
         // EXACTLY ONE change was accepted above (c-1 is a suggestion, not a
         // change), so the file holds one line. The count is the number of
         // accepted changes on disk, not the number of proposals.
@@ -204,12 +257,16 @@ class ContinuityLawTest {
         assertEquals("direct", restored.valueOf("persona:directness"))
         assertEquals(11_000L, restoredLog.lastChangeAt("persona:directness"))
 
-        // TWO real proposals, so the evidence count is satisfied and the interval
-        // is the only remaining reason a refusal could have. One proposal would
-        // be refused for want of evidence whether or not the interval survived —
-        // a test that passes for the wrong reason proves nothing.
+        // Evidence proposals must remain in the workspace even when they are
+        // not accepted as a change, so later turns can accumulate support.
         restored.propose(persona("c-3", "directness", "playful"))
-        val refused = restored.propose(persona("c-4", "directness", "playful"))
+        assertEquals(1, restoredWorkspace.claims(ClaimKind.PERSONA_TRAIT).size)
+        restored.propose(persona("c-4", "directness", "playful"))
+        assertEquals(2, restoredWorkspace.claims(ClaimKind.PERSONA_TRAIT).size)
+        // The third proposal meets the evidence floor; only the persisted
+        // real-time interval should prevent acceptance.
+        val refused = restored.propose(persona("c-5", "directness", "playful"))
+        assertEquals(3, restoredWorkspace.claims(ClaimKind.PERSONA_TRAIT).size)
         assertTrue(
             "the interval survived the restart — an in-memory counter would have forgotten it",
             refused.isRejected

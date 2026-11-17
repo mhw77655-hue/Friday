@@ -239,6 +239,29 @@ class WorkspaceCoreTest {
     }
 
     @Test
+    fun `a settled prediction leaves current state but remains in history`() {
+        val workspace = InMemoryWorkspace()
+        val prediction = Claim.prediction(
+            id = "prediction-settled",
+            payload = "next=rain",
+            confidence = 0.8,
+            sourceOrgan = "test.organ",
+            baseline = "next=sun",
+            createdAt = 10L
+        )
+        workspace.publish(prediction)
+        assertEquals("prediction-settled", workspace.current(ClaimKind.PREDICTION)?.id)
+
+        workspace.publish(prediction.resolved(correct = true))
+
+        assertNull("a resolved forecast must not answer current-state queries",
+            workspace.current(ClaimKind.PREDICTION))
+        assertEquals("the outcome remains available for learning",
+            true, workspace.claims(ClaimKind.PREDICTION).single().wasCorrect)
+        assertFalse(workspace.claims(ClaimKind.PREDICTION).single().isLive())
+    }
+
+    @Test
     fun `a prediction outcome can still be settled after its confidence has decayed`() {
         val workspace = InMemoryWorkspace()
         val prediction = Claim.prediction(

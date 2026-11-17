@@ -248,3 +248,72 @@ This section supersedes any earlier statement in this audit that PR #26 is still
 - GitHub repository metadata still reports `mhw77655-hue/Friday` as **public**.
 - The earlier audit records that the original owner conversation/device archives remain tracked in repository history. Their removal from the current tree would not erase public historical commits.
 - Repository visibility has not been changed. Do not upload further personal archives or private runtime data. The owner should decide whether to make the repository private and whether historical content requires a history rewrite; do not perform either operation without explicit authorization.
+
+
+## 12. Whole-repository re-audit and consolidation decisions — 2026-11-17
+
+This section supersedes stale statements above about PR #27, the default branch, and the status of the identity bridge. It records a source-level review of the current tree and the branch decisions made after comparing the owner archive, `.ralph/VISION.md`, `.ralph/OWNER_WORDS.md`, production composition, UI, self-study, builder workflow, and relevant historical branches.
+
+### 12.1 Repository inventory and canonical line
+
+- The current tree contains 1,199 entries: 714 Kotlin files (production and tests combined), 241 Kotlin test files, plus Android resources, Python builder code, workflow definitions, architecture docs, model/runtime assets and the original owner archives.
+- There are 45 remote branch refs at this check. They are not 45 coherent implementations: many are old-base branches with overlapping or superseded work.
+- `main` is the only canonical product line. Its post-PR-27 commit is `5d12bf925e9cea4da38ba6ea6c368b826c67d9ae`.
+- The Android app is the production host. Android uses `JarvisEngine` -> `TurnPathAssembly` -> `AndroidPlatformPorts`; the JVM ports are test fixtures, not a Termux product dependency. The app's contract tests and the main build workflow explicitly reject Termux-only build overrides and external host-process launch.
+- Do not merge an entire old branch merely because it contains a useful class. Compare it against the current mainline and port only a capability that is still missing and is consistent with the owner vision.
+
+### 12.2 Branch / PR decisions
+
+- PR #27, the content-free, separately consented runtime-evidence bridge, was merged. Workflow run #1318 (`44076535362`) completed successfully: builder safety tests, workflow lint, Android debug APK assembly, APK artifact upload, JVM unit-test task, JUnit artifact upload and the JUnit summary step all completed successfully.
+- PR #16 was closed without merging. Main already has `VideoIntakeRepository`, Android video share-intent handling, private video storage, keyframe extraction, TikTok export-link intake and the Video Experience screen. Merging its separate `VideoInboxRepository` / `VideoLibraryScreen` would create a competing video library. Main also has `ExpectationStateEngine` on the live cognitive turn path; adding the branch's separate `HunchEngine` and fixed one-organ `LiquidTaskComposer` would create a second predictive authority rather than improve the existing one.
+- The old `audit/continuity-threshold` work was not merged wholesale. Its useful history-scaled evidence/interval idea has been ported selectively into PR #28 and its arithmetic was hardened to preserve configured minimums and avoid overflow.
+- `audit/friday-developmental-seed` was not merged wholesale. Its `DevelopmentalChoiceLoop` only chooses between hard-coded response styles and appends the choice to a model prompt. It does not change the no-model cognitive path or establish general outcome-driven development.
+- `audit/friday-independent-life-core` was rejected as a whole. It introduces another identity/life record and a timer-driven reflection counter; that duplicates the canonical individual and does not prove later behavioral change.
+- `audit/friday-reconstruction` was not merged wholesale. Its broad diff is predominantly an old package/tree reconstruction and does not justify replacing the current Android application line.
+- Historical branches remain available as evidence. The connected GitHub operations in this environment expose branch listing, creation and update, but not remote-ref deletion. No claim is made that the 45 refs were deleted. PR #16 was closed; branch deletion still requires a delete-capable GitHub operation.
+
+### 12.3 Verified implementation truth versus the owner's outcome
+
+**What is real and should be retained**
+- The Android app has a persistent procedural avatar and separate voice input/output paths.
+- The app has a model-independent `FridayIndividual` with an app-private persistent identity and local experience/association storage.
+- The app has a real video intake path and a broad collection of device, voice, memory, research, capability, resource-governance and recovery components.
+- `ExpectationStateEngine` is wired into `CognitiveEngine` and produces prediction evidence on the live turn path.
+- `ApplicationSelfStudy` can inspect the packaged runtime graph, wiring diagnostics, capability manifest, source-index metadata and host/resource measurements. Its own documentation correctly says Android packages do not contain the Kotlin source tree; source-index metadata is not equivalent to reading source.
+- The GitHub builder separates an untrusted coding worker from a trusted publisher, strips repository-write credentials from the coding worker, validates patch paths, runs CI and publishes a draft PR.
+
+**What is not yet the requested result**
+- Before PR #28, `FridayIndividual` persisted `filesDir/friday/identity.bin`, while `SelfModel` read a separate `friday_identity_record` SharedPreferences record. The same app could therefore expose two identity authorities. PR #28 is the active repair: bind `SelfModel` to the `FridayIndividual` record, expose the same persistent ID, and include that ID in continuity replay.
+- The no-model conversational fallback is still `FridayModelFreeMind`, a small phrase-pattern response mechanism. The larger `CognitiveEngine` still defaults to a statement when model-based intent classification is absent. This is not broad model-free understanding, autonomous planning or general agency.
+- `GoalPlanner` defaults to `EmptyDecompositionStrategy`; the production `MissionsScreen` is an empty state. The existence of planner/executor classes and tests does not establish that Friday can autonomously derive and execute meaningful missions.
+- `ToolsScreen` displays `CapabilityManifest` declarations under ACTIVE / CANNOT YET. A manifest flag is not proof that a capability is currently callable, permissioned, healthy or end-to-end tested.
+- The Settings local-only preference is persisted but is not consumed by the runtime's model/network routing. It currently does not enforce local-only operation.
+- The offline model library offers five catalog entries; there is no arbitrary local GGUF import/registration path.
+- Self-study runs without a model as a structural report, but reflective synthesis and a development request currently require the local `LLAMA_CPP` path. The self-study worker therefore does not independently form a useful source-level development goal when no model is loaded.
+- The phone worker sends a broad maintenance request to a GitHub-hosted OpenCode coding worker. That external worker chooses the gap and writes the patch; Friday's own model-free cognition does not currently own that selection/evaluation loop. At most one proposal can remain open, and the worker stops for owner review. It cannot merge, sign, release, install or recover the running APK.
+- The genome/micro-system `EvolutionEngine` and `PromotionController` are a separate in-app capability evolution mechanism; they are not connected to source-repository commits or Android app update promotion. Their existence does not complete phone-side self-building.
+- The current cognitive path still contains fixed orchestration stages and closed `ClaimKind` / `ChangeLayer` taxonomies. These remain explicit deviations from the owner's anti-drift instruction. They must not be defended merely because they have extensive unit tests.
+- No target-phone acceptance has been established by hosted CI. A debug APK build and JVM suite do not prove microphone/STT/TTS, avatar timing, background survival, Shizuku control, model-free usefulness, or install/rollback behavior on the owner's handset.
+
+### 12.4 PR #28 — canonical identity and continuity repair
+
+- Active draft PR: https://github.com/mhw77655-hue/Friday/pull/28
+- Branch: `rebuild/friday-coherent-individual`
+- Latest code candidate before the audit/comment corrections: `5fc2150eb5e65dede255df6d4b5b54b5715765ec`.
+- It moves `FridayIndividual` construction ahead of `SelfModel`, binds `SelfModel` directly to the individual's durable identity, removes the competing Android SharedPreferences identity source, and exposes the same persistent ID through `SelfIdentity`.
+- It adds the persistent ID to `ReplayCheck` core identity facts and tests that replacing the ID is continuity drift.
+- It corrects `Claim.isLive` so resolved predictions remain in history but no longer appear as live current predictions.
+- It ports history-scaled continuity evidence/time requirements from the historical continuity branch, with bounded growth, custom-minimum preservation and overflow-safe arithmetic.
+- The latest validation run is #1330 (`44079703103`) on the latest candidate. At this update it was pending; do not claim it passed until its final job and JUnit summary complete.
+
+### 12.5 The next architectural gates
+
+1. Finish and validate PR #28; merge only after the latest commit's Android build, builder contracts, workflow lint and full JVM suite pass.
+2. Replace the model-required self-study reflection with an evidence-grounded model-free goal-selection path. The local/cloud model may deepen analysis, but must not be a prerequisite for Friday identifying a verified runtime/source gap.
+3. Connect Friday's own goal selection to the existing proposal tool as a delegated coding capability. The external coding worker may implement a bounded patch; it must not become the entity that decides what Friday is.
+4. Replace the empty Missions surface with actual persistent goals/proposals and honest execution outcomes; do not fabricate progress from manifest flags.
+5. Make tool availability reflect live registration, permission, health and outcome evidence rather than a static declaration.
+6. Wire the local-only preference into the actual provider/router boundary, or remove the control until it works.
+7. Establish an update/signing/install/health-check/rollback path before claiming phone-side self-promotion. The current debug APK is not an installable self-update channel.
+8. Prove model-free development with life tests that prevent replay of the original episode and demonstrate a later behavior change caused by retained experience. Keep the security/continuity floor immutable while removing arbitrary cognitive ownership and closed taxonomies.
+9. Run acceptance tests on the owner's actual handset. Hosted CI cannot substitute for that evidence.

@@ -169,8 +169,9 @@ class ReplayCheck(
     private fun renderFacts(): Map<String, String> {
         val facts = LinkedHashMap<String, String>()
 
-        // CORE: the live values, unless a CORE claim reached the workspace — a
+        // CORE: the live persistent ID and profile values, unless a CORE claim reached the workspace — a
         // claim that contradicts the live source IS the drift this catches.
+        facts[ChangeLayer.IDENTITY_PREFIX + "id"] = coreIdentity.persistentId ?: UNKNOWN
         facts[ChangeLayer.IDENTITY_PREFIX + "name"] =
             coreClaimValue(ChangeLayer.IDENTITY_PREFIX + "name") ?: coreIdentity.name ?: UNKNOWN
         facts[ChangeLayer.IDENTITY_PREFIX + "version"] =
@@ -258,15 +259,18 @@ class ReplayCheck(
  * VALUES, not as organ references, so the replay check names no organ (the same
  * discipline the shared workspace exists to enforce).
  *
+ * @param persistentId the durable ID of the continuing individual (real:
+ *   `SelfModel.identity().persistentId`).
  * @param name the system's own name (real: `SelfModel.identity().name`).
- * @param version the system's own version (real: `SelfModel.identity().version`).
+ * @param version the identity record revision (real: `SelfModel.identity().version`).
  * @param userNodeName the user node this deployment serves (real:
  *   `WorldModelService.USER_NODE_NAME`).
  */
 data class CoreIdentity(
     val name: String?,
     val version: Int?,
-    val userNodeName: String
+    val userNodeName: String,
+    val persistentId: String? = null
 )
 
 /** One human-authored fact a recorded turn's answer must still carry. */

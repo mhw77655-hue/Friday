@@ -82,7 +82,7 @@ data class Claim(
      * queryable through [Workspace.claims] — decay and supersession change what
      * is current, never what happened.
      */
-    fun isLive(superseded: Boolean = false): Boolean = !superseded && confidence > 0.0
+    fun isLive(superseded: Boolean = false): Boolean = !superseded && confidence > 0.0 && !isResolved
 
     /**
      * Whether [other] is the same claim (same id, content, provenance and
