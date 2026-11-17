@@ -44,6 +44,26 @@ class PromotionGateTest {
     }
 
     @Test
+    fun `verified absence of a prior capability permits an empty regression suite`() {
+        val decision = gate.decide(
+            evaluation(),
+            emptyList(),
+            validResource(),
+            baselineAbsenceVerified = true
+        )
+        assertEquals(GateVerdict.PROMOTE, decision.verdict)
+        assertEquals(1.0, decision.regressionRate, 0.0)
+        assertTrue(decision.baselineAbsenceVerified)
+    }
+
+    @Test
+    fun `unverified empty regression suite remains rejected`() {
+        val decision = gate.decide(evaluation(), emptyList(), validResource())
+        assertEquals(GateVerdict.REJECT, decision.verdict)
+        assertTrue(!decision.baselineAbsenceVerified)
+    }
+
+    @Test
     fun `empty resource evidence is rejected`() {
         val empty = ResourceBenchmark.ResourceReport(emptyList(), 0.0, 0)
         val decision = gate.decide(evaluation(), listOf(passing), empty)
