@@ -139,29 +139,59 @@ object FitnessModel {
     ): FitnessDimensions {
         val total = testResults.size.coerceAtLeast(1)
         val passed = testResults.count { it.passed }
-        val avgLatency = benchmarkResults.filter { it.metric == "latency_ms" }.map { it.value }.average().let { if (it.isNaN()) 0.0 else it }
-        val avgMemory = benchmarkResults.filter { it.metric == "memory_mb" }.map { it.value }.average().let { if (it.isNaN()) 0.0 else it }
-        val avgCpu = benchmarkResults.filter { it.metric == "cpu_percent" }.map { it.value }.average().let { if (it.isNaN()) 0.0 else it }
-        val avgEnergy = benchmarkResults.filter { it.metric == "energy_mah" }.map { it.value }.average().let { if (it.isNaN()) 0.0 else it }
         val failures = testResults.count { !it.passed }
 
+        // Missing or invalid measurements are unknown, never silently scored
+        // as zero cost / perfect performance.
+        fun measuredAverage(metric: String): Double? {
+            val values = benchmarkResults.filter { it.metric == metric }.map { it.value }
+            if (values.isEmpty() || values.any { !it.isFinite() || it < 0.0 }) return null
+            return values.average().takeIf { it.isFinite() && it >= 0.0 }
+        }
+
+        val avgLatency = measuredAverage("latency_ms")
+        val avgMemory = measuredAverage("memory_mb")
+        val avgCpu = measuredAverage("cpu_percent")
+        val avgEnergy = measuredAverage("energy_mah")
+
         return FitnessDimensions(
-            correctness = (passed.toDouble() / total),
-            reliability = ((total - failures).toDouble() / total),
-            latency = 1.0 - (avgLatency / 5000.0).coerceIn(0.0, 1.0),
-            memoryCost = 1.0 - (avgMemory / 2048.0).coerceIn(0.0, 1.0),
-            cpuCost = 1.0 - (avgCpu / 100.0).coerceIn(0.0, 1.0),
-            energyCost = 1.0 - (avgEnergy / 500.0).coerceIn(0.0, 1.0),
-            failureRate = ((total - failures).toDouble() / total),
-            compatibility = 1.0, // default: fully compatible
-            maintainability = 0.5, // default: neutral
-            testCoverage = (passed.toDouble() / total)
+            correctness = passed.toDouble() / total,
+            reliability = (total - failures).toDouble() / total,
+            latency = avgLatency?.let { 1.0 - (it / 5000.0).coerceIn(0.0, 1.0) } ?: 0.0,
+            memoryCost = avgMemory?.let { 1.0 - (it / 2048.0).coerceIn(0.0, 1.0) } ?: 0.0,
+            cpuCost = avgCpu?.let { 1.0 - (it / 100.0).coerceIn(0.0, 1.0) } ?: 0.0,
+            energyCost = avgEnergy?.let { 1.0 - (it / 500.0).coerceIn(0.0, 1.0) } ?: 0.0,
+            failureRate = (total - failures).toDouble() / total,
+            compatibility = 0.0, // no compatibility measurement is wired yet
+            maintainability = 0.0, // no maintainability measurement is wired yet
+            testCoverage = passed.toDouble() / total
         )
     }
 
     fun defaultConstraints() = listOf(
-        HardConstraint("min_correctness", check = { it.dimensions.testCoverage >= 0.5 }, rejectReason = "test coverage below 0.5"),
-        HardConstraint("max_memory", check = { it.dimensions.memoryCost >= 0.0 }, rejectReason = "memory cost invalid")
+        HardConstraint(
+            "min_correctness",
+            check = { it.testResults.isNotEmpty() && it.dimensions.testCoverage >= 1.0 },
+            rejectReason = "candidate tests must all pass"
+        ),
+        HardConstraint(
+            "latency_evidence",
+            check = { result ->
+                result.benchmarkResults.any {
+                    it.metric == "latency_ms" && it.value.isFinite() && it.value >= 0.0
+                }
+            },
+            rejectReason = "measured latency benchmark evidence missing or invalid"
+        ),
+        HardConstraint(
+            "memory_evidence",
+            check = { result ->
+                result.benchmarkResults.any {
+                    it.metric == "memory_mb" && it.value.isFinite() && it.value >= 0.0
+                }
+            },
+            rejectReason = "measured memory benchmark evidence missing or invalid"
+        )
     )
 
     data class TestOutcome(
