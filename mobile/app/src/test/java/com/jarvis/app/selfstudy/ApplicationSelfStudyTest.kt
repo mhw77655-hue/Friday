@@ -297,14 +297,14 @@ class ApplicationSelfStudyTest {
                 singleFailureStudy.study(nowMs = 100L), nowMs = 200L
             )
             assertFalse(singleFailure.hasDevelopmentRequest)
-            assertTrue(singleFailure.findings.any { it.contains("reasoning=1") })
+            assertTrue(singleFailure.findings.any { it.contains("REASONING=1") })
 
             val repeatedFailureStudy = createStudy(2L)
             val repeatedFailure = repeatedFailureStudy.reflectModelFree(
                 repeatedFailureStudy.study(nowMs = 300L), nowMs = 400L
             )
             assertTrue(repeatedFailure.hasDevelopmentRequest)
-            assertTrue(repeatedFailure.developmentRequest!!.contains("reasoning=2"))
+            assertTrue(repeatedFailure.developmentRequest!!.contains("REASONING=2"))
         } finally {
             dir.deleteRecursively()
         }
