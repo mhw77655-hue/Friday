@@ -205,7 +205,8 @@ class DevelopmentRequestOutboxTest {
             )
         )
 
-        val first = outbox.deliverPending(fake, maxRequests = 1, nowMs = { now })
+        val first = outbox.deliverPending(fake, nowMs = { now })
+        assertEquals("A transient failure must not spin in the same drain.", 1, fake.requestIds.size)
         assertEquals(0, first.delivered)
         assertEquals(1, first.retried)
         assertEquals(1, first.remainingPending)
