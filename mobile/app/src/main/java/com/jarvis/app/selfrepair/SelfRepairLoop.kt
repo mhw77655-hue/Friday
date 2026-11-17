@@ -4,6 +4,8 @@ import com.jarvis.app.failure.FailureCategory
 import com.jarvis.app.failure.FailureReport
 import com.jarvis.app.failure.FailureSeverity
 import com.jarvis.app.failure.FailureSurface
+import com.jarvis.app.genome.GenomeBuilder
+import com.jarvis.app.genome.MutationOperator
 import com.jarvis.app.mutation.FitnessModel
 import com.jarvis.app.mutation.LlmSynthesisProvider
 import com.jarvis.app.mutation.SynthesisRequest
