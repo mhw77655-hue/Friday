@@ -61,6 +61,12 @@ class ValidateRequestTests(unittest.TestCase):
         with self.assertRaisesRegex(RequestValidationError, "do not match"):
             validate_request(data)
 
+    def test_rejects_non_string_aggregate_scope(self):
+        data = valid_request()
+        data["privacy_review"]["aggregate_runtime_evidence_scope"] = []
+        with self.assertRaisesRegex(RequestValidationError, "scope is unsupported"):
+            validate_request(data)
+
     def test_rejects_unsupported_privacy_metadata(self):
         data = valid_request()
         data["privacy_review"]["raw_memory_included"] = True
