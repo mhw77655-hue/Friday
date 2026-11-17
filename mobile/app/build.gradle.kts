@@ -174,20 +174,6 @@ dependencies {
     androidTestImplementation("junit:junit:4.13.2")
 }
 
-// TERMUX-LIVE-INSTANCE-BROWSER-INTERFACE (AC6): the exact copy-paste run command
-// for the standalone JVM entry point. Runs TermuxJarvisServer's main() on the
-// JVM with the unit-test classpath (real production main classes + JVM deps).
-val runTermuxJarvisServer by tasks.registering(JavaExec::class) {
-    group = "application"
-    description = "Run the JARVIS Termux live instance (localhost browser interface)."
-    val mainOut = tasks.named("compileDebugKotlin", KotlinCompile::class).get().destinationDirectory
-    val testOut = tasks.named("compileDebugUnitTestKotlin", KotlinCompile::class).get().destinationDirectory
-    val runtimeCp = configurations.named("debugUnitTestRuntimeClasspath").get()
-    classpath = files(mainOut.get().asFileTree, testOut.get().asFileTree, runtimeCp)
-    mainClass.set("com.jarvis.app.termux.TermuxJarvisServer")
-    // Pass-through: --port=8081 --ollama=127.0.0.1:8080 --model=<id>
-}
-
 // ---------------------------------------------------------------------------
 // RALPH-VERIFY-DECOUPLE-LIVE-OLLAMA companion task: `testOptions.unitTests.all`
 // (inside the android{} block above) EXCLUDES the two live-Ollama classes from
