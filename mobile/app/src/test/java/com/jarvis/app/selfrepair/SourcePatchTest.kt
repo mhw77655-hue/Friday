@@ -127,9 +127,9 @@ class SourcePatchTest {
         val second = SourcePatch(listOf(PatchEdit("Target.kt", "two", "three")))
         first.applyTo(root)
         second.applyTo(root)
-        assertEquals("three\n", File(root, "Target.kt").readText())
+        assertEquals("three", File(root, "Target.kt").readText())
         second.restoreFromBackup(root)
-        assertEquals("one\n", File(root, "Target.kt").readText())
+        assertEquals("two", File(root, "Target.kt").readText())
         first.restoreFromBackup(root)
         assertEquals("one", File(root, "Target.kt").readText())
     }
