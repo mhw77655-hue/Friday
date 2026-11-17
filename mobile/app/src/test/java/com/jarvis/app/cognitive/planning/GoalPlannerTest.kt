@@ -356,13 +356,16 @@ class GoalPlannerTest {
     fun `skipping every step records reasons and yields skipped status`() {
         val planner = planner()
         val g = goal()
-        var graph = planner.createPlan(g)
-        graph.nodes.map { it.id }.forEach { id -> graph = planner.skipNode(graph, id, "owner marked this step unnecessary") }
+        val result = planner.createPlan(g)
+        var graph = result.graph
+        graph.nodes.map { it.id }.forEach { id ->
+            graph = planner.skipNode(graph, id, "owner marked this step unnecessary")
+        }
 
         assertEquals(PlanStatus.SKIPPED, graph.status)
         assertTrue(graph.nodes.all { it.isSkipped })
         assertTrue(graph.nodes.all { it.skipReason == "owner marked this step unnecessary" })
-        val skippedSubgoals = g.subgoals.map { subgoal ->
+        val skippedSubgoals = result.subgoals.map { subgoal ->
             subgoal.copy(status = planner.deriveSubgoalStatus(subgoal, graph.nodes))
         }
         assertTrue(skippedSubgoals.all { it.status == SubgoalStatus.SKIPPED })
