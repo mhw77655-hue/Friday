@@ -247,6 +247,8 @@ class TurnPathAssembly private constructor(
                         state?.currentGoal?.let { goal ->
                             if (goal.status !in setOf(
                                     com.jarvis.app.cognitive.GoalStatus.COMPLETED,
+                                    com.jarvis.app.cognitive.GoalStatus.FAILED,
+                                    com.jarvis.app.cognitive.GoalStatus.SKIPPED,
                                     com.jarvis.app.cognitive.GoalStatus.CANCELLED,
                                     com.jarvis.app.cognitive.GoalStatus.ABANDONED
                                 )
@@ -255,6 +257,8 @@ class TurnPathAssembly private constructor(
                         state?.activeSubgoals
                             ?.filter { it.status !in setOf(
                                 com.jarvis.app.cognitive.SubgoalStatus.COMPLETED,
+                                com.jarvis.app.cognitive.SubgoalStatus.FAILED,
+                                com.jarvis.app.cognitive.SubgoalStatus.SKIPPED,
                                 com.jarvis.app.cognitive.SubgoalStatus.CANCELLED
                             ) }
                             ?.forEach { add(it.description) }
