@@ -43,12 +43,12 @@ class GitHubDeviceChannelPagingTest {
             maxPages = 3
         ) { page ->
             when (page) {
-                1 -> comments(3, 2, 1)
-                2 -> comments(6, 5)
+                1 -> comments(6, 5, 4)
+                2 -> comments(3, 2)
                 else -> error("short page should terminate pagination")
             }
         }
-        assertEquals(listOf(1L, 2L, 3L, 5L, 6L), result.map { it.getLong("id") })
+        assertEquals(listOf(2L, 3L, 4L, 5L, 6L), result.map { it.getLong("id") })
     }
 
     @Test
