@@ -22,7 +22,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -73,7 +72,12 @@ class BodyCoordinator(
     private val _sessionStartMs = System.currentTimeMillis()
 
     // ── Event bus ──
-    private val eventChannel = Channel<BodyEvent>(capacity = 64)
+    private val eventQueue = SerializedMailbox<BodyEvent> { event, cause ->
+        reportQueueFailure("event", event::class.simpleName ?: "unknown", cause)
+    }
+    private val inputQueue = SerializedMailbox<String> { text, cause ->
+        reportQueueFailure("input", text.take(80), cause)
+    }
     private val _events = MutableSharedFlow<BodyEvent>(extraBufferCapacity = 32)
     val events: SharedFlow<BodyEvent> = _events.asSharedFlow()
 
@@ -136,8 +140,10 @@ class BodyCoordinator(
     private var currentUtteranceAudio: ShortArray? = null
 
     init {
-        // Start the event loop and mirror Friday's shared turn/output path.
+        // One consumer per queue preserves event and command ordering. Platform
+        // callbacks never suspend, and queued inputs are not discarded under load.
         scope.launch { eventLoop() }
+        scope.launch { inputLoop() }
         observeFridayReplies()
 
         // Initialize subsystems
@@ -293,15 +299,78 @@ class BodyCoordinator(
 
     /** Main event loop — single-threaded coordination. */
     private suspend fun eventLoop() {
-        for (event in eventChannel) {
+        eventQueue.consume { event ->
             _events.tryEmit(event)
-            handleEvent(event)
+            try {
+                handleEvent(event)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                failureSurface.report(
+                    com.jarvis.app.failure.FailureReport(
+                        subsystem = "BODY_EVENT_LOOP",
+                        operation = "handle",
+                        severity = com.jarvis.app.failure.FailureSeverity.ERROR,
+                        category = com.jarvis.app.failure.FailureCategory.LATENCY,
+                        message = "Body event could not be handled; the event was recorded as a failure.",
+                        source = "BodyCoordinator",
+                        cause = failure.message,
+                        recoverability = com.jarvis.app.failure.Recoverability.RECOVERABLE,
+                        recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY
+                    )
+                )
+            }
+        }
+        // Drain all events before closing the downstream input queue.
+        inputQueue.close()
+    }
+
+    /** Emit an event to the coordinator without silently dropping it. */
+    fun emitEvent(event: BodyEvent) {
+        eventQueue.enqueue(event)
+    }
+
+    /** User commands are processed in arrival order through one route owner. */
+    private suspend fun inputLoop() {
+        inputQueue.consume { text ->
+            try {
+                routeInputText(text)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                failureSurface.report(
+                    com.jarvis.app.failure.FailureReport(
+                        subsystem = "BODY_INPUT_ROUTER",
+                        operation = "route",
+                        severity = com.jarvis.app.failure.FailureSeverity.ERROR,
+                        category = com.jarvis.app.failure.FailureCategory.LATENCY,
+                        message = "Friday could not route an input; the failure was recorded.",
+                        source = "BodyCoordinator",
+                        cause = failure.message,
+                        recoverability = com.jarvis.app.failure.Recoverability.RECOVERABLE,
+                        recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY
+                    )
+                )
+                LatencyLayer.ackOnly(text, "I couldn't complete that request. The failure has been recorded.")
+            }
         }
     }
 
-    /** Emit an event to the coordinator. */
-    fun emitEvent(event: BodyEvent) {
-        eventChannel.trySend(event)
+    private fun reportQueueFailure(queue: String, item: String, cause: Throwable?) {
+        failureSurface.report(
+            com.jarvis.app.failure.FailureReport(
+                subsystem = "BODY_${queue.uppercase()}_QUEUE",
+                operation = "enqueue",
+                severity = com.jarvis.app.failure.FailureSeverity.ERROR,
+                category = com.jarvis.app.failure.FailureCategory.LATENCY,
+                message = "A body $queue item was rejected because its consumer is closed.",
+                source = "BodyCoordinator",
+                cause = cause?.message,
+                recoverability = com.jarvis.app.failure.Recoverability.RECOVERABLE,
+                recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY,
+                metadata = mapOf("item" to item.take(120))
+            )
+        )
     }
 
     /**
@@ -382,7 +451,7 @@ class BodyCoordinator(
         }
         // Route after committing the transport transition so an immediate
         // action acknowledgment cannot race the state/visual update.
-        inputTextToRoute?.let { text -> scope.launch { routeInputText(text) } }
+        inputTextToRoute?.let(inputQueue::enqueue)
     }
 
     private suspend fun routeInputText(text: String) {
@@ -712,6 +781,9 @@ class BodyCoordinator(
 
     /** Shutdown all subsystems. */
     fun shutdown() {
+        // Closing the event queue lets the event actor drain its backlog, then
+        // close the input queue after all queued user commands have been routed.
+        eventQueue.close()
         micJob?.cancel()
         JarvisMic.stop()
         speechRecognizer?.cancel()
