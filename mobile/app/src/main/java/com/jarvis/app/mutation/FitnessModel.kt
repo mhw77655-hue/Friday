@@ -67,10 +67,11 @@ object FitnessModel {
         val hardConstraintsPassed: Boolean,
         val hardConstraintFailures: List<String>,
         val testResults: List<TestOutcome>,
-        val benchmarkResults: List<BenchmarkOutcome>
+        val benchmarkResults: List<BenchmarkOutcome>,
+        val weights: FitnessWeights = FitnessWeights()
     ) {
         val passed: Boolean get() = hardConstraintsPassed
-        val score: Double get() = dimensions.weightedScore()
+        val score: Double get() = dimensions.weightedScore(weights)
     }
 
     /** Evaluate a candidate: check hard constraints, then score dimensions. */
@@ -81,7 +82,7 @@ object FitnessModel {
         hardConstraints: List<HardConstraint> = defaultConstraints(),
         weights: FitnessWeights = FitnessWeights()
     ): EvaluationResult {
-        val dimensions = computeDimensions(testResults, benchmarkResults, weights)
+        val dimensions = computeDimensions(testResults, benchmarkResults)
         val constraintFailures = mutableListOf<String>()
         val provisional = EvaluationResult(
             candidateId = candidateId,
@@ -89,7 +90,8 @@ object FitnessModel {
             hardConstraintsPassed = true,
             hardConstraintFailures = emptyList(),
             testResults = testResults,
-            benchmarkResults = benchmarkResults
+            benchmarkResults = benchmarkResults,
+            weights = weights
         )
         for (c in hardConstraints) {
             if (!c.check(provisional)) {
@@ -134,8 +136,7 @@ object FitnessModel {
 
     private fun computeDimensions(
         testResults: List<TestOutcome>,
-        benchmarkResults: List<BenchmarkOutcome>,
-        weights: FitnessWeights
+        benchmarkResults: List<BenchmarkOutcome>
     ): FitnessDimensions {
         val total = testResults.size.coerceAtLeast(1)
         val passed = testResults.count { it.passed }
