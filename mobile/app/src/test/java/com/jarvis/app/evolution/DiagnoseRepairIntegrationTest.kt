@@ -140,6 +140,13 @@ class DiagnoseRepairIntegrationTest {
         src.copyTo(dstDir.resolve("TEST-CapabilityExecutorTest.xml"), overwrite = true)
     }
 
+    private val passingSandbox = object : SandboxExecutor {
+        override suspend fun stressTest(
+            patch: SourcePatch,
+            candidateDescription: String
+        ) = SandboxExecutor.StressResult(passed = true, log = listOf("explicit test-only sandbox stub"))
+    }
+
     private fun buildLoop(root: File, h: Harness, diagText: String = scriptedDiagnosis, repairText: String = scriptedRepair): Pair<SelfRepairLoop, DiagnosisEngine> {
         val diagnoser = DiagnosisEngine(
             complete = { _ ->
@@ -164,7 +171,8 @@ class DiagnoseRepairIntegrationTest {
             genomeRegistry = h.genomeRegistry,
             failureSurface = h.surface,
             promotionController = h.promoCtrl,
-            rollbackController = h.rollbackCtrl
+            rollbackController = h.rollbackCtrl,
+            sandboxExecutor = passingSandbox
         )
         return loop to diagnoser
     }
