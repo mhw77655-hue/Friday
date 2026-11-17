@@ -4,11 +4,11 @@
 
 ## Archive extraction
 
-The two binary archives on the repository's default branch could not be decoded by the GitHub text-file fetch endpoint. A temporary GitHub Actions workflow was added on this audit branch to extract them in the runner; no local upload was required.
+The two binary archives on the repository's default branch could not be decoded by the GitHub text-file fetch endpoint. A temporary GitHub Actions workflow extracted them in the runner; no local upload was required.
 
-- `New Folder chats.zip`: 143 files extracted (about 16.5 MB uncompressed), primarily conversation transcripts, vision summaries, project reports, prompts, PRDs, logs and inventories.
-- `New folder.zip`: 51 JPG screenshots plus `friday-device-report.json`. The JSON has been parsed. Screenshot OCR is a separate pending pass.
-- The original ZIP files were not changed. Extracted copies live under `archive-extracted/` on this audit branch only.
+- `New Folder chats.zip`: 143 files were inspected (about 16.5 MB uncompressed), primarily conversation transcripts, vision summaries, project reports, prompts, PRDs, logs and inventories.
+- `New folder.zip`: 51 JPG screenshots plus `friday-device-report.json`. The JSON was parsed. Screenshot OCR remains a separate pending pass.
+- The original ZIP files remain the authoritative source. The temporary extraction workflow and its 201 derived files were removed from the integration tree after review so raw transcripts and screenshots are not redundantly copied into the application source diff. The owner-turn extractor reads the original chat ZIP directly; Friday's builder does not depend on checked-in extracted copies.
 
 ## Vision that must govern implementation
 
