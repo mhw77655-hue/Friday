@@ -49,6 +49,20 @@ import kotlinx.coroutines.CancellationException
  * This subsystem is TEST-AND-TOOLING-ONLY: nothing here is instantiated in the
  * live JarvisEngine until the loop has proven itself reliable.
  */
+data class RepairVerificationEvidence(
+    /** Tests written to prove the requested repair behavior. */
+    val candidateSuites: List<TestSuiteObservation>,
+    /** Existing baseline suites re-run against the patched source. */
+    val regressionSuites: List<TestSuiteObservation>,
+    /** Actual measurements from the patched candidate, not default zeroes. */
+    val resourceReport: ResourceBenchmark.ResourceReport
+)
+
+/**
+ * Source-level repair is not promotable from a single passing suite. A verifier
+ * must return candidate tests, independent baseline regression tests, and
+ * measured resource evidence as separate observations.
+ */
 class SelfRepairLoop(
     private val repoRoot: File,
     private val observer: GradleXmlFailureObserver,
@@ -72,7 +86,7 @@ class SelfRepairLoop(
 
     /** Re-run the affected suite for real after a patch was applied. */
     fun interface RepairVerifier {
-        suspend fun verify(patch: SourcePatch): List<TestSuiteObservation>
+        suspend fun verify(patch: SourcePatch): RepairVerificationEvidence
     }
 
     enum class Outcome {
@@ -185,7 +199,7 @@ class SelfRepairLoop(
         apply(patch)
         log.add("repair: applied ${patch.edits.size} edit(s)")
 
-        val verification = try {
+        val evidence = try {
             verifier.verify(patch)
         } catch (cancelled: CancellationException) {
             restore(patch)
@@ -198,7 +212,7 @@ class SelfRepairLoop(
         }
 
         return try {
-            conclude(requirement, diagnosis, patch, verification, log)
+            conclude(requirement, diagnosis, patch, evidence, log)
         } catch (cancelled: CancellationException) {
             restore(patch)
             throw cancelled
@@ -206,7 +220,7 @@ class SelfRepairLoop(
             restore(patch)
             log.add("repair: verification produced no usable evidence or gate failed; patch restored (${failure.message?.take(200)})")
             recordWarning("Self-repair verification produced no usable evidence or gate failed; patch restored: ${failure.message?.take(200)}")
-            Result(Outcome.VALIDATION_FAILED, diagnosis, patch, null, null, verification, log)
+            Result(Outcome.VALIDATION_FAILED, diagnosis, patch, null, null, evidence.candidateSuites, log)
         }
     }
 
@@ -223,58 +237,68 @@ class SelfRepairLoop(
         requirement: RepairRequirement,
         diagnosis: RepairDiagnosis,
         patch: SourcePatch,
-        verification: List<TestSuiteObservation>,
+        evidence: RepairVerificationEvidence,
         logIn: List<String> = emptyList()
     ): Result {
         val log = logIn.toMutableList()
+        val candidateSuites = evidence.candidateSuites
+        val regressionSuites = evidence.regressionSuites
 
         // Gate 2: sandbox stress test — runs BEFORE [PromotionGate] and
-        // independently of verification results. The sandbox tests the
-        // repaired code against adversarial inputs (boundary values,
-        // malformed data, repeated calls) and catches broken candidates
-        // that would otherwise reach the gate.
+        // independently of verification results.
         if (sandboxExecutor != null) {
             log.add("sandboxGate: running adversarial stress test")
             val stressResult = sandboxExecutor.stressTest(patch, requirement.requirement)
             if (!stressResult.passed) {
                 val failureDetail = stressResult.failures.joinToString("; ") { it.description }
                 log.add("sandboxGate: REJECTED — $failureDetail")
-                recordWarning(
-                    "Self-repair candidate rejected by sandbox gate: $failureDetail"
-                )
-                // Rollback immediately — gate never sees this candidate.
+                recordWarning("Self-repair candidate rejected by sandbox gate: $failureDetail")
                 restore(patch)
                 log.add("sandboxGate: patch restored from backups")
                 return Result(
                     Outcome.SANDBOX_REJECTED, diagnosis, patch, null, null,
-                    verification, log + stressResult.log
+                    candidateSuites, log + stressResult.log
                 )
             }
             log.add("sandboxGate: PASSED — candidate survived adversarial inputs")
             log.addAll(stressResult.log)
         }
 
-        val observed = verification.firstOrNull()
-            ?: throw IllegalArgumentException("verification produced no suite observation")
+        require(candidateSuites.isNotEmpty()) { "verification produced no candidate test suites" }
+        require(regressionSuites.isNotEmpty()) { "verification produced no independent baseline regression suites" }
+        (candidateSuites + regressionSuites).forEach { suite ->
+            require(suite.totalTests > 0) { "verification suite '${suite.suiteName}' contains no tests" }
+            require(suite.skippedTests == 0) { "verification suite '${suite.suiteName}' contains skipped tests" }
+            require(suite.failures.size <= suite.totalTests) {
+                "verification suite '${suite.suiteName}' has inconsistent failure counts"
+            }
+        }
 
-        val testOutcomes = observed.toTestOutcomes()
+        val candidateOutcomes = candidateSuites.flatMap { it.toTestOutcomes() }
+        val regressionOutcomes = regressionSuites.flatMap { it.toTestOutcomes() }
+        val resource = evidence.resourceReport
+        log.add(
+            "verification: candidate suites=${candidateSuites.size}, baseline suites=${regressionSuites.size}, " +
+                "resource iterations=${resource.iterations}"
+        )
+
         val evaluation = FitnessModel.evaluate(
-            candidateId = "selfrepair_${observed.suiteName}",
-            testResults = testOutcomes,
-            benchmarkResults = emptyList()
+            candidateId = "selfrepair_${candidateSuites.joinToString("_") { it.suiteName }}",
+            testResults = candidateOutcomes,
+            benchmarkResults = resource.benchmarks
         )
         val decision = gate.decide(
             evaluation = evaluation,
-            regression = testOutcomes,
-            resource = ResourceBenchmark.ResourceReport(
-                benchmarks = emptyList(), averageLatencyMs = 0.0, iterations = 0
-            )
+            regression = regressionOutcomes,
+            resource = resource
         )
         log.add("gate: ${decision.verdict} (${decision.reasons.joinToString("; ").ifEmpty { "clean" }})")
 
         return when (decision.verdict) {
-            GateVerdict.PROMOTE -> promote(diagnosis, patch, decision, observed, verification, log)
-            else -> rollback(decision, diagnosis, patch, verification, log)
+            GateVerdict.PROMOTE -> promote(
+                diagnosis, patch, decision, candidateSuites.first(), candidateSuites, log
+            )
+            else -> rollback(decision, diagnosis, patch, candidateSuites, log)
         }
     }
 
@@ -348,7 +372,7 @@ class SelfRepairLoop(
                 error = "${f.failureType ?: "failure"}: ${f.message ?: ""}"
             )
         }
-        val passingCount = (totalTests - failures.size).coerceAtLeast(0)
+        val passingCount = (totalTests - failures.size - skippedTests).coerceAtLeast(0)
         val passing = (0 until passingCount).map { i ->
             FitnessModel.TestOutcome(name = "${suiteName}_pass_$i", passed = true)
         }
