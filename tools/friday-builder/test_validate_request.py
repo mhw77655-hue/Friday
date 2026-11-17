@@ -39,6 +39,40 @@ class ValidateRequestTests(unittest.TestCase):
         with self.assertRaisesRegex(RequestValidationError, "credential"):
             validate_request(data)
 
+    def test_accepts_content_free_aggregate_runtime_evidence(self):
+        data = valid_request()
+        data["evidence"].append("FRIDAY_AGGREGATE_RUNTIME_EVIDENCE_JSON: " + ("{\"status\":\"PARTIAL\"}" * 500))
+        data["privacy_review"]["aggregate_runtime_evidence_enabled"] = True
+        data["privacy_review"]["aggregate_runtime_evidence_scope"] = "counts_statuses_capability_keys_resource_trends_only"
+
+        validated = validate_request(data)
+
+        self.assertTrue(validated["privacy_review"]["aggregate_runtime_evidence_enabled"])
+        self.assertEqual(
+            validated["privacy_review"]["aggregate_runtime_evidence_scope"],
+            "counts_statuses_capability_keys_resource_trends_only",
+        )
+        self.assertGreater(len(validated["evidence"][-1]), 600)
+
+    def test_rejects_mismatched_aggregate_evidence_consent(self):
+        data = valid_request()
+        data["privacy_review"]["aggregate_runtime_evidence_enabled"] = True
+        data["privacy_review"]["aggregate_runtime_evidence_scope"] = "none"
+        with self.assertRaisesRegex(RequestValidationError, "do not match"):
+            validate_request(data)
+
+    def test_rejects_unsupported_privacy_metadata(self):
+        data = valid_request()
+        data["privacy_review"]["raw_memory_included"] = True
+        with self.assertRaisesRegex(RequestValidationError, "unsupported fields"):
+            validate_request(data)
+
+    def test_rejects_oversized_evidence_item(self):
+        data = valid_request()
+        data["evidence"] = ["x" * 8001]
+        with self.assertRaisesRegex(RequestValidationError, "exceeds 8000"):
+            validate_request(data)
+
     def test_rejects_id_mismatch(self):
         with self.assertRaisesRegex(RequestValidationError, "does not match"):
             validate_request(valid_request(), expected_id="different")

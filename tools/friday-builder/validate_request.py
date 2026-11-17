@@ -78,19 +78,34 @@ def validate_request(data: Any, expected_id: str | None = None) -> dict[str, Any
     created_at = _aware_timestamp(data["created_at"], "created_at")
     source_revision = _text(data["source_revision"], "source_revision", 128)
     intended_outcome = _text(data["intended_outcome"], "intended_outcome", 4000)
-    evidence = _list(data["evidence"], "evidence", 12, 600, 1)
+    evidence = _list(data["evidence"], "evidence", 12, 8000, 1)
     acceptance = _list(data["acceptance_criteria"], "acceptance_criteria", 12, 600, 1)
     risks = _list(data["risks"], "risks", 8, 500)
     rollback = _text(data["rollback_expectation"], "rollback_expectation", 800)
     questions = _list(data["unresolved_questions"], "unresolved_questions", 8, 500)
 
     review = data["privacy_review"]
-    if not isinstance(review, dict) or set(review) != {"status", "reviewed_by", "reviewed_at"}:
-        raise RequestValidationError("privacy_review must contain only status, reviewed_by, reviewed_at")
+    required_review_keys = {"status", "reviewed_by", "reviewed_at"}
+    optional_review_keys = {"aggregate_runtime_evidence_enabled", "aggregate_runtime_evidence_scope"}
+    if (
+        not isinstance(review, dict)
+        or not required_review_keys.issubset(review)
+        or set(review) - required_review_keys - optional_review_keys
+    ):
+        raise RequestValidationError("privacy_review contains missing or unsupported fields")
     if review["status"] != "approved":
         raise RequestValidationError("privacy review must be approved before worker execution")
     reviewed_by = _text(review["reviewed_by"], "privacy_review.reviewed_by", 120)
     reviewed_at = _aware_timestamp(review["reviewed_at"], "privacy_review.reviewed_at")
+    aggregate_enabled = review.get("aggregate_runtime_evidence_enabled", False)
+    aggregate_scope = review.get("aggregate_runtime_evidence_scope", "none")
+    if not isinstance(aggregate_enabled, bool):
+        raise RequestValidationError("privacy_review.aggregate_runtime_evidence_enabled must be boolean")
+    allowed_scopes = {"none", "counts_statuses_capability_keys_resource_trends_only"}
+    if aggregate_scope not in allowed_scopes:
+        raise RequestValidationError("privacy_review.aggregate_runtime_evidence_scope is unsupported")
+    if aggregate_enabled != (aggregate_scope != "none"):
+        raise RequestValidationError("aggregate evidence consent and scope do not match")
 
     serialized = json.dumps(data, ensure_ascii=True)
     if any(pattern.search(serialized) for pattern in SECRET_PATTERNS):
@@ -101,7 +116,11 @@ def validate_request(data: Any, expected_id: str | None = None) -> dict[str, Any
         "source_revision": source_revision, "intended_outcome": intended_outcome,
         "evidence": evidence, "acceptance_criteria": acceptance, "risks": risks,
         "rollback_expectation": rollback, "unresolved_questions": questions,
-        "privacy_review": {"status": "approved", "reviewed_by": reviewed_by, "reviewed_at": reviewed_at},
+        "privacy_review": {
+            "status": "approved", "reviewed_by": reviewed_by, "reviewed_at": reviewed_at,
+            "aggregate_runtime_evidence_enabled": aggregate_enabled,
+            "aggregate_runtime_evidence_scope": aggregate_scope,
+        },
     }
 
 
