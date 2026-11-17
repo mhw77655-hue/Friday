@@ -388,5 +388,3 @@ class SelfRepairLoop(
         )
     }
 }
-
-private fun abs(v: Int): Int = if (v < 0) -v else v
