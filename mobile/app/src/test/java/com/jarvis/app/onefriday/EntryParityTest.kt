@@ -58,7 +58,7 @@ class AndroidCompositionContractTest {
         assertTrue(body.contains("fun submitText(text: String)"))
         assertTrue(body.contains("private suspend fun routeInputText(text: String)"))
         assertTrue(body.contains("PhoneCommandInterpreter.parse(text)"))
-        assertTrue(body.contains("PhoneActionPlanner.isLikelyDeviceRequest(text)"))
+        assertTrue(body.contains("phoneActionPlanner.shouldHandle(text)"))
         assertTrue(body.contains("LatencyLayer.ackOnly(spoken, feedback)"))
         assertFalse(body.contains("private fun routeSpokenText"))
     }
