@@ -138,8 +138,8 @@ class BodyCoordinator(
     // ── Model lifecycle ──
     private val reasoningLastUsedAtMs = AtomicLong(0)
     private val isReasoningWarm = AtomicBoolean(false)
-    private val executor = Executors.newSingleThreadExecutor { r ->
-        Thread(r, "jarvis-body-coordinator").apply { isDaemon = true }
+    private val warmupExecutor = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "jarvis-model-warmup").apply { isDaemon = true }
     }
 
     // ── Presence ──
@@ -744,7 +744,7 @@ class BodyCoordinator(
 
     /** Warm up the model for fast first response. */
     private fun warmModel() {
-        executor.execute {
+        warmupExecutor.execute {
             try {
                 modelManager.send("") // Warm ping
                 isReasoningWarm.set(true)
@@ -804,6 +804,6 @@ class BodyCoordinator(
         speechRecognizer?.cancel()
         tts?.stop()
         presenceMonitor?.stop()
-        executor.shutdown()
+        warmupExecutor.shutdown()
     }
 }
