@@ -136,7 +136,7 @@ class ContinuityLaw(
                 layer = layer,
                 accepted = false,
                 reason = "insufficient accumulated evidence for '$field': ${evidenceIds.size} of " +
-                    "$minEvidenceClaims real claims state '${claim.payload}' — one turn is a " +
+                    "$requiredClaims real claims state '${claim.payload}' — one turn is a " +
                     "suggestion, not a change",
                 evidenceClaimIds = evidenceIds,
                 entry = null
@@ -227,11 +227,6 @@ class ContinuityLaw(
          */
         const val DEFAULT_MIN_EVIDENCE_CLAIMS: Int = 2
 
-        /**
-         * Minimum REAL elapsed milliseconds between two accepted SLOW changes to
-         * the same field, so durable identity-adjacent state cannot be rewritten
-         * turn after turn.
-         */
         /** Extra independent claims required per previously accepted change. */
         const val EVIDENCE_STEP: Int = 1
 
@@ -255,6 +250,10 @@ class ContinuityLaw(
         ): Long = (base * (acceptedChanges.coerceAtLeast(0) + 1L))
             .coerceAtMost(MAX_INTERVAL_MS)
 
+        /**
+         * Base REAL elapsed milliseconds between accepted changes before the
+         * field's own accepted history increases the interval.
+         */
         const val DEFAULT_MIN_INTERVAL_MS: Long = 5_000L
 
         /**
