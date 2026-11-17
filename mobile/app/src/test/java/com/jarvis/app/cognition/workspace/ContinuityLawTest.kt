@@ -107,6 +107,30 @@ class ContinuityLawTest {
     }
 
     @Test
+    fun `replay detects replacement of the persistent individual ID`() {
+        val fixture = recordedTurns()
+        val baselineCheck = ReplayCheck(
+            workspace = InMemoryWorkspace(),
+            changeLog = FileChangeLog(log.changeLogFile),
+            coreIdentity = CoreIdentity("Friday", 1, "user", "identity-before"),
+            fixture = fixture
+        )
+        val replacementCheck = ReplayCheck(
+            workspace = InMemoryWorkspace(),
+            changeLog = FileChangeLog(log.changeLogFile),
+            coreIdentity = CoreIdentity("Friday", 1, "user", "identity-after"),
+            fixture = fixture
+        )
+
+        val baseline = baselineCheck.replay()
+        val replacement = replacementCheck.replay()
+        val verdict = replacementCheck.verify(baseline, replacement)
+
+        assertFalse("replacing the individual ID must be detected as continuity drift", verdict.consistent)
+        assertTrue(verdict.drifts.any { it.field == "identity:id" })
+    }
+
+    @Test
     fun `AC1 a slow change with insufficient evidence is rejected, and the same change is accepted once the evidence is real`() {
         val first = law.propose(persona("c-1", "directness", "direct"))
         assertEquals(ChangeLayer.SLOW, first.layer)
