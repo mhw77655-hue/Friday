@@ -141,8 +141,11 @@ class CapabilityExecutor(
                 skippedSteps = skipped.size,
                 blockedSteps = blockedNodes.size
             )
+            if (blockedNodes.isNotEmpty()) {
+                driver.emit(CognitiveEvent.StepBlocked(graph.goalId, null, blockedIds, blockedBy))
+            }
             when (terminalStatus) {
-                ExecutionStatus.BLOCKED -> driver.emit(CognitiveEvent.StepBlocked(graph.goalId, null, blockedIds, blockedBy))
+                ExecutionStatus.BLOCKED -> Unit
                 ExecutionStatus.PARTIAL -> driver.emit(CognitiveEvent.PlanExecutionPartial(
                     graph.goalId, state.completedSteps, skippedIds, skippedReasons, blockedIds, blockedBy
                 ))
