@@ -15,11 +15,13 @@ import com.jarvis.app.selfrepair.SourcePatch
  * This gate is additional evidence, not a replacement for compiling and
  * testing the actual patched source in the repository's CI environment.
  *
- * Two implementations:
- *  - [LocalTestSandboxExecutor]: real, working — runs the candidate through
- *    the existing Mutated Environments test harness with adversarial inputs.
- *  - [CloudVmSandboxExecutor]: explicit unavailable stub — returns a failed
- *    result so callers fail closed until cloud VM infrastructure exists.
+ * Current implementations fail closed:
+ *  - [LocalTestSandboxExecutor] rejects because the in-process spec harness
+ *    cannot prove that an executable artifact was derived from the source patch.
+ *  - [CloudVmSandboxExecutor] rejects until a provisioned isolated VM exists.
+ *
+ * A test-only fake may be injected in unit tests to verify gate ordering, but
+ * that fake is not evidence that a real source patch is safe.
  *
  * This subsystem is TEST-AND-TOOLING-ONLY: not instantiated in the live
  * [com.jarvis.app.JarvisEngine].
