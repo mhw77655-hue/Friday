@@ -83,14 +83,21 @@ class ApplicationSelfStudy(
     }
 
     @Volatile private var latestReflection: Reflection? = readReflection()
+    @Volatile private var latestModelFreeReflection: Reflection? =
+        readReflection(modelFreeReflectionFile())
 
     fun latestReflection(): Reflection? = latestReflection
+
+    /** The deterministic on-device reflection, isolated from optional model enrichment. */
+    fun latestModelFreeReflection(): Reflection? = latestModelFreeReflection
 
     private fun reflectionFile(): File =
         File(reportFile.parentFile ?: File("."), "latest-reflection.properties")
 
-    private fun readReflection(): Reflection? {
-        val file = reflectionFile()
+    private fun modelFreeReflectionFile(): File =
+        File(reportFile.parentFile ?: File("."), "latest-model-free-reflection.properties")
+
+    private fun readReflection(file: File = reflectionFile()): Reflection? {
         if (!file.isFile) return null
         return runCatching {
             val props = Properties()
@@ -282,7 +289,9 @@ class ApplicationSelfStudy(
             evidenceGaps = evidenceGaps
         )
         persistReflection(reflection)
+        persistReflection(reflection, modelFreeReflectionFile())
         latestReflection = reflection
+        latestModelFreeReflection = reflection
         return reflection
     }
 
@@ -309,8 +318,7 @@ class ApplicationSelfStudy(
         }
     }.getOrDefault(emptyList())
 
-    private fun persistReflection(reflection: Reflection) {
-        val file = reflectionFile()
+    private fun persistReflection(reflection: Reflection, file: File = reflectionFile()) {
         file.parentFile?.mkdirs()
         val props = Properties().apply {
             setProperty("createdAtMs", reflection.createdAtMs.toString())
