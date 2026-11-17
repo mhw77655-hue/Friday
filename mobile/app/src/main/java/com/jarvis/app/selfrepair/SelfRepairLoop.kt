@@ -84,7 +84,7 @@ class SelfRepairLoop(
     private val sandboxExecutor: SandboxExecutor? = null
 ) {
 
-    /** Re-run the affected suite for real after a patch was applied. */
+    /** Return candidate tests, independent baseline regressions, and measured resource evidence. */
     fun interface RepairVerifier {
         suspend fun verify(patch: SourcePatch): RepairVerificationEvidence
     }
@@ -191,7 +191,9 @@ class SelfRepairLoop(
 
         val patch = try {
             proposeRepair(requirement, diagnosis)
-        } catch (t: Throwable) {
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (t: Exception) {
             log.add("repair: candidate refused (${t.message?.take(200)})")
             recordWarning("Self-repair candidate refused: ${t.message?.take(200)}")
             return Result(Outcome.VALIDATION_FAILED, diagnosis, null, null, null, emptyList(), log)
@@ -225,8 +227,9 @@ class SelfRepairLoop(
     }
 
     /**
-     * GATE + PROMOTE/ROLLBACK on REAL post-fix verification results. Called by
-     * [repair] directly, or by the tooling flow after the external re-run.
+     * GATE + PROMOTE/ROLLBACK on real post-fix verification results. Called by
+     * [repair] directly, or by the tooling flow after candidate tests, independent
+     * baseline regressions, and resource measurements have all completed.
      *
      * Gate 2 (SandboxExecutor) runs BEFORE [PromotionGate]: the repaired
      * candidate is stressed with adversarial inputs in isolation. If the
