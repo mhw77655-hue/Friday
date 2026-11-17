@@ -16,7 +16,7 @@ class SerializedMailboxTest {
 
     @Test
     fun `large callback burst is accepted and delivered in order`() = runBlocking {
-        val mailbox = SerializedMailbox<Int>()
+        val mailbox = SerializedMailbox<Int>(capacity = 1_024)
         val received = mutableListOf<Int>()
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         val finished = CompletableDeferred<Unit>()
@@ -74,6 +74,17 @@ class SerializedMailboxTest {
         mailbox.consume { received += it }
 
         assertEquals((0 until 5).toList(), received)
+    }
+
+    @Test
+    fun `full bounded mailbox rejects and reports overflow`() {
+        val rejected = mutableListOf<Int>()
+        val mailbox = SerializedMailbox<Int>(capacity = 2) { item, _ -> rejected += item }
+
+        assertTrue(mailbox.enqueue(1))
+        assertTrue(mailbox.enqueue(2))
+        assertFalse(mailbox.enqueue(3))
+        assertEquals(listOf(3), rejected)
     }
 
     @Test
