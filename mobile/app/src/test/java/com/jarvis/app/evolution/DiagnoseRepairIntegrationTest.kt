@@ -234,7 +234,7 @@ class DiagnoseRepairIntegrationTest {
         // VERIFY + GATE: all tests pass → PROMOTED
         val result = loop.conclude(
             requirement, diag, patch,
-            listOf(TestSuiteObservation("CapabilityExecutorTest", 18, emptyList()))
+            validEvidence()
         )
         assertEquals(SelfRepairLoop.Outcome.PROMOTED, result.outcome)
         assertNotNull(result.receipt)
@@ -276,7 +276,7 @@ class DiagnoseRepairIntegrationTest {
                 )
             ))
         )
-        val result = loop.conclude(requirement, diag, patch, stillFailing)
+        val result = loop.conclude(requirement, diag, patch, validEvidence(candidateSuites = stillFailing))
 
         assertEquals(SelfRepairLoop.Outcome.ROLLED_BACK, result.outcome)
         assertFalse("backup should be cleaned up after rollback",
