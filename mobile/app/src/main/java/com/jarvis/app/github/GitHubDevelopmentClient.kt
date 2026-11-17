@@ -9,6 +9,10 @@ import android.os.Build
 import android.os.PowerManager
 import android.os.StatFs
 import android.util.Base64
+import com.jarvis.app.github.outbox.DevelopmentRequestDraft
+import com.jarvis.app.github.outbox.DevelopmentRequestOutbox
+import com.jarvis.app.github.outbox.EnqueueOutcome
+import com.jarvis.app.selfstudy.ApplicationSelfStudy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -16,13 +20,18 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
-import com.jarvis.app.selfstudy.ApplicationSelfStudy
 import org.json.JSONObject
 import java.io.IOException
 import java.time.Instant
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.TimeUnit
+
+/** A workflow-dispatch rejection that keeps the HTTP status for retry classification. */
+internal class GitHubDispatchException(
+    val statusCode: Int,
+    message: String
+) : IOException(message)
 
 /**
  * Pure dispatch guard shared by the phone worker and JVM regression tests.
@@ -77,95 +86,72 @@ class GitHubDevelopmentClient(context: Context) {
         .callTimeout(30, TimeUnit.SECONDS)
         .build()
 
+    /**
+     * Persist the owner's build instructions before attempting delivery, then
+     * try one immediate dispatch. A network or credential failure leaves the
+     * request queued for the connectivity-triggered worker instead of losing it.
+     */
     suspend fun submitBuildRequest(instructions: String): String = withContext(Dispatchers.IO) {
         val userWords = instructions.trim()
         require(userWords.length in 12..3500) {
             "Describe what Friday should build in 12–3500 characters."
         }
-        val token = tokenStore.read()
-            ?: throw IllegalStateException("Connect a fine-grained GitHub token in Settings first.")
-        val requestId = "phone-" + UUID.randomUUID().toString().replace("-", "").take(20)
         val now = Instant.now().toString()
-        val snapshot = deviceSnapshot()
-        val requestJson = JSONObject()
-            .put("schema_version", 1)
-            .put("request_id", requestId)
-            .put("created_at", now)
-            .put("source_revision", "main")
-            .put(
-                "intended_outcome",
-                "OWNER'S DIRECT BUILD INSTRUCTIONS (primary source of intent):\n" + userWords +
-                    "\n\nTreat these words as the product requirement, not merely a chatbot prompt. Inspect the complete existing repository and relevant tests, infer the coherent implementation, preserve the owner's stated vision, implement the requested work end-to-end, add regression tests, and report anything that cannot be completed with evidence. Do not silently narrow the request to a cosmetic or chatbot-only change. The attached device snapshot is diagnostic context, not the product requirement."
-            )
-            .put("evidence", JSONArray()
-                .put(snapshot)
-                .put("The snapshot was explicitly sent from Friday Settings by the device owner. It contains technical device health only, not conversation or personal content.")
-            )
-            .put("acceptance_criteria", JSONArray()
-                .put("Implement the owner's requested behavior across the correct existing architecture; do not replace the request with generic chatbot enhancements.")
-                .put("Inspect related source, existing vision documents and tests before changing code.")
-                .put("Add or update focused regression tests for the implemented behavior.")
-                .put("Run repository-builder contract tests, :mobile:app:assembleDebug and :mobile:app:testDebugUnitTest; report exact results.")
-                .put("Publish an isolated draft pull request with a clear completion/remaining-work report. Never merge, sign, release, or install.")
-            )
-            .put("risks", JSONArray()
-                .put("This repository is public; the bounded device snapshot and workflow request are visible to repository readers.")
-                .put("The worker's patch is untrusted until reviewed and verified.")
-                .put("A debug APK build does not prove target-device behavior.")
-            )
-            .put(
-                "rollback_expectation",
-                "Close the draft pull request and discard its proposal branch. The installed Friday app remains unchanged."
-            )
-            .put("unresolved_questions", JSONArray()
-                .put("Which observed issue reproduces on this exact device and can be fixed without expanding permissions?")
-                .put("Which target-device checks remain impossible to prove in a GitHub-hosted runner?")
-            )
-            .put("privacy_review", JSONObject()
-                .put("status", "approved")
-                .put("reviewed_by", "device-owner-explicit-in-app-consent")
-                .put("reviewed_at", now)
-            )
+        val outbox = DevelopmentRequestOutbox(app.filesDir)
+        val draft = DevelopmentRequestDraft(
+            intendedOutcome = "OWNER'S DIRECT BUILD INSTRUCTIONS (primary source of intent):\n" + userWords +
+                "\n\nTreat these words as the product requirement, not a chatbot prompt. Inspect relevant source, vision documents and tests; infer a coherent end-to-end implementation that preserves the owner's intent. Add regression tests and report uncompleted work with evidence. Do not reduce the request to cosmetic/chatbot changes. The device snapshot is diagnostic context, not the product requirement.",
+            evidence = listOf(
+                deviceSnapshot(),
+                "The snapshot was explicitly sent from Friday Settings by the device owner. It contains technical device health only, not conversation or personal content."
+            ),
+            acceptanceCriteria = listOf(
+                "Implement the owner's requested behavior across the correct existing architecture; do not replace the request with generic chatbot enhancements.",
+                "Inspect related source, existing vision documents and tests before changing code.",
+                "Add or update focused regression tests for the implemented behavior.",
+                "Run repository-builder contract tests, :mobile:app:assembleDebug and :mobile:app:testDebugUnitTest; report exact results.",
+                "Publish an isolated draft pull request with a clear completion/remaining-work report. Never merge, sign, release, or install."
+            ),
+            risks = listOf(
+                "This repository is public; the bounded device snapshot and workflow request are visible to repository readers.",
+                "The worker's patch is untrusted until reviewed and verified.",
+                "A debug APK build does not prove target-device behavior."
+            ),
+            rollbackExpectation = "Close the draft pull request and discard its proposal branch. The installed Friday app remains unchanged.",
+            unresolvedQuestions = listOf(
+                "Which observed issue reproduces on this exact device and can be fixed without expanding permissions?",
+                "Which target-device checks remain impossible to prove in a GitHub-hosted runner?"
+            ),
+            sourceRevision = "main",
+            createdAt = now,
+            logicalKey = "owner-build:$userWords",
+            privacyReviewedBy = "device-owner-explicit-in-app-consent",
+            privacyReviewedAt = now
+        )
 
-        val bytes = requestJson.toString().toByteArray(Charsets.UTF_8)
-        require(bytes.size <= MAX_REQUEST_BYTES) { "Development request exceeds the safe payload limit." }
-        val encoded = Base64.encodeToString(bytes, Base64.NO_WRAP)
-        require(encoded.length < MAX_WORKFLOW_INPUT_CHARS) { "Development request exceeds GitHub workflow input limits." }
-
-        val body = JSONObject()
-            .put("ref", "main")
-            .put(
-                "inputs",
-                JSONObject()
-                    .put("request_id", requestId)
-                    .put("request_json_b64", encoded)
-            )
-            .toString()
-            .toRequestBody(JSON_MEDIA_TYPE)
-
-        val request = Request.Builder()
-            .url("https://api.github.com/repos/$OWNER/$REPOSITORY/actions/workflows/friday-builder-proposal.yml/dispatches")
-            .header("Authorization", "Bearer $token")
-            .header("Accept", "application/vnd.github+json")
-            .header("X-GitHub-Api-Version", API_VERSION)
-            .header("User-Agent", "Friday-Android-Development-Bridge")
-            .post(body)
-            .build()
-
-        http.newCall(request).execute().use { response ->
-            if (response.code != 204) {
-                val hint = when (response.code) {
-                    401 -> "GitHub rejected the token. Check that it is valid and not expired."
-                    403 -> "GitHub denied workflow dispatch. Grant Actions: read/write on this repository."
-                    404 -> "The proposal workflow is not on the repository's default branch yet. Merge the Friday builder workflow first."
-                    422 -> "GitHub rejected the workflow input. Check the request schema and workflow limits."
-                    else -> "GitHub returned HTTP ${response.code}."
+        when (val outcome = outbox.enqueue(draft)) {
+            is EnqueueOutcome.Rejected -> throw IllegalArgumentException(outcome.reason)
+            is EnqueueOutcome.Duplicate -> {
+                runCatching { DevelopmentRequestOutboxScheduler.ensureScheduled(app, appendIfActive = true) }
+                "Request ${outcome.request.requestId} is already ${outcome.request.state.name.lowercase()}; no duplicate was queued."
+            }
+            is EnqueueOutcome.Enqueued -> {
+                runCatching { DevelopmentRequestOutboxScheduler.ensureScheduled(app, appendIfActive = true) }
+                if (!tokenStore.isConfigured()) {
+                    "Request ${outcome.request.requestId} saved. Connect GitHub to deliver it."
+                } else {
+                    val report = outbox.deliverPending(
+                        GitHubDevelopmentRequestDelivery(app),
+                        maxRequests = 1
+                    )
+                    if (report.delivered > 0) {
+                        "Request ${outcome.request.requestId} sent. Friday's repository worker will test a proposed repair and open a draft PR; it will not install or merge it."
+                    } else {
+                        "Request ${outcome.request.requestId} saved. Friday will deliver it when GitHub is reachable."
+                    }
                 }
-                throw IOException(hint)
             }
         }
-        prefs.edit().putString(KEY_LAST_REQUEST, requestId).putString(KEY_LAST_REQUEST_AT, now).apply()
-        "Request $requestId sent. Friday's repository worker will test a proposed repair and open a draft PR; it will not install or merge it."
     }
 
     /**
@@ -295,11 +281,56 @@ class GitHubDevelopmentClient(context: Context) {
                     )
             )
 
-        val bytes = requestJson.toString().toByteArray(Charsets.UTF_8)
-        require(bytes.size <= MAX_REQUEST_BYTES) { "Autonomous development request exceeds the safe payload limit." }
-        val encoded = Base64.encodeToString(bytes, Base64.NO_WRAP)
-        require(encoded.length < MAX_WORKFLOW_INPUT_CHARS) { "Autonomous development request exceeds GitHub workflow input limits." }
+        postWorkflowDispatch(
+            token = token,
+            requestId = requestId,
+            requestJson = requestJson,
+            payloadLabel = "Autonomous development request",
+            userAgent = "Friday-Android-Autonomous-Evolution"
+        )
+        prefs.edit().putString(KEY_LAST_REQUEST, requestId).putString(KEY_LAST_REQUEST_AT, now).apply()
+        "Autonomous cycle $requestId dispatched ${if (includeAggregateEvidence) "with aggregate runtime evidence" else "using owner vision and repository evidence only"}. Friday will propose one improvement as a draft PR; it will not install or merge it."
+    }
 
+    /**
+     * Dispatch a request that has already been durably stored by the outbox.
+     * The outbox owns the state transition; this method only acknowledges the
+     * remote workflow dispatch (HTTP 204) or reports a classified failure.
+     */
+    internal suspend fun dispatchStoredRequest(requestId: String, requestJson: String) =
+        withContext(Dispatchers.IO) {
+            val token = tokenStore.read()
+                ?: throw IllegalStateException("Connect a fine-grained GitHub token in Settings first.")
+            val payload = JSONObject(requestJson)
+            require(payload.optString("request_id") == requestId) {
+                "Stored development request id does not match its payload."
+            }
+            postWorkflowDispatch(
+                token = token,
+                requestId = requestId,
+                requestJson = payload,
+                payloadLabel = "Stored development request",
+                userAgent = "Friday-Android-Development-Outbox"
+            )
+            prefs.edit()
+                .putString(KEY_LAST_REQUEST, requestId)
+                .putString(KEY_LAST_REQUEST_AT, Instant.now().toString())
+                .apply()
+        }
+
+    private fun postWorkflowDispatch(
+        token: String,
+        requestId: String,
+        requestJson: JSONObject,
+        payloadLabel: String,
+        userAgent: String
+    ) {
+        val bytes = requestJson.toString().toByteArray(Charsets.UTF_8)
+        require(bytes.size <= MAX_REQUEST_BYTES) { "$payloadLabel exceeds the safe payload limit." }
+        val encoded = Base64.encodeToString(bytes, Base64.NO_WRAP)
+        require(encoded.length < MAX_WORKFLOW_INPUT_CHARS) {
+            "$payloadLabel exceeds GitHub workflow input limits."
+        }
         val body = JSONObject()
             .put("ref", "main")
             .put(
@@ -315,24 +346,21 @@ class GitHubDevelopmentClient(context: Context) {
             .header("Authorization", "Bearer $token")
             .header("Accept", "application/vnd.github+json")
             .header("X-GitHub-Api-Version", API_VERSION)
-            .header("User-Agent", "Friday-Android-Autonomous-Evolution")
+            .header("User-Agent", userAgent)
             .post(body)
             .build()
-
         http.newCall(request).execute().use { response ->
             if (response.code != 204) {
                 val hint = when (response.code) {
-                    401 -> "GitHub rejected the token. Autonomous development is paused."
-                    403 -> "GitHub denied workflow dispatch. Check Actions read/write permission."
-                    404 -> "The Friday proposal workflow must be available on main before autonomous development can run."
-                    422 -> "GitHub rejected the autonomous workflow request."
+                    401 -> "GitHub rejected the token. Check that it is valid and not expired."
+                    403 -> "GitHub denied workflow dispatch. Grant Actions: read/write on this repository."
+                    404 -> "The proposal workflow is not on the repository's default branch yet. Merge the Friday builder workflow first."
+                    422 -> "GitHub rejected the workflow input. Check the request schema and workflow limits."
                     else -> "GitHub returned HTTP ${response.code}."
                 }
-                throw IOException(hint)
+                throw GitHubDispatchException(response.code, hint)
             }
         }
-        prefs.edit().putString(KEY_LAST_REQUEST, requestId).putString(KEY_LAST_REQUEST_AT, now).apply()
-        "Autonomous cycle $requestId dispatched ${if (includeAggregateEvidence) "with aggregate runtime evidence" else "using owner vision and repository evidence only"}. Friday will propose one improvement as a draft PR; it will not install or merge it."
     }
 
     private fun hasAnyOpenProposal(token: String): Boolean {

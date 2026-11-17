@@ -22,6 +22,11 @@ class JarvisApplication : Application() {
         // Secondary capability habitats construct only their own organs.
         if (currentProcessName() != packageName) return
         JarvisEngine.init(this)
+        // Recover any development request that was queued before process death.
+        // A damaged outbox must never prevent Friday from starting.
+        runCatching {
+            com.jarvis.app.github.DevelopmentRequestOutboxScheduler.ensureScheduled(this)
+        }
 
         // Process-scoped background/foreground for the Companion Core (plan
         // §4.3, audit R-A3). ProcessLifecycleOwner fires ON_STOP only when the
