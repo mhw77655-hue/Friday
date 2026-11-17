@@ -33,6 +33,25 @@ class FridayModelFreeMindTest {
     }
 
     @Test
+    fun `observed response outcomes influence later model-free expression after restart`() {
+        val file = File.createTempFile("friday-outcome-learning-", ".bin").apply { delete() }
+        val first = FridayModelFreeMind(FridaySeedSubstrate(file))
+        first.observeOutcome(
+            "the kettle whistles in kitchen",
+            "turn off burner when steam appears"
+        )
+
+        val restarted = FridayModelFreeMind(FridaySeedSubstrate(file))
+        val reply = restarted.respond("kettle whistles")
+
+        assertTrue("the later turn should retrieve features from an observed outcome",
+            reply.contains("steam") || reply.contains("burner") || reply.contains("appears"))
+        assertTrue("the reply must distinguish association from verified meaning",
+            reply.contains("not verified meanings"))
+        file.delete()
+    }
+
+    @Test
     fun `common hay greeting is understood without a model`() {
         val file = File.createTempFile("friday-mind-", ".bin").apply { delete() }
         val mind = FridayModelFreeMind(FridaySeedSubstrate(file))
