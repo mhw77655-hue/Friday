@@ -179,6 +179,7 @@ class PhoneActionPlannerTest {
         assertTrue(PhoneActionPlanner.isLikelyDeviceRequest("Could you lower the brightness?"))
         assertTrue(PhoneActionPlanner.isLikelyDeviceRequest("Please open WhatsApp"))
         assertTrue(PhoneActionPlanner.isLikelyDeviceRequest("Tap the send button"))
+        assertTrue(PhoneActionPlanner.isLikelyDeviceRequest("Could you please make it louder?"))
         assertFalse(PhoneActionPlanner.isLikelyDeviceRequest("Tell me what you think"))
     }
 }
