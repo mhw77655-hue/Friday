@@ -214,6 +214,36 @@ class CognitiveEngineTest {
         assertEquals(1L, engine.getCurrentState().turnIndex)
     }
 
+
+    @Test
+    fun `model-free process routes a Friday command using local inference`() = runBlocking {
+        val result = engine.process("Friday turn on the lights")
+
+        assertEquals(CognitiveEngine.TurnDecision.PLAN, result.decision)
+        assertEquals(IntentState.COMMAND, result.cognitiveResult.intentResult.finalIntent)
+    }
+
+    @Test
+    fun `explicit local command cannot be downgraded by an optional model classifier`() = runBlocking {
+        val conflictingEngine = CognitiveEngine(
+            scope = scope,
+            memoryStore = memoryStore,
+            intentClassificationComplete = { "statement" }
+        )
+
+        val result = conflictingEngine.process("Friday turn on the lights")
+
+        assertEquals(CognitiveEngine.TurnDecision.PLAN, result.decision)
+    }
+
+    @Test
+    fun `public classifier falls back to local inference when no model is configured`() = runBlocking {
+        assertEquals(
+            CognitiveEngine.IntentCategory.COMMAND,
+            engine.classifyIntent("Friday turn on the lights")
+        )
+    }
+
     @Test
     fun `process supports sendBlock for fire-and-forget bridge send`() = runBlocking {
         var sentMessage: String? = null

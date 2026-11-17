@@ -78,20 +78,68 @@ class IntentInference(
 
     /** Extract explicitly stated intent from text */
     private fun extractExplicitIntent(text: String): ExplicitIntent {
-        val lower = text.lowercase().trim()
+        var lower = text.lowercase().trim()
         if (lower.isBlank()) {
             return ExplicitIntent(IntentState.UNKNOWN, 0.0f, "", emptyList())
         }
 
-        // Direct command patterns
-        if (lower.startsWith("jarvis") || lower.startsWith("hey jarvis")) {
-            val command = lower.removePrefix("jarvis").removePrefix("hey jarvis").trim()
-            return ExplicitIntent(
-                type = IntentState.COMMAND,
-                confidence = 0.9f,
-                extractedText = command,
-                entities = extractEntities(command)
-            )
+        // Direct address patterns. Friday is the owner's chosen assistant
+        // identity; Jarvis remains accepted only as a legacy wake phrase.
+        val addressedPrefix = listOf("hey friday", "friday", "hey jarvis", "jarvis")
+            .firstOrNull { prefix ->
+                lower == prefix || lower.startsWith("$prefix ") ||
+                    lower.startsWith("$prefix,") || lower.startsWith("$prefix:")
+            }
+        if (addressedPrefix != null) {
+            val command = lower.removePrefix(addressedPrefix).trim().trimStart(',', ':').trim()
+            val informationRequest = listOf(
+                "can you tell", "could you tell", "would you tell",
+                "can you explain", "could you explain", "can you describe", "could you describe"
+            ).any(command::startsWith)
+            val statementOrQuestionLead = listOf(
+                "is ", "was ", "are ", "were ", "what ", "how ", "why ", "when ",
+                "where ", "who ", "which ", "do you ", "did you ", "have you ",
+                "i think", "i feel", "i am ", "i'm ", "we ", "you ", "it ", "there "
+            ).any(command::startsWith)
+            val explicitActionRequest = listOf(
+                "please ", "help me ", "i want you to ", "i need you to ",
+                "can you ", "could you ", "would you ", "will you "
+            ).any(command::startsWith)
+            val questionLead = listOf(
+                "what ", "how ", "why ", "when ", "where ", "who ", "which ",
+                "do you ", "did you ", "have you ", "are you ", "is it ",
+                "can you ", "could you "
+            ).any(command::startsWith)
+
+            // A plain statement addressed to Friday is still a statement,
+            // not a weak/ambiguous command. Give the explicit conversational
+            // evidence enough confidence to beat the no-context ambiguity
+            // fallback; question-shaped content continues through question
+            // classification below.
+            if (command.isNotBlank() && statementOrQuestionLead &&
+                !explicitActionRequest && !questionLead && !command.endsWith("?")
+            ) {
+                return ExplicitIntent(
+                    type = IntentState.CONVERSATION,
+                    confidence = 0.85f,
+                    extractedText = command,
+                    entities = extractEntities(command)
+                )
+            }
+
+            if (command.isNotBlank() && !informationRequest &&
+                (!statementOrQuestionLead || explicitActionRequest)
+            ) {
+                return ExplicitIntent(
+                    type = IntentState.COMMAND,
+                    confidence = 0.9f,
+                    extractedText = command,
+                    entities = extractEntities(command)
+                )
+            }
+            // Strip Friday's address before classifying the remaining utterance
+            // as a question, correction, teaching statement, or conversation.
+            if (command.isNotBlank()) lower = command
         }
 
         // Meta-cognitive patterns — checked before generic question/teaching so
@@ -111,7 +159,9 @@ class IntentInference(
         // Question patterns
         if (lower.endsWith("?") || lower.startsWith("what") || lower.startsWith("how") ||
             lower.startsWith("why") || lower.startsWith("when") || lower.startsWith("where") ||
-            lower.startsWith("who") || lower.startsWith("can you") || lower.startsWith("could you")) {
+            lower.startsWith("who") || lower.startsWith("are you") || lower.startsWith("do you") ||
+            lower.startsWith("did you") || lower.startsWith("is it") ||
+            lower.startsWith("can you") || lower.startsWith("could you")) {
             return ExplicitIntent(
                 type = IntentState.QUESTION,
                 confidence = 0.85f,

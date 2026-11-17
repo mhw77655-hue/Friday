@@ -26,6 +26,32 @@ class IntentInferenceTest {
         assertTrue(r.confidence >= 0.7f)
     }
 
+
+    @Test
+    fun `Friday is recognized as the addressed identity for commands`() = runBlocking {
+        val r = inference.infer("Friday turn on the lights", CognitiveState())
+        assertEquals(IntentState.COMMAND, r.finalIntent)
+        assertEquals("turn on the lights", r.explicitIntent.extractedText)
+    }
+
+    @Test
+    fun `hey Friday request is classified without a model`() = runBlocking {
+        val r = inference.infer("hey Friday, can you open settings?", CognitiveState())
+        assertEquals(IntentState.COMMAND, r.finalIntent)
+    }
+
+    @Test
+    fun `addressed ordinary statement is not mistaken for a command`() = runBlocking {
+        val r = inference.infer("Friday is my favorite day", CognitiveState())
+        assertEquals(IntentState.CONVERSATION, r.finalIntent)
+    }
+
+    @Test
+    fun `addressed question is classified from its content`() = runBlocking {
+        val r = inference.infer("Friday, what time is it?", CognitiveState())
+        assertEquals(IntentState.QUESTION, r.finalIntent)
+    }
+
     @Test
     fun `explicit question for a question mark input`() = runBlocking {
         val r = inference.infer("what is the weather?", CognitiveState())
