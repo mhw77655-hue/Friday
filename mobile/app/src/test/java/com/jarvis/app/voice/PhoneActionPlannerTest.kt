@@ -135,6 +135,7 @@ class PhoneActionPlannerTest {
             }
         )
 
+        assertTrue(planner.shouldHandle("Could you open the accessibility panel?"))
         val result = planner.plan("Could you open the accessibility panel?", "")
 
         assertEquals(0, calls)
