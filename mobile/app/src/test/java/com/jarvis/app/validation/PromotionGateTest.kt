@@ -7,7 +7,8 @@ import org.junit.Test
 
 class PromotionGateTest {
     private val passing = FitnessModel.TestOutcome("candidate-test", true)
-    private val failing = FitnessModel.TestOutcome("baseline-test", false, error = "regression")
+    private val baselinePassing = FitnessModel.TestOutcome("baseline-test", true)
+    private val failing = FitnessModel.TestOutcome("baseline-failing-test", false, error = "regression")
 
     private fun validBenchmarks() = listOf(
         FitnessModel.BenchmarkOutcome("latency", "latency_ms", 12.0, "ms"),
@@ -29,7 +30,7 @@ class PromotionGateTest {
 
     @Test
     fun `promotes only when candidate baseline and resource evidence are complete`() {
-        val decision = gate.decide(evaluation(), listOf(passing), validResource())
+        val decision = gate.decide(evaluation(), listOf(baselinePassing), validResource())
         assertEquals(GateVerdict.PROMOTE, decision.verdict)
         assertEquals(1.0, decision.regressionRate, 0.0)
     }
@@ -52,14 +53,14 @@ class PromotionGateTest {
 
     @Test
     fun `candidate test failures are never promoted`() {
-        val decision = gate.decide(evaluation(listOf(passing, failing)), listOf(passing), validResource())
+        val decision = gate.decide(evaluation(listOf(passing, failing)), listOf(baselinePassing), validResource())
         assertEquals(GateVerdict.REJECT, decision.verdict)
         assertTrue(decision.reasons.any { it.contains("candidate") })
     }
 
     @Test
     fun `baseline regression failures are never promoted`() {
-        val decision = gate.decide(evaluation(), listOf(passing, failing), validResource())
+        val decision = gate.decide(evaluation(), listOf(baselinePassing, failing), validResource())
         assertEquals(GateVerdict.REJECT, decision.verdict)
         assertTrue(decision.reasons.any { it.startsWith("regression:") })
     }
@@ -74,7 +75,50 @@ class PromotionGateTest {
             averageLatencyMs = Double.NaN,
             iterations = 20
         )
-        val decision = gate.decide(evaluation(), listOf(passing), invalid)
+        val decision = gate.decide(evaluation(), listOf(baselinePassing), invalid)
+        assertEquals(GateVerdict.REJECT, decision.verdict)
+    }
+
+
+    @Test
+    fun `candidate and baseline test identifiers must be independent`() {
+        val decision = gate.decide(evaluation(), listOf(passing), validResource())
+        assertEquals(GateVerdict.REJECT, decision.verdict)
+        assertTrue(decision.reasons.any { it.contains("identifiers overlap") })
+    }
+
+    @Test
+    fun `every resource measurement must be finite and non-negative`() {
+        val invalidMemory = ResourceBenchmark.ResourceReport(
+            benchmarks = validBenchmarks() + FitnessModel.BenchmarkOutcome(
+                "second-memory-sample", "memory_mb", Double.NaN, "mb"
+            ),
+            averageLatencyMs = 12.0,
+            iterations = 20
+        )
+        val decision = gate.decide(evaluation(), listOf(baselinePassing), invalidMemory)
+        assertEquals(GateVerdict.REJECT, decision.verdict)
+    }
+
+    @Test
+    fun `resource latency summary must match measured samples`() {
+        val inconsistent = ResourceBenchmark.ResourceReport(
+            benchmarks = validBenchmarks(),
+            averageLatencyMs = 1.0,
+            iterations = 20
+        )
+        val decision = gate.decide(evaluation(), listOf(baselinePassing), inconsistent)
+        assertEquals(GateVerdict.REJECT, decision.verdict)
+    }
+
+    @Test
+    fun `resource evidence requires both latency and memory metrics`() {
+        val missingMemory = ResourceBenchmark.ResourceReport(
+            benchmarks = listOf(FitnessModel.BenchmarkOutcome("latency", "latency_ms", 12.0, "ms")),
+            averageLatencyMs = 12.0,
+            iterations = 20
+        )
+        val decision = gate.decide(evaluation(), listOf(baselinePassing), missingMemory)
         assertEquals(GateVerdict.REJECT, decision.verdict)
     }
 
@@ -88,7 +132,7 @@ class PromotionGateTest {
             averageLatencyMs = 3_000.0,
             iterations = 20
         )
-        val decision = gate.decide(evaluation(), listOf(passing), slow)
+        val decision = gate.decide(evaluation(), listOf(baselinePassing), slow)
         assertEquals(GateVerdict.MUTATE, decision.verdict)
     }
 }
