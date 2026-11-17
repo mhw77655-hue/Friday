@@ -214,7 +214,7 @@ class EvolutionEngine(
                         version = child.version + 1
                     )
                 )
-                appendLog("Candidate ${gen.id} [${gen.synthesizerName}] → ${decision.verdict} (score ${"%.3f".format(decision.score)})")
+                appendLog("Candidate ${gen.id} [${gen.synthesizerName}] → ${decision.verdict} (score ${"%.3f".format(decision.score)}): ${decision.reasons.joinToString("; ").ifBlank { "all evidence gates passed" }}")
             } finally {
                 governor.release(gen.id)
             }
