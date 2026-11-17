@@ -183,6 +183,13 @@ class SelfRepairLoopTest {
     // Loop constructor
     // ------------------------------------------------------------------
 
+    private val passingSandbox = object : SandboxExecutor {
+        override suspend fun stressTest(
+            patch: SourcePatch,
+            candidateDescription: String
+        ) = SandboxExecutor.StressResult(passed = true, log = listOf("explicit test-only sandbox stub"))
+    }
+
     private fun loopWith(tmpRoot: File, h: Harness, diagText: String = scriptedDiagnosis, repairText: String = scriptedRepair): Pair<SelfRepairLoop, LlmSynthesisProvider> {
         var callCount = 0
         val diagnoser = DiagnosisEngine(
@@ -208,7 +215,8 @@ class SelfRepairLoopTest {
             genomeRegistry = h.genomeRegistry,
             failureSurface = h.surface,
             promotionController = h.promoCtrl,
-            rollbackController = h.rollbackCtrl
+            rollbackController = h.rollbackCtrl,
+            sandboxExecutor = passingSandbox
         )
         return loop to synth
     }
