@@ -23,7 +23,7 @@ object FitnessModel {
         val memoryCost: Double = 0.0,        // 0-1: normalized cost (1=cheapest)
         val cpuCost: Double = 0.0,           // 0-1: normalized cost (1=cheapest)
         val energyCost: Double = 0.0,        // 0-1: normalized cost (1=cheapest)
-        val failureRate: Double = 1.0,       // 0-1: inverse of failures (1=no failures)
+        val failureRate: Double = 0.0,       // 0-1: inverse of failures; unknown evidence is not a perfect score
         val compatibility: Double = 0.0,     // 0-1: how well it fits the system
         val maintainability: Double = 0.0,   // 0-1: code quality metric
         val testCoverage: Double = 0.0       // 0-1: fraction of tests passing
@@ -159,9 +159,11 @@ object FitnessModel {
         testResults: List<TestOutcome>,
         benchmarkResults: List<BenchmarkOutcome>
     ): FitnessDimensions {
+        val hasTestEvidence = testResults.isNotEmpty()
         val total = testResults.size.coerceAtLeast(1)
         val passed = testResults.count { it.passed }
         val failures = testResults.count { !it.passed }
+        val passRate = if (hasTestEvidence) passed.toDouble() / total else 0.0
 
         // Missing or invalid measurements are unknown, never silently scored
         // as zero cost / perfect performance.
@@ -177,24 +179,24 @@ object FitnessModel {
         val avgEnergy = measuredAverage("energy_mah")
 
         return FitnessDimensions(
-            correctness = passed.toDouble() / total,
-            reliability = (total - failures).toDouble() / total,
+            correctness = passRate,
+            reliability = passRate,
             latency = avgLatency?.let { 1.0 - (it / 5000.0).coerceIn(0.0, 1.0) } ?: 0.0,
             memoryCost = avgMemory?.let { 1.0 - (it / 2048.0).coerceIn(0.0, 1.0) } ?: 0.0,
             cpuCost = avgCpu?.let { 1.0 - (it / 100.0).coerceIn(0.0, 1.0) } ?: 0.0,
             energyCost = avgEnergy?.let { 1.0 - (it / 500.0).coerceIn(0.0, 1.0) } ?: 0.0,
-            failureRate = (total - failures).toDouble() / total,
+            failureRate = passRate,
             compatibility = 0.0, // no compatibility measurement is wired yet
             maintainability = 0.0, // no maintainability measurement is wired yet
-            testCoverage = passed.toDouble() / total
+            testCoverage = passRate
         )
     }
 
     fun defaultConstraints() = listOf(
         HardConstraint(
-            "min_correctness",
+            "minimum_test_coverage",
             check = { it.testResults.isNotEmpty() && it.dimensions.testCoverage >= 0.5 },
-            rejectReason = "candidate tests must all pass"
+            rejectReason = "candidate test coverage is below 50%"
         ),
         HardConstraint(
             "latency_evidence",
