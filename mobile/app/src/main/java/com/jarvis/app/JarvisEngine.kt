@@ -709,22 +709,49 @@ object JarvisEngine {
      */
     suspend fun runApplicationSelfStudySlice(): Boolean {
         val study = applicationSelfStudy ?: return false
-        val governor = nanoSymbiosis ?: return false
-        // The learned background-organ budget is a real scheduling input:
-        // when host pressure drives it to zero, self-study yields completely.
-        if (!governor.liquidSnapshot().organs
+
+        // Structural study and model-free reflection are the baseline, not an
+        // optional low-priority task. They use installed graph/source-index and
+        // aggregate runtime evidence only; no model is loaded or required.
+        val report = try {
+            study.study()
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            failureSurface?.report(
+                com.jarvis.app.failure.FailureReport(
+                    subsystem = "ApplicationSelfStudy",
+                    operation = "model-free-structural-study",
+                    severity = com.jarvis.app.failure.FailureSeverity.WARNING,
+                    category = com.jarvis.app.failure.FailureCategory.LIFECYCLE,
+                    message = "Structural self-study failed: ${failure.message}",
+                    cause = "${failure.javaClass.name}: ${failure.message}",
+                    userMessage = "Friday could not complete her structural self-study."
+                )
+            )
+            return false
+        }
+        study.reflectFromEvidence(report)
+
+        // A loaded local model may enrich the report, but the model-free focus
+        // remains authoritative. Resource pressure gates only this optional
+        // enrichment, never the structural study above.
+        val governor = nanoSymbiosis ?: return true
+        val manager = modelManager
+        val anchor = anchorEngine
+        val backgroundBudgetAvailable = runCatching {
+            governor.liquidSnapshot().organs
                 .getValue(com.jarvis.app.symbiosis.SymbioticOrgan.BACKGROUND)
-                .let { it.backgroundWeight > 0.0 }
-        ) return false
+                .backgroundWeight > 0.0
+        }.getOrDefault(false)
+        if (!backgroundBudgetAvailable) return true
+
         val resources = governor.resourceSnapshot()
         if (resources.availableMemoryMb < 900L ||
             resources.thermalLevel >= 2 ||
             (resources.batteryPercent < 20 && !resources.isCharging)
-        ) return false
+        ) return true
 
-        val report = study.study()
-        val manager = modelManager
-        val anchor = anchorEngine
         // Reflection stays local-only. No second model is loaded and no screen,
         // conversation or private user data is sent to a cloud model.
         if (manager?.activeProvider?.value?.providerType == com.jarvis.app.env.ModelProviderType.LLAMA_CPP &&
@@ -737,16 +764,13 @@ object JarvisEngine {
                     afterAnchor.thermalLevel < 2 &&
                     (afterAnchor.batteryPercent >= 20 || afterAnchor.isCharging)
                 ) {
-                    // Reflection is advisory evidence only. Source changes,
-                    // code execution, tests and builds belong to the connected
-                    // repository development environment, never this APK.
                     study.reflect(report, manager)
                 }
             } catch (cancelled: kotlinx.coroutines.CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
-                // The factual study report remains useful if reflection or a
-                // candidate build fails. The next scheduled slice can retry.
+                // The persisted model-free reflection remains useful if the
+                // optional model enrichment is unavailable.
             }
         }
         return true
