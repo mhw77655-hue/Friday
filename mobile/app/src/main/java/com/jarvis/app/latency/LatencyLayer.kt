@@ -359,6 +359,11 @@ class LatencyPipeline(
                 }
                 val localReply = runCatching { modelFreeReply?.invoke(text) }
                     .getOrNull()?.takeIf { it.isNotBlank() }
+                if (localReply != null) {
+                    // Local replies are real observed outcomes too. Feed them
+                    // back into the same experience substrate as model replies.
+                    runCatching { outcomeObserver(text, localReply) }
+                }
                 val settledText = localReply
                     ?: "I'm here, but my local expression capability is not available right now."
                 appendTurn(Turn(fromJarvis = true, text = settledText, verified = false))
@@ -415,6 +420,9 @@ class LatencyPipeline(
                     )
                 )
                 val localReply = runCatching { modelFreeReply?.invoke(expiredInput) }.getOrNull()?.takeIf { it.isNotBlank() }
+                if (localReply != null) {
+                    runCatching { outcomeObserver(expiredInput, localReply) }
+                }
                 val settledText = localReply ?: (
                     "I couldn't get a response from a reasoning model. " +
                         "No answer was generated. Check whether a model is selected, downloaded and loaded, then try again."
@@ -540,6 +548,7 @@ class LatencyPipeline(
                 val localReplies = unresolved.mapNotNull { (_, input) ->
                     runCatching { modelFreeReply?.invoke(input) }.getOrNull()
                         ?.takeIf { it.isNotBlank() }
+                        ?.also { reply -> runCatching { outcomeObserver(input, reply) } }
                 }
                 if (localReplies.isEmpty()) {
                     // One bridge outage is one failure event, even when a burst

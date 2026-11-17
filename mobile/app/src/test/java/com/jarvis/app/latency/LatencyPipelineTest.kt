@@ -157,6 +157,7 @@ class LatencyPipelineTest {
         val spoken = mutableListOf<String>()
         val sentToModel = mutableListOf<String>()
         val observed = mutableListOf<String>()
+        val outcomes = mutableListOf<Pair<String, String>>()
         val p = LatencyPipeline(
             dispatch = { it() },
             scheduleDelayed = { _, _ -> },
@@ -164,7 +165,8 @@ class LatencyPipelineTest {
             bridgeSend = { sentToModel += it },
             modelFreeReply = { "Friday's local reply to: $it" },
             modelAvailable = { false },
-            experienceObserver = { observed += it }
+            experienceObserver = { observed += it },
+            outcomeObserver = { input, output -> outcomes += input to output }
         )
 
         p.onUserInput("hello without a model")
@@ -176,6 +178,10 @@ class LatencyPipelineTest {
             p.turns.value.filter { it.fromJarvis }.map { it.text }
         )
         assertEquals(listOf("Friday's local reply to: hello without a model"), spoken)
+        assertEquals(
+            listOf("hello without a model" to "Friday's local reply to: hello without a model"),
+            outcomes
+        )
         assertEquals(LatencyLayer.Phase.IDLE, p.phase.value)
     }
 
@@ -254,7 +260,10 @@ class LatencyPipelineTest {
         )
         assertEquals(listOf("Friday received locally: a new experience"), spoken)
         assertEquals(LatencyLayer.Phase.IDLE, p.phase.value)
-        assertTrue(outcomes.isEmpty())
+        assertEquals(
+            listOf("a new experience" to "Friday received locally: a new experience"),
+            outcomes
+        )
     }
 
     @Test
@@ -278,13 +287,15 @@ class LatencyPipelineTest {
     fun `timeout uses local expression when no model reply ever arrives`() {
         val spoken = mutableListOf<String>()
         val scheduled = mutableListOf<Pair<Long, () -> Unit>>()
+        val outcomes = mutableListOf<Pair<String, String>>()
         val p = LatencyPipeline(
             dispatch = { it() },
             scheduleDelayed = { ms, block -> scheduled += ms to block },
             fullSpeak = { spoken += it },
             bridgeSend = {},
             bridgeStatus = { "idle" },
-            modelFreeReply = { "Local response to: $it" }
+            modelFreeReply = { "Local response to: $it" },
+            outcomeObserver = { input, output -> outcomes += input to output }
         )
 
         p.onUserInput("survive without a model")
@@ -294,6 +305,10 @@ class LatencyPipelineTest {
         assertEquals(
             listOf("Local response to: survive without a model"),
             p.turns.value.filter { it.fromJarvis }.map { it.text }
+        )
+        assertEquals(
+            listOf("survive without a model" to "Local response to: survive without a model"),
+            outcomes
         )
         assertEquals(LatencyLayer.Phase.IDLE, p.phase.value)
     }
