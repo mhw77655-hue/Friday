@@ -1,25 +1,12 @@
 package com.jarvis.app.selfrepair
 
-import com.jarvis.app.evolution.PromotionController
-import com.jarvis.app.evolution.PromotionReceipt
-import com.jarvis.app.evolution.RollbackController
 import com.jarvis.app.failure.FailureCategory
 import com.jarvis.app.failure.FailureReport
 import com.jarvis.app.failure.FailureSeverity
 import com.jarvis.app.failure.FailureSurface
-import com.jarvis.app.genome.GenomeArchive
-import com.jarvis.app.genome.GenomeBuilder
-import com.jarvis.app.genome.GenomeHealth
-import com.jarvis.app.genome.GenomeRegistry
-import com.jarvis.app.genome.MutationOperator
-import com.jarvis.app.microsystem.MicroSystemRegistry
 import com.jarvis.app.mutation.FitnessModel
 import com.jarvis.app.mutation.LlmSynthesisProvider
 import com.jarvis.app.mutation.SynthesisRequest
-import com.jarvis.app.mutant.AlgorithmSpec
-import com.jarvis.app.mutant.CandidateImplementation
-import com.jarvis.app.mutant.DeterministicSpec
-import com.jarvis.app.mutant.SpecOutput
 import com.jarvis.app.validation.GateDecision
 import com.jarvis.app.sandbox.SandboxExecutor
 import com.jarvis.app.validation.GateVerdict
@@ -42,8 +29,8 @@ import kotlinx.coroutines.CancellationException
  *             this process, then feeding the fresh results back via [conclude])
  *   GATE      [PromotionGate] decides from the real re-run results; only a
  *             PROMOTE verdict registers the repaired genome through
- *             [PromotionController]; a regression is reversed through
- *             [RollbackController]. A refused candidate is restored from its
+ *             a verified patch result is returned to the trusted repository
+ *             publisher. A refused candidate is restored from its
  *             backups — never applied blind.
  *
  * This subsystem is TEST-AND-TOOLING-ONLY: nothing here is instantiated in the
@@ -69,12 +56,7 @@ class SelfRepairLoop(
     private val diagnoser: DiagnosisEngine,
     private val synthesizer: LlmSynthesisProvider,
     private val gate: PromotionGate,
-    private val archive: GenomeArchive,
-    private val registry: MicroSystemRegistry,
-    private val genomeRegistry: GenomeRegistry,
     private val failureSurface: FailureSurface,
-    private val promotionController: PromotionController,
-    private val rollbackController: RollbackController,
     /**
      * Gate 2: isolated stress-test sandbox. Runs the repaired candidate
      * against adversarial inputs (boundary values, malformed data,
@@ -94,7 +76,7 @@ class SelfRepairLoop(
         NOTHING_TO_REPAIR,
         VALIDATION_FAILED,
         APPLIED_PENDING_VERIFICATION,
-        PROMOTED,
+        PATCH_VERIFIED,
         ROLLED_BACK,
         SANDBOX_REJECTED
     }
@@ -111,7 +93,7 @@ class SelfRepairLoop(
         val diagnosis: RepairDiagnosis?,
         val patch: SourcePatch?,
         val decision: GateDecision?,
-        val receipt: PromotionReceipt?,
+        /** Source patches are validated in-place; they are never registered as fake runtime organisms. */
         val verification: List<TestSuiteObservation>,
         val log: List<String>
     )
@@ -187,7 +169,7 @@ class SelfRepairLoop(
         val observation = observeAndDiagnose(requirement, suiteFilter)
         val log = observation.log.toMutableList()
         val target = observation.target
-            ?: return Result(Outcome.NOTHING_TO_REPAIR, null, null, null, null, observation.suites, log)
+            ?: return Result(Outcome.NOTHING_TO_REPAIR, null, null, null, observation.suites, log)
         val diagnosis = observation.diagnosis!!
 
         val patch = try {
@@ -197,7 +179,7 @@ class SelfRepairLoop(
         } catch (t: Exception) {
             log.add("repair: candidate refused (${t.message?.take(200)})")
             recordWarning("Self-repair candidate refused: ${t.message?.take(200)}")
-            return Result(Outcome.VALIDATION_FAILED, diagnosis, null, null, null, emptyList(), log)
+            return Result(Outcome.VALIDATION_FAILED, diagnosis, null, null, emptyList(), log)
         }
         apply(patch)
         log.add("repair: applied ${patch.edits.size} edit(s)")
@@ -262,7 +244,7 @@ class SelfRepairLoop(
             log.add("sandboxGate: unavailable or failed; patch restored ($detail)")
             recordWarning("Self-repair sandbox unavailable; patch restored: $detail")
             return Result(
-                Outcome.VALIDATION_FAILED, diagnosis, patch, null, null,
+                Outcome.VALIDATION_FAILED, diagnosis, patch, null,
                 candidateSuites, log
             )
         }
@@ -324,47 +306,19 @@ class SelfRepairLoop(
         log.add("gate: ${decision.verdict} (${decision.reasons.joinToString("; ").ifEmpty { "clean" }})")
 
         return when (decision.verdict) {
-            GateVerdict.PROMOTE -> promote(
-                diagnosis, patch, decision, candidateSuites.first(), candidateSuites, log
-            )
+            GateVerdict.PROMOTE -> {
+                // This loop validates a repository source patch. It must not
+                // register a synthetic DeterministicSpec as if that were the
+                // repaired Kotlin implementation. The trusted repository
+                // publisher and CI own source promotion after this result.
+                log.add("sourcePatch: VERIFIED — candidate tests, independent regressions, resource evidence and sandbox gate passed")
+                Result(Outcome.PATCH_VERIFIED, diagnosis, patch, decision, candidateSuites, log)
+            }
             else -> rollback(decision, diagnosis, patch, candidateSuites, log)
         }
     }
 
     // ------------------------------------------------------------------
-
-    private suspend fun promote(
-        diagnosis: RepairDiagnosis,
-        patch: SourcePatch,
-        decision: GateDecision,
-        observed: TestSuiteObservation,
-        verification: List<TestSuiteObservation>,
-        log: MutableList<String>
-    ): Result {
-        val genome = GenomeBuilder("selfrepair_${abs(observed.suiteName.hashCode())}_v${System.currentTimeMillis()}")
-            .capability("self_repair")
-            .mutationOperator(MutationOperator.REPAIR_MUTATION)
-            .sourceContext("diagnosed repair of ${diagnosis.faultyUnit}")
-            .build()
-            .copy(healthState = GenomeHealth.TESTING)
-        val implementation = CandidateImplementation(
-            spec = DeterministicSpec(
-                capability = "self_repair",
-                description = "Validated source repair of ${diagnosis.faultyUnit}",
-                source = patch.rationale.ifBlank { diagnosis.fixStrategy },
-                strategy = AlgorithmSpec.Strategy.DETERMINISTIC,
-                fn = { _ -> SpecOutput.Success(mapOf("repaired" to true)) }
-            ),
-            tests = emptyList(),
-            language = "kotlin-patch",
-            sourceCode = patch.edits.joinToString("\n\n") { "${it.file}\n---\n${it.replace}" },
-            dependencies = listOf("none")
-        )
-        val receipt = promotionController.promote(genome, implementation)
-        activeReceipts[diagnosis.faultyUnit] = receipt
-        log.add("promote: registered ${receipt.systemId}")
-        return Result(Outcome.PROMOTED, diagnosis, patch, decision, receipt, verification, log)
-    }
 
     private suspend fun rollback(
         decision: GateDecision,
@@ -373,24 +327,17 @@ class SelfRepairLoop(
         verification: List<TestSuiteObservation>,
         log: MutableList<String>
     ): Result {
-        // If an earlier cycle already PROMOTED this repair and it has since
-        // regressed, reverse the promotion atomically through the canonical
-        // RollbackController (unregister organism, archive REJECTED).
-        activeReceipts.remove(diagnosis.faultyUnit)?.let { receipt ->
-            rollbackController.rollback(receipt, "regression after self-repair promotion")
-            log.add("rollback: reversed promotion ${receipt.systemId}")
-        }
+        // A rejected source patch is restored from its file backups. Runtime
+        // organism promotion is a different operation and is deliberately not
+        // performed by this source-repair tool.
         restore(patch)
         log.add("rollback: patch restored from backups")
         recordWarning(
             "Self-repair candidate rejected at the gate (${decision.verdict}): " +
                 decision.reasons.joinToString("; ")
         )
-        return Result(Outcome.ROLLED_BACK, diagnosis, patch, decision, null, verification, log)
+        return Result(Outcome.ROLLED_BACK, diagnosis, patch, decision, verification, log)
     }
-
-    /** Live promotion receipts of this loop — the rollback points. */
-    private val activeReceipts = linkedMapOf<String, com.jarvis.app.evolution.PromotionReceipt>()
 
     private fun TestSuiteObservation.toTestOutcomes(): List<FitnessModel.TestOutcome> {
         val failing = failures.map { f ->
