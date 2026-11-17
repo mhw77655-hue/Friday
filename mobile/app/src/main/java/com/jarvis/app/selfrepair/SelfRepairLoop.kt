@@ -197,13 +197,6 @@ class SelfRepairLoop(
             return Result(Outcome.VALIDATION_FAILED, diagnosis, patch, null, null, emptyList(), log)
         }
 
-        if (verification.isEmpty()) {
-            restore(patch)
-            log.add("repair: verifier returned no test observations; patch restored")
-            recordWarning("Self-repair verifier returned no test observations; patch restored")
-            return Result(Outcome.VALIDATION_FAILED, diagnosis, patch, null, null, emptyList(), log)
-        }
-
         return try {
             conclude(requirement, diagnosis, patch, verification, log)
         } catch (cancelled: CancellationException) {
@@ -211,8 +204,8 @@ class SelfRepairLoop(
             throw cancelled
         } catch (failure: Exception) {
             restore(patch)
-            log.add("repair: verification gate failed; patch restored (${failure.message?.take(200)})")
-            recordWarning("Self-repair verification gate failed; patch restored: ${failure.message?.take(200)}")
+            log.add("repair: verification produced no usable evidence or gate failed; patch restored (${failure.message?.take(200)})")
+            recordWarning("Self-repair verification produced no usable evidence or gate failed; patch restored: ${failure.message?.take(200)}")
             Result(Outcome.VALIDATION_FAILED, diagnosis, patch, null, null, verification, log)
         }
     }
