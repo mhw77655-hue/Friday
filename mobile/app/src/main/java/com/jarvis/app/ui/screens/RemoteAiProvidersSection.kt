@@ -120,12 +120,12 @@ fun RemoteAiProvidersSection() {
                         when (item) {
                             RemoteProviderProtocol.OPENAI_RESPONSES, RemoteProviderProtocol.OPENAI_COMPATIBLE -> endpoint = "https://api.openai.com/v1"
                             RemoteProviderProtocol.ANTHROPIC_MESSAGES -> endpoint = "https://api.anthropic.com/v1"
-                            RemoteProviderProtocol.GEMINI_GENERATE_CONTENT -> endpoint = "https://generativelanguage.googleapis.com/v1beta"
+                            RemoteProviderProtocol.GEMINI_INTERACTIONS -> endpoint = "https://generativelanguage.googleapis.com/v1beta"
                         }
                         label = when (item) {
                             RemoteProviderProtocol.OPENAI_RESPONSES, RemoteProviderProtocol.OPENAI_COMPATIBLE -> "OpenAI"
                             RemoteProviderProtocol.ANTHROPIC_MESSAGES -> "Claude"
-                            RemoteProviderProtocol.GEMINI_GENERATE_CONTENT -> "Gemini"
+                            RemoteProviderProtocol.GEMINI_INTERACTIONS -> "Gemini"
                         }
                         protocolMenu = false
                     })
