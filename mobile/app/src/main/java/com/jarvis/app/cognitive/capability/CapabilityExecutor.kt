@@ -52,6 +52,7 @@ class CapabilityExecutor(
     private val maxSteps: Int = 100,
     private val nowMs: () -> Long = { System.currentTimeMillis() },
     private val evidenceLedger: CapabilityEvidenceLedger? = null,
+    private val evidenceSessionId: String = java.util.UUID.randomUUID().toString(),
     /** Independent postcondition check; an invocation's own success flag is not verification. */
     private val evidenceVerifier: (ActionRequest, CapabilityInvocation) -> Boolean = { _, _ -> false }
 ) {
@@ -456,7 +457,7 @@ class CapabilityExecutor(
                     source = "capability-executor",
                     verified = verified,
                     detail = detail.take(1_000),
-                    eventId = "$requestKey#$attempt"
+                    eventId = "$evidenceSessionId:$requestKey#$attempt"
                 )
             )
             evidenceRecordingError = null
