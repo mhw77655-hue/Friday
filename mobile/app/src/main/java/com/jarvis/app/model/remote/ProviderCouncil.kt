@@ -20,7 +20,8 @@ data class CouncilRequest(
     /** Additional advisers are opt-in; normal calls use one provider. */
     val maxAdvisers: Int = 1,
     val independentReviewRequested: Boolean = false,
-    val sourcePaths: List<String> = emptyList()
+    val sourcePaths: List<String> = emptyList(),
+    val providerHint: String? = null
 )
 
 data class CouncilOpinion(
@@ -80,7 +81,15 @@ class ProviderCouncil(
 
         val entries = profiles.createEnabledEntries()
         if (entries.isEmpty()) return@withLock CouncilResult(emptyList(), "No enabled provider with a valid configuration is available")
-        val ordered = rotate(entries).take(adviserCount)
+        val hinted = request.providerHint?.trim()?.takeIf { it.isNotEmpty() }?.let { hint ->
+            entries.filter { entry ->
+                entry.profile.id.contains(hint, ignoreCase = true) ||
+                    entry.profile.label.contains(hint, ignoreCase = true) ||
+                    entry.profile.protocol.name.contains(hint.replace(" ", "_"), ignoreCase = true)
+            }
+        } ?: entries
+        if (hinted.isEmpty()) return@withLock CouncilResult(emptyList(), "No configured provider matches '${request.providerHint}'")
+        val ordered = rotate(hinted).take(adviserCount)
         val projectContext = if (request.includeProjectContext) {
             contextPackStore.read()?.renderFor(request.task, maxContextChars).orEmpty()
         } else ""
