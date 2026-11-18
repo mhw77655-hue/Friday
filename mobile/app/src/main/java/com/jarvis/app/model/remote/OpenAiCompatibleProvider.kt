@@ -95,7 +95,7 @@ class OpenAiCompatibleProvider(
 
     override suspend fun modelInfo() = ModelInfo(
         id = model, name = model, providerType = providerType,
-        contextWindow = 0, maxOutputTokens = 32768,
+        contextWindow = 0, maxOutputTokens = 4096,
         supportsStreaming = false, supportsTools = false, supportsVision = false,
         parameters = mapOf("endpoint" to endpoint, "protocol" to protocol.name)
     )
