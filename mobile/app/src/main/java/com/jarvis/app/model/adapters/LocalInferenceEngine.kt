@@ -24,6 +24,8 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.withLock
 import java.io.File
 
 /**
@@ -139,10 +141,12 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
     }
 
     private var nativeHandle: Long = 0
-    private var currentConfig: NativeConfig? = null
-    private var providerConfig: ProviderConfig? = null
+    @Volatile private var currentConfig: NativeConfig? = null
+    @Volatile private var providerConfig: ProviderConfig? = null
     private val modelPathResolver = ModelPathResolver(context)
-    private val stateLock = Any()
+    // Read leases allow generation and cancellation to share the live handle;
+    // unload/shutdown wait for all native calls before destroying it.
+    private val stateLock = ReentrantReadWriteLock()
 
     init {
         LocalInferenceEngine.loadNative()
@@ -154,7 +158,7 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
     fun configure(
         modelSource: com.jarvis.app.env.ModelSource,
         config: ProviderConfig
-    ) {
+    ) = stateLock.writeLock().withLock {
         providerConfig = config
 
         val params = config.parameters
@@ -198,7 +202,7 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
 
     /** Load model (create native handle) */
     override suspend fun load(request: LoadRequest): LoadResult = withContext(Dispatchers.IO) {
-        val result: LoadResult = synchronized(stateLock) {
+        val result: LoadResult = stateLock.writeLock().withLock {
             if (nativeHandle != 0L) {
                 // Already loaded
                 LoadResult(success = true, modelId = request.modelId)
@@ -232,7 +236,7 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
 
     /** Unload model */
     override suspend fun unload(request: UnloadRequest): UnloadResult = withContext(Dispatchers.IO) {
-        synchronized(stateLock) {
+        stateLock.writeLock().withLock {
             if (nativeHandle != 0L) {
                 nativeDestroy(nativeHandle)
                 nativeHandle = 0L
@@ -252,19 +256,23 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
             stream = false
         )
 
-        val result = if (nativeHandle != 0L) {
-            nativeGenerate(nativeHandle, prompt, genConfig, null)
-        } else null
-        if (result == null) {
+        val generated = stateLock.readLock().withLock {
+            val handle = nativeHandle
+            if (handle == 0L) null else {
+                val text = nativeGenerate(handle, prompt, genConfig, null)
+                text?.let { it to nativeGetHealth(handle) }
+            }
+        }
+        if (generated == null) {
             GenerateResult(
                 content = "",
                 finishReason = com.jarvis.app.model.FinishReason.ERROR,
                 usage = TokenUsage(0, 0, 0)
             )
         } else {
-            val health = nativeGetHealth(nativeHandle)
+            val (text, health) = generated
             GenerateResult(
-                content = result,
+                content = text,
                 finishReason = com.jarvis.app.model.FinishReason.STOP,
                 usage = TokenUsage(
                     health.promptTokens.toInt(),
@@ -286,75 +294,67 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
             stream = true
         )
 
-        if (nativeHandle == 0L) {
-            emit(StreamEvent.Error("Model not loaded"))
-            emit(StreamEvent.Done(null))
-            return@flow
-        }
-
         kotlinx.coroutines.coroutineScope {
             var accumulated = ""
-            var usage: TokenUsage? = null
             val channel = Channel<StreamEvent>(Channel.UNLIMITED)
-
             val genJob = launch {
-                nativeGenerate(nativeHandle, prompt, genConfig, object : TokenCallback {
-                    override fun onToken(token: String, tokenId: Int, isFinal: Boolean) {
-                        if (isFinal) {
-                            val health = nativeGetHealth(nativeHandle)
-                            usage = TokenUsage(
-                                health.promptTokens.toInt(),
-                                health.completionTokens.toInt(),
-                                health.totalTokens.toInt()
-                            )
-                            channel.trySend(StreamEvent.Done(usage))
-                        } else {
-                            accumulated += token
-                            channel.trySend(StreamEvent.Token(token, accumulated))
-                        }
+                val generated = stateLock.readLock().withLock {
+                    val handle = nativeHandle
+                    if (handle == 0L) null else {
+                        // Never query native health from inside a token callback:
+                        // generation owns the native model mutex.
+                        val text = nativeGenerate(handle, prompt, genConfig, object : TokenCallback {
+                            override fun onToken(token: String, tokenId: Int, isFinal: Boolean) {
+                                if (!isFinal) {
+                                    accumulated += token
+                                    channel.trySend(StreamEvent.Token(token, accumulated))
+                                }
+                            }
+                        })
+                        text?.let { it to nativeGetHealth(handle) }
                     }
-                })
-
-                // Generation finished without an explicit final callback
-                if (usage == null) {
-                    val health = nativeGetHealth(nativeHandle)
-                    usage = TokenUsage(
+                }
+                if (generated == null) {
+                    channel.trySend(StreamEvent.Error("Model not loaded or native generation failed"))
+                    channel.trySend(StreamEvent.Done(null))
+                } else {
+                    val (text, health) = generated
+                    // JNI currently returns a complete result but does not yet
+                    // forward callbacks. Preserve output until native streaming
+                    // is implemented, without duplicating incremental tokens.
+                    if (accumulated.isEmpty() && text.isNotEmpty()) {
+                        accumulated = text
+                        channel.trySend(StreamEvent.Token(text, accumulated))
+                    }
+                    channel.trySend(StreamEvent.Done(TokenUsage(
                         health.promptTokens.toInt(),
                         health.completionTokens.toInt(),
                         health.totalTokens.toInt()
-                    )
-                    channel.trySend(StreamEvent.Done(usage))
+                    )))
                 }
                 channel.close()
             }
-
-            // Drain the channel into the flow
-            for (event in channel) {
-                emit(event)
-            }
+            for (event in channel) emit(event)
             genJob.join()
         }
     }.flowOn(Dispatchers.IO)
 
     /** Health check */
     override suspend fun health(): ProviderHealth = withContext(Dispatchers.IO) {
-        if (nativeHandle == 0L) {
-            ProviderHealth(
-                isHealthy = false,
-                latencyMs = -1,
-                modelLoaded = false,
-                currentModel = null,
-                error = "Not loaded"
-            )
-        } else {
-            val nativeHealth = nativeGetHealth(nativeHandle)
-            ProviderHealth(
-                isHealthy = nativeHealth.state == NativeState.READY || nativeHealth.state == NativeState.IDLE,
-                latencyMs = nativeHealth.firstTokenMs,
-                modelLoaded = nativeHealth.modelLoaded,
-                currentModel = currentConfig?.modelPath?.let { File(it).name },
-                error = nativeHealth.errorMessage
-            )
+        stateLock.readLock().withLock {
+            val handle = nativeHandle
+            if (handle == 0L) {
+                ProviderHealth(false, -1, false, null, "Not loaded")
+            } else {
+                val nativeHealth = nativeGetHealth(handle)
+                ProviderHealth(
+                    isHealthy = nativeHealth.state == NativeState.READY || nativeHealth.state == NativeState.IDLE,
+                    latencyMs = nativeHealth.firstTokenMs,
+                    modelLoaded = nativeHealth.modelLoaded,
+                    currentModel = currentConfig?.modelPath?.let { File(it).name },
+                    error = nativeHealth.errorMessage
+                )
+            }
         }
     }
 
@@ -374,15 +374,12 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
 
     /** Token usage */
     override suspend fun tokenUsage(): TokenUsage = withContext(Dispatchers.IO) {
-        if (nativeHandle == 0L) {
-            TokenUsage(0, 0, 0)
-        } else {
-            val health = nativeGetHealth(nativeHandle)
-            TokenUsage(
-                health.promptTokens.toInt(),
-                health.completionTokens.toInt(),
-                health.totalTokens.toInt()
-            )
+        stateLock.readLock().withLock {
+            val handle = nativeHandle
+            if (handle == 0L) TokenUsage(0, 0, 0) else {
+                val health = nativeGetHealth(handle)
+                TokenUsage(health.promptTokens.toInt(), health.completionTokens.toInt(), health.totalTokens.toInt())
+            }
         }
     }
 
@@ -392,88 +389,77 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
         maxTokens: Int,
         timeoutMs: Long
     ): String? {
-        if (nativeHandle == 0L) return null
-
         val prompt = messages.map { "${it.first}: ${it.second}" }.joinToString("\n")
-        val genConfig = NativeGenConfig(
-            maxTokens = maxTokens,
-            temperature = 0.7f,
-            topP = 0.9f,
-            topK = 40,
-            stream = false
-        )
-
-        // Wait for ready with timeout
-        val ready = nativeWaitReady(nativeHandle, timeoutMs.toInt())
-        if (!ready) return null
-
-        return nativeGenerate(nativeHandle, prompt, genConfig, null)
+        val genConfig = NativeGenConfig(maxTokens = maxTokens, temperature = 0.7f, topP = 0.9f, topK = 40, stream = false)
+        return stateLock.readLock().withLock {
+            val handle = nativeHandle
+            if (handle == 0L || !nativeWaitReady(handle, timeoutMs.toInt())) null
+            else nativeGenerate(handle, prompt, genConfig, null)
+        }
     }
 
     /** Get current state */
-    fun getState(): NativeState {
-        if (nativeHandle == 0L) return NativeState.DORMANT
-        val ordinal = nativeGetState(nativeHandle)
-        return NativeState.values().firstOrNull { it.ordinal == ordinal } ?: NativeState.FAILED
+    fun getState(): NativeState = stateLock.readLock().withLock {
+        val handle = nativeHandle
+        if (handle == 0L) NativeState.DORMANT else {
+            val ordinal = nativeGetState(handle)
+            NativeState.values().firstOrNull { it.ordinal == ordinal } ?: NativeState.FAILED
+        }
     }
 
     /** Get detailed health */
-    fun getHealth(): NativeHealth? {
-        if (nativeHandle == 0L) return null
-        return nativeGetHealth(nativeHandle)
+    fun getHealth(): NativeHealth? = stateLock.readLock().withLock {
+        nativeHandle.takeIf { it != 0L }?.let(::nativeGetHealth)
     }
 
     /** Prewarm the model (async) */
-    fun prewarm(): Boolean {
-        if (nativeHandle == 0L) return false
-        return nativePrewarm(nativeHandle)
+    fun prewarm(): Boolean = stateLock.readLock().withLock {
+        nativeHandle.takeIf { it != 0L }?.let(::nativePrewarm) ?: false
     }
 
     /** Wait for ready */
-    fun waitReady(timeoutMs: Int = 30000): Boolean {
-        if (nativeHandle == 0L) return false
-        return nativeWaitReady(nativeHandle, timeoutMs)
+    fun waitReady(timeoutMs: Int = 30000): Boolean = stateLock.readLock().withLock {
+        nativeHandle.takeIf { it != 0L }?.let { nativeWaitReady(it, timeoutMs) } ?: false
     }
 
-    /** Cancel generation */
-    fun cancel() {
-        if (nativeHandle != 0L) nativeCancel(nativeHandle)
+    /** Cancel generation can share a read lease with the in-flight generate call. */
+    fun cancel() = stateLock.readLock().withLock {
+        nativeHandle.takeIf { it != 0L }?.let(::nativeCancel)
     }
 
     /** Suspend model (keep weights, release context) */
-    fun suspend(): Boolean {
-        if (nativeHandle == 0L) return false
-        return nativeSuspend(nativeHandle)
+    fun suspend(): Boolean = stateLock.readLock().withLock {
+        nativeHandle.takeIf { it != 0L }?.let(::nativeSuspend) ?: false
     }
 
     /** Resume suspended model */
-    fun resume(): Boolean {
-        if (nativeHandle == 0L) return false
-        return nativeResume(nativeHandle)
+    fun resume(): Boolean = stateLock.readLock().withLock {
+        nativeHandle.takeIf { it != 0L }?.let(::nativeResume) ?: false
     }
 
     /** Count tokens for context budgeting */
-    fun countTokens(text: String): Int {
-        if (nativeHandle == 0L) return text.length / 4 // Rough estimate
-        return nativeTokenCount(nativeHandle, text)
+    fun countTokens(text: String): Int = stateLock.readLock().withLock {
+        nativeHandle.takeIf { it != 0L }?.let { nativeTokenCount(it, text) } ?: text.length / 4
     }
 
     /** Encode text to tokens */
-    fun encode(text: String, output: IntArray): Int {
-        if (nativeHandle == 0L) return -1
-        return nativeEncode(nativeHandle, text, output)
+    fun encode(text: String, output: IntArray): Int = stateLock.readLock().withLock {
+        nativeHandle.takeIf { it != 0L }?.let { nativeEncode(it, text, output) } ?: -1
     }
 
     /** Decode tokens to text */
-    fun decode(tokens: IntArray): String? {
-        if (nativeHandle == 0L) return null
-        return nativeDecode(nativeHandle, tokens)
+    fun decode(tokens: IntArray): String? = stateLock.readLock().withLock {
+        nativeHandle.takeIf { it != 0L }?.let { nativeDecode(it, tokens) }
     }
 
     /** Check if model is loaded and ready */
-    fun isReady(): Boolean {
-        val state = getState()
-        return state == NativeState.READY || state == NativeState.IDLE
+    fun isReady(): Boolean = stateLock.readLock().withLock {
+        val handle = nativeHandle
+        if (handle == 0L) false else {
+            val ordinal = nativeGetState(handle)
+            val state = NativeState.values().firstOrNull { it.ordinal == ordinal } ?: NativeState.FAILED
+            state == NativeState.READY || state == NativeState.IDLE
+        }
     }
 
     /** Build prompt from GenerateRequest */
@@ -491,7 +477,7 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
 
     /** Cleanup */
     fun shutdown() {
-        synchronized(stateLock) {
+        stateLock.writeLock().withLock {
             if (nativeHandle != 0L) {
                 nativeDestroy(nativeHandle)
                 nativeHandle = 0L
