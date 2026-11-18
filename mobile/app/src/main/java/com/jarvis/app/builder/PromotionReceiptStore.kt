@@ -23,14 +23,17 @@ class PromotionReceiptStore(
     }
 
     fun save(receipt: PromotionReceipt) = synchronized(lock) {
-        records[receipt.genomeId] = StoredPromotionReceipt(
+        val candidate = LinkedHashMap(records)
+        candidate[receipt.genomeId] = StoredPromotionReceipt(
             receipt = receipt,
             status = Status.PROMOTED,
             reason = null,
             updatedAtMs = nowMs()
         )
-        trim()
-        persist()
+        trim(candidate)
+        persist(candidate)
+        records.clear()
+        records.putAll(candidate)
     }
 
     fun get(receiptId: String): StoredPromotionReceipt? = synchronized(lock) {
@@ -43,12 +46,15 @@ class PromotionReceiptStore(
 
     fun markRolledBack(receiptId: String, reason: String) = synchronized(lock) {
         val current = records[receiptId] ?: return
-        records[receiptId] = current.copy(
+        val candidate = LinkedHashMap(records)
+        candidate[receiptId] = current.copy(
             status = Status.ROLLED_BACK,
             reason = reason.take(1024),
             updatedAtMs = nowMs()
         )
-        persist()
+        persist(candidate)
+        records.clear()
+        records.putAll(candidate)
     }
 
     private fun load() {
@@ -93,10 +99,10 @@ class PromotionReceiptStore(
         }
     }
 
-    private fun persist() {
+    private fun persist(snapshot: Map<String, StoredPromotionReceipt> = records) {
         file.parentFile?.mkdirs()
         val array = JSONArray()
-        records.values.sortedBy { it.updatedAtMs }.forEach { stored ->
+        snapshot.values.sortedBy { it.updatedAtMs }.forEach { stored ->
             val receipt = stored.receipt
             val point = receipt.rollbackPoint?.let {
                 JSONObject().apply {
@@ -123,12 +129,12 @@ class PromotionReceiptStore(
         fileStorage.write(file, array.toString())
     }
 
-    private fun trim() {
-        if (records.size <= maxRecords) return
-        val keep = records.values.sortedByDescending { it.updatedAtMs }.take(maxRecords)
+    private fun trim(target: LinkedHashMap<String, StoredPromotionReceipt> = records) {
+        if (target.size <= maxRecords) return
+        val keep = target.values.sortedByDescending { it.updatedAtMs }.take(maxRecords)
             .associateBy { it.receipt.genomeId }
-        records.clear()
-        records.putAll(keep)
+        target.clear()
+        target.putAll(keep)
     }
 
     enum class Status { PROMOTED, ROLLED_BACK }
