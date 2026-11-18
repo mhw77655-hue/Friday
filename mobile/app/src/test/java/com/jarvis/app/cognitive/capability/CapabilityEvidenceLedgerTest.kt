@@ -65,6 +65,10 @@ class CapabilityEvidenceLedgerTest {
         assertTrue(ledger.knowledge().single().reusable)
         ledger.record(evidence(EvidenceOutcome.FAILED, at = 3))
         assertFalse(ledger.knowledge().single().reusable)
+        ledger.record(evidence(EvidenceOutcome.SUCCEEDED, at = 4))
+        assertFalse(ledger.knowledge().single().reusable)
+        ledger.record(evidence(EvidenceOutcome.SUCCEEDED, at = 5))
+        assertTrue(ledger.knowledge().single().reusable)
         directory.deleteRecursively()
     }
 
