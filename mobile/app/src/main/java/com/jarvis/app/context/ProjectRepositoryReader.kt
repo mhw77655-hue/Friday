@@ -85,12 +85,16 @@ class ProjectRepositoryReader(
         return out.toString()
     }
 
-    private fun isAllowedPath(path: String): Boolean {
+    internal fun isAllowedPath(path: String): Boolean {
         if (path.isBlank() || path.length > 240 || path.startsWith('/') || '\\' in path) return false
         val segments = path.split('/')
         if (segments.any { it.isBlank() || it == "." || it == ".." }) return false
         val lower = path.lowercase()
-        if (listOf(".env", "local.properties", "keystore", "secret", "token", "credential", ".jks", ".keystore", ".pem", ".p12", ".apk").any { it in lower }) return false
+        val sensitiveSegments = setOf(".env", ".env.local", "secrets", "secret", "credentials", "credential", "private", "keystore", "certificates", "keys")
+        if (segments.any { it.lowercase() in sensitiveSegments }) return false
+        val fileName = segments.last().lowercase()
+        if (fileName.startsWith(".env") || fileName in setOf("local.properties", "secrets.json", "credentials.json", "credential.json", "token.json", "tokens.json", "keystore.properties")) return false
+        if (listOf(".jks", ".keystore", ".pem", ".p12", ".pfx", ".apk", ".aab", ".jceks").any { lower.endsWith(it) }) return false
         val approvedRalphFiles = setOf(
             ".ralph/VISION.md",
             ".ralph/OWNER_WORDS.md",

@@ -10,7 +10,7 @@ import com.jarvis.app.model.TokenUsage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import java.time.LocalDate
+import java.time.Instant
 import java.time.ZoneOffset
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -53,7 +53,8 @@ class ProviderCouncil(
     private val repositoryReader: com.jarvis.app.context.ProjectRepositoryReader? = null,
     private val dailyRequestLimit: Int = 12,
     private val dailyTokenLimit: Int = 30_000,
-    private val maxContextChars: Int = 8_000
+    private val maxContextChars: Int = 8_000,
+    private val nowMs: () -> Long = { 0L }
 ) {
     private val prefs = context.applicationContext.getSharedPreferences("friday_provider_council_budget", Context.MODE_PRIVATE)
     private val mutex = Mutex()
@@ -166,7 +167,7 @@ class ProviderCouncil(
 
     @Synchronized
     private fun reserve(estimatedTokens: Int): Boolean {
-        val today = LocalDate.now(ZoneOffset.UTC).toString()
+        val today = Instant.ofEpochMilli(nowMs()).atZone(ZoneOffset.UTC).toLocalDate().toString()
         if (prefs.getString(KEY_DAY, null) != today) {
             prefs.edit().putString(KEY_DAY, today).putInt(KEY_REQUESTS, 0).putInt(KEY_TOKENS, 0).commit()
         }

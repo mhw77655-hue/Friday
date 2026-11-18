@@ -24,26 +24,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import com.jarvis.app.JarvisApplication
 import com.jarvis.app.context.ProjectContextPack
-import com.jarvis.app.context.ProjectContextPackStore
 import com.jarvis.app.context.ProjectContextPackSync
 import com.jarvis.app.context.ProjectContextSyncResult
-import com.jarvis.app.model.remote.ProviderCouncil
 import com.jarvis.app.model.remote.RemoteProviderProfile
-import com.jarvis.app.model.remote.RemoteProviderProfiles
 import com.jarvis.app.model.remote.RemoteProviderProtocol
 import kotlinx.coroutines.launch
 import org.json.JSONObject
-import java.io.File
 
 @Composable
 fun RemoteAiProvidersSection() {
     val context = LocalContext.current
-    val profiles = remember { RemoteProviderProfiles(context) }
-    val packStore = remember { ProjectContextPackStore(File(context.filesDir, "friday/project_context_pack.json")) }
+    val app = context.applicationContext as JarvisApplication
+    val profiles = remember { app.remoteProviderProfiles }
+    val packStore = remember { app.projectContextPackStore }
     val contextSync = remember { ProjectContextPackSync(context, packStore) }
     val scope = rememberCoroutineScope()
-    val council = remember { ProviderCouncil(context, profiles, packStore) }
+    val council = remember { app.providerCouncil }
     var councilEnabled by remember { mutableStateOf(council.isEnabled()) }
     var configured by remember { mutableStateOf(profiles.all()) }
     var profileId by remember { mutableStateOf("openai") }

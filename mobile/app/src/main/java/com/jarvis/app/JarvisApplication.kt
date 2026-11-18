@@ -19,7 +19,8 @@ class JarvisApplication : Application() {
     val providerCouncil by lazy {
         com.jarvis.app.model.remote.ProviderCouncil(
             this, remoteProviderProfiles, projectContextPackStore,
-            com.jarvis.app.context.ProjectRepositoryReader()
+            com.jarvis.app.context.ProjectRepositoryReader(),
+            nowMs = { JarvisEngine.nowMs() }
         )
     }
 

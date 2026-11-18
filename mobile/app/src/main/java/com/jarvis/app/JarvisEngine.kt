@@ -53,6 +53,7 @@ object JarvisEngine {
     @Volatile var wiringLatchForTesting: java.util.concurrent.CountDownLatch? = null
     @Volatile var wiringThrowForTesting: Throwable? = null
 
+    @Volatile private var turnClock: (() -> Long)? = null
     @Volatile private var appContext: Context? = null
     @Volatile var capabilities: CapabilityManifest? = null
         private set
@@ -62,6 +63,11 @@ object JarvisEngine {
     fun appContext(): Context = checkNotNull(appContext) {
         "JarvisEngine.init() must run before accessing appContext"
     }
+
+    /** The shared turn clock; consumers must not create their own wall-clock reads. */
+    fun nowMs(): Long = checkNotNull(turnClock) {
+        "The turn clock is not initialized yet"
+    }.invoke()
 
     // Liquid OS components — process-scoped singletons. ModelManager + the
     // four shared stores are built synchronously in init() (before any screen
@@ -298,6 +304,7 @@ object JarvisEngine {
             JarvisEngine.turnTraceStore = turnTraceStore
 
             val clock: () -> Long = { System.currentTimeMillis() }
+            turnClock = clock
             val threadTracker = com.jarvis.app.threads.ThreadTracker(now = clock)
             JarvisEngine.threadTracker = threadTracker
 
