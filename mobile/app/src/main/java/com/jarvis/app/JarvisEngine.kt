@@ -157,6 +157,10 @@ object JarvisEngine {
     // the android capability adapter stack. Each exposes a real hosted call path.
     @Volatile var universalResearchEngine: com.jarvis.app.research.universal.UniversalResearchEngine? = null
         private set
+    @Volatile var toolBuilderStack: com.jarvis.app.builder.ToolBuilderComposition.Stack? = null
+        private set
+    @Volatile var toolBuilder: com.jarvis.app.builder.ToolBuilder? = null
+        private set
     @Volatile var ownerBiometricBinder: com.jarvis.app.identity.owner.OwnerBiometricBinder? = null
         private set
     @Volatile var androidRiskGate: com.jarvis.app.android.RiskGate? = null
@@ -388,17 +392,63 @@ object JarvisEngine {
                 "synthesize speech"
             )
 
-            // ── Phase B: Universal Research Engine ───────────────────────────
-            // Demand-driven (no autonomous loop): constructed with the real
-            // CloudModelRouter as its cloud-reasoning channel and a real
-            // mechanisms store. Invoked via requestResearch() only when a
-            // capability gap or hard problem is surfaced. Repository research
-            // remains available as an evidence source, but Android deliberately
-            // has no source-builder consumer; repository construction is external.
+            // ── Friday Builder: phone-resident self-development ─────────────
+            // The Builder is part of Friday's running body, not a separate
+            // development dashboard. It shares the live cognitive capability
+            // fabric, model authority, owner-scoped stores and this phone's
+            // measured resource state. Its generated tools are restricted
+            // SynthPrograms, persisted in Friday's private workspace and
+            // rehydrated at startup without APK replacement.
             val universalResearchEngine = com.jarvis.app.research.universal.UniversalResearchEngine(
                 cloudRouter = cloudModelRouter,
                 store = com.jarvis.app.research.universal.InMemoryMechanismsStore()
             )
+            val builderGovernor = com.jarvis.app.resource.ResourceGovernor()
+            val refreshBuilderResources: () -> Unit = {
+                val snapshot = com.jarvis.app.model.AndroidResourceSnapshot(appContext)
+                val activityManager = appContext.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+                val memoryInfo = android.app.ActivityManager.MemoryInfo().also(activityManager::getMemoryInfo)
+                val totalMemoryMb = (memoryInfo.totalMem / (1024L * 1024L)).coerceAtLeast(512L)
+                val connectivity = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+                val activeNetwork = connectivity.activeNetwork
+                val networkAvailable = activeNetwork != null &&
+                    connectivity.getNetworkCapabilities(activeNetwork)
+                        ?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+                val state = com.jarvis.app.resource.DeviceResourceState(
+                    totalMemoryMb = totalMemoryMb,
+                    availableMemoryMb = snapshot.availableMemoryMb,
+                    thermalLevel = snapshot.thermalLevel,
+                    batteryPercent = snapshot.batteryPercent,
+                    isCharging = snapshot.isCharging,
+                    networkAvailable = networkAvailable,
+                    gpuAvailable = false
+                )
+                builderGovernor.updateDeviceState(state)
+                val usableMemoryMb = (totalMemoryMb - maxOf(1024L, totalMemoryMb / 4)).coerceAtLeast(512L)
+                builderGovernor.updatePolicy(
+                    com.jarvis.app.resource.AdmissionPolicy(
+                        totalMemoryMb = usableMemoryMb,
+                        totalCpuPercent = 70.0,
+                        maxPerSystemMemoryMb = (usableMemoryMb / 3).coerceIn(128L, 1024L),
+                        maxConcurrentSystems = 1,
+                        minBatteryPercent = 15,
+                        allowWhileCharging = true
+                    )
+                )
+            }
+            val builderStack = com.jarvis.app.builder.ToolBuilderComposition.build(
+                research = universalResearchEngine,
+                failureSurface = failureSurface,
+                fileStorage = fileStorage,
+                scope = scope,
+                workspacesDir = java.io.File(appContext.filesDir, "friday-builder/workspaces"),
+                llmSynthesisProvider = com.jarvis.app.mutation.LlmSynthesisProvider(modelManager),
+                cognitiveCapabilityFabric = capabilityFabric,
+                resourceGovernor = builderGovernor,
+                refreshResources = refreshBuilderResources
+            )
+            this.toolBuilderStack = builderStack
+            this.toolBuilder = builderStack.builder
 
             // ── Phase B: Owner-binding chain ─────────────────────────────────
             // The real owner-binding entry point over Friday's Android Keystore-backed
@@ -870,6 +920,16 @@ object JarvisEngine {
      * UniversalResearchEngine through every wired channel (local catalog +
      * cloud router) and persists candidates to the real mechanisms store.
      */
+    /** Ask the phone-resident Builder to develop a missing capability. */
+    suspend fun requestBuild(
+        spec: com.jarvis.app.builder.ToolSpecification
+    ): com.jarvis.app.builder.BuildResult {
+        val builder = checkNotNull(toolBuilder) {
+            "JarvisEngine.init() must run first; Friday Builder is not available"
+        }
+        return builder.build(spec)
+    }
+
     suspend fun requestResearch(
         gapDescription: String,
         targetDomains: Set<com.jarvis.app.research.ResearchDomain> = emptySet(),
