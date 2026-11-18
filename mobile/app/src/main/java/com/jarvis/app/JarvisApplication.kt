@@ -27,6 +27,12 @@ class JarvisApplication : Application() {
         runCatching {
             com.jarvis.app.github.DevelopmentRequestOutboxScheduler.ensureScheduled(this)
         }
+        // A crash is reported automatically on the next successful process
+        // start. The report contains only the bounded CrashJournal evidence;
+        // GitHub receives a durable request and owns diagnosis/repair.
+        runCatching {
+            com.jarvis.app.diagnostics.CrashRepairBridge.enqueuePreviousCrash(this)
+        }
 
         // Process-scoped background/foreground for the Companion Core (plan
         // §4.3, audit R-A3). ProcessLifecycleOwner fires ON_STOP only when the
