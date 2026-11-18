@@ -2,6 +2,11 @@ package com.jarvis.app.humancore.store
 
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Default [StoragePort]: one file per store inside the app's private
@@ -21,7 +26,8 @@ import java.io.FileOutputStream
 class FileStorage(directory: File) : StoragePort {
 
     private val dir: File = File(directory, "humancore").apply { mkdirs() }
-    private val locks = mutableMapOf<StoreKind, Any>()
+    // Shared across FileStorage instances: several subsystems construct their
+    // own adapter for the same filesDir, so per-instance locks are insufficient.
 
     /** Root directory (the raw filesDir) for subsystems that manage their own
      *  subdirectories (Liquid OS inbox/approvals/alerts/sessions/env). */
@@ -30,26 +36,18 @@ class FileStorage(directory: File) : StoragePort {
     override fun read(store: StoreKind): String? {
         // Read under the same per-store lock as write/append/delete so a
         // read never observes a mid-write state (HUMAN_CORE_AUDIT m-17).
-        synchronized(lockFor(store)) {
-            val file = fileFor(store)
+        val file = fileFor(store)
+        synchronized(lockFor(file)) {
             return if (file.exists()) file.readText() else null
         }
     }
 
     override fun write(store: StoreKind, content: String) {
-        synchronized(lockFor(store)) {
-            val target = fileFor(store)
+        val target = fileFor(store)
+        synchronized(lockFor(target)) {
             val tmp = File(target.parentFile, target.name + ".tmp")
             writeWithFsync(tmp, content)
-            // Atomic replace: readers (including a process killed mid-write)
-            // only ever see a complete file.
-            if (!tmp.renameTo(target)) {
-                // Fallback for exotic filesystems where renameTo across the
-                // same directory can still fail — copy then delete, keeping
-                // the write non-torn in practice.
-                writeWithFsync(target, content)
-                tmp.delete()
-            }
+            atomicReplace(tmp, target)
         }
     }
 
@@ -68,38 +66,66 @@ class FileStorage(directory: File) : StoragePort {
     }
 
     override fun append(store: StoreKind, line: String) {
-        synchronized(lockFor(store)) {
-            fileFor(store).appendText(line + "\n")
+        val file = fileFor(store)
+        synchronized(lockFor(file)) {
+            file.appendText(line + "\n")
         }
     }
 
     override fun delete(store: StoreKind) {
-        synchronized(lockFor(store)) {
-            fileFor(store).delete()
+        val file = fileFor(store)
+        synchronized(lockFor(file)) {
+            file.delete()
         }
     }
 
-    /** Write a raw file at an arbitrary path. Atomic (temp + rename), same
-     *  durability contract as [writeWithFsync]; callers are responsible for
-     *  their own locking. */
+    /** Write a raw file at an arbitrary path using the same cross-instance
+     *  path lock and atomic replacement guarantee as logical stores. */
     fun write(file: File, content: String) {
         file.parentFile?.mkdirs()
-        val tmp = File(file.parentFile, file.name + ".tmp")
-        writeWithFsync(tmp, content)
-        if (!tmp.renameTo(file)) {
-            writeWithFsync(file, content)
-            tmp.delete()
+        synchronized(lockFor(file)) {
+            val tmp = File(file.parentFile, file.name + ".tmp")
+            writeWithFsync(tmp, content)
+            atomicReplace(tmp, file)
         }
     }
 
     /** Append a line to a raw file at an arbitrary path (no per-store lock). */
     fun append(file: File, line: String) {
         file.parentFile?.mkdirs()
-        file.appendText(line)
+        synchronized(lockFor(file)) {
+            file.appendText(line)
+        }
+    }
+
+    private fun atomicReplace(tmp: File, target: File) {
+        try {
+            // Same-directory atomic rename. If the filesystem cannot provide
+            // this guarantee, fail while preserving the previous target rather
+            // than falling back to a truncating, crash-vulnerable copy.
+            Files.move(
+                tmp.toPath(),
+                target.toPath(),
+                StandardCopyOption.ATOMIC_MOVE,
+                StandardCopyOption.REPLACE_EXISTING
+            )
+        } catch (failure: AtomicMoveNotSupportedException) {
+            tmp.delete()
+            throw IOException("Atomic replacement is not supported for ${target.name}.", failure)
+        } catch (failure: IOException) {
+            tmp.delete()
+            throw failure
+        }
     }
 
     private fun fileFor(store: StoreKind): File = File(dir, store.fileName)
 
-    private fun lockFor(store: StoreKind): Any =
-        synchronized(locks) { locks.getOrPut(store) { Any() } }
+    private fun lockFor(file: File): Any {
+        val key = runCatching { file.canonicalPath }.getOrElse { file.absolutePath }
+        return pathLocks.computeIfAbsent(key) { Any() }
+    }
+
+    companion object {
+        private val pathLocks = ConcurrentHashMap<String, Any>()
+    }
 }
