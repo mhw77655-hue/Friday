@@ -1,5 +1,6 @@
 package com.jarvis.app.cognitive
 
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -120,4 +121,35 @@ class TaskWorkingMemoryTest {
         twm.setGoal("test")
         assertEquals("test", twm.getGoal())
     }
+    @Test
+    fun `structured executable subgoals retain operation identifiers`() {
+        twm.pushExecutableSubgoals(
+            listOf(TaskWorkingMemory.ExecutableSubgoal("Recall the owner's preference", "memory.preference.read"))
+        )
+        val next = twm.nextSubgoal()!!
+        assertEquals("Recall the owner's preference", next.description)
+        assertEquals("memory.preference.read", next.operationId)
+    }
+
+    @Test
+    fun `runNext blocks prose-only subgoals instead of passing descriptions as operations`() =
+        kotlinx.coroutines.runBlocking {
+            val engine = CognitiveEngine(
+                scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default),
+                memoryStore = object : com.jarvis.app.body.MemoryStorePort {
+                    override fun queryMemories(query: String, limit: Int) =
+                        emptyList<com.jarvis.app.body.MemoryItem>()
+                }
+            )
+            engine.getTaskWorkingMemory().setGoal("Remember a preference")
+            engine.getTaskWorkingMemory().pushSubgoals(listOf("Recall the owner's preference"))
+
+            val result = engine.runNext()
+
+            assertNotNull(result)
+            assertEquals(TaskWorkingMemory.ResultStatus.BLOCKED, result!!.status)
+            assertFalse(result.success)
+            assertTrue(result.detail.contains("no executable operation ID"))
+        }
+
 }
