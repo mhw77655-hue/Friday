@@ -3,7 +3,7 @@ set -euo pipefail
 
 EVIDENCE_DIR="${RUNNER_TEMP}/friday-emulator"
 mkdir -p "$EVIDENCE_DIR"
-adb logcat -c
+timeout 20s adb logcat -c
 
 capture_boot_diagnostics() {
   {
@@ -49,7 +49,7 @@ fi
 
 python3 tools/friday-builder/apply_device_state_capsule.py .github/android-emulator/default-state-capsule.json
 ./gradlew :mobile:app:connectedDebugAndroidTest
-adb shell am start -n com.jarvis.app/.MainActivity || true
+timeout 30s adb shell am start -n com.jarvis.app/.MainActivity || true
 sleep 8
 adb shell dumpsys activity top > "$EVIDENCE_DIR/activity-top.txt" 2>/dev/null || true
 adb exec-out screencap -p > "$EVIDENCE_DIR/screen.png" || true
