@@ -1,6 +1,7 @@
 package com.jarvis.app.builder
 
 import com.jarvis.app.cognitive.capability.CapabilityFabric
+import com.jarvis.app.cognitive.capability.CapabilityRegistry
 import com.jarvis.app.evolution.CandidateGenerator
 import com.jarvis.app.evolution.DEFAULT_SYNTHESIZERS
 import com.jarvis.app.evolution.EvolutionEngine
@@ -17,6 +18,10 @@ import com.jarvis.app.mutant.ArtifactManager
 import com.jarvis.app.mutant.MutantEnvironment
 import com.jarvis.app.mutant.ProcessLocalBackend
 import com.jarvis.app.mutant.ResourceSandbox
+import com.jarvis.app.mutant.ArtifactRehydrator
+import com.jarvis.app.microsystem.SpecMicroSystem
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
 import com.jarvis.app.mutation.EnvironmentFactory
 import com.jarvis.app.nervous.ArbitrationEngine
 import com.jarvis.app.nervous.CapabilityRouter
@@ -60,7 +65,8 @@ object ToolBuilderComposition {
         val gns: GlobalNervousSystem,
         val rollback: RollbackController,
         val sandbox: ResourceSandbox,
-        val scope: CoroutineScope
+        val scope: CoroutineScope,
+        val recoveredCapabilities: Set<String>
     )
 
     fun build(
@@ -70,7 +76,8 @@ object ToolBuilderComposition {
         scope: CoroutineScope,
         workspacesDir: File,
         llmSynthesisProvider: LlmSynthesisProvider? = null,
-        cognitiveCapabilityFabric: CapabilityFabric? = null
+        cognitiveCapabilityFabric: CapabilityFabric? = null,
+        refreshResources: () -> Unit = {}
     ): Stack {
         val sandbox = ResourceSandbox()
         val factory = EnvironmentFactory(failureSurface, workspacesDir)
@@ -88,6 +95,68 @@ object ToolBuilderComposition {
         val genomeRegistry = GenomeRegistry().apply {
             archive.allAccepted().forEach(::register)
         }
+
+        // Restore executable, checksum-verified SynthProgram artifacts before
+        // Friday starts routing turns. Only the restricted interpreter is
+        // rehydrated; arbitrary Kotlin/DEX/native payloads are never loaded.
+        val recoveredCapabilities = linkedSetOf<String>()
+        val workspaceRoot = workspacesDir.canonicalFile.toPath()
+        genomeRegistry.allBest().values.distinctBy { it.id }.forEach { genome ->
+            val artifactPath = genome.artifactPath ?: return@forEach
+            val workspace = runCatching { File(artifactPath).canonicalFile }.getOrNull()
+                ?: return@forEach
+            if (!workspace.toPath().startsWith(workspaceRoot)) {
+                failureSurface.report(
+                    com.jarvis.app.failure.FailureReport(
+                        subsystem = "BUILDER",
+                        operation = "rehydrate",
+                        severity = com.jarvis.app.failure.FailureSeverity.WARNING,
+                        category = com.jarvis.app.failure.FailureCategory.PERSISTENCE,
+                        message = "Refused capability artifact outside the private Builder workspace: ${genome.id}",
+                        source = "ToolBuilderComposition"
+                    )
+                )
+                return@forEach
+            }
+            val overlapsNative = genome.capabilities.any { operation ->
+                cognitiveCapabilityFabric?.registry?.lookupByOperation(operation)?.isNotEmpty() == true
+            }
+            if (overlapsNative) return@forEach
+
+            val implementation = ArtifactRehydrator.load(workspace, genome)
+            if (implementation == null) {
+                failureSurface.report(
+                    com.jarvis.app.failure.FailureReport(
+                        subsystem = "BUILDER",
+                        operation = "rehydrate",
+                        severity = com.jarvis.app.failure.FailureSeverity.WARNING,
+                        category = com.jarvis.app.failure.FailureCategory.PERSISTENCE,
+                        message = "Stored capability artifact failed integrity or format validation: ${genome.id}",
+                        source = "ToolBuilderComposition"
+                    )
+                )
+                return@forEach
+            }
+            val system = SpecMicroSystem(
+                id = "friday_generated_${genome.id}",
+                genome = genome,
+                spec = implementation.spec,
+                sandbox = ResourceSandbox(),
+                failureSurface = failureSurface
+            )
+            runBlocking(Dispatchers.IO) { system.onPromoted() }
+            registry.register(system)
+            if (cognitiveCapabilityFabric != null) {
+                val registered = cognitiveCapabilityFabric.register(SpecMicroSystemCapability(system))
+                if (registered !is CapabilityRegistry.RegisterResult.Ok) {
+                    registry.unregister(system.id)
+                    runBlocking(Dispatchers.IO) { system.shutdown() }
+                    return@forEach
+                }
+            }
+            recoveredCapabilities += genome.capabilities
+        }
+
         val router = CapabilityRouter(registry, failureSurface)
         val gns = GlobalNervousSystem(
             router = router,
@@ -126,7 +195,14 @@ object ToolBuilderComposition {
         )
 
         val builder = ToolBuilder(
-            gapDetector = CapabilityGapDetector(registry, genomeRegistry, router),
+            gapDetector = CapabilityGapDetector(
+                registry,
+                genomeRegistry,
+                router,
+                nativeProviderExists = { operation ->
+                    cognitiveCapabilityFabric?.registry?.lookupByOperation(operation)?.isNotEmpty() == true
+                }
+            ),
             research = research,
             evolution = evolution,
             registry = registry,
@@ -134,9 +210,28 @@ object ToolBuilderComposition {
             archive = archive,
             governor = governor,
             failureSurface = failureSurface,
-            nervousSystem = gns
+            nervousSystem = gns,
+            refreshResources = refreshResources
         )
 
-        return Stack(builder, registry, genomeRegistry, archive, governor, failureSurface, gns, rollback, sandbox, scope)
+        cognitiveCapabilityFabric?.let { fabric ->
+            val registered = fabric.register(ToolBuilderCapability(builder))
+            if (registered !is CapabilityRegistry.RegisterResult.Ok &&
+                fabric.registry.get("friday.builder.runtime") == null
+            ) {
+                failureSurface.report(
+                    com.jarvis.app.failure.FailureReport(
+                        subsystem = "BUILDER",
+                        operation = "register",
+                        severity = com.jarvis.app.failure.FailureSeverity.ERROR,
+                        category = com.jarvis.app.failure.FailureCategory.CAPABILITY,
+                        message = "Friday Builder could not register into the primary cognitive capability fabric",
+                        source = "ToolBuilderComposition"
+                    )
+                )
+            }
+        }
+
+        return Stack(builder, registry, genomeRegistry, archive, governor, failureSurface, gns, rollback, sandbox, scope, recoveredCapabilities)
     }
 }
