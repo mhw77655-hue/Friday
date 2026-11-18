@@ -27,6 +27,7 @@ import com.jarvis.app.JarvisEngine
 import com.jarvis.app.bootstrap.BootstrapManager
 import com.jarvis.app.bootstrap.BootstrapState
 import com.jarvis.app.bootstrap.BootstrapStep
+import com.jarvis.app.ui.components.FridayBrandMark
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
 import kotlinx.coroutines.launch
@@ -52,24 +53,19 @@ fun BootstrapScreen(
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(
-            imageVector = Icons.Filled.Build,
-            contentDescription = null,
-            modifier = Modifier.size(96.dp),
-            tint = JarvisColors.CoreIdle
-        )
+        FridayBrandMark(Modifier.size(96.dp))
 
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.size(24.dp))
 
         Text(
-            text = "JARVIS",
+            text = "FRIDAY",
             style = JarvisType.Display.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
         )
 
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.size(8.dp))
 
         Text(
-            text = "Bootstrapping...",
+            text = "Preparing Friday’s local runtime…",
             style = JarvisType.Body.copy(color = JarvisColors.TextSecondary)
         )
 
