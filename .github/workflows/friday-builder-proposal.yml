@@ -356,7 +356,11 @@ jobs:
             exit 1
           fi
 
-          gh workflow run build.yml --repo "$REPOSITORY" --ref "$BRANCH"
+          # Creating a PR targeting main triggers build.yml through its normal
+          # pull_request event. Do not dispatch it again: this publisher is
+          # intentionally not granted actions:write, and duplicate dispatch
+          # would widen authority without adding validation evidence.
+          echo "Draft PR created; the pull_request event will run the required build checks."
 
       - name: Publish boundary summary
         if: always()
