@@ -90,6 +90,9 @@ def adb(*args: str) -> None:
 
 
 def apply_capsule(data: dict[str, Any]) -> None:
+    actual_api = int(subprocess.check_output(["adb", "shell", "getprop", "ro.build.version.sdk"], text=True).strip())
+    if actual_api != data["api_level"]:
+        raise ValueError(f"capsule api_level {data['api_level']} does not match emulator API {actual_api}")
     display = data["display"]
     adb("wm", "size", f"{display['width_px']}x{display['height_px']}")
     adb("wm", "density", str(display["density_dpi"]))
