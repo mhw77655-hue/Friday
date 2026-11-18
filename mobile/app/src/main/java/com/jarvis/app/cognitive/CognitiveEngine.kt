@@ -1286,6 +1286,9 @@ class CognitiveEngine(
             if (operationNames.any { it.startsWith("builder.rollback") }) {
                 append("\nUse builder.rollback only when evidence indicates a promoted capability regressed. parameters must include receipt_id from builder.inspect and a concise reason. Never invent a receipt id.")
             }
+            if (operationNames.contains("builder.submit_repository_request")) {
+                append("\nFor builder.submit_repository_request, parameters.request_json must be a JSON string containing exactly intended_outcome, evidence (technical facts only), acceptance_criteria, risks, rollback_expectation, and unresolved_questions. Never include conversation transcripts, private memories, email addresses, credentials, tokens, or personal data. The operation only dispatches a request; it does not mean the build succeeded.")
+            }
             append("\nNever use the description as the operation. Do not invent operations or permissions.")
             if (strict) append("\nThe previous response was invalid; correct the schema and exact operation names.")
         }
