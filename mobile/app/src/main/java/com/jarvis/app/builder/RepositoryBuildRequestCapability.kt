@@ -35,90 +35,70 @@ class RepositoryBuildRequestCapability(
         requiredPermissions = setOf(CapabilityPermission.REPOSITORY_BUILD),
         resourceProfile = CapabilityResourceProfile(cpuCost = 0.05f, memoryCostMb = 8, optional = true),
         riskLevel = RiskLevel.HIGH,
-        supportedOperations = setOf("builder.submit_repository_request", "builder.check_repository_request"),
+        supportedOperations = setOf("builder.submit_repository_request"),
         availability = Availability.ONLINE
     )
 
     override suspend fun invoke(request: ActionRequest): ExecutionResult {
-        if (!settings.hasToken()) {
-            return failure("REPOSITORY_BUILDER_NOT_CONFIGURED", "Owner has not configured the repository-builder credential.")
+        if (request.action != "builder.submit_repository_request") {
+            return ExecutionResult.fail(ActionFailure.Unsupported(request.action))
         }
-        return when (request.action) {
-            "builder.check_repository_request" -> {
-                val requestId = request.context["request_id"]
-                    ?: return failure("REPOSITORY_REQUEST_ID_MISSING", "request_id is required to check a repository build.")
-                val status = dispatchClient.checkStatus(requestId)
-                ExecutionResult.ok(
-                    output = buildMap {
-                        put("request_id", requestId)
-                        put("status", status.state)
-                        put("message", status.message)
-                        status.runUrl?.let { put("run_url", it) }
-                        status.conclusion?.let { put("conclusion", it) }
-                    },
-                    evidence = mapOf("github_workflow_status" to status.state)
+        if (!settings.hasToken() || !settings.automaticRequestsEnabled()) {
+            return failure("REPOSITORY_BUILDER_NOT_AUTHORIZED", "Owner has not enabled automatic repository requests.")
+        }
+        val raw = request.context["request_json"]
+            ?: return failure("REPOSITORY_REQUEST_MISSING", "A structured technical request_json is required.")
+        val brief = parseBrief(raw)
+            ?: return failure(
+                "REPOSITORY_REQUEST_INVALID",
+                "Request must contain only intended_outcome, evidence, acceptance_criteria, risks, rollback_expectation and unresolved_questions."
+            )
+
+        val requestId = newRequestId()
+        if (!GitHubWorkflowDispatchClient.REQUEST_ID.matches(requestId)) {
+            return failure("REPOSITORY_REQUEST_ID_INVALID", "Could not create a valid request identifier.")
+        }
+        val timestamp = now().toString()
+        val envelope = JSONObject()
+            .put("schema_version", 1)
+            .put("request_id", requestId)
+            .put("created_at", timestamp)
+            .put("source_revision", "main")
+            .put("intended_outcome", brief.intendedOutcome)
+            .put("evidence", JSONArray(brief.evidence))
+            .put("acceptance_criteria", JSONArray(brief.acceptanceCriteria))
+            .put("risks", JSONArray(brief.risks))
+            .put("rollback_expectation", brief.rollbackExpectation)
+            .put("unresolved_questions", JSONArray(brief.unresolvedQuestions))
+            .put(
+                "privacy_review",
+                JSONObject()
+                    .put("status", "approved")
+                    .put("reviewed_by", "owner-enabled-on-device")
+                    .put("reviewed_at", timestamp)
+            )
+            .put("aggregate_runtime_evidence_enabled", false)
+            .put("aggregate_runtime_evidence_scope", "none")
+
+        val result = dispatchClient.dispatch(requestId, envelope.toString())
+        return if (result.accepted) {
+            ExecutionResult.ok(
+                output = mapOf(
+                    "status" to "DISPATCHED",
+                    "request_id" to requestId,
+                    "workflow_url" to result.workflowUrl,
+                    "message" to result.message
+                ),
+                evidence = mapOf("github_workflow_dispatch" to "accepted")
+            )
+        } else {
+            ExecutionResult.fail(
+                ActionFailure.Error(
+                    code = "GITHUB_WORKFLOW_DISPATCH_FAILED",
+                    message = result.message,
+                    recoverable = true
                 )
-            }
-            "builder.submit_repository_request" -> {
-                if (!settings.automaticRequestsEnabled()) {
-                    return failure("REPOSITORY_BUILDER_NOT_AUTHORIZED", "Owner has not enabled automatic repository requests.")
-                }
-                val raw = request.context["request_json"]
-                    ?: return failure("REPOSITORY_REQUEST_MISSING", "A structured technical request_json is required.")
-                val brief = parseBrief(raw)
-                    ?: return failure(
-                        "REPOSITORY_REQUEST_INVALID",
-                        "Request must contain only intended_outcome, evidence, acceptance_criteria, risks, rollback_expectation and unresolved_questions."
-                    )
-
-                val requestId = newRequestId()
-                if (!GitHubWorkflowDispatchClient.REQUEST_ID.matches(requestId)) {
-                    return failure("REPOSITORY_REQUEST_ID_INVALID", "Could not create a valid request identifier.")
-                }
-                val timestamp = now().toString()
-                val envelope = JSONObject()
-                    .put("schema_version", 1)
-                    .put("request_id", requestId)
-                    .put("created_at", timestamp)
-                    .put("source_revision", "main")
-                    .put("intended_outcome", brief.intendedOutcome)
-                    .put("evidence", JSONArray(brief.evidence))
-                    .put("acceptance_criteria", JSONArray(brief.acceptanceCriteria))
-                    .put("risks", JSONArray(brief.risks))
-                    .put("rollback_expectation", brief.rollbackExpectation)
-                    .put("unresolved_questions", JSONArray(brief.unresolvedQuestions))
-                    .put(
-                        "privacy_review",
-                        JSONObject()
-                            .put("status", "approved")
-                            .put("reviewed_by", "owner-enabled-on-device")
-                            .put("reviewed_at", timestamp)
-                    )
-                    .put("aggregate_runtime_evidence_enabled", false)
-                    .put("aggregate_runtime_evidence_scope", "none")
-
-                val result = dispatchClient.dispatch(requestId, envelope.toString())
-                if (result.accepted) {
-                    ExecutionResult.ok(
-                        output = mapOf(
-                            "status" to "DISPATCHED",
-                            "request_id" to requestId,
-                            "workflow_url" to result.workflowUrl,
-                            "message" to result.message
-                        ),
-                        evidence = mapOf("github_workflow_dispatch" to "accepted")
-                    )
-                } else {
-                    ExecutionResult.fail(
-                        ActionFailure.Error(
-                            code = "GITHUB_WORKFLOW_DISPATCH_FAILED",
-                            message = result.message,
-                            recoverable = true
-                        )
-                    )
-                }
-            }
-            else -> ExecutionResult.fail(ActionFailure.Unsupported(request.action))
+            )
         }
     }
 
