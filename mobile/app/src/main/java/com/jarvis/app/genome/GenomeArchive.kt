@@ -44,6 +44,22 @@ class GenomeArchive(
         persistAsync()
     }
 
+    /**
+     * Durably commit a promoted/rolled-back genome before reporting the
+     * transition complete. Ordinary candidate observations may use [put];
+     * a live capability promotion must survive immediate process death.
+     */
+    suspend fun putDurably(genome: Genome) {
+        store[genome.id] = genome
+        _latestId.value = genome.id
+        persistGeneration.incrementAndGet()
+        persistMutex.withLock {
+            val arr = JSONArray()
+            store.values.sortedBy { it.id }.forEach { arr.put(toJson(it)) }
+            fileStorage.write(StoreKind.GENOME_ARCHIVE, arr.toString())
+        }
+    }
+
     fun get(id: String): Genome? = store[id]
 
     fun children(parentId: String): List<Genome> =
