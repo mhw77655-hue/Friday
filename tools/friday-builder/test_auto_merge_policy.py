@@ -24,6 +24,13 @@ class AutoMergePolicyTests(unittest.TestCase):
         ])
         self.assertTrue(ok)
 
+    def test_allows_declarative_local_phone_skill_registry_extensions(self):
+        ok, _ = MODULE.evaluate([
+            "mobile/app/src/main/java/com/jarvis/app/voice/LocalPhoneActionSkillRegistry.kt",
+            "mobile/app/src/test/java/com/jarvis/app/voice/PhoneActionPlannerTest.kt",
+        ])
+        self.assertTrue(ok)
+
     def test_blocks_manifest_and_permission_surface(self):
         ok, reason = MODULE.evaluate(["mobile/app/src/main/AndroidManifest.xml"])
         self.assertFalse(ok)
