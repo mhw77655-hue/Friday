@@ -17,7 +17,7 @@ def function_body(source: str, start: str, end: str) -> str:
 
 class NativeInferenceLifecycleContractTests(unittest.TestCase):
     def test_native_generation_does_not_relock_the_mutex_it_already_holds(self):
-        body = function_body(CPP, "const char* llama_model_generate(", "\\nvoid llama_model_cancel(")
+        body = function_body(CPP, "const char* llama_model_generate(", "\nvoid llama_model_cancel(")
         locked_section = body[body.index("std::lock_guard<std::mutex> lock(model->mutex)"):]
         self.assertIn("set_state_unlocked(model, LLAMA_STATE_GENERATING)", locked_section)
         self.assertIn("set_state_unlocked(model, LLAMA_STATE_IDLE)", locked_section)
@@ -25,8 +25,8 @@ class NativeInferenceLifecycleContractTests(unittest.TestCase):
         self.assertNotIn("set_error_locked(model,", locked_section)
 
     def test_suspend_and_destroy_use_unlocked_state_transitions_inside_their_lock(self):
-        suspend = function_body(CPP, "bool llama_model_suspend(", "\\nbool llama_model_resume(")
-        destroy = function_body(CPP, "void llama_model_destroy(", "\\n// ------------------------------------------------------------------\\n// Tokenizer implementation")
+        suspend = function_body(CPP, "bool llama_model_suspend(", "\nbool llama_model_resume(")
+        destroy = function_body(CPP, "void llama_model_destroy(", "\n// ------------------------------------------------------------------\n// Tokenizer implementation")
         self.assertIn("set_state_unlocked(model, LLAMA_STATE_SUSPENDED)", suspend)
         self.assertNotIn("set_state_locked(model,", suspend)
         self.assertIn("set_state_unlocked(model, LLAMA_STATE_UNLOADING)", destroy)
@@ -40,7 +40,7 @@ class NativeInferenceLifecycleContractTests(unittest.TestCase):
         self.assertNotIn("model->prewarm_thread.detach()", CPP)
 
     def test_jni_model_path_remains_valid_until_native_create_copies_it(self):
-        create = function_body(JNI, "JNI_CLASS(nativeCreate)", "\\n// Get state")
+        create = function_body(JNI, "JNI_CLASS(nativeCreate)", "\n// Get state")
         self.assertLess(create.index("llama_model_create(&nativeConfig)"), create.index("ReleaseStringUTFChars(modelPathStr, modelPath)"))
 
     def test_every_jni_tokenizer_wrapper_is_released(self):
