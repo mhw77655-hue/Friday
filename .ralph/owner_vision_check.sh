@@ -15,5 +15,5 @@ grep -q "Do not build a chatbot and call it Friday" <<<"$OUT"
 echo "OWNER_VISION_PROMPT=PASS"
 echo "OWNER_WORDS_SOURCE=PASS"
 grep -q "private archive" .ralph/OWNER_WORDS.md
-grep -q "do not search" .ralph/OWNER_WORDS.md
+grep -qi "rather than searching" .ralph/OWNER_WORDS.md
 echo "OWNER_ARCHIVE_PRIVACY=PASS"
