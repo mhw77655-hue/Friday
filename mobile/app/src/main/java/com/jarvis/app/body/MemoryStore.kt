@@ -5,6 +5,7 @@ import com.jarvis.app.humancore.store.FileStorage
 import com.jarvis.app.humancore.store.StoreKind
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,6 +20,7 @@ import android.util.Log
 private const val TAG = "MemoryStore"
 private const val MAX_EPISODIC = 500
 private const val MAX_FACTS = 200
+private const val MAX_PREFERENCES = 200
 private const val MAX_CONTEXT_TURNS = 20
 
 /**
@@ -47,6 +49,8 @@ class MemoryStore(
     private val preferences = ConcurrentHashMap<String, MemoryItem>()
     private val conversationContext = MutableStateFlow<List<MemoryItem>>(emptyList())
     private val contextOrder = mutableListOf<String>()
+    private val contextOrderLock = Any()
+    private val memoryLoaded = CompletableDeferred<Unit>()
 
     private val fileStorage = FileStorage(context.filesDir)
     private val idCounter = AtomicLong(System.currentTimeMillis())
@@ -66,6 +70,7 @@ class MemoryStore(
             relevance = 1.0f
         )
         facts[key] = item
+        trimFacts()
         persistAsync()
     }
 
@@ -99,6 +104,7 @@ class MemoryStore(
             relevance = 1.0f
         )
         preferences[key] = item
+        trimPreferences()
         persistAsync()
     }
 
@@ -143,8 +149,13 @@ class MemoryStore(
         )
 
         scope.launch {
-            contextOrder.add(userItem.id)
-            contextOrder.add(jarvisItem.id)
+            synchronized(contextOrderLock) {
+                contextOrder.add(userItem.id)
+                contextOrder.add(jarvisItem.id)
+                while (contextOrder.size > MAX_CONTEXT_TURNS * 2) {
+                    contextOrder.removeAt(0)
+                }
+            }
             val current = conversationContext.value
             val updated = current + userItem + jarvisItem
             val trimmed = if (updated.size > MAX_CONTEXT_TURNS * 2) {
@@ -153,11 +164,6 @@ class MemoryStore(
                 updated
             }
             conversationContext.value = trimmed
-            // Trim order list
-            while (contextOrder.size > MAX_CONTEXT_TURNS * 2) {
-                val oldId = contextOrder.removeAt(0)
-                // Remove from episodic if it was promoted
-            }
         }
     }
 
@@ -240,6 +246,22 @@ class MemoryStore(
     }
 
     /** Trim episodic memories to max size. */
+    private fun trimFacts() {
+        if (facts.size > MAX_FACTS) {
+            facts.values.sortedBy { it.timestamp }
+                .take(facts.size - MAX_FACTS)
+                .forEach { facts.remove(it.id) }
+        }
+    }
+
+    private fun trimPreferences() {
+        if (preferences.size > MAX_PREFERENCES) {
+            preferences.values.sortedBy { it.timestamp }
+                .take(preferences.size - MAX_PREFERENCES)
+                .forEach { preferences.remove(it.id) }
+        }
+    }
+
     private fun trimEpisodic() {
         if (episodicMemories.size > MAX_EPISODIC) {
             val sorted = episodicMemories.values.toMutableList()
@@ -260,7 +282,9 @@ class MemoryStore(
                 json.put("episodic", JSONArray(episodicMemories.values.map { toJson(it) }))
                 json.put("facts", JSONArray(facts.values.map { toJson(it) }))
                 json.put("preferences", JSONArray(preferences.values.map { toJson(it) }))
-                json.put("context_order", JSONArray(contextOrder))
+                val orderSnapshot = synchronized(contextOrderLock) { contextOrder.toList() }
+                json.put("context_order", JSONArray(orderSnapshot))
+                memoryLoaded.await()
                 fileStorage.write(StoreKind.BODY_MEMORY, json.toString(2))
             } catch (t: Throwable) {
                 if (t is kotlinx.coroutines.CancellationException) throw t
@@ -310,10 +334,15 @@ class MemoryStore(
                 loadArray(json, "preferences", preferences)
                 if (json.has("context_order")) {
                     val arr = json.getJSONArray("context_order")
-                    for (i in 0 until arr.length()) {
-                        contextOrder.add(arr.getString(i))
+                    synchronized(contextOrderLock) {
+                        for (i in 0 until arr.length()) {
+                            contextOrder.add(arr.getString(i))
+                        }
                     }
                 }
+                trimEpisodic()
+                trimFacts()
+                trimPreferences()
                 if (isLegacyMemory) {
                     fileStorage.write(StoreKind.BODY_MEMORY, json.toString(2))
                 }
@@ -334,6 +363,8 @@ class MemoryStore(
                         recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY
                     )
                 )
+            } finally {
+                memoryLoaded.complete(Unit)
             }
         }
     }
@@ -343,7 +374,7 @@ class MemoryStore(
         val arr = json.getJSONArray(key)
         for (i in 0 until arr.length()) {
             val item = fromJson(arr.getJSONObject(i))
-            target[item.id] = item
+            target.putIfAbsent(item.id, item)
         }
     }
 
