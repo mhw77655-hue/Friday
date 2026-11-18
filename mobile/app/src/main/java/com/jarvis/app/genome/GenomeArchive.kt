@@ -332,7 +332,8 @@ class GenomeArchive(
                     runCatching { MutationOperator.valueOf(it) }.getOrNull()
                 },
                 sourceContext = provenance.optString("sourceContext", "")
-            )
+            ),
+            artifactPath = j.optString("artifactPath").takeIf { it.isNotBlank() }
         )
     }
 
