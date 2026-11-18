@@ -109,7 +109,7 @@ class IndividualGoalContinuityStoreTest {
     }
 
     @Test(expected = IllegalArgumentException::class)
-    fun `unknown and duplicate subgoal dependencies are rejected`() {
+    fun `unknown subgoal dependencies are rejected`() {
         val directory = tempDir()
         val goal = Goal(id = "g1", description = "Build a coherent goal graph.", createdAt = 1L)
         IndividualGoalContinuityStore(directory).save(
