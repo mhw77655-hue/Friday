@@ -116,7 +116,7 @@ preflight_github() {
 preflight_model_call() {
   local model="$1"
   case "$TOOL" in
-    opencode) with_timeout "$PREFLIGHT_MODEL_TIMEOUT" opencode run -m "$model" "$PREFLIGHT_PROMPT" ;;
+    opencode) with_timeout "$PREFLIGHT_MODEL_TIMEOUT" env -u GITHUB_TOKEN -u GH_TOKEN opencode run -m "$model" "$PREFLIGHT_PROMPT" ;;
     amp) printf '%s\n' "$PREFLIGHT_PROMPT" | with_timeout "$PREFLIGHT_MODEL_TIMEOUT" amp --dangerously-allow-all ;;
     *) printf '%s\n' "$PREFLIGHT_PROMPT" | with_timeout "$PREFLIGHT_MODEL_TIMEOUT" claude --dangerously-skip-permissions --print ;;
   esac
@@ -371,7 +371,7 @@ for i in $(seq 1 $MAX_ITERATIONS); do
   CALL_MODEL="$MODEL"
   while true; do
     if [[ "$TOOL" == "opencode" ]]; then
-      OUTPUT=$(opencode run -m "$CALL_MODEL" "$COMBINED_PROMPT" 2>&1 | tee -a "$RUN_LOG" /dev/stderr) || true
+      OUTPUT=$(env -u GITHUB_TOKEN -u GH_TOKEN opencode run -m "$CALL_MODEL" "$COMBINED_PROMPT" 2>&1 | tee -a "$RUN_LOG" /dev/stderr) || true
     elif [[ "$TOOL" == "amp" ]]; then
       OUTPUT=$(echo "$COMBINED_PROMPT" | amp --dangerously-allow-all 2>&1 | tee -a "$RUN_LOG" /dev/stderr) || true
     else
