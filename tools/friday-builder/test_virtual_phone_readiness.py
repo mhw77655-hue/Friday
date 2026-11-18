@@ -35,6 +35,13 @@ class AndroidSystemReadinessTests(unittest.TestCase):
             is_system_ready(self.state(storage_volumes="private unmounted null\nemulated unmounted null"))
         )
 
+    def test_accepts_user_scoped_volume_identifiers(self):
+        self.assertTrue(
+            is_system_ready(self.state(
+                storage_volumes="private:179,64 mounted null\nemulated;0 mounted null"
+            ))
+        )
+
     def test_private_storage_must_be_mounted(self):
         self.assertFalse(
             is_system_ready(self.state(storage_volumes="private unmounted null\nemulated mounted null"))
