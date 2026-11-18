@@ -352,6 +352,8 @@ jobs:
           BRANCH="$FRIDAY_PROPOSAL_BRANCH"
           git config user.name "friday-proposal-publisher"
           git config user.email "friday-proposal-publisher@users.noreply.github.com"
+          git remote set-url origin "https://github.com/$REPOSITORY.git"
+          gh auth setup-git
           git commit -m "proposal: Friday development request $REQUEST_ID"
           git push origin "$BRANCH"
           EXISTING_PR="$(gh pr list --repo "$REPOSITORY" --head "$BRANCH" --state open --json url --jq '.[0].url // empty')"
@@ -404,9 +406,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          PR_URL: ${{ env.FRIDAY_PR_URL }}
         run: |
           set -euo pipefail
+          PR_URL="$FRIDAY_PR_URL"
           gh pr view "$PR_URL" --repo "$REPOSITORY" --json files --jq '[.files[].path]' > "$RUNNER_TEMP/friday-pr-files.json"
           if python3 tools/friday-builder/auto_merge_policy.py "$RUNNER_TEMP/friday-pr-files.json"; then
             echo "eligible=true" >> "$GITHUB_OUTPUT"
@@ -424,6 +426,7 @@ jobs:
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
+          PR_URL="$FRIDAY_PR_URL"
           gh pr ready "$PR_URL" --repo "$REPOSITORY" || true
           if timeout 110m gh pr checks "$PR_URL" --repo "$REPOSITORY" --watch --fail-fast; then
             if gh pr merge "$PR_URL" --repo "$REPOSITORY" --squash --delete-branch; then
