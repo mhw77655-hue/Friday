@@ -162,7 +162,7 @@ class RepositoryBuildRequestCapabilityTest {
             200,
             """{"workflow_runs":[{"display_title":"Friday Builder request $requestId","status":"completed","conclusion":"success","html_url":"https://github.com/mhw77655-hue/Friday/actions/runs/456"}]}"""
         )
-        val capability = RepositoryBuildRequestCapability(
+        val capability = RepositoryBuildStatusCapability(
             settings,
             GitHubWorkflowDispatchClient(settings::token, transport)
         )
