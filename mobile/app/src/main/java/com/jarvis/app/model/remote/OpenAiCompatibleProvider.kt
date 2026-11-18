@@ -11,55 +11,44 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
+
+enum class RemoteProviderProtocol { OPENAI_COMPATIBLE, ANTHROPIC_MESSAGES, GEMINI_GENERATE_CONTENT }
 
 /**
- * Android-native adapter for OpenAI Chat Completions compatible endpoints.
- *
- * It deliberately owns no memory, tools, identity, or action execution. It
- * sends only the messages in the caller's request and returns model output.
- * The endpoint must be explicitly configured by the owner.
+ * Native Android adapter for major hosted model APIs and OpenAI-compatible endpoints.
+ * This is a reasoning provider only: it cannot execute Friday capabilities or write memory.
  */
 class OpenAiCompatibleProvider(
     override val config: ProviderConfig,
     private val apiKey: String,
-    override val providerType: ModelProviderType = ModelProviderType.CLOUD
+    override val providerType: ModelProviderType = ModelProviderType.CLOUD,
+    private val protocol: RemoteProviderProtocol = RemoteProviderProtocol.OPENAI_COMPATIBLE
 ) : ModelProvider {
-    private val endpoint: String = config.parameters["endpoint"]
-        ?.trim()?.trimEnd('/')
-        ?.takeIf { it.startsWith("https://") || it.startsWith("http://") }
-        ?: throw IllegalArgumentException("A valid HTTP(S) provider endpoint is required")
-    private val model: String = config.modelId?.takeIf { it.isNotBlank() }
+    private val endpoint = ProviderEndpointPolicy.validate(
+        config.parameters["endpoint"] ?: throw IllegalArgumentException("Provider endpoint is required"),
+        allowInsecureLocalNetwork = config.parameters["allowInsecureHttp"] == "true"
+    )
+    private val model = config.modelId?.takeIf { it.isNotBlank() }
         ?: throw IllegalArgumentException("A model id is required")
 
     override suspend fun generate(request: GenerateRequest): GenerateResult = withContext(Dispatchers.IO) {
         require(request.maxTokens in 1..32768) { "maxTokens must be between 1 and 32768" }
-        val body = JSONObject().apply {
-            put("model", request.modelId?.takeIf { it.isNotBlank() } ?: model)
-            put("max_tokens", request.maxTokens)
-            put("temperature", request.temperature.toDouble())
-            put("top_p", request.topP.toDouble())
-            put("stream", false)
-            put("messages", JSONArray().apply {
-                request.messages.forEach { message ->
-                    put(JSONObject().apply {
-                        put("role", when (message.role) {
-                            MessageRole.SYSTEM -> "system"
-                            MessageRole.USER -> "user"
-                            MessageRole.ASSISTANT -> "assistant"
-                            MessageRole.TOOL -> "tool"
-                        })
-                        put("content", message.content)
-                        message.name?.let { put("name", it) }
-                        message.toolCallId?.let { put("tool_call_id", it) }
-                    })
-                }
-            })
+        val body = when (protocol) {
+            RemoteProviderProtocol.OPENAI_COMPATIBLE -> openAiBody(request)
+            RemoteProviderProtocol.ANTHROPIC_MESSAGES -> anthropicBody(request)
+            RemoteProviderProtocol.GEMINI_GENERATE_CONTENT -> geminiBody(request)
         }
-        val response = execute("POST", "$endpoint/chat/completions", body)
-        parseCompletion(response, request.modelId ?: model)
+        val url = when (protocol) {
+            RemoteProviderProtocol.OPENAI_COMPATIBLE -> "$endpoint/chat/completions"
+            RemoteProviderProtocol.ANTHROPIC_MESSAGES -> "$endpoint/messages"
+            RemoteProviderProtocol.GEMINI_GENERATE_CONTENT ->
+                "$endpoint/models/${URLEncoder.encode(request.modelId ?: model, "UTF-8")}:generateContent"
+        }
+        parseResponse(execute(url, body), request.modelId ?: model)
     }
 
-    /** Non-streaming endpoint: emit one completed token event, never fake token streaming. */
+    /** Honest non-streaming fallback: one completed response event, not simulated token streaming. */
     override fun stream(request: GenerateRequest): Flow<StreamEvent> = flow {
         try {
             val result = generate(request)
@@ -73,66 +62,118 @@ class OpenAiCompatibleProvider(
     override suspend fun health(): ProviderHealth = withContext(Dispatchers.IO) {
         val started = System.currentTimeMillis()
         try {
-            val response = execute("GET", "$endpoint/models", null)
-            ProviderHealth(
-                isHealthy = response.optJSONArray("data") != null || response.has("models"),
-                latencyMs = System.currentTimeMillis() - started,
-                modelLoaded = false,
-                currentModel = model,
-                error = null
+            // Use a low-cost bounded generation probe because provider model-list
+            // endpoints differ and some keys intentionally lack list permission.
+            val probe = GenerateRequest(
+                messages = listOf(Message(MessageRole.USER, "Reply with OK.")),
+                maxTokens = 4,
+                temperature = 0f
             )
+            generate(probe)
+            ProviderHealth(true, System.currentTimeMillis() - started, false, model)
         } catch (e: Exception) {
-            ProviderHealth(
-                isHealthy = false,
-                latencyMs = System.currentTimeMillis() - started,
-                modelLoaded = false,
-                currentModel = model,
-                error = e.message ?: "Provider health check failed"
-            )
+            ProviderHealth(false, System.currentTimeMillis() - started, false, model,
+                e.message ?: "Provider health check failed")
         }
     }
 
-    override suspend fun load(request: LoadRequest) =
-        LoadResult(success = true, modelId = request.modelId, error = null)
-
-    override suspend fun unload(request: UnloadRequest) =
-        UnloadResult(success = true, modelId = request.modelId, error = null)
+    override suspend fun load(request: LoadRequest) = LoadResult(true, request.modelId)
+    override suspend fun unload(request: UnloadRequest) = UnloadResult(true, request.modelId)
 
     override suspend fun modelInfo() = ModelInfo(
-        id = model,
-        name = model,
-        providerType = providerType,
-        contextWindow = 0,
-        maxOutputTokens = 32768,
-        supportsStreaming = false,
-        supportsTools = false,
-        supportsVision = false,
-        parameters = mapOf("endpoint" to endpoint, "protocol" to "openai-chat-completions")
+        id = model, name = model, providerType = providerType,
+        contextWindow = 0, maxOutputTokens = 32768,
+        supportsStreaming = false, supportsTools = false, supportsVision = false,
+        parameters = mapOf("endpoint" to endpoint, "protocol" to protocol.name)
     )
 
     override suspend fun tokenUsage() = TokenUsage(0, 0, 0, 0.0)
 
-    private fun execute(method: String, url: String, body: JSONObject?): JSONObject {
+    private fun openAiBody(request: GenerateRequest) = JSONObject().apply {
+        put("model", request.modelId ?: model)
+        put("max_tokens", request.maxTokens)
+        put("temperature", request.temperature.toDouble())
+        put("top_p", request.topP.toDouble())
+        put("stream", false)
+        put("messages", JSONArray().apply {
+            request.messages.forEach { m ->
+                put(JSONObject().apply {
+                    put("role", when (m.role) {
+                        MessageRole.SYSTEM -> "system"
+                        MessageRole.USER -> "user"
+                        MessageRole.ASSISTANT -> "assistant"
+                        MessageRole.TOOL -> "tool"
+                    })
+                    put("content", m.content)
+                    m.name?.let { put("name", it) }
+                    m.toolCallId?.let { put("tool_call_id", it) }
+                })
+            }
+        })
+    }
+
+    private fun anthropicBody(request: GenerateRequest): JSONObject {
+        val system = request.messages.filter { it.role == MessageRole.SYSTEM }.joinToString("\n") { it.content }
+        return JSONObject().apply {
+            put("model", request.modelId ?: model)
+            put("max_tokens", request.maxTokens)
+            put("temperature", request.temperature.toDouble())
+            if (system.isNotBlank()) put("system", system)
+            put("messages", JSONArray().apply {
+                request.messages.filter { it.role != MessageRole.SYSTEM && it.role != MessageRole.TOOL }
+                    .forEach { m ->
+                        put(JSONObject().put("role", if (m.role == MessageRole.ASSISTANT) "assistant" else "user")
+                            .put("content", m.content))
+                    }
+            })
+        }
+    }
+
+    private fun geminiBody(request: GenerateRequest): JSONObject {
+        val system = request.messages.filter { it.role == MessageRole.SYSTEM }.joinToString("\n") { it.content }
+        return JSONObject().apply {
+            if (system.isNotBlank()) put("systemInstruction",
+                JSONObject().put("parts", JSONArray().put(JSONObject().put("text", system))))
+            put("contents", JSONArray().apply {
+                request.messages.filter { it.role != MessageRole.SYSTEM && it.role != MessageRole.TOOL }
+                    .forEach { m ->
+                        put(JSONObject()
+                            .put("role", if (m.role == MessageRole.ASSISTANT) "model" else "user")
+                            .put("parts", JSONArray().put(JSONObject().put("text", m.content))))
+                    }
+            })
+            put("generationConfig", JSONObject()
+                .put("maxOutputTokens", request.maxTokens)
+                .put("temperature", request.temperature.toDouble())
+                .put("topP", request.topP.toDouble()))
+        }
+    }
+
+    private fun execute(url: String, body: JSONObject): JSONObject {
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
-            requestMethod = method
+            requestMethod = "POST"
             connectTimeout = config.timeoutMs.coerceIn(1_000, 120_000).toInt()
             readTimeout = config.timeoutMs.coerceIn(1_000, 120_000).toInt()
             setRequestProperty("Accept", "application/json")
-            if (apiKey.isNotBlank()) setRequestProperty("Authorization", "Bearer $apiKey")
-            if (body != null) {
-                doOutput = true
-                setRequestProperty("Content-Type", "application/json")
+            setRequestProperty("Content-Type", "application/json")
+            when (protocol) {
+                RemoteProviderProtocol.OPENAI_COMPATIBLE ->
+                    if (apiKey.isNotBlank()) setRequestProperty("Authorization", "Bearer $apiKey")
+                RemoteProviderProtocol.ANTHROPIC_MESSAGES -> {
+                    setRequestProperty("x-api-key", apiKey)
+                    setRequestProperty("anthropic-version", "2023-06-01")
+                }
+                RemoteProviderProtocol.GEMINI_GENERATE_CONTENT ->
+                    setRequestProperty("x-goog-api-key", apiKey)
             }
+            doOutput = true
         }
         try {
-            if (body != null) connection.outputStream.use {
-                it.write(body.toString().toByteArray(Charsets.UTF_8))
-            }
+            connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
             if (status !in 200..299) {
-                // Keep provider errors useful without leaking credentials or full request data.
                 val detail = runCatching { JSONObject(text).optJSONObject("error")?.optString("message") }
                     .getOrNull()?.takeIf { it.isNotBlank() } ?: "HTTP $status"
                 throw RemoteProviderException(status, detail.take(500))
@@ -143,28 +184,44 @@ class OpenAiCompatibleProvider(
         }
     }
 
-    private fun parseCompletion(json: JSONObject, requestedModel: String): GenerateResult {
-        val choice = json.optJSONArray("choices")?.optJSONObject(0)
-            ?: throw IllegalStateException("Provider response contained no choices")
-        val message = choice.optJSONObject("message")
-            ?: throw IllegalStateException("Provider response contained no message")
-        val content = message.optString("content").takeIf { it.isNotBlank() }
-            ?: throw IllegalStateException("Provider returned an empty response")
-        val usageJson = json.optJSONObject("usage")
-        val prompt = usageJson?.optInt("prompt_tokens", 0) ?: 0
-        val completion = usageJson?.optInt("completion_tokens", 0) ?: 0
-        val usage = if (usageJson != null) TokenUsage(prompt, completion, prompt + completion, 0.0) else null
-        val finish = when (choice.optString("finish_reason")) {
-            "length" -> FinishReason.LENGTH
-            "tool_calls" -> FinishReason.TOOL_CALLS
-            else -> FinishReason.STOP
+    private fun parseResponse(json: JSONObject, requestedModel: String): GenerateResult {
+        val content: String
+        val prompt: Int
+        val completion: Int
+        val finish: FinishReason
+        when (protocol) {
+            RemoteProviderProtocol.OPENAI_COMPATIBLE -> {
+                val choice = json.optJSONArray("choices")?.optJSONObject(0)
+                    ?: throw IllegalStateException("Provider response contained no choices")
+                content = choice.optJSONObject("message")?.optString("content").orEmpty()
+                prompt = json.optJSONObject("usage")?.optInt("prompt_tokens", 0) ?: 0
+                completion = json.optJSONObject("usage")?.optInt("completion_tokens", 0) ?: 0
+                finish = if (choice.optString("finish_reason") == "length") FinishReason.LENGTH else FinishReason.STOP
+            }
+            RemoteProviderProtocol.ANTHROPIC_MESSAGES -> {
+                content = json.optJSONArray("content")?.let { a ->
+                    (0 until a.length()).mapNotNull { a.optJSONObject(it)?.optString("text") }
+                        .filter { it.isNotBlank() }.joinToString("\n")
+                }.orEmpty()
+                prompt = json.optJSONObject("usage")?.optInt("input_tokens", 0) ?: 0
+                completion = json.optJSONObject("usage")?.optInt("output_tokens", 0) ?: 0
+                finish = if (json.optString("stop_reason") == "max_tokens") FinishReason.LENGTH else FinishReason.STOP
+            }
+            RemoteProviderProtocol.GEMINI_GENERATE_CONTENT -> {
+                content = json.optJSONArray("candidates")?.optJSONObject(0)
+                    ?.optJSONObject("content")?.optJSONArray("parts")?.let { a ->
+                        (0 until a.length()).mapNotNull { a.optJSONObject(it)?.optString("text") }
+                            .filter { it.isNotBlank() }.joinToString("\n")
+                    }.orEmpty()
+                prompt = json.optJSONObject("usageMetadata")?.optInt("promptTokenCount", 0) ?: 0
+                completion = json.optJSONObject("usageMetadata")?.optInt("candidatesTokenCount", 0) ?: 0
+                finish = if (json.optJSONArray("candidates")?.optJSONObject(0)?.optString("finishReason") == "MAX_TOKENS")
+                    FinishReason.LENGTH else FinishReason.STOP
+            }
         }
-        return GenerateResult(
-            content = content,
-            usage = usage,
-            finishReason = finish,
-            model = json.optString("model", requestedModel)
-        )
+        if (content.isBlank()) throw IllegalStateException("Provider returned an empty response")
+        val usage = if (prompt + completion > 0) TokenUsage(prompt, completion, prompt + completion, 0.0) else null
+        return GenerateResult(content, usage = usage, finishReason = finish, model = requestedModel)
     }
 }
 
