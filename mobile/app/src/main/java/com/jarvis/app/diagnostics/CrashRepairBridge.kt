@@ -18,7 +18,7 @@ import java.time.Instant
  * request when network and the existing GitHub credential are available.
  */
 object CrashRepairBridge {
-    private const val PRIVACY_REVIEWER = "friday-crash-bridge-v1"
+    private const val PRIVACY_REVIEWER = "owner-enabled-autonomous-development"
 
     /**
      * Pure request construction seam so privacy filtering and deduplication
@@ -26,8 +26,10 @@ object CrashRepairBridge {
      */
     internal fun createDraft(
         crash: JSONObject,
-        createdAtUtc: String = Instant.now().toString()
+        createdAtUtc: String = Instant.now().toString(),
+        autonomousDevelopmentEnabled: Boolean = true
     ): DevelopmentRequestDraft? {
+        if (!autonomousDevelopmentEnabled) return null
         val chain = crash.optJSONArray("exception_chain") ?: return null
         if (chain.length() == 0) return null
 
@@ -39,7 +41,9 @@ object CrashRepairBridge {
             appendLine("Exception chain (outermost first):")
             for (index in 0 until minOf(chain.length(), 6)) {
                 val item = chain.optJSONObject(index) ?: continue
-                appendLine("${index + 1}. ${safe(item.optString("type"))}: ${safe(item.optString("message"))}")
+                // Exception messages can contain arbitrary user data. Send the
+                // exception type and stack only; keep message text local.
+                appendLine("${index + 1}. ${safe(item.optString("type"))}")
                 val frames = item.optJSONArray("frames") ?: continue
                 for (frameIndex in 0 until minOf(frames.length(), if (index == 0) 12 else 4)) {
                     val frame = frames.optJSONObject(frameIndex) ?: continue
@@ -90,8 +94,13 @@ object CrashRepairBridge {
      * has been configured. A missing credential leaves the request on disk.
      */
     fun enqueuePreviousCrash(application: Application): EnqueueOutcome? {
+        // The existing owner-controlled autonomous-development switch is the
+        // authorization boundary for sending diagnostics to the public repo.
+        // Pausing development must pause crash uploads too, even if the token
+        // remains stored on-device.
+        val enabled = com.jarvis.app.github.FridayEvolutionScheduler.isEnabled(application)
         val crash = CrashJournal.read(application) ?: return null
-        val draft = createDraft(crash) ?: return null
+        val draft = createDraft(crash, autonomousDevelopmentEnabled = enabled) ?: return null
         val outcome = DevelopmentRequestOutbox(application.filesDir).enqueue(draft)
         when (outcome) {
             is EnqueueOutcome.Enqueued, is EnqueueOutcome.Duplicate ->
