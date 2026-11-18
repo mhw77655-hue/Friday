@@ -29,6 +29,7 @@ class PrivateArchivePolicyTests(unittest.TestCase):
     def test_one_time_history_purge_covers_both_archive_paths_and_all_refs(self):
         workflow = (ROOT / ".github/workflows/purge-private-archives.yml").read_text(encoding="utf-8")
         self.assertIn("--sensitive-data-removal", workflow)
+        self.assertIn("pull-requests: read", workflow)
         self.assertIn('--path "New Folder chats.zip"', workflow)
         self.assertIn('--path "New folder.zip"', workflow)
         self.assertIn("git push --force --mirror origin", workflow)
