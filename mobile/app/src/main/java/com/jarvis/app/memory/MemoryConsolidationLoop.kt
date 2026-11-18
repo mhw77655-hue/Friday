@@ -1,6 +1,7 @@
 package com.jarvis.app.memory
 
 import com.jarvis.app.identity.UserProfile
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -53,8 +54,13 @@ class MemoryConsolidationLoop(
     /** Source of recent per-session user statements (production: the real SessionManager). */
     private val recentExperience: () -> List<RecentStatement>,
     private val scope: CoroutineScope,
-    private val idleIntervalMs: Long = DEFAULT_IDLE_INTERVAL_MS
+    private val idleIntervalMs: Long = DEFAULT_IDLE_INTERVAL_MS,
+    /** Observe transient failures without terminating the long-lived idle worker. */
+    private val onPassFailure: (Exception) -> Unit = {}
 ) {
+    init {
+        require(idleIntervalMs > 0L) { "idleIntervalMs must be positive" }
+    }
 
     private val lifecycleLock = Any()
     private val passLock = Any()
@@ -80,7 +86,15 @@ class MemoryConsolidationLoop(
             try {
                 while (true) {
                     delay(idleIntervalMs)
-                    runConsolidationPass()
+                    try {
+                        runConsolidationPass()
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (failure: Exception) {
+                        // One corrupt session or transient storage failure must
+                        // not permanently disable all future learning cycles.
+                        runCatching { onPassFailure(failure) }
+                    }
                 }
             } finally {
                 // Cancellation or scope shutdown must not leave a permanently
