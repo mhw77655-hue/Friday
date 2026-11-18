@@ -20,6 +20,18 @@ if (localPropertiesFile.exists()) {
 val fridayVersionCode = providers.gradleProperty("fridayVersionCode").orNull?.toIntOrNull() ?: 1
 val fridayVersionName = providers.gradleProperty("fridayVersionName").orNull ?: "0.2-phase2"
 
+val allowedFridayAbis = setOf("arm64-v8a", "x86_64")
+val fridayAbiFilters = providers.gradleProperty("fridayAbiFilters")
+    .orNull
+    ?.split(',')
+    ?.map { it.trim() }
+    ?.filter { it.isNotEmpty() }
+    ?.toSet()
+    ?: allowedFridayAbis
+require(fridayAbiFilters.isNotEmpty() && fridayAbiFilters.all { it in allowedFridayAbis }) {
+    "fridayAbiFilters must contain only arm64-v8a and/or x86_64"
+}
+
 val fridayReleaseKeystorePath = System.getenv("FRIDAY_RELEASE_KEYSTORE_PATH")
 val fridayReleaseStorePassword = System.getenv("FRIDAY_RELEASE_STORE_PASSWORD")
 val fridayReleaseKeyAlias = System.getenv("FRIDAY_RELEASE_KEY_ALIAS")
