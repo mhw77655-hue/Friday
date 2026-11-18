@@ -1275,15 +1275,29 @@ class CognitiveEngine(
      */
     suspend fun runNext(): TaskWorkingMemory.ResultEntry? {
         val subgoal = taskWorkingMemory.nextSubgoal() ?: return null
-        val fabric = capabilityFabric
-            ?: throw IllegalStateException("No CapabilityFabric wired for runNext")
 
-        // Build a single-node plan for this subgoal
+        // A human-readable description is not an executable operation ID.
+        // Never pass prose into the capability resolver as if it were a verb.
+        val operationId = subgoal.operationId
+        if (operationId.isNullOrBlank()) {
+            taskWorkingMemory.recordResult(
+                subgoal.description,
+                success = false,
+                detail = "Blocked: the planner supplied no executable operation ID; the description was not executed.",
+                status = TaskWorkingMemory.ResultStatus.BLOCKED
+            )
+            return taskWorkingMemory.getHistory().lastOrNull()
+        }
+
+        val fabric = capabilityFabric
+            ?: throw IllegalStateException("No CapabilityFabric wired for executable operation $operationId")
+
+        // Build a single-node plan with a stable, declared operation identifier.
         val goalId = "task_${nowMs()}"
         val node = com.jarvis.app.cognitive.planning.PlanNode(
             id = "${goalId}:s1",
             description = subgoal.description,
-            action = subgoal.description,
+            action = operationId,
             expectedOutcome = "completed"
         )
         val graph = com.jarvis.app.cognitive.planning.PlanGraph(
@@ -1304,12 +1318,20 @@ class CognitiveEngine(
 
         val success = outcome?.success ?: false
         val detail = when {
-            outcome == null -> "no outcome"
+            outcome == null -> "No execution outcome was produced."
             outcome.result.output.isNotEmpty() -> outcome.result.output.toString()
             outcome.result.failure != null -> outcome.result.failure.toString()
             else -> "completed"
         }
-        taskWorkingMemory.recordResult(subgoal.description, success, detail)
+        val resultStatus = when {
+            outcome == null -> TaskWorkingMemory.ResultStatus.BLOCKED
+            outcome.resolution is com.jarvis.app.cognitive.capability.Resolution.Failure ->
+                TaskWorkingMemory.ResultStatus.BLOCKED
+            outcome.invocation?.refused == true -> TaskWorkingMemory.ResultStatus.BLOCKED
+            success -> TaskWorkingMemory.ResultStatus.SUCCEEDED
+            else -> TaskWorkingMemory.ResultStatus.FAILED
+        }
+        taskWorkingMemory.recordResult(subgoal.description, success, detail, resultStatus)
 
         // Auto-replan on failure when budget allows
         if (!success) {
