@@ -19,6 +19,7 @@ import com.jarvis.app.nervous.GlobalNervousSystem
 import com.jarvis.app.research.universal.UniversalResearchEngine
 import com.jarvis.app.resource.ResourceGovernor
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 
 /**
@@ -190,7 +191,9 @@ class ToolBuilder(
         if (receiptStore != null) {
             try {
                 withContext(Dispatchers.IO) { receiptStore.save(receipt) }
-            } catch (failure: Throwable) {
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
                 rollbackController?.rollback(receipt, "promotion receipt could not be persisted: ${failure.message}")
                 failureSurface.report(
                     FailureReport(
