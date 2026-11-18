@@ -5,6 +5,7 @@
 #include "llama_jni.h"
 #include <jni.h>
 #include <string>
+#include <cstdlib>
 #include <android/log.h>
 
 #define LOG_TAG "LocalInferenceEngineJNI"
