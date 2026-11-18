@@ -139,15 +139,18 @@ class StepExecutionLoopTest {
         e.getTaskWorkingMemory().setGoal("failing task")
         e.getTaskWorkingMemory().pushExecutableSubgoals(listOf(TaskWorkingMemory.ExecutableSubgoal("doomed step", "doomed_step")))
 
-        val result = e.runNext()
-
-        assertNotNull(result)
-        assertEquals(false, result!!.success)
-        assertEquals("doomed step", result.subgoal)
+        try {
+            e.runNext()
+            throw AssertionError("A failed operation without a planner must surface the missing replan seam.")
+        } catch (failure: DecompositionException) {
+            assertEquals(DecompositionCause.NO_SEAM, failure.reason)
+        }
 
         val history = e.getTaskWorkingMemory().getHistory()
         assertEquals(1, history.size)
-        assertEquals(false, history[0].success)
+        assertEquals("doomed step", history[0].subgoal)
+        assertEquals(TaskWorkingMemory.ResultStatus.FAILED, history[0].status)
+        assertFalse(history[0].success)
     }
 
     @Test
