@@ -48,6 +48,7 @@ struct LlamaModel {
     int64_t prompt_tokens = 0;
     int64_t completion_tokens = 0;
     std::thread prewarm_thread;
+    std::mutex prewarm_mutex;
     std::vector<int32_t> prompt_tokens_cache;
 };
 
@@ -266,6 +267,7 @@ LlamaHealth llama_model_get_health(LlamaModel* model) {
 bool llama_model_prewarm(LlamaModel* model, LlamaProgressCallback progress_cb, void* user_data) {
     if (!model) return false;
 
+    std::lock_guard<std::mutex> thread_lock(model->prewarm_mutex);
     LlamaState current = get_state_locked(model);
     if (current == LLAMA_STATE_READY || current == LLAMA_STATE_IDLE || current == LLAMA_STATE_GENERATING) {
         if (progress_cb) progress_cb(1.0f, user_data);
@@ -540,6 +542,7 @@ bool llama_model_suspend(LlamaModel* model) {
 bool llama_model_resume(LlamaModel* model) {
     if (!model) return false;
 
+    std::lock_guard<std::mutex> thread_lock(model->prewarm_mutex);
     // A completed prior prewarm thread must be joined before std::thread is reused.
     if (model->prewarm_thread.joinable()) model->prewarm_thread.join();
     {
@@ -558,6 +561,7 @@ bool llama_model_resume(LlamaModel* model) {
 void llama_model_destroy(LlamaModel* model) {
     if (!model) return;
 
+    std::lock_guard<std::mutex> thread_lock(model->prewarm_mutex);
     // Request cancellation before waiting for any in-flight generation.
     model->cancel_flag = true;
 
