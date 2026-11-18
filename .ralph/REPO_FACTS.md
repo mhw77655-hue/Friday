@@ -48,7 +48,7 @@ This file is auto-prepended to Ralph/Builder prompts. Keep it factual, dated and
 
 ## Current PR/CI snapshot — 2026-11-18
 
-- PR #82: disposable Android emulator. Earlier run compiled APKs but failed before install because SettingsProvider was not ready. A helper requiring boot completion, PackageManager enumeration and a live Settings-provider read is being validated on audit branch `audit/virtual-phone-system-readiness-20261118`, commit `f929dd6e812546d3b5ae5db796c9c20b9fa21906`. Builder unit tests and source audit passed on that SHA; APK/emulator jobs were still running at the time of this snapshot.
+- PR #82: disposable Android emulator. Earlier run compiled APKs but failed before install because SettingsProvider was not ready. The tested-by-design helper requires boot completion, PackageManager enumeration and a live Settings-provider read; its unit tests and source audit passed on `f929dd6e812546d3b5ae5db796c9c20b9fa21906`. The integrated clean workflow is being validated on `audit/restore-build-workflow-and-emulator-20261118`; run `44313301802` is queued and not yet verified.
 - PR #83: autonomous repair/promotion. Its stated dependency on PR #85 is stale; #85 closed without merge. Signing foundation #86 is merged; emulator work is #82. Promotion must not claim emulator-backed validation before #82 is integrated and required.
 - PR #89: phone-resident source Builder proposal. Do not merge as-is: it reintroduces source construction into Android contrary to the workshop boundary and its observed head fails compilation because `nowMs` is passed twice in `JarvisEngine.kt`.
 - PR #90: draft whole-project root-cause plan. It records audit scope, proven findings, uncertainty and dependency-ordered phases.
