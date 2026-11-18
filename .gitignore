@@ -33,3 +33,6 @@ mobile/app/.cxx/
 New Folder chats.zip
 New folder.zip
 *.owner-private.zip
+
+# Friday production signing material
+*.p12
