@@ -103,9 +103,9 @@ class ToolBuilderCapability(
                 ActionFailure.Error(
                     code = "BUILDER_NOT_PROMOTED",
                     message = result.message,
-                    recoverable = result.status in setOf("EVOLUTION_REJECTED", "RESOURCE_STATE_UNAVAILABLE")
-                ),
-                evidence = emptyMap()
+                    recoverable = result.status in setOf("EVOLUTION_REJECTED", "RESOURCE_STATE_UNAVAILABLE"),
+                    evidence = evidence
+                )
             )
         }
     }
