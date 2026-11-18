@@ -30,6 +30,10 @@ import com.jarvis.app.context.ProjectContextPackSync
 import com.jarvis.app.context.ProjectContextSyncResult
 import com.jarvis.app.model.remote.RemoteProviderProfile
 import com.jarvis.app.model.remote.RemoteProviderProtocol
+import com.jarvis.app.ui.components.FridayPanel
+import com.jarvis.app.ui.components.FridaySectionHeading
+import com.jarvis.app.ui.theme.JarvisColors
+import com.jarvis.app.ui.theme.JarvisType
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -68,12 +72,19 @@ fun RemoteAiProvidersSection() {
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text("AI CONNECTORS & SHARED PROJECT CONTEXT")
-        Text("Connect OpenAI, Claude, Gemini or any compatible endpoint. Credentials stay encrypted on this phone. Friday remains the authority; advisers cannot execute phone actions or edit memory.")
+    FridayPanel(modifier = Modifier.padding(bottom = 20.dp)) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+        FridaySectionHeading(
+            title = "AI CONNECTORS & SHARED PROJECT CONTEXT",
+            detail = "OPTIONAL"
+        )
+        Text(
+            "Connect OpenAI, Claude, Gemini or any compatible endpoint. Credentials stay encrypted on this phone. Friday remains the authority; advisers cannot execute phone actions or edit memory.",
+            style = JarvisType.Body.copy(color = JarvisColors.TextSecondary)
+        )
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column(modifier = Modifier.weight(1f)) {
@@ -208,6 +219,7 @@ fun RemoteAiProvidersSection() {
                 Text("Import file")
             }
         }
-        Text(contextStatus)
+        Text(contextStatus, style = JarvisType.Technical.copy(color = JarvisColors.TextMuted))
+        }
     }
 }
