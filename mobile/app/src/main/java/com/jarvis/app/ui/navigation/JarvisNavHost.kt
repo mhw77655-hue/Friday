@@ -280,10 +280,10 @@ private fun JarvisBottomBar(
             modifier = Modifier.padding(6.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            BottomBarItem("Home", "home", currentRoute == ROUTE_HOME, onHome)
-            BottomBarItem("Talk", "talk", currentRoute == ROUTE_CONVERSATION, onConversation)
-            BottomBarItem("Growth", "growth", currentRoute == ROUTE_MISSIONS, onMissions)
-            BottomBarItem("More", "more", moreSelected, onMore)
+            BottomBarItem("Home", "home", currentRoute == ROUTE_HOME, onHome, Modifier.weight(1f))
+            BottomBarItem("Talk", "talk", currentRoute == ROUTE_CONVERSATION, onConversation, Modifier.weight(1f))
+            BottomBarItem("Growth", "growth", currentRoute == ROUTE_MISSIONS, onMissions, Modifier.weight(1f))
+            BottomBarItem("More", "more", moreSelected, onMore, Modifier.weight(1f))
         }
     }
 }
@@ -293,11 +293,11 @@ private fun BottomBarItem(
     label: String,
     glyph: String,
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = Modifier
-            .weight(1f)
+        modifier = modifier
             .clip(RoundedCornerShape(20.dp))
             .background(
                 if (selected) JarvisColors.CoreIdle.copy(alpha = 0.13f)
