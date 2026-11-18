@@ -515,4 +515,56 @@ class CapabilityExecutorTest {
         assertFalse(driver.events.any { it is CognitiveEvent.PlanExecutionCompleted })
     }
 
+    @Test
+    fun `executor records real outcomes and requires independent verification for reuse`() = runBlocking {
+        val directory = java.io.File.createTempFile("friday-executor-evidence-", ".dir").apply {
+            delete()
+            mkdirs()
+        }
+        val ledger = CapabilityEvidenceLedger(directory)
+        repeat(2) {
+            val fabric = CapabilityFabric(testImmune(), emit = {})
+            fabric.register(FakeCapability(descriptor("A", operation = "compute_a")))
+            fabric.register(FakeCapability(descriptor("B", operation = "compute_b")))
+            fabric.register(FakeCapability(descriptor("C", operation = "compute_c")))
+            val planner = GoalPlanner(FullStrategy)
+            val driver = FakeDriver(planner, graphOf(FullStrategy))
+            val exec = CapabilityExecutor(
+                fabric,
+                driver,
+                evidenceLedger = ledger,
+                evidenceVerifier = { _, invocation -> invocation.success }
+            )
+            assertEquals(ExecutionStatus.COMPLETED, exec.run().status)
+        }
+
+        val knowledge = ledger.knowledge()
+        assertEquals(setOf("A", "B", "C"), knowledge.map { it.capabilityId }.toSet())
+        assertTrue(knowledge.all { it.reusable && it.verifiedSuccesses == 2 })
+        directory.deleteRecursively()
+    }
+
+    @Test
+    fun `executor records unresolved actions as blocked rather than failed capability calls`() = runBlocking {
+        val directory = java.io.File.createTempFile("friday-executor-blocked-", ".dir").apply {
+            delete()
+            mkdirs()
+        }
+        val ledger = CapabilityEvidenceLedger(directory)
+        val fabric = CapabilityFabric(testImmune(), emit = {})
+        fabric.register(FakeCapability(descriptor("C", operation = "compute_c")))
+        val planner = GoalPlanner(OneFailedIndependentStrategy)
+        val driver = FakeDriver(planner, graphOf(OneFailedIndependentStrategy))
+        val exec = CapabilityExecutor(fabric, driver, evidenceLedger = ledger)
+
+        exec.run()
+
+        val evidence = (ledger.load() as CapabilityEvidenceLoad.Loaded).evidence
+        assertTrue(evidence.any {
+            it.capabilityId == "unresolved:compute_a" && it.outcome == EvidenceOutcome.BLOCKED
+        })
+        assertTrue(evidence.any { it.capabilityId == "C" && it.outcome == EvidenceOutcome.SUCCEEDED && !it.verified })
+        directory.deleteRecursively()
+    }
+
 }
