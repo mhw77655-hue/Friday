@@ -34,6 +34,13 @@ class BuildWorkflowContractTests(unittest.TestCase):
             self.assertIn(f"- {job}", reporter)
             self.assertIn(f"needs.{job}.result != 'success'", reporter)
 
+    def test_emulator_requires_usable_kvm_instead_of_silently_running_tcg(self):
+        self.assertIn("Enable KVM acceleration for the disposable phone", self.workflow)
+        self.assertIn("sudo chmod 666 /dev/kvm", self.workflow)
+        self.assertIn("ANDROID_KVM_READY", self.workflow)
+        self.assertIn("x86_64 software emulation is too slow and unreliable", self.workflow)
+        self.assertIn("-memory 3072 -cores 2", self.workflow)
+
     def test_workflow_dispatch_is_available_for_trusted_publisher(self):
         self.assertIn("workflow_dispatch:", self.workflow)
 
