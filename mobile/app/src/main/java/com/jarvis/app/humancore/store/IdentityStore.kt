@@ -37,7 +37,10 @@ class IdentityStore(
     private val auditLog: MutableList<IdentityRevisionEntry> = mutableListOf()
     private val logLimit = 50
 
+    @Synchronized
     fun load() {
+        auditLog.clear()
+        current = FallbackIdentity.record
         val raw = storage.read(StoreKind.IDENTITY)
         if (raw == null) {
             // Cold start: begin from the documented fallback, do not persist
@@ -69,10 +72,13 @@ class IdentityStore(
         auditLog.addAll(parsed.second)
     }
 
+    @Synchronized
     fun read(): IdentityRecord = current
 
+    @Synchronized
     fun auditLog(): List<IdentityRevisionEntry> = auditLog.toList()
 
+    @Synchronized
     fun currentVersion(): Int = current.version
 
     fun isFallback(): Boolean = current.version == FallbackIdentity.record.version &&
@@ -84,6 +90,7 @@ class IdentityStore(
      * ([IdentityRevisionAuth]) that only the developer/admin revision entry
      * point can construct — structurally unreachable from parsed user text.
      */
+    @Synchronized
     internal fun applyRevision(newRecord: IdentityRecord, entry: IdentityRevisionEntry, auth: IdentityRevisionAuth) {
         if (newRecord.version != current.version + 1) {
             // Version-gate: prevents out-of-order/overlapping revisions from
@@ -92,12 +99,17 @@ class IdentityStore(
                 "revision version ${newRecord.version} not based on current version ${current.version}"
             )
         }
-        auditLog.add(entry)
-        while (auditLog.size > logLimit) auditLog.removeAt(0)
+        // Persist the candidate snapshot BEFORE publishing it in memory. If
+        // storage fails, the active identity and audit history remain aligned
+        // with the last durable revision.
+        val nextLog = (auditLog + entry).takeLast(logLimit)
+        storage.write(StoreKind.IDENTITY, serialize(newRecord, nextLog))
+        auditLog.clear()
+        auditLog.addAll(nextLog)
         current = newRecord
-        persist()
     }
 
+    @Synchronized
     internal fun persist() {
         storage.write(StoreKind.IDENTITY, serialize(current, auditLog))
     }
