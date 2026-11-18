@@ -49,7 +49,7 @@ class PromotionReceiptStore(
         persist()
     }
 
-    private fun load() = synchronized(lock) {
+    private fun load(): Unit = synchronized(lock) {
         if (!file.isFile || file.length() !in 1..1_048_576L) return
         runCatching {
             val array = JSONArray(file.readText())
