@@ -1200,8 +1200,7 @@ class CognitiveEngine(
                 "No decomposition seam wired",
                 DecompositionCause.NO_SEAM
             )
-        val availableOperations = capabilityFabric?.registry?.list()
-            ?.flatMap { it.descriptor.supportedOperations }?.distinct().orEmpty()
+        val availableOperations = executableOperations()
         if (availableOperations.isEmpty()) {
             throw DecompositionException(
                 "No executable capabilities are registered; Friday cannot construct a runnable plan yet.",
@@ -1253,9 +1252,19 @@ class CognitiveEngine(
         )
     }
 
+    /** Only operations whose required permissions are currently owner-granted are planable. */
+    private fun executableOperations(): List<String> {
+        val permissions = capabilityPermissions()
+        return capabilityFabric?.registry?.list()
+            ?.filter { capability -> capability.descriptor.requiredPermissions.all { it in permissions } }
+            ?.flatMap { it.descriptor.supportedOperations }?.distinct().orEmpty()
+    }
+
     /** Planner output keeps human descriptions separate from executable operations. */
     private fun buildExecutablePlanPrompt(goal: String, strict: Boolean): String {
+        val permissions = capabilityPermissions()
         val operations = capabilityFabric?.registry?.list()
+            ?.filter { capability -> capability.descriptor.requiredPermissions.all { it in permissions } }
             ?.flatMap { capability -> capability.descriptor.supportedOperations.map { operation ->
                 "$operation (capability=${capability.descriptor.id}, category=${capability.descriptor.category})"
             } }?.distinct()?.sorted().orEmpty()
@@ -1276,7 +1285,9 @@ class CognitiveEngine(
             val root = org.json.JSONObject(raw)
             if (root.length() != 1 || !root.has("subgoals")) return null
             val fabric = capabilityFabric ?: return null
+            val permissions = capabilityPermissions()
             val availableOperations = fabric.registry.list()
+                .filter { capability -> capability.descriptor.requiredPermissions.all { it in permissions } }
                 .flatMap { it.descriptor.supportedOperations }.toSet()
             val array = root.getJSONArray("subgoals")
             if (array.length() !in 1..32) return null
@@ -1459,7 +1470,7 @@ class CognitiveEngine(
             "Cannot replan: no planning seam is available.",
             DecompositionCause.NO_SEAM
         )
-        if (capabilityFabric?.registry?.list()?.none { it.descriptor.supportedOperations.isNotEmpty() } != false) {
+        if (executableOperations().isEmpty()) {
             throw DecompositionException(
                 "Cannot replan: no executable capabilities are registered.",
                 DecompositionCause.NO_CAPABILITIES
