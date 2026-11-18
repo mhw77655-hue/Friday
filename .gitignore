@@ -28,3 +28,8 @@ mobile/app/.cxx/
 .ralph/*.log
 .ralph/prd.json.bak
 .ralph/.ralph_active
+
+# Private owner conversation archives must never be committed
+New Folder chats.zip
+New folder.zip
+*.owner-private.zip
