@@ -19,7 +19,7 @@ class ProjectRepositoryReader(
     private val branch: String = "main",
     private val maxFiles: Int = 3,
     private val maxCharsPerFile: Int = 4_000,
-    private val maxTotalChars: Int = 8_000
+    val maxTotalChars: Int = 8_000
 ) {
     init {
         require(owner.matches(Regex("[A-Za-z0-9_.-]{1,80}")))
