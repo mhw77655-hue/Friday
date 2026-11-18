@@ -18,7 +18,7 @@ class RemoteAiCouncilCapability(
     override val descriptor = CapabilityDescriptor(
         id = "friday.ai_council",
         name = "External AI advisers",
-        description = "Ask an owner-configured OpenAI, Claude, Gemini or compatible model for bounded advice. Optionally provide up to three repository source_paths for precise code context.",
+        description = "Ask an owner-configured OpenAI, Claude, Gemini or compatible model for bounded advice. Optionally provide source_paths as a newline/comma-separated list of up to three exact repository paths when code context is necessary; never request the whole repository.",
         category = "reasoning.external_advice",
         requiredPermissions = setOf(CapabilityPermission.EXTERNAL_AI),
         supportedOperations = setOf("ai.council.consult"),
