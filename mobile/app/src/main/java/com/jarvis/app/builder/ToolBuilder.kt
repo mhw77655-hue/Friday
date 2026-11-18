@@ -39,7 +39,9 @@ class ToolBuilder(
     private val archive: GenomeArchive,
     private val governor: ResourceGovernor,
     private val failureSurface: FailureSurface,
-    private val nervousSystem: GlobalNervousSystem? = null
+    private val nervousSystem: GlobalNervousSystem? = null,
+    /** Refreshes live phone resource state before any expensive build admission. */
+    private val refreshResources: () -> Unit = {}
 ) {
 
     /**
@@ -58,6 +60,28 @@ class ToolBuilder(
                 status = pre.status,
                 providerId = pre.providerId,
                 message = "capability '${spec.capability}' already provided (${pre.status}); no build needed"
+            )
+        }
+
+        try {
+            refreshResources()
+        } catch (failure: Throwable) {
+            failureSurface.report(
+                FailureReport(
+                    subsystem = "BUILDER",
+                    operation = "refresh_resources",
+                    severity = FailureSeverity.WARNING,
+                    category = FailureCategory.RESOURCE,
+                    message = "refusing to build with stale device-resource state: ${failure.message.orEmpty()}",
+                    source = "ToolBuilder"
+                )
+            )
+            return BuildResult(
+                spec = spec,
+                built = false,
+                gapDetected = true,
+                status = "RESOURCE_STATE_UNAVAILABLE",
+                message = "Live device resource state could not be read; no candidate was admitted."
             )
         }
 
