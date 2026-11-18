@@ -11,11 +11,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -24,8 +30,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -153,7 +162,10 @@ fun JarvisNavHost() {
             popExitTransition = { tabExit }
         ) {
             composable(ROUTE_HOME) {
-                HomeScreen(onOpenTools = { navigateToTab(ROUTE_TOOLS) })
+                HomeScreen(
+                    onOpenTools = { navigateToTab(ROUTE_TOOLS) },
+                    onOpenConversation = { navigateToTab(ROUTE_CONVERSATION) }
+                )
             }
             composable(ROUTE_CONVERSATION) { ConversationScreen() }
             composable(ROUTE_MISSIONS) { MissionsScreen() }
@@ -232,34 +244,60 @@ private fun JarvisBottomBar(
     onMissions: () -> Unit,
     onMore: () -> Unit
 ) {
-    Row(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .background(JarvisColors.SurfacePanel)
-            .border(1.dp, JarvisColors.SurfaceHairline)
-            .padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        color = JarvisColors.SurfacePanel,
+        shape = RoundedCornerShape(26.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, JarvisColors.SurfaceHairline),
+        shadowElevation = 10.dp
     ) {
-        BottomBarItem("Home", currentRoute == ROUTE_HOME, onHome)
-        BottomBarItem("Chat", currentRoute == ROUTE_CONVERSATION, onConversation)
-        BottomBarItem("Missions", currentRoute == ROUTE_MISSIONS, onMissions)
-        BottomBarItem("More", moreSelected, onMore)
+        Row(
+            modifier = Modifier.padding(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            BottomBarItem("Home", "home", currentRoute == ROUTE_HOME, onHome)
+            BottomBarItem("Talk", "talk", currentRoute == ROUTE_CONVERSATION, onConversation)
+            BottomBarItem("Growth", "growth", currentRoute == ROUTE_MISSIONS, onMissions)
+            BottomBarItem("More", "more", moreSelected, onMore)
+        }
     }
 }
 
 @Composable
-private fun BottomBarItem(label: String, selected: Boolean, onClick: () -> Unit) {
-    Text(
-        text = label,
-        style = if (selected) {
-            JarvisType.Technical.copy(color = JarvisColors.TextPrimary)
-        } else {
-            JarvisType.Technical
-        },
-        textAlign = TextAlign.Center,
-        maxLines = 1,
+private fun BottomBarItem(
+    label: String,
+    glyph: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
         modifier = Modifier
+            .weight(1f)
+            .clip(RoundedCornerShape(20.dp))
+            .background(
+                if (selected) JarvisColors.CoreIdle.copy(alpha = 0.13f)
+                else Color.Transparent
+            )
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp)
-    )
+            .padding(vertical = 9.dp),
+        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        FridayNavigationGlyph(
+            kind = glyph,
+            color = if (selected) JarvisColors.CoreIdle else JarvisColors.TextMuted,
+            modifier = Modifier.size(19.dp)
+        )
+        Text(
+            text = label,
+            style = JarvisType.Label.copy(
+                color = if (selected) JarvisColors.TextPrimary else JarvisColors.TextMuted,
+                letterSpacing = 0.02.em
+            ),
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
+    }
 }
