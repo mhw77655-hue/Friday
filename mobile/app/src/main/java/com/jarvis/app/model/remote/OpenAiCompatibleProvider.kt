@@ -268,12 +268,12 @@ class OpenAiCompatibleProvider(
                     throw IllegalStateException("Gemini interaction status: $status")
                 }
                 content = json.optJSONArray("steps")?.let { steps ->
-                    (0 until steps.length()).mapNotNull { stepIndex ->
-                        val step = steps.optJSONObject(stepIndex) ?: return@mapNotNull null
-                        if (step.optString("type") != "model_output") return@mapNotNull null
+                    (0 until steps.length()).mapNotNull stepsLoop@{ stepIndex ->
+                        val step = steps.optJSONObject(stepIndex) ?: return@stepsLoop null
+                        if (step.optString("type") != "model_output") return@stepsLoop null
                         step.optJSONArray("content")?.let { parts ->
-                            (0 until parts.length()).mapNotNull { partIndex ->
-                                val part = parts.optJSONObject(partIndex) ?: return@mapNotNull null
+                            (0 until parts.length()).mapNotNull partsLoop@{ partIndex ->
+                                val part = parts.optJSONObject(partIndex) ?: return@partsLoop null
                                 if (part.optString("type") == "text") part.optString("text") else null
                             }.filter { it.isNotBlank() }.joinToString("\n")
                         }
