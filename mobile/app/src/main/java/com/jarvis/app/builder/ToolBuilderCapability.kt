@@ -22,7 +22,7 @@ class ToolBuilderCapability(
     override val descriptor = CapabilityDescriptor(
         id = "friday.builder.runtime",
         name = "Friday Builder",
-        description = "Discover capability gaps and synthesize, test, promote or inspect pure runtime capabilities on this device.",
+        description = "Build missing pure runtime capabilities on-device. For builder.create_tool pass parameters.spec_json as JSON with capability, description, behavior.type (normalize, clamp, invert, reverse_words, lookup, or custom), constraints and optional resource budgets. Generated programs use the restricted SynthProgram language; no arbitrary code or I/O is loaded.",
         category = "development",
         resourceProfile = CapabilityResourceProfile(cpuCost = 0.25f, memoryCostMb = 96, optional = true),
         riskLevel = RiskLevel.MEDIUM,
@@ -33,7 +33,8 @@ class ToolBuilderCapability(
         return when (request.action) {
             "builder.describe" -> ExecutionResult.ok(
                 output = mapOf(
-                    "contract" to "Pass spec_json with capability, description, behavior, constraints and resource budgets.",
+                    "contract" to "Pass parameters.spec_json: JSON {capability, description, behavior:{type, ...}, constraints:[...], max_memory_mb?, max_cpu_percent?, research_first?}.",
+                    "behavior_types" to "normalize, clamp, invert, reverse_words, lookup, custom",
                     "execution" to "Pure SynthProgram only; no arbitrary Kotlin, DEX, network or file access.",
                     "growth" to "Promoted capabilities are retained in Friday's private workspace and restored after process restart."
                 )
