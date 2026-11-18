@@ -153,7 +153,7 @@ class MemoryConsolidationLoopTest {
         h.userProfile.ingestUtterance("I tend to prefer concise answers", "session-b")
         assertEquals("repeated evidence initially promotes", "concise answers", h.userProfile.getPreference("communicationStyle"))
 
-        h.graph.setUserPreference("communicationStyle", "detailed answers", "owner override")
+        h.worldModel.setUserPreference("communicationStyle", "detailed answers", "owner override")
         h.userProfile.ingestUtterance("I tend to prefer concise answers", "session-c")
 
         assertEquals("old promoted evidence must not be replayed as a fresh multi-session consensus", "detailed answers", h.userProfile.getPreference("communicationStyle"))
