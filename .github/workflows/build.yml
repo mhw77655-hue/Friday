@@ -136,7 +136,22 @@ jobs:
           fi
           git fetch origin "$BASE_SHA"
           CHANGED="$(git diff --name-only "$BASE_SHA" "$GITHUB_SHA")"
-          if grep -Eq '^(mobile/app/build.gradle.kts|\.github/workflows/release.yml)      # Run tests even when APK assembly fails. A failed packaging step must
+          if [[ "$CHANGED" == *"mobile/app/build.gradle.kts"* || "$CHANGED" == *".github/workflows/release.yml"* ]]; then
+            echo "run_smoke=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_smoke=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and verify release variant with a disposable CI key
+        if: steps.release_signing_diff.outputs.run_smoke == 'true'
+        run: |
+          set -euo pipefail
+          KEYSTORE="$RUNNER_TEMP/friday-ci-smoke.p12"
+          PASSWORD="friday-ci-smoke-password"
+          keytool -genkeypair -v -keystore "$KEYSTORE" -storetype PKCS12 -storepass "$PASSWORD" -keypass "$PASSWORD" -alias friday-release -keyalg RSA -keysize 2048 -validity 2 -dname "CN=Friday CI Smoke,O=Friday,C=EG"
+          FRIDAY_RELEASE_KEYSTORE_PATH="$KEYSTORE" FRIDAY_RELEASE_STORE_PASSWORD="$PASSWORD" FRIDAY_RELEASE_KEY_ALIAS="friday-release" FRIDAY_RELEASE_KEY_PASSWORD="$PASSWORD" ./gradlew :mobile:app:assembleRelease -PfridayVersionCode=2001 -PfridayVersionName=ci-smoke -PfridayAbiFilters=arm64-v8a
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose mobile/app/build/outputs/apk/release/app-release.apk
+
       # not erase independent evidence about source/test health.
       - name: Run unit tests independently of APK assembly
         if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
