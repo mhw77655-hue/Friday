@@ -10,6 +10,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.ConcurrentHashMap
@@ -53,10 +55,12 @@ class GenomeArchive(
         store[genome.id] = genome
         _latestId.value = genome.id
         persistGeneration.incrementAndGet()
-        persistMutex.withLock {
-            val arr = JSONArray()
-            store.values.sortedBy { it.id }.forEach { arr.put(toJson(it)) }
-            fileStorage.write(StoreKind.GENOME_ARCHIVE, arr.toString())
+        withContext(Dispatchers.IO) {
+            persistMutex.withLock {
+                val arr = JSONArray()
+                store.values.sortedBy { it.id }.forEach { arr.put(toJson(it)) }
+                fileStorage.write(StoreKind.GENOME_ARCHIVE, arr.toString())
+            }
         }
     }
 
