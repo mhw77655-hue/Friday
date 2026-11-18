@@ -36,6 +36,13 @@ class InstallRetryTests(unittest.TestCase):
         self.assertFalse(is_transient_storage_session_failure("INSTALL_FAILED_INVALID_APK"))
         self.assertFalse(is_transient_storage_session_failure("StorageManagerService is running"))
 
+    def test_uses_non_streaming_adb_install_to_avoid_early_boot_fuse_sessions(self):
+        runner = Mock(return_value=self.result(0, "Success"))
+        self.assertTrue(install_with_retry("app.apk", runner=runner))
+        command = runner.call_args.args[0]
+        self.assertEqual(command, ["adb", "install", "--no-streaming", "-r", "app.apk"])
+        self.assertEqual(runner.call_args.kwargs["timeout"], 180)
+
     def test_first_install_success_does_not_retry(self):
         runner = Mock(return_value=self.result(0, "Success"))
         sleep = Mock()

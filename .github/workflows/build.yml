@@ -285,11 +285,11 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_2
-          cores: 2
-          ram-size: 3072M
+          cores: 4
+          ram-size: 4096M
           heap-size: 512M
           disable-animations: true
-          emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -camera-front none -gpu swiftshader_indirect -memory 3072 -cores 2 -no-snapshot -wipe-data -timezone Etc/UTC
+          emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -camera-front none -gpu swiftshader_indirect -memory 4096 -cores 4 -no-snapshot -wipe-data -timezone Etc/UTC
           script: bash tools/friday-builder/run_virtual_phone_tests.sh
 
       - name: Upload emulator evidence

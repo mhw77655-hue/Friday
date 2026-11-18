@@ -1,10 +1,8 @@
 name: Purge private owner archives from Git history
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - .github/PRIVATE_ARCHIVE_PURGE_PENDING
+  # Manual only: history rewriting is destructive and must never run as a
+  # side effect of merging the application integration.
   workflow_dispatch:
 
 permissions:

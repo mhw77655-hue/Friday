@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Install an APK only after Android's package and storage services are usable.
 
+Use adb's non-streaming transport: it first pushes the APK to /data/local/tmp,
+then asks PackageManager to install it. This avoids the early-boot external-storage
+FUSE session required by streaming installs on affected emulator images.
+
 Android can report boot completion and answer SettingsProvider while its
 emulated-storage FUSE session is still starting. PackageInstaller may then
 hang or throw from StorageManagerService. The readiness gate checks mounted
@@ -83,10 +87,10 @@ def install_with_retry(
     for attempt in range(1, max_attempts + 1):
         try:
             result = runner(
-                [adb, "install", "-r", apk],
+                [adb, "install", "--no-streaming", "-r", apk],
                 capture_output=True,
                 text=True,
-                timeout=90,
+                timeout=180,
                 check=False,
             )
             output = "\n".join(

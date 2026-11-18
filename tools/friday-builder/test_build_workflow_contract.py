@@ -48,9 +48,10 @@ class BuildWorkflowContractTests(unittest.TestCase):
         emulator = self.workflow.split("  android-emulator:", 1)[1].split("  full-source-audit:", 1)[0]
         self.assertIn('"system-images;android-35;google_apis;x86_64"', emulator)
         self.assertIn("target: google_apis", emulator)
-        self.assertIn("cores: 2", emulator)
-        self.assertIn("-memory 3072 -cores 2", emulator)
-        self.assertNotIn("-cores 4", emulator)
+        self.assertIn("cores: 4", emulator)
+        self.assertIn("ram-size: 4096M", emulator)
+        self.assertIn("-memory 4096 -cores 4", emulator)
+        self.assertNotIn("-cores 2", emulator)
 
 
     def test_candidate_branches_do_not_run_duplicate_push_and_pull_request_builds(self):
