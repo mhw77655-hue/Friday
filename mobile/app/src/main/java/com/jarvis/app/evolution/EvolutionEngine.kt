@@ -313,7 +313,8 @@ class EvolutionEngine(
         // next process can verify and rehydrate the same capability without a
         // model call, APK rebuild or user-data reset.
         val durableGenome = promoted.genome.copy(
-            artifactPath = promoted.instance.workspace.absolutePath
+            artifactPath = promoted.instance.workspace.absolutePath,
+            artifactCapability = promoted.implementation.spec.capability
         )
         val receipt = promotionController.promote(durableGenome, promoted.implementation)
         mutantEnv.preserve(promoted.instance)
