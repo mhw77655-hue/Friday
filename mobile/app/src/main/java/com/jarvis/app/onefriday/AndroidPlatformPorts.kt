@@ -53,6 +53,15 @@ class AndroidPlatformPorts(
         check(result is com.jarvis.app.cognitive.capability.CapabilityRegistry.RegisterResult.Ok) {
             "Android media capability registration failed: $result"
         }
+
+        val councilResult = fabric.register(
+            com.jarvis.app.model.remote.RemoteAiCouncilCapability {
+                (context.applicationContext as? com.jarvis.app.JarvisApplication)?.providerCouncil
+            }
+        )
+        check(councilResult is com.jarvis.app.cognitive.capability.CapabilityRegistry.RegisterResult.Ok) {
+            "External AI council capability registration failed: $councilResult"
+        }
     }
 
     override fun modelScope(): CoroutineScope = scope
