@@ -277,6 +277,9 @@ class MemoryStore(
     private fun persistAsync() {
         scope.launch(Dispatchers.IO) {
             try {
+                // Do not snapshot or write until the initial disk load/migration
+                // has completed; otherwise a first-run mutation can erase old data.
+                memoryLoaded.await()
                 val json = JSONObject()
                 json.put("updated_at_ms", System.currentTimeMillis())
                 json.put("episodic", JSONArray(episodicMemories.values.map { toJson(it) }))
@@ -284,7 +287,6 @@ class MemoryStore(
                 json.put("preferences", JSONArray(preferences.values.map { toJson(it) }))
                 val orderSnapshot = synchronized(contextOrderLock) { contextOrder.toList() }
                 json.put("context_order", JSONArray(orderSnapshot))
-                memoryLoaded.await()
                 fileStorage.write(StoreKind.BODY_MEMORY, json.toString(2))
             } catch (t: Throwable) {
                 if (t is kotlinx.coroutines.CancellationException) throw t
