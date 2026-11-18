@@ -5,6 +5,10 @@ import com.jarvis.app.ObsidianSync
 import com.jarvis.app.companioncore.presence.CompanionCoreHolder
 import com.jarvis.app.failure.FailureSurface
 import com.jarvis.app.cognitive.capability.CapabilityFabric
+import com.jarvis.app.cognitive.capability.CapabilityPermission
+import com.jarvis.app.builder.GitHubTokenVault
+import com.jarvis.app.builder.GitHubWorkflowDispatchClient
+import com.jarvis.app.builder.RepositoryBuildRequestCapability
 import com.jarvis.app.turn.TurnContext
 import com.jarvis.app.latency.AckSpeech
 import com.jarvis.app.latency.LatencyLayer
@@ -41,7 +45,12 @@ class AndroidPlatformPorts(
     private val nanoSymbiosis: NanoSymbioticController? = null,
     private val deviceControlRouterProvider: () -> com.jarvis.app.android.DeviceControlRouter? = { null },
     private val riskGateProvider: () -> com.jarvis.app.android.RiskGate? = { null }
-) : PlatformPorts {
+ ) : PlatformPorts {
+
+    private val repositoryBuildSettings by lazy { GitHubTokenVault(context.applicationContext) }
+    private val repositoryDispatchClient by lazy {
+        GitHubWorkflowDispatchClient(tokenProvider = repositoryBuildSettings::token)
+    }
 
     override fun registerCapabilities(fabric: CapabilityFabric) {
         val result = fabric.register(
@@ -62,15 +71,29 @@ class AndroidPlatformPorts(
         check(councilResult is com.jarvis.app.cognitive.capability.CapabilityRegistry.RegisterResult.Ok) {
             "External AI council capability registration failed: $councilResult"
         }
+
+        val repositoryBuildResult = fabric.register(
+            RepositoryBuildRequestCapability(
+                settings = repositoryBuildSettings,
+                dispatchClient = repositoryDispatchClient,
+                now = { java.time.Instant.ofEpochMilli(clock()) }
+            )
+        )
+        check(repositoryBuildResult is com.jarvis.app.cognitive.capability.CapabilityRegistry.RegisterResult.Ok) {
+            "Repository Builder capability registration failed: $repositoryBuildResult"
+        }
     }
 
     override fun grantedCapabilityPermissions(): Set<com.jarvis.app.cognitive.capability.CapabilityPermission> {
         val app = context.applicationContext as? com.jarvis.app.JarvisApplication
         val enabled = app?.providerCouncil?.isEnabled() == true &&
             app.remoteProviderProfiles.createEnabledEntries().isNotEmpty()
-        return if (enabled) setOf(
-            com.jarvis.app.cognitive.capability.CapabilityPermission.EXTERNAL_AI
-        ) else emptySet()
+        return buildSet {
+            if (enabled) add(CapabilityPermission.EXTERNAL_AI)
+            if (repositoryBuildSettings.hasToken() && repositoryBuildSettings.automaticRequestsEnabled()) {
+                add(CapabilityPermission.REPOSITORY_BUILD)
+            }
+        }
     }
 
     override fun modelScope(): CoroutineScope = scope
