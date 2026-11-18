@@ -186,6 +186,7 @@ class ToolBuilderTest {
             fileStorage = FileStorage(root),
             scope = scope,
             workspacesDir = File(root, "workspaces"),
+            nowMs = { 1_700_000_000_000L },
             llmSynthesisProvider = provider,
             cognitiveCapabilityFabric = cognitiveFabric
         )
@@ -297,6 +298,7 @@ class ToolBuilderTest {
             fileStorage = storage,
             scope = firstScope,
             workspacesDir = File(root, "workspaces"),
+            nowMs = { 1_700_000_000_000L },
             llmSynthesisProvider = provider,
             cognitiveCapabilityFabric = firstFabric
         )
@@ -335,6 +337,7 @@ class ToolBuilderTest {
             fileStorage = FileStorage(root),
             scope = secondScope,
             workspacesDir = File(root, "workspaces"),
+            nowMs = { 1_700_000_000_000L },
             cognitiveCapabilityFabric = secondFabric
         )
         assertTrue("promoted capability was not restored", "word_count" in second.recoveredCapabilities)
