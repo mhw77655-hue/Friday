@@ -1266,7 +1266,8 @@ class CognitiveEngine(
         val operations = capabilityFabric?.registry?.list()
             ?.filter { capability -> capability.descriptor.requiredPermissions.all { it in permissions } }
             ?.flatMap { capability -> capability.descriptor.supportedOperations.map { operation ->
-                "$operation (capability=${capability.descriptor.id}, category=${capability.descriptor.category})"
+                val description = capability.descriptor.description.take(400)
+                "$operation (capability=${capability.descriptor.id}, category=${capability.descriptor.category}, description=$description)"
             } }?.distinct()?.sorted().orEmpty()
         return buildString {
             append("Create an executable plan for this goal: ").append(goal)
