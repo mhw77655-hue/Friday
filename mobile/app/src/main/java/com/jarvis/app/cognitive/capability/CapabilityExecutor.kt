@@ -64,6 +64,8 @@ class CapabilityExecutor(
         private set
 
     private val outcomes = mutableListOf<CapabilityStepOutcome>()
+    private val evidenceAttemptLock = Any()
+    private val evidenceAttempts = mutableMapOf<String, Int>()
 
     /** Number of replans performed so far (bounded by [maxReplans]). */
     var replanCount: Int = 0
@@ -438,6 +440,12 @@ class CapabilityExecutor(
         detail: String
     ) {
         val ledger = evidenceLedger ?: return
+        val requestKey = requestId(request)
+        val attempt = synchronized(evidenceAttemptLock) {
+            val next = (evidenceAttempts[requestKey] ?: 0) + 1
+            evidenceAttempts[requestKey] = next
+            next
+        }
         try {
             ledger.record(
                 CapabilityEvidence(
@@ -447,7 +455,8 @@ class CapabilityExecutor(
                     observedAtMs = nowMs().coerceAtLeast(0L),
                     source = "capability-executor",
                     verified = verified,
-                    detail = detail.take(1_000)
+                    detail = detail.take(1_000),
+                    eventId = "$requestKey#$attempt"
                 )
             )
             evidenceRecordingError = null
