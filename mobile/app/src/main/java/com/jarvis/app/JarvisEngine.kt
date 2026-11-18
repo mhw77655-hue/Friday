@@ -447,7 +447,8 @@ object JarvisEngine {
                 llmSynthesisProvider = com.jarvis.app.mutation.LlmSynthesisProvider(modelManager),
                 cognitiveCapabilityFabric = capabilityFabric,
                 resourceGovernor = builderGovernor,
-                refreshResources = refreshBuilderResources
+                refreshResources = refreshBuilderResources,
+                nowMs = { assembly.ports.nowMs() }
             )
             this.toolBuilderStack = builderStack
             this.toolBuilder = builderStack.builder
