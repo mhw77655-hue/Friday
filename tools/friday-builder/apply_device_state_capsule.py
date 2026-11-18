@@ -143,15 +143,31 @@ def apply_capsule(data: dict[str, Any]) -> None:
 
     accessibility = data["permissions"]["accessibility"] == "granted"
     accessibility_component = "com.jarvis.app/com.jarvis.app.voice.FridayAccessibilityService"
-    adb("settings", "put", "secure", "enabled_accessibility_services", accessibility_component if accessibility else "")
+    adb(*secure_component_setting(
+        "enabled_accessibility_services", accessibility_component, accessibility
+    ))
     adb("settings", "put", "secure", "accessibility_enabled", "1" if accessibility else "0")
 
     listener = data["permissions"]["notification_listener"] == "granted"
     listener_component = "com.jarvis.app/com.jarvis.app.JarvisNotificationListener"
-    adb("settings", "put", "secure", "enabled_notification_listeners", listener_component if listener else "")
+    adb(*secure_component_setting(
+        "enabled_notification_listeners", listener_component, listener
+    ))
 
     for command in network_commands(data["network"]):
         adb(*command)
+
+
+def secure_component_setting(key: str, component: str, enabled: bool) -> tuple[str, ...]:
+    """Build a valid Settings command for an enabled or disabled component.
+
+    Android's `settings put` rejects an empty value (ADB reports "Bad
+    arguments"). Disabled components must have the secure setting deleted,
+    not populated with an empty string.
+    """
+    if enabled:
+        return ("settings", "put", "secure", key, component)
+    return ("settings", "delete", "secure", key)
 
 
 def network_commands(network: dict[str, Any]) -> tuple[tuple[str, ...], ...]:
