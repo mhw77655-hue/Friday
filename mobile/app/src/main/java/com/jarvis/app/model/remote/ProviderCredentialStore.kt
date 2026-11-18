@@ -22,7 +22,7 @@ class ProviderCredentialStore(context: Context) {
         require(providerId.matches(Regex("[a-zA-Z0-9_.-]{1,80}"))) { "Invalid provider id" }
         require(secret.isNotBlank()) { "Credential cannot be blank" }
         val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.ENCRYPT_MODE, key())
+        cipher.init(Cipher.ENCRYPT_MODE, key(providerId))
         val prefix = providerId
         prefs.edit()
             .putString("$prefix.cipher", Base64.encodeToString(cipher.doFinal(secret.trim().toByteArray()), Base64.NO_WRAP))
@@ -36,21 +36,25 @@ class ProviderCredentialStore(context: Context) {
         val encrypted = prefs.getString("$providerId.cipher", null) ?: return null
         val iv = prefs.getString("$providerId.iv", null) ?: return null
         val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP)))
+        cipher.init(Cipher.DECRYPT_MODE, key(providerId), GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP)))
         String(cipher.doFinal(Base64.decode(encrypted, Base64.NO_WRAP)), Charsets.UTF_8).takeIf { it.isNotBlank() }
     }.getOrNull()
 
     @Synchronized
     fun clear(providerId: String) {
         prefs.edit().remove("$providerId.cipher").remove("$providerId.iv").apply()
+        runCatching {
+            KeyStore.getInstance("AndroidKeyStore").apply { load(null) }.deleteEntry(alias(providerId))
+        }
     }
 
-    private fun key(): SecretKey {
+    private fun key(providerId: String): SecretKey {
+        val keyAlias = alias(providerId)
         val store = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
-        (store.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
+        (store.getKey(keyAlias, null) as? SecretKey)?.let { return it }
         return KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore").run {
             init(KeyGenParameterSpec.Builder(
-                KEY_ALIAS,
+                keyAlias,
                 KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
             ).setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
@@ -60,8 +64,10 @@ class ProviderCredentialStore(context: Context) {
         }
     }
 
+    private fun alias(providerId: String) = "$KEY_ALIAS_PREFIX$providerId"
+
     companion object {
-        private const val KEY_ALIAS = "friday.ai.providers.credentials.v1"
+        private const val KEY_ALIAS_PREFIX = "friday.ai.provider.v1."
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
     }
 }
