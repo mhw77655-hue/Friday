@@ -32,7 +32,7 @@ As of 2026-11-18:
 - PR #82's disposable Android emulator path is still under validation. Its earlier run compiled APKs but failed before installation because Android's Settings provider was not ready. A tested-by-design readiness correction is included in the clean integration branch, whose full build/emulator workflow is still queued; do not treat the emulator gate as passed yet.
 - PR #83's autonomous repair/promotion path remains open and must be reconciled with the actual emulator dependency and exact-candidate verification gates.
 - PR #89's phone-resident source Builder proposal is not accepted as the architecture: it conflicts with the repository-side workshop boundary and its observed CI head has a duplicate `nowMs` argument compile failure.
-- The whole-project root-cause findings and dependency-ordered implementation plan are tracked in [PR #90](https://github.com/mhw77655-hue/Friday/pull/90).
+- The whole-project root-cause findings and dependency-ordered implementation plan are tracked in [PR #90](https://github.com/mhw77655-hue/Friday/pull/90). The canonical build-workflow/emulator integration is being validated separately in [draft PR #93](https://github.com/mhw77655-hue/Friday/pull/93).
 
 This repository is not yet a finished, release-ready Friday. No APK handoff or successful physical-device acceptance is implied by the presence of source code or open PRs.
 
