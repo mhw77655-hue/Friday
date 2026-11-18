@@ -37,6 +37,14 @@ class BuildWorkflowContractTests(unittest.TestCase):
     def test_workflow_dispatch_is_available_for_trusted_publisher(self):
         self.assertIn("workflow_dispatch:", self.workflow)
 
+    def test_android_emulator_matches_github_runner_resource_budget(self):
+        emulator = self.workflow.split("  android-emulator:", 1)[1].split("  full-source-audit:", 1)[0]
+        self.assertIn('"system-images;android-35;google_atd;x86_64"', emulator)
+        self.assertIn("target: google_atd", emulator)
+        self.assertIn("cores: 2", emulator)
+        self.assertIn("-memory 3072 -cores 2", emulator)
+        self.assertNotIn("-cores 4", emulator)
+
 
     def test_candidate_branches_do_not_run_duplicate_push_and_pull_request_builds(self):
         push = self.workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
