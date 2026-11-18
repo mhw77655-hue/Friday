@@ -86,6 +86,7 @@ snapshot_wip() {
   TR=$(tree_hash)
   [ -n "$TR" ] || { say "WARN: could not snapshot the working tree"; return 1; }
   CM=$(git commit-tree "$TR" -p HEAD -m "ralph wip snapshot $(date -u +%FT%TZ)" 2>/dev/null)
+  gh auth setup-git > /dev/null 2>&1 || { say "WARN: trusted git authentication setup failed"; return 1; }
   git push -q -f origin "$CM:refs/heads/ralph/wip" > /dev/null 2>&1 && echo "wip snapshot pushed to ralph/wip" || say "WARN: wip snapshot push failed"
 }
 
@@ -199,33 +200,6 @@ pump() {
   done
 }
 
-wait_build() {
-  git fetch -q origin main; SHA=$(git rev-parse origin/main); W0=$(date +%s)
-  while [ $(( $(date +%s) - W0 )) -lt 1500 ]; do
-    J=$(gh api "repos/$REPO/actions/workflows/build.yml/runs?head_sha=$SHA&per_page=20" 2>/dev/null)
-    OKN=$(echo "$J" | jq '[.workflow_runs[]? | select(.conclusion=="success")] | length' 2>/dev/null)
-    [ "${OKN:-0}" -gt 0 ] && return 0
-    TOT=$(echo "$J" | jq -r '.total_count // 0' 2>/dev/null); PEND=$(echo "$J" | jq '[.workflow_runs[]? | select(.status!="completed")] | length' 2>/dev/null)
-    if [ "${TOT:-0}" -gt 0 ] && [ "${PEND:-0}" = 0 ]; then say "the build of the final main@${SHA:0:7} did not succeed"; return 1; fi
-    sleep "$PUMPSEC"
-  done
-  say "the build of the final main@${SHA:0:7} did not finish in time"; return 1
-}
-deliver() {
-  git fetch -q origin main; SHA=$(git rev-parse origin/main)
-  RID=$(gh api "repos/$REPO/actions/workflows/build.yml/runs?head_sha=$SHA&per_page=20" 2>/dev/null | jq -r '[.workflow_runs[]? | select(.conclusion=="success")][0].id // empty' 2>/dev/null)
-  [ -n "$RID" ] || { say "deliver: no successful build run for main@${SHA:0:7}"; return 1; }
-  rm -rf /tmp/apk; gh run download "$RID" --repo "$REPO" -n debug-apk -D /tmp/apk > /dev/null 2>&1 || { say "deliver: could not download the debug-apk artifact"; return 1; }
-  APK=$(find /tmp/apk -name "*.apk" | head -1); [ -n "$APK" ] || { say "deliver: no apk in the artifact"; return 1; }
-  TAG="friday-${SHA:0:7}"
-  gh release create "$TAG" "$APK" --repo "$REPO" --target main --prerelease --title "Friday build ${SHA:0:7}" --notes "Built in the cloud. Stories verified:$DONE" > /dev/null 2>&1 || { say "deliver: could not create release $TAG; friday-latest was left untouched"; return 1; }
-  if gh release view friday-latest --repo "$REPO" > /dev/null 2>&1; then
-    gh release upload friday-latest "$APK" --repo "$REPO" --clobber > /dev/null 2>&1 && gh release edit friday-latest --repo "$REPO" --title "Friday latest: build ${SHA:0:7}" --notes "Same file as release $TAG. Stories verified:$DONE" > /dev/null 2>&1 || say "WARN: could not refresh friday-latest; the new build is in release $TAG"
-  else
-    gh release create friday-latest "$APK" --repo "$REPO" --target main --prerelease --title "Friday latest: build ${SHA:0:7}" --notes "Same file as release $TAG. Stories verified:$DONE" > /dev/null 2>&1 || say "WARN: could not create friday-latest; the new build is in release $TAG"
-  fi
-  say "release ready: https://github.com/$REPO/releases/download/friday-latest/$(basename "$APK") (also release $TAG)"
-}
 notify() {
   if gh issue create --repo "$REPO" --title "$1" --body "@$OWNER $2" > /dev/null 2>&1; then say "notified with an issue"
   else git fetch -q origin main 2>/dev/null; gh api -X POST "repos/$REPO/commits/$(git rev-parse origin/main)/comments" -f body="@$OWNER $1. $2" > /dev/null 2>&1 && say "notified with a commit comment" || say "WARN: could not notify (are issues disabled?)"; fi
@@ -238,15 +212,37 @@ finish() {
   REMAIN=$(remaining)
   if [ "$REMAIN" = 0 ] && [ -z "$BLOCKED" ]; then
     git fetch -q origin main
-    if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ] && git merge-base --is-ancestor origin/main HEAD; then git push -q origin HEAD:refs/heads/main > /dev/null 2>&1 || say "WARN: could not push the final main"; fi
-    if wait_build && deliver; then notify "Friday build finished: $STORIES" "Verified:$DONE. Download: https://github.com/$REPO/releases/download/friday-latest/app-debug.apk"; else notify "Friday stories verified but delivery failed" "Verified:$DONE. See the reports/cloud branch."; fi
+    MAIN_SHA=$(git rev-parse origin/main)
+    HEAD_SHA=$(git rev-parse HEAD)
+    if [ "$HEAD_SHA" = "$MAIN_SHA" ]; then
+      notify "Cloud Ralph verified the requested stories" "No committed source delta exists beyond main, so no proposal branch was created."
+    elif git merge-base --is-ancestor origin/main HEAD; then
+      BRANCH="ralph/proposal-${HEAD_SHA:0:12}-r${RELAY}"
+      gh auth setup-git > /dev/null 2>&1 || { notify "Cloud Ralph could not publish a proposal" "Trusted git authentication setup failed. Work remains on ralph/wip."; return; }
+      if git push -q origin "HEAD:refs/heads/$BRANCH" > /dev/null 2>&1; then
+        PR_URL=$(gh pr list --repo "$REPO" --head "$BRANCH" --base main --json url --jq '.[0].url // empty' 2>/dev/null)
+        if [ -z "$PR_URL" ]; then
+          PR_URL=$(gh pr create --draft --repo "$REPO" --base main --head "$BRANCH" \
+            --title "Friday development proposal: $STORIES" \
+            --body "Cloud Ralph completed its requested stories and verified the configured checks. This is a draft proposal only. It was not merged, released, signed, or installed. Independent review and CI are required before promotion." 2>/dev/null || true)
+        fi
+        if [ -n "$PR_URL" ]; then
+          notify "Cloud Ralph proposal ready for review" "Draft PR: $PR_URL. No direct main push or release was performed."
+        else
+          notify "Cloud Ralph pushed a proposal branch but could not open its draft PR" "Branch: $BRANCH. Work remains review-only; no merge or release was performed."
+        fi
+      else
+        notify "Cloud Ralph could not push its proposal branch" "Branch: $BRANCH. Work remains on ralph/wip; main was not changed."
+      fi
+    else
+      notify "Cloud Ralph stopped because its work diverged from current main" "No direct push or release was performed. Inspect ralph/wip and reports/cloud."
+    fi
     git push -q origin :refs/heads/ralph/wip > /dev/null 2>&1
   elif [ "$WHY" = "window ended with stories still open" ] && [ "$PROGRESS" = 1 ] && [ "$RELAY" -lt "$MAXRELAY" ]; then
     say "relay: starting run $((RELAY+1)) from the saved work"
     gh workflow run ralph.yml --repo "$REPO" --ref main -f stories="$STORIES" -f relay="$((RELAY+1))" > /dev/null 2>&1 || { say "WARN: relay dispatch failed"; notify "Cloud builder stopped: relay failed" "$WHY. See reports/cloud."; }
   else
-    HINT=""; [ -z "$KEYED" ] && HINT=" Add a repository secret named NVIDIA_API_KEY (a free key from build.nvidia.com), then run the ralph workflow again."
-    notify "Cloud builder stopped: $WHY" "Stories still open: $STORIES. Work is saved on branch ralph/wip.$HINT See reports/cloud."
+    notify "Cloud builder stopped: $WHY" "Stories still open: $STORIES. Work is saved on branch ralph/wip. See reports/cloud."
   fi
   kill "$PUMPPID" 2>/dev/null
   status_report "final: $WHY" "final_r${RELAY}_$(date +%m%d_%H%M).md"
