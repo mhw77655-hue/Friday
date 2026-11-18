@@ -91,7 +91,9 @@ class ProviderCouncil(
                 append(projectContext)
             }
         }
-        val estimatedTokens = (system.length + request.task.length + 3) / 4 + request.maxOutputTokens
+        // Conservative character reservation: never rely on a cheap 4-chars/token guess,
+        // which undercounts Arabic/CJK and many code-heavy prompts.
+        val estimatedTokens = system.length + request.task.length + request.maxOutputTokens
         val opinions = mutableListOf<CouncilOpinion>()
 
         for (entry in ordered) {
