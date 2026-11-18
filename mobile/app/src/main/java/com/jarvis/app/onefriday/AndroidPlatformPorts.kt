@@ -45,7 +45,7 @@ class AndroidPlatformPorts(
     private val nanoSymbiosis: NanoSymbioticController? = null,
     private val deviceControlRouterProvider: () -> com.jarvis.app.android.DeviceControlRouter? = { null },
     private val riskGateProvider: () -> com.jarvis.app.android.RiskGate? = { null }
- ) : PlatformPorts {
+) : PlatformPorts {
 
     private val repositoryBuildSettings by lazy { GitHubTokenVault(context.applicationContext) }
     private val repositoryDispatchClient by lazy {
@@ -82,6 +82,16 @@ class AndroidPlatformPorts(
         check(repositoryBuildResult is com.jarvis.app.cognitive.capability.CapabilityRegistry.RegisterResult.Ok) {
             "Repository Builder capability registration failed: $repositoryBuildResult"
         }
+
+        val repositoryStatusResult = fabric.register(
+            com.jarvis.app.builder.RepositoryBuildStatusCapability(
+                settings = repositoryBuildSettings,
+                dispatchClient = repositoryDispatchClient
+            )
+        )
+        check(repositoryStatusResult is com.jarvis.app.cognitive.capability.CapabilityRegistry.RegisterResult.Ok) {
+            "Repository Builder status capability registration failed: $repositoryStatusResult"
+        }
     }
 
     override fun grantedCapabilityPermissions(): Set<com.jarvis.app.cognitive.capability.CapabilityPermission> {
@@ -90,8 +100,11 @@ class AndroidPlatformPorts(
             app.remoteProviderProfiles.createEnabledEntries().isNotEmpty()
         return buildSet {
             if (enabled) add(CapabilityPermission.EXTERNAL_AI)
-            if (repositoryBuildSettings.hasToken() && repositoryBuildSettings.automaticRequestsEnabled()) {
-                add(CapabilityPermission.REPOSITORY_BUILD)
+            if (repositoryBuildSettings.hasToken()) {
+                add(CapabilityPermission.REPOSITORY_BUILD_STATUS)
+                if (repositoryBuildSettings.automaticRequestsEnabled()) {
+                    add(CapabilityPermission.REPOSITORY_BUILD)
+                }
             }
         }
     }
