@@ -307,7 +307,7 @@ class ToolBuilderTest {
                 context = mapOf("spec_json" to specJson)
             )
         )
-        assertTrue("Builder invocation failed: ${built.failure}", built.success)
+        assertTrue("Builder invocation failed: ${built.result?.failure}", built.success)
         assertTrue("the live model should synthesize the custom capability", modelCalls > 0)
         val firstCall = firstFabric.invoker.invoke(
             ActionRequest(
@@ -317,8 +317,8 @@ class ToolBuilderTest {
                 context = mapOf("text" to "one two three")
             )
         )
-        assertTrue("generated capability failed: ${firstCall.failure}", firstCall.success)
-        assertEquals("3.0", firstCall.output["result"])
+        assertTrue("generated capability failed: ${firstCall.result?.failure}", firstCall.success)
+        assertEquals("3.0", firstCall.result?.output?.get("result"))
 
         // A new composition simulates process death/restart. It receives no
         // model provider; the promoted artifact itself must be enough.
@@ -342,10 +342,10 @@ class ToolBuilderTest {
                 context = mapOf("text" to "four five six")
             )
         )
-        assertTrue("restored capability failed: ${restoredCall.failure}", restoredCall.success)
-        assertEquals("3.0", restoredCall.output["result"])
+        assertTrue("restored capability failed: ${restoredCall.result?.failure}", restoredCall.success)
+        assertEquals("3.0", restoredCall.result?.output?.get("result"))
 
-        val receiptId = built.output["receipt_id"] ?: error("Builder did not return a durable rollback receipt")
+        val receiptId = built.result?.output?.get("receipt_id") ?: error("Builder did not return a durable rollback receipt")
         val inspected = secondFabric.invoker.invoke(
             ActionRequest(
                 planId = "builder-restart",
@@ -354,7 +354,7 @@ class ToolBuilderTest {
             )
         )
         assertTrue("promotion history could not be inspected", inspected.success)
-        assertTrue(inspected.output["promotions_json"].orEmpty().contains(receiptId))
+        assertTrue(inspected.result?.output?.get("promotions_json").orEmpty().contains(receiptId))
 
         val rolledBack = secondFabric.invoker.invoke(
             ActionRequest(
@@ -367,7 +367,7 @@ class ToolBuilderTest {
                 )
             )
         )
-        assertTrue("durable rollback failed: ${rolledBack.failure}", rolledBack.success)
+        assertTrue("durable rollback failed: ${rolledBack.result?.failure}", rolledBack.success)
         val afterRollback = secondFabric.invoker.invoke(
             ActionRequest(
                 planId = "builder-restart",
