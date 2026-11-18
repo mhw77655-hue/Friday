@@ -112,4 +112,64 @@ class DeviceControlRouterTest {
         assertEquals(0, official.callCount)
         assertTrue(router.attempts.any { it.backendId == "official-api" && it.error == "unavailable" })
     }
+    @Test
+    fun `unknown backends are ordered after known fallback rungs`() {
+        val unknown = FakeBackend("custom-backend", succeeds = true)
+        val media = FakeBackend("media-session", succeeds = true)
+        val router = DeviceControlRouter(listOf(unknown, media))
+
+        router.execute(action)
+
+        assertEquals(listOf("media-session"), router.lastTriedOrder())
+        assertEquals(0, unknown.callCount)
+    }
+
+    @Test
+    fun `duplicate backend identities are rejected at composition time`() {
+        org.junit.Assert.assertThrows(IllegalArgumentException::class.java) {
+            DeviceControlRouter(
+                listOf(
+                    FakeBackend("media-session", succeeds = true),
+                    FakeBackend("media-session", succeeds = false)
+                )
+            )
+        }
+    }
+
+    @Test
+    fun `concurrent executions return their own evidence snapshots`() {
+        val entered = java.util.concurrent.CountDownLatch(2)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val backend = object : ControlBackend {
+            override val id = "media-session"
+            override fun available() = true
+            override fun execute(action: ControlAction): VerificationEvidence {
+                entered.countDown()
+                check(release.await(2, java.util.concurrent.TimeUnit.SECONDS))
+                return VerificationEvidence(
+                    VerificationStage.VERIFIED,
+                    id,
+                    "verified:${action.id}"
+                )
+            }
+        }
+        val router = DeviceControlRouter(listOf(backend))
+        val pool = java.util.concurrent.Executors.newFixedThreadPool(2)
+        try {
+            val first = pool.submit<DeviceControlExecution> {
+                router.executeWithEvidence(action.copy(id = "first"))
+            }
+            val second = pool.submit<DeviceControlExecution> {
+                router.executeWithEvidence(action.copy(id = "second"))
+            }
+            assertTrue(entered.await(2, java.util.concurrent.TimeUnit.SECONDS))
+            release.countDown()
+            assertEquals("verified:first", first.get(2, java.util.concurrent.TimeUnit.SECONDS).attempts.single().evidence.detail)
+            assertEquals("verified:second", second.get(2, java.util.concurrent.TimeUnit.SECONDS).attempts.single().evidence.detail)
+        } finally {
+            release.countDown()
+            pool.shutdownNow()
+        }
+    }
+
 }
