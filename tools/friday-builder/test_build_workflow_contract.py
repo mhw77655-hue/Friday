@@ -34,6 +34,13 @@ class BuildWorkflowContractTests(unittest.TestCase):
             self.assertIn(f"- {job}", reporter)
             self.assertIn(f"needs.{job}.result != 'success'", reporter)
 
+    def test_emulator_requires_usable_kvm_instead_of_silently_running_tcg(self):
+        self.assertIn("Enable KVM acceleration for the disposable phone", self.workflow)
+        self.assertIn("sudo chmod 666 /dev/kvm", self.workflow)
+        self.assertIn("ANDROID_KVM_READY", self.workflow)
+        self.assertIn("x86_64 software emulation is too slow and unreliable", self.workflow)
+        self.assertIn("-memory 3072 -cores 2", self.workflow)
+
     def test_workflow_dispatch_is_available_for_trusted_publisher(self):
         self.assertIn("workflow_dispatch:", self.workflow)
 
@@ -45,6 +52,14 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn("-memory 3072 -cores 2", emulator)
         self.assertNotIn("-cores 4", emulator)
 
+
+    def test_candidate_branches_do_not_run_duplicate_push_and_pull_request_builds(self):
+        push = self.workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
+        self.assertIn("branches: [ main ]", push)
+        self.assertNotIn("audit/**", push)
+        self.assertNotIn("friday-proposals/**", push)
+        self.assertIn("concurrency:", self.workflow)
+        self.assertIn("github.event_name", self.workflow)
 
 if __name__ == "__main__":
     unittest.main()

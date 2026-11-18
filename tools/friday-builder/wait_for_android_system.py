@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Wait for Android system services actually used by PackageInstaller.
+"""Wait for Android system services and storage mounts used by PackageInstaller.
 
-Boot-completed and package enumeration do not prove SettingsProvider is ready.
-PackageInstaller consults Settings during session creation, so we probe the
-provider through the same public shell API before attempting APK installation.
+Boot-completed, package enumeration and SettingsProvider do not prove that
+Android's emulated-storage FUSE session is mounted. PackageInstaller can hang
+or fail while StorageManager is still bringing that session online, so this
+probe requires both private and emulated volumes to report mounted.
 """
 from __future__ import annotations
 
@@ -36,18 +37,32 @@ def probe_state() -> dict[str, str]:
         "settings_device_provisioned": run_adb(
             "shell", "settings", "get", "global", "device_provisioned"
         ),
+        # PackageInstaller also needs the emulated-storage FUSE session. Boot
+        # completion and SettingsProvider can be ready while this mount is not.
+        "storage_volumes": run_adb("shell", "sm", "list-volumes", "all"),
     }
 
 
 def is_system_ready(state: dict[str, str]) -> bool:
-    """Require boot, PackageManager enumeration, and a live Settings provider."""
+    """Require boot, PackageManager, SettingsProvider, and mounted private/emulated storage."""
     packages = set(state.get("packages", "").splitlines())
     settings_value = state.get("settings_device_provisioned", "").strip()
+    volume_lines = [line.split() for line in state.get("storage_volumes", "").splitlines()]
+    private_mounted = any(
+        len(parts) >= 2 and parts[0].startswith("private") and parts[1] == "mounted"
+        for parts in volume_lines
+    )
+    emulated_mounted = any(
+        len(parts) >= 2 and (parts[0] == "emulated" or parts[0].startswith("emulated;")) and parts[1] == "mounted"
+        for parts in volume_lines
+    )
     return (
         state.get("boot_completed", "").strip() == "1"
         and "package:android" in packages
         and "package:com.android.settings" in packages
         and re.fullmatch(r"[01]", settings_value) is not None
+        and private_mounted
+        and emulated_mounted
     )
 
 
@@ -57,6 +72,8 @@ def collect_diagnostics() -> str:
         ("package service", ("shell", "service", "check", "package")),
         ("package enumeration", ("shell", "pm", "list", "packages")),
         ("Settings provider probe", ("shell", "settings", "get", "global", "device_provisioned")),
+        ("storage volume state", ("shell", "sm", "list-volumes", "all")),
+        ("mount service diagnostics", ("shell", "dumpsys", "mount")),
         ("registered content providers", ("shell", "dumpsys", "activity", "providers")),
         ("PackageInstaller diagnostics", ("shell", "dumpsys", "package")),
         ("system log", ("logcat", "-b", "all", "-d", "-t", "16000")),
@@ -87,8 +104,8 @@ def wait_for_system(
             last_state = {"probe_error": f"{type(exc).__name__}: {exc}"}
         if is_system_ready(last_state):
             print(
-                "ANDROID_SYSTEM_READY: boot_completed=1 "
-                "package_manager=responsive settings_provider=ready "
+                "ANDROID_SYSTEM_READY: boot_completed=1 package_manager=responsive "
+                "settings_provider=ready private_storage=mounted emulated_storage=mounted "
                 f"device_provisioned={last_state['settings_device_provisioned'].strip()}"
             )
             return True
@@ -111,7 +128,8 @@ def wait_for_system(
         print(
             "Waiting for Android system providers: "
             f"boot={last_state.get('boot_completed', '<unknown>')} "
-            f"settings={last_state.get('settings_device_provisioned', '<unavailable>')}"
+            f"settings={last_state.get('settings_device_provisioned', '<unavailable>')} "
+            f"storage={last_state.get('storage_volumes', '<unavailable>')}"
         )
         sleep(min(interval_seconds, remaining))
 

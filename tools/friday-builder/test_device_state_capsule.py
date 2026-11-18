@@ -29,6 +29,33 @@ class DeviceStateCapsuleTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             MODULE.validate_capsule(self.capsule)
 
+    def test_disabled_accessibility_is_deleted_not_written_as_empty(self):
+        self.assertEqual(
+            MODULE.secure_component_setting(
+                "enabled_accessibility_services",
+                "com.jarvis.app/com.jarvis.app.voice.FridayAccessibilityService",
+                False,
+            ),
+            ("settings", "delete", "secure", "enabled_accessibility_services"),
+        )
+
+    def test_enabled_accessibility_writes_only_the_allowlisted_component(self):
+        component = "com.jarvis.app/com.jarvis.app.voice.FridayAccessibilityService"
+        self.assertEqual(
+            MODULE.secure_component_setting("enabled_accessibility_services", component, True),
+            ("settings", "put", "secure", "enabled_accessibility_services", component),
+        )
+
+    def test_disabled_notification_listener_is_deleted_not_written_as_empty(self):
+        self.assertEqual(
+            MODULE.secure_component_setting(
+                "enabled_notification_listeners",
+                "com.jarvis.app/com.jarvis.app.JarvisNotificationListener",
+                False,
+            ),
+            ("settings", "delete", "secure", "enabled_notification_listeners"),
+        )
+
     def test_rejects_unbounded_display_dimensions(self):
         self.capsule["display"]["width_px"] = 999999
         with self.assertRaises(ValueError):
@@ -56,6 +83,31 @@ class DeviceStateCapsuleTests(unittest.TestCase):
             MODULE.network_commands({"transport": "cellular", "connected": True}),
             (("svc", "wifi", "disable"), ("svc", "data", "enable")),
         )
+
+    def test_wifi_capsule_skips_cellular_commands_when_telephony_is_absent(self):
+        self.assertEqual(
+            MODULE.network_commands(
+                {"transport": "wifi", "connected": True},
+                supports_telephony=False,
+            ),
+            (("svc", "wifi", "enable"),),
+        )
+
+    def test_offline_capsule_skips_unsupported_cellular_data_service(self):
+        self.assertEqual(
+            MODULE.network_commands(
+                {"transport": "wifi", "connected": False},
+                supports_telephony=False,
+            ),
+            (("svc", "wifi", "disable"),),
+        )
+
+    def test_cellular_capsule_is_rejected_when_device_has_no_telephony(self):
+        with self.assertRaisesRegex(ValueError, "no telephony feature"):
+            MODULE.network_commands(
+                {"transport": "cellular", "connected": True},
+                supports_telephony=False,
+            )
 
     def test_runtime_locale_and_timezone_must_match_the_capsule(self):
         properties = {

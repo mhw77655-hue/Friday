@@ -115,7 +115,7 @@ def verify_runtime_defaults(
 
 def apply_capsule(data: dict[str, Any]) -> None:
     def read_property(name: str) -> str:
-        return subprocess.check_output(["adb", "shell", "getprop", name], text=True).strip()
+        return subprocess.check_output(["adb", "shell", "getprop", name], text=True, timeout=10).strip()
 
     actual_api = int(read_property("ro.build.version.sdk"))
     if actual_api != data["api_level"]:
@@ -143,33 +143,76 @@ def apply_capsule(data: dict[str, Any]) -> None:
 
     accessibility = data["permissions"]["accessibility"] == "granted"
     accessibility_component = "com.jarvis.app/com.jarvis.app.voice.FridayAccessibilityService"
-    adb("settings", "put", "secure", "enabled_accessibility_services", accessibility_component if accessibility else "")
+    adb(*secure_component_setting(
+        "enabled_accessibility_services", accessibility_component, accessibility
+    ))
     adb("settings", "put", "secure", "accessibility_enabled", "1" if accessibility else "0")
 
     listener = data["permissions"]["notification_listener"] == "granted"
     listener_component = "com.jarvis.app/com.jarvis.app.JarvisNotificationListener"
-    adb("settings", "put", "secure", "enabled_notification_listeners", listener_component if listener else "")
+    adb(*secure_component_setting(
+        "enabled_notification_listeners", listener_component, listener
+    ))
 
-    for command in network_commands(data["network"]):
+    # The virtual Pixel profile may not expose a cellular data service.
+    # Inspect actual device features rather than assuming every Android host
+    # supports svc data. Wi-Fi/offline validation must not fail just because
+    # an AVD has no telephony hardware.
+    available_features = subprocess.check_output(
+        ["adb", "shell", "pm", "list", "features"],
+        text=True,
+        timeout=15,
+    )
+    supports_telephony = "feature:android.hardware.telephony" in available_features
+    for command in network_commands(data["network"], supports_telephony=supports_telephony):
         adb(*command)
 
 
-def network_commands(network: dict[str, Any]) -> tuple[tuple[str, ...], ...]:
-    """Translate the capsule's desired connectivity into explicit ADB actions.
+def secure_component_setting(key: str, component: str, enabled: bool) -> tuple[str, ...]:
+    """Build a valid Settings command for an enabled or disabled component.
+
+    Android's `settings put` rejects an empty value (ADB reports "Bad
+    arguments"). Disabled components must have the secure setting deleted,
+    not populated with an empty string.
+    """
+    if enabled:
+        return ("settings", "put", "secure", key, component)
+    return ("settings", "delete", "secure", key)
+
+
+def network_commands(
+    network: dict[str, Any],
+    *,
+    supports_telephony: bool = True,
+) -> tuple[tuple[str, ...], ...]:
+    """Translate connectivity intent into ADB actions supported by this device.
 
     Disconnected state takes precedence over transport. A capsule may describe
     the last available transport while intentionally requesting offline mode.
+    Cellular-data commands are emitted only when the device advertises Android
+    telephony hardware; many disposable AVD profiles have no mobile-data service.
     """
     transport = network["transport"]
     if not network["connected"] or transport == "offline":
-        return (("svc", "wifi", "disable"), ("svc", "data", "disable"))
+        commands = [("svc", "wifi", "disable")]
+        if supports_telephony:
+            commands.append(("svc", "data", "disable"))
+        return tuple(commands)
     if transport == "wifi":
-        return (("svc", "wifi", "enable"), ("svc", "data", "disable"))
+        commands = [("svc", "wifi", "enable")]
+        if supports_telephony:
+            commands.append(("svc", "data", "disable"))
+        return tuple(commands)
     if transport == "cellular":
+        if not supports_telephony:
+            raise ValueError("cellular network requested but this Android device has no telephony feature")
         return (("svc", "wifi", "disable"), ("svc", "data", "enable"))
-    # Emulator Ethernet is provided by the virtual NIC; leave Wi-Fi and mobile
-    # data disabled so the AVD uses its existing Ethernet-backed connection.
-    return (("svc", "wifi", "disable"), ("svc", "data", "disable"))
+    # Emulator Ethernet is provided by the virtual NIC. Disable competing
+    # transports where the matching device services actually exist.
+    commands = [("svc", "wifi", "disable")]
+    if supports_telephony:
+        commands.append(("svc", "data", "disable"))
+    return tuple(commands)
 
 
 def main() -> int:

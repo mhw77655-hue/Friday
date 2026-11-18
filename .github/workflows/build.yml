@@ -263,6 +263,21 @@ jobs:
       - name: Build app and instrumentation APKs
         run: ./gradlew :mobile:app:assembleDebug :mobile:app:assembleDebugAndroidTest
 
+      - name: Enable KVM acceleration for the disposable phone
+        run: |
+          set -euo pipefail
+          if [[ ! -e /dev/kvm ]]; then
+            echo "::error::This runner does not expose /dev/kvm; x86_64 software emulation is too slow and unreliable for the instrumented phone gate."
+            exit 1
+          fi
+          sudo chmod 666 /dev/kvm
+          if [[ ! -r /dev/kvm || ! -w /dev/kvm ]]; then
+            echo "::error::The runner cannot access /dev/kvm after permission setup."
+            ls -l /dev/kvm || true
+            exit 1
+          fi
+          echo "ANDROID_KVM_READY: hardware acceleration is available"
+
       - name: Boot disposable virtual phone and apply sanitized baseline state
         uses: reactivecircus/android-emulator-runner@v2
         with:
