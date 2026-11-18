@@ -79,9 +79,8 @@ class FileStorage(directory: File) : StoragePort {
         }
     }
 
-    /** Write a raw file at an arbitrary path. Atomic (temp + rename), same
-     *  durability contract as [writeWithFsync]; callers are responsible for
-     *  their own locking. */
+    /** Write a raw file at an arbitrary path using the same cross-instance
+     *  path lock and atomic replacement guarantee as logical stores. */
     fun write(file: File, content: String) {
         file.parentFile?.mkdirs()
         synchronized(lockFor(file)) {
