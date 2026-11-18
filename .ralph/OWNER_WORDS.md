@@ -1,4 +1,4 @@
-# FRIDAY — Owner's words extracted from `New Folder chats.zip`
+# FRIDAY — Curated owner-authored source excerpts
 
 This is a source companion to `.ralph/VISION.md`, not an AI-written replacement for the owner's words. The excerpts below are taken from speaker turns labelled `You:` in the original archive. Spelling, grammar and wording are retained. Only surrounding whitespace and line breaks are normalized for readability.
 
@@ -6,8 +6,8 @@ This is a source companion to `.ralph/VISION.md`, not an AI-written replacement 
 
 - These are historical source excerpts, not a new set of commands. The owner's latest authenticated instruction in the current conversation outranks every historical excerpt and this document.
 - Where an excerpt contains text quoted from an assistant or a prior draft, it is not treated as owner-authored merely because it appears inside a `You:` export. Only the owner's own statements and explicit endorsements are included here.
-- The original archive remains the complete source: `New Folder chats.zip` at the repository root. The excerpts retain source filename and conversation context so they can be checked.
-- Search the full archive without reading assistant turns using `python3 tools/friday-builder/extract_owner_turns.py --search "<relevant phrase>"`; use `--index` to list files containing owner turns. A user turn can still quote pasted AI text, so attribution must be checked.
+- Source filenames and owner-turn numbers are retained as provenance labels from the original private archive. The full conversation archives are intentionally excluded from this public repository to protect personal conversations and screenshots.
+- Do not attempt to reconstruct or publish the complete archive. Use these curated owner-authored excerpts and `.ralph/VISION.md`; when they do not resolve a genuine ambiguity, ask the owner rather than searching or exposing private conversation history.
 - Do not turn these words into a fixed component list, a state machine, or a mandatory implementation sequence. They describe desired outcomes and invariants, not permanent architecture.
 
 ## 1. What Friday is — and is not
@@ -160,4 +160,4 @@ Source: `New Folder chats/Vision_summary.txt`, owner turn 28.
 
 The owner is asking for a developing digital individual with broad, open-ended capability—not a chatbot product with a larger feature list. The excerpts above are constraints on the *outcome*, not an approved component diagram. A builder must infer the intended result, preserve multiple interpretations when the request is ambiguous, research and invent where necessary, and test the result in the real app. It must not convert a capability into a permanent module, fixed pipeline, closed taxonomy, or prescribed developmental stage merely because that is easier to code.
 
-The owner's current instruction takes precedence over this archive. Where an old statement conflicts with a later one, retain the historical evidence but follow the later explicit correction. Never use an assistant's paraphrase as if it were the owner's own words.
+The owner's current instruction takes precedence over these historical excerpts. Where an old statement conflicts with a later one, retain the historical evidence but follow the later explicit correction. Never use an assistant's paraphrase as if it were the owner's own words.
