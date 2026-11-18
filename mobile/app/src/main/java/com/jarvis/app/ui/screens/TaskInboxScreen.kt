@@ -9,27 +9,28 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.jarvis.app.JarvisEngine
 import com.jarvis.app.inbox.InboxTaskStatus
 import com.jarvis.app.inbox.LocalTaskInbox
 import com.jarvis.app.inbox.TaskEntry
+import com.jarvis.app.ui.components.FridayEmptyPanel
+import com.jarvis.app.ui.components.FridayMetricTile
+import com.jarvis.app.ui.components.FridayPanel
+import com.jarvis.app.ui.components.FridayScreenHeader
+import com.jarvis.app.ui.components.FridaySectionHeading
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
 import kotlinx.coroutines.flow.map
 
 /**
- * Task Inbox Screen — displays queued tasks awaiting execution.
- * Wired to the LocalTaskInbox backend.
+ * Task inbox backed by the real LocalTaskInbox. This view only presents
+ * pending/running/approval-waiting work; it does not create or execute tasks.
  */
 @Composable
 fun TaskInboxScreen(
@@ -38,75 +39,104 @@ fun TaskInboxScreen(
 ) {
     val tasks by taskInbox.tasks
         .map { list ->
-            list.filter { it.status == InboxTaskStatus.PENDING || it.status == InboxTaskStatus.RUNNING || it.status == InboxTaskStatus.WAITING_APPROVAL }
-                .map { TaskEntry.from(it) }
+            list.filter {
+                it.status == InboxTaskStatus.PENDING ||
+                    it.status == InboxTaskStatus.RUNNING ||
+                    it.status == InboxTaskStatus.WAITING_APPROVAL
+            }.map { TaskEntry.from(it) }
         }
         .collectAsStateWithLifecycle(initialValue = emptyList())
+
+    val runningCount = tasks.count { it.status.equals("RUNNING", ignoreCase = true) }
+    val waitingCount = tasks.count { it.status.equals("WAITING_APPROVAL", ignoreCase = true) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(JarvisColors.SurfaceBase)
-            .padding(16.dp)
     ) {
-        Text(
-            text = "TASK INBOX",
-            style = JarvisType.Label
+        FridayScreenHeader(
+            eyebrow = "Work in progress",
+            title = "Task inbox",
+            description = "A transparent view of work Friday has queued, started or paused for permission."
         )
 
-        Text(
-            text = "${tasks.size} pending task(s)",
-            style = JarvisType.Body.copy(fontSize = 14.sp),
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            FridayMetricTile(
+                label = "Queued",
+                value = tasks.size.toString(),
+                accent = JarvisColors.CoreThinking,
+                modifier = Modifier.weight(1f)
+            )
+            FridayMetricTile(
+                label = "Running",
+                value = runningCount.toString(),
+                accent = JarvisColors.CoreSuccess,
+                modifier = Modifier.weight(1f)
+            )
+            FridayMetricTile(
+                label = "Approval",
+                value = waitingCount.toString(),
+                accent = JarvisColors.CoreAttention,
+                modifier = Modifier.weight(1f)
+            )
+        }
 
-        LazyColumn {
-            items(tasks) { task ->
-                TaskRow(task = task, onNavigate = onNavigate)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            item { FridaySectionHeading("Current work", "${tasks.size} tasks") }
+            if (tasks.isEmpty()) {
+                item {
+                    FridayEmptyPanel(
+                        title = "No queued work",
+                        description = "Friday has no pending, running or approval-waiting tasks right now."
+                    )
+                }
+            } else {
+                items(tasks) { task -> TaskRow(task = task) }
             }
         }
     }
 }
 
 @Composable
-private fun TaskRow(task: TaskEntry, onNavigate: (String) -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = JarvisColors.SurfacePanel)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = task.title,
-                    style = JarvisType.Body.copy(fontSize = 14.sp)
-                )
-                Text(
-                    text = task.status,
-                    style = JarvisType.Technical.copy(fontSize = 10.sp)
-                )
-            }
-
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(vertical = 4.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Capability: ${task.capability}",
-                    style = JarvisType.Technical.copy(fontSize = 12.sp, color = JarvisColors.TextSecondary)
-                )
-                Text(
-                    text = "Source: ${task.source}",
-                    style = JarvisType.Technical.copy(fontSize = 12.sp, color = JarvisColors.TextSecondary)
-                )
-            }
+private fun TaskRow(task: TaskEntry) {
+    val statusColor = when (task.status.uppercase()) {
+        "RUNNING" -> JarvisColors.CoreSuccess
+        "WAITING_APPROVAL" -> JarvisColors.CoreAttention
+        else -> JarvisColors.CoreThinking
+    }
+    FridayPanel {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            Text(
+                task.title,
+                style = JarvisType.Body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                task.status.replace('_', ' ').uppercase(),
+                style = JarvisType.Label.copy(color = statusColor)
+            )
         }
+
+        Text(
+            "CAPABILITY  ${task.capability}",
+            style = JarvisType.Technical.copy(color = JarvisColors.TextSecondary)
+        )
+        Text(
+            "SOURCE  ${task.source}",
+            style = JarvisType.Technical.copy(color = JarvisColors.TextMuted)
+        )
     }
 }
 
