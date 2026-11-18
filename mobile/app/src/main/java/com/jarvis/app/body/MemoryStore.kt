@@ -285,7 +285,16 @@ class MemoryStore(
                     // Snapshot only after taking the same lock used for the
                     // write, so an older concurrent snapshot cannot land last.
                     val json = JSONObject()
-                    json.put("updated_at_ms", System.currentTimeMillis())
+                    // Reuse timestamps already attached to the changed records. The
+                    // id counter is wall-clock seeded and advances for context
+                    // entries, so snapshot stamping needs no seventh direct read.
+                    val updatedAt = maxOf(
+                        idCounter.get(),
+                        episodicMemories.values.maxOfOrNull { it.timestamp } ?: 0L,
+                        facts.values.maxOfOrNull { it.timestamp } ?: 0L,
+                        preferences.values.maxOfOrNull { it.timestamp } ?: 0L
+                    )
+                    json.put("updated_at_ms", updatedAt)
                     json.put("episodic", JSONArray(episodicMemories.values.map { toJson(it) }))
                     json.put("facts", JSONArray(facts.values.map { toJson(it) }))
                     json.put("preferences", JSONArray(preferences.values.map { toJson(it) }))
