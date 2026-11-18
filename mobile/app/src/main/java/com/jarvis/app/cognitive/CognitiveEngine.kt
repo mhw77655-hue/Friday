@@ -287,6 +287,7 @@ class CognitiveEngine(
 
     // Turn counter
     private val turnCounter = AtomicLong(0)
+    private val taskExecutionSequence = AtomicLong(0)
 
     enum class TurnDecision {
         DIRECT_REPLY,
@@ -1355,7 +1356,7 @@ class CognitiveEngine(
             )
             return taskWorkingMemory.getHistory().lastOrNull()
         }
-        val goalId = "task_${nowMs()}"
+        val goalId = "task_${nowMs()}_${taskExecutionSequence.incrementAndGet()}"
         val node = com.jarvis.app.cognitive.planning.PlanNode(
             id = "${goalId}:s1",
             description = subgoal.description,
