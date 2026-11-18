@@ -90,6 +90,7 @@ jobs:
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses >/dev/null 2>&1 || true
           "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install \
+            "platform-tools" \
             "platforms;android-36" \
             "build-tools;35.0.0" \
             "ndk;27.3.13750724" \
