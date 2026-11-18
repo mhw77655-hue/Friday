@@ -149,6 +149,25 @@ class GoalDecompositionTest {
     }
 
     @Test
+    fun decompose_fails_with_NO_CAPABILITIES_when_registry_is_empty() = kotlinx.coroutines.runBlocking {
+        val emptyFabric = CapabilityFabric(testImmune(), emit = {})
+        val e = CognitiveEngine(
+            scope = scope,
+            memoryStore = object : MemoryStorePort {
+                override fun queryMemories(query: String, limit: Int) = emptyList<MemoryItem>()
+            },
+            capabilityFabric = emptyFabric,
+            decompositionComplete = { _ -> """{"subgoals":[{"description":"Do work","operation":"invented"}]}""" }
+        )
+        try {
+            e.decompose("Do work")
+            fail("An empty capability registry must not produce a runnable plan")
+        } catch (error: DecompositionException) {
+            assertEquals(DecompositionCause.NO_CAPABILITIES, error.reason)
+        }
+    }
+
+    @Test
     fun decompose_fails_with_LLM_ERROR_on_throwing_seam() = kotlinx.coroutines.runBlocking {
         val e = engine { _ -> throw RuntimeException("model offline") }
 
