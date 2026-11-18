@@ -40,6 +40,8 @@ fun RemoteAiProvidersSection() {
     val profiles = remember { RemoteProviderProfiles(context) }
     val packStore = remember { ProjectContextPackStore(File(context.filesDir, "friday/project_context_pack.json")) }
     val scope = rememberCoroutineScope()
+    val council = remember { ProviderCouncil(context, profiles, packStore) }
+    var councilEnabled by remember { mutableStateOf(council.isEnabled()) }
     var configured by remember { mutableStateOf(profiles.all()) }
     var profileId by remember { mutableStateOf("openai") }
     var label by remember { mutableStateOf("OpenAI") }
@@ -71,6 +73,18 @@ fun RemoteAiProvidersSection() {
     ) {
         Text("AI CONNECTORS & SHARED PROJECT CONTEXT")
         Text("Connect OpenAI, Claude, Gemini or any compatible endpoint. Credentials stay encrypted on this phone. Friday remains the authority; advisers cannot execute phone actions or edit memory.")
+
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Allow Friday to consult external advisers")
+                Text("Off by default. Enabling permits network requests using the selected task and imported context pack.")
+            }
+            Switch(checked = councilEnabled, onCheckedChange = {
+                councilEnabled = it
+                council.setEnabled(it)
+                status = if (it) "External adviser calls enabled." else "External adviser calls disabled."
+            })
+        }
 
         Text("Configured advisers")
         configured.forEach { item ->
