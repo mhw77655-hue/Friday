@@ -115,7 +115,7 @@ def verify_runtime_defaults(
 
 def apply_capsule(data: dict[str, Any]) -> None:
     def read_property(name: str) -> str:
-        return subprocess.check_output(["adb", "shell", "getprop", name], text=True).strip()
+        return subprocess.check_output(["adb", "shell", "getprop", name], text=True, timeout=10).strip()
 
     actual_api = int(read_property("ro.build.version.sdk"))
     if actual_api != data["api_level"]:
