@@ -139,6 +139,14 @@ The #83 diff creates/updates proposal PRs with `GITHUB_TOKEN`, removes the expli
 **Consequence:** self-repair stalls or treats absent checks ambiguously, and the automatic-promotion claim is unsupported.  
 **Root correction:** retain explicit workflow dispatch, grant `actions: write` only to the trusted publisher (or use a dedicated GitHub App token with the same narrow authority), record the dispatched run ID and head SHA, wait for that exact run, then re-read the PR head SHA and refuse promotion if it changed. The untrusted worker remains read-only.
 
+### RC-14: Phone-to-workshop requests do not identify the exact installed source revision
+
+`GitHubDevelopmentClient` currently sends `source_revision = "main"` for build requests and `"installed-app"` for crash repair. `BuildConfig` has no immutable Git SHA field. The repository worker's `run_proposal.sh` checks out the current repository base and records `git rev-parse HEAD`, but it does not compare that commit with the installed app's source revision. The request validator checks that `source_revision` is a bounded string, not that it identifies a real commit.
+
+**Cause:** the request schema has a provenance field, but the APK does not embed its source commit and the worker does not resolve/verify the supplied value.  
+**Consequence:** a crash or development request cannot reliably be tied to the exact code running on the phone; the workshop may repair current `main` while diagnosing a different installed build, and the resulting evidence is not reproducible.  
+**Root correction:** embed the immutable build commit SHA in `BuildConfig` at CI/release build time; propagate it as `installed_source_sha` through the encrypted outbox and public request envelope; have the worker fetch and verify that exact commit for diagnosis. Track the candidate's `target_base_sha` separately. If the installed SHA is unknown (local build), mark it explicitly unknown rather than substituting `main` or `installed-app`. Include source SHA and artifact digest in build/promotion receipts.
+
 ## 3. Architecture boundary to preserve
 
 1. **Friday on Android:** persistent identity/continuity, local cognition and presence, privacy-minimized observation, memory/experience, permissioned device actions, safe capability runtime, self-study, development-intent formation, durable offline outbox and result consumption.
