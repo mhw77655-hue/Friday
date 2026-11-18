@@ -96,7 +96,7 @@ class ToolBuilderCapability(
             "candidate_count" to result.candidates.size.toString(),
             "research_candidates" to result.researchCandidates.size.toString()
         )
-        return if (result.built || !result.gapDetected) {
+        return if (result.built || result.status.startsWith("SATISFIED")) {
             ExecutionResult.ok(output = output, evidence = evidence)
         } else {
             ExecutionResult.fail(
