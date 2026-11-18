@@ -24,7 +24,7 @@ The current candidate audit artifact from run [44313554463](https://github.com/m
 - Main is `d1b4cc88d722fa420d5648db9284a30b15ac33e8`.
 - PR #86 merged the permanent release-signing workflow. No release currently exists. Owner-controlled key custody and the five `FRIDAY_RELEASE_*` secrets remain unverified/unconfigured; the phone updater is not implemented. Issue #75 has been corrected to reflect this.
 - PR #82 (virtual Android phone) remains open. The latest run builds both APKs but fails before installation. The emulator log reports: `Cannot access system provider: 'settings' before system providers are installed!`. Its readiness test checks package enumeration, which is insufficient evidence that the Settings provider and PackageInstaller are ready.
-- PR #83 (autonomous repair/promotion) passes its latest reported CI, but its stated dependency is PR #85, which is closed without merge. The emulator implementation remains in #82 and is not a required check on main. Its promotion claims therefore exceed current evidence.
+- PR #83 (autonomous repair/promotion) passes its latest reported CI, but its stated dependency is PR #85, which is closed without merge. Its current diff also removes the explicit workflow_dispatch while relying on PR checks from a GITHUB_TOKEN-created PR; GitHub puts those runs in an approval-required state. It must restore exact-candidate dispatch, gain Actions write only in the trusted publisher, and depend on PR #93's emulator gate before any promotion claim.
 - PR #89 is open at `2260ce75dc88e2b49b58d5a5cadbabeb974dc87f`. Its latest CI fails compilation: `JarvisEngine.kt:451:17 Argument already passed for this parameter.` The composition call passes `nowMs = clock` twice.
 - PR #93 is the current integration candidate: it reconstructs the malformed main build workflow from the valid pre-append structure, preserves the merged signing smoke test, adds the emulator job and the tested-by-design Settings-provider readiness helper, and makes the failure reporter cover all validation lanes. Latest head `9e715216832526d90f6304421a27fdb2ae61e04c` is queued in run #44313554463. It is draft and not yet verified.
 - PR #82 is based on the pre-signing workflow and must not be merged separately; #93 supersedes it. PR #83 must depend on the merged #93 validation gate, not the stale #82/#85 topology.
@@ -131,6 +131,14 @@ The trusted publisher grants `contents: write` and `pull-requests: write` but om
 **Root correction:** retain the explicit dispatch and grant `actions: write` only to the trusted publisher job (or use a dedicated GitHub App token with the same narrow permission). Do not remove the dispatch unless the workflow is redesigned to handle approval-required PR checks safely. Do not grant Contents: write to the untrusted worker.
 
 
+### RC-13: PR #83 removes the only workflow trigger that can validate an automated proposal without manual approval
+
+The #83 diff creates/updates proposal PRs with `GITHUB_TOKEN`, removes the explicit `gh workflow run build.yml --ref "$BRANCH"` dispatch, then waits on `gh pr checks --watch` before auto-merge. GitHub documents that PR events created/updated with `GITHUB_TOKEN` enter an approval-required state and that push events from that token do not start workflows; `workflow_dispatch` is an exception that always starts a run. The result is a repair/promotion worker that can wait for checks that never begin.
+
+**Cause:** the promotion design assumes the PR event will automatically start CI even though the PR is created by the workflow's own token.  
+**Consequence:** self-repair stalls or treats absent checks ambiguously, and the automatic-promotion claim is unsupported.  
+**Root correction:** retain explicit workflow dispatch, grant `actions: write` only to the trusted publisher (or use a dedicated GitHub App token with the same narrow authority), record the dispatched run ID and head SHA, wait for that exact run, then re-read the PR head SHA and refuse promotion if it changed. The untrusted worker remains read-only.
+
 ## 3. Architecture boundary to preserve
 
 1. **Friday on Android:** persistent identity/continuity, local cognition and presence, privacy-minimized observation, memory/experience, permissioned device actions, safe capability runtime, self-study, development-intent formation, durable offline outbox and result consumption.
@@ -202,7 +210,7 @@ The phases are engineering work packages, not a prescribed developmental ladder 
 
 ### Phase 4 — Make validation and promotion trustworthy
 
-- Require independent validation of exact candidate SHA and patch tree.
+- Require independent validation of exact candidate SHA and patch tree. For workflow-created PRs, dispatch validation explicitly, record the run ID/head SHA, wait for that exact run and re-read the PR head before promotion; absent, stale or mismatched checks are not success.
 - Require debug build, complete unit tests, static/security checks, repository contract checks and emulator instrumentation.
 - Test malicious patches that weaken tests, edit their own validator/workflow, alter signing/security paths, or change the candidate after validation.
 - Repair failures on the same candidate branch while invalidating prior verification after every patch.
