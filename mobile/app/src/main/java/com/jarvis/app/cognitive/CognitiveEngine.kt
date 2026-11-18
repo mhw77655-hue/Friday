@@ -1120,25 +1120,47 @@ class CognitiveEngine(
         return if (goalWords.isNotEmpty()) overlap.toFloat() / goalWords.size else 0f
     }
 
+    @Volatile
+    private var goalContinuityWriter: ((Goal?, List<Subgoal>) -> Unit)? = null
+
+    /** Install the durable writer before the engine is exposed to the UI. */
+    fun installGoalContinuityWriter(writer: (Goal?, List<Subgoal>) -> Unit) {
+        check(turnCounter.get() == 0L) { "Goal continuity writer must be installed before the first turn." }
+        goalContinuityWriter = writer
+    }
+
+    private fun persistGoalContinuity(goal: Goal?, subgoals: List<Subgoal>) {
+        goalContinuityWriter?.invoke(goal, subgoals.toList())
+    }
+
     /** Set a new goal */
+    @Synchronized
     fun setGoal(goal: Goal) {
         val state = _cognitiveState.value
+        persistGoalContinuity(goal, emptyList())
         _cognitiveState.value = state.copyWith(currentGoal = goal, activeSubgoals = emptyList())
         _events.trySend(CognitiveEvent.GoalChanged(state.currentGoal, goal))
     }
 
     /** Add a subgoal */
+    @Synchronized
     fun addSubgoal(subgoal: Subgoal) {
         val state = _cognitiveState.value
+        require(state.currentGoal?.id == subgoal.goalId) {
+            "A subgoal must belong to the currently active goal."
+        }
         val updated = state.activeSubgoals + subgoal
+        persistGoalContinuity(state.currentGoal, updated)
         _cognitiveState.value = state.copyWith(activeSubgoals = updated)
         _events.trySend(CognitiveEvent.SubgoalUpdated(subgoal))
     }
 
     /** Update subgoal status */
+    @Synchronized
     fun updateSubgoal(subgoalId: String, status: SubgoalStatus) {
         val state = _cognitiveState.value
         val updated = state.activeSubgoals.map { if (it.id == subgoalId) it.copy(status = status) else it }
+        persistGoalContinuity(state.currentGoal, updated)
         _cognitiveState.value = state.copyWith(activeSubgoals = updated)
         updated.firstOrNull { it.id == subgoalId }?.let { _events.trySend(CognitiveEvent.SubgoalUpdated(it)) }
     }
