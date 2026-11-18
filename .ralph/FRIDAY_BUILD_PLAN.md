@@ -1,5 +1,7 @@
 # FRIDAY — Vision-to-Reality Build Plan
 
+> **Historical plan snapshot — reviewed 2026-11-15.** Its branch/PR references and repository-state claims are superseded. Use [the 2026-11-18 whole-project root-cause plan](WHOLE_PROJECT_ROOT_CAUSE_PLAN_20261118.md) for current repository state and implementation dependencies. This file retains useful owner-intent reconstruction, not live progress or current branch instructions. The private conversation archive was removed from the public repository; never search for, reconstruct, request or republish it.
+
 **Snapshot:** main at `1aec50652d9936d2cde0b2d192ab21d51ba4cdff` (2026-11-14 upload commit); reviewed 2026-11-15.  
 **Purpose:** map Venon's intended Friday against the actual repository, identify the shortest evidence-backed route to the first developing Friday, and keep implementation decisions subordinate to the vision.  
 **Active implementation:** `audit/friday-offline-runtime` (PR #11); `main` remains unchanged.
@@ -15,7 +17,7 @@ The authority order is:
 
 The readable project conversations reinforce the central requirement: Venon wants to build Friday **with Friday**. GPT, Claude, Ralph, search, coding workers and models are external instruments she should progressively learn to use, direct and correct. The Android app is not the build environment; source-level work happens in the connected repository environment. Venon supplies intent, experience, correction, authorization and the real-world tests.
 
-**Archive limitation:** `New Folder chats.zip` is present at the root of main (blob `e4b32d5db93073e0f523a3e05e3a78193cc4fc40`, 4,514,168 bytes). The available GitHub content reader rejects the binary ZIP, so its internal transcripts have not yet been read in this pass. This document is grounded in the committed Vision and readable project conversation records, and remains provisional until that archive can be extracted and compared. Do not claim the ZIP was read.
+**Owner-source boundary:** The private conversation archives are deliberately absent from the public repository. The curated, provenance-labelled excerpts in `.ralph/OWNER_WORDS.md` preserve the owner-authored intent that is approved for this repository. Do not search for, reconstruct, request or republish private archives. If the curated record does not resolve a genuine ambiguity, preserve uncertainty and ask the owner rather than inventing intent.
 
 ## 1. What “the first Friday” must contain
 
@@ -70,7 +72,7 @@ Free-worker quotas, context loss, rate limits and interruption are not just oper
 
 ### Shadow Company remains a later life-support direction, not Friday's purpose
 
-Earlier project conversations mention a Shadow Company with two distinct ambitions and the desire for Friday to have financial support without becoming merely a business machine. The accessible record does not contain enough of the original discussion to define those two ambitions precisely. Preserve this as an unresolved vision requirement; do not invent its business model or make revenue-seeking the centre of her identity. The ZIP transcript extraction is needed before specifying it.
+Earlier project conversations mention a Shadow Company with two distinct ambitions and the desire for Friday to have financial support without becoming merely a business machine. The currently curated owner record does not contain enough detail to define those two ambitions precisely. Preserve this as an unresolved vision requirement; do not invent its business model or make revenue-seeking the centre of her identity. Ask the owner if and when this becomes a concrete development priority.
 
 
 ## 2. Current repository reality
