@@ -46,6 +46,18 @@ BLOCKED_NAME_PARTS = (
     "notificationlistener",
     "shizuk",
     "ownerbiometric",
+    "identity",
+    "selfmodel",
+    "experiencestore",
+    "experiencejournal",
+    "seedsubstrate",
+    "goalcontinuity",
+    "goalstore",
+    "memorysnapshot",
+    "capabilityfabric",
+    "capabilityexecutor",
+    "capabilityregistry",
+    "operationcontract",
 )
 
 
