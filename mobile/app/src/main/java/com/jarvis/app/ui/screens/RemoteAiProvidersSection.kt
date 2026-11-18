@@ -120,20 +120,31 @@ fun RemoteAiProvidersSection() {
                         when (item) {
                             RemoteProviderProtocol.OPENAI_RESPONSES -> {
                                 endpoint = "https://api.openai.com/v1"
+                                profileId = "openai"
+                                label = "OpenAI"
                                 modelId = "gpt-6-luna"
                             }
-                            RemoteProviderProtocol.OPENAI_COMPATIBLE -> endpoint = "https://api.openai.com/v1"
+                            RemoteProviderProtocol.OPENAI_COMPATIBLE -> {
+                                endpoint = "https://api.openai.com/v1"
+                                profileId = "compatible"
+                                label = "OpenAI-compatible"
+                            }
                             RemoteProviderProtocol.ANTHROPIC_MESSAGES -> {
                                 endpoint = "https://api.anthropic.com/v1"
+                                profileId = "claude"
+                                label = "Claude"
                                 modelId = "claude-haiku-4-5-20251001"
                             }
                             RemoteProviderProtocol.GEMINI_INTERACTIONS -> {
                                 endpoint = "https://generativelanguage.googleapis.com/v1beta"
+                                profileId = "gemini"
+                                label = "Gemini"
                                 modelId = "gemini-3.1-flash-lite"
                             }
                         }
                         label = when (item) {
-                            RemoteProviderProtocol.OPENAI_RESPONSES, RemoteProviderProtocol.OPENAI_COMPATIBLE -> "OpenAI"
+                            RemoteProviderProtocol.OPENAI_RESPONSES -> "OpenAI"
+                            RemoteProviderProtocol.OPENAI_COMPATIBLE -> "OpenAI-compatible"
                             RemoteProviderProtocol.ANTHROPIC_MESSAGES -> "Claude"
                             RemoteProviderProtocol.GEMINI_INTERACTIONS -> "Gemini"
                         }
