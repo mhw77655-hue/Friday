@@ -141,7 +141,10 @@ fun SystemScreen() {
             }
             selfDiagnosticAt?.let { checkedAt ->
                 Text(
-                    "@@SELF_DIAG_TIMESTAMP@@ · @@SELF_DIAG_FAILURES@@ failures · @@SELF_DIAG_WARNINGS@@ warnings",
+                    java.text.DateFormat.getDateTimeInstance().format(java.util.Date(checkedAt)) +
+                        " · " + selfDiagnosticFindings.count { it.level == DiagnosticLevel.FAILURE } +
+                        " failures · " + selfDiagnosticFindings.count { it.level == DiagnosticLevel.WARNING } +
+                        " warnings",
                     style = JarvisType.Technical
                 )
             }
@@ -153,7 +156,7 @@ fun SystemScreen() {
             contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 12.dp, bottom = 28.dp)
         ) {
             item {
-                FridaySectionHeading("Live status", "@@ROW_COUNT@@ signals")
+                FridaySectionHeading("Live status", "${rows.size} signals")
             }
             items(rows) { row ->
                 FridayPanel { SystemRowView(row) }
