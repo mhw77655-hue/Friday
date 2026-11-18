@@ -228,7 +228,7 @@ class OpenAiCompatibleProvider(
                 content = output?.let { items ->
                     (0 until items.length()).mapNotNull itemsLoop@{ index ->
                         val item = items.optJSONObject(index) ?: return@itemsLoop null
-                        if (item.optString("type") != "message") return@mapNotNull null
+                        if (item.optString("type") != "message") return@itemsLoop null
                         item.optJSONArray("content")?.let { parts ->
                             (0 until parts.length()).mapNotNull partsLoop@{ partIndex ->
                                 val part = parts.optJSONObject(partIndex) ?: return@partsLoop null
