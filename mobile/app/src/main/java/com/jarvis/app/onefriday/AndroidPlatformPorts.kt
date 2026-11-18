@@ -69,8 +69,7 @@ class AndroidPlatformPorts(
         val enabled = app?.providerCouncil?.isEnabled() == true &&
             app.remoteProviderProfiles.createEnabledEntries().isNotEmpty()
         return if (enabled) setOf(
-            com.jarvis.app.cognitive.capability.CapabilityPermission.NETWORK,
-            com.jarvis.app.cognitive.capability.CapabilityPermission.USER_DATA
+            com.jarvis.app.cognitive.capability.CapabilityPermission.EXTERNAL_AI
         ) else emptySet()
     }
 
