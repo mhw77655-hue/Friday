@@ -41,4 +41,36 @@ class FridayIndividualTest {
         firstDir.deleteRecursively()
         secondDir.deleteRecursively()
     }
+    @Test
+    fun `concurrent first launch creates exactly one durable individual identity`() {
+        val directory = File.createTempFile("friday-first-launch-race-", ".dir").apply {
+            delete()
+            mkdirs()
+        }
+        val start = java.util.concurrent.CountDownLatch(1)
+        val done = java.util.concurrent.CountDownLatch(12)
+        val identities = java.util.concurrent.ConcurrentLinkedQueue<String>()
+        val failures = java.util.concurrent.ConcurrentLinkedQueue<Throwable>()
+
+        repeat(12) {
+            Thread {
+                try {
+                    start.await()
+                    identities.add(FridayIndividual(directory) { 1234L }.identity.id)
+                } catch (failure: Throwable) {
+                    failures.add(failure)
+                } finally {
+                    done.countDown()
+                }
+            }.start()
+        }
+
+        start.countDown()
+        assertTrue("all initializers should finish", done.await(10, java.util.concurrent.TimeUnit.SECONDS))
+        assertTrue("no initializer should fail: $failures", failures.isEmpty())
+        assertEquals(1, identities.toSet().size)
+        assertEquals(identities.peek(), FridayIndividual(directory) { 9999L }.identity.id)
+        directory.deleteRecursively()
+    }
+
 }
