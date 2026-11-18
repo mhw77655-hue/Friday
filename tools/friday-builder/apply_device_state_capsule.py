@@ -89,15 +89,41 @@ def adb(*args: str) -> None:
     subprocess.run(["adb", "shell", *args], check=True, timeout=20)
 
 
+def verify_runtime_defaults(
+    data: dict[str, Any],
+    property_reader: Any,
+) -> None:
+    # Do not write similarly named Settings keys and pretend they changed the
+    # device configuration. The emulator is launched with an explicit timezone;
+    # locale is checked against the effective boot properties.
+    locale_value = property_reader("persist.sys.locale") or property_reader("ro.product.locale")
+    actual_locale = locale_value.split(",")[0].strip()
+    if actual_locale != data["locale"]:
+        raise ValueError(
+            f"capsule locale {data['locale']} does not match emulator locale {actual_locale or '<unknown>'}"
+        )
+
+    actual_timezone = property_reader("persist.sys.timezone").strip()
+    accepted_timezones = {data["time_zone"]}
+    if data["time_zone"] == "UTC":
+        accepted_timezones.add("Etc/UTC")
+    if actual_timezone not in accepted_timezones:
+        raise ValueError(
+            f"capsule time_zone {data['time_zone']} does not match emulator timezone {actual_timezone or '<unknown>'}"
+        )
+
+
 def apply_capsule(data: dict[str, Any]) -> None:
-    actual_api = int(subprocess.check_output(["adb", "shell", "getprop", "ro.build.version.sdk"], text=True).strip())
+    def read_property(name: str) -> str:
+        return subprocess.check_output(["adb", "shell", "getprop", name], text=True).strip()
+
+    actual_api = int(read_property("ro.build.version.sdk"))
     if actual_api != data["api_level"]:
         raise ValueError(f"capsule api_level {data['api_level']} does not match emulator API {actual_api}")
+    verify_runtime_defaults(data, read_property)
     display = data["display"]
     adb("wm", "size", f"{display['width_px']}x{display['height_px']}")
     adb("wm", "density", str(display["density_dpi"]))
-    adb("settings", "put", "system", "system_locales", data["locale"])
-    adb("settings", "put", "global", "time_zone", data["time_zone"])
 
     battery = data["battery"]
     adb("dumpsys", "battery", "set", "level", str(battery["level"]))
