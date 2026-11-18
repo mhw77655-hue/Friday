@@ -408,6 +408,7 @@ class TurnPathAssembly private constructor(
                 identityContext = identityContext,
                 continuityGate = continuityGate,
                 capabilityFabric = capabilityFabric,
+                capabilityPermissions = { ports.grantedCapabilityPermissions() },
                 capabilityEvidenceLedger = capabilityEvidenceLedger,
                 dialectDetector = dialectDetector,
                 turnTraceStore = stores.turnTraceStore(),
