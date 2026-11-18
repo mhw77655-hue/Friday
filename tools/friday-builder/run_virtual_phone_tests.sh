@@ -40,8 +40,11 @@ fi
 
 # Keep install failure distinct from boot-readiness failure and retain the exact
 # provider/system evidence needed to diagnose a PackageInstaller regression.
-if ! adb install -r mobile/app/build/outputs/apk/debug/app-debug.apk; then
-  echo "ANDROID_INSTALL_FAILED: PackageInstaller rejected the APK after readiness probes." >&2
+if ! python3 tools/friday-builder/install_apk_with_retry.py \
+  mobile/app/build/outputs/apk/debug/app-debug.apk \
+  --max-attempts 24 \
+  --retry-interval-seconds 5; then
+  echo "ANDROID_INSTALL_FAILED: PackageInstaller rejected the APK after bounded transient-race retries." >&2
   capture_boot_diagnostics
   cat "$EVIDENCE_DIR/boot-readiness-diagnostics.txt" >&2
   exit 21
