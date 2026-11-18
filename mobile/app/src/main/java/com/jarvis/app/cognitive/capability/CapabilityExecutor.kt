@@ -444,6 +444,7 @@ class CapabilityExecutor(
         put("expectedOutcome", node.expectedOutcome)
         node.subgoalId?.let { put("subgoal", it) }
         node.completionCondition?.let { put("completionCondition", it) }
+        node.parameters.forEach { (key, value) -> put("arg:$key", value) }
     }
 
     private fun failureText(result: ExecutionResult): String = when (val f = result.failure) {

@@ -287,6 +287,7 @@ class CognitiveEngine(
 
     // Turn counter
     private val turnCounter = AtomicLong(0)
+    private val taskExecutionSequence = AtomicLong(0)
 
     enum class TurnDecision {
         DIRECT_REPLY,
@@ -1119,25 +1120,47 @@ class CognitiveEngine(
         return if (goalWords.isNotEmpty()) overlap.toFloat() / goalWords.size else 0f
     }
 
+    @Volatile
+    private var goalContinuityWriter: ((Goal?, List<Subgoal>) -> Unit)? = null
+
+    /** Install the durable writer before the engine is exposed to the UI. */
+    fun installGoalContinuityWriter(writer: (Goal?, List<Subgoal>) -> Unit) {
+        check(turnCounter.get() == 0L) { "Goal continuity writer must be installed before the first turn." }
+        goalContinuityWriter = writer
+    }
+
+    private fun persistGoalContinuity(goal: Goal?, subgoals: List<Subgoal>) {
+        goalContinuityWriter?.invoke(goal, subgoals.toList())
+    }
+
     /** Set a new goal */
+    @Synchronized
     fun setGoal(goal: Goal) {
         val state = _cognitiveState.value
+        persistGoalContinuity(goal, emptyList())
         _cognitiveState.value = state.copyWith(currentGoal = goal, activeSubgoals = emptyList())
         _events.trySend(CognitiveEvent.GoalChanged(state.currentGoal, goal))
     }
 
     /** Add a subgoal */
+    @Synchronized
     fun addSubgoal(subgoal: Subgoal) {
         val state = _cognitiveState.value
+        require(state.currentGoal?.id == subgoal.goalId) {
+            "A subgoal must belong to the currently active goal."
+        }
         val updated = state.activeSubgoals + subgoal
+        persistGoalContinuity(state.currentGoal, updated)
         _cognitiveState.value = state.copyWith(activeSubgoals = updated)
         _events.trySend(CognitiveEvent.SubgoalUpdated(subgoal))
     }
 
     /** Update subgoal status */
+    @Synchronized
     fun updateSubgoal(subgoalId: String, status: SubgoalStatus) {
         val state = _cognitiveState.value
         val updated = state.activeSubgoals.map { if (it.id == subgoalId) it.copy(status = status) else it }
+        persistGoalContinuity(state.currentGoal, updated)
         _cognitiveState.value = state.copyWith(activeSubgoals = updated)
         updated.firstOrNull { it.id == subgoalId }?.let { _events.trySend(CognitiveEvent.SubgoalUpdated(it)) }
     }
@@ -1174,11 +1197,21 @@ class CognitiveEngine(
                 "No decomposition seam wired",
                 DecompositionCause.NO_SEAM
             )
+        val availableOperations = capabilityFabric?.registry?.list()
+            ?.flatMap { it.descriptor.supportedOperations }?.distinct().orEmpty()
+        if (availableOperations.isEmpty()) {
+            throw DecompositionException(
+                "No executable capabilities are registered; Friday cannot construct a runnable plan yet.",
+                DecompositionCause.NO_CAPABILITIES
+            )
+        }
 
         taskWorkingMemory.setGoal(goal)
 
         val raw = try {
-            complete(goal)
+            complete(buildExecutablePlanPrompt(goal, strict = false))
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
         } catch (t: Throwable) {
             throw DecompositionException(
                 "LLM call failed: ${t.message ?: t.javaClass.simpleName}",
@@ -1186,16 +1219,18 @@ class CognitiveEngine(
             )
         }
 
-        val subgoals = parseSubgoals(raw)
+        val executable = parseExecutableSubgoals(raw)
 
-        if (subgoals != null && subgoals.isNotEmpty()) {
-            taskWorkingMemory.pushSubgoals(subgoals)
-            return DecompositionResult(subgoals = subgoals, retryCount = 0)
+        if (executable != null && executable.isNotEmpty()) {
+            taskWorkingMemory.pushExecutableSubgoals(executable)
+            return DecompositionResult(subgoals = executable.map { it.description }, retryCount = 0)
         }
 
         // First parse failed — retry once with a stricter prompt
         val retryRaw = try {
-            complete(goal)
+            complete(buildExecutablePlanPrompt(goal, strict = true))
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
         } catch (t: Throwable) {
             throw DecompositionException(
                 "LLM retry call failed: ${t.message ?: t.javaClass.simpleName}",
@@ -1203,16 +1238,72 @@ class CognitiveEngine(
             )
         }
 
-        val retrySubgoals = parseSubgoals(retryRaw)
+        val retrySubgoals = parseExecutableSubgoals(retryRaw)
         if (retrySubgoals != null && retrySubgoals.isNotEmpty()) {
-            taskWorkingMemory.pushSubgoals(retrySubgoals)
-            return DecompositionResult(subgoals = retrySubgoals, retryCount = 1)
+            taskWorkingMemory.pushExecutableSubgoals(retrySubgoals)
+            return DecompositionResult(subgoals = retrySubgoals.map { it.description }, retryCount = 1)
         }
 
         throw DecompositionException(
             "Malformed LLM output after 1 retry: ${retryRaw.take(200)}",
             DecompositionCause.MALFORMED_OUTPUT
         )
+    }
+
+    /** Planner output keeps human descriptions separate from executable operations. */
+    private fun buildExecutablePlanPrompt(goal: String, strict: Boolean): String {
+        val operations = capabilityFabric?.registry?.list()
+            ?.flatMap { capability -> capability.descriptor.supportedOperations.map { operation ->
+                "$operation (capability=${capability.descriptor.id}, category=${capability.descriptor.category})"
+            } }?.distinct()?.sorted().orEmpty()
+        return buildString {
+            append("Create an executable plan for this goal: ").append(goal)
+            append("\nAvailable operations (choose only exact operation names):\n")
+            if (operations.isEmpty()) append("- none currently registered\n")
+            else operations.forEach { append("- ").append(it).append('\n') }
+            append("""Return JSON only: {"subgoals":[{"description":"human-readable purpose","operation":"exact advertised operation","parameters":{"key":"string value"}}]}""")
+            append("\nNever use the description as the operation. Do not invent operations or permissions.")
+            if (strict) append("\nThe previous response was invalid; correct the schema and exact operation names.")
+        }
+    }
+
+    /** Strict bounded parser for executable plans; prose-only output is rejected. */
+    internal fun parseExecutableSubgoals(raw: String): List<TaskWorkingMemory.ExecutableSubgoal>? {
+        return try {
+            val root = org.json.JSONObject(raw)
+            if (root.length() != 1 || !root.has("subgoals")) return null
+            val fabric = capabilityFabric ?: return null
+            val availableOperations = fabric.registry.list()
+                .flatMap { it.descriptor.supportedOperations }.toSet()
+            val array = root.getJSONArray("subgoals")
+            if (array.length() !in 1..32) return null
+            val parsed = mutableListOf<TaskWorkingMemory.ExecutableSubgoal>()
+            for (index in 0 until array.length()) {
+                val item = array.getJSONObject(index)
+                if (!item.has("description") || !item.has("operation")) return null
+                val description = item.getString("description").trim()
+                val operation = item.getString("operation").trim()
+                if (description.isBlank() || description.length > 1024 ||
+                    operation.isBlank() || operation.length > 128 ||
+                    operation !in availableOperations) return null
+                val parametersObject = item.optJSONObject("parameters")
+                val parameters = linkedMapOf<String, String>()
+                if (parametersObject != null) {
+                    if (parametersObject.length() > 64) return null
+                    val keys = parametersObject.keys()
+                    while (keys.hasNext()) {
+                        val key = keys.next()
+                        val value = parametersObject.get(key)
+                        if (key.isBlank() || key.length > 128 || value !is String || value.length > 4096) return null
+                        parameters[key] = value
+                    }
+                }
+                parsed.add(TaskWorkingMemory.ExecutableSubgoal(description, operation, parameters))
+            }
+            parsed
+        } catch (_: Exception) {
+            null
+        }
     }
 
     /**
@@ -1277,16 +1368,31 @@ class CognitiveEngine(
      */
     suspend fun runNext(): TaskWorkingMemory.ResultEntry? {
         val subgoal = taskWorkingMemory.nextSubgoal() ?: return null
+        val operation = subgoal.operation
+        if (operation.isNullOrBlank()) {
+            taskWorkingMemory.recordResult(
+                subgoal.description, false,
+                "Blocked: planner supplied a description without a registered operation.",
+                TaskWorkingMemory.ResultStatus.BLOCKED
+            )
+            return taskWorkingMemory.getHistory().lastOrNull()
+        }
         val fabric = capabilityFabric
-            ?: throw IllegalStateException("No CapabilityFabric wired for runNext")
-
-        // Build a single-node plan for this subgoal
-        val goalId = "task_${nowMs()}"
+        if (fabric == null) {
+            taskWorkingMemory.recordResult(
+                subgoal.description, false,
+                "Blocked: no capability registry is connected to the execution environment.",
+                TaskWorkingMemory.ResultStatus.BLOCKED
+            )
+            return taskWorkingMemory.getHistory().lastOrNull()
+        }
+        val goalId = "task_${nowMs()}_${taskExecutionSequence.incrementAndGet()}"
         val node = com.jarvis.app.cognitive.planning.PlanNode(
             id = "${goalId}:s1",
             description = subgoal.description,
-            action = subgoal.description,
-            expectedOutcome = "completed"
+            action = operation,
+            expectedOutcome = "completed",
+            parameters = subgoal.parameters
         )
         val graph = com.jarvis.app.cognitive.planning.PlanGraph(
             goalId = goalId,
@@ -1313,7 +1419,14 @@ class CognitiveEngine(
             outcome.result.failure != null -> outcome.result.failure.toString()
             else -> "completed"
         }
-        taskWorkingMemory.recordResult(subgoal.description, success, detail)
+        val resultStatus = when {
+            outcome == null -> TaskWorkingMemory.ResultStatus.BLOCKED
+            outcome.resolution is com.jarvis.app.cognitive.capability.Resolution.Failure -> TaskWorkingMemory.ResultStatus.BLOCKED
+            outcome.invocation?.refused == true -> TaskWorkingMemory.ResultStatus.BLOCKED
+            success -> TaskWorkingMemory.ResultStatus.SUCCEEDED
+            else -> TaskWorkingMemory.ResultStatus.FAILED
+        }
+        taskWorkingMemory.recordResult(subgoal.description, success, detail, resultStatus)
 
         // Auto-replan on failure when budget allows
         if (!success) {
@@ -1338,8 +1451,18 @@ class CognitiveEngine(
             )
         }
 
-        val complete = decompositionComplete ?: return // no seam, silent skip
-        val goal = taskWorkingMemory.getGoal() ?: return
+        val complete = decompositionComplete ?: throw DecompositionException(
+            "Cannot replan: no planning seam is available.",
+            DecompositionCause.NO_SEAM
+        )
+        if (capabilityFabric?.registry?.list()?.none { it.descriptor.supportedOperations.isNotEmpty() } != false) {
+            throw DecompositionException(
+                "Cannot replan: no executable capabilities are registered.",
+                DecompositionCause.NO_CAPABILITIES
+            )
+        }
+        val goal = taskWorkingMemory.getGoal()
+            ?: throw IllegalStateException("Cannot replan without an active goal.")
         val pending = taskWorkingMemory.pendingSubgoalDescriptions()
         val completed = taskWorkingMemory.getHistory()
             .filter { it.success }
@@ -1365,10 +1488,12 @@ class CognitiveEngine(
             )
         }
 
-        val revised = parseReplanSubgoals(raw)
-        if (revised != null && revised.isNotEmpty()) {
-            taskWorkingMemory.replaceRemainingSubgoals(revised)
-        }
+        val revised = parseExecutableSubgoals(raw)
+            ?: throw DecompositionException(
+                "Replan output did not contain registered executable operations.",
+                DecompositionCause.MALFORMED_OUTPUT
+            )
+        taskWorkingMemory.replaceRemainingExecutableSubgoals(revised)
     }
 
     /** Max replans per task before failing loudly. */
@@ -1877,6 +2002,7 @@ data class DecompositionResult(
 /** Why decomposition failed. */
 enum class DecompositionCause {
     NO_SEAM,
+    NO_CAPABILITIES,
     LLM_ERROR,
     MALFORMED_OUTPUT
 }

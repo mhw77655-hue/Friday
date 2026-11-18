@@ -2,6 +2,11 @@ package com.jarvis.app.cognitive
 
 import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.body.MemoryItem
+import com.jarvis.app.cognitive.capability.CapabilityFabric
+import com.jarvis.app.cognitive.capability.FakeCapability
+import com.jarvis.app.cognitive.capability.descriptor
+import com.jarvis.app.cognitive.capability.testImmune
+import com.jarvis.app.cognitive.execution.ExecutionResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -28,19 +33,27 @@ class GoalDecompositionTest {
         scope.cancel()
     }
 
-    private fun engine(complete: suspend (String) -> String): CognitiveEngine =
-        CognitiveEngine(
+    private fun engine(complete: suspend (String) -> String): CognitiveEngine {
+        val fabric = CapabilityFabric(testImmune(), emit = {})
+        listOf("research", "outline", "draft", "analyze", "write", "step_a", "step_b", "read").forEach { operation ->
+            fabric.register(FakeCapability(descriptor("test_$operation", operation = operation)) {
+                ExecutionResult.ok()
+            })
+        }
+        return CognitiveEngine(
             scope = scope,
             memoryStore = object : MemoryStorePort {
                 override fun queryMemories(query: String, limit: Int) = emptyList<MemoryItem>()
             },
+            capabilityFabric = fabric,
             decompositionComplete = complete
         )
+    }
 
     @Test
     fun decompose_produces_ordered_subgoals_on_working_memory() = kotlinx.coroutines.runBlocking {
         val e = engine { goal ->
-            "1. Research the topic\n2. Write an outline\n3. Draft the report"
+            """{"subgoals":[{"description":"Research the topic","operation":"research"},{"description":"Write an outline","operation":"outline"},{"description":"Draft the report","operation":"draft"}]}"""
         }
 
         val result = e.decompose("Write a market analysis report")
@@ -63,7 +76,7 @@ class GoalDecompositionTest {
     @Test
     fun decompose_handles_plain_newline_separated_output() = kotlinx.coroutines.runBlocking {
         val e = engine { _ ->
-            "Research data sources\nAnalyze trends\nWrite conclusion"
+            """{"subgoals":[{"description":"Research data sources","operation":"research"},{"description":"Analyze trends","operation":"analyze"},{"description":"Write conclusion","operation":"write"}]}"""
         }
 
         val result = e.decompose("Analyze market")
@@ -77,7 +90,7 @@ class GoalDecompositionTest {
         val e = engine { _ ->
             callCount++
             if (callCount == 1) "GARBAGE RANDOM TEXT"  // First call: malformed
-            else "1. Step A\n2. Step B"                  // Second call: good
+            else """{"subgoals":[{"description":"Step A","operation":"step_a"},{"description":"Step B","operation":"step_b"}]}"""                  // Second call: good
         }
 
         val result = e.decompose("Do something")
@@ -100,6 +113,25 @@ class GoalDecompositionTest {
     }
 
     @Test
+    fun decompose_rejects_prose_only_output_even_when_it_looks_like_a_list() = kotlinx.coroutines.runBlocking {
+        val e = engine { _ -> "1. Do the first thing\n2. Do the second thing" }
+        try {
+            e.decompose("Do something")
+            fail("Descriptions without operation identifiers must not become executable plans")
+        } catch (error: DecompositionException) {
+            assertEquals(DecompositionCause.MALFORMED_OUTPUT, error.reason)
+        }
+    }
+
+    @Test
+    fun parser_rejects_unbounded_or_non_string_parameters() {
+        val e = engine { _ -> "" }
+        assertNull(e.parseExecutableSubgoals("""{"subgoals":[{"description":"x","operation":"read","parameters":{"bad":42}}]}"""))
+        assertNull(e.parseExecutableSubgoals("""{"subgoals":[{"description":"","operation":"read"}]}"""))
+        assertNull(e.parseExecutableSubgoals("1. Read the preference"))
+    }
+
+    @Test
     fun decompose_fails_with_NO_SEAM_when_no_lambda_wired() = kotlinx.coroutines.runBlocking {
         val e = CognitiveEngine(
             scope = scope,
@@ -113,6 +145,25 @@ class GoalDecompositionTest {
             fail("Expected DecompositionException")
         } catch (e: DecompositionException) {
             assertEquals(DecompositionCause.NO_SEAM, e.reason)
+        }
+    }
+
+    @Test
+    fun decompose_fails_with_NO_CAPABILITIES_when_registry_is_empty() = kotlinx.coroutines.runBlocking {
+        val emptyFabric = CapabilityFabric(testImmune(), emit = {})
+        val e = CognitiveEngine(
+            scope = scope,
+            memoryStore = object : MemoryStorePort {
+                override fun queryMemories(query: String, limit: Int) = emptyList<MemoryItem>()
+            },
+            capabilityFabric = emptyFabric,
+            decompositionComplete = { _ -> """{"subgoals":[{"description":"Do work","operation":"invented"}]}""" }
+        )
+        try {
+            e.decompose("Do work")
+            fail("An empty capability registry must not produce a runnable plan")
+        } catch (error: DecompositionException) {
+            assertEquals(DecompositionCause.NO_CAPABILITIES, error.reason)
         }
     }
 

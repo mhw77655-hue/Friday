@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Before
 import org.junit.Test
 
@@ -120,4 +121,33 @@ class TaskWorkingMemoryTest {
         twm.setGoal("test")
         assertEquals("test", twm.getGoal())
     }
+    @Test
+    fun `invalid executable batch is rejected without partially enqueueing it`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            twm.pushExecutableSubgoals(
+                listOf(
+                    TaskWorkingMemory.ExecutableSubgoal("valid", "memory.read"),
+                    TaskWorkingMemory.ExecutableSubgoal("invalid", " ")
+                )
+            )
+        }
+        assertNull(twm.nextSubgoal())
+    }
+
+    @Test
+    fun `invalid replan preserves old pending work and does not increment replan count`() {
+        twm.pushExecutableSubgoals(
+            listOf(TaskWorkingMemory.ExecutableSubgoal("keep this", "memory.read"))
+        )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            twm.replaceRemainingExecutableSubgoals(
+                listOf(TaskWorkingMemory.ExecutableSubgoal("invalid replacement", ""))
+            )
+        }
+
+        assertEquals(0, twm.replanCount)
+        assertEquals("keep this", twm.nextSubgoal()!!.description)
+    }
+
 }

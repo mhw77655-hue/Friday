@@ -44,10 +44,10 @@ class Stage01AIntegrationTest {
         // --- Capability fabric: "research" and "draft" succeed; "outline" fails first time ---
         val outlineFailCount = mutableListOf<Int>()
         val fabric = CapabilityFabric(testImmune(), emit = {})
-        fabric.register(FakeCapability(descriptor("cap_research", operation = "Research the topic thoroughly")) {
+        fabric.register(FakeCapability(descriptor("cap_research", operation = "research")) {
             ExecutionResult.ok(output = mapOf("outcome" to "research done"))
         })
-        fabric.register(FakeCapability(descriptor("cap_outline", operation = "Write a detailed outline")) {
+        fabric.register(FakeCapability(descriptor("cap_outline", operation = "outline")) {
             outlineFailCount.add(1)
             if (outlineFailCount.size == 1) {
                 // First attempt fails
@@ -57,11 +57,11 @@ class Stage01AIntegrationTest {
                 ExecutionResult.ok(output = mapOf("outcome" to "outline done"))
             }
         })
-        fabric.register(FakeCapability(descriptor("cap_draft", operation = "Draft the full report")) {
+        fabric.register(FakeCapability(descriptor("cap_draft", operation = "draft")) {
             ExecutionResult.ok(output = mapOf("outcome" to "draft done"))
         })
         // Also register for revised subgoal names after replan
-        fabric.register(FakeCapability(descriptor("cap_bullet", operation = "Create bullet-point summary")) {
+        fabric.register(FakeCapability(descriptor("cap_bullet", operation = "summarize")) {
             ExecutionResult.ok(output = mapOf("outcome" to "bullets done"))
         })
 
@@ -77,10 +77,10 @@ class Stage01AIntegrationTest {
                 decomposeCallCount++
                 if (decomposeCallCount == 1) {
                     // Initial decomposition
-                    "1. Research the topic thoroughly\n2. Write a detailed outline\n3. Draft the full report"
+                    """{"subgoals":[{"description":"Research the topic thoroughly","operation":"research"},{"description":"Write a detailed outline","operation":"outline"},{"description":"Draft the full report","operation":"draft"}]}"""
                 } else {
                     // Replan after outline failure: replace remaining with revised steps
-                    "1. Create bullet-point summary\n2. Draft the full report"
+                    """{"subgoals":[{"description":"Create bullet-point summary","operation":"summarize"},{"description":"Draft the full report","operation":"draft"}]}"""
                 }
             }
         )
