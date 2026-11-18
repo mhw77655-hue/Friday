@@ -152,7 +152,6 @@ class OpenAiCompatibleProvider(
         return JSONObject().apply {
             put("model", request.modelId ?: model)
             put("max_tokens", request.maxTokens)
-            put("temperature", request.temperature.toDouble())
             if (system.isNotBlank()) put("system", system)
             put("messages", JSONArray().apply {
                 request.messages.filter { it.role != MessageRole.SYSTEM && it.role != MessageRole.TOOL }
@@ -178,8 +177,7 @@ class OpenAiCompatibleProvider(
             if (system.isNotBlank()) put("system_instruction", system)
             put("generation_config", JSONObject()
                 .put("max_output_tokens", request.maxTokens)
-                .put("temperature", request.temperature.toDouble())
-                .put("top_p", request.topP.toDouble()))
+                .put("thinking_level", "low"))
         }
     }
     private fun execute(url: String, body: JSONObject?, method: String = "POST"): JSONObject {
