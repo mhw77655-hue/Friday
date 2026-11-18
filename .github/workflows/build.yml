@@ -14,7 +14,8 @@ on:
 
 concurrency:
   group: friday-build-v2-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
+  # Preserve the active candidate's full validation; newer commits wait their turn.
+  cancel-in-progress: false
 
 permissions: {}
 
