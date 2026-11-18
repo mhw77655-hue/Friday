@@ -164,7 +164,7 @@ jobs:
           FRIDAY_RELEASE_KEY_PASSWORD="$PASSWORD" \
             ./gradlew :mobile:app:assembleRelease \
               -PfridayVersionCode=2001 \
-              -PfridayVersionName=ci-smoke \\
+              -PfridayVersionName=ci-smoke \
               -PfridayAbiFilters=arm64-v8a
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose \
             mobile/app/build/outputs/apk/release/app-release.apk
