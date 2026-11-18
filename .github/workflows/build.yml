@@ -222,7 +222,7 @@ jobs:
   android-emulator:
     name: Disposable Android phone twin (instrumented)
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 60
     permissions:
       contents: read
     steps:
