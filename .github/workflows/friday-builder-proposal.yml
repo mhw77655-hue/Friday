@@ -1,4 +1,5 @@
 name: Friday repository self-development proposal
+run-name: Friday Builder request ${{ github.event.inputs.request_id || github.event.workflow_run.head_branch || github.run_id }}
 
 on:
   workflow_dispatch:
