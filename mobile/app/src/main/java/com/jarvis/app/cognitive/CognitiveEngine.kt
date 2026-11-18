@@ -1237,34 +1237,43 @@ class CognitiveEngine(
     }
 
     /** Strict bounded parser for executable plans; prose-only output is rejected. */
-    internal fun parseExecutableSubgoals(raw: String): List<TaskWorkingMemory.ExecutableSubgoal>? = try {
-        val root = org.json.JSONObject(raw)
-        if (root.length() != 1 || !root.has("subgoals")) return null
-        val array = root.getJSONArray("subgoals")
-        if (array.length() !in 1..32) return null
-        val parsed = mutableListOf<TaskWorkingMemory.ExecutableSubgoal>()
-        for (index in 0 until array.length()) {
-            val item = array.getJSONObject(index)
-            if (!item.has("description") || !item.has("operation")) return null
-            val description = item.getString("description").trim()
-            val operation = item.getString("operation").trim()
-            if (description.isBlank() || description.length > 1024 || operation.isBlank() || operation.length > 128) return null
-            val parametersObject = item.optJSONObject("parameters")
-            val parameters = linkedMapOf<String, String>()
-            if (parametersObject != null) {
-                if (parametersObject.length() > 64) return null
-                val keys = parametersObject.keys()
-                while (keys.hasNext()) {
-                    val key = keys.next()
-                    val value = parametersObject.get(key)
-                    if (key.isBlank() || key.length > 128 || value !is String || value.length > 4096) return null
-                    parameters[key] = value
+    internal fun parseExecutableSubgoals(raw: String): List<TaskWorkingMemory.ExecutableSubgoal>? {
+        return try {
+            val root = org.json.JSONObject(raw)
+            if (root.length() != 1 || !root.has("subgoals")) return null
+            val fabric = capabilityFabric ?: return null
+            val availableOperations = fabric.registry.list()
+                .flatMap { it.descriptor.supportedOperations }.toSet()
+            val array = root.getJSONArray("subgoals")
+            if (array.length() !in 1..32) return null
+            val parsed = mutableListOf<TaskWorkingMemory.ExecutableSubgoal>()
+            for (index in 0 until array.length()) {
+                val item = array.getJSONObject(index)
+                if (!item.has("description") || !item.has("operation")) return null
+                val description = item.getString("description").trim()
+                val operation = item.getString("operation").trim()
+                if (description.isBlank() || description.length > 1024 ||
+                    operation.isBlank() || operation.length > 128 ||
+                    operation !in availableOperations) return null
+                val parametersObject = item.optJSONObject("parameters")
+                val parameters = linkedMapOf<String, String>()
+                if (parametersObject != null) {
+                    if (parametersObject.length() > 64) return null
+                    val keys = parametersObject.keys()
+                    while (keys.hasNext()) {
+                        val key = keys.next()
+                        val value = parametersObject.get(key)
+                        if (key.isBlank() || key.length > 128 || value !is String || value.length > 4096) return null
+                        parameters[key] = value
+                    }
                 }
+                parsed.add(TaskWorkingMemory.ExecutableSubgoal(description, operation, parameters))
             }
-            parsed.add(TaskWorkingMemory.ExecutableSubgoal(description, operation, parameters))
+            parsed
+        } catch (_: Exception) {
+            null
         }
-        parsed
-    } catch (_: Exception) { null }
+    }
 
     /**
      * Parse an ordered subgoal list from raw LLM output.
@@ -1411,8 +1420,12 @@ class CognitiveEngine(
             )
         }
 
-        val complete = decompositionComplete ?: return // no seam, silent skip
-        val goal = taskWorkingMemory.getGoal() ?: return
+        val complete = decompositionComplete ?: throw DecompositionException(
+            "Cannot replan: no planning seam is available.",
+            DecompositionCause.NO_SEAM
+        )
+        val goal = taskWorkingMemory.getGoal()
+            ?: throw IllegalStateException("Cannot replan without an active goal.")
         val pending = taskWorkingMemory.pendingSubgoalDescriptions()
         val completed = taskWorkingMemory.getHistory()
             .filter { it.success }
@@ -1439,9 +1452,11 @@ class CognitiveEngine(
         }
 
         val revised = parseExecutableSubgoals(raw)
-        if (revised != null && revised.isNotEmpty()) {
-            taskWorkingMemory.replaceRemainingExecutableSubgoals(revised)
-        }
+            ?: throw DecompositionException(
+                "Replan output did not contain registered executable operations.",
+                DecompositionCause.MALFORMED_OUTPUT
+            )
+        taskWorkingMemory.replaceRemainingExecutableSubgoals(revised)
     }
 
     /** Max replans per task before failing loudly. */
