@@ -14,16 +14,27 @@ package com.jarvis.app.cognitive
  */
 class TaskWorkingMemory {
 
+    data class ExecutableSubgoal(
+        val description: String,
+        val operation: String,
+        val parameters: Map<String, String> = emptyMap()
+    )
+
+    enum class ResultStatus { SUCCEEDED, FAILED, BLOCKED, SKIPPED }
+
     data class SubgoalEntry(
         val description: String,
-        val index: Int
+        val index: Int,
+        val operation: String? = null,
+        val parameters: Map<String, String> = emptyMap()
     )
 
     data class ResultEntry(
         val subgoal: String,
         val success: Boolean,
         val detail: String,
-        val timestamp: Long = System.currentTimeMillis()
+        val timestamp: Long = System.currentTimeMillis(),
+        val status: ResultStatus = if (success) ResultStatus.SUCCEEDED else ResultStatus.FAILED
     )
 
     private var goal: String? = null
@@ -47,12 +58,38 @@ class TaskWorkingMemory {
         }
     }
 
+    fun pushExecutableSubgoals(subgoals: List<ExecutableSubgoal>) {
+        subgoals.forEach { item ->
+            require(item.description.isNotBlank())
+            require(item.operation.isNotBlank() && item.operation.length <= 128)
+            require(item.parameters.size <= 64)
+            require(item.parameters.all { (key, value) ->
+                key.isNotBlank() && key.length <= 128 && value.length <= 4096
+            })
+            this.subgoals.addLast(
+                SubgoalEntry(item.description, nextIndex++, item.operation, item.parameters.toMap())
+            )
+        }
+    }
+
     fun nextSubgoal(): SubgoalEntry? {
         return if (subgoals.isEmpty()) null else subgoals.removeFirst()
     }
 
-    fun recordResult(subgoal: String, success: Boolean, detail: String = "") {
-        history.add(ResultEntry(subgoal = subgoal, success = success, detail = detail))
+    fun recordResult(
+        subgoal: String,
+        success: Boolean,
+        detail: String = "",
+        status: ResultStatus = if (success) ResultStatus.SUCCEEDED else ResultStatus.FAILED
+    ) {
+        require(success == (status == ResultStatus.SUCCEEDED))
+        history.add(ResultEntry(subgoal = subgoal, success = success, detail = detail, status = status))
+    }
+
+    fun replaceRemainingExecutableSubgoals(newSubgoals: List<ExecutableSubgoal>) {
+        subgoals.clear()
+        pushExecutableSubgoals(newSubgoals)
+        _replanCount++
     }
 
     fun getHistory(): List<ResultEntry> = history.toList()
