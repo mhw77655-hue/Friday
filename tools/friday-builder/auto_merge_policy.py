@@ -67,6 +67,22 @@ BLOCKED_NAME_PARTS = (
     "capabilityexecutor",
     "capabilityregistry",
     "operationcontract",
+    "permission",
+    "accessibility",
+    "notification",
+    "security",
+    "privacy",
+    "auth",
+    "token",
+    "release",
+    "update",
+    "installer",
+    "signing",
+    "crash",
+    "diagnostic",
+    "github",
+    "runtime",
+    "devicestatecapsule",
 )
 
 
