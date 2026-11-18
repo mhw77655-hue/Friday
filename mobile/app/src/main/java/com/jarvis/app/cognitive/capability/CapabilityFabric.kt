@@ -20,14 +20,23 @@ class CapabilityFabric(
     private val immune: ImmuneSystem,
     private val emit: (CognitiveEvent) -> Unit = {},
     private val defaultTimeoutMs: Long = 30_000,
-    private val nowMs: () -> Long = { System.currentTimeMillis() }
+    private val nowMs: () -> Long = { System.currentTimeMillis() },
+    /** Shared with the execution path so only verified outcomes can guide later resolution. */
+    private val evidenceLedger: CapabilityEvidenceLedger? = null,
+    /** Replaceable learned selector; the deterministic resolver remains the fallback. */
+    private val outcomeSelector: CapabilityOutcomeSelector = VerifiedOutcomeCapabilitySelector()
 ) {
     /** The authoritative registry (lifecycle changes emit CapabilityStateChanged). */
     val registry: CapabilityRegistry = CapabilityRegistry(
         onStateChanged = { id, from, to -> emit(CognitiveEvent.CapabilityStateChanged(id, from.name, to.name)) }
     )
 
-    val resolver: CapabilityResolver = CapabilityResolver(registry, degradedLevelOf = { immune.degradation.levelOf(it) })
+    val resolver: CapabilityResolver = CapabilityResolver(
+        registry = registry,
+        degradedLevelOf = { immune.degradation.levelOf(it) },
+        evidenceLedger = evidenceLedger,
+        outcomeSelector = outcomeSelector
+    )
     val invoker: CapabilityInvoker = CapabilityInvoker(registry, resolver, immune, emit, defaultTimeoutMs, nowMs)
 
     /**
