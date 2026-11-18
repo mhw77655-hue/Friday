@@ -300,7 +300,7 @@ class MemoryStore(
                         message = "Memory store persistence failed",
                         source = "MemoryStore",
                         cause = t.message,
-                        dependency = "filesDir/humancore/dialogue.jsonl",
+                        dependency = "filesDir/humancore/body_memory.json",
                         recoverability = com.jarvis.app.failure.Recoverability.RECOVERABLE,
                         recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY
                     )
@@ -360,7 +360,7 @@ class MemoryStore(
                         message = "Memory store load failed — started empty",
                         source = "MemoryStore",
                         cause = e.message,
-                        dependency = "filesDir/humancore/dialogue.jsonl",
+                        dependency = "filesDir/humancore/body_memory.json",
                         recoverability = com.jarvis.app.failure.Recoverability.RECOVERABLE,
                         recoveryAction = com.jarvis.app.failure.RecoveryAction.RETRY
                     )
