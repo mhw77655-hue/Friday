@@ -497,7 +497,7 @@ class BodyCoordinator(
             return
         }
 
-        if (com.jarvis.app.voice.PhoneActionPlanner.isLikelyDeviceRequest(text)) {
+        if (phoneActionPlanner.shouldHandle(text)) {
             val screen = withContext(Dispatchers.Main.immediate) {
                 com.jarvis.app.voice.FridayAccessibilityService.activeScreenSummary()
             }

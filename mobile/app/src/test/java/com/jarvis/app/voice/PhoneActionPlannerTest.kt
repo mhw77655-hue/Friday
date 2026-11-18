@@ -80,6 +80,106 @@ class PhoneActionPlannerTest {
         assertTrue((result as PhoneActionPlanner.Result.Unavailable).reason.contains("No screen context was sent"))
     }
 
+    @Test fun `supported natural phone skills work without loading a model`() = runBlocking {
+        var calls = 0
+        val planner = PhoneActionPlanner(
+            localModelReady = { false },
+            complete = { _: GenerateRequest ->
+                calls++
+                GenerateResult(content = """{"kind":"conversation"}""")
+            }
+        )
+
+        val result = planner.plan("Could you please make it louder?", "")
+
+        assertEquals(0, calls)
+        assertEquals(
+            PhoneActionPlanner.Result.Action(PhoneControlCommand.VolumeUp),
+            result
+        )
+    }
+
+    @Test fun `ambiguous local phone skill asks before acting`() = runBlocking {
+        var calls = 0
+        val planner = PhoneActionPlanner(
+            localModelReady = { false },
+            complete = { _: GenerateRequest ->
+                calls++
+                GenerateResult(content = """{"kind":"action","type":"volume_up"}""")
+            }
+        )
+
+        val result = planner.plan("Make it louder or quieter", "")
+
+        assertEquals(0, calls)
+        assertTrue(result is PhoneActionPlanner.Result.Clarification)
+        assertTrue((result as PhoneActionPlanner.Result.Clarification).question.contains("increase the volume"))
+    }
+
+    @Test fun `natural navigation phrases resolve through the local skill registry`() = runBlocking {
+        var calls = 0
+        val planner = PhoneActionPlanner(
+            localModelReady = { false },
+            complete = { _: GenerateRequest ->
+                calls++
+                GenerateResult(content = """{"kind":"conversation"}""")
+            }
+        )
+
+        assertTrue(planner.shouldHandle("Take me to the home screen"))
+        val result = planner.plan("Take me to the home screen", "")
+
+        assertEquals(0, calls)
+        assertEquals(PhoneActionPlanner.Result.Action(PhoneControlCommand.Home), result)
+    }
+
+    @Test fun `local phone skill registry can be extended without changing the planner`() = runBlocking {
+        var calls = 0
+        val customSkills = LocalPhoneActionSkillRegistry(
+            listOf(
+                PhoneActionSkill(
+                    id = "custom.accessibility",
+                    aliases = listOf("open accessibility panel"),
+                    command = PhoneControlCommand.OpenSettings
+                )
+            )
+        )
+        val planner = PhoneActionPlanner(
+            localModelReady = { false },
+            localSkills = customSkills,
+            complete = { _: GenerateRequest ->
+                calls++
+                GenerateResult(content = """{"kind":"conversation"}""")
+            }
+        )
+
+        assertTrue(planner.shouldHandle("Could you open the accessibility panel?"))
+        val result = planner.plan("Could you open the accessibility panel?", "")
+
+        assertEquals(0, calls)
+        assertEquals(
+            PhoneActionPlanner.Result.Action(PhoneControlCommand.OpenSettings),
+            result
+        )
+    }
+
+    @Test fun `unsupported device request is not faked when no model-free skill exists`() = runBlocking {
+        var calls = 0
+        val planner = PhoneActionPlanner(
+            localModelReady = { false },
+            complete = { _: GenerateRequest ->
+                calls++
+                GenerateResult(content = """{"kind":"action"}""")
+            }
+        )
+
+        val result = planner.plan("Turn on airplane mode", "")
+
+        assertEquals(0, calls)
+        assertTrue(result is PhoneActionPlanner.Result.Unavailable)
+        assertTrue((result as PhoneActionPlanner.Result.Unavailable).reason.contains("Nothing was changed"))
+    }
+
     @Test fun `ordinary conversation does not invoke the device planner`() = runBlocking {
         var calls = 0
         val planner = PhoneActionPlanner { _: GenerateRequest ->
@@ -97,6 +197,7 @@ class PhoneActionPlannerTest {
         assertTrue(PhoneActionPlanner.isLikelyDeviceRequest("Could you lower the brightness?"))
         assertTrue(PhoneActionPlanner.isLikelyDeviceRequest("Please open WhatsApp"))
         assertTrue(PhoneActionPlanner.isLikelyDeviceRequest("Tap the send button"))
+        assertTrue(PhoneActionPlanner.isLikelyDeviceRequest("Could you please make it louder?"))
         assertFalse(PhoneActionPlanner.isLikelyDeviceRequest("Tell me what you think"))
     }
 }

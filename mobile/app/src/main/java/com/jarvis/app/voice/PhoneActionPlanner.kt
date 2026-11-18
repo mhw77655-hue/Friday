@@ -9,15 +9,16 @@ import com.jarvis.app.model.ModelManager
 import org.json.JSONObject
 
 /**
- * Lets Friday's existing intelligence translate natural speech + the current
- * accessible screen into one bounded Android body action.
+ * Resolves spoken phone requests into bounded Android body actions.
  *
- * This is not a second model. Production uses the same ModelManager that
- * answers ordinary conversation. The planner emits a typed intent only; Jev
- * evaluates the proposed action and Android's own service executes it.
+ * The extensible local skill registry handles supported requests without a
+ * model. An optional local model can interpret requests outside that registry,
+ * but it only emits a typed proposal; Friday's policy organ and Android's own
+ * accessibility service still decide whether and how the action executes.
  */
 class PhoneActionPlanner(
     private val localModelReady: suspend () -> Boolean = { true },
+    private val localSkills: LocalPhoneActionSkillRegistry = LocalPhoneActionSkillRegistry.default(),
     private val complete: suspend (GenerateRequest) -> GenerateResult
 ) {
     constructor(modelManager: ModelManager) : this(
@@ -35,12 +36,27 @@ class PhoneActionPlanner(
         data class Unavailable(val reason: String) : Result
     }
 
+    /** Used by the body router so injected skills can claim their own language. */
+    fun shouldHandle(utterance: String): Boolean =
+        DEVICE_INTENT.containsMatchIn(utterance) || localSkills.mayMatch(utterance)
+
     suspend fun plan(utterance: String, screenSnapshot: String): Result {
-        if (!isLikelyDeviceRequest(utterance)) return Result.NotPhoneAction
         if (utterance.isBlank()) return Result.NotPhoneAction
+
+        // First resolve supported body skills locally. This path does not load,
+        // wake or call a model; execution still passes through Friday's policy
+        // organ and the Android accessibility bridge.
+        when (val local = localSkills.resolve(utterance)) {
+            is LocalPhoneActionSkillRegistry.Resolution.Action -> return Result.Action(local.command)
+            is LocalPhoneActionSkillRegistry.Resolution.Clarification ->
+                return Result.Clarification(local.question)
+            LocalPhoneActionSkillRegistry.Resolution.NotMatched -> Unit
+        }
+
+        if (!isLikelyDeviceRequest(utterance)) return Result.NotPhoneAction
         if (!localModelReady()) {
             return Result.Unavailable(
-                "Natural phone control needs Friday's on-device model. No screen context was sent to a cloud model."
+                "No installed model-free phone skill safely matches this request yet. Nothing was changed. No screen context was sent to a cloud model."
             )
         }
 
@@ -173,7 +189,8 @@ class PhoneActionPlanner(
         )
 
         fun isLikelyDeviceRequest(utterance: String): Boolean =
-            DEVICE_INTENT.containsMatchIn(utterance)
+            DEVICE_INTENT.containsMatchIn(utterance) ||
+                LocalPhoneActionSkillRegistry.default().mayMatch(utterance)
         
         private const val SYSTEM_PROMPT = """
             You are Friday's phone-action planning faculty. Friday is the intelligence
