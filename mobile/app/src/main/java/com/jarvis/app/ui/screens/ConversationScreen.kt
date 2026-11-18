@@ -1,5 +1,6 @@
 package com.jarvis.app.ui.screens
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,16 +10,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,11 +30,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jarvis.app.body.BodyCoordinator
+import com.jarvis.app.ui.components.FridayBrandMark
+import com.jarvis.app.ui.components.FridayNavigationGlyph
 import com.jarvis.app.ui.components.StateChip
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
@@ -56,17 +65,42 @@ fun ConversationScreen() {
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize().background(JarvisColors.SurfaceBase)) {
-        ContextStrip()
-
+    Column(
+        modifier = Modifier.fillMaxSize().background(JarvisColors.SurfaceBase)
+    ) {
+        ConversationHeader()
         LazyColumn(
             modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            if (turns.isEmpty()) {
+                item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(top = 42.dp, bottom = 24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(88.dp)
+                                .background(JarvisColors.CoreIdle.copy(alpha = 0.10f), RoundedCornerShape(28.dp)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            FridayBrandMark(Modifier.size(58.dp))
+                        }
+                        Text("Start anywhere.", style = JarvisType.Headline)
+                        Text(
+                            "Ask a question, share an idea, or tell Friday what happened.",
+                            style = JarvisType.Body.copy(color = JarvisColors.TextSecondary),
+                            modifier = Modifier.widthIn(max = 290.dp),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
             items(turns) { turn -> TurnRow(turn) }
         }
-
         InputRow(
             value = input,
             onValueChange = { input = it },
@@ -77,73 +111,131 @@ fun ConversationScreen() {
 }
 
 @Composable
-private fun ContextStrip() {
-    Box(
+private fun ConversationHeader() {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(JarvisColors.SurfacePanel)
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(text = "FRIDAY · conversation", style = JarvisType.Label)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(11.dp)
+        ) {
+            FridayBrandMark(Modifier.size(30.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("FRIDAY", style = JarvisType.Headline.copy(fontSize = 17.sp))
+                Text("A CONVERSATION", style = JarvisType.Label)
+            }
+        }
+        Text("PRIVATE SPACE", style = JarvisType.Label.copy(color = JarvisColors.CoreThinking))
     }
 }
 
 @Composable
 private fun TurnRow(turn: Turn) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (turn.fromJarvis) Arrangement.Start else Arrangement.End
-    ) {
-        if (turn.fromJarvis) {
-            Column(modifier = Modifier.widthIn(max = 320.dp)) {
-                StateChip(
-                    label = if (turn.verified) "verified" else "uncertain",
-                    dotColor = if (turn.verified) JarvisColors.CoreSuccess else JarvisColors.CoreOffline
-                )
-                Text(text = turn.text, style = JarvisType.Body, modifier = Modifier.padding(top = 4.dp))
-            }
-        } else {
-            Box(
-                modifier = Modifier
-                    .widthIn(max = 320.dp)
-                    .background(JarvisColors.SurfacePanel, RoundedCornerShape(4.dp))
-                    .padding(12.dp)
+    if (turn.fromJarvis) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.Top
+        ) {
+            FridayBrandMark(Modifier.size(23.dp).padding(top = 2.dp))
+            Column(
+                modifier = Modifier.padding(start = 10.dp).widthIn(max = 320.dp),
+                verticalArrangement = Arrangement.spacedBy(7.dp)
             ) {
-                Text(text = turn.text, style = JarvisType.Body)
+                StateChip(
+                    label = if (turn.verified) "verified" else "needs review",
+                    dotColor = if (turn.verified) JarvisColors.CoreSuccess else JarvisColors.CoreAttention
+                )
+                Surface(
+                    color = JarvisColors.SurfaceRaised,
+                    shape = RoundedCornerShape(
+                        topStart = 5.dp, topEnd = 22.dp, bottomEnd = 22.dp, bottomStart = 22.dp
+                    ),
+                    border = BorderStroke(1.dp, JarvisColors.SurfaceHairline)
+                ) {
+                    Text(
+                        text = turn.text,
+                        style = JarvisType.Body,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 13.dp)
+                    )
+                }
+            }
+        }
+    } else {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Surface(
+                modifier = Modifier.widthIn(max = 320.dp),
+                color = JarvisColors.UserBubble,
+                shape = RoundedCornerShape(
+                    topStart = 22.dp, topEnd = 5.dp, bottomEnd = 22.dp, bottomStart = 22.dp
+                ),
+                border = BorderStroke(1.dp, JarvisColors.CoreIdle.copy(alpha = 0.18f))
+            ) {
+                Text(
+                    text = turn.text,
+                    style = JarvisType.Body,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 13.dp)
+                )
             }
         }
     }
 }
 
 @Composable
-private fun InputRow(value: String, onValueChange: (String) -> Unit, onSend: () -> Unit, bodyCoordinator: BodyCoordinator) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
+private fun InputRow(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onSend: () -> Unit,
+    bodyCoordinator: BodyCoordinator
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
+        color = JarvisColors.SurfacePanel,
+        shape = RoundedCornerShape(28.dp),
+        border = BorderStroke(1.dp, JarvisColors.SurfaceHairline)
     ) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            modifier = Modifier.weight(1f),
-            placeholder = { Text("Message Friday", style = JarvisType.Body) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-            keyboardActions = KeyboardActions(onSend = { onSend() }),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = JarvisColors.SurfaceHairline,
-                unfocusedBorderColor = JarvisColors.SurfaceHairline
-            )
-        )
-        TextButton(onClick = onSend, enabled = value.isNotBlank()) {
-            Text(text = "SEND", style = JarvisType.Label)
-        }
-        TextButton(
-            onClick = { bodyCoordinator.toggleListening() },
-            enabled = true
+        Row(
+            modifier = Modifier.padding(start = 14.dp, end = 8.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = "MIC", style = JarvisType.Label)
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                modifier = Modifier.weight(1f),
+                placeholder = {
+                    Text("Write to Friday…", style = JarvisType.Body.copy(color = JarvisColors.TextMuted))
+                },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                keyboardActions = KeyboardActions(onSend = { onSend() }),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent,
+                    disabledBorderColor = Color.Transparent,
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    cursorColor = JarvisColors.CoreThinking
+                )
+            )
+            IconButton(onClick = { bodyCoordinator.toggleListening() }) {
+                FridayNavigationGlyph(
+                    kind = "mic",
+                    color = JarvisColors.CoreThinking,
+                    modifier = Modifier.size(21.dp)
+                )
+            }
+            IconButton(onClick = onSend, enabled = value.isNotBlank()) {
+                FridayNavigationGlyph(
+                    kind = "send",
+                    color = if (value.isNotBlank()) JarvisColors.CoreIdle else JarvisColors.TextMuted,
+                    modifier = Modifier.size(21.dp)
+                )
+            }
         }
     }
 }
