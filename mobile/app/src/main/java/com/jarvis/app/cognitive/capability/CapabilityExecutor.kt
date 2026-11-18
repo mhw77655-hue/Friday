@@ -482,13 +482,13 @@ class CapabilityExecutor(
             ledger.record(
                 CapabilityEvidence(
                     capabilityId = capabilityId,
-                    operation = request.action,
+                    operation = request.action.ifBlank { "step:${request.stepId}" },
                     outcome = outcome,
                     observedAtMs = nowMs().coerceAtLeast(0L),
                     source = "capability-executor",
                     verified = verified,
                     detail = detail.take(1_000),
-                    eventId = "$evidenceSessionId:$requestKey#$attempt"
+                    eventId = "$evidenceSessionId:${evidenceKeyHash(requestKey)}#$attempt"
                 )
             )
             evidenceRecordingError = null
@@ -496,6 +496,11 @@ class CapabilityExecutor(
             evidenceRecordingError = failure.message?.take(240) ?: "Capability evidence could not be persisted."
         }
     }
+
+    private fun evidenceKeyHash(value: String): String =
+        java.security.MessageDigest.getInstance("SHA-256")
+            .digest(value.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> "%02x".format(byte) }
 
     private fun requestId(request: ActionRequest): String = "${request.planId}|${request.stepId}|${request.action}"
 
