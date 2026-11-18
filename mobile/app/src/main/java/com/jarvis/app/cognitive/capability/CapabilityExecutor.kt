@@ -50,7 +50,10 @@ class CapabilityExecutor(
     private val timeoutMs: Long? = null,
     private val maxReplans: Int = 3,
     private val maxSteps: Int = 100,
-    private val nowMs: () -> Long = { System.currentTimeMillis() }
+    private val nowMs: () -> Long = { System.currentTimeMillis() },
+    private val evidenceLedger: CapabilityEvidenceLedger? = null,
+    /** Independent postcondition check; an invocation's own success flag is not verification. */
+    private val evidenceVerifier: (ActionRequest, CapabilityInvocation) -> Boolean = { _, _ -> false }
 ) {
 
     var state: ExecutionState = ExecutionState()
@@ -64,6 +67,10 @@ class CapabilityExecutor(
 
     /** Number of replans performed so far (bounded by [maxReplans]). */
     var replanCount: Int = 0
+        private set
+
+    /** Last persistence error; action execution remains independent of the evidence store. */
+    var evidenceRecordingError: String? = null
         private set
 
     val executedOutcomes: List<CapabilityStepOutcome> get() = outcomes.toList()
@@ -204,6 +211,12 @@ class CapabilityExecutor(
             val result = ExecutionResult.fail(
                 ActionFailure.Error("RESOLUTION_${reason.name}", reason.name, recoverable = false)
             )
+            recordEvidence(
+                capabilityId = "unresolved:${request.action}",
+                request = request,
+                outcome = EvidenceOutcome.BLOCKED,
+                detail = "resolution:${reason.name}"
+            )
             return failStep(graph, node, request, resolution, result, invocation = null)
         }
 
@@ -222,9 +235,34 @@ class CapabilityExecutor(
             val result = ExecutionResult.fail(
                 ActionFailure.Error("PORT_EXCEPTION", e.message ?: "invocation threw", recoverable = false)
             )
+            recordEvidence(
+                capabilityId = resolvedId ?: "unknown:${request.action}",
+                request = request,
+                outcome = EvidenceOutcome.FAILED,
+                detail = "invocation_exception:${e.message ?: "unknown"}"
+            )
             return failStep(graph, node, request, resolution, result, invocation = null)
         }
         val result = CapabilityActionPort.toExecutionResult(invocation)
+        val evidenceOutcome = when {
+            invocation.refused -> EvidenceOutcome.REFUSED
+            result.success -> EvidenceOutcome.SUCCEEDED
+            else -> EvidenceOutcome.FAILED
+        }
+        val independentlyVerified = if (evidenceOutcome == EvidenceOutcome.SUCCEEDED) {
+            runCatching { evidenceVerifier(request, invocation) }.getOrDefault(false)
+        } else false
+        recordEvidence(
+            capabilityId = invocation.capabilityId ?: resolvedId ?: "unknown:${request.action}",
+            request = request,
+            outcome = evidenceOutcome,
+            verified = independentlyVerified,
+            detail = when {
+                invocation.refused -> invocation.refusalReason ?: "refused"
+                result.success -> "invocation reported success"
+                else -> failureText(result)
+            }
+        )
 
         // One completion event per invocation — covers success AND refusal
         // (circuit open / permission), reflected in the `success` flag.
@@ -390,6 +428,32 @@ class CapabilityExecutor(
         invocation.refused -> "REFUSED"
         invocation.success -> "SUCCESS"
         else -> "FAILURE"
+    }
+
+    private fun recordEvidence(
+        capabilityId: String,
+        request: ActionRequest,
+        outcome: EvidenceOutcome,
+        verified: Boolean = false,
+        detail: String
+    ) {
+        val ledger = evidenceLedger ?: return
+        try {
+            ledger.record(
+                CapabilityEvidence(
+                    capabilityId = capabilityId,
+                    operation = request.action,
+                    outcome = outcome,
+                    observedAtMs = nowMs().coerceAtLeast(0L),
+                    source = "capability-executor",
+                    verified = verified,
+                    detail = detail.take(1_000)
+                )
+            )
+            evidenceRecordingError = null
+        } catch (failure: Exception) {
+            evidenceRecordingError = failure.message?.take(240) ?: "Capability evidence could not be persisted."
+        }
     }
 
     private fun requestId(request: ActionRequest): String = "${request.planId}|${request.stepId}|${request.action}"
