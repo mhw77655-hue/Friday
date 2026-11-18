@@ -142,12 +142,11 @@ class RepositoryBuildRequestCapability(
     ): List<String>? {
         val array = json.optJSONArray(key) ?: return null
         if (array.length() !in min..max) return null
-        val values = buildList {
-            for (index in 0 until array.length()) {
-                val value = array.optString(index).trim()
-                if (value.isBlank() || value.length > itemMax) return null
-                add(value)
-            }
+        val values = mutableListOf<String>()
+        for (index in 0 until array.length()) {
+            val value = array.optString(index).trim()
+            if (value.isBlank() || value.length > itemMax) return null
+            values += value
         }
         return values
     }
