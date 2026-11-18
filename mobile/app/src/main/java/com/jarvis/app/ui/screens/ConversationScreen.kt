@@ -8,11 +8,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -23,6 +25,7 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -56,6 +59,11 @@ fun ConversationScreen() {
     }
     val turns by conversationViewModel.turns.collectAsStateWithLifecycle()
     var input by remember { mutableStateOf("") }
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(turns.size) {
+        if (turns.isNotEmpty()) listState.animateScrollToItem(turns.lastIndex)
+    }
 
     fun sendCurrentInput() {
         if (input.isNotBlank()) {
@@ -65,10 +73,14 @@ fun ConversationScreen() {
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().background(JarvisColors.SurfaceBase)
+        modifier = Modifier
+            .fillMaxSize()
+            .background(JarvisColors.SurfaceBase)
+            .imePadding()
     ) {
         ConversationHeader()
         LazyColumn(
+            state = listState,
             modifier = Modifier.weight(1f).fillMaxWidth(),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 18.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
