@@ -27,7 +27,7 @@ class OpenAiCompatibleProvider(
 ) : ModelProvider {
     private val endpoint = ProviderEndpointPolicy.validate(
         config.parameters["endpoint"] ?: throw IllegalArgumentException("Provider endpoint is required"),
-        allowInsecureLocalNetwork = config.parameters["allowInsecureHttp"] == "true"
+        allowInsecureLoopbackHttp = config.parameters["allowInsecureHttp"] == "true"
     )
     private val model = config.modelId?.takeIf { it.isNotBlank() }
         ?: throw IllegalArgumentException("A model id is required")
