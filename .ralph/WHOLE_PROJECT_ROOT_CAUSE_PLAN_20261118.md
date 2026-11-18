@@ -171,6 +171,19 @@ Production `LatencyLayer` dispatches slow-path turns onto `Executors.newSingleTh
 **Consequence:** bursts can grow memory without bound, cause stale turns to execute after timeout, and leak pending exchanges that can misassociate later replies.  
 **Root correction:** introduce bounded admission and an explicit per-exchange lifecycle (`QUEUED → RUNNING → COMPLETED/TIMED_OUT/CANCELLED`) with one absolute deadline from submission. On timeout, cancel/remove queued work and prevent it from dispatching later; running work must settle exactly once. Apply backpressure/rejection when capacity is reached and report a clear local response rather than accumulating unbounded tasks.
 
+### Manual triage of the 222 `named_wire` candidates
+
+The check is syntactic: it flags a concrete class-typed property/constructor parameter declared in another file when the changed code calls a method on it. It does **not** prove that the interaction needs to vary, that the dependency crosses an architectural boundary, or that an interface would improve the design. The 222 candidates span 112 files; frequent types include `FileStorage`, `ModelManager`, `CapabilityRegistry`, `ResourceGovernor`, `GenomeArchive` and `FailureSurface`.
+
+Triage each by the reason a boundary exists:
+
+- **External variability boundary:** persistence backend, model provider, Android/OEM service, permission source, network/GitHub client, release signer/installer, emulator/workshop. These should be ports where a real alternative, test fake or platform variation is required.
+- **Domain-internal collaborator:** a stable implementation within one bounded subsystem (e.g. a registry used by its resolver) may remain concrete. Do not add interfaces merely to make a scanner count disappear.
+- **Composition root:** concrete construction/wiring is expected at the one composition boundary; the runtime organs should receive narrow capabilities, not own construction.
+- **Legacy/quarantined code:** do not refactor old Human Core/JARVIS paths into the active Friday architecture; isolate or remove them after reachability checks.
+
+A port is justified by an actual variability, lifecycle, security or test-isolation requirement—not by the presence of a class name. The 222 results are a review index, not 222 required refactors.
+
 ### Manual triage of the scanner's seven `meaning_arbiter` candidates
 
 The scanner's seven candidates are not seven defects. Manual review classifies them as follows:
