@@ -33,3 +33,8 @@ mobile/app/.cxx/
 New Folder chats.zip
 New folder.zip
 *.owner-private.zip
+
+# Never commit Friday's private Android release signing material
+*.p12
+*.jks
+*.keystore
