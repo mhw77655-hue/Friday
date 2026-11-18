@@ -76,9 +76,9 @@ class RepositoryBuildRequestCapability(
                     .put("status", "approved")
                     .put("reviewed_by", "owner-enabled-on-device")
                     .put("reviewed_at", timestamp)
+                    .put("aggregate_runtime_evidence_enabled", false)
+                    .put("aggregate_runtime_evidence_scope", "none")
             )
-            .put("aggregate_runtime_evidence_enabled", false)
-            .put("aggregate_runtime_evidence_scope", "none")
 
         val result = dispatchClient.dispatch(requestId, envelope.toString())
         return if (result.accepted) {
