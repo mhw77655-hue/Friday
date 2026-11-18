@@ -67,6 +67,7 @@ class CapabilityExecutor(
     private val outcomes = mutableListOf<CapabilityStepOutcome>()
     private val evidenceAttemptLock = Any()
     private val evidenceAttempts = mutableMapOf<String, Int>()
+    private val terminalEvidenceRecorded = mutableSetOf<String>()
 
     /** Number of replans performed so far (bounded by [maxReplans]). */
     var replanCount: Int = 0
@@ -128,6 +129,36 @@ class CapabilityExecutor(
             val skippedIds = skipped.map { it.id }
             val skippedReasons = skipped.associate { it.id to (it.skipReason ?: "No skip reason recorded") }
             val blockedBy = blockedNodes.filter { it.blockedBy.isNotEmpty() }.associate { it.id to it.blockedBy }
+
+            // Preserve terminal outcomes that never reached the invoker. A
+            // skipped or dependency-blocked step is not a failed invocation.
+            (skipped.map { it to EvidenceOutcome.SKIPPED } +
+                blockedNodes.map { it to EvidenceOutcome.BLOCKED }).forEach { (terminalNode, outcome) ->
+                val terminalRequest = ActionRequest(
+                    planId = graph.goalId,
+                    stepId = terminalNode.id,
+                    action = terminalNode.action,
+                    description = terminalNode.description,
+                    context = buildContext(terminalNode),
+                    constraints = emptyList()
+                )
+                val requestKey = requestId(terminalRequest)
+                val firstObservation = synchronized(evidenceAttemptLock) {
+                    terminalEvidenceRecorded.add(requestKey)
+                }
+                if (firstObservation) {
+                    recordEvidence(
+                        capabilityId = "unresolved:${terminalNode.action}",
+                        request = terminalRequest,
+                        outcome = outcome,
+                        detail = if (outcome == EvidenceOutcome.SKIPPED) {
+                            terminalNode.skipReason ?: "step skipped before invocation"
+                        } else {
+                            terminalNode.failureCause ?: "step blocked before invocation"
+                        }
+                    )
+                }
+            }
 
             val (terminalStatus, cause) = when {
                 effective.isEmpty() -> ExecutionStatus.FAILED to "replan left no replacement steps"
