@@ -15,7 +15,7 @@ class RemoteProviderProtocolTest {
         val safe = ProviderEndpointPolicy.validate("https://api.example.com/v1")
         assertEquals("https://api.example.com/v1", safe)
         assertEquals("http://127.0.0.1:11434/v1", ProviderEndpointPolicy.validate(
-            "http://localhost:11434/v1", allowInsecureLocalNetwork = true
+            "http://localhost:11434/v1", allowInsecureLoopbackHttp = true
         ))
     }
 }
