@@ -80,8 +80,7 @@ object ToolBuilderComposition {
         llmSynthesisProvider: LlmSynthesisProvider? = null,
         cognitiveCapabilityFabric: CapabilityFabric? = null,
         resourceGovernor: ResourceGovernor = ResourceGovernor(),
-        refreshResources: () -> Unit = {},
-        nowMs: () -> Long = { 0L }
+        refreshResources: () -> Unit = {}
     ): Stack {
         val sandbox = ResourceSandbox()
         val factory = EnvironmentFactory(failureSurface, workspacesDir)
