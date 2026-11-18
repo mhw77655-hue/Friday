@@ -94,4 +94,57 @@ class IndividualGoalContinuityStoreTest {
         val subgoal = Subgoal(id = "s1", goalId = "g2", description = "Not this goal.")
         IndividualGoalContinuityStore(directory).save("friday-a", goal, listOf(subgoal))
     }
+    @Test(expected = IllegalArgumentException::class)
+    fun `cyclic subgoal dependencies cannot be persisted`() {
+        val directory = tempDir()
+        val goal = Goal(id = "g1", description = "Build a coherent goal graph.", createdAt = 1L)
+        IndividualGoalContinuityStore(directory).save(
+            "friday-a",
+            goal,
+            listOf(
+                Subgoal(id = "a", goalId = "g1", description = "A", createdAt = 1L, dependencies = listOf("b")),
+                Subgoal(id = "b", goalId = "g1", description = "B", createdAt = 1L, dependencies = listOf("a"))
+            )
+        )
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `unknown subgoal dependencies are rejected`() {
+        val directory = tempDir()
+        val goal = Goal(id = "g1", description = "Build a coherent goal graph.", createdAt = 1L)
+        IndividualGoalContinuityStore(directory).save(
+            "friday-a",
+            goal,
+            listOf(
+                Subgoal(id = "a", goalId = "g1", description = "A", createdAt = 1L, dependencies = listOf("missing"))
+            )
+        )
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `duplicate subgoal identities cannot be persisted`() {
+        val directory = tempDir()
+        val goal = Goal(id = "g1", description = "Build a coherent goal graph.", createdAt = 1L)
+        IndividualGoalContinuityStore(directory).save(
+            "friday-a",
+            goal,
+            listOf(
+                Subgoal(id = "same", goalId = "g1", description = "First", createdAt = 1L),
+                Subgoal(id = "same", goalId = "g1", description = "Second", createdAt = 1L)
+            )
+        )
+    }
+
+    @Test(expected = IllegalArgumentException::class)
+    fun `success criteria are validated before writing so the store cannot reject its own snapshot`() {
+        val directory = tempDir()
+        val goal = Goal(
+            id = "g1",
+            description = "Build a coherent goal graph.",
+            createdAt = 1L,
+            successCriteria = listOf("x".repeat(501))
+        )
+        IndividualGoalContinuityStore(directory).save("friday-a", goal, emptyList())
+    }
+
 }
