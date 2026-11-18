@@ -80,7 +80,8 @@ object ToolBuilderComposition {
         llmSynthesisProvider: LlmSynthesisProvider? = null,
         cognitiveCapabilityFabric: CapabilityFabric? = null,
         resourceGovernor: ResourceGovernor = ResourceGovernor(),
-        refreshResources: () -> Unit = {}
+        refreshResources: () -> Unit = {},
+        nowMs: () -> Long = { 0L }
     ): Stack {
         val sandbox = ResourceSandbox()
         val factory = EnvironmentFactory(failureSurface, workspacesDir)
@@ -196,7 +197,8 @@ object ToolBuilderComposition {
         )
         val receiptStore = PromotionReceiptStore(
             fileStorage = fileStorage,
-            file = File(workspacesDir.parentFile ?: workspacesDir, "promotion-receipts.json")
+            file = File(workspacesDir.parentFile ?: workspacesDir, "promotion-receipts.json"),
+            nowMs = nowMs
         )
         val evolution = EvolutionEngine(
             archive = archive,
