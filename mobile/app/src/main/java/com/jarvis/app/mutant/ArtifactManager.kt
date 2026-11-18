@@ -50,7 +50,7 @@ class ArtifactManager(private val fileStorage: FileStorage) {
             File(dir, "manifest.json"),
             JSONObject().apply {
                 put("schemaVersion", 1)
-                put("runtimeFormat", "synth-v1")
+                put("runtimeFormat", if (implementation.language == "synth") "synth-v1" else "unsupported")
                 put("candidateId", candidateId)
                 put("genomeId", genomeId)
                 put("sourceSha256", sha256(source))
