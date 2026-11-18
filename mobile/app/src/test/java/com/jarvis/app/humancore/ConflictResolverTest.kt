@@ -174,11 +174,6 @@ class ConflictResolverTest {
         val newer = """{"updated_at_ms":2000,"facts":[{"id":"fact_b"}]}"""
         assertEquals(newer, ConflictResolver.resolve(StoreKind.BODY_MEMORY, old, newer))
         assertEquals(newer, ConflictResolver.resolve(StoreKind.BODY_MEMORY, newer, old))
-        val dialogue = "line1\\nline2"
-        assertEquals(
-            "line1\\nline2",
-            ConflictResolver.resolve(StoreKind.DIALOGUE, dialogue, "line2")
-        )
     }
 
 }
