@@ -33,6 +33,8 @@ class AutoMergePolicyTests(unittest.TestCase):
         for path in (
             "mobile/app/src/main/java/com/jarvis/app/identity/SelfModel.kt",
             "mobile/app/src/main/java/com/jarvis/app/memory/ExperienceStore.kt",
+            "mobile/app/src/main/java/com/jarvis/app/cognitive/LongTermMemory.kt",
+            "mobile/app/src/main/java/com/jarvis/app/cognitive/IdentityState.kt",
         ):
             with self.subTest(path=path):
                 self.assertFalse(MODULE.evaluate([path])[0])
@@ -64,6 +66,9 @@ class AutoMergePolicyTests(unittest.TestCase):
         self.assertFalse(MODULE.evaluate([])[0])
         self.assertFalse(MODULE.evaluate("not a list")[0])
         self.assertFalse(MODULE.evaluate(["../secret.txt"])[0])
+        self.assertFalse(MODULE.evaluate(["./mobile/app/src/main/java/com/jarvis/app/cognitive/Engine.kt"])[0])
+        self.assertFalse(MODULE.evaluate(["/mobile/app/src/main/java/com/jarvis/app/cognitive/Engine.kt"])[0])
+        self.assertFalse(MODULE.evaluate(["mobile/app/src/main/AndroidManifest.XML"])[0])
 
 
 if __name__ == "__main__":
