@@ -25,15 +25,16 @@ class PublisherWorkflowTests(unittest.TestCase):
         self.assertLess(publisher.index(apply_patch), publisher.index(execute_validator))
         self.assertNotIn(execute_workspace_validator, publisher)
 
-    def test_publisher_reuses_only_an_exact_existing_proposal_tree(self):
+    def test_publisher_repairs_only_the_exact_failed_candidate_revision(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         publisher = workflow.split("  publish_draft_pr:", 1)[1]
 
-        self.assertIn('git fetch origin "$BRANCH"', publisher)
-        self.assertIn("git diff --quiet FETCH_HEAD HEAD", publisher)
-        self.assertIn("git reset --hard FETCH_HEAD", publisher)
+        self.assertIn('git fetch origin "$SOURCE_BRANCH"', publisher)
+        self.assertIn('ACTUAL_SHA="$(git rev-parse FETCH_HEAD)"', publisher)
+        self.assertIn('if [[ "$ACTUAL_SHA" != "$SOURCE_SHA" ]]', publisher)
+        self.assertIn("Candidate branch advanced while Builder was working", publisher)
         self.assertIn('git push origin "$BRANCH"', publisher)
-        self.assertIn("Refusing to overwrite it", publisher)
+        self.assertIn("refusing to overwrite it", publisher)
 
     def test_publisher_reuses_existing_pr_and_explains_permission_blocker(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
@@ -47,7 +48,8 @@ class PublisherWorkflowTests(unittest.TestCase):
     def test_publisher_setup_document_preserves_the_read_only_worker_boundary(self):
         setup = (ROOT / "docs" / "FRIDAY_TRUSTED_PUBLISHER_SETUP.md").read_text(encoding="utf-8")
         self.assertIn("Do not solve this by giving the coding worker", setup)
-        self.assertIn("required checks and owner review", setup)
+        self.assertIn("required checks", setup)
+        self.assertIn("high-risk", setup)
 
     def test_untrusted_worker_does_not_receive_repository_write_token(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
