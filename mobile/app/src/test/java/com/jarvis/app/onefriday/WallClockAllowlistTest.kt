@@ -120,6 +120,9 @@ class WallClockAllowlistTest {
 
     /** How many direct wall-clock reads a file still contains. */
     private val ALLOWED: Map<String, Int> = buildMap {
+        // ── builder: durable promotion history, not cognitive timestamps ──
+        put("builder/PromotionReceiptStore.kt", 2)
+
         // ── body: the keyword memory port, presence and context assembly ──────
         put("JarvisEngine.kt", 1)
         put("body/AdaptiveContextBuilder.kt", 4)
@@ -221,6 +224,7 @@ class WallClockAllowlistTest {
 
     /** Why each file is allowed to keep exactly that many reads. */
     private val REASONS: Map<String, String> = buildMap {
+        put("builder/PromotionReceiptStore.kt", "two audit timestamps order durable promotion receipts and record when a rollback was applied; they do not influence cognition or capability decisions")
         put("JarvisEngine.kt", "the single Android root clock; it is passed into the platform adapter and the production turn-path time seams")
         put("body/AdaptiveContextBuilder.kt", "context-build latency pair plus the prompt's own current-time line; the age read is the recency sort key")
         put("body/BodyCoordinator.kt", "session start, two turn-event timestamps, reasoning activity timestamps, and the reasoning idle-grace comparison; body lifecycle bookkeeping, not cognitive time")
