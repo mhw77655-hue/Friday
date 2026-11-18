@@ -39,6 +39,24 @@ class DeviceStateCapsuleTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             MODULE.validate_capsule(self.capsule)
 
+    def test_offline_state_overrides_last_known_wifi_transport(self):
+        self.assertEqual(
+            MODULE.network_commands({"transport": "wifi", "connected": False}),
+            (("svc", "wifi", "disable"), ("svc", "data", "disable")),
+        )
+
+    def test_wifi_state_enables_wifi_and_disables_cellular(self):
+        self.assertEqual(
+            MODULE.network_commands({"transport": "wifi", "connected": True}),
+            (("svc", "wifi", "enable"), ("svc", "data", "disable")),
+        )
+
+    def test_cellular_state_disables_wifi_and_enables_mobile_data(self):
+        self.assertEqual(
+            MODULE.network_commands({"transport": "cellular", "connected": True}),
+            (("svc", "wifi", "disable"), ("svc", "data", "enable")),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
