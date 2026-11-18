@@ -26,32 +26,13 @@ capture_boot_diagnostics() {
 
 trap 'adb logcat -d -t 16000 > "$EVIDENCE_DIR/logcat.txt" 2>/dev/null || true; adb shell dumpsys activity services > "$EVIDENCE_DIR/services.txt" 2>/dev/null || true; adb shell dumpsys package com.jarvis.app > "$EVIDENCE_DIR/package.txt" 2>/dev/null || true' EXIT
 
-# sys.boot_completed and package enumeration alone are insufficient: PackageManager
-# can list packages before the Settings ContentProvider has been registered.
-# PackageInstaller calls Settings during session creation, so probe the actual
-# provider before attempting adb install. Every condition is observed, not slept
-# for a guessed fixed startup duration.
-system_ready=0
-for attempt in $(seq 1 60); do
-  boot_completed="$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
-  package_list="$(adb shell pm list packages 2>/dev/null || true)"
-  settings_probe="$(adb shell settings get global device_provisioned 2>&1 | tr -d '\r' || true)"
-
-  if [[ "$boot_completed" == "1" ]] &&
-     grep -q '^package:android$' <<< "$package_list" &&
-     grep -q '^package:com.android.settings$' <<< "$package_list" &&
-     [[ "$settings_probe" =~ ^[0-9]+$ ]]; then
-    system_ready=1
-    echo "ANDROID_SYSTEM_READY: boot_completed=1 package_manager=responsive settings_provider=ready device_provisioned=$settings_probe"
-    break
-  fi
-
-  echo "Waiting for Android system providers ($attempt/60): boot=$boot_completed settings_probe=${settings_probe:-<unavailable>}"
-  sleep 5
-done
-
-if [[ "$system_ready" != "1" ]]; then
-  echo "Android system did not reach PackageManager + Settings-provider readiness." >&2
+# Package enumeration may succeed before SettingsProvider is registered.
+# PackageInstaller queries Settings during session creation, so the helper polls
+# the actual provider and has unit tests for the early-boot false-positive state.
+if ! python3 tools/friday-builder/wait_for_android_system.py \
+  --timeout-seconds 300 \
+  --interval-seconds 5 \
+  --evidence-file "$EVIDENCE_DIR/boot-readiness-diagnostics.txt"; then
   capture_boot_diagnostics
   cat "$EVIDENCE_DIR/boot-readiness-diagnostics.txt" >&2
   exit 20
