@@ -160,7 +160,7 @@ discover_lanes() {
 # Lane pool: each lane must answer a one-word probe before the agent gets it. A lane that logs a stream error is cut at once.
 gate() {
   GO=$(mktemp); MK=$(mktemp); GD=$(mktemp -d); S0=$(date +%s); ERR=""
-  ( cd "$GD" && exec timeout -k 5 "$GATECAP" opencode run -m "$1" "Create a file named gate_tool.txt in the current directory containing exactly the word ok, then reply with the single word done." ) > "$GO" 2>&1 < /dev/null &
+  ( cd "$GD" && exec timeout -k 5 "$GATECAP" env -u GITHUB_TOKEN -u GH_TOKEN opencode run -m "$1" "Create a file named gate_tool.txt in the current directory containing exactly the word ok, then reply with the single word done." ) > "$GO" 2>&1 < /dev/null &
   GP=$!
   while kill -0 "$GP" 2>/dev/null; do
     sleep "$GTICK"
