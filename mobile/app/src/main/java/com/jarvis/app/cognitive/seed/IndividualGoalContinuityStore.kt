@@ -109,7 +109,7 @@ class IndividualGoalContinuityStore(
             require(goal.successCriteria.all { it.isNotBlank() && it.length <= MAX_CRITERION_LENGTH }) {
                 "Success criteria must be non-empty and within the safe length limit."
             }
-            require(goal.parentGoalId == null || goal.parentGoalId.length <= 128)
+            require(goal.parentGoalId == null || (goal.parentGoalId.isNotBlank() && goal.parentGoalId.length <= 128))
         }
 
         require(subgoals.size <= MAX_SUBGOALS)
