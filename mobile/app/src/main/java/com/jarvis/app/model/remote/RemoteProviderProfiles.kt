@@ -62,7 +62,7 @@ class RemoteProviderProfiles(context: Context) {
     @Synchronized
     fun save(profile: RemoteProviderProfile, apiKey: String) {
         val normalizedEndpoint = ProviderEndpointPolicy.validate(
-            profile.endpoint, profile.allowInsecureLocalHttp
+            profile.endpoint, allowInsecureLoopbackHttp = profile.allowInsecureLocalHttp
         )
         val normalized = profile.copy(endpoint = normalizedEndpoint)
         val profiles = all().filterNot { it.id == profile.id } + normalized
@@ -88,7 +88,10 @@ class RemoteProviderProfiles(context: Context) {
                     config = ProviderConfig(
                         modelId = profile.modelId,
                         authToken = null,
-                        parameters = mapOf("endpoint" to profile.endpoint),
+                        parameters = mapOf(
+                            "endpoint" to profile.endpoint,
+                            "allowInsecureHttp" to profile.allowInsecureLocalHttp.toString()
+                        ),
                         timeoutMs = profile.timeoutMs,
                         maxRetries = 0
                     ),
