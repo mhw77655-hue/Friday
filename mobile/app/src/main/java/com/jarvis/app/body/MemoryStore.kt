@@ -50,6 +50,7 @@ class MemoryStore(
     private val conversationContext = MutableStateFlow<List<MemoryItem>>(emptyList())
     private val contextOrder = mutableListOf<String>()
     private val contextOrderLock = Any()
+    private val persistLock = Any()
     private val memoryLoaded = CompletableDeferred<Unit>()
 
     private val fileStorage = FileStorage(context.filesDir)
@@ -280,14 +281,18 @@ class MemoryStore(
                 // Do not snapshot or write until the initial disk load/migration
                 // has completed; otherwise a first-run mutation can erase old data.
                 memoryLoaded.await()
-                val json = JSONObject()
-                json.put("updated_at_ms", System.currentTimeMillis())
-                json.put("episodic", JSONArray(episodicMemories.values.map { toJson(it) }))
-                json.put("facts", JSONArray(facts.values.map { toJson(it) }))
-                json.put("preferences", JSONArray(preferences.values.map { toJson(it) }))
-                val orderSnapshot = synchronized(contextOrderLock) { contextOrder.toList() }
-                json.put("context_order", JSONArray(orderSnapshot))
-                fileStorage.write(StoreKind.BODY_MEMORY, json.toString(2))
+                synchronized(persistLock) {
+                    // Snapshot only after taking the same lock used for the
+                    // write, so an older concurrent snapshot cannot land last.
+                    val json = JSONObject()
+                    json.put("updated_at_ms", System.currentTimeMillis())
+                    json.put("episodic", JSONArray(episodicMemories.values.map { toJson(it) }))
+                    json.put("facts", JSONArray(facts.values.map { toJson(it) }))
+                    json.put("preferences", JSONArray(preferences.values.map { toJson(it) }))
+                    val orderSnapshot = synchronized(contextOrderLock) { contextOrder.toList() }
+                    json.put("context_order", JSONArray(orderSnapshot))
+                    fileStorage.write(StoreKind.BODY_MEMORY, json.toString(2))
+                }
             } catch (t: Throwable) {
                 if (t is kotlinx.coroutines.CancellationException) throw t
                 Log.w(TAG, "Persist failed: ${t.message}")
