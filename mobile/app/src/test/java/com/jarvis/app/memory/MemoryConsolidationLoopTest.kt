@@ -137,6 +137,29 @@ class MemoryConsolidationLoopTest {
     }
 
     @Test
+    fun `explicit preference invalidates older contradictory candidate evidence`() {
+        val h = Harness()
+        h.userProfile.ingestUtterance("I tend to prefer concise answers", "session-old")
+        h.userProfile.ingestUtterance("I prefer detailed answers", "session-explicit")
+        h.userProfile.ingestUtterance("I tend to prefer concise answers", "session-new")
+
+        assertEquals("explicit owner preference must defeat stale inferred evidence", "detailed answers", h.userProfile.getPreference("communicationStyle"))
+    }
+
+    @Test
+    fun `promoted candidate evidence is discarded and cannot later override a newer graph fact`() {
+        val h = Harness()
+        h.userProfile.ingestUtterance("I tend to prefer concise answers", "session-a")
+        h.userProfile.ingestUtterance("I tend to prefer concise answers", "session-b")
+        assertEquals("repeated evidence initially promotes", "concise answers", h.userProfile.getPreference("communicationStyle"))
+
+        h.graph.setUserPreference("communicationStyle", "detailed answers", "owner override")
+        h.userProfile.ingestUtterance("I tend to prefer concise answers", "session-c")
+
+        assertEquals("old promoted evidence must not be replayed as a fresh multi-session consensus", "detailed answers", h.userProfile.getPreference("communicationStyle"))
+    }
+
+    @Test
     fun `hedged statement in one session stays ephemeral and becomes durable only after a second distinct session`() {
         val h = Harness()
         val loop = h.loop()
