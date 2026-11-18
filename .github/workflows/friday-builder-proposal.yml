@@ -280,10 +280,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 150
     permissions:
+      actions: write
       contents: write
       pull-requests: write
       checks: read
-      actions: read
     steps:
       - name: Checkout trusted main without persisting credentials
         uses: actions/checkout@v4
@@ -415,6 +415,48 @@ jobs:
           fi
           echo "FRIDAY_PR_URL=$PR_URL" >> "$GITHUB_ENV"
 
+      # PRs created with GITHUB_TOKEN may not receive the normal pull_request
+      # workflow run. Dispatch the canonical build explicitly and bind the
+      # result to the exact commit just pushed; never merge on stale CI.
+      - name: Dispatch and verify the exact proposal commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          BRANCH="$FRIDAY_PROPOSAL_BRANCH"
+          EXPECTED_SHA="$(git rev-parse HEAD)"
+          gh workflow run build.yml --repo "$REPOSITORY" --ref "$BRANCH"
+
+          RUN_ID=""
+          for attempt in $(seq 1 60); do
+            RUN_ID="$(gh run list --repo "$REPOSITORY" --workflow build.yml --branch "$BRANCH" --limit 20 \
+              --json databaseId,headSha,event \
+              --jq ".[] | select(.headSha == \"$EXPECTED_SHA\" and .event == \"workflow_dispatch\") | .databaseId" | head -n 1)"
+            if [[ -n "$RUN_ID" ]]; then
+              break
+            fi
+            sleep 2
+          done
+          if [[ -z "$RUN_ID" ]]; then
+            echo "Could not locate the workflow_dispatch run for exact proposal SHA $EXPECTED_SHA." >&2
+            exit 9
+          fi
+
+          echo "FRIDAY_BUILD_RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+          echo "FRIDAY_PROPOSAL_SHA=$EXPECTED_SHA" >> "$GITHUB_ENV"
+          if ! timeout 110m gh run watch "$RUN_ID" --repo "$REPOSITORY" --exit-status; then
+            echo "The exact proposal commit failed its canonical build, unit-test, or emulator gate." >&2
+            exit 10
+          fi
+
+          VERIFIED_SHA="$(gh run view "$RUN_ID" --repo "$REPOSITORY" --json headSha --jq '.headSha')"
+          VERIFIED_CONCLUSION="$(gh run view "$RUN_ID" --repo "$REPOSITORY" --json conclusion --jq '.conclusion')"
+          if [[ "$VERIFIED_SHA" != "$EXPECTED_SHA" || "$VERIFIED_CONCLUSION" != "success" ]]; then
+            echo "Build evidence does not match the exact proposal commit." >&2
+            exit 11
+          fi
+
       - name: Evaluate strict automatic-promotion policy
         id: auto_merge_policy
         env:
@@ -440,17 +482,20 @@ jobs:
         run: |
           set -euo pipefail
           PR_URL="$FRIDAY_PR_URL"
+          RUN_ID="$FRIDAY_BUILD_RUN_ID"
+          EXPECTED_SHA="$FRIDAY_PROPOSAL_SHA"
+          VERIFIED_SHA="$(gh run view "$RUN_ID" --repo "$REPOSITORY" --json headSha --jq '.headSha')"
+          VERIFIED_CONCLUSION="$(gh run view "$RUN_ID" --repo "$REPOSITORY" --json conclusion --jq '.conclusion')"
+          if [[ "$VERIFIED_SHA" != "$EXPECTED_SHA" || "$VERIFIED_CONCLUSION" != "success" ]]; then
+            echo "Refusing promotion without successful exact-SHA validation." >&2
+            exit 12
+          fi
           gh pr ready "$PR_URL" --repo "$REPOSITORY" || true
-          if timeout 110m gh pr checks "$PR_URL" --repo "$REPOSITORY" --watch --fail-fast; then
-            if gh pr merge "$PR_URL" --repo "$REPOSITORY" --squash --delete-branch; then
-              echo "FRIDAY_AUTO_PROMOTION=MERGED"
-            else
-              echo "CI passed, but GitHub refused the merge (for example, branch protection or required review). PR remains open."
-              echo "FRIDAY_AUTO_PROMOTION=MERGE_BLOCKED"
-            fi
+          if gh pr merge "$PR_URL" --repo "$REPOSITORY" --squash --delete-branch; then
+            echo "FRIDAY_AUTO_PROMOTION=MERGED"
           else
-            echo "CI did not pass. The candidate remains open; a failed friday-proposals/* build automatically re-enters Builder repair."
-            echo "FRIDAY_AUTO_PROMOTION=CI_FAILED"
+            echo "Exact-SHA CI passed, but GitHub refused the merge (for example, branch protection or required review). PR remains open."
+            echo "FRIDAY_AUTO_PROMOTION=MERGE_BLOCKED"
           fi
 
       - name: Publish boundary summary
