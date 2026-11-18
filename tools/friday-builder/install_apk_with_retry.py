@@ -120,7 +120,7 @@ def install_with_retry(
                 if storage_timeouts > max_storage_timeouts:
                     print(
                         "ANDROID_INSTALL_FAILED: Android emulated-storage session did not recover "
-                        f"after {max_storage_timeouts} transient timeouts\\n{combined[-4000:]}",
+                        f"after {max_storage_timeouts} transient timeouts\n{combined[-4000:]}",
                         file=sys.stderr,
                     )
                     return False
@@ -128,7 +128,7 @@ def install_with_retry(
             else:
                 print(
                     "ANDROID_INSTALL_FAILED: adb install timed out without the known "
-                    f"transient storage-session signature on attempt={attempt}\\n{combined[-4000:]}",
+                    f"transient storage-session signature on attempt={attempt}\n{combined[-4000:]}",
                     file=sys.stderr,
                 )
                 return False
