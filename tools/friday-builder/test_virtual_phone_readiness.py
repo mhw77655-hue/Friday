@@ -9,6 +9,7 @@ class AndroidSystemReadinessTests(unittest.TestCase):
             "boot_completed": "1",
             "packages": "package:android\npackage:com.android.settings\n",
             "settings_device_provisioned": "0",
+            "storage_volumes": "private mounted null\nemulated mounted null",
         }
         value.update(overrides)
         return value
@@ -27,6 +28,21 @@ class AndroidSystemReadinessTests(unittest.TestCase):
     def test_required_system_packages_are_required(self):
         self.assertFalse(
             is_system_ready(self.state(packages="package:android\n"))
+        )
+
+    def test_settings_and_package_manager_can_be_ready_before_storage_mounts(self):
+        self.assertFalse(
+            is_system_ready(self.state(storage_volumes="private unmounted null\nemulated unmounted null"))
+        )
+
+    def test_private_storage_must_be_mounted(self):
+        self.assertFalse(
+            is_system_ready(self.state(storage_volumes="private unmounted null\nemulated mounted null"))
+        )
+
+    def test_emulated_storage_must_be_mounted_for_package_installer(self):
+        self.assertFalse(
+            is_system_ready(self.state(storage_volumes="private mounted null\nemulated unmounted null"))
         )
 
     def test_null_or_unknown_settings_value_is_not_ready(self):
