@@ -136,19 +136,30 @@ class IndividualGoalContinuityStore(
             }
         }
 
-        val visiting = mutableSetOf<String>()
-        val visited = mutableSetOf<String>()
-        fun visit(id: String): Boolean {
-            if (id in visiting) return false
-            if (id in visited) return true
-            val node = byId[id] ?: return false
-            visiting.add(id)
-            if (node.dependencies.any { !visit(it) }) return false
-            visiting.remove(id)
-            visited.add(id)
-            return true
+        // Kahn's algorithm avoids recursive DFS stack growth on a valid but
+        // deeply chained owner-created goal (up to MAX_SUBGOALS nodes).
+        val remainingDependencies = subgoals.associate { it.id to it.dependencies.size }.toMutableMap()
+        val dependents = mutableMapOf<String, MutableList<String>>()
+        subgoals.forEach { node ->
+            node.dependencies.forEach { dependency ->
+                dependents.getOrPut(dependency) { mutableListOf() }.add(node.id)
+            }
         }
-        require(ids.all(::visit)) { "Subgoal dependencies must form an acyclic graph." }
+        val ready = java.util.ArrayDeque<String>()
+        remainingDependencies.forEach { (id, count) -> if (count == 0) ready.addLast(id) }
+        var visitedCount = 0
+        while (ready.isNotEmpty()) {
+            val completed = ready.removeFirst()
+            visitedCount++
+            dependents[completed].orEmpty().forEach { dependent ->
+                val remaining = (remainingDependencies[dependent] ?: 0) - 1
+                remainingDependencies[dependent] = remaining
+                if (remaining == 0) ready.addLast(dependent)
+            }
+        }
+        require(visitedCount == subgoals.size) {
+            "Subgoal dependencies must form an acyclic graph."
+        }
     }
 
     private fun goalJson(goal: Goal): JSONObject {
