@@ -51,13 +51,13 @@ class StepExecutionLoopTest {
     @Test
     fun runNext_pops_one_subgoal_executes_and_records_result() = kotlinx.coroutines.runBlocking {
         val fabric = CapabilityFabric(testImmune(), emit = {})
-        fabric.register(FakeCapability(descriptor("cap_a", operation = "step a")) {
+        fabric.register(FakeCapability(descriptor("cap_a", operation = "step_a")) {
             com.jarvis.app.cognitive.execution.ExecutionResult.ok(output = mapOf("outcome" to "done a"))
         })
 
         val e = engine(fabric)
         e.getTaskWorkingMemory().setGoal("test goal")
-        e.getTaskWorkingMemory().pushExecutableSubgoals(listOf(TaskWorkingMemory.ExecutableSubgoal("step a", "step a")))
+        e.getTaskWorkingMemory().pushExecutableSubgoals(listOf(TaskWorkingMemory.ExecutableSubgoal("step a", "step_a")))
 
         val result = e.runNext()
 
@@ -83,22 +83,22 @@ class StepExecutionLoopTest {
     fun multi_subgoal_task_executes_in_order_and_completes() = kotlinx.coroutines.runBlocking {
         val callOrder = mutableListOf<String>()
         val fabric = CapabilityFabric(testImmune(), emit = {})
-        fabric.register(FakeCapability(descriptor("cap_a", operation = "step a")) {
+        fabric.register(FakeCapability(descriptor("cap_a", operation = "step_a")) {
             callOrder.add("a")
             com.jarvis.app.cognitive.execution.ExecutionResult.ok(output = mapOf("outcome" to "done a"))
         })
-        fabric.register(FakeCapability(descriptor("cap_b", operation = "step b")) {
+        fabric.register(FakeCapability(descriptor("cap_b", operation = "step_b")) {
             callOrder.add("b")
             com.jarvis.app.cognitive.execution.ExecutionResult.ok(output = mapOf("outcome" to "done b"))
         })
-        fabric.register(FakeCapability(descriptor("cap_c", operation = "step c")) {
+        fabric.register(FakeCapability(descriptor("cap_c", operation = "step_c")) {
             callOrder.add("c")
             com.jarvis.app.cognitive.execution.ExecutionResult.ok(output = mapOf("outcome" to "done c"))
         })
 
         val e = engine(fabric)
         e.getTaskWorkingMemory().setGoal("full task")
-        e.getTaskWorkingMemory().pushExecutableSubgoals(listOf(TaskWorkingMemory.ExecutableSubgoal("step a", "step a"), TaskWorkingMemory.ExecutableSubgoal("step b", "step b"), TaskWorkingMemory.ExecutableSubgoal("step c", "step c")))
+        e.getTaskWorkingMemory().pushExecutableSubgoals(listOf(TaskWorkingMemory.ExecutableSubgoal("step a", "step_a"), TaskWorkingMemory.ExecutableSubgoal("step b", "step_b"), TaskWorkingMemory.ExecutableSubgoal("step c", "step_c")))
 
         // Execute all three subgoals
         val r1 = e.runNext()
@@ -129,7 +129,7 @@ class StepExecutionLoopTest {
     @Test
     fun runNext_records_failure_when_capability_fails() = kotlinx.coroutines.runBlocking {
         val fabric = CapabilityFabric(testImmune(), emit = {})
-        fabric.register(FakeCapability(descriptor("cap_fail", operation = "doomed step")) {
+        fabric.register(FakeCapability(descriptor("cap_fail", operation = "doomed_step")) {
             com.jarvis.app.cognitive.execution.ExecutionResult.fail(
                 com.jarvis.app.cognitive.execution.ActionFailure.Error("TEST_FAIL", "intentional", recoverable = false)
             )
@@ -137,7 +137,7 @@ class StepExecutionLoopTest {
 
         val e = engine(fabric)
         e.getTaskWorkingMemory().setGoal("failing task")
-        e.getTaskWorkingMemory().pushExecutableSubgoals(listOf(TaskWorkingMemory.ExecutableSubgoal("doomed step", "doomed step")))
+        e.getTaskWorkingMemory().pushExecutableSubgoals(listOf(TaskWorkingMemory.ExecutableSubgoal("doomed step", "doomed_step")))
 
         val result = e.runNext()
 
@@ -155,13 +155,13 @@ class StepExecutionLoopTest {
         var replanCallCount = 0
         val e = engineWithReplan(
             fabric = CapabilityFabric(testImmune(), emit = {}).also { fabric ->
-                fabric.register(FakeCapability(descriptor("cap_fix", operation = "revised step")) {
+                fabric.register(FakeCapability(descriptor("cap_fix", operation = "revised_step")) {
                     ExecutionResult.ok(output = mapOf("outcome" to "fixed"))
                 })
             },
             complete = { prompt ->
                 replanCallCount++
-                """{"subgoals":[{"description":"revised step","operation":"revised step"}]}"""
+                """{"subgoals":[{"description":"revised step","operation":"revised_step"}]}"""
             }
         )
         e.getTaskWorkingMemory().setGoal("replan task")
@@ -193,15 +193,15 @@ class StepExecutionLoopTest {
     fun max_replans_exceeded_throws_with_full_history() = kotlinx.coroutines.runBlocking {
         val e = engineWithReplan(
             fabric = CapabilityFabric(testImmune(), emit = {}).also { fabric ->
-                fabric.register(FakeCapability(descriptor("cap_always_fail", operation = "flaky step")) {
+                fabric.register(FakeCapability(descriptor("cap_always_fail", operation = "flaky_step")) {
                     ExecutionResult.fail(ActionFailure.Error("FLaky", "always fails", recoverable = false))
                 })
             },
-            complete = { _ -> """{"subgoals":[{"description":"flaky step","operation":"flaky step"}]}""" } // replan always produces same failing step
+            complete = { _ -> """{"subgoals":[{"description":"flaky step","operation":"flaky_step"}]}""" } // replan always produces same failing step
         )
         e.maxReplansPerTask = 2
         e.getTaskWorkingMemory().setGoal(" doomed task")
-        e.getTaskWorkingMemory().pushExecutableSubgoals(listOf(TaskWorkingMemory.ExecutableSubgoal("flaky step", "flaky step")))
+        e.getTaskWorkingMemory().pushExecutableSubgoals(listOf(TaskWorkingMemory.ExecutableSubgoal("flaky step", "flaky_step")))
 
         // First run: fails, replan 1
         e.runNext()
@@ -220,20 +220,20 @@ class StepExecutionLoopTest {
     fun replan_preserves_completed_history() = kotlinx.coroutines.runBlocking {
         val e = engineWithReplan(
             fabric = CapabilityFabric(testImmune(), emit = {}).also { fabric ->
-                fabric.register(FakeCapability(descriptor("cap_succeed", operation = "good step")) {
+                fabric.register(FakeCapability(descriptor("cap_succeed", operation = "good_step")) {
                     ExecutionResult.ok(output = mapOf("outcome" to "ok"))
                 })
-                fabric.register(FakeCapability(descriptor("cap_fail", operation = "bad step")) {
+                fabric.register(FakeCapability(descriptor("cap_fail", operation = "bad_step")) {
                     ExecutionResult.fail(ActionFailure.Error("FAIL", "oops", recoverable = false))
                 })
-                fabric.register(FakeCapability(descriptor("cap_fixed", operation = "fixed step")) {
+                fabric.register(FakeCapability(descriptor("cap_fixed", operation = "fixed_step")) {
                     ExecutionResult.ok(output = mapOf("outcome" to "fixed"))
                 })
             },
-            complete = { _ -> """{"subgoals":[{"description":"fixed step","operation":"fixed step"}]}""" }
+            complete = { _ -> """{"subgoals":[{"description":"fixed step","operation":"fixed_step"}]}""" }
         )
         e.getTaskWorkingMemory().setGoal("multi step")
-        e.getTaskWorkingMemory().pushExecutableSubgoals(listOf(TaskWorkingMemory.ExecutableSubgoal("good step", "good step"), TaskWorkingMemory.ExecutableSubgoal("bad step", "bad step")))
+        e.getTaskWorkingMemory().pushExecutableSubgoals(listOf(TaskWorkingMemory.ExecutableSubgoal("good step", "good_step"), TaskWorkingMemory.ExecutableSubgoal("bad step", "bad_step")))
 
         // Execute "good step" (succeeds)
         val r1 = e.runNext()
