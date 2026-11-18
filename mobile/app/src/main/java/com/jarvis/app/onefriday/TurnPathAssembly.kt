@@ -300,12 +300,18 @@ class TurnPathAssembly private constructor(
 
             // ── Capability fabric, routing, and fuzzy command resolution ───────
             val failureSurface = ports.failureSurface()
-            val capabilityFabric = CapabilityFabric(ImmuneSystem(surface = failureSurface))
-            ports.registerCapabilities(capabilityFabric)
+            // One durable evidence ledger is shared by the live resolver and
+            // the executor. Only independently verified outcomes can guide
+            // future selection; the executor remains the evidence producer.
             val capabilityEvidenceLedger = com.jarvis.app.cognitive.capability.CapabilityEvidenceLedger(
                 ports.storageDir.resolve("friday"),
                 nowMs = { ports.nowMs() }
             )
+            val capabilityFabric = CapabilityFabric(
+                immune = ImmuneSystem(surface = failureSurface),
+                evidenceLedger = capabilityEvidenceLedger
+            )
+            ports.registerCapabilities(capabilityFabric)
             val capabilityRouter = DeterministicCapabilityRouter(stores.capabilityRegistry())
             val fuzzyCommandResolver = FuzzyCommandResolver(
                 retriever,
