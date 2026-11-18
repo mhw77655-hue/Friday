@@ -429,12 +429,12 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
 
     /** Suspend model (keep weights, release context) */
     fun suspend(): Boolean = stateLock.readLock().withLock {
-        nativeHandle.takeIf { it != 0L }?.let(::nativeSuspend) ?: false
+        nativeHandle.takeIf { it != 0L }?.let { nativeSuspend(it) } ?: false
     }
 
     /** Resume suspended model */
     fun resume(): Boolean = stateLock.readLock().withLock {
-        nativeHandle.takeIf { it != 0L }?.let(::nativeResume) ?: false
+        nativeHandle.takeIf { it != 0L }?.let { nativeResume(it) } ?: false
     }
 
     /** Count tokens for context budgeting */
