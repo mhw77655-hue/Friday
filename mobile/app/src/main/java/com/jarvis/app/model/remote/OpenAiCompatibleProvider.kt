@@ -64,7 +64,7 @@ class OpenAiCompatibleProvider(
         try {
             val modelsUrl = when (protocol) {
                 RemoteProviderProtocol.GEMINI_GENERATE_CONTENT ->
-                    "${endpoint}/models/${URLEncoder.encode(model, \"UTF-8\")}" 
+                    "${endpoint}/models/${URLEncoder.encode(model, "UTF-8")}" 
                 else -> "${endpoint}/models"
             }
             execute(modelsUrl, null, "GET")
