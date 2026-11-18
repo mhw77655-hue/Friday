@@ -17,7 +17,7 @@ class ProviderEndpointPolicyTest {
 
     @Test fun allowsLoopbackHttpOnlyWithExplicitOptIn() {
         assertEquals("http://127.0.0.1:8080/v1", ProviderEndpointPolicy.validate(
-            "http://127.0.0.1:8080/v1", allowInsecureLocalNetwork = true
+            "http://127.0.0.1:8080/v1", allowInsecureLoopbackHttp = true
         ))
     }
 
