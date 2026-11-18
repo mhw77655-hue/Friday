@@ -52,7 +52,7 @@ This file is auto-prepended to Ralph/Builder prompts. Keep it factual, dated and
 - PR #83: autonomous repair/promotion. Its stated dependency on PR #85 is stale; #85 closed without merge. Signing foundation #86 is merged; emulator work is #82. Promotion must not claim emulator-backed validation before #82 is integrated and required.
 - PR #89: phone-resident source Builder proposal. Do not merge as-is: it reintroduces source construction into Android contrary to the workshop boundary and its observed head fails compilation because `nowMs` is passed twice in `JarvisEngine.kt`.
 - PR #90: draft whole-project root-cause plan. It records audit scope, proven findings, uncertainty and dependency-ordered phases.
-- PR #91: removes a redundant `gh workflow run` from the trusted publisher; the normal PR trigger already runs build checks. CI for this branch had no jobs available at this snapshot, so it is not yet verified.
+- PR #91: closed after correcting an initial mistaken assumption about GITHUB_TOKEN-triggered pull_request approval. PR #92 adds `actions: write` only to the trusted publisher so the deliberate workflow_dispatch can run; the untrusted worker remains read-only. PR #92 is not yet verified.
 - Do not treat open PRs, draft plans, code presence or branch commits as merged/working functionality.
 
 ## Audit scope and interpretation
