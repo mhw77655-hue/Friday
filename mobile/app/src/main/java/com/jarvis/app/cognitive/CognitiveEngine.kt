@@ -1175,6 +1175,14 @@ class CognitiveEngine(
                 "No decomposition seam wired",
                 DecompositionCause.NO_SEAM
             )
+        val availableOperations = capabilityFabric?.registry?.list()
+            ?.flatMap { it.descriptor.supportedOperations }?.distinct().orEmpty()
+        if (availableOperations.isEmpty()) {
+            throw DecompositionException(
+                "No executable capabilities are registered; Friday cannot construct a runnable plan yet.",
+                DecompositionCause.NO_CAPABILITIES
+            )
+        }
 
         taskWorkingMemory.setGoal(goal)
 
@@ -1425,6 +1433,12 @@ class CognitiveEngine(
             "Cannot replan: no planning seam is available.",
             DecompositionCause.NO_SEAM
         )
+        if (capabilityFabric?.registry?.list()?.none { it.descriptor.supportedOperations.isNotEmpty() } != false) {
+            throw DecompositionException(
+                "Cannot replan: no executable capabilities are registered.",
+                DecompositionCause.NO_CAPABILITIES
+            )
+        }
         val goal = taskWorkingMemory.getGoal()
             ?: throw IllegalStateException("Cannot replan without an active goal.")
         val pending = taskWorkingMemory.pendingSubgoalDescriptions()
@@ -1966,6 +1980,7 @@ data class DecompositionResult(
 /** Why decomposition failed. */
 enum class DecompositionCause {
     NO_SEAM,
+    NO_CAPABILITIES,
     LLM_ERROR,
     MALFORMED_OUTPUT
 }
