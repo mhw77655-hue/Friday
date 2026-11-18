@@ -153,7 +153,6 @@ class WallClockAllowlistTest {
         put("cognitive/planning/PlanGraph.kt", 1)
         put("cognitive/seed/FridayIndividual.kt", 1)
         put("cognitive/seed/FridaySeedSubstrate.kt", 1)
-        put("cognitive/seed/FridayModelFreeMind.kt", 1)
 
         // ── cognitive memory: quarantine-era stores, record stamps only ───────
         put("cognitive/memory/ContinuityManager.kt", 2)
@@ -251,7 +250,6 @@ class WallClockAllowlistTest {
         put("cognitive/planning/PlanGraph.kt", "plan-node createdAt default")
         put("cognitive/seed/FridayIndividual.kt", "initial local identity creation timestamp; production receives the composition-root clock")
         put("cognitive/seed/FridaySeedSubstrate.kt", "experience journal observation timestamp; production receives the composition-root clock")
-        put("cognitive/seed/FridayModelFreeMind.kt", "device-local time and date answers use the current instant in the device timezone; this is presentation of current local time, not a learning or cognitive-decision timestamp")
 
         put("cognitive/memory/ContinuityManager.kt", "reconstruction stamp and the hours-ago recency read")
         put("cognitive/memory/ContinuityPersistence.kt", "persisted document clock field and per-record created/updated/accessed fallbacks on read")
