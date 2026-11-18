@@ -26,6 +26,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.jarvis.app.context.ProjectContextPack
 import com.jarvis.app.context.ProjectContextPackStore
+import com.jarvis.app.context.ProjectContextPackSync
+import com.jarvis.app.context.ProjectContextSyncResult
 import com.jarvis.app.model.remote.ProviderCouncil
 import com.jarvis.app.model.remote.RemoteProviderProfile
 import com.jarvis.app.model.remote.RemoteProviderProfiles
@@ -39,6 +41,7 @@ fun RemoteAiProvidersSection() {
     val context = LocalContext.current
     val profiles = remember { RemoteProviderProfiles(context) }
     val packStore = remember { ProjectContextPackStore(File(context.filesDir, "friday/project_context_pack.json")) }
+    val contextSync = remember { ProjectContextPackSync(context, packStore) }
     val scope = rememberCoroutineScope()
     val council = remember { ProviderCouncil(context, profiles, packStore) }
     var councilEnabled by remember { mutableStateOf(council.isEnabled()) }
@@ -167,8 +170,20 @@ fun RemoteAiProvidersSection() {
 
         Text("Shared project context")
         Text("Import one owner-curated JSON context pack. Friday can then pass only task-relevant project facts to any configured adviser instead of sending your full chat or repository.")
-        Button(onClick = { importContext.launch(arrayOf("application/json", "text/json")) }) {
-            Text("Import project context pack")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = {
+                scope.launch {
+                    contextStatus = "Syncing owner-curated context from Friday's GitHub repository…"
+                    when (val result = contextSync.sync()) {
+                        is ProjectContextSyncResult.Updated -> contextStatus = "Synced project context · revision ${result.revision}"
+                        ProjectContextSyncResult.Unchanged -> contextStatus = "Project context is already current."
+                        is ProjectContextSyncResult.Failed -> contextStatus = "Sync failed: ${result.reason}"
+                    }
+                }
+            }) { Text("Sync from GitHub") }
+            TextButton(onClick = { importContext.launch(arrayOf("application/json", "text/json")) }) {
+                Text("Import file")
+            }
         }
         Text(contextStatus)
     }
