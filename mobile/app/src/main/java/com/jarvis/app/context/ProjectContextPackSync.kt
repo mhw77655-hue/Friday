@@ -33,7 +33,7 @@ class ProjectContextPackSync(
             instanceFollowRedirects = false
             requestMethod = "GET"
             setRequestProperty("Accept", "application/json")
-            prefs.getString(KEY_ETAG, null)?.let { setRequestProperty("If-None-Match", it) }
+            if (store.read() != null) prefs.getString(KEY_ETAG, null)?.let { setRequestProperty("If-None-Match", it) }
         }
         try {
             when (val status = connection.responseCode) {
