@@ -420,6 +420,7 @@ object JarvisEngine {
                     thermalLevel = snapshot.thermalLevel,
                     batteryPercent = snapshot.batteryPercent,
                     isCharging = snapshot.isCharging,
+                    cpuLoadPercent = snapshot.cpuLoadPercent,
                     networkAvailable = networkAvailable,
                     gpuAvailable = false
                 )
