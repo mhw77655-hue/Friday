@@ -20,7 +20,7 @@ class LocalInferenceJniSmokeTest {
         assertTrue("native version export resolves", LocalInferenceEngine.nativeVersion().contains("llama.cpp"))
         assertFalse("native system-info export returns data", LocalInferenceEngine.nativeSystemInfo().isBlank())
 
-        val missingModel = LocalInferenceEngine.NativeConfig(
+        val missingModel = LocalInferenceEngine.Companion.NativeConfig(
             modelPath = "/data/local/tmp/friday-intentionally-missing-model.gguf"
         )
         assertEquals("missing model fails closed without an invalid handle", 0L, LocalInferenceEngine.nativeCreate(missingModel))
