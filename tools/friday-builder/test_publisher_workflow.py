@@ -69,6 +69,8 @@ class PublisherWorkflowTests(unittest.TestCase):
         self.assertIn("contents: write", permissions)
         self.assertIn("pull-requests: write", permissions)
         self.assertIn('gh workflow run build.yml --repo "$REPOSITORY" --ref "$BRANCH"', publisher)
+        build_workflow = (ROOT / ".github" / "workflows" / "build.yml").read_text(encoding="utf-8")
+        self.assertIn("workflow_dispatch:", build_workflow)
 
 
 if __name__ == "__main__":
