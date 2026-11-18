@@ -51,6 +51,9 @@ object ArtifactRehydrator {
         require(capability.isNotBlank() && capability in genome.capabilities) {
             "artifact capability is not declared by its genome"
         }
+        require(genome.artifactCapability == null || genome.artifactCapability == capability) {
+            "artifact does not match the archived executable capability"
+        }
         require(specJson.optString("source") == source) { "source/spec content mismatch" }
         val strategy = AlgorithmSpec.Strategy.valueOf(specJson.optString("strategy"))
         val description = specJson.optString("description").ifBlank { "Rehydrated $capability" }
