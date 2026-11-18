@@ -1,0 +1,1 @@
+One-time history cleanup trigger. The public repository must not retain raw owner conversation or device-report archives in any reachable Git history.
