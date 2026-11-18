@@ -257,7 +257,7 @@ jobs:
             "build-tools;35.0.0" \
             "ndk;27.3.13750724" \
             "cmake;3.22.1" \
-            "system-images;android-35;google_apis;x86_64"
+            "system-images;android-35;google_atd;x86_64"
 
       - name: Build app and instrumentation APKs
         run: ./gradlew :mobile:app:assembleDebug :mobile:app:assembleDebugAndroidTest
@@ -266,11 +266,14 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
-          target: google_apis
+          target: google_atd
           arch: x86_64
           profile: pixel_2
+          cores: 2
+          ram-size: 3072M
+          heap-size: 512M
           disable-animations: true
-          emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -camera-front none -gpu swiftshader_indirect -memory 4096 -cores 4 -no-snapshot -wipe-data -timezone Etc/UTC
+          emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -camera-front none -gpu swiftshader_indirect -memory 3072 -cores 2 -no-snapshot -wipe-data -timezone Etc/UTC
           script: bash tools/friday-builder/run_virtual_phone_tests.sh
 
       - name: Upload emulator evidence
