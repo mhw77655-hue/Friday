@@ -124,6 +124,22 @@ class ResourceGovernorTest {
     }
 
     @Test
+    fun `moderate thermal state blocks latency sensitive candidates`() {
+        val governor = ResourceGovernor()
+        governor.updateDeviceState(DeviceResourceState(thermalLevel = 1))
+        val sensitive = smallGenome().copy(
+            resourceBudget = ResourceBudget(
+                maxMemoryMb = 100,
+                maxCpuPercent = 10.0,
+                isLatencySensitive = true
+            )
+        )
+        val result = governor.requestAdmission(sensitive, "thermal-sensitive")
+        assertFalse(result.admitted)
+        assertTrue(result.reasons.any { it.contains("thermally throttled") })
+    }
+
+    @Test
     fun `low battery rejects when policy requires`() {
         val governor = ResourceGovernor()
         governor.updateDeviceState(DeviceResourceState(batteryPercent = 3, isCharging = false))
