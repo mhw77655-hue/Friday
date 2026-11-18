@@ -165,6 +165,7 @@ fun SettingsScreen() {
             description = "Shape how Friday interacts with your device, what she may access, and which development resources are enabled."
         )
         RemoteAiProvidersSection()
+        RepositoryBuilderSettingsSection()
         SectionLabel("RESPONSE STYLE")
         Text(
             text = "A saved response-style preference. A stored prompt alone is not evidence that Friday's lasting individuality or cognition has changed.",
