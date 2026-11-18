@@ -1,4 +1,5 @@
 package com.jarvis.app.ui.navigation
+import com.jarvis.app.ui.components.FridayNavigationGlyph
 import com.jarvis.app.ui.EngineAccess
 import com.jarvis.app.ui.WakingSurface
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
