@@ -17,9 +17,80 @@ enum class ResolutionReason {
 }
 
 /** Structured resolution outcome — resolution never executes anything. */
+enum class ResolutionSelectionBasis {
+    /** The only eligible capability, or the deterministic default. */
+    DETERMINISTIC,
+    /** Prior independently verified execution outcomes broke an otherwise real tie. */
+    VERIFIED_OUTCOME_HISTORY
+}
+
 sealed class Resolution {
-    data class Success(val capability: Capability, val operation: String) : Resolution()
+    data class Success(
+        val capability: Capability,
+        val operation: String,
+        val selectionBasis: ResolutionSelectionBasis = ResolutionSelectionBasis.DETERMINISTIC
+    ) : Resolution()
     data class Failure(val reason: ResolutionReason, val detail: String?) : Resolution()
+}
+
+/**
+ * Optional strategy seam for choosing among capabilities that have already
+ * passed every lifecycle, dependency, resource-degradation and permission
+ * check. Implementations cannot add candidates or authorize execution.
+ *
+ * The candidate universe is dynamic: it is the result of the current registry
+ * lookup, not a fixed list of cognitive roles or capability names.
+ */
+fun interface CapabilityOutcomeSelector {
+    fun select(
+        operation: String,
+        eligible: List<Capability>,
+        evidence: List<CapabilityKnowledge>
+    ): Capability?
+}
+
+/**
+ * Minimal first developmental selector. It only breaks a tie after a
+ * capability has accumulated repeated independent postcondition-verified
+ * successes for the same operation, with no later failure. Unverified model
+ * output, refusals, skipped work, blocked work and plain invocation success do
+ * not influence selection.
+ *
+ * A tie in outcome evidence stays ambiguous. The selector never turns lack
+ * of evidence into a guessed preference.
+ */
+class VerifiedOutcomeCapabilitySelector(
+    private val minimumVerifiedSuccesses: Int = 2
+) : CapabilityOutcomeSelector {
+    init {
+        require(minimumVerifiedSuccesses >= 2) {
+            "Outcome-guided selection must require repeated evidence."
+        }
+    }
+
+    override fun select(
+        operation: String,
+        eligible: List<Capability>,
+        evidence: List<CapabilityKnowledge>
+    ): Capability? {
+        if (eligible.size < 2 || operation.isBlank()) return null
+        val eligibleIds = eligible.mapTo(linkedSetOf()) { it.descriptor.id }
+        val scores = evidence.asSequence()
+            .filter { it.operation == operation }
+            .filter { it.capabilityId in eligibleIds }
+            .filter { it.reusable && it.verifiedSuccesses >= minimumVerifiedSuccesses }
+            .associateBy { it.capabilityId }
+
+        if (scores.isEmpty()) return null
+        val ranked = eligible.mapNotNull { capability ->
+            scores[capability.descriptor.id]?.let { capability to it.verifiedSuccesses }
+        }.sortedByDescending { it.second }
+
+        val best = ranked.firstOrNull() ?: return null
+        val runnerUp = ranked.getOrNull(1)
+        if (runnerUp != null && runnerUp.second == best.second) return null
+        return best.first
+    }
 }
 
 /**
@@ -31,7 +102,11 @@ class CapabilityResolver(
     private val registry: CapabilityRegistry,
     /** Current degraded level per capability (from DegradedModeController).
      *  A capability degraded to OFFLINE/UNAVAILABLE is not runnable. */
-    private val degradedLevelOf: (String) -> DegradationLevel = { DegradationLevel.FULL }
+    private val degradedLevelOf: (String) -> DegradationLevel = { DegradationLevel.FULL },
+    /** Optional durable, independently verified experience from real invocations. */
+    private val evidenceLedger: CapabilityEvidenceLedger? = null,
+    /** Replaceable selection mechanism; does nothing without eligible evidence. */
+    private val outcomeSelector: CapabilityOutcomeSelector = VerifiedOutcomeCapabilitySelector()
 ) {
 
     fun resolve(request: ActionRequest, granted: Set<CapabilityPermission>): Resolution {
@@ -43,10 +118,28 @@ class CapabilityResolver(
         return when (eligible.size) {
             0 -> bestFailureReason(candidates, granted)
             1 -> Resolution.Success(eligible[0], request.action)
-            else -> Resolution.Failure(
-                ResolutionReason.AMBIGUOUS,
-                "multiple eligible capabilities: ${eligible.joinToString(",") { it.descriptor.id }}"
-            )
+            else -> {
+                // Experience can only choose inside the already-authorized
+                // eligible set. It cannot resurrect a disabled, unhealthy,
+                // offline, degraded, dependency-blocked or unpermitted option.
+                val learned = runCatching {
+                    val evidence = evidenceLedger?.knowledge().orEmpty()
+                    outcomeSelector.select(request.action, eligible, evidence)
+                }.getOrNull()
+
+                if (learned != null && eligible.any { it.descriptor.id == learned.descriptor.id }) {
+                    Resolution.Success(
+                        learned,
+                        request.action,
+                        ResolutionSelectionBasis.VERIFIED_OUTCOME_HISTORY
+                    )
+                } else {
+                    Resolution.Failure(
+                        ResolutionReason.AMBIGUOUS,
+                        "multiple eligible capabilities: ${eligible.joinToString(",") { it.descriptor.id }}"
+                    )
+                }
+            }
         }
     }
 
