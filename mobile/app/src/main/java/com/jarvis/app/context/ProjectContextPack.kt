@@ -3,6 +3,8 @@ package com.jarvis.app.context
 import org.json.JSONObject
 import java.io.File
 import java.security.MessageDigest
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 /**
  * Compact, versioned project knowledge shared with whichever model the owner
@@ -84,8 +86,11 @@ class ProjectContextPackStore(private val file: File) {
         val bytes = pack.toJson().toString().toByteArray(Charsets.UTF_8)
         val temp = File(file.parentFile, file.name + ".tmp")
         temp.writeBytes(bytes)
-        if (file.exists() && !file.delete()) throw IllegalStateException("Could not replace project context pack")
-        if (!temp.renameTo(file)) throw IllegalStateException("Could not commit project context pack")
+        runCatching {
+            Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        }.getOrElse {
+            Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
     }
 
     @Synchronized
