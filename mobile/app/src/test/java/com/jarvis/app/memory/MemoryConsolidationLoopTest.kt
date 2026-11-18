@@ -121,6 +121,21 @@ class MemoryConsolidationLoopTest {
     }
 
     @Test
+    fun `replaying the same explicit statement does not append duplicate durable graph facts`() {
+        val h = Harness()
+        val loop = h.loop()
+        h.statements += RecentStatement(sessionId = "session-a", text = "I prefer concise answers to questions", timestamp = 1)
+
+        val first = loop.runConsolidationPass()
+        val nodeCountAfterFirstPromotion = h.graph.nodeCount()
+        val second = loop.runConsolidationPass()
+
+        assertEquals("first pass promotes the explicit preference", 1, first.promoted)
+        assertEquals("replay is recognized as already durable", 0, second.promoted)
+        assertEquals("replay does not create another superseding graph fact", nodeCountAfterFirstPromotion, h.graph.nodeCount())
+    }
+
+    @Test
     fun `hedged statement in one session stays ephemeral and becomes durable only after a second distinct session`() {
         val h = Harness()
         val loop = h.loop()
