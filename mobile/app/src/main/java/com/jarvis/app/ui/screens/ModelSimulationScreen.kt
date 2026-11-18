@@ -33,6 +33,10 @@ import com.jarvis.app.modelsim.ModelHubCatalog
 import com.jarvis.app.modelsim.ModelCandidate
 import com.jarvis.app.modelsim.ModelSimulation
 import com.jarvis.app.modelsim.SyntheticBenchmark
+import com.jarvis.app.ui.components.FridayMetricTile
+import com.jarvis.app.ui.components.FridayPanel
+import com.jarvis.app.ui.components.FridayScreenHeader
+import com.jarvis.app.ui.components.FridaySectionHeading
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
 import kotlinx.coroutines.Dispatchers
@@ -107,15 +111,15 @@ fun ModelSimulationScreen() {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("MODEL-FREE DEVICE LAB", style = JarvisType.Label)
-        Text(
-            "Measure the phone first. Screen candidate models without downloading or loading their weights.",
-            style = JarvisType.Body
+        FridayScreenHeader(
+            eyebrow = "Resource-aware planning",
+            title = "Device lab",
+            description = "Measure the phone first. Screen candidate models without downloading or loading their weights."
         )
 
         snapshot?.let { device ->
-            Card(colors = CardDefaults.cardColors(containerColor = JarvisColors.SurfacePanel)) {
-                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            FridayPanel {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(device.device, style = JarvisType.Label)
                     Text("SoC: ${device.soc}", style = JarvisType.Body)
                     Text("Android API ${device.androidApi} · ${device.cpuCores} CPU cores · ${device.abi}", style = JarvisType.Technical)
@@ -128,7 +132,7 @@ fun ModelSimulationScreen() {
             }
         }
 
-        Text("Synthetic hardware benchmark", style = JarvisType.Label)
+        FridaySectionHeading("Synthetic hardware benchmark")
         Text(
             "Optional short CPU, 16 MB memory-touch and 4 MB storage test. No model is loaded. It does not measure LLM tokens/second.",
             style = JarvisType.Technical
