@@ -113,22 +113,25 @@ def install_with_retry(
             except Exception as failure:
                 diagnostics = f"storage diagnostic failed: {type(failure).__name__}: {failure}"
             combined = output + "\n" + diagnostics
-            if not is_transient_storage_session_failure(combined):
+            if is_transient_storage_race(combined):
+                reason = "PackageInstaller reached StorageManager before PackageManagerInternal was ready"
+            elif is_transient_storage_session_failure(combined):
+                storage_timeouts += 1
+                if storage_timeouts > max_storage_timeouts:
+                    print(
+                        "ANDROID_INSTALL_FAILED: Android emulated-storage session did not recover "
+                        f"after {max_storage_timeouts} transient timeouts\\n{combined[-4000:]}",
+                        file=sys.stderr,
+                    )
+                    return False
+                reason = "Android StorageManager could not start its emulated-storage FUSE session"
+            else:
                 print(
                     "ANDROID_INSTALL_FAILED: adb install timed out without the known "
-                    f"transient storage-session signature on attempt={attempt}\n{combined[-4000:]}",
+                    f"transient storage-session signature on attempt={attempt}\\n{combined[-4000:]}",
                     file=sys.stderr,
                 )
                 return False
-            storage_timeouts += 1
-            if storage_timeouts > max_storage_timeouts:
-                print(
-                    "ANDROID_INSTALL_FAILED: Android emulated-storage session did not recover "
-                    f"after {max_storage_timeouts} transient timeouts\n{combined[-4000:]}",
-                    file=sys.stderr,
-                )
-                return False
-            reason = "Android StorageManager could not start its emulated-storage FUSE session"
 
         if attempt == max_attempts:
             print(
