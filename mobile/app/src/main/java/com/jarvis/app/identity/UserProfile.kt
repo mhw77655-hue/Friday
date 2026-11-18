@@ -66,6 +66,7 @@ class UserProfile(
         val explicit = gate.extractExplicit(text)
         if (explicit != null) {
             val (cat, value) = explicit
+            observationsBySession.keys.filter { it.first == cat }.forEach { observationsBySession.remove(it) }
             if (getPreference(cat) == value) return null
             setPreference(cat, value, source = "explicit utterance")
             return ProfileUpdate(cat, value, PromotionReason.EXPLICIT)
