@@ -49,9 +49,10 @@ class PromotionReceiptStore(
         persist()
     }
 
-    private fun load(): Unit = synchronized(lock) {
-        if (!file.isFile || file.length() !in 1..1_048_576L) return
-        runCatching {
+    private fun load() {
+        synchronized(lock) {
+            if (!file.isFile || file.length() !in 1..1_048_576L) return@synchronized
+            runCatching {
             val array = JSONArray(file.readText())
             for (index in 0 until array.length()) {
                 val item = array.getJSONObject(index)
@@ -85,7 +86,8 @@ class PromotionReceiptStore(
                     updatedAtMs = item.optLong("updatedAtMs", receipt.promotedAtMs)
                 )
             }
-            trim()
+                trim()
+            }
         }
     }
 
