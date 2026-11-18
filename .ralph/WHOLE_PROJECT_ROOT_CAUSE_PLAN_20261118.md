@@ -108,6 +108,16 @@ The README also points to an obsolete branch and PRs #19/#23, and describes self
 **Cause:** obsolete prototype code and documentation were not retired or clearly quarantined when the Android-native Friday architecture became authoritative.  
 **Consequence:** workers and maintainers can import dead code, follow stale instructions, or treat an old prototype as production architecture.
 
+### RC-12: The main build workflow was corrupted by appending a second workflow instead of editing the existing one
+
+Main's `.github/workflows/build.yml` is 627 lines. Its parent at `1ca44dbff2286f71032ed54cf0a391ae5dfe7b1f` was 332 lines. Commit `d1b4cc88d722fa420d5648db9284a30b15ac33e8` adds 295 lines and deletes zero lines in that file. The appended content duplicates the `full-source-audit` and `report-failure` job definitions and leaves a detached tail of the release-signing smoke-test shell block after the failure reporter. Recent main push runs (for example `44313069957`) fail with zero scheduled jobs. This explains why main's CI status cannot currently be trusted as an ordinary test failure/success signal.
+
+PR #82's workflow branch was based on the earlier 332-line version and adds an emulator job, but it predates the merged release-signing workflow. Simply merging it would lose or conflict with the release smoke validation. The clean integration must reconstruct one canonical workflow containing exactly one debug job, one emulator job, one source-audit job and one failure reporter, with the release-signing smoke steps inserted inside the debug job.
+
+**Cause:** a workflow patch appended a second set of job definitions instead of editing the existing YAML structure; branch drift then left the emulator branch based on the pre-signing workflow.  
+**Consequence:** main workflow runs can fail before any jobs are scheduled, and PR/branch status badges are not reliable evidence.  
+**Root correction:** restore one valid workflow from the pre-append structure, merge emulator validation and release-signing smoke in the correct job positions, then validate the YAML with actionlint and execute the complete workflow on an audit branch before updating the PR branch.
+
 ### RC-11: The trusted proposal publisher dispatches validation without the required permission
 
 `.github/workflows/friday-builder-proposal.yml` creates the proposal PR using the job's `GITHUB_TOKEN`, then explicitly runs `gh workflow run build.yml --ref "$BRANCH"`. That dispatch is intentional: GitHub documents that `workflow_dispatch` always creates a workflow run, while a `pull_request` event caused by a workflow's `GITHUB_TOKEN` creates an approval-required run. The explicit dispatch avoids a human having to approve the automated proposal's CI run.
@@ -146,14 +156,14 @@ The phases are engineering work packages, not a prescribed developmental ladder 
 
 ### Phase 1 — Restore one green, reproducible main baseline
 
-- Keep PR #89 unmerged until its architectural contradiction is resolved; do not accept a compile-only repair that restores on-device source building.
+- Keep PR #89 unmerged until its architectural contradiction is resolved; do not accept a compile-only repair that restores on-device source building.\n- Restore the main build workflow from the valid pre-append structure; integrate emulator and release smoke checks exactly once and prove the jobs are actually scheduled.
 - Fix the actual compile blocker in the correct design, then build the exact candidate commit and run the complete unit-test suite.
 - Fix emulator readiness at the system-provider/PackageInstaller level; test early-boot and timeout cases, not just a long delay.
 - Require emulator install, instrumentation execution, evidence upload and explicit supported/unsupported-device report.
 - Ensure failures remain distinguishable: compile failure, test failure, emulator infrastructure failure, app crash and unsupported platform behaviour.
 - Confirm cancelled/skipped jobs never count as green.
 
-**Exit evidence:** exact main candidate passes debug APK assembly, all required JVM tests, workflow/security checks and the disposable emulator instrumentation gate. Physical-phone claims remain separately labelled.
+**Exit evidence:** exact main candidate passes debug APK assembly, all required JVM tests, workflow/security checks and the disposable emulator instrumentation gate. The workflow file has unique job IDs, passes actionlint/YAML validation, and a real run schedules each required job; a zero-job failure is a CI configuration failure, not a test result. Physical-phone claims remain separately labelled.
 
 ### Phase 1A — Repair native inference lifecycle before claiming local-model support
 
