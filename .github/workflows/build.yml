@@ -406,10 +406,13 @@ jobs:
           retention-days: 14
 
   report-failure:
-    # Always inspect the build job's final result. This job is intentionally
-    # skipped only when the build job succeeded; cancellation remains distinct.
-    if: ${{ !cancelled() && needs.debug-apk.result != 'success' }}
-    needs: debug-apk
+    # Inspect every required validation lane. A skipped/failed lane is not success;
+    # cancellation remains distinct and is not misreported as a test failure.
+    if: ${{ !cancelled() && (needs.debug-apk.result != 'success' || needs.android-emulator.result != 'success' || needs.full-source-audit.result != 'success') }}
+    needs:
+      - debug-apk
+      - android-emulator
+      - full-source-audit
     runs-on: ubuntu-latest
     permissions:
       issues: write
