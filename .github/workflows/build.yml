@@ -152,7 +152,7 @@ jobs:
           FRIDAY_RELEASE_KEYSTORE_PATH="$KEYSTORE" FRIDAY_RELEASE_STORE_PASSWORD="$PASSWORD" FRIDAY_RELEASE_KEY_ALIAS="friday-release" FRIDAY_RELEASE_KEY_PASSWORD="$PASSWORD" ./gradlew :mobile:app:assembleRelease -PfridayVersionCode=2001 -PfridayVersionName=ci-smoke -PfridayAbiFilters=arm64-v8a
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose mobile/app/build/outputs/apk/release/app-release.apk
 
-      # not erase independent evidence about source/test health.
+      # Run tests even when APK assembly fails. A failed packaging step must not erase independent evidence about source/test health.
       - name: Run unit tests independently of APK assembly
         if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
         run: ./gradlew :mobile:app:testDebugUnitTest
