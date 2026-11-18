@@ -109,7 +109,7 @@ jobs:
 
       - name: Build debug APK
         id: assemble-apk
-        run: ./gradlew :mobile:app:assembleDebug
+        run: ./gradlew :mobile:app:assembleDebug -PfridayAbiFilters=arm64-v8a
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
@@ -164,14 +164,15 @@ jobs:
           FRIDAY_RELEASE_KEY_PASSWORD="$PASSWORD" \
             ./gradlew :mobile:app:assembleRelease \
               -PfridayVersionCode=2001 \
-              -PfridayVersionName=ci-smoke
+              -PfridayVersionName=ci-smoke \\
+              -PfridayAbiFilters=arm64-v8a
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose \
             mobile/app/build/outputs/apk/release/app-release.apk
       # Run tests even when APK assembly fails. A failed packaging step must
       # not erase independent evidence about source/test health.
       - name: Run unit tests independently of APK assembly
         if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
-        run: ./gradlew :mobile:app:testDebugUnitTest
+        run: ./gradlew :mobile:app:testDebugUnitTest -PfridayAbiFilters=arm64-v8a
 
       - name: Upload JUnit results
         if: always()
@@ -260,7 +261,7 @@ jobs:
             "system-images;android-35;google_apis;x86_64"
 
       - name: Build app and instrumentation APKs
-        run: ./gradlew :mobile:app:assembleDebug :mobile:app:assembleDebugAndroidTest
+        run: ./gradlew :mobile:app:assembleDebug :mobile:app:assembleDebugAndroidTest -PfridayAbiFilters=x86_64
 
       - name: Boot disposable virtual phone and apply sanitized baseline state
         uses: reactivecircus/android-emulator-runner@v2
@@ -296,7 +297,7 @@ jobs:
 
             adb install -r mobile/app/build/outputs/apk/debug/app-debug.apk
             python3 tools/friday-builder/apply_device_state_capsule.py .github/android-emulator/default-state-capsule.json
-            ./gradlew :mobile:app:connectedDebugAndroidTest
+            ./gradlew :mobile:app:connectedDebugAndroidTest -PfridayAbiFilters=x86_64
             adb shell am start -n com.jarvis.app/.MainActivity || true
             sleep 8
             adb exec-out screencap -p > "$RUNNER_TEMP/friday-emulator/screen.png" || true
