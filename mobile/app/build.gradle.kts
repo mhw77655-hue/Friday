@@ -17,6 +17,14 @@ if (localPropertiesFile.exists()) {
     localProperties.load(FileInputStream(localPropertiesFile))
 }
 
+val fridayVersionCode = providers.gradleProperty("fridayVersionCode").orNull?.toIntOrNull() ?: 1
+val fridayVersionName = providers.gradleProperty("fridayVersionName").orNull ?: "0.2-phase2"
+
+val fridayReleaseKeystorePath = System.getenv("FRIDAY_RELEASE_KEYSTORE_PATH")
+val fridayReleaseStorePassword = System.getenv("FRIDAY_RELEASE_STORE_PASSWORD")
+val fridayReleaseKeyAlias = System.getenv("FRIDAY_RELEASE_KEY_ALIAS")
+val fridayReleaseKeyPassword = System.getenv("FRIDAY_RELEASE_KEY_PASSWORD")
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -35,8 +43,8 @@ plugins {
         }
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.2-phase2"
+        versionCode = fridayVersionCode
+        versionName = fridayVersionName
 
         // R1 voice substrate: instrumentation tests run on-device and prove
         // process isolation + supervised restart against the real :voice
@@ -53,6 +61,30 @@ plugins {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    signingConfigs {
+        create("fridayRelease") {
+            if (!fridayReleaseKeystorePath.isNullOrBlank()) {
+                storeFile = file(fridayReleaseKeystorePath)
+            }
+            storePassword = fridayReleaseStorePassword
+            keyAlias = fridayReleaseKeyAlias
+            keyPassword = fridayReleaseKeyPassword
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("fridayRelease")
+            // The physical Android phone target is ARM64. x86_64 remains
+            // enabled for disposable emulator/debug validation only.
+            ndk {
+                abiFilters.clear()
+                abiFilters += "arm64-v8a"
+            }
+        }
     }
 
     // PRE-EXISTING BUILD FIX (1/2): sherpa-onnx bundles its own
