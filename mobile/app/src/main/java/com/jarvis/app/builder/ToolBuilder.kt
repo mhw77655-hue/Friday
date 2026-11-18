@@ -72,7 +72,9 @@ class ToolBuilder(
 
         try {
             refreshResources()
-        } catch (failure: Throwable) {
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
             failureSurface.report(
                 FailureReport(
                     subsystem = "BUILDER",
