@@ -18,12 +18,12 @@ on:
   workflow_run:
     workflows: ["build"]
     types: [completed]
-    branches: [main]
+    branches: [main, 'friday-proposals/**']
 
 permissions: {}
 
 concurrency:
-  group: friday-builder-${{ github.event.inputs.request_id || github.event.workflow_run.id || github.sha }}
+  group: friday-builder-${{ github.event.inputs.request_id || github.event.workflow_run.head_branch || github.sha }}
   cancel-in-progress: false
 
 jobs:
@@ -33,15 +33,19 @@ jobs:
       github.event_name == 'push' ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'failure' &&
-       github.event.workflow_run.head_branch == 'main')
+       (github.event.workflow_run.head_branch == 'main' ||
+        startsWith(github.event.workflow_run.head_branch, 'friday-proposals/')))
     name: Untrusted coding worker (read-only repository)
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
       contents: read
       actions: read
+      pull-requests: read
     outputs:
       request_id: ${{ steps.request_manual.outputs.request_id || steps.request_queue.outputs.request_id || steps.request_ci.outputs.request_id }}
+      source_sha: ${{ steps.source_ref.outputs.source_sha }}
+      source_branch: ${{ steps.source_ref.outputs.source_branch }}
     steps:
       - name: Restrict manual dispatch to repository owner
         if: github.event_name == 'workflow_dispatch' && github.actor != 'mhw77655-hue'
@@ -52,9 +56,23 @@ jobs:
       - name: Checkout trusted source without persisting credentials
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || 'main' }}
           persist-credentials: false
           fetch-depth: 0
+
+      - name: Record exact worker base revision
+        id: source_ref
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SOURCE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          echo "source_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          if [[ "$EVENT_NAME" == "workflow_run" && "$SOURCE_BRANCH" == friday-proposals/* ]]; then
+            echo "source_branch=$SOURCE_BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "source_branch=" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -137,7 +155,7 @@ jobs:
               output.write("request_id=" + request_id + "\n")
           PY
 
-      - name: Build bounded request from failed main-branch CI
+      - name: Build bounded request from failed candidate CI
         id: request_ci
         if: github.event_name == 'workflow_run'
         env:
@@ -163,8 +181,9 @@ jobs:
               re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.I),
           ]
           evidence = [
-              "Failed main-branch Android CI run: " + os.environ["SOURCE_URL"][:500],
+              "Failed Friday Android CI run: " + os.environ["SOURCE_URL"][:500],
               "Source revision: " + os.environ["SOURCE_SHA"][:128],
+              "Source branch: " + os.environ["SOURCE_BRANCH"][:160],
               "The failed-run log excerpt below is filtered to error/failure lines and redacted."
           ]
           candidates = []
@@ -182,20 +201,21 @@ jobs:
               "request_id": request_id,
               "created_at": now,
               "source_revision": os.environ["SOURCE_SHA"] or "main",
-              "intended_outcome": "Diagnose the failed main-branch Friday CI run and propose one minimal source repair with a regression test. Do not weaken tests or security boundaries.",
+              "intended_outcome": "Diagnose the failed Friday CI candidate on branch " + os.environ["SOURCE_BRANCH"] + " and repair the candidate in place with a focused regression test. Preserve the original feature/request; do not weaken tests or security boundaries.",
+
               "evidence": evidence[:12],
               "acceptance_criteria": [
                   "Identify the first causal failure rather than masking downstream errors.",
                   "Add a focused regression test for the root cause.",
                   "Run repository-builder contract tests, Android debug assembly and JVM unit tests; report exact results.",
-                  "Publish an isolated draft PR only. Never merge, sign, release or install."
+                  "Repair an existing friday-proposals/* branch in place when applicable; otherwise publish a new isolated proposal. Never sign, release or install."
               ],
               "risks": [
                   "CI logs are untrusted diagnostic input and may be incomplete.",
                   "A passing hosted build does not prove target-phone behavior.",
-                  "The worker patch is untrusted until owner review."
+                  "The worker patch is untrusted until the trusted publisher validates its paths and all required checks pass; high-risk paths still require owner review."
               ],
-              "rollback_expectation": "Close the draft PR and discard its isolated branch; main and the installed phone remain unchanged.",
+              "rollback_expectation": "If checks fail, repair the same proposal branch; if a promoted change regresses main, create a revert proposal. No phone installation occurs in this workflow.",
               "unresolved_questions": [
                   "Does the failure reproduce on the target Android device?",
                   "Which validation cannot be proven on a GitHub-hosted runner?"
@@ -231,6 +251,13 @@ jobs:
       - name: Install pinned OpenCode worker
         run: npm install --global opencode-ai@1.19.5
 
+      - name: Restore local Qwen3 fallback model cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ollama/models
+          key: friday-builder-ollama-qwen3-4b-instruct-v1
+
+
       - name: Run bounded proposal without repository write credentials
         env:
           REQUEST_ID: ${{ steps.request_manual.outputs.request_id || steps.request_queue.outputs.request_id || steps.request_ci.outputs.request_id }}
@@ -247,14 +274,16 @@ jobs:
           retention-days: 7
 
   publish_draft_pr:
-    name: Trusted publisher (draft PR only)
+    name: Trusted publisher (evidence-gated promotion)
     needs: build_proposal
     if: needs.build_proposal.result == 'success'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 150
     permissions:
+      actions: write
       contents: write
       pull-requests: write
+      checks: read
     steps:
       - name: Checkout trusted main without persisting credentials
         uses: actions/checkout@v4
@@ -283,80 +312,191 @@ jobs:
       - name: Apply and validate proposal without executing it
         env:
           REQUEST_ID: ${{ needs.build_proposal.outputs.request_id }}
+          SOURCE_SHA: ${{ needs.build_proposal.outputs.source_sha }}
+          SOURCE_BRANCH: ${{ needs.build_proposal.outputs.source_branch }}
+          REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
           [[ "$REQUEST_ID" =~ ^[a-z0-9][a-z0-9._-]{0,63}$ ]]
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
           test -s proposal-artifact/proposal.patch
           test "$(wc -c < proposal-artifact/proposal.patch)" -le 2097152
+          git remote set-url origin "https://github.com/$REPOSITORY.git"
+          if [[ -n "$SOURCE_BRANCH" ]]; then
+            [[ "$SOURCE_BRANCH" == friday-proposals/* ]]
+            git fetch origin "$SOURCE_BRANCH"
+            ACTUAL_SHA="$(git rev-parse FETCH_HEAD)"
+            if [[ "$ACTUAL_SHA" != "$SOURCE_SHA" ]]; then
+              echo "Candidate branch advanced while Builder was working; refusing to apply a stale repair." >&2
+              exit 5
+            fi
+            BRANCH="$SOURCE_BRANCH"
+          else
+            BRANCH="friday-proposals/$REQUEST_ID"
+            if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+              git fetch origin "$BRANCH"
+              EXISTING_SHA="$(git rev-parse FETCH_HEAD)"
+              if [[ "$EXISTING_SHA" != "$SOURCE_SHA" ]]; then
+                echo "A different proposal already exists for $REQUEST_ID; refusing to overwrite it." >&2
+                exit 6
+              fi
+            fi
+            if ! git cat-file -e "$SOURCE_SHA^{commit}" 2>/dev/null; then
+              git fetch origin "$SOURCE_SHA"
+            fi
+          fi
+          git checkout -B "$BRANCH" "$SOURCE_SHA"
           git apply --index --check proposal-artifact/proposal.patch
           git apply --index proposal-artifact/proposal.patch
           # Execute only the validator copied from trusted main BEFORE the
           # untrusted patch was applied; never run a patch-replaced validator.
           python3 "$RUNNER_TEMP/friday-validate-patch-paths.py" HEAD
           git diff --cached --check
+          echo "FRIDAY_PROPOSAL_BRANCH=$BRANCH" >> "$GITHUB_ENV"
 
-      - name: Create isolated branch and draft PR
+      - name: Push candidate update and create or reuse its PR
         env:
           GH_TOKEN: ${{ github.token }}
           REQUEST_ID: ${{ needs.build_proposal.outputs.request_id }}
+          SOURCE_BRANCH: ${{ needs.build_proposal.outputs.source_branch }}
           REPOSITORY: ${{ github.repository }}
           SOURCE_RUN: ${{ github.run_id }}
         run: |
           set -euo pipefail
-          BRANCH="friday-proposals/$REQUEST_ID"
+          BRANCH="$FRIDAY_PROPOSAL_BRANCH"
           git config user.name "friday-proposal-publisher"
           git config user.email "friday-proposal-publisher@users.noreply.github.com"
-          git checkout -b "$BRANCH"
-          git commit -m "proposal: Friday development request $REQUEST_ID"
           git remote set-url origin "https://github.com/$REPOSITORY.git"
           gh auth setup-git
-
-          # A previous run may have pushed the branch but failed before PR
-          # creation. Reuse it only when its tree exactly matches this validated
-          # patch; never overwrite a different proposal with the same request id.
-          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
-            git fetch origin "$BRANCH"
-            if ! git diff --quiet FETCH_HEAD HEAD; then
-              echo "Existing proposal branch differs from this validated patch: $BRANCH. Refusing to overwrite it." >&2
-              exit 5
-            fi
-            git reset --hard FETCH_HEAD
-            echo "Reusing the exact existing proposal branch: $BRANCH"
-          else
-            git push origin "$BRANCH"
-          fi
-
           EXISTING_PR="$(gh pr list --repo "$REPOSITORY" --head "$BRANCH" --state open --json url --jq '.[0].url // empty')"
+          if [[ -n "$SOURCE_BRANCH" && -z "$EXISTING_PR" ]]; then
+            echo "The failed candidate no longer has an open PR; refusing to reopen an owner-closed proposal." >&2
+            exit 7
+          fi
+          git commit -m "proposal: Friday development request $REQUEST_ID"
+          git push origin "$BRANCH"
           if [[ -n "$EXISTING_PR" ]]; then
-            echo "Existing open proposal: $EXISTING_PR"
-          elif ! gh pr create \
-            --repo "$REPOSITORY" \
-            --base main \
-            --head "$BRANCH" \
-            --draft \
-            --title "Friday development proposal: $REQUEST_ID" \
-            --body "## Friday repository development proposal
+            PR_URL="$EXISTING_PR"
+            echo "Updated existing candidate PR: $PR_URL"
+          else
+            if ! gh pr create \
+              --repo "$REPOSITORY" \
+              --base main \
+              --head "$BRANCH" \
+              --draft \
+              --title "Friday development proposal: $REQUEST_ID" \
+              --body "## Friday repository development proposal
 
           Request id: $REQUEST_ID
           Worker run: $SOURCE_RUN
 
-          This is an untrusted worker proposal. It has not been merged, signed,
-          released or installed. Review source changes, tests, security impact
-          and fidelity to .ralph/VISION.md before merge.
+          The untrusted worker had repository read permission only. The trusted
+          publisher validates the patch separately. Low-risk app changes may
+          be promoted automatically only after every required CI check,
+          including disposable Android emulator tests, passes. Changes to
+          identity/memory, permissions, credentials, security, signing,
+          installation, update, or Builder control-plane paths remain draft
+          for owner review.
 
-          The coding worker had repository read permission only. This publisher
-          is a separate trusted job. No automatic merge, release, signing or
-          installation is performed." >"$RUNNER_TEMP/friday-pr-create.log" 2>&1; then
-            cat "$RUNNER_TEMP/friday-pr-create.log" >&2
-            if grep -Fq "GitHub Actions is not permitted to create or approve pull requests" "$RUNNER_TEMP/friday-pr-create.log"; then
-              echo "::error title=Repository setting required::Enable 'Allow GitHub Actions to create and approve pull requests' in Settings > Actions > General > Workflow permissions." >&2
-              echo "Settings page: https://github.com/$REPOSITORY/settings/actions" >&2
-              echo "The validated proposal branch was preserved. Re-run the same request after enabling the setting." >&2
+          No APK is installed on the owner's phone by this workflow." >"$RUNNER_TEMP/friday-pr-create.log" 2>&1; then
+              cat "$RUNNER_TEMP/friday-pr-create.log" >&2
+              if grep -Fq "GitHub Actions is not permitted to create or approve pull requests" "$RUNNER_TEMP/friday-pr-create.log"; then
+                echo "::error title=Repository setting required::Enable 'Allow GitHub Actions to create and approve pull requests' in Settings > Actions > General > Workflow permissions." >&2
+                echo "Settings page: https://github.com/$REPOSITORY/settings/actions" >&2
+                echo "The validated proposal branch was preserved. Re-run the same request after enabling the setting." >&2
+              fi
+              exit 1
             fi
-            exit 1
+            PR_URL="$(gh pr list --repo "$REPOSITORY" --head "$BRANCH" --state open --json url --jq '.[0].url // empty')"
+          fi
+          if [[ -z "$PR_URL" ]]; then
+            echo "Could not locate the candidate PR after push." >&2
+            exit 8
+          fi
+          echo "FRIDAY_PR_URL=$PR_URL" >> "$GITHUB_ENV"
+
+      # PRs created with GITHUB_TOKEN may not receive the normal pull_request
+      # workflow run. Dispatch the canonical build explicitly and bind the
+      # result to the exact commit just pushed; never merge on stale CI.
+      - name: Dispatch and verify the exact proposal commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          BRANCH="$FRIDAY_PROPOSAL_BRANCH"
+          EXPECTED_SHA="$(git rev-parse HEAD)"
+          gh workflow run build.yml --repo "$REPOSITORY" --ref "$BRANCH"
+
+          RUN_ID=""
+          for _ in $(seq 1 60); do
+            RUN_ID="$(gh run list --repo "$REPOSITORY" --workflow build.yml --branch "$BRANCH" --limit 20 \
+              --json databaseId,headSha,event \
+              --jq ".[] | select(.headSha == \"$EXPECTED_SHA\" and .event == \"workflow_dispatch\") | .databaseId" | head -n 1)"
+            if [[ -n "$RUN_ID" ]]; then
+              break
+            fi
+            sleep 2
+          done
+          if [[ -z "$RUN_ID" ]]; then
+            echo "Could not locate the workflow_dispatch run for exact proposal SHA $EXPECTED_SHA." >&2
+            exit 9
           fi
 
-          gh workflow run build.yml --repo "$REPOSITORY" --ref "$BRANCH"
+          echo "FRIDAY_BUILD_RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+          echo "FRIDAY_PROPOSAL_SHA=$EXPECTED_SHA" >> "$GITHUB_ENV"
+          if ! timeout 110m gh run watch "$RUN_ID" --repo "$REPOSITORY" --exit-status; then
+            echo "The exact proposal commit failed its canonical build, unit-test, or emulator gate." >&2
+            exit 10
+          fi
+
+          VERIFIED_SHA="$(gh run view "$RUN_ID" --repo "$REPOSITORY" --json headSha --jq '.headSha')"
+          VERIFIED_CONCLUSION="$(gh run view "$RUN_ID" --repo "$REPOSITORY" --json conclusion --jq '.conclusion')"
+          if [[ "$VERIFIED_SHA" != "$EXPECTED_SHA" || "$VERIFIED_CONCLUSION" != "success" ]]; then
+            echo "Build evidence does not match the exact proposal commit." >&2
+            exit 11
+          fi
+
+      - name: Evaluate strict automatic-promotion policy
+        id: auto_merge_policy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          PR_URL="$FRIDAY_PR_URL"
+          gh pr view "$PR_URL" --repo "$REPOSITORY" --json files --jq '[.files[].path]' > "$RUNNER_TEMP/friday-pr-files.json"
+          if python3 tools/friday-builder/auto_merge_policy.py "$RUNNER_TEMP/friday-pr-files.json"; then
+            echo "eligible=true" >> "$GITHUB_OUTPUT"
+            echo "Low-risk path policy passed; candidate may be promoted after CI."
+          else
+            echo "eligible=false" >> "$GITHUB_OUTPUT"
+            echo "Candidate touches protected/high-risk paths; leaving it for owner review."
+          fi
+
+      - name: Promote after all CI evidence passes
+        if: steps.auto_merge_policy.outputs.eligible == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          PR_URL="$FRIDAY_PR_URL"
+          RUN_ID="$FRIDAY_BUILD_RUN_ID"
+          EXPECTED_SHA="$FRIDAY_PROPOSAL_SHA"
+          VERIFIED_SHA="$(gh run view "$RUN_ID" --repo "$REPOSITORY" --json headSha --jq '.headSha')"
+          VERIFIED_CONCLUSION="$(gh run view "$RUN_ID" --repo "$REPOSITORY" --json conclusion --jq '.conclusion')"
+          if [[ "$VERIFIED_SHA" != "$EXPECTED_SHA" || "$VERIFIED_CONCLUSION" != "success" ]]; then
+            echo "Refusing promotion without successful exact-SHA validation." >&2
+            exit 12
+          fi
+          gh pr ready "$PR_URL" --repo "$REPOSITORY" || true
+          if gh pr merge "$PR_URL" --repo "$REPOSITORY" --squash --delete-branch; then
+            echo "FRIDAY_AUTO_PROMOTION=MERGED"
+          else
+            echo "Exact-SHA CI passed, but GitHub refused the merge (for example, branch protection or required review). PR remains open."
+            echo "FRIDAY_AUTO_PROMOTION=MERGE_BLOCKED"
+          fi
 
       - name: Publish boundary summary
         if: always()
@@ -365,5 +505,5 @@ jobs:
             echo "## Friday development proposal"
             echo
             echo "Request: ${{ needs.build_proposal.outputs.request_id }}"
-            echo "Draft PR only. No merge, release, signing or installation."
+            echo "Low-risk promotion is evidence-gated; high-risk paths remain owner-reviewed. No signing, release or installation is performed."
           } >> "$GITHUB_STEP_SUMMARY"
