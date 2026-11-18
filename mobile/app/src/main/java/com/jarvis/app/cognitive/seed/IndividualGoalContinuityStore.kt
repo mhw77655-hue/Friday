@@ -85,10 +85,11 @@ class IndividualGoalContinuityStore(
         require(individualId.isNotBlank() && individualId.length <= 128)
         require(subgoals.size <= MAX_SUBGOALS)
         validateContinuity(goal, subgoals)
+        val updatedAt = nowMs().also { require(it >= 0L) { "Continuity update timestamp cannot be negative." } }
         val root = JSONObject()
             .put("schema_version", SCHEMA_VERSION)
             .put("individual_id", individualId)
-            .put("updated_at_ms", nowMs())
+            .put("updated_at_ms", updatedAt)
             .put("goal", goal?.let(::goalJson) ?: JSONObject.NULL)
             .put("subgoals", JSONArray().apply { subgoals.forEach { put(subgoalJson(it)) } })
         val serialized = root.toString()
