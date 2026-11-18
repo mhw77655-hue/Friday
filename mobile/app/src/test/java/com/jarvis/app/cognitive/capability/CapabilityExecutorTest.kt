@@ -483,7 +483,17 @@ class CapabilityExecutorTest {
         var graph = graphOf(FullStrategy)
         graph.nodes.map { it.id }.forEach { id -> graph = planner.skipNode(graph, id, "not required for this run") }
         val driver = FakeDriver(planner, graph)
-        val exec = CapabilityExecutor(CapabilityFabric(testImmune(), emit = {}), driver, goalPlanner = planner)
+        val directory = java.io.File.createTempFile("friday-skipped-evidence-", ".dir").apply {
+            delete()
+            mkdirs()
+        }
+        val ledger = CapabilityEvidenceLedger(directory)
+        val exec = CapabilityExecutor(
+            CapabilityFabric(testImmune(), emit = {}),
+            driver,
+            goalPlanner = planner,
+            evidenceLedger = ledger
+        )
 
         val summary = exec.run()
 
@@ -494,6 +504,11 @@ class CapabilityExecutorTest {
         assertTrue(summary.skippedReasons.values.all { it == "not required for this run" })
         assertTrue(driver.events.any { it is CognitiveEvent.PlanExecutionSkipped })
         assertFalse(driver.events.any { it is CognitiveEvent.PlanExecutionCompleted })
+        val evidence = (ledger.load() as CapabilityEvidenceLoad.Loaded).evidence
+        assertEquals(3, evidence.count { it.outcome == EvidenceOutcome.SKIPPED })
+        assertTrue(evidence.none { it.outcome == EvidenceOutcome.SUCCEEDED })
+        directory.deleteRecursively()
+        Unit
     }
 
     @Test
@@ -513,6 +528,60 @@ class CapabilityExecutorTest {
         assertTrue(summary.blockedStepIds.contains("sg3:s1"))
         assertTrue(driver.events.any { it is CognitiveEvent.PlanExecutionPartial })
         assertFalse(driver.events.any { it is CognitiveEvent.PlanExecutionCompleted })
+    }
+
+    @Test
+    fun `executor records real outcomes and requires independent verification for reuse`() = runBlocking {
+        val directory = java.io.File.createTempFile("friday-executor-evidence-", ".dir").apply {
+            delete()
+            mkdirs()
+        }
+        val ledger = CapabilityEvidenceLedger(directory)
+        repeat(2) {
+            val fabric = CapabilityFabric(testImmune(), emit = {})
+            fabric.register(FakeCapability(descriptor("A", operation = "compute_a")))
+            fabric.register(FakeCapability(descriptor("B", operation = "compute_b")))
+            fabric.register(FakeCapability(descriptor("C", operation = "compute_c")))
+            val planner = GoalPlanner(FullStrategy)
+            val driver = FakeDriver(planner, graphOf(FullStrategy))
+            val exec = CapabilityExecutor(
+                fabric,
+                driver,
+                evidenceLedger = ledger,
+                evidenceVerifier = { _, invocation -> invocation.success }
+            )
+            assertEquals(ExecutionStatus.COMPLETED, exec.run().status)
+        }
+
+        val knowledge = ledger.knowledge()
+        assertEquals(setOf("A", "B", "C"), knowledge.map { it.capabilityId }.toSet())
+        assertTrue(knowledge.all { it.reusable && it.verifiedSuccesses == 2 })
+        directory.deleteRecursively()
+        Unit
+    }
+
+    @Test
+    fun `executor records unresolved actions as blocked rather than failed capability calls`() = runBlocking {
+        val directory = java.io.File.createTempFile("friday-executor-blocked-", ".dir").apply {
+            delete()
+            mkdirs()
+        }
+        val ledger = CapabilityEvidenceLedger(directory)
+        val fabric = CapabilityFabric(testImmune(), emit = {})
+        fabric.register(FakeCapability(descriptor("C", operation = "compute_c")))
+        val planner = GoalPlanner(OneFailedIndependentStrategy)
+        val driver = FakeDriver(planner, graphOf(OneFailedIndependentStrategy))
+        val exec = CapabilityExecutor(fabric, driver, evidenceLedger = ledger)
+
+        exec.run()
+
+        val evidence = (ledger.load() as CapabilityEvidenceLoad.Loaded).evidence
+        assertTrue(evidence.any {
+            it.capabilityId == "unresolved:compute_a" && it.outcome == EvidenceOutcome.BLOCKED
+        })
+        assertTrue(evidence.any { it.capabilityId == "C" && it.outcome == EvidenceOutcome.SUCCEEDED && !it.verified })
+        directory.deleteRecursively()
+        Unit
     }
 
 }

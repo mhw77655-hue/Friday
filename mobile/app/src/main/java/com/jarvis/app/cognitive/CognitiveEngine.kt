@@ -216,7 +216,9 @@ class CognitiveEngine(
     /** Lightweight successor-state learning inside the same cognitive turn. */
     private val expectationEngine: com.jarvis.app.prediction.ExpectationStateEngine? = null,
     /** Shared host clock for durable timestamps and time-dependent cognition. */
-    private val nowMs: () -> Long = { System.currentTimeMillis() }
+    private val nowMs: () -> Long = { System.currentTimeMillis() },
+    /** Durable model-independent record of real capability execution outcomes. */
+    private val capabilityEvidenceLedger: com.jarvis.app.cognitive.capability.CapabilityEvidenceLedger? = null
 ) : PlanDriver {
 
     private val intentInference = IntentInference(scope)
@@ -1297,7 +1299,9 @@ class CognitiveEngine(
         val executor = CapabilityExecutor(
             fabric = fabric,
             driver = this,
-            goalPlanner = goalPlanner
+            goalPlanner = goalPlanner,
+            nowMs = nowMs,
+            evidenceLedger = capabilityEvidenceLedger
         )
         executor.load()
         val outcome = executor.executeNextStep()

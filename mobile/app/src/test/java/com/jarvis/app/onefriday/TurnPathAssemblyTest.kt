@@ -7,6 +7,9 @@ import com.jarvis.app.cognitive.Goal
 import com.jarvis.app.cognitive.GoalPriority
 import com.jarvis.app.cognitive.Subgoal
 import com.jarvis.app.cognitive.SubgoalStatus
+import com.jarvis.app.cognitive.capability.CapabilityEvidence
+import com.jarvis.app.cognitive.capability.CapabilityEvidenceLoad
+import com.jarvis.app.cognitive.capability.EvidenceOutcome
 import com.jarvis.app.emotion.EmotionHypothesis
 import com.jarvis.app.failure.FailureSurface
 import com.jarvis.app.identity.MentalStateHypothesis
@@ -125,6 +128,7 @@ class TurnPathAssemblyTest {
         assertNotNull("the real continuity gate", assembly.continuityGate)
         assertNotNull("the real continuity law", assembly.continuityLaw)
         assertNotNull("the real capability fabric", assembly.capabilityFabric)
+        assertNotNull("the durable capability evidence ledger", assembly.capabilityEvidenceLedger)
         assertNotNull("the real fuzzy command resolver", assembly.fuzzyCommandResolver)
         assertNotNull("the single model loading authority", assembly.modelManager)
         assertNotNull("the single admission governor", assembly.resourceGovernor)
@@ -367,6 +371,34 @@ class TurnPathAssemblyTest {
             "a real turn flows through Friday's cognitive path with no legacy facade",
             assembly.componentFingerprint.keys.none { it.contains("HumanCore", ignoreCase = true) }
         )
+    }
+
+    @Test
+    fun `capability evidence survives reconstruction of the production composition`() {
+        val directory = compositionDir("capability-evidence-continuity")
+        val first = TurnPathAssembly.assemble(
+            Fixture().ports({ ResourceSnapshot.alwaysHealthy() }, { 1_000L }, directory)
+        )
+        first.capabilityEvidenceLedger.record(
+            CapabilityEvidence(
+                capabilityId = "phone.memory.recall",
+                operation = "memory.recall",
+                outcome = EvidenceOutcome.SUCCEEDED,
+                observedAtMs = 1_000L,
+                source = "composition-test",
+                verified = true,
+                eventId = "composition-evidence-1"
+            )
+        )
+
+        val restarted = TurnPathAssembly.assemble(
+            Fixture().ports({ ResourceSnapshot.alwaysHealthy() }, { 2_000L }, directory)
+        )
+        val restored = restarted.capabilityEvidenceLedger.load() as CapabilityEvidenceLoad.Loaded
+        assertEquals(1, restored.evidence.size)
+        assertEquals("composition-evidence-1", restored.evidence.single().eventId)
+        assertTrue(restored.evidence.single().verified)
+        directory.deleteRecursively()
     }
 
     private fun newAssembly(name: String): TurnPathAssembly {

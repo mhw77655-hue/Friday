@@ -104,6 +104,7 @@ class TurnPathAssembly private constructor(
     val confidentialityFirewall: ConfidentialityFirewall,
     val capabilityRegistry: CapabilityRegistry,
     val capabilityFabric: CapabilityFabric,
+    val capabilityEvidenceLedger: com.jarvis.app.cognitive.capability.CapabilityEvidenceLedger,
     val capabilityRouter: DeterministicCapabilityRouter,
     val fuzzyCommandResolver: FuzzyCommandResolver,
     val capabilityMemoryIndex: CapabilityMemoryIndex,
@@ -302,6 +303,10 @@ class TurnPathAssembly private constructor(
             // ── Capability fabric, routing, and fuzzy command resolution ───────
             val failureSurface = ports.failureSurface()
             val capabilityFabric = CapabilityFabric(ImmuneSystem(surface = failureSurface))
+            val capabilityEvidenceLedger = com.jarvis.app.cognitive.capability.CapabilityEvidenceLedger(
+                ports.storageDir.resolve("friday"),
+                nowMs = { ports.nowMs() }
+            )
             val capabilityRouter = DeterministicCapabilityRouter(stores.capabilityRegistry())
             val fuzzyCommandResolver = FuzzyCommandResolver(
                 retriever,
@@ -404,6 +409,7 @@ class TurnPathAssembly private constructor(
                 identityContext = identityContext,
                 continuityGate = continuityGate,
                 capabilityFabric = capabilityFabric,
+                capabilityEvidenceLedger = capabilityEvidenceLedger,
                 dialectDetector = dialectDetector,
                 turnTraceStore = stores.turnTraceStore(),
                 threadTracker = stores.threadTracker(),
@@ -533,6 +539,7 @@ class TurnPathAssembly private constructor(
                 confidentialityFirewall = confidentialityFirewall,
                 capabilityRegistry = stores.capabilityRegistry(),
                 capabilityFabric = capabilityFabric,
+                capabilityEvidenceLedger = capabilityEvidenceLedger,
                 capabilityRouter = capabilityRouter,
                 fuzzyCommandResolver = fuzzyCommandResolver,
                 capabilityMemoryIndex = capabilityMemoryIndex,

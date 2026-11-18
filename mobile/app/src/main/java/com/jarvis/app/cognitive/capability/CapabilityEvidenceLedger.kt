@@ -13,7 +13,8 @@ data class CapabilityEvidence(
     val observedAtMs: Long,
     val source: String,
     val verified: Boolean,
-    val detail: String = ""
+    val detail: String = "",
+    val eventId: String = ""
 )
 
 enum class EvidenceOutcome { SUCCEEDED, FAILED, REFUSED, BLOCKED, SKIPPED }
@@ -21,6 +22,7 @@ enum class EvidenceOutcome { SUCCEEDED, FAILED, REFUSED, BLOCKED, SKIPPED }
 /** Conservative summary; evidence is not itself permission to execute anything. */
 data class CapabilityKnowledge(
     val capabilityId: String,
+    val operation: String,
     val observations: Int,
     val verifiedSuccesses: Int,
     val failures: Int,
@@ -47,6 +49,7 @@ class CapabilityEvidenceLedger(
 ) {
     private val file = File(directory, FILE_NAME)
     private val storage = FileStorage(directory)
+    private val lock = lockFor(file)
 
     @Synchronized
     fun load(): CapabilityEvidenceLoad {
@@ -56,10 +59,11 @@ class CapabilityEvidenceLedger(
         }
         return try {
             val root = JSONObject(file.readText(Charsets.UTF_8))
-            require(root.getInt("schema_version") == SCHEMA_VERSION) { "Unsupported capability evidence schema." }
+            val schema = root.getInt("schema_version")
+            require(schema in 1..SCHEMA_VERSION) { "Unsupported capability evidence schema." }
             val array = root.getJSONArray("evidence")
             require(array.length() <= MAX_ENTRIES) { "Too many capability evidence entries." }
-            val values = (0 until array.length()).map { parse(array.getJSONObject(it)) }
+            val values = (0 until array.length()).map { index -> parse(array.getJSONObject(index), index) }
             CapabilityEvidenceLoad.Loaded(values)
         } catch (failure: Exception) {
             CapabilityEvidenceLoad.Corrupt(failure.message?.take(240) ?: "Malformed capability evidence.")
@@ -69,6 +73,7 @@ class CapabilityEvidenceLedger(
     @Synchronized
     fun record(evidence: CapabilityEvidence) {
         validate(evidence)
+        synchronized(lock) {
         val current = when (val loaded = load()) {
             CapabilityEvidenceLoad.Empty -> emptyList()
             is CapabilityEvidenceLoad.Loaded -> loaded.evidence
@@ -76,6 +81,7 @@ class CapabilityEvidenceLedger(
                 "Refusing to overwrite corrupt capability evidence: ${loaded.reason}"
             )
         }
+        if (current.any { it.eventId == evidence.eventId }) return
         val next = (current + evidence).takeLast(MAX_ENTRIES)
         val root = JSONObject()
             .put("schema_version", SCHEMA_VERSION)
@@ -86,16 +92,19 @@ class CapabilityEvidenceLedger(
             "Capability evidence exceeds the safe storage limit."
         }
         storage.write(file, encoded)
+        }
     }
 
     @Synchronized
     fun knowledge(): List<CapabilityKnowledge> {
+        synchronized(lock) {
         val evidence = when (val loaded = load()) {
             CapabilityEvidenceLoad.Empty -> emptyList()
             is CapabilityEvidenceLoad.Loaded -> loaded.evidence
             is CapabilityEvidenceLoad.Corrupt -> return emptyList()
         }
-        return evidence.groupBy { it.capabilityId }.map { (id, rows) ->
+        return evidence.groupBy { it.capabilityId to it.operation }.map { (key, rows) ->
+            val (id, operation) = key
             val failures = rows.count { it.outcome == EvidenceOutcome.FAILED }
             // A later verified recovery can rehabilitate a capability. Count
             // only verified successes recorded after the most recent failure.
@@ -105,13 +114,15 @@ class CapabilityEvidenceLedger(
             }
             CapabilityKnowledge(
                 capabilityId = id,
+                operation = operation,
                 observations = rows.size,
                 verifiedSuccesses = verifiedSuccesses,
                 failures = failures,
                 lastObservedAtMs = rows.maxOf { it.observedAtMs },
                 reusable = verifiedSuccesses >= MIN_VERIFIED_SUCCESSES
             )
-        }.sortedBy { it.capabilityId }
+        }.sortedWith(compareBy<CapabilityKnowledge> { it.capabilityId }.thenBy { it.operation })
+        }
     }
 
     private fun validate(value: CapabilityEvidence) {
@@ -119,6 +130,7 @@ class CapabilityEvidenceLedger(
         require(value.operation.isNotBlank() && value.operation.length <= 128)
         require(value.source.isNotBlank() && value.source.length <= 128)
         require(value.detail.length <= 1_000)
+        require(value.eventId.isNotBlank() && value.eventId.length <= 256)
         require(value.observedAtMs >= 0)
     }
 
@@ -130,22 +142,40 @@ class CapabilityEvidenceLedger(
         .put("source", value.source)
         .put("verified", value.verified)
         .put("detail", value.detail)
+        .put("event_id", value.eventId)
 
-    private fun parse(json: JSONObject): CapabilityEvidence = CapabilityEvidence(
+    private fun parse(json: JSONObject, index: Int): CapabilityEvidence = CapabilityEvidence(
         capabilityId = json.getString("capability_id").also { require(it.isNotBlank() && it.length <= 128) },
         operation = json.getString("operation").also { require(it.isNotBlank() && it.length <= 128) },
         outcome = EvidenceOutcome.valueOf(json.getString("outcome")),
         observedAtMs = json.getLong("observed_at_ms").also { require(it >= 0) },
         source = json.getString("source").also { require(it.isNotBlank() && it.length <= 128) },
         verified = json.getBoolean("verified"),
-        detail = json.optString("detail", "").also { require(it.length <= 1_000) }
+        detail = json.optString("detail", "").also { require(it.length <= 1_000) },
+        // Schema v1 had no event id; synthesize a stable migration id so
+        // loading the old ledger remains safe and replay-deduplicable.
+        eventId = json.optString("event_id").ifBlank { legacyEventId(json, index) }
+            .also { require(it.isNotBlank() && it.length <= 256) }
     )
+
+    private fun legacyEventId(json: JSONObject, index: Int): String {
+        val legacy = "$index:${json.optString("capability_id")}:${json.optString("operation")}:${json.optLong("observed_at_ms")}:${json.optString("outcome")}"
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(legacy.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> "%02x".format(byte) }
+        return "legacy:$digest"
+    }
 
     companion object {
         const val FILE_NAME = "capability/learning-evidence.json"
-        private const val SCHEMA_VERSION = 1
+        private const val SCHEMA_VERSION = 2
         private const val MAX_FILE_BYTES = 512 * 1024
         private const val MAX_ENTRIES = 2_000
         private const val MIN_VERIFIED_SUCCESSES = 2
+        private val pathLocks = java.util.concurrent.ConcurrentHashMap<String, Any>()
+        private fun lockFor(file: File): Any {
+            val key = runCatching { file.canonicalPath }.getOrElse { file.absolutePath }
+            return pathLocks.computeIfAbsent(key) { Any() }
+        }
     }
 }

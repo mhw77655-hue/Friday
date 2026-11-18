@@ -50,7 +50,11 @@ class CapabilityExecutor(
     private val timeoutMs: Long? = null,
     private val maxReplans: Int = 3,
     private val maxSteps: Int = 100,
-    private val nowMs: () -> Long = { System.currentTimeMillis() }
+    private val nowMs: () -> Long = { System.currentTimeMillis() },
+    private val evidenceLedger: CapabilityEvidenceLedger? = null,
+    private val evidenceSessionId: String = java.util.UUID.randomUUID().toString(),
+    /** Independent postcondition check; an invocation's own success flag is not verification. */
+    private val evidenceVerifier: (ActionRequest, CapabilityInvocation) -> Boolean = { _, _ -> false }
 ) {
 
     var state: ExecutionState = ExecutionState()
@@ -61,9 +65,16 @@ class CapabilityExecutor(
         private set
 
     private val outcomes = mutableListOf<CapabilityStepOutcome>()
+    private val evidenceAttemptLock = Any()
+    private val evidenceAttempts = mutableMapOf<String, Int>()
+    private val terminalEvidenceRecorded = mutableSetOf<String>()
 
     /** Number of replans performed so far (bounded by [maxReplans]). */
     var replanCount: Int = 0
+        private set
+
+    /** Last persistence error; action execution remains independent of the evidence store. */
+    var evidenceRecordingError: String? = null
         private set
 
     val executedOutcomes: List<CapabilityStepOutcome> get() = outcomes.toList()
@@ -118,6 +129,36 @@ class CapabilityExecutor(
             val skippedIds = skipped.map { it.id }
             val skippedReasons = skipped.associate { it.id to (it.skipReason ?: "No skip reason recorded") }
             val blockedBy = blockedNodes.filter { it.blockedBy.isNotEmpty() }.associate { it.id to it.blockedBy }
+
+            // Preserve terminal outcomes that never reached the invoker. A
+            // skipped or dependency-blocked step is not a failed invocation.
+            (skipped.map { it to EvidenceOutcome.SKIPPED } +
+                blockedNodes.map { it to EvidenceOutcome.BLOCKED }).forEach { (terminalNode, outcome) ->
+                val terminalRequest = ActionRequest(
+                    planId = graph.goalId,
+                    stepId = terminalNode.id,
+                    action = terminalNode.action,
+                    description = terminalNode.description,
+                    context = buildContext(terminalNode),
+                    constraints = emptyList()
+                )
+                val requestKey = requestId(terminalRequest)
+                val firstObservation = synchronized(evidenceAttemptLock) {
+                    terminalEvidenceRecorded.add(requestKey)
+                }
+                if (firstObservation) {
+                    recordEvidence(
+                        capabilityId = "unresolved:${terminalNode.action}",
+                        request = terminalRequest,
+                        outcome = outcome,
+                        detail = if (outcome == EvidenceOutcome.SKIPPED) {
+                            terminalNode.skipReason ?: "step skipped before invocation"
+                        } else {
+                            terminalNode.failureCause ?: "step blocked before invocation"
+                        }
+                    )
+                }
+            }
 
             val (terminalStatus, cause) = when {
                 effective.isEmpty() -> ExecutionStatus.FAILED to "replan left no replacement steps"
@@ -204,6 +245,12 @@ class CapabilityExecutor(
             val result = ExecutionResult.fail(
                 ActionFailure.Error("RESOLUTION_${reason.name}", reason.name, recoverable = false)
             )
+            recordEvidence(
+                capabilityId = "unresolved:${request.action}",
+                request = request,
+                outcome = EvidenceOutcome.BLOCKED,
+                detail = "resolution:${reason.name}"
+            )
             return failStep(graph, node, request, resolution, result, invocation = null)
         }
 
@@ -222,9 +269,34 @@ class CapabilityExecutor(
             val result = ExecutionResult.fail(
                 ActionFailure.Error("PORT_EXCEPTION", e.message ?: "invocation threw", recoverable = false)
             )
+            recordEvidence(
+                capabilityId = resolvedId ?: "unknown:${request.action}",
+                request = request,
+                outcome = EvidenceOutcome.FAILED,
+                detail = "invocation_exception:${e.message ?: "unknown"}"
+            )
             return failStep(graph, node, request, resolution, result, invocation = null)
         }
         val result = CapabilityActionPort.toExecutionResult(invocation)
+        val evidenceOutcome = when {
+            invocation.refused -> EvidenceOutcome.REFUSED
+            result.success -> EvidenceOutcome.SUCCEEDED
+            else -> EvidenceOutcome.FAILED
+        }
+        val independentlyVerified = if (evidenceOutcome == EvidenceOutcome.SUCCEEDED) {
+            runCatching { evidenceVerifier(request, invocation) }.getOrDefault(false)
+        } else false
+        recordEvidence(
+            capabilityId = invocation.capabilityId ?: resolvedId ?: "unknown:${request.action}",
+            request = request,
+            outcome = evidenceOutcome,
+            verified = independentlyVerified,
+            detail = when {
+                invocation.refused -> invocation.refusalReason ?: "refused"
+                result.success -> "invocation reported success"
+                else -> failureText(result)
+            }
+        )
 
         // One completion event per invocation — covers success AND refusal
         // (circuit open / permission), reflected in the `success` flag.
@@ -391,6 +463,44 @@ class CapabilityExecutor(
         invocation.success -> "SUCCESS"
         else -> "FAILURE"
     }
+
+    private fun recordEvidence(
+        capabilityId: String,
+        request: ActionRequest,
+        outcome: EvidenceOutcome,
+        verified: Boolean = false,
+        detail: String
+    ) {
+        val ledger = evidenceLedger ?: return
+        val requestKey = requestId(request)
+        val attempt = synchronized(evidenceAttemptLock) {
+            val next = (evidenceAttempts[requestKey] ?: 0) + 1
+            evidenceAttempts[requestKey] = next
+            next
+        }
+        try {
+            ledger.record(
+                CapabilityEvidence(
+                    capabilityId = capabilityId,
+                    operation = request.action.ifBlank { "step:${request.stepId}" },
+                    outcome = outcome,
+                    observedAtMs = nowMs().coerceAtLeast(0L),
+                    source = "capability-executor",
+                    verified = verified,
+                    detail = detail.take(1_000),
+                    eventId = "$evidenceSessionId:${evidenceKeyHash(requestKey)}#$attempt"
+                )
+            )
+            evidenceRecordingError = null
+        } catch (failure: Exception) {
+            evidenceRecordingError = failure.message?.take(240) ?: "Capability evidence could not be persisted."
+        }
+    }
+
+    private fun evidenceKeyHash(value: String): String =
+        java.security.MessageDigest.getInstance("SHA-256")
+            .digest(value.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> "%02x".format(byte) }
 
     private fun requestId(request: ActionRequest): String = "${request.planId}|${request.stepId}|${request.action}"
 
