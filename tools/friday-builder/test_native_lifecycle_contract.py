@@ -32,6 +32,12 @@ class NativeInferenceLifecycleContractTests(unittest.TestCase):
         self.assertIn("set_state_unlocked(model, LLAMA_STATE_UNLOADING)", destroy)
         self.assertNotIn("set_state_locked(model,", destroy)
         self.assertNotIn(".detach()", CPP)
+        self.assertLess(destroy.index("} // Release prewarm_mutex"), destroy.index("delete model;"))
+
+    def test_backend_initialization_is_process_scoped_not_per_model(self):
+        self.assertIn("std::call_once(g_backend_once", CPP)
+        self.assertIn("std::atexit(release_backend_at_process_exit)", CPP)
+        self.assertNotIn("release_backend();", CPP)
 
     def test_prewarm_thread_is_serialized_and_joined_before_model_release(self):
         self.assertIn("std::mutex prewarm_mutex", CPP)
