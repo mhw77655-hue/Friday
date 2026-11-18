@@ -171,6 +171,16 @@ Production `LatencyLayer` dispatches slow-path turns onto `Executors.newSingleTh
 **Consequence:** bursts can grow memory without bound, cause stale turns to execute after timeout, and leak pending exchanges that can misassociate later replies.  
 **Root correction:** introduce bounded admission and an explicit per-exchange lifecycle (`QUEUED → RUNNING → COMPLETED/TIMED_OUT/CANCELLED`) with one absolute deadline from submission. On timeout, cancel/remove queued work and prevent it from dispatching later; running work must settle exactly once. Apply backpressure/rejection when capacity is reached and report a clear local response rather than accumulating unbounded tasks.
 
+### Manual triage of the scanner's seven `meaning_arbiter` candidates
+
+The scanner's seven candidates are not seven defects. Manual review classifies them as follows:
+
+- **Real cognitive defects:** `MemoryConflictResolver` (RC-15) infers owner authority from free-text substrings and silently resolves factual contradictions by recency; `PronounResolver` (RC-16) resolves ordinals against the entire unbounded conversation history.
+- **Intentional hard safety/operational policy:** `EnvironmentProfile`'s memory/permission policy enums and `JevPhoneActionPolicy`'s explicit authorization/risk thresholds. These should remain explicit, fail-closed, owner-governed constraints. Friday's learned preferences or model confidence must never rewrite them.
+- **Deterministic infrastructure, not semantic arbitration:** `humancore/algo/ConflictResolver` merges replicated state; `ModelPathResolver` resolves model files under a controlled directory. Their fixed rules are appropriate for those narrow jobs and should not be replaced with an LLM.
+
+This triage is why the 276 scanner deviations are candidates requiring human semantic review, not a backlog of 276 automatic edits.
+
 ## 3. Architecture boundary to preserve
 
 1. **Friday on Android:** persistent identity/continuity, local cognition and presence, privacy-minimized observation, memory/experience, permissioned device actions, safe capability runtime, self-study, development-intent formation, durable offline outbox and result consumption.
