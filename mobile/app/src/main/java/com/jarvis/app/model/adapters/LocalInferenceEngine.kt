@@ -253,6 +253,7 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
             temperature = request.temperature,
             topP = request.topP,
             topK = 40,
+            stopSequences = request.stopSequences.toTypedArray(),
             stream = false
         )
 
@@ -291,6 +292,7 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
             temperature = request.temperature,
             topP = request.topP,
             topK = 40,
+            stopSequences = request.stopSequences.toTypedArray(),
             stream = true
         )
 
