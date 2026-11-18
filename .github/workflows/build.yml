@@ -227,7 +227,7 @@ jobs:
             adb logcat -c
             adb install -r mobile/app/build/outputs/apk/debug/app-debug.apk
             python3 tools/friday-builder/apply_device_state_capsule.py .github/android-emulator/default-state-capsule.json
-            ./gradlew --offline :mobile:app:connectedDebugAndroidTest
+            ./gradlew :mobile:app:connectedDebugAndroidTest
             adb shell am start -n com.jarvis.app/.MainActivity || true
             sleep 8
             adb exec-out screencap -p > "$RUNNER_TEMP/friday-emulator/screen.png" || true
