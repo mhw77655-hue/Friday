@@ -17,3 +17,10 @@ echo "OWNER_WORDS_SOURCE=PASS"
 grep -q "private archive" .ralph/OWNER_WORDS.md
 grep -qi "rather than searching" .ralph/OWNER_WORDS.md
 echo "OWNER_ARCHIVE_PRIVACY=PASS"
+
+if grep -qE 'New Folder chats\.zip|extract_owner_turns\.py' .ralph/prompt.md; then
+  echo "OWNER_ARCHIVE_PROMPT_REFERENCE=FAIL" >&2
+  exit 1
+fi
+grep -qi "Do not search for, reconstruct, request, or publish private archives" .ralph/prompt.md
+echo "OWNER_ARCHIVE_PROMPT_REFERENCE=PASS"

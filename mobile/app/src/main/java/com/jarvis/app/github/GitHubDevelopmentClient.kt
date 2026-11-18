@@ -214,7 +214,7 @@ class GitHubDevelopmentClient(context: Context) {
                 "evidence",
                 JSONArray()
                     .put("The owner explicitly enabled scheduled autonomous development in Friday Settings.")
-                    .put("The authoritative product intent is stored in .ralph/VISION.md and .ralph/OWNER_WORDS.md; inspect the original New Folder chats.zip when necessary.")
+                    .put("The authoritative product intent is stored in .ralph/VISION.md and .ralph/OWNER_WORDS.md. Private conversation archives are not present in the public repository; if a genuine ambiguity remains, preserve uncertainty and ask the owner.")
                     .put(
                         if (includeAggregateEvidence && localReflection != null) {
                             "The owner separately enabled content-free aggregate runtime evidence and model-free structural self-study sharing. The payload contains aggregate counts, status names, capability keys, resource trends and bounded architecture findings/goals only; it contains no raw memories, facts, conversations, prompts, files, location, screen, microphone, camera or unique identifiers."
