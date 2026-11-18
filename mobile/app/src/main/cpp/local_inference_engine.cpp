@@ -18,6 +18,9 @@
 #include <unordered_map>
 #include <memory>
 #include <android/log.h>
+#include <cstdarg>
+#include <cstring>
+#include <cstdlib>
 
 #define LOG_TAG "LocalInferenceEngine"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
