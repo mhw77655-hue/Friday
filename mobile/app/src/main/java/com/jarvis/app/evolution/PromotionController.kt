@@ -60,8 +60,9 @@ class PromotionController(
         val healthy = genome.copy(healthState = GenomeHealth.HEALTHY)
         val systemId = "organism_${healthy.id}"
 
-        // 2. archive HEALTHY (atomic step — archive.put is a single map store)
-        archive.put(healthy)
+        // 2. durably archive HEALTHY before exposing it to either registry.
+        // If storage fails, the capability is not promoted.
+        archive.putDurably(healthy)
         // 3. current-best swap
         genomeRegistry.register(healthy)
 
@@ -74,10 +75,12 @@ class PromotionController(
                 genome = healthy,
                 spec = implementation.spec,
                 capabilities = healthy.capabilities.ifEmpty { setOf(implementation.spec.capability) },
-                sandbox = sandbox,
+                // A promoted organism owns its own interpreter sandbox; it
+                // must not share the candidate-testing sandbox or another
+                // organism's lifecycle.
+                sandbox = ResourceSandbox(),
                 failureSurface = failureSurface
             )
-            organism.initialize()
             organism.onPromoted()
             registry.register(organism)
             val fabric = cognitiveCapabilityFabric
@@ -90,9 +93,10 @@ class PromotionController(
             }
         } catch (t: Throwable) {
             if (cognitiveCapabilityRegistered) cognitiveCapabilityFabric?.unregister(systemId)
+            registry.get(systemId)?.let { runCatching { it.shutdown() } }
             registry.unregister(systemId)
             genomeRegistry.restoreBestByCapability(previousCapabilityIndex, previousBest)
-            archive.put(healthy.copy(healthState = GenomeHealth.REJECTED))
+            archive.putDurably(healthy.copy(healthState = GenomeHealth.REJECTED))
             failureSurface.report(
                 FailureReport(
                     subsystem = "EVOLUTION",
