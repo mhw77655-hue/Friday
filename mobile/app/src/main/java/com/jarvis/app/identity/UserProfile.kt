@@ -25,7 +25,15 @@ class UserProfile(
     private val gate: ProfileDurabilityGate = ProfileDurabilityGate()
 ) {
 
-    private val observationsBySession = mutableMapOf<String, MutableSet<Pair<String, String>>>()
+    // Pending preference evidence is bounded and removed once an owner fact or
+    // a cross-session promotion resolves it. This prevents stale hypotheses
+    // from accumulating and later overriding a newer explicit statement.
+    private val observationsBySession = LinkedHashMap<String, MutableSet<Pair<String, String>>>()
+
+    private companion object {
+        const val MAX_PENDING_SESSIONS = 128
+        const val MAX_CANDIDATES_PER_SESSION = 32
+    }
 
     /**
      * Directly set a durable preference [key]=[value] and persist it onto the
@@ -39,6 +47,10 @@ class UserProfile(
         if (worldModel.getUserPreference(key) != value) {
             worldModel.setUserPreference(key, value, source)
         }
+        observationsBySession.values.forEach { candidates ->
+            candidates.removeAll { candidate -> candidate.first == key }
+        }
+        observationsBySession.entries.removeAll { it.value.isEmpty() }
     }
 
     /** The currently-valid durable value of [key], or null if unset. */
@@ -66,20 +78,30 @@ class UserProfile(
         val explicit = gate.extractExplicit(text)
         if (explicit != null) {
             val (cat, value) = explicit
-            observationsBySession.keys.filter { it.first == cat }.forEach { observationsBySession.remove(it) }
-            if (getPreference(cat) == value) return null
+            val unchanged = getPreference(cat) == value
+            // setPreference also clears older inferred candidates for this category.
             setPreference(cat, value, source = "explicit utterance")
+            if (unchanged) return null
             return ProfileUpdate(cat, value, PromotionReason.EXPLICIT)
         }
 
         // Not explicit — check repetition across distinct sessions.
         val candidate = gate.extractCandidatePreference(text) ?: return null
-        var seen = observationsBySession.getOrPut(sessionId) { mutableSetOf() }
+        val seen = observationsBySession.getOrPut(sessionId) { linkedSetOf() }
         seen.add(candidate)
+        while (seen.size > MAX_CANDIDATES_PER_SESSION) seen.remove(seen.first())
+        while (observationsBySession.size > MAX_PENDING_SESSIONS) {
+            observationsBySession.remove(observationsBySession.keys.first())
+        }
+
         val distinctSessions = observationsBySession.count { (_, sigs) -> sigs.contains(candidate) }
         if (distinctSessions >= repetitionThreshold) {
             val (cat, value) = candidate
-            if (getPreference(cat) == value) return null
+            val unchanged = getPreference(cat) == value
+            // Remove this candidate even when the same value is already durable.
+            observationsBySession.values.forEach { it.remove(candidate) }
+            observationsBySession.entries.removeAll { it.value.isEmpty() }
+            if (unchanged) return null
             setPreference(cat, value, source = "repeated across sessions")
             return ProfileUpdate(cat, value, PromotionReason.REPEATED_PATTERN)
         }
