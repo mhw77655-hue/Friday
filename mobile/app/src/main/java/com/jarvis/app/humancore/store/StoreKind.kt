@@ -24,6 +24,8 @@ enum class StoreKind(val fileName: String) {
     RELATIONSHIP("relationship.json"),
     ADAPTATION("adaptation.json"),
     DIALOGUE("dialogue.jsonl"),
+    /** Android body memory snapshot; must never share the append-only dialogue log. */
+    BODY_MEMORY("body_memory.json"),
     /** Nervous-system failure history (JSONL, failure surface → disk). */
     FAILURES("failures.jsonl"),
     /** Evolutionary genome history; isolated atomic snapshot, never dialogue JSONL. */
