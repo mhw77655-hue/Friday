@@ -26,7 +26,9 @@ class GenomeRegistry {
     /** Index a genome under every capability it declares (promotion). */
     fun register(genome: Genome) {
         if (!genome.isAccepted()) return
-        for (cap in genome.indexedCapabilities()) {
+        val implemented = genome.indexedCapabilities()
+        if (implemented.isEmpty()) return
+        for (cap in implemented) {
             val existing = bestByCapability[cap]
             if (existing == null || genome.version >= existing.version) {
                 bestByCapability[cap] = genome
@@ -57,10 +59,13 @@ class GenomeRegistry {
      */
     fun setCurrentBest(genome: Genome?) {
         bestByCapability.clear()
-        if (genome != null && genome.isAccepted()) {
-            for (cap in genome.indexedCapabilities()) bestByCapability[cap] = genome
+        val implemented = genome?.takeIf { it.isAccepted() }?.indexedCapabilities().orEmpty()
+        if (genome != null && implemented.isNotEmpty()) {
+            for (cap in implemented) bestByCapability[cap] = genome
+            _currentBest.value = genome
+        } else {
+            _currentBest.value = null
         }
-        _currentBest.value = genome
     }
 }
 
