@@ -566,7 +566,10 @@ object JarvisEngine {
                     }
                 },
                 scope = scope,
-                idleIntervalMs = com.jarvis.app.memory.MemoryConsolidationLoop.DEFAULT_IDLE_INTERVAL_MS
+                idleIntervalMs = com.jarvis.app.memory.MemoryConsolidationLoop.DEFAULT_IDLE_INTERVAL_MS,
+                onPassFailure = { failure ->
+                    android.util.Log.w("FridayMemory", "Background consolidation pass failed; the next idle cycle will retry.", failure)
+                }
             )
             memoryConsolidationLoop.startIdleLoop()
             JarvisEngine.memoryConsolidationLoop = memoryConsolidationLoop
