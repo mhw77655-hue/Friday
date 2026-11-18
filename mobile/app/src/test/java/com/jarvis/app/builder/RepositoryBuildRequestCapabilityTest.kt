@@ -86,7 +86,7 @@ class RepositoryBuildRequestCapabilityTest {
         assertEquals(1, envelope.getInt("schema_version"))
         assertEquals("main", envelope.getString("source_revision"))
         assertEquals("approved", envelope.getJSONObject("privacy_review").getString("status"))
-        assertEquals(false, envelope.getBoolean("aggregate_runtime_evidence_enabled"))
+        assertEquals(false, envelope.getJSONObject("privacy_review").getBoolean("aggregate_runtime_evidence_enabled"))
         assertEquals(
             "Add a bounded local capability for parsing structured date ranges.",
             envelope.getString("intended_outcome")
