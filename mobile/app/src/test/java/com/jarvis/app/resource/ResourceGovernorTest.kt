@@ -84,6 +84,46 @@ class ResourceGovernorTest {
     }
 
     @Test
+    fun `low live available memory blocks new development work`() {
+        val governor = ResourceGovernor()
+        governor.updateDeviceState(DeviceResourceState(availableMemoryMb = 600))
+        val result = governor.requestAdmission(smallGenome(), "low-memory")
+        assertFalse(result.admitted)
+        assertTrue(result.reasons.any { it.contains("Insufficient memory") })
+    }
+
+    @Test
+    fun `high live cpu load reduces admission capacity`() {
+        val governor = ResourceGovernor()
+        governor.updatePolicy(AdmissionPolicy(totalCpuPercent = 70.0))
+        governor.updateDeviceState(DeviceResourceState(cpuLoadPercent = 65.0))
+        val result = governor.requestAdmission(smallGenome(), "high-cpu")
+        assertFalse(result.admitted)
+        assertTrue(result.reasons.any { it.contains("Insufficient CPU") })
+    }
+
+    @Test
+    fun `no network safety constraint is enforced not merely reported`() {
+        val governor = ResourceGovernor()
+        governor.updateDeviceState(DeviceResourceState(networkAvailable = true))
+        val genome = smallGenome().copy(
+            safetyConstraints = setOf(com.jarvis.app.genome.SafetyConstraint.NO_NETWORK)
+        )
+        val result = governor.requestAdmission(genome, "no-network")
+        assertFalse(result.admitted)
+        assertTrue(result.reasons.any { it.contains("network must be unavailable") })
+    }
+
+    @Test
+    fun `canAdmit uses the same live memory and cpu limits`() {
+        val governor = ResourceGovernor()
+        governor.updateDeviceState(
+            DeviceResourceState(availableMemoryMb = 600, cpuLoadPercent = 75.0)
+        )
+        assertFalse(governor.canAdmit(memoryMb = 100, cpuPercent = 10.0))
+    }
+
+    @Test
     fun `low battery rejects when policy requires`() {
         val governor = ResourceGovernor()
         governor.updateDeviceState(DeviceResourceState(batteryPercent = 3, isCharging = false))
