@@ -38,5 +38,14 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn("workflow_dispatch:", self.workflow)
 
 
+    def test_candidate_branches_do_not_run_duplicate_push_and_pull_request_builds(self):
+        push = self.workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
+        self.assertIn("branches: [ main ]", push)
+        self.assertNotIn("audit/**", push)
+        self.assertNotIn("friday-proposals/**", push)
+        self.assertIn("concurrency:", self.workflow)
+        self.assertIn("github.event_name", self.workflow)
+
+
 if __name__ == "__main__":
     unittest.main()
