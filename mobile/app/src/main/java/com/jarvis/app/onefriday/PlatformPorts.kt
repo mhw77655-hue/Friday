@@ -115,6 +115,9 @@ interface PlatformPorts {
      */
     fun registerCapabilities(fabric: com.jarvis.app.cognitive.capability.CapabilityFabric) = Unit
 
+    /** Permissions explicitly granted by the host's owner-controlled settings. */
+    fun grantedCapabilityPermissions(): Set<com.jarvis.app.cognitive.capability.CapabilityPermission> = emptySet()
+
     fun memoryForgetter(): com.jarvis.app.memory.provenance.MemoryForgetter? = null
 }
 
