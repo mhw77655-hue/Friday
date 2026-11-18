@@ -303,6 +303,7 @@ class TurnPathAssembly private constructor(
             // ── Capability fabric, routing, and fuzzy command resolution ───────
             val failureSurface = ports.failureSurface()
             val capabilityFabric = CapabilityFabric(ImmuneSystem(surface = failureSurface))
+            ports.registerCapabilities(capabilityFabric)
             val capabilityEvidenceLedger = com.jarvis.app.cognitive.capability.CapabilityEvidenceLedger(
                 ports.storageDir.resolve("friday"),
                 nowMs = { ports.nowMs() }
@@ -430,11 +431,14 @@ class TurnPathAssembly private constructor(
             )
             val goalContinuityLoad = goalContinuityStore.load(individual.identity.id)
             var persistGoalContinuity = true
+            var lastPersistedGoal: Pair<com.jarvis.app.cognitive.Goal?, List<com.jarvis.app.cognitive.Subgoal>> =
+                engine.cognitiveState.value.currentGoal to engine.cognitiveState.value.activeSubgoals
             when (goalContinuityLoad) {
                 com.jarvis.app.cognitive.seed.GoalContinuityLoad.Empty -> Unit
                 is com.jarvis.app.cognitive.seed.GoalContinuityLoad.Restored -> {
                     val restored = goalContinuityLoad.continuity
                     engine.restoreGoalContinuity(restored.goal, restored.subgoals)
+                    lastPersistedGoal = restored.goal to restored.subgoals
                 }
                 com.jarvis.app.cognitive.seed.GoalContinuityLoad.IdentityMismatch -> {
                     persistGoalContinuity = false
@@ -452,16 +456,24 @@ class TurnPathAssembly private constructor(
                 }
             }
             if (persistGoalContinuity) {
-                // Persist synchronously before a goal transition becomes visible
-                // to the rest of Friday. A background StateFlow collector could
-                // lose the final update if Android kills the process immediately
-                // after the in-memory state change.
-                engine.installGoalContinuityWriter { currentGoal, currentSubgoals ->
-                    goalContinuityStore.save(
-                        individual.identity.id,
-                        currentGoal,
-                        currentSubgoals
-                    )
+                ports.modelScope().launch(Dispatchers.IO) {
+                    engine.cognitiveState.collect { state ->
+                        val current = state.currentGoal to state.activeSubgoals
+                        if (current != lastPersistedGoal) {
+                            try {
+                                goalContinuityStore.save(individual.identity.id, current.first, current.second)
+                                lastPersistedGoal = current
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (failure: Exception) {
+                                android.util.Log.e(
+                                    "FridayContinuity",
+                                    "Could not persist Friday's goal continuity.",
+                                    failure
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
