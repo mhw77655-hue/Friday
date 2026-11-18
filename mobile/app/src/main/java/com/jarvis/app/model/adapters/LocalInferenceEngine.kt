@@ -110,28 +110,44 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
             val stream: Boolean = false
         )
 
+        @JvmStatic
         external fun nativeCreate(config: NativeConfig): Long
+        @JvmStatic
         external fun nativeGetState(handle: Long): Int
+        @JvmStatic
         external fun nativeGetHealth(handle: Long): NativeHealth
+        @JvmStatic
         external fun nativePrewarm(handle: Long): Boolean
+        @JvmStatic
         external fun nativeWaitReady(handle: Long, timeoutMs: Int): Boolean
+        @JvmStatic
         external fun nativeGenerate(
             handle: Long,
             prompt: String,
             config: NativeGenConfig,
             callback: TokenCallback?
         ): String?
+        @JvmStatic
         external fun nativeCancel(handle: Long)
+        @JvmStatic
         external fun nativeSuspend(handle: Long): Boolean
+        @JvmStatic
         external fun nativeResume(handle: Long): Boolean
+        @JvmStatic
         external fun nativeDestroy(handle: Long)
 
+        @JvmStatic
         external fun nativeTokenCount(handle: Long, text: String): Int
+        @JvmStatic
         external fun nativeEncode(handle: Long, text: String, output: IntArray): Int
+        @JvmStatic
         external fun nativeDecode(handle: Long, tokens: IntArray): String?
 
+        @JvmStatic
         external fun nativeVersion(): String
+        @JvmStatic
         external fun nativeSystemInfo(): String
+        @JvmStatic
         external fun nativeBenchmark(handle: Long, nThreads: Int, nPrompt: Int, nGen: Int): String
 
         /** Token streaming callback */
