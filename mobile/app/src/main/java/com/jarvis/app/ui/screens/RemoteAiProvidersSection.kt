@@ -49,7 +49,7 @@ fun RemoteAiProvidersSection() {
     var profileId by remember { mutableStateOf("openai") }
     var label by remember { mutableStateOf("OpenAI") }
     var endpoint by remember { mutableStateOf("https://api.openai.com/v1") }
-    var modelId by remember { mutableStateOf("gpt-4.1-mini") }
+    var modelId by remember { mutableStateOf("gpt-6-luna") }
     var apiKey by remember { mutableStateOf("") }
     var protocol by remember { mutableStateOf(RemoteProviderProtocol.OPENAI_RESPONSES) }
     var allowLocalHttp by remember { mutableStateOf(false) }
@@ -118,9 +118,19 @@ fun RemoteAiProvidersSection() {
                     DropdownMenuItem(text = { Text(item.name) }, onClick = {
                         protocol = item
                         when (item) {
-                            RemoteProviderProtocol.OPENAI_RESPONSES, RemoteProviderProtocol.OPENAI_COMPATIBLE -> endpoint = "https://api.openai.com/v1"
-                            RemoteProviderProtocol.ANTHROPIC_MESSAGES -> endpoint = "https://api.anthropic.com/v1"
-                            RemoteProviderProtocol.GEMINI_INTERACTIONS -> endpoint = "https://generativelanguage.googleapis.com/v1beta"
+                            RemoteProviderProtocol.OPENAI_RESPONSES -> {
+                                endpoint = "https://api.openai.com/v1"
+                                modelId = "gpt-6-luna"
+                            }
+                            RemoteProviderProtocol.OPENAI_COMPATIBLE -> endpoint = "https://api.openai.com/v1"
+                            RemoteProviderProtocol.ANTHROPIC_MESSAGES -> {
+                                endpoint = "https://api.anthropic.com/v1"
+                                modelId = "claude-haiku-4-5-20251001"
+                            }
+                            RemoteProviderProtocol.GEMINI_INTERACTIONS -> {
+                                endpoint = "https://generativelanguage.googleapis.com/v1beta"
+                                modelId = "gemini-3.1-flash-lite"
+                            }
                         }
                         label = when (item) {
                             RemoteProviderProtocol.OPENAI_RESPONSES, RemoteProviderProtocol.OPENAI_COMPATIBLE -> "OpenAI"
