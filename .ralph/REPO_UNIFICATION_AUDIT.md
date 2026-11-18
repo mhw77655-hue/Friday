@@ -1,5 +1,7 @@
 # Friday repository-wide diagnostic and unification audit
 
+> **Historical audit snapshot — 2026-11-17.** Its branch topology, PR lineage, integration claims and status are superseded by the current main tree. Use [the 2026-11-18 whole-project root-cause plan](WHOLE_PROJECT_ROOT_CAUSE_PLAN_20261118.md) and the current `.ralph/REPO_FACTS.md` for live state. This file is retained as historical analysis only. Any reference to private conversation archives or extracted owner-source archives is obsolete: those private archives were removed from the public repository and must not be searched for, reconstructed, requested or republished. The curated `.ralph/OWNER_WORDS.md` is the approved owner-authored source record.
+
 **Audit date:** 2026-11-17  
 **Repository:** `mhw77655-hue/Friday`  
 **Working integration branch:** `audit/friday-unification`  
