@@ -74,11 +74,11 @@ class ProjectRepositoryReader(
     private fun readBounded(connection: HttpURLConnection, limit: Int): String {
         val out = StringBuilder()
         BufferedReader(InputStreamReader(connection.inputStream, Charsets.UTF_8)).use { reader ->
+            val buffer = CharArray(minOf(1_024, limit))
             while (out.length < limit) {
-                val line = reader.readLine() ?: break
-                val remaining = limit - out.length
-                out.append(line.take(remaining))
-                if (out.length < limit) out.append('\n')
+                val count = reader.read(buffer, 0, minOf(buffer.size, limit - out.length))
+                if (count < 0) break
+                out.append(buffer, 0, count)
             }
         }
         if (out.length >= limit) out.append("\n[TRUNCATED AT ${limit} CHARACTERS]")
