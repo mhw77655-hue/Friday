@@ -2,6 +2,7 @@ package com.jarvis.app.ui.screens
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +24,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.jarvis.app.ui.components.FridayEmptyPanel
+import com.jarvis.app.ui.components.FridayPanel
+import com.jarvis.app.ui.components.FridayScreenHeader
+import com.jarvis.app.ui.components.FridaySectionHeading
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
 import com.jarvis.app.video.VideoIntakeRepository
@@ -77,37 +82,48 @@ fun VideoKnowledgeScreen() {
     LaunchedEffect(repository) { refresh() }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        modifier = Modifier
+            .fillMaxSize()
+            .background(JarvisColors.SurfaceBase)
+            .padding(bottom = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text("FRIDAY · VIDEO EXPERIENCE", style = JarvisType.Display)
-        Text(
-            "Show her videos from TikTok or another app. Friday stores shared media privately, extracts a small set of keyframes, and keeps the source linked to her experience history.",
-            style = JarvisType.Body
+        FridayScreenHeader(
+            eyebrow = "Visual experience",
+            title = "Video library",
+            description = "Share videos from TikTok or another app. Friday stores imported media privately, extracts selected keyframes and keeps the source linked to this local library."
         )
-        Button(onClick = { picker.launch(arrayOf("video/*")) }) {
-            Text("Import a downloaded video")
+        FridayPanel(modifier = Modifier.padding(horizontal = 20.dp)) {
+            Button(
+                onClick = { picker.launch(arrayOf("video/*")) },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Import a downloaded video") }
+            Button(
+                onClick = {
+                    exportPicker.launch(arrayOf("application/zip", "application/json", "text/plain", "application/octet-stream"))
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Import TikTok data export") }
+            Text(status, style = JarvisType.Technical)
         }
-        Button(onClick = {
-            exportPicker.launch(arrayOf("application/zip", "application/json", "text/plain", "application/octet-stream"))
-        }) {
-            Text("Import TikTok data export")
+        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+            FridaySectionHeading("Video library", "${entries.size} items")
         }
-        Text(status, style = JarvisType.Technical)
-        Text("VIDEO LIBRARY · ${entries.size}", style = JarvisType.Label)
         LazyColumn(
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 12.dp)
         ) {
-            items(entries, key = { it.id }) { item ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = JarvisColors.SurfacePanel)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
+            if (entries.isEmpty()) {
+                item {
+                    FridayEmptyPanel(
+                        title = "No videos imported",
+                        description = "Share a video from another app or import a downloaded clip to start a local visual experience."
+                    )
+                }
+            } else {
+                items(entries, key = { it.id }) { item ->
+                    FridayPanel {
                         Text(item.title, style = JarvisType.Body)
                         Text(
                             when {
