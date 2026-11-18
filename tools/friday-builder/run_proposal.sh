@@ -22,7 +22,7 @@ export TMP="$WORKER_TMP_DIR"
 export TEMP="$WORKER_TMP_DIR"
 
 MODELS="$(timeout 90 opencode models 2>/dev/null || true)"
-MODEL=""
+AVAILABLE_MODELS=()
 for candidate in \
   opencode/deepseek-v4.1-flash-free \
   opencode/big-pickle \
@@ -30,15 +30,13 @@ for candidate in \
   opencode/flint-40b-free \
   opencode/beam-free; do
   if grep -Fxq "$candidate" <<<"$MODELS"; then
-    MODEL="$candidate"
-    break
+    AVAILABLE_MODELS+=("$candidate")
   fi
 done
-if [ -z "$MODEL" ]; then
+if [ "${#AVAILABLE_MODELS[@]}" -eq 0 ]; then
   echo "No supported free OpenCode worker lane is available; no repository write was attempted." >&2
   exit 4
 fi
-
 PROMPT_FILE="$(mktemp)"
 trap 'rm -f "$PROMPT_FILE"' EXIT
 cat > "$PROMPT_FILE" <<PROMPT
@@ -149,8 +147,58 @@ and acceptance criteria not met. Never merge, sign, release, install, or claim
 that the user's installed Friday has changed.
 PROMPT
 
-echo "Running bounded proposal with $MODEL; repository-write credentials are absent."
-timeout -k 15 3000 opencode run -m "$MODEL" "$(cat "$PROMPT_FILE")"
+# A listed provider can still be throttled, unavailable or stuck. Give each
+# free lane a bounded attempt, discard its partial workspace on failure, and
+# fall through to the next lane instead of burning the entire worker timeout.
+MODEL_ATTEMPT_TIMEOUT_SECONDS="${FRIDAY_BUILDER_MODEL_ATTEMPT_TIMEOUT_SECONDS:-420}"
+if [[ ! "$MODEL_ATTEMPT_TIMEOUT_SECONDS" =~ ^[0-9]+$ ]] || (( MODEL_ATTEMPT_TIMEOUT_SECONDS < 60 || MODEL_ATTEMPT_TIMEOUT_SECONDS > 900 )); then
+  echo "Invalid per-model timeout; expected 60..900 seconds." >&2
+  exit 3
+fi
+
+MODEL=""
+MODEL_SUCCEEDED=0
+attempt=0
+for candidate in "${AVAILABLE_MODELS[@]}"; do
+  attempt=$((attempt + 1))
+  git reset --hard "$BASE_SHA"
+  git clean -fdx
+  attempt_log="$WORKER_TMP_DIR/model-attempt-$attempt.log"
+  echo "Trying free OpenCode lane $candidate (attempt $attempt/${#AVAILABLE_MODELS[@]}, timeout ${MODEL_ATTEMPT_TIMEOUT_SECONDS}s)."
+  set +e
+  timeout -k 15 "$MODEL_ATTEMPT_TIMEOUT_SECONDS" opencode run -m "$candidate" "$(cat "$PROMPT_FILE")" >"$attempt_log" 2>&1
+  attempt_status=$?
+  set -e
+
+  if [[ "$attempt_status" -eq 0 ]] && [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
+    MODEL="$candidate"
+    MODEL_SUCCEEDED=1
+    echo "Model $candidate produced a source proposal."
+    break
+  fi
+
+  if [[ "$attempt_status" -eq 124 || "$attempt_status" -eq 137 ]]; then
+    echo "Model $candidate timed out; trying the next available free lane."
+  elif [[ "$attempt_status" -ne 0 ]]; then
+    echo "Model $candidate exited with status $attempt_status; trying the next available free lane."
+  else
+    echo "Model $candidate returned without a source change; trying the next available free lane."
+  fi
+  git reset --hard "$BASE_SHA"
+  git clean -fdx
+done
+
+if [[ "$MODEL_SUCCEEDED" -ne 1 ]]; then
+  echo "No free OpenCode lane completed a source proposal; no patch will be published." >&2
+  for log in "$WORKER_TMP_DIR"/model-attempt-*.log; do
+    [[ -f "$log" ]] || continue
+    echo "--- $(basename "$log") (last 20 lines) ---" >&2
+    tail -n 20 "$log" >&2 || true
+  done
+  exit 4
+fi
+
+echo "Using successful free OpenCode lane $MODEL; repository-write credentials are absent."
 
 git add -N . 2>/dev/null || true
 python3 tools/friday-builder/validate_patch_paths.py "$BASE_SHA"
