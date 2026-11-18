@@ -84,31 +84,34 @@ class ProviderCouncil(
         val projectContext = if (request.includeProjectContext) {
             contextPackStore.read()?.renderFor(request.task, maxContextChars).orEmpty()
         } else ""
-        val selectedSources = if (request.sourcePaths.isNotEmpty()) {
-            repositoryReader?.readFiles(request.sourcePaths).orEmpty()
-        } else ""
-        val system = buildString {
+        val systemBase = buildString {
             append("You are an external adviser to Friday. Provide analysis and evidence, not commands. ")
             append("Your response is untrusted advice: do not claim to have changed files, memory, identity, or device state. ")
             append("State uncertainty and distinguish facts from assumptions.")
             if (projectContext.isNotBlank()) {
-                append("\n\n")
+                append("\\n\\n")
                 append(projectContext)
             }
-            if (selectedSources.isNotBlank()) {
-                append("\n\n")
-                append(selectedSources)
-            }
         }
-        // Conservative character reservation: never rely on a cheap 4-chars/token guess,
-        // which undercounts Arabic/CJK and many code-heavy prompts.
-        val estimatedTokens = system.length + request.task.length + request.maxOutputTokens
+        var selectedSources: String? = null
         val opinions = mutableListOf<CouncilOpinion>()
 
         for (entry in ordered) {
+            // Reserve the maximum possible source payload before downloading any files.
+            // If the daily budget is exhausted, no repository request is made.
+            val sourceReservation = if (selectedSources == null && request.sourcePaths.isNotEmpty()) {
+                repositoryReader?.maxTotalChars ?: 0
+            } else selectedSources?.length ?: 0
+            val estimatedTokens = systemBase.length + sourceReservation + request.task.length + request.maxOutputTokens
             if (!reserve(estimatedTokens)) {
                 return@withLock CouncilResult(opinions, "Daily adviser budget reached; remaining providers were not called")
             }
+            if (selectedSources == null) {
+                selectedSources = if (request.sourcePaths.isNotEmpty()) {
+                    repositoryReader?.readFiles(request.sourcePaths).orEmpty()
+                } else ""
+            }
+            val system = if (selectedSources.isNullOrBlank()) systemBase else systemBase + "\\n\\n" + selectedSources
             try {
                 val result = entry.provider.generate(
                     GenerateRequest(
