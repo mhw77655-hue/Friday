@@ -4,11 +4,13 @@ These checks prevent known source-level hazards from silently returning. They do
 not replace native runtime tests on an Android device.
 """
 import unittest
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 CPP = (ROOT / "mobile/app/src/main/cpp/local_inference_engine.cpp").read_text(encoding="utf-8")
 JNI = (ROOT / "mobile/app/src/main/cpp/llama_jni.cpp").read_text(encoding="utf-8")
+KOTLIN = (ROOT / "mobile/app/src/main/java/com/jarvis/app/model/adapters/LocalInferenceEngine.kt").read_text(encoding="utf-8")
 
 
 def function_body(source: str, start: str, end: str) -> str:
@@ -44,6 +46,24 @@ class NativeInferenceLifecycleContractTests(unittest.TestCase):
         self.assertIn("std::lock_guard<std::mutex> thread_lock(model->prewarm_mutex)", CPP)
         self.assertIn("if (model->prewarm_thread.joinable()) model->prewarm_thread.join();", CPP)
         self.assertNotIn("model->prewarm_thread.detach()", CPP)
+
+    def test_companion_native_declarations_are_exported_as_outer_class_statics(self):
+        declarations = re.findall(r"^\\s*external fun native\\w+", KOTLIN, re.MULTILINE)
+        annotated = re.findall(r"@JvmStatic\\s+external fun native\\w+", KOTLIN)
+        self.assertGreater(len(declarations), 0)
+        self.assertEqual(len(declarations), len(annotated))
+
+    def test_health_jni_uses_real_companion_classes_enum_method_and_constructor_shape(self):
+        self.assertIn('LocalInferenceEngine$Companion$NativeHealth', JNI)
+        self.assertIn('LocalInferenceEngine$Companion$NativeState', JNI)
+        self.assertIn('GetStaticMethodID(\\n        stateClass,\\n        "values"', JNI)
+        self.assertNotIn('GetStaticFieldID(stateClass, "values"', JNI)
+        self.assertIn('(Lcom/jarvis/app/model/adapters/LocalInferenceEngine$Companion$NativeState;ZZLjava/lang/String;JJJFJJJJJF)V', JNI)
+
+    def test_tokenizer_decode_owned_buffer_is_freed_after_java_copy(self):
+        decode = function_body(JNI, 'JNI_CLASS(nativeDecode)', '\\n// Version')
+        self.assertIn('NewStringUTF(result)', decode)
+        self.assertIn('free((void*)result)', decode)
 
     def test_jni_model_path_remains_valid_until_native_create_copies_it(self):
         create = function_body(JNI, "JNI_CLASS(nativeCreate)", "\n// Get state")
