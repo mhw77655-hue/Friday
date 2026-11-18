@@ -179,6 +179,7 @@ void llama_model_destroy(LlamaModel* model);
  * Get tokenizer for model (for token counting, truncation).
  */
 LlamaTokenizer* llama_tokenizer_get(LlamaModel* model);
+void llama_tokenizer_free(LlamaTokenizer* tokenizer);
 
 /**
  * Encode text to token IDs.
