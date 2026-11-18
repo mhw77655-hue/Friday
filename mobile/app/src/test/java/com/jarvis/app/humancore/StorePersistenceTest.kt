@@ -153,4 +153,56 @@ class StorePersistenceTest {
         g2.registry.loadAll()
         assertTrue("dialogue log persisted at least one entry", g2.registry.dialogue.read().isNotEmpty())
     }
+    @Test
+    fun `failed identity persistence does not publish an uncommitted revision`() {
+        val dir = tempDir()
+        val delegate = com.jarvis.app.humancore.store.FileStorage(dir)
+        val failing = object : com.jarvis.app.humancore.store.StoragePort by delegate {
+            override fun write(store: StoreKind, content: String) {
+                if (store == StoreKind.IDENTITY) throw IllegalStateException("simulated disk failure")
+                delegate.write(store, content)
+            }
+        }
+        val identity = com.jarvis.app.humancore.store.IdentityStore(failing, { 123L })
+        identity.load()
+        val candidate = FallbackIdentity.record.copy(
+            name = "Uncommitted Friday",
+            version = 2,
+            lastRevisionEpochMs = 123L
+        )
+        try {
+            identity.applyRevision(
+                candidate,
+                com.jarvis.app.humancore.store.IdentityRevisionEntry(123L, "test", "owner", "test revision"),
+                com.jarvis.app.humancore.store.IdentityRevisionAuth.authorize("test", "owner")
+            )
+            throw AssertionError("Expected storage failure")
+        } catch (_: IllegalStateException) {
+            assertEquals(FallbackIdentity.record, identity.read())
+            assertTrue(identity.auditLog().isEmpty())
+            assertEquals(null, delegate.read(StoreKind.IDENTITY))
+        }
+    }
+
+    @Test
+    fun `reloading identity store does not duplicate its revision audit history`() {
+        val dir = tempDir()
+        val identity = com.jarvis.app.humancore.store.IdentityStore(
+            com.jarvis.app.humancore.store.FileStorage(dir),
+            { 123L }
+        )
+        identity.load()
+        identity.applyRevision(
+            FallbackIdentity.record.copy(name = "Friday v2", version = 2, lastRevisionEpochMs = 123L),
+            com.jarvis.app.humancore.store.IdentityRevisionEntry(123L, "test", "owner", "test revision"),
+            com.jarvis.app.humancore.store.IdentityRevisionAuth.authorize("test", "owner")
+        )
+
+        identity.load()
+        identity.load()
+
+        assertEquals(1, identity.auditLog().size)
+        assertEquals("Friday v2", identity.read().name)
+    }
+
 }
