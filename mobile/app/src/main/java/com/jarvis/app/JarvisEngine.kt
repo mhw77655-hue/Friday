@@ -329,7 +329,9 @@ object JarvisEngine {
                     threadTracker = threadTracker,
                     provenanceLedger = provenanceLedger,
                     adapterManifest = adapterManifest,
-                    nanoSymbiosis = nanoSymbiosis
+                    nanoSymbiosis = nanoSymbiosis,
+                    deviceControlRouterProvider = { JarvisEngine.androidDeviceControlRouter },
+                    riskGateProvider = { JarvisEngine.androidRiskGate }
                 )
             )
             this.fridayIndividual = assembly.individual
@@ -905,9 +907,10 @@ object JarvisEngine {
         )
         return when (admitted) {
             is com.jarvis.app.android.RiskGate.GateOutcome.Allowed -> {
-                val backend = router.execute(action)
+                val execution = router.executeWithEvidence(action)
+                val backend = execution.winner
                 if (backend != null) {
-                    val attempt = router.attempts.lastOrNull()
+                    val attempt = execution.attempts.lastOrNull { it.backendId == backend.id }
                     DeviceControlOutcome.Executed(
                         backend.id,
                         attempt?.evidence ?: com.jarvis.app.android.VerificationEvidence(
@@ -916,7 +919,7 @@ object JarvisEngine {
                     )
                 } else {
                     DeviceControlOutcome.Unverified(
-                        router.attempts.map { "${it.backendId}=${it.error ?: "not verified"}" }
+                        execution.attempts.map { "${it.backendId}=${it.error ?: "not verified"}" }
                     )
                 }
             }

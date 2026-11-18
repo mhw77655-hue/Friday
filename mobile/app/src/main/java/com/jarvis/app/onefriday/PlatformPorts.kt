@@ -109,6 +109,12 @@ interface PlatformPorts {
      * path consults. Null ⇒ no forget propagation, on every host, because a
      * missing optional capability must read the same everywhere.
      */
+    /**
+     * Register host-owned capabilities into Friday's shared fabric. Android
+     * supplies real device adapters; JVM hosts may intentionally supply none.
+     */
+    fun registerCapabilities(fabric: com.jarvis.app.cognitive.capability.CapabilityFabric) = Unit
+
     fun memoryForgetter(): com.jarvis.app.memory.provenance.MemoryForgetter? = null
 }
 
