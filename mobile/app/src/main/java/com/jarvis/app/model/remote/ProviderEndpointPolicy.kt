@@ -15,9 +15,9 @@ object ProviderEndpointPolicy {
         require(uri.userInfo == null) { "Credentials must not be embedded in endpoint URLs" }
         require(uri.query == null && uri.fragment == null) { "Provider endpoint cannot contain query strings or fragments" }
         val host = uri.host?.lowercase() ?: throw IllegalArgumentException("Provider endpoint must include a host")
-        val local = host == "localhost" || host == "127.0.0.1" || host == "::1" ||
-            host.endsWith(".local") || host.startsWith("192.168.") ||
-            host.startsWith("10.") || host.matches(Regex("172\\.(1[6-9]|2[0-9]|3[01])\\..*"))
+        // Match Android's packaged network_security_config.xml exactly:
+        // cleartext is allowed only for the explicit IPv4 loopback endpoint.
+        val local = host == "127.0.0.1"
         require(uri.scheme == "https" || (allowInsecureLocalNetwork && local)) {
             "HTTPS is required; HTTP is allowed only for explicitly approved local endpoints"
         }
