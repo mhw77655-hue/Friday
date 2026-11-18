@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "profile": "pixel_2",
+  "api_level": 35,
+  "locale": "en-US",
+  "time_zone": "UTC",
+  "display": {
+    "width_px": 1080,
+    "height_px": 1920,
+    "density_dpi": 420
+  },
+  "permissions": {
+    "camera": "denied",
+    "microphone": "denied",
+    "notifications": "denied",
+    "all_files_access": "denied",
+    "accessibility": "disabled",
+    "notification_listener": "disabled",
+    "shizuku": "unavailable"
+  },
+  "battery": {
+    "level": 78,
+    "charging": false
+  },
+  "network": {
+    "transport": "wifi",
+    "connected": true
+  },
+  "privacy_scope": "synthetic_test_baseline_no_personal_data",
+  "limitations": [
+    "Synthetic baseline; not yet exported from an owner's physical phone",
+    "No accounts, credentials, contacts, messages, photos, notification contents or personal app data",
+    "No OEM-specific services, SIM, NFC, Bluetooth, biometrics, Play Integrity or Shizuku runtime"
+  ]
+}
