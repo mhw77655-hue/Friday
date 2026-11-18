@@ -41,36 +41,46 @@ class MemoryConsolidationLoopTest {
     /** Pure-Kotlin, zero-JDBC in-memory [MemoryGraphStore] (same store interface
      *  the production composition uses, so the loop writes the same graph). */
     private class InMemoryGraph : MemoryGraphStore {
+        // Match the production store's concurrent read/write contract. The idle
+        // consolidation loop is deliberately tested from a worker dispatcher
+        // while assertions can query the same graph from the test thread.
+        private val lock = Any()
         private val nodes = mutableListOf<MemoryNode>()
         private var idCounter = 0
-        override fun addFact(subject: String, predicate: String, `object`: String, source: String): String {
-            val now = System.currentTimeMillis()
-            val id = "mem-${++idCounter}"
-            for (i in nodes.indices) {
-                if (nodes[i].subject == subject && nodes[i].predicate == predicate && nodes[i].validUntil == null) {
-                    nodes[i] = nodes[i].copy(validUntil = now, supersededBy = id)
+
+        override fun addFact(subject: String, predicate: String, `object`: String, source: String): String =
+            synchronized(lock) {
+                val now = System.currentTimeMillis()
+                val id = "mem-${++idCounter}"
+                for (i in nodes.indices) {
+                    if (nodes[i].subject == subject && nodes[i].predicate == predicate && nodes[i].validUntil == null) {
+                        nodes[i] = nodes[i].copy(validUntil = now, supersededBy = id)
+                    }
                 }
-            }
-            nodes.add(
-                MemoryNode(
-                    id = id, subject = subject, predicate = predicate,
-                    `object` = `object`, source = source, validFrom = now
+                nodes.add(
+                    MemoryNode(
+                        id = id, subject = subject, predicate = predicate,
+                        `object` = `object`, source = source, validFrom = now
+                    )
                 )
-            )
-            return id
-        }
+                id
+            }
 
         override fun query(subject: String?, predicate: String?, asOfTime: Long): List<MemoryNode> =
-            nodes.filter { n ->
-                (subject == null || n.subject == subject) &&
-                    (predicate == null || n.predicate == predicate) &&
-                    n.validFrom <= asOfTime && (n.validUntil == null || n.validUntil > asOfTime)
+            synchronized(lock) {
+                nodes.filter { n ->
+                    (subject == null || n.subject == subject) &&
+                        (predicate == null || n.predicate == predicate) &&
+                        n.validFrom <= asOfTime && (n.validUntil == null || n.validUntil > asOfTime)
+                }
             }
 
         override fun getHistory(subject: String, predicate: String): List<MemoryNode> =
-            nodes.filter { it.subject == subject && it.predicate == predicate }.sortedBy { it.validFrom }
+            synchronized(lock) {
+                nodes.filter { it.subject == subject && it.predicate == predicate }.sortedBy { it.validFrom }
+            }
 
-        override fun nodeCount(): Long = nodes.size.toLong()
+        override fun nodeCount(): Long = synchronized(lock) { nodes.size.toLong() }
         override fun close() {}
     }
 
