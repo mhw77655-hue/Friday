@@ -163,6 +163,89 @@ jobs:
               raise SystemExit(f'JUnit reports {f} failures and {e} errors.')
           PY
 
+
+  # A disposable Android device for real app-process/service instrumentation.
+  # This is a reproducible emulator baseline, not a bit-for-bit clone of the
+  # owner's handset. No account data, credentials or personal app data enter it.
+  android-emulator:
+    name: Disposable Android phone twin (instrumented)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Create isolated writable Android SDK
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${{ runner.temp }}/android-sdk"
+          mkdir -p "$SDK_ROOT/cmdline-tools"
+          cp -a /usr/local/lib/android/sdk/cmdline-tools/latest "$SDK_ROOT/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+
+      - name: Install emulator and pinned native build components
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install \
+            "platform-tools" \
+            "emulator" \
+            "platforms;android-36" \
+            "build-tools;35.0.0" \
+            "ndk;27.3.13750724" \
+            "cmake;3.22.1" \
+            "system-images;android-35;google_apis;x86_64"
+
+      - name: Build app and instrumentation APKs
+        run: ./gradlew :mobile:app:assembleDebug :mobile:app:assembleDebugAndroidTest
+
+      - name: Boot disposable virtual phone and apply sanitized baseline state
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -camera-front none -gpu swiftshader_indirect -no-snapshot-save
+          script: |
+            set -euo pipefail
+            mkdir -p "$RUNNER_TEMP/friday-emulator"
+            adb logcat -c
+            adb install -r mobile/app/build/outputs/apk/debug/app-debug.apk
+            python3 tools/friday-builder/apply_device_state_capsule.py .github/android-emulator/default-state-capsule.json
+            ./gradlew --offline :mobile:app:connectedDebugAndroidTest
+            adb shell am start -n com.jarvis.app/.MainActivity || true
+            sleep 8
+            adb exec-out screencap -p > "$RUNNER_TEMP/friday-emulator/screen.png" || true
+            adb logcat -d -t 12000 > "$RUNNER_TEMP/friday-emulator/logcat.txt" || true
+
+      - name: Upload emulator evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-virtual-phone-evidence
+          path: |
+            mobile/app/build/reports/androidTests/
+            mobile/app/build/outputs/androidTest-results/
+            mobile/app/build/test-results/
+            ${{ runner.temp }}/friday-emulator/
+          if-no-files-found: warn
+          retention-days: 7
+
   full-source-audit:
     name: Whole-repository source inventory and Kotlin vision audit
     runs-on: ubuntu-latest
