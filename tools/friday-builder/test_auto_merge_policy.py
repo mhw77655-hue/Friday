@@ -10,26 +10,43 @@ SPEC.loader.exec_module(MODULE)
 
 
 class AutoMergePolicyTests(unittest.TestCase):
-    def test_allows_low_risk_cognitive_runtime_and_tests(self):
+    def test_allows_low_risk_application_logic_and_tests(self):
         ok, _ = MODULE.evaluate([
+            "mobile/app/src/main/java/com/jarvis/app/formatting/TextFormatter.kt",
+            "mobile/app/src/test/java/com/jarvis/app/formatting/TextFormatterTest.kt",
+        ])
+        self.assertTrue(ok)
+
+    def test_blocks_builder_and_self_modification_control_planes(self):
+        for path in (
+            "mobile/app/src/main/java/com/jarvis/app/builder/ToolBuilder.kt",
+            "mobile/app/src/main/java/com/jarvis/app/evolution/EvolutionEngine.kt",
+            "mobile/app/src/main/java/com/jarvis/app/genome/GenomeRegistry.kt",
+            "mobile/app/src/main/java/com/jarvis/app/mutant/ArtifactRehydrator.kt",
+            "mobile/app/src/main/java/com/jarvis/app/validation/PromotionGate.kt",
+            "mobile/app/src/main/java/com/jarvis/app/resource/ResourceGovernor.kt",
+            "mobile/app/src/main/java/com/jarvis/app/selfrepair/SelfRepairLoop.kt",
             "mobile/app/src/main/java/com/jarvis/app/cognitive/CognitiveEngine.kt",
-            "mobile/app/src/test/java/com/jarvis/app/cognitive/CognitiveEngineTest.kt",
-        ])
-        self.assertTrue(ok)
+        ):
+            with self.subTest(path=path):
+                self.assertFalse(MODULE.evaluate([path])[0])
 
-    def test_allows_new_host_capability_with_tests(self):
-        ok, _ = MODULE.evaluate([
-            "mobile/app/src/main/java/com/jarvis/app/android/AndroidMediaControlCapability.kt",
-            "mobile/app/src/test/java/com/jarvis/app/android/AndroidMediaControlCapabilityTest.kt",
-        ])
-        self.assertTrue(ok)
+    def test_blocks_android_device_and_model_authority_paths(self):
+        for path in (
+            "mobile/app/src/main/java/com/jarvis/app/android/AndroidMediaControlBackend.kt",
+            "mobile/app/src/main/java/com/jarvis/app/model/ModelManager.kt",
+            "mobile/app/src/main/java/com/jarvis/app/network/NetworkClient.kt",
+        ):
+            with self.subTest(path=path):
+                self.assertFalse(MODULE.evaluate([path])[0])
 
-    def test_allows_declarative_local_phone_skill_registry_extensions(self):
-        ok, _ = MODULE.evaluate([
+    def test_blocks_phone_skill_registry_changes(self):
+        ok, reason = MODULE.evaluate([
             "mobile/app/src/main/java/com/jarvis/app/voice/LocalPhoneActionSkillRegistry.kt",
             "mobile/app/src/test/java/com/jarvis/app/voice/PhoneActionPlannerTest.kt",
         ])
-        self.assertTrue(ok)
+        self.assertFalse(ok)
+        self.assertIn("protected subsystem", reason)
 
     def test_blocks_manifest_and_permission_surface(self):
         ok, reason = MODULE.evaluate(["mobile/app/src/main/AndroidManifest.xml"])
