@@ -329,7 +329,9 @@ object JarvisEngine {
                     threadTracker = threadTracker,
                     provenanceLedger = provenanceLedger,
                     adapterManifest = adapterManifest,
-                    nanoSymbiosis = nanoSymbiosis
+                    nanoSymbiosis = nanoSymbiosis,
+                    deviceControlRouterProvider = { JarvisEngine.androidDeviceControlRouter },
+                    riskGateProvider = { JarvisEngine.androidRiskGate }
                 )
             )
             this.fridayIndividual = assembly.individual
