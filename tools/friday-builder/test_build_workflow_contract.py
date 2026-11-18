@@ -39,8 +39,8 @@ class BuildWorkflowContractTests(unittest.TestCase):
 
     def test_android_emulator_matches_github_runner_resource_budget(self):
         emulator = self.workflow.split("  android-emulator:", 1)[1].split("  full-source-audit:", 1)[0]
-        self.assertIn('"system-images;android-35;google_atd;x86_64"', emulator)
-        self.assertIn("target: google_atd", emulator)
+        self.assertIn('"system-images;android-35;google_apis;x86_64"', emulator)
+        self.assertIn("target: google_apis", emulator)
         self.assertIn("cores: 2", emulator)
         self.assertIn("-memory 3072 -cores 2", emulator)
         self.assertNotIn("-cores 4", emulator)
