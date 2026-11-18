@@ -207,6 +207,9 @@ JNI_CLASS(nativeGenerate)(JNIEnv* env, jobject thiz, jlong handle, jstring promp
     nativeConfig.stop_sequences = nullptr;
     nativeConfig.stop_sequence_count = 0;
     nativeConfig.stream = false;
+    // The backing strings and pointer array must outlive llama_model_generate.
+    std::vector<std::string> stopStorage;
+    std::vector<const char*> stopPointers;
 
     if (genConfig) {
         jclass configClass = env->GetObjectClass(genConfig);
@@ -232,8 +235,6 @@ JNI_CLASS(nativeGenerate)(JNIEnv* env, jobject thiz, jlong handle, jstring promp
         // Keep owned UTF-8 copies alive for the complete synchronous native call.
         jfieldID stopSeqField = env->GetFieldID(configClass, "stopSequences", "[Ljava/lang/String;");
         jobjectArray stopSeqArray = (jobjectArray)env->GetObjectField(genConfig, stopSeqField);
-        std::vector<std::string> stopStorage;
-        std::vector<const char*> stopPointers;
         if (stopSeqArray) {
             const jsize count = env->GetArrayLength(stopSeqArray);
             stopStorage.reserve(count);
