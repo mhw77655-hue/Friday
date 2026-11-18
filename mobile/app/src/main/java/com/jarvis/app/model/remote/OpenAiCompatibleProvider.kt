@@ -13,7 +13,7 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 
-enum class RemoteProviderProtocol { OPENAI_COMPATIBLE, ANTHROPIC_MESSAGES, GEMINI_GENERATE_CONTENT }
+enum class RemoteProviderProtocol { OPENAI_RESPONSES, OPENAI_COMPATIBLE, ANTHROPIC_MESSAGES, GEMINI_GENERATE_CONTENT }
 
 /**
  * Native Android adapter for major hosted model APIs and OpenAI-compatible endpoints.
@@ -35,11 +35,13 @@ class OpenAiCompatibleProvider(
     override suspend fun generate(request: GenerateRequest): GenerateResult = withContext(Dispatchers.IO) {
         require(request.maxTokens in 1..32768) { "maxTokens must be between 1 and 32768" }
         val body = when (protocol) {
+            RemoteProviderProtocol.OPENAI_RESPONSES -> openAiResponsesBody(request)
             RemoteProviderProtocol.OPENAI_COMPATIBLE -> openAiBody(request)
             RemoteProviderProtocol.ANTHROPIC_MESSAGES -> anthropicBody(request)
             RemoteProviderProtocol.GEMINI_GENERATE_CONTENT -> geminiBody(request)
         }
         val url = when (protocol) {
+            RemoteProviderProtocol.OPENAI_RESPONSES -> "$endpoint/responses"
             RemoteProviderProtocol.OPENAI_COMPATIBLE -> "$endpoint/chat/completions"
             RemoteProviderProtocol.ANTHROPIC_MESSAGES -> "$endpoint/messages"
             RemoteProviderProtocol.GEMINI_GENERATE_CONTENT ->
@@ -87,6 +89,24 @@ class OpenAiCompatibleProvider(
 
     override suspend fun tokenUsage() = TokenUsage(0, 0, 0, 0.0)
 
+    private fun openAiResponsesBody(request: GenerateRequest): JSONObject {
+        val instructions = request.messages.filter { it.role == MessageRole.SYSTEM }
+            .joinToString("\n") { it.content }
+        return JSONObject().apply {
+            put("model", request.modelId ?: model)
+            put("max_output_tokens", request.maxTokens.coerceAtLeast(16))
+            put("store", false)
+            if (instructions.isNotBlank()) put("instructions", instructions)
+            put("input", JSONArray().apply {
+                request.messages.filter { it.role != MessageRole.SYSTEM && it.role != MessageRole.TOOL }
+                    .forEach { message ->
+                        put(JSONObject()
+                            .put("role", if (message.role == MessageRole.ASSISTANT) "assistant" else "user")
+                            .put("content", message.content))
+                    }
+            })
+        }
+    }
     private fun openAiBody(request: GenerateRequest) = JSONObject().apply {
         put("model", request.modelId ?: model)
         put("max_tokens", request.maxTokens)
@@ -156,7 +176,7 @@ class OpenAiCompatibleProvider(
             setRequestProperty("Accept", "application/json")
             setRequestProperty("Content-Type", "application/json")
             when (protocol) {
-                RemoteProviderProtocol.OPENAI_COMPATIBLE ->
+                RemoteProviderProtocol.OPENAI_RESPONSES, RemoteProviderProtocol.OPENAI_COMPATIBLE ->
                     if (apiKey.isNotBlank()) setRequestProperty("Authorization", "Bearer $apiKey")
                 RemoteProviderProtocol.ANTHROPIC_MESSAGES -> {
                     setRequestProperty("x-api-key", apiKey)
@@ -191,6 +211,25 @@ class OpenAiCompatibleProvider(
         val completion: Int
         val finish: FinishReason
         when (protocol) {
+            RemoteProviderProtocol.OPENAI_RESPONSES -> {
+                val output = json.optJSONArray("output")
+                content = output?.let { items ->
+                    (0 until items.length()).mapNotNull { index ->
+                        val item = items.optJSONObject(index) ?: return@mapNotNull null
+                        if (item.optString("type") != "message") return@mapNotNull null
+                        item.optJSONArray("content")?.let { parts ->
+                            (0 until parts.length()).mapNotNull { partIndex ->
+                                val part = parts.optJSONObject(partIndex) ?: return@mapNotNull null
+                                if (part.optString("type") == "output_text") part.optString("text") else null
+                            }.filter { it.isNotBlank() }.joinToString("\n")
+                        }
+                    }.filter { it.isNotBlank() }.joinToString("\n")
+                }.orEmpty()
+                prompt = json.optJSONObject("usage")?.optInt("input_tokens", 0) ?: 0
+                completion = json.optJSONObject("usage")?.optInt("output_tokens", 0) ?: 0
+                val incomplete = json.optJSONObject("incomplete_details")?.optString("reason")
+                finish = if (json.optString("status") == "incomplete" || incomplete == "max_output_tokens") FinishReason.LENGTH else FinishReason.STOP
+            }
             RemoteProviderProtocol.OPENAI_COMPATIBLE -> {
                 val choice = json.optJSONArray("choices")?.optJSONObject(0)
                     ?: throw IllegalStateException("Provider response contained no choices")
