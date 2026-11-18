@@ -21,6 +21,12 @@ ALLOWED_PREFIXES = (
     "docs/",
 )
 ALLOWED_ROOT_FILES = {"README.md", "CHANGELOG.md"}
+# These are declarative local skill definitions/tests only; they do not execute
+# phone actions or grant permissions. Their outputs still pass the orchestrator.
+SAFE_VOICE_EXTENSION_PATHS = {
+    "mobile/app/src/main/java/com/jarvis/app/voice/LocalPhoneActionSkillRegistry.kt",
+    "mobile/app/src/test/java/com/jarvis/app/voice/PhoneActionPlannerTest.kt",
+}
 BLOCKED_SEGMENTS = {
     ".github", ".ralph", "tools", "development-requests",
     "github", "identity", "memory", "permissions", "permission",
@@ -86,7 +92,10 @@ def evaluate(paths: Any) -> tuple[bool, str]:
         lower_name = name.lower()
         if lower_name in {item.lower() for item in BLOCKED_NAMES}:
             return False, f"protected file: {path}"
-        if any(part in BLOCKED_SEGMENTS for part in lower_parts):
+        blocked_segments = lower_parts & BLOCKED_SEGMENTS
+        if blocked_segments and not (
+            path in SAFE_VOICE_EXTENSION_PATHS and blocked_segments == {"voice"}
+        ):
             return False, f"protected subsystem: {path}"
         if any(fragment in lower_name for fragment in BLOCKED_NAME_PARTS):
             return False, f"protected component: {path}"
