@@ -53,7 +53,7 @@ def is_system_ready(state: dict[str, str]) -> bool:
         for parts in volume_lines
     )
     emulated_mounted = any(
-        len(parts) >= 2 and parts[0] == "emulated" and parts[1] == "mounted"
+        len(parts) >= 2 and (parts[0] == "emulated" or parts[0].startswith("emulated;")) and parts[1] == "mounted"
         for parts in volume_lines
     )
     return (
