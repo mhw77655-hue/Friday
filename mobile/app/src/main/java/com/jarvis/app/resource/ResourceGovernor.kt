@@ -70,7 +70,7 @@ class ResourceGovernor(private val nowMs: () -> Long = { System.currentTimeMilli
         if (state.thermalLevel >= 2) {
             reasons += "Device is at critical thermal state"
             admitted = false
-        } else if (state.thermalLevel > 1 && budget.isLatencySensitive) {
+        } else if (state.thermalLevel == 1 && budget.isLatencySensitive) {
             reasons += "Device is thermally throttled; latency-sensitive system rejected"
             admitted = false
         }
