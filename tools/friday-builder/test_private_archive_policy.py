@@ -32,6 +32,8 @@ class PrivateArchivePolicyTests(unittest.TestCase):
         self.assertIn('--path "New Folder chats.zip"', workflow)
         self.assertIn('--path "New folder.zip"', workflow)
         self.assertIn("git push --force --mirror origin", workflow)
+        self.assertIn("gh pr list --repo", workflow)
+        self.assertIn("affected-pull-requests.txt", workflow)
         self.assertIn(".github/PRIVATE_ARCHIVE_PURGE_PENDING", workflow)
 
 
