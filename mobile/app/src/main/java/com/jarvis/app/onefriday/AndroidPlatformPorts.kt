@@ -4,6 +4,7 @@ import android.content.Context
 import com.jarvis.app.ObsidianSync
 import com.jarvis.app.companioncore.presence.CompanionCoreHolder
 import com.jarvis.app.failure.FailureSurface
+import com.jarvis.app.cognitive.capability.CapabilityFabric
 import com.jarvis.app.turn.TurnContext
 import com.jarvis.app.latency.AckSpeech
 import com.jarvis.app.latency.LatencyLayer
@@ -37,8 +38,22 @@ class AndroidPlatformPorts(
     private val threadTracker: com.jarvis.app.threads.ThreadTracker? = null,
     private val provenanceLedger: com.jarvis.app.memory.provenance.ProvenanceLedger? = null,
     private val adapterManifest: com.jarvis.app.memory.provenance.AdapterManifest? = null,
-    private val nanoSymbiosis: NanoSymbioticController? = null
+    private val nanoSymbiosis: NanoSymbioticController? = null,
+    private val deviceControlRouterProvider: () -> com.jarvis.app.android.DeviceControlRouter? = { null },
+    private val riskGateProvider: () -> com.jarvis.app.android.RiskGate? = { null }
 ) : PlatformPorts {
+
+    override fun registerCapabilities(fabric: CapabilityFabric) {
+        val result = fabric.register(
+            com.jarvis.app.android.AndroidMediaControlCapability(
+                routerProvider = deviceControlRouterProvider,
+                riskGateProvider = riskGateProvider
+            )
+        )
+        check(result is com.jarvis.app.cognitive.capability.CapabilityRegistry.RegisterResult.Ok) {
+            "Android media capability registration failed: $result"
+        }
+    }
 
     override fun modelScope(): CoroutineScope = scope
 
