@@ -25,11 +25,11 @@ The current PR merge-tree audit artifact from run [44314829219](https://github.c
 - PR #86 merged the permanent release-signing workflow. No release currently exists. Owner-controlled key custody and the five `FRIDAY_RELEASE_*` secrets remain unverified/unconfigured; the phone updater is not implemented. Issue #75 has been corrected to reflect this.
 - PR #82 (virtual Android phone) remains open. The latest run builds both APKs but fails before installation. The emulator log reports: `Cannot access system provider: 'settings' before system providers are installed!`. Its readiness test checks package enumeration, which is insufficient evidence that the Settings provider and PackageInstaller are ready.
 - PR #83 (autonomous repair/promotion) passes its latest reported CI, but its stated dependency is PR #85, which is closed without merge. Its current diff also removes the explicit workflow_dispatch while relying on PR checks from a GITHUB_TOKEN-created PR; GitHub puts those runs in an approval-required state. It must restore exact-candidate dispatch, gain Actions write only in the trusted publisher, and depend on PR #93's emulator gate before any promotion claim.
-- PR #89 is open at `2260ce75dc88e2b49b58d5a5cadbabeb974dc87f`. Its latest CI fails compilation: `JarvisEngine.kt:451:17 Argument already passed for this parameter.` The composition call passes `nowMs = clock` twice.
+- PR #89 is open at `3ea1803616f009e1e145857024c0d9caac9b8b0e`. The duplicate `nowMs` parameter and duplicate call-site argument have both been corrected in source; no successful build is yet verified because main's build workflow is being restored by PR #93.
 - PR #93 is the current integration candidate: it reconstructs the malformed main build workflow from the valid pre-append structure, preserves the merged signing smoke test, adds the emulator job and the tested-by-design Settings-provider readiness helper, and makes the failure reporter cover all validation lanes. Latest head `646f045c4c19e009d9bb50860d17351d3a8da3b1` is running in PR event #44314829219. Debug APK, release variant/signature smoke test, unit/Builder tests, actionlint and full-tree audit passed; emulator APKs built and the wiped AVD is booting/applying its state capsule. It is draft and not yet fully verified.
 - PR #82 is based on the pre-signing workflow and must not be merged separately; #93 supersedes it. PR #83 must depend on the merged #93 validation gate, not the stale #82/#85 topology.
 - PR #91 was closed after correcting an initial mistaken assumption about GitHub event semantics. PR #92 now grants `actions: write` only to the trusted proposal publisher so its deliberate `workflow_dispatch` can run; the untrusted worker remains read-only.
-- PR #89 also reintroduces `ToolBuilderComposition` into Android's production `JarvisEngine`, contradicting the repository's existing explicit contract that Android is Friday's body/evidence source while source construction, repository edits, tests, CI, artifact construction and signing belong in the connected repository workshop.
+- PR #89's phone-resident `ToolBuilderComposition` is the desired runtime-growth path: it synthesizes sandboxed `SynthProgram` capabilities and persists them into Friday's live capability fabric. This is not Android APK/repository source mutation. It must remain isolated from GitHub write credentials and must prove sandboxing, test execution, durable receipts, rollback and identity/memory integration. It is still request-driven; vision-inspired self-originated development remains a separate gap.
 - Issues #72, #73, #74, #76, #77 and #78 remain open. They cover the repair loop, vision-inspired autonomy and emulator, evidence of real learning, historical archive purge, runtime capability acquisition and Android capability/permission surface.
 
 ## 2. Root causes — not symptom list
@@ -250,6 +250,10 @@ The intended deployment has no dedicated paid server. The Android app should per
 **Consequence:** if the Builder depends synchronously on one free model endpoint or GitHub API call, quota exhaustion can stop development or lose work.  
 **Root correction:** make the phone outbox durable and idempotent; use local inference for runtime and small planning tasks; treat external model providers as replaceable optional workers; use bounded retries/backoff and provider fallback; checkpoint long jobs; never discard a request on quota exhaustion. Keep build/test correctness independent of model-provider availability. Document actual GitHub Actions/API quotas and do not promise unlimited usage.
 
+### Runtime growth versus repository source building
+
+The phone/workshop boundary is not "all building must happen in the cloud." Friday must be able to grow while installed: the phone-resident Builder may synthesize, test, sandbox, persist and roll back new runtime `SynthProgram` capabilities in the live capability fabric. That is the purpose of PR #89. It must not rewrite the installed APK, Gradle project, native library or GitHub repository from the runtime process. Changes to Android source, build scripts, tests, signing and APK artifacts go through the trusted repository workshop, where independent CI/emulator validation runs. The phone bridge carries requests and verified results between the two. The runtime Builder receives no repository write token or signing key.
+
 ## 3. Architecture boundary to preserve
 
 1. **Friday on Android:** persistent identity/continuity, local cognition and presence, privacy-minimized observation, memory/experience, permissioned device actions, safe capability runtime, self-study, development-intent formation, durable offline outbox and result consumption.
@@ -277,7 +281,7 @@ The phases are engineering work packages, not a prescribed developmental ladder 
 
 ### Phase 1 — Restore one green, reproducible main baseline
 
-- Keep PR #89 unmerged until its architectural contradiction is resolved; do not accept a compile-only repair that restores on-device source building.\n- Restore the main build workflow from the valid pre-append structure; integrate emulator and release smoke checks exactly once and prove the jobs are actually scheduled.
+- Keep PR #89 unmerged until it is rebased on the repaired main CI and proves runtime capability synthesis, artifact integrity, sandboxing, restart recovery, rollback and capability isolation. Preserve the boundary: runtime capabilities may be built on the phone; Android source/APK changes are built and signed in the trusted workshop.\n- Restore the main build workflow from the valid pre-append structure; integrate emulator and release smoke checks exactly once and prove the jobs are actually scheduled.
 - Fix the actual compile blocker in the correct design, then build the exact candidate commit and run the complete unit-test suite.
 - Fix emulator readiness at the system-provider/PackageInstaller level; test early-boot and timeout cases, not just a long delay.
 - Require emulator install, instrumentation execution, evidence upload and explicit supported/unsupported-device report.
@@ -393,7 +397,7 @@ The phases are engineering work packages, not a prescribed developmental ladder 
 
 ## 6. Immediate execution order
 
-1. Keep #89 out of main and redesign its phone/workshop boundary; the duplicate `nowMs` compile error is only one visible defect.
+1. Keep #89 out of main until its runtime capability synthesis is fully tested; the duplicate `nowMs` compile blocker is fixed in source but not yet build-verified. Preserve the phone-runtime capability / workshop-source-build boundary.
 2. Repair #82's real system-provider readiness and get a reproducible emulator instrumentation pass.
 3. Rebase/update #83's dependency and make emulator checks mandatory before any promotion claim.
 4. Reconcile current main docs/issues/PR state, quarantine/remove the obsolete Python JARVIS island after reference checks, and publish the requirement-to-evidence ledger.
