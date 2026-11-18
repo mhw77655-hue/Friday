@@ -204,7 +204,6 @@ if [[ "$MODEL_SUCCEEDED" -ne 1 ]]; then
     fi
     pkill -x ollama >/dev/null 2>&1 || true
     env OLLAMA_HOST=127.0.0.1:11434 OLLAMA_GO_TEMPLATE=false OLLAMA_CONTEXT_LENGTH=32768 OLLAMA_NUM_PARALLEL=1 OLLAMA_MAX_LOADED_MODELS=1 ollama serve >"$WORKER_TMP_DIR/ollama.log" 2>&1 &
-    ollama_pid=$!
     ollama_ready=0
     for wait_attempt in $(seq 1 60); do
       if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
@@ -248,7 +247,7 @@ if [[ "$MODEL_SUCCEEDED" -ne 1 ]]; then
   fi
 fi
 if [[ "$MODEL_SUCCEEDED" -ne 1 ]]; then
-  echo "No free OpenCode lane completed a source proposal; no patch will be published." >&2
+  echo "No hosted or local free model completed a source proposal; no patch will be published." >&2
   for log in "$WORKER_TMP_DIR"/model-attempt-*.log; do
     [[ -f "$log" ]] || continue
     echo "--- $(basename "$log") (last 20 lines) ---" >&2
