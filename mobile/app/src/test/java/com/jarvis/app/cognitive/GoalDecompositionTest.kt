@@ -40,7 +40,7 @@ class GoalDecompositionTest {
     @Test
     fun decompose_produces_ordered_subgoals_on_working_memory() = kotlinx.coroutines.runBlocking {
         val e = engine { goal ->
-            "1. Research the topic\n2. Write an outline\n3. Draft the report"
+            """{"subgoals":[{"description":"Research the topic","operation":"research"},{"description":"Write an outline","operation":"outline"},{"description":"Draft the report","operation":"draft"}]}"""
         }
 
         val result = e.decompose("Write a market analysis report")
@@ -63,7 +63,7 @@ class GoalDecompositionTest {
     @Test
     fun decompose_handles_plain_newline_separated_output() = kotlinx.coroutines.runBlocking {
         val e = engine { _ ->
-            "Research data sources\nAnalyze trends\nWrite conclusion"
+            """{"subgoals":[{"description":"Research data sources","operation":"research"},{"description":"Analyze trends","operation":"analyze"},{"description":"Write conclusion","operation":"write"}]}"""
         }
 
         val result = e.decompose("Analyze market")
@@ -77,7 +77,7 @@ class GoalDecompositionTest {
         val e = engine { _ ->
             callCount++
             if (callCount == 1) "GARBAGE RANDOM TEXT"  // First call: malformed
-            else "1. Step A\n2. Step B"                  // Second call: good
+            else """{"subgoals":[{"description":"Step A","operation":"step_a"},{"description":"Step B","operation":"step_b"}]}"""                  // Second call: good
         }
 
         val result = e.decompose("Do something")
@@ -97,6 +97,25 @@ class GoalDecompositionTest {
             assertEquals(DecompositionCause.MALFORMED_OUTPUT, e.reason)
             assertTrue(e.message!!.contains("retry"))
         }
+    }
+
+    @Test
+    fun decompose_rejects_prose_only_output_even_when_it_looks_like_a_list() = kotlinx.coroutines.runBlocking {
+        val e = engine { _ -> "1. Do the first thing\n2. Do the second thing" }
+        try {
+            e.decompose("Do something")
+            fail("Descriptions without operation identifiers must not become executable plans")
+        } catch (error: DecompositionException) {
+            assertEquals(DecompositionCause.MALFORMED_OUTPUT, error.reason)
+        }
+    }
+
+    @Test
+    fun parser_rejects_unbounded_or_non_string_parameters() {
+        val e = engine { _ -> "" }
+        assertNull(e.parseExecutableSubgoals("""{"subgoals":[{"description":"x","operation":"read","parameters":{"bad":42}}]}"""))
+        assertNull(e.parseExecutableSubgoals("""{"subgoals":[{"description":"","operation":"read"}]}"""))
+        assertNull(e.parseExecutableSubgoals("1. Read the preference"))
     }
 
     @Test
