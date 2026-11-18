@@ -34,8 +34,7 @@ for candidate in \
   fi
 done
 if [ "${#AVAILABLE_MODELS[@]}" -eq 0 ]; then
-  echo "No supported free OpenCode worker lane is available; no repository write was attempted." >&2
-  exit 4
+  echo "No hosted free OpenCode lane is currently available; the local no-API fallback will still be attempted."
 fi
 PROMPT_FILE="$(mktemp)"
 trap 'rm -f "$PROMPT_FILE"' EXIT
@@ -150,8 +149,8 @@ PROMPT
 # A listed provider can still be throttled, unavailable or stuck. Give each
 # free lane a bounded attempt, discard its partial workspace on failure, and
 # fall through to the next lane instead of burning the entire worker timeout.
-MODEL_ATTEMPT_TIMEOUT_SECONDS="${FRIDAY_BUILDER_MODEL_ATTEMPT_TIMEOUT_SECONDS:-420}"
-if [[ ! "$MODEL_ATTEMPT_TIMEOUT_SECONDS" =~ ^[0-9]+$ ]] || (( MODEL_ATTEMPT_TIMEOUT_SECONDS < 60 || MODEL_ATTEMPT_TIMEOUT_SECONDS > 900 )); then
+MODEL_ATTEMPT_TIMEOUT_SECONDS="${FRIDAY_BUILDER_MODEL_ATTEMPT_TIMEOUT_SECONDS:-300}"
+if [[ ! "$MODEL_ATTEMPT_TIMEOUT_SECONDS" =~ ^[0-9]+$ ]] || (( MODEL_ATTEMPT_TIMEOUT_SECONDS < 60 || MODEL_ATTEMPT_TIMEOUT_SECONDS > 600 )); then
   echo "Invalid per-model timeout; expected 60..900 seconds." >&2
   exit 3
 fi
@@ -188,6 +187,66 @@ for candidate in "${AVAILABLE_MODELS[@]}"; do
   git clean -fdx
 done
 
+if [[ "$MODEL_SUCCEEDED" -ne 1 ]]; then
+  echo "Hosted free lanes exhausted; trying the local Ollama fallback (no API key or provider quota)."
+  if ! command -v ollama >/dev/null 2>&1; then
+    if ! curl -fsSL https://ollama.com/install.sh | sh; then
+      echo "Could not install Ollama; local fallback is unavailable." >&2
+    fi
+  fi
+
+  if command -v ollama >/dev/null 2>&1; then
+    # Run Ollama as the disposable runner user so the model can be cached in
+    # ~/.ollama/models. Disable the affected Go template tool-call path for
+    # Qwen3 and keep CPU/RAM use bounded on the standard 4-core runner.
+    if command -v systemctl >/dev/null 2>&1; then
+      sudo systemctl stop ollama >/dev/null 2>&1 || true
+    fi
+    pkill -x ollama >/dev/null 2>&1 || true
+    env OLLAMA_HOST=127.0.0.1:11434 OLLAMA_GO_TEMPLATE=false OLLAMA_CONTEXT_LENGTH=32768 OLLAMA_NUM_PARALLEL=1 OLLAMA_MAX_LOADED_MODELS=1 ollama serve >"$WORKER_TMP_DIR/ollama.log" 2>&1 &
+    ollama_pid=$!
+    ollama_ready=0
+    for wait_attempt in $(seq 1 60); do
+      if curl -fsS http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+        ollama_ready=1
+        break
+      fi
+      sleep 2
+    done
+
+    if [[ "$ollama_ready" == "1" ]]; then
+      if timeout -k 15 600 ollama pull qwen3:4b-instruct; then
+        LOCAL_MODEL="ollama/qwen3:4b-instruct"
+        LOCAL_MODELS="$(timeout 90 opencode models 2>/dev/null || true)"
+        if grep -Fxq "$LOCAL_MODEL" <<<"$LOCAL_MODELS"; then
+          git reset --hard "$BASE_SHA"
+          git clean -fdx
+          local_log="$WORKER_TMP_DIR/local-ollama-attempt.log"
+          echo "Trying local tool-capable model $LOCAL_MODEL (timeout 900s)."
+          set +e
+          timeout -k 15 900 opencode run -m "$LOCAL_MODEL" "$(cat "$PROMPT_FILE")" >"$local_log" 2>&1
+          local_status=$?
+          set -e
+          if [[ "$local_status" -eq 0 ]] && [[ -n "$(git status --porcelain --untracked-files=all)" ]]; then
+            MODEL="$LOCAL_MODEL"
+            MODEL_SUCCEEDED=1
+            echo "Local Ollama model produced a source proposal."
+          else
+            echo "Local Ollama model did not produce a usable source proposal (exit $local_status)." >&2
+            tail -n 30 "$local_log" >&2 || true
+          fi
+        else
+          echo "OpenCode did not discover $LOCAL_MODEL after Ollama startup." >&2
+        fi
+      else
+        echo "Could not pull qwen3:4b-instruct within 600 seconds." >&2
+      fi
+    else
+      echo "Ollama API did not become ready within 120 seconds." >&2
+      tail -n 40 "$WORKER_TMP_DIR/ollama.log" >&2 || true
+    fi
+  fi
+fi
 if [[ "$MODEL_SUCCEEDED" -ne 1 ]]; then
   echo "No free OpenCode lane completed a source proposal; no patch will be published." >&2
   for log in "$WORKER_TMP_DIR"/model-attempt-*.log; do
