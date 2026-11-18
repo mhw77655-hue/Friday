@@ -130,8 +130,8 @@ jobs:
           else
             BASE_SHA="$BEFORE_SHA"
           fi
-          if [[ ! "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
-            echo "run_smoke=true" >> "$GITHUB_OUTPUT"
+          if [[ ! "$BASE_SHA" =~ ^[0-9a-f]{40}$ || "$BASE_SHA" =~ ^0{40}$ ]]; then
+            echo "run_smoke=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git fetch origin "$BASE_SHA"
