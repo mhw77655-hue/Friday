@@ -77,6 +77,7 @@ object ToolBuilderComposition {
         workspacesDir: File,
         llmSynthesisProvider: LlmSynthesisProvider? = null,
         cognitiveCapabilityFabric: CapabilityFabric? = null,
+        resourceGovernor: ResourceGovernor = ResourceGovernor(),
         refreshResources: () -> Unit = {}
     ): Stack {
         val sandbox = ResourceSandbox()
@@ -86,7 +87,7 @@ object ToolBuilderComposition {
         val mutantEnv = MutantEnvironment(factory, backend, sandbox, ArtifactManager(fileStorage))
 
         val registry = MicroSystemRegistry()
-        val governor = ResourceGovernor()
+        val governor = resourceGovernor
         val archive = GenomeArchive(fileStorage, scope)
         // Restore evolutionary metadata before gap detection so a known genome
         // is never mistaken for a never-seen capability. Executable tools still
