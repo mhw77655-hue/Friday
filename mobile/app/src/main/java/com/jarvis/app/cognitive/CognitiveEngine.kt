@@ -1265,6 +1265,12 @@ class CognitiveEngine(
             if (operations.any { it.startsWith("builder.create_tool ") }) {
                 append("\nFor builder.create_tool, parameters must include spec_json as a JSON string with capability, description, behavior (type plus its required fields), constraints, and optional max_memory_mb/max_cpu_percent. Use builder.describe first if the schema is unclear. The Builder can create only pure SynthProgram capabilities; it cannot load arbitrary code or perform I/O.")
             }
+            if (operations.any { it.startsWith("builder.inspect ") }) {
+                append("\nUse builder.inspect to examine recent promotion receipts and their PROMOTED/ROLLED_BACK status before making recovery decisions.")
+            }
+            if (operations.any { it.startsWith("builder.rollback ") }) {
+                append("\nUse builder.rollback only when evidence indicates a promoted capability regressed. parameters must include receipt_id from builder.inspect and a concise reason. Never invent a receipt id.")
+            }
             append("\nNever use the description as the operation. Do not invent operations or permissions.")
             if (strict) append("\nThe previous response was invalid; correct the schema and exact operation names.")
         }
