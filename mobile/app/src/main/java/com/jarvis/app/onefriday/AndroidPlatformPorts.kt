@@ -65,8 +65,9 @@ class AndroidPlatformPorts(
     }
 
     override fun grantedCapabilityPermissions(): Set<com.jarvis.app.cognitive.capability.CapabilityPermission> {
-        val enabled = (context.applicationContext as? com.jarvis.app.JarvisApplication)
-            ?.providerCouncil?.isEnabled() == true
+        val app = context.applicationContext as? com.jarvis.app.JarvisApplication
+        val enabled = app?.providerCouncil?.isEnabled() == true &&
+            app.remoteProviderProfiles.createEnabledEntries().isNotEmpty()
         return if (enabled) setOf(
             com.jarvis.app.cognitive.capability.CapabilityPermission.NETWORK,
             com.jarvis.app.cognitive.capability.CapabilityPermission.USER_DATA
