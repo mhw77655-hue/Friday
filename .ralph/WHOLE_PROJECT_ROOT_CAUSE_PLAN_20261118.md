@@ -181,6 +181,16 @@ The scanner's seven candidates are not seven defects. Manual review classifies t
 
 This triage is why the 276 scanner deviations are candidates requiring human semantic review, not a backlog of 276 automatic edits.
 
+### Manual triage of the 28 `fixed_classification` candidates
+
+Most are explicit Kotlin enums for state machines, transport commands, UI states, resource-degradation tiers, biometric types, recovery actions and model roles. These are stable protocol/state vocabularies, not proof that Friday's reasoning is fixed. They should remain typed and exhaustive.
+
+Two areas need semantic attention:
+- `CognitiveEngine`'s intent/turn categories are coarse routing labels; verify that they are not the sole arbiter of complex intent or capability selection. Preserve the richer evidence/plan path and ask when classification is uncertain.
+- `MemoryCandidate.PromotionDecision` is a genuine cognitive policy surface; its current weighted-score/explicit-instruction mismatch is recorded under RC-15. The enum itself is fine; the promotion semantics are not.
+
+Do not replace state-machine enums or permission/action protocols with unconstrained model-generated labels.
+
 ### Manual triage of the 19 `flat_threshold` candidates
 
 These are mostly explicit resource and temporal bounds, not evidence that cognition is artificially fixed:
