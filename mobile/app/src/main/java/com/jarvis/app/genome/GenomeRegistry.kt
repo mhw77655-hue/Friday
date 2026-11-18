@@ -26,7 +26,7 @@ class GenomeRegistry {
     /** Index a genome under every capability it declares (promotion). */
     fun register(genome: Genome) {
         if (!genome.isAccepted()) return
-        for (cap in genome.capabilities) {
+        for (cap in genome.indexedCapabilities()) {
             val existing = bestByCapability[cap]
             if (existing == null || genome.version >= existing.version) {
                 bestByCapability[cap] = genome
@@ -58,7 +58,7 @@ class GenomeRegistry {
     fun setCurrentBest(genome: Genome?) {
         bestByCapability.clear()
         if (genome != null && genome.isAccepted()) {
-            for (cap in genome.capabilities) bestByCapability[cap] = genome
+            for (cap in genome.indexedCapabilities()) bestByCapability[cap] = genome
         }
         _currentBest.value = genome
     }
@@ -67,3 +67,17 @@ class GenomeRegistry {
 /** A genome is a live current-best candidate only if it is accepted. */
 fun Genome.isAccepted(): Boolean =
     healthState == GenomeHealth.HEALTHY || healthState == GenomeHealth.DEGRADED
+
+/**
+ * A genome may carry inherited capability metadata, but a single persisted
+ * SynthProgram artifact implements exactly one operation. Never advertise
+ * inherited operations as callable through that one artifact.
+ *
+ * Legacy genomes without an artifact remain indexed as known-good metadata so
+ * the gap detector can rebuild missing executable artifacts.
+ */
+private fun Genome.indexedCapabilities(): Set<String> = when {
+    !artifactCapability.isNullOrBlank() -> setOf(artifactCapability)
+    artifactPath != null -> emptySet()
+    else -> capabilities
+}
