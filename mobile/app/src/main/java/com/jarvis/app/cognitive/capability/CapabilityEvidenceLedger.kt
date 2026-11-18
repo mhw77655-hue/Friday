@@ -167,6 +167,9 @@ class CapabilityEvidenceLedger(
         private const val MAX_ENTRIES = 2_000
         private const val MIN_VERIFIED_SUCCESSES = 2
         private val pathLocks = java.util.concurrent.ConcurrentHashMap<String, Any>()
-        private fun lockFor(file: File): Any = pathLocks.computeIfAbsent(file.absoluteFile.path) { Any() }
+        private fun lockFor(file: File): Any {
+            val key = runCatching { file.canonicalPath }.getOrElse { file.absolutePath }
+            return pathLocks.computeIfAbsent(key) { Any() }
+        }
     }
 }
