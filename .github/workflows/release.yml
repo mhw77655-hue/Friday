@@ -1,0 +1,232 @@
+name: Friday signed release
+
+on:
+  workflow_run:
+    workflows: ["build"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force_release:
+        description: Build a signed release even if no Android source changed since the previous release
+        required: false
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  signed-release:
+    if: >-
+      (github.event_name == 'workflow_dispatch' &&
+       github.actor == github.repository_owner &&
+       github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      TARGET_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+      FORCE_RELEASE: ${{ github.event.inputs.force_release || 'false' }}
+    steps:
+      - name: Check all permanent signing secrets
+        id: signing
+        env:
+          KEYSTORE_B64: ${{ secrets.FRIDAY_RELEASE_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.FRIDAY_RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.FRIDAY_RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.FRIDAY_RELEASE_KEY_PASSWORD }}
+          CERT_SHA256: ${{ secrets.FRIDAY_RELEASE_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [[ -n "$KEYSTORE_B64" ]] || missing+=(FRIDAY_RELEASE_KEYSTORE_BASE64)
+          [[ -n "$STORE_PASSWORD" ]] || missing+=(FRIDAY_RELEASE_STORE_PASSWORD)
+          [[ -n "$KEY_ALIAS" ]] || missing+=(FRIDAY_RELEASE_KEY_ALIAS)
+          [[ -n "$KEY_PASSWORD" ]] || missing+=(FRIDAY_RELEASE_KEY_PASSWORD)
+          [[ -n "$CERT_SHA256" ]] || missing+=(FRIDAY_RELEASE_CERT_SHA256)
+          if (( ${#missing[@]} > 0 )); then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            printf 'Missing required repository secrets: %s\n' "${missing[*]}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Explain one-time signing setup
+        if: steps.signing.outputs.configured == 'false'
+        run: |
+          {
+            echo "## Friday release not published"
+            echo
+            echo "The permanent production signing identity is not fully configured."
+            echo "Follow docs/FRIDAY_RELEASE_SIGNING_SETUP.md and add all five FRIDAY_RELEASE_* repository secrets."
+            echo "No debug APK is promoted as a production release."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Checkout the exact CI-verified main commit
+        if: steps.signing.outputs.configured == 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        if: steps.signing.outputs.configured == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Create isolated writable Android SDK
+        if: steps.signing.outputs.configured == 'true'
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${{ runner.temp }}/android-sdk"
+          mkdir -p "$SDK_ROOT/cmdline-tools"
+          cp -a /usr/local/lib/android/sdk/cmdline-tools/latest "$SDK_ROOT/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+
+      - name: Install pinned Android release build components
+        if: steps.signing.outputs.configured == 'true'
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;35.0.0" \
+            "ndk;27.3.13750724" \
+            "cmake;3.22.1"
+
+      - name: Check whether Android product code changed since last release
+        if: steps.signing.outputs.configured == 'true'
+        id: changes
+        run: |
+          set -euo pipefail
+          if [[ "$FORCE_RELEASE" == "true" ]]; then
+            echo "release_needed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          LATEST_TAG="$(gh release list --repo "$REPOSITORY" --limit 1 --json tagName --jq '.[0].tagName // empty')"
+          if [[ -z "$LATEST_TAG" ]]; then
+            echo "No previous signed release; first release is required."
+            echo "release_needed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git fetch origin "refs/tags/$LATEST_TAG:refs/tags/$LATEST_TAG"
+          PREVIOUS_RELEASE_SHA="$(git rev-list -n 1 "$LATEST_TAG")"
+          if ! git merge-base --is-ancestor "$PREVIOUS_RELEASE_SHA" "$TARGET_SHA"; then
+            echo "Latest release tag is not an ancestor of this main commit; publishing a new verified release."
+            echo "release_needed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CHANGED_FILES="$(git diff --name-only "$PREVIOUS_RELEASE_SHA" "$TARGET_SHA")"
+          if grep -Eq '^(mobile/app/|gradle/|build.gradle.kts|settings.gradle.kts|gradle.properties)' <<< "$CHANGED_FILES"; then
+            echo "Android product/build source changed."
+            echo "release_needed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No Android product/build source changed; no release needed."
+            echo "release_needed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Decode the permanent release keystore
+        if: steps.signing.outputs.configured == 'true' && steps.changes.outputs.release_needed == 'true'
+        env:
+          KEYSTORE_B64: ${{ secrets.FRIDAY_RELEASE_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          KEYSTORE_PATH="$RUNNER_TEMP/friday-release.p12"
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$KEYSTORE_PATH"
+          chmod 600 "$KEYSTORE_PATH"
+          test -s "$KEYSTORE_PATH"
+          echo "FRIDAY_RELEASE_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+
+      - name: Build the signed production APK
+        if: steps.signing.outputs.configured == 'true' && steps.changes.outputs.release_needed == 'true'
+        env:
+          FRIDAY_RELEASE_STORE_PASSWORD: ${{ secrets.FRIDAY_RELEASE_STORE_PASSWORD }}
+          FRIDAY_RELEASE_KEY_ALIAS: ${{ secrets.FRIDAY_RELEASE_KEY_ALIAS }}
+          FRIDAY_RELEASE_KEY_PASSWORD: ${{ secrets.FRIDAY_RELEASE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER))
+          VERSION_NAME="1.0.$GITHUB_RUN_NUMBER"
+          echo "FRIDAY_VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          echo "FRIDAY_VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          ./gradlew :mobile:app:assembleRelease \
+            -PfridayVersionCode="$VERSION_CODE" \
+            -PfridayVersionName="$VERSION_NAME"
+
+      - name: Verify APK signature and produce release metadata
+        if: steps.signing.outputs.configured == 'true' && steps.changes.outputs.release_needed == 'true'
+        env:
+          EXPECTED_CERT_SHA256: ${{ secrets.FRIDAY_RELEASE_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          APK="mobile/app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/friday-apk-certificate.txt"
+          ACTUAL_CERT_SHA256="$(awk -F': ' '/Signer #1 certificate SHA-256 digest:/ {print $2; exit}' "$RUNNER_TEMP/friday-apk-certificate.txt" | tr -d '[:space:]:' | tr '[:lower:]' '[:upper:]')"
+          EXPECTED_CERT_SHA256="$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d '[:space:]:' | tr '[:lower:]' '[:upper:]')"
+          if [[ -z "$ACTUAL_CERT_SHA256" || "$ACTUAL_CERT_SHA256" != "$EXPECTED_CERT_SHA256" ]]; then
+            echo "APK signing certificate does not match the pinned release fingerprint." >&2
+            exit 30
+          fi
+          APK_SHA256="$(sha256sum "$APK" | awk '{print $1}')"
+          printf '%s  %s\n' "$APK_SHA256" "friday.apk" > "$RUNNER_TEMP/friday.apk.sha256"
+          python3 - "$FRIDAY_VERSION_CODE" "$FRIDAY_VERSION_NAME" "$TARGET_SHA" "$ACTUAL_CERT_SHA256" "$APK_SHA256" > "$RUNNER_TEMP/friday-release-metadata.json" <<'PY'
+          import json, sys
+          version_code, version_name, commit, certificate, apk_sha = sys.argv[1:]
+          print(json.dumps({
+              "schema_version": 1,
+              "application_id": "com.jarvis.app",
+              "version_code": int(version_code),
+              "version_name": version_name,
+              "commit_sha": commit,
+              "certificate_sha256": certificate,
+              "apk_sha256": apk_sha,
+              "update_mode": "same-signature-in-place"
+          }, separators=(",", ":")))
+          PY
+
+      - name: Publish the signed release
+        if: steps.signing.outputs.configured == 'true' && steps.changes.outputs.release_needed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="friday-v$FRIDAY_VERSION_NAME"
+          APK="mobile/app/build/outputs/apk/release/app-release.apk"
+          METADATA="$RUNNER_TEMP/friday-release-metadata.json"
+          CHECKSUM="$RUNNER_TEMP/friday.apk.sha256"
+          if gh release view "$TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK#friday.apk" "$METADATA" "$CHECKSUM" --clobber --repo "$REPOSITORY"
+          else
+            gh release create "$TAG" "$APK#friday.apk" "$METADATA" "$CHECKSUM" \
+              --repo "$REPOSITORY" \
+              --title "Friday $FRIDAY_VERSION_NAME" \
+              --notes "CI-verified signed Friday Android release. Commit: $TARGET_SHA. APK certificate is checked against the pinned release fingerprint." \
+              --target "$TARGET_SHA"
+          fi
+          {
+            echo "## Signed Friday release published"
+            echo
+            echo "- Version: $FRIDAY_VERSION_NAME ($FRIDAY_VERSION_CODE)"
+            echo "- Tag: $TAG"
+            echo "- Commit: $TARGET_SHA"
+            echo "- Asset: friday.apk"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Explain skipped release
+        if: steps.signing.outputs.configured == 'true' && steps.changes.outputs.release_needed == 'false'
+        run: echo "No Android app/build changes since the latest signed release." >> "$GITHUB_STEP_SUMMARY"
