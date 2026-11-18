@@ -4,16 +4,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -23,20 +24,22 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.jarvis.app.JarvisEngine
 import com.jarvis.app.session.Session
 import com.jarvis.app.session.SessionManager
+import com.jarvis.app.ui.components.FridayEmptyPanel
+import com.jarvis.app.ui.components.FridayMetricTile
+import com.jarvis.app.ui.components.FridayScreenHeader
+import com.jarvis.app.ui.components.FridaySectionHeading
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Locale
+import java.text.DateFormat
+import java.util.Date
 
 /**
- * Sessions Screen — displays conversation sessions.
- * Wired to the SessionManager backend.
+ * Saved conversation sessions backed by SessionManager.
+ * Opening a row inspects history; it does not silently reactivate the session.
  */
 @Composable
 fun SessionsScreen(
@@ -51,27 +54,55 @@ fun SessionsScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(JarvisColors.SurfaceBase)
-            .padding(16.dp)
     ) {
-        Text(
-            text = "SESSIONS",
-            style = JarvisType.Label
+        FridayScreenHeader(
+            eyebrow = "Continuity across conversations",
+            title = "Sessions",
+            description = "Saved conversations on this device. Open one to inspect its history without changing the active conversation."
         )
 
-        Text(
-            text = "${sessions.size} session(s)",
-            style = JarvisType.Body.copy(fontSize = 14.sp),
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            FridayMetricTile(
+                label = "Saved",
+                value = sessions.size.toString(),
+                accent = JarvisColors.CoreThinking,
+                modifier = Modifier.weight(1f)
+            )
+            FridayMetricTile(
+                label = "Active",
+                value = if (activeSession == null) "NONE" else "1",
+                accent = JarvisColors.CoreSuccess,
+                modifier = Modifier.weight(1f)
+            )
+        }
 
-        LazyColumn {
-            items(sessions) { session ->
-                SessionRow(
-                    session = session,
-                    isActive = activeSession?.id == session.id,
-                    onClick = { onNavigate("session_detail/${session.id}") },
-                    onDelete = { scope.launch { sessionManager.deleteSession(session.id) } }
-                )
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            item {
+                FridaySectionHeading("Saved conversations", "${sessions.size} records")
+            }
+            if (sessions.isEmpty()) {
+                item {
+                    FridayEmptyPanel(
+                        title = "No saved sessions",
+                        description = "Conversation sessions will appear here when they are created and persisted locally."
+                    )
+                }
+            } else {
+                items(sessions.sortedByDescending { it.updatedAt }, key = { it.id }) { session ->
+                    SessionRow(
+                        session = session,
+                        isActive = activeSession?.id == session.id,
+                        onClick = { onNavigate("session_detail/${session.id}") },
+                        onDelete = { scope.launch { sessionManager.deleteSession(session.id) } }
+                    )
+                }
             }
         }
     }
@@ -85,13 +116,21 @@ private fun SessionRow(
     onDelete: () -> Unit
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp)
-            .background(if (isActive) JarvisColors.CoreIdle.copy(alpha = 0.15f) else JarvisColors.SurfacePanel),
-        onClick = onClick
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(21.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isActive) JarvisColors.SurfaceRaised else JarvisColors.SurfacePanel
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (isActive) JarvisColors.CoreIdle.copy(alpha = 0.45f) else JarvisColors.SurfaceHairline
+        )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(
+            modifier = Modifier.padding(15.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -105,24 +144,24 @@ private fun SessionRow(
                         imageVector = Icons.Filled.Email,
                         contentDescription = null,
                         tint = if (isActive) JarvisColors.CoreIdle else JarvisColors.TextSecondary,
-                        modifier = Modifier.padding(end = 12.dp)
+                        modifier = Modifier.padding(end = 11.dp)
                     )
                     Column {
                         Text(
-                            text = "Session ${session.id.takeLast(8)}",
-                            style = JarvisType.Body.copy(fontSize = 14.sp)
+                            "SESSION ${session.id.takeLast(8)}",
+                            style = JarvisType.Body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
                         )
                         Text(
-                            text = "${session.messageCount} messages • ${session.environmentId}",
-                            style = JarvisType.Technical.copy(fontSize = 12.sp, color = JarvisColors.TextSecondary)
+                            "${session.messageCount} messages · ${session.environmentId}",
+                            style = JarvisType.Technical.copy(color = JarvisColors.TextSecondary)
                         )
                     }
                 }
 
                 if (isActive) {
                     Text(
-                        text = "ACTIVE",
-                        style = JarvisType.Technical.copy(fontSize = 10.sp, color = JarvisColors.CoreIdle)
+                        "ACTIVE",
+                        style = JarvisType.Label.copy(color = JarvisColors.CoreSuccess)
                     )
                 }
 
@@ -130,24 +169,22 @@ private fun SessionRow(
                     Icon(
                         imageVector = Icons.Filled.Delete,
                         contentDescription = "Delete session",
-                        tint = JarvisColors.TextSecondary
+                        tint = JarvisColors.TextMuted
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.padding(vertical = 8.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Created: ${SimpleDateFormat("MM/dd HH:mm", Locale.getDefault()).format(java.util.Date(session.createdAt))}",
-                    style = JarvisType.Technical.copy(fontSize = 10.sp, color = JarvisColors.TextSecondary)
+                    "CREATED  ${DateFormat.getDateTimeInstance().format(Date(session.createdAt))}",
+                    style = JarvisType.Technical.copy(color = JarvisColors.TextMuted)
                 )
                 Text(
-                    text = "Updated: ${SimpleDateFormat("MM/dd HH:mm", Locale.getDefault()).format(java.util.Date(session.updatedAt))}",
-                    style = JarvisType.Technical.copy(fontSize = 10.sp, color = JarvisColors.TextSecondary)
+                    "UPDATED  ${DateFormat.getDateTimeInstance().format(Date(session.updatedAt))}",
+                    style = JarvisType.Technical.copy(color = JarvisColors.TextMuted)
                 )
             }
         }
