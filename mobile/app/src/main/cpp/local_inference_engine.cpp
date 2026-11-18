@@ -30,6 +30,7 @@
 struct LlamaModel {
     llama_model* model = nullptr;
     llama_context* ctx = nullptr;
+    std::string owned_model_path;
     LlamaModelConfig config;
     LlamaState state = LLAMA_STATE_DORMANT;
     std::mutex mutex;
@@ -47,6 +48,21 @@ struct LlamaModel {
     std::vector<int32_t> prompt_tokens_cache;
 };
 
+// llama.cpp backend state is process-global. Multiple model handles share one
+// initialization lifetime; the final handle releases it.
+static std::mutex g_backend_mutex;
+static size_t g_backend_users = 0;
+
+static void acquire_backend() {
+    std::lock_guard<std::mutex> lock(g_backend_mutex);
+    if (g_backend_users++ == 0) llama_backend_init();
+}
+
+static void release_backend() {
+    std::lock_guard<std::mutex> lock(g_backend_mutex);
+    if (g_backend_users > 0 && --g_backend_users == 0) llama_backend_free();
+}
+
 struct LlamaTokenizer {
     llama_model* model = nullptr;
     const llama_vocab* vocab = nullptr;
@@ -60,10 +76,25 @@ static LlamaState get_state_locked(LlamaModel* model) {
     return model->state;
 }
 
-static void set_state_locked(LlamaModel* model, LlamaState new_state) {
-    std::lock_guard<std::mutex> lock(model->mutex);
+static void set_state_unlocked(LlamaModel* model, LlamaState new_state) {
     model->state = new_state;
     model->cv.notify_all();
+}
+
+static void set_state_locked(LlamaModel* model, LlamaState new_state) {
+    std::lock_guard<std::mutex> lock(model->mutex);
+    set_state_unlocked(model, new_state);
+}
+
+static void set_error_unlocked(LlamaModel* model, const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    char buffer[1024];
+    vsnprintf(buffer, sizeof(buffer), fmt, args);
+    model->last_error = buffer;
+    va_end(args);
+    set_state_unlocked(model, LLAMA_STATE_FAILED);
+    LOGE("Error: %s", buffer);
 }
 
 static void set_error_locked(LlamaModel* model, const char* fmt, ...) {
@@ -74,7 +105,7 @@ static void set_error_locked(LlamaModel* model, const char* fmt, ...) {
     vsnprintf(buffer, sizeof(buffer), fmt, args);
     model->last_error = buffer;
     va_end(args);
-    model->state = LLAMA_STATE_FAILED;
+    set_state_unlocked(model, LLAMA_STATE_FAILED);
     LOGE("Error: %s", buffer);
 }
 
@@ -134,9 +165,9 @@ static void prewarm_thread_func(LlamaModel* model) {
     ctx_params.offload_kqv = model->config.n_gpu_layers > 0;
     ctx_params.flash_attn_type = model->config.flash_attn ? LLAMA_FLASH_ATTN_TYPE_ENABLED : LLAMA_FLASH_ATTN_TYPE_DISABLED;
 
-    model->ctx = llama_init_from_model(model->model, ctx_params);
+    llama_context* new_context = llama_init_from_model(model->model, ctx_params);
 
-    if (!model->ctx) {
+    if (!new_context) {
         set_error_locked(model, "Failed to create llama context");
         model->prewarm_failed = true;
         model->prewarm_done = true;
@@ -144,12 +175,15 @@ static void prewarm_thread_func(LlamaModel* model) {
         return;
     }
 
-    model->metrics.load_time_ms = elapsed_ms(model->load_start);
-    model->metrics.peak_ram_bytes = process_peak_rss_bytes();
-    model->metrics.current_ram_bytes = model->metrics.peak_ram_bytes;
-
-    set_state_locked(model, LLAMA_STATE_READY);
-    model->prewarm_done = true;
+    {
+        std::lock_guard<std::mutex> lock(model->mutex);
+        model->ctx = new_context;
+        model->metrics.load_time_ms = elapsed_ms(model->load_start);
+        model->metrics.peak_ram_bytes = process_peak_rss_bytes();
+        model->metrics.current_ram_bytes = model->metrics.peak_ram_bytes;
+        set_state_unlocked(model, LLAMA_STATE_READY);
+        model->prewarm_done = true;
+    }
     model->cv.notify_all();
     LOGI("Model prewarmed in %lld ms, RAM: %.2f MB",
          model->metrics.load_time_ms, model->metrics.peak_ram_bytes / (1024.0 * 1024.0));
@@ -167,10 +201,12 @@ LlamaModel* llama_model_create(const LlamaModelConfig* config) {
     }
 
     auto* model = new LlamaModel();
+    model->owned_model_path = config->model_path;
     model->config = *config;
+    model->config.model_path = model->owned_model_path.c_str();
 
-    // Initialize llama.cpp backend
-    llama_backend_init();
+    // Initialize the process-global llama.cpp backend once for all live models.
+    acquire_backend();
     llama_log_set(llama_log_callback, nullptr);
 
     // Model load params
@@ -180,11 +216,12 @@ LlamaModel* llama_model_create(const LlamaModelConfig* config) {
     model_params.progress_callback = nullptr;
     model_params.progress_callback_user_data = nullptr;
 
-    LOGI("Loading model from %s", config->model_path);
-    model->model = llama_model_load_from_file(config->model_path, model_params);
+    LOGI("Loading model from %s", model->config.model_path);
+    model->model = llama_model_load_from_file(model->config.model_path, model_params);
 
     if (!model->model) {
-        set_error_locked(model, "Failed to load GGUF model from %s", config->model_path);
+        set_error_locked(model, "Failed to load GGUF model from %s", model->config.model_path);
+        release_backend();
         delete model;
         return nullptr;
     }
@@ -193,7 +230,6 @@ LlamaModel* llama_model_create(const LlamaModelConfig* config) {
 
     // Start prewarm in background
     model->prewarm_thread = std::thread(prewarm_thread_func, model);
-    model->prewarm_thread.detach();
 
     LOGI("Model loaded, prewarming started");
     return model;
@@ -212,11 +248,13 @@ LlamaHealth llama_model_get_health(LlamaModel* model) {
         return health;
     }
 
+    static thread_local std::string error_snapshot;
     std::lock_guard<std::mutex> lock(model->mutex);
     health.state = model->state;
     health.model_loaded = (model->model != nullptr);
     health.context_ready = (model->ctx != nullptr);
-    health.error_message = model->last_error.empty() ? nullptr : model->last_error.c_str();
+    error_snapshot = model->last_error;
+    health.error_message = error_snapshot.empty() ? nullptr : error_snapshot.c_str();
     health.last_activity_ms = now_ms();
     health.metrics = model->metrics;
     return health;
@@ -251,7 +289,7 @@ bool llama_model_wait_ready(LlamaModel* model, int timeout_ms) {
     std::unique_lock<std::mutex> lock(model->mutex);
     auto timeout = std::chrono::milliseconds(timeout_ms);
     auto result = model->cv.wait_for(lock, timeout, [model] {
-        return model->state == LLAMA_STATE_READY || model->state == LLAMA_STATE_FAILED;
+        return model->state == LLAMA_STATE_READY || model->state == LLAMA_STATE_IDLE || model->state == LLAMA_STATE_FAILED;
     });
 
     if (!result) {
@@ -274,7 +312,8 @@ const char* llama_model_generate(
     }
 
     // Wait for ready state
-    if (get_state_locked(model) != LLAMA_STATE_READY) {
+    LlamaState initial_state = get_state_locked(model);
+    if (initial_state != LLAMA_STATE_READY && initial_state != LLAMA_STATE_IDLE) {
         if (!llama_model_wait_ready(model, 30000)) {
             set_error_locked(model, "Model not ready for generation");
             return nullptr;
@@ -283,11 +322,11 @@ const char* llama_model_generate(
 
     std::lock_guard<std::mutex> lock(model->mutex);
     if (!model->ctx) {
-        set_error_locked(model, "Context not initialized");
+        set_error_unlocked(model, "Context not initialized");
         return nullptr;
     }
 
-    set_state_locked(model, LLAMA_STATE_GENERATING);
+    set_state_unlocked(model, LLAMA_STATE_GENERATING);
     model->generation_start = std::chrono::steady_clock::now();
     model->cancel_flag = false;
     model->completion_tokens = 0;
@@ -309,8 +348,7 @@ const char* llama_model_generate(
     const llama_vocab* vocab = llama_model_get_vocab(model->model);
     int n_tokens = llama_tokenize(vocab, prompt, strlen(prompt), nullptr, 0, true, true);
     if (n_tokens <= 0) {
-        set_error_locked(model, "Failed to tokenize prompt");
-        set_state_locked(model, LLAMA_STATE_IDLE);
+        set_error_unlocked(model, "Failed to tokenize prompt");
         return nullptr;
     }
 
@@ -322,8 +360,7 @@ const char* llama_model_generate(
     int n_ctx = llama_n_ctx(model->ctx);
     int max_gen = std::min(gc->max_tokens, n_ctx - n_tokens - 4);
     if (max_gen <= 0) {
-        set_error_locked(model, "Prompt too long for context window");
-        set_state_locked(model, LLAMA_STATE_IDLE);
+        set_error_unlocked(model, "Prompt too long for context window");
         return nullptr;
     }
 
@@ -338,8 +375,7 @@ const char* llama_model_generate(
     auto sampler_params = llama_sampler_chain_default_params();
     llama_sampler* sampler = llama_sampler_chain_init(sampler_params);
     if (!sampler) {
-        set_error_locked(model, "Failed to create sampler chain");
-        set_state_locked(model, LLAMA_STATE_IDLE);
+        set_error_unlocked(model, "Failed to create sampler chain");
         return nullptr;
     }
     if (top_k > 0) llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
@@ -373,9 +409,8 @@ const char* llama_model_generate(
     // Feed prompt
     llama_batch batch = llama_batch_get_one(model->prompt_tokens_cache.data(), n_tokens);
     if (llama_decode(model->ctx, batch) != 0) {
-        set_error_locked(model, "Failed to process prompt");
+        set_error_unlocked(model, "Failed to process prompt");
         llama_sampler_free(sampler);
-        set_state_locked(model, LLAMA_STATE_IDLE);
         return nullptr;
     }
 
@@ -456,7 +491,7 @@ const char* llama_model_generate(
     model->metrics.total_tokens = model->prompt_tokens + model->completion_tokens;
 
     auto gen_time = elapsed_ms(model->generation_start);
-    model->metrics.tokens_per_sec = model->completion_tokens / (gen_time / 1000.0f);
+    model->metrics.tokens_per_sec = gen_time > 0 ? model->completion_tokens / (gen_time / 1000.0f) : 0.0f;
     model->metrics.current_ram_bytes = process_peak_rss_bytes();
     if (model->metrics.current_ram_bytes > model->metrics.peak_ram_bytes) {
         model->metrics.peak_ram_bytes = model->metrics.current_ram_bytes;
@@ -469,7 +504,7 @@ const char* llama_model_generate(
         token_cb("", -1, true, user_data);
     }
 
-    set_state_locked(model, LLAMA_STATE_IDLE);
+    set_state_unlocked(model, LLAMA_STATE_IDLE);
 
     // Return generated text (caller must free)
     char* result = strdup(generated_text.c_str());
@@ -485,18 +520,16 @@ void llama_model_cancel(LlamaModel* model) {
 bool llama_model_suspend(LlamaModel* model) {
     if (!model) return false;
 
-    LlamaState current = get_state_locked(model);
-    if (current != LLAMA_STATE_IDLE) {
-        LOGW("Cannot suspend: model not in IDLE state (%d)", current);
+    std::lock_guard<std::mutex> lock(model->mutex);
+    if (model->state != LLAMA_STATE_IDLE) {
+        LOGW("Cannot suspend: model not in IDLE state (%d)", model->state);
         return false;
     }
-
-    std::lock_guard<std::mutex> lock(model->mutex);
     if (model->ctx) {
         llama_free(model->ctx);
         model->ctx = nullptr;
     }
-    set_state_locked(model, LLAMA_STATE_SUSPENDED);
+    set_state_unlocked(model, LLAMA_STATE_SUSPENDED);
     LOGI("Model suspended");
     return true;
 }
@@ -504,15 +537,17 @@ bool llama_model_suspend(LlamaModel* model) {
 bool llama_model_resume(LlamaModel* model) {
     if (!model) return false;
 
-    LlamaState current = get_state_locked(model);
-    if (current != LLAMA_STATE_SUSPENDED) {
-        LOGW("Cannot resume: model not in SUSPENDED state (%d)", current);
-        return false;
+    // A completed prior prewarm thread must be joined before std::thread is reused.
+    if (model->prewarm_thread.joinable()) model->prewarm_thread.join();
+    {
+        std::lock_guard<std::mutex> lock(model->mutex);
+        if (model->state != LLAMA_STATE_SUSPENDED) {
+            LOGW("Cannot resume: model not in SUSPENDED state (%d)", model->state);
+            return false;
+        }
+        set_state_unlocked(model, LLAMA_STATE_PREWARMING);
     }
-
-    set_state_locked(model, LLAMA_STATE_PREWARMING);
     model->prewarm_thread = std::thread(prewarm_thread_func, model);
-    model->prewarm_thread.detach();
     LOGI("Model resume initiated");
     return true;
 }
@@ -520,30 +555,28 @@ bool llama_model_resume(LlamaModel* model) {
 void llama_model_destroy(LlamaModel* model) {
     if (!model) return;
 
-    // Cancel any ongoing generation
+    // Request cancellation before waiting for any in-flight generation.
     model->cancel_flag = true;
 
-    // Wait for prewarm thread if running
-    if (model->prewarm_thread.joinable()) {
-        model->prewarm_thread.join();
-    }
+    // Prewarm owns model state until it exits. Keep the thread joinable and
+    // wait for it before releasing the model/context memory.
+    if (model->prewarm_thread.joinable()) model->prewarm_thread.join();
 
-    std::lock_guard<std::mutex> lock(model->mutex);
-    set_state_locked(model, LLAMA_STATE_UNLOADING);
-
-    if (model->ctx) {
-        llama_free(model->ctx);
-        model->ctx = nullptr;
+    {
+        std::lock_guard<std::mutex> lock(model->mutex);
+        set_state_unlocked(model, LLAMA_STATE_UNLOADING);
+        if (model->ctx) {
+            llama_free(model->ctx);
+            model->ctx = nullptr;
+        }
+        if (model->model) {
+            llama_model_free(model->model);
+            model->model = nullptr;
+        }
+        set_state_unlocked(model, LLAMA_STATE_DORMANT);
     }
-    if (model->model) {
-        llama_model_free(model->model);
-        model->model = nullptr;
-    }
-
-    llama_backend_free();
-    set_state_locked(model, LLAMA_STATE_DORMANT);
+    release_backend();
     LOGI("Model destroyed");
-
     delete model;
 }
 
@@ -557,6 +590,10 @@ LlamaTokenizer* llama_tokenizer_get(LlamaModel* model) {
     tokenizer->model = model->model;
     tokenizer->vocab = llama_model_get_vocab(model->model);
     return tokenizer;
+}
+
+void llama_tokenizer_free(LlamaTokenizer* tokenizer) {
+    delete tokenizer;
 }
 
 int llama_tokenizer_encode(LlamaTokenizer* tokenizer, const char* text, int32_t* output, int max_tokens) {
