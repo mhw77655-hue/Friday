@@ -89,6 +89,15 @@ The Kotlin scanner is useful for finding code shapes but its 283 findings are no
 **Cause:** one static scan is being described too broadly as a whole-project semantic audit.  
 **Consequence:** false positives can create architecture churn, while unscanned behaviour can be overlooked.
 
+### RC-9: Legacy project islands remain beside the Android Friday implementation
+
+The root `core/` Python package and `manifest/` policy files still describe an earlier JARVIS Phase-1/building-system prototype. `manifest/workspace_manifest.yaml` names the remote `github.com/mhw77655-hue/JARVIS`, not the Friday repository. `core/building_integration.py` imports a top-level `building` package that is absent from the current tracked tree. `tests/test_building_system.py` imports that same absent package, while `tests/test_phase1_exit.py` tests the obsolete echo/status loop. These Python tests are not run by the current CI; only syntax compilation runs. The old `core/decision_gate.py` auto-approves Tier-1 file writes and `core/execution_layer.py` writes to caller-supplied paths, so these files must never be mistaken for the current Android authorization/execution authority.
+
+The README also points to an obsolete branch and PRs #19/#23, and describes self-development as source building "from the phone". The GitHub bridge guide still instructs the worker to search the removed private conversation ZIP. The Nov 16 build-progress scorecard refers to an older branch/PR topology.
+
+**Cause:** obsolete prototype code and documentation were not retired or clearly quarantined when the Android-native Friday architecture became authoritative.  
+**Consequence:** workers and maintainers can import dead code, follow stale instructions, or treat an old prototype as production architecture.
+
 ## 3. Architecture boundary to preserve
 
 1. **Friday on Android:** persistent identity/continuity, local cognition and presence, privacy-minimized observation, memory/experience, permissioned device actions, safe capability runtime, self-study, development-intent formation, durable offline outbox and result consumption.
@@ -110,7 +119,7 @@ The phases are engineering work packages, not a prescribed developmental ladder 
 - Preserve the full 800-file inventory and the current 484-file Kotlin scanner output, but label heuristics as candidate findings.
 - Semantically review all candidate findings by call graph, production reachability, runtime ownership and Vision context. Do not mass-delete enums, thresholds, Android APIs or security controls.
 - Extend meaningful static/runtime review to Python workers, shell scripts, Gradle/build logic, GitHub Actions trust boundaries, C++/JNI/native libraries, manifests, resources and tests.
-- Correct stale issue/PR dependencies and establish one canonical branch/dependency map.
+- Correct stale issue/PR dependencies and establish one canonical branch/dependency map.\n- Trace every import/reference to the root `core/`, `manifest/` and `tests/` Python prototype; remove it if unreachable or quarantine it under an explicitly historical archive. Do not run its stale tests as evidence for Friday.\n- Rewrite README's obsolete branch/PR references and correct the phone/workshop boundary. Remove the GitHub bridge guide's instruction to search the deleted private ZIP. Mark the Nov 16 progress scorecard historical rather than current.
 
 **Exit evidence:** reconciled current-state report, exact source revision, no stale dependency claims, and a reviewed finding ledger that separates proven defects from scanner candidates.
 
@@ -223,7 +232,7 @@ The phases are engineering work packages, not a prescribed developmental ladder 
 1. Keep #89 out of main and redesign its phone/workshop boundary; the duplicate `nowMs` compile error is only one visible defect.
 2. Repair #82's real system-provider readiness and get a reproducible emulator instrumentation pass.
 3. Rebase/update #83's dependency and make emulator checks mandatory before any promotion claim.
-4. Reconcile current main docs/issues/PR state and publish the requirement-to-evidence ledger.
+4. Reconcile current main docs/issues/PR state, quarantine/remove the obsolete Python JARVIS island after reference checks, and publish the requirement-to-evidence ledger.
 5. Build the durable phone outbox → repository workshop → result feedback path.
 6. Prove the Life Test and capability acquisition on the real production composition.
 7. Finish release/update, permissions, exact-device validation and historical privacy cleanup.
