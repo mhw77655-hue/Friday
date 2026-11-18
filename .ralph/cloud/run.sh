@@ -256,6 +256,11 @@ if ! selfcheck; then WHY="the cloud environment failed its self-check"; BLOCKED=
 hydrate_base || { WHY="could not prepare the repository"; BLOCKED=1; say "RESULT: $WHY"; status_report "stopped: $WHY" "hydrate_fail_$(date +%m%d_%H%M).md"; exit 1; }
 if [ "$RELAY" = 0 ] && ! baseline; then WHY="a closed story no longer verifies in the cloud"; BLOCKED=1; say "RESULT: $WHY"; status_report "stopped: $WHY" "baseline_fail_$(date +%m%d_%H%M).md"; notify "Cloud builder stopped: a closed story fails in the cloud" "See reports/cloud on GitHub."; exit 1; fi
 hydrate_work
+# Remove the checkout token from git config before any model process starts.
+# Trusted GitHub CLI operations continue via the parent runner's GH_TOKEN;
+# OpenCode receives neither that token nor a persisted git extraheader.
+git config --unset-all http.https://github.com/.extraheader 2>/dev/null || true
+git config --unset-all credential.helper 2>/dev/null || true
 discover_lanes
 say "lanes: $MODELS"
 pump & PUMPPID=$!
