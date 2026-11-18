@@ -6,7 +6,7 @@ Friday Builder separates an untrusted coding worker from a trusted publisher:
 - The trusted publisher validates the patch using a validator copied from trusted `main`.
 - CI failures on a proposal branch send Builder back to that exact candidate revision. It repairs the same PR branch rather than creating a disconnected repair proposal.
 - A strict path policy permits automatic promotion only for low-risk application logic, capability implementations, tests and documentation, and only after all required checks pass.
-- Changes to identity/memory, permissions, credentials, GitHub integration, diagnostics/crash reporting, accessibility, notifications, Shizuku, voice, security, signing, updates, settings, Gradle/manifest, or Builder/workflow control paths remain draft for owner review.
+- These high-risk paths—identity/memory, permissions, credentials, GitHub integration, diagnostics/crash reporting, accessibility, notifications, Shizuku, voice, security, signing, updates, settings, Gradle/manifest, and Builder/workflow control—remain draft for owner review.
 - This workflow does not sign, release or install an APK.
 
 ## One-time repository setting
