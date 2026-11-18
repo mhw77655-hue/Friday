@@ -226,6 +226,7 @@ class GenomeArchive(
         })
         put("healthState", g.healthState.name)
         g.artifactPath?.let { put("artifactPath", it) }
+        g.artifactCapability?.let { put("artifactCapability", it) }
         put("provenance", JSONObject().apply {
             put("author", g.provenance.author)
             put("createdMs", g.provenance.createdMs)
@@ -353,7 +354,8 @@ class GenomeArchive(
                 },
                 sourceContext = provenance.optString("sourceContext", "")
             ),
-            artifactPath = j.optString("artifactPath").takeIf { it.isNotBlank() }
+            artifactPath = j.optString("artifactPath").takeIf { it.isNotBlank() },
+            artifactCapability = j.optString("artifactCapability").takeIf { it.isNotBlank() }
         )
     }
 
