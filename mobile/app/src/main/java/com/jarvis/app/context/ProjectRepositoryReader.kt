@@ -88,11 +88,21 @@ class ProjectRepositoryReader(
         if (segments.any { it.isBlank() || it == "." || it == ".." }) return false
         val lower = path.lowercase()
         if (listOf(".env", "local.properties", "keystore", "secret", "token", "credential", ".jks", ".keystore", ".pem", ".p12", ".apk").any { it in lower }) return false
-        val allowedPrefix = path.startsWith(".ralph/") ||
+        val approvedRalphFiles = setOf(
+            ".ralph/VISION.md",
+            ".ralph/OWNER_WORDS.md",
+            ".ralph/REPO_FACTS.md",
+            ".ralph/FRIDAY_PROJECT_CONTEXT_PACK.json",
+            ".ralph/AI_COUNCIL_CONNECTORS_SHARED_MEMORY_20261118.md"
+        )
+        val allowedPrefix = path in approvedRalphFiles ||
             path.startsWith("mobile/app/src/main/") ||
             path.startsWith("mobile/app/src/test/") ||
             path.startsWith(".github/workflows/") ||
-            path.startsWith("gradle/")
+            path.startsWith("gradle/") ||
+            path == "mobile/app/build.gradle.kts" ||
+            path == "settings.gradle.kts" ||
+            path == "build.gradle.kts"
         if (!allowedPrefix) return false
         return listOf(".kt", ".kts", ".java", ".md", ".json", ".yml", ".yaml", ".xml", ".toml", ".txt", ".properties", ".gradle")
             .any { lower.endsWith(it) }
