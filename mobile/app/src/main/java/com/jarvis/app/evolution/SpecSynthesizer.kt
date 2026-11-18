@@ -269,7 +269,7 @@ class DeterministicSpecSynthesizer : SpecSynthesizer {
         CandidateImplementation(
             spec = BehaviorSynthesizer.specFor(requirement.behavior, AlgorithmSpec.Strategy.DETERMINISTIC),
             tests = BehaviorSynthesizer.testsFor(requirement.behavior),
-            language = "spec",
+            language = "synth",
             sourceCode = BehaviorSynthesizer.sourceFor(requirement.behavior),
             dependencies = listOf("kotlin-runtime")
         )
