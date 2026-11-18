@@ -77,6 +77,9 @@ class CognitiveEngine(
      */
     private val capabilityFabric: CapabilityFabric? = null,
 
+    /** Host-granted capability permissions; empty unless explicitly authorized. */
+    private val capabilityPermissions: () -> Set<com.jarvis.app.cognitive.capability.CapabilityPermission> = { emptySet() },
+
     /**
      * Stage 01B intent classification seam: given a turn string, return the
      * raw LLM response containing a single intent category. Production wires
@@ -1405,6 +1408,7 @@ class CognitiveEngine(
         val executor = CapabilityExecutor(
             fabric = fabric,
             driver = this,
+            granted = capabilityPermissions(),
             goalPlanner = goalPlanner,
             nowMs = nowMs,
             evidenceLedger = capabilityEvidenceLedger
