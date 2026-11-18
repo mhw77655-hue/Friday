@@ -360,7 +360,7 @@ fun SettingsScreen() {
 
         SectionLabel("AUTONOMOUS DEVELOPMENT")
         Text(
-            text = "Saving a valid GitHub token starts this automatically: Friday queues her first development cycle and then checks in about every 12 hours. She asks the repository builder to inspect her vision and implementation, make one evidence-backed improvement, test it and open a draft proposal. Existing open proposals block duplicate cycles. You can pause this here at any time. GitHub Actions is extra compute, not Friday's identity; aggregate device evidence remains a separate opt-in.",
+            text = "Saving a valid GitHub token starts this automatically: Friday queues her first development cycle and then checks in about every 12 hours. She asks the repository builder to inspect her vision and implementation, make one evidence-backed improvement, test it and open a draft proposal. When this switch is on, a previous-process crash is also sent to the public repository as a bounded exception-type and stack trace report so the Builder can diagnose it. Exception message text, conversations, screen contents and files are not uploaded. Pausing this switch stops crash uploads even while the GitHub token remains stored. Existing open proposals block duplicate cycles. GitHub Actions is extra compute, not Friday's identity; aggregate device evidence remains a separate opt-in.",
             style = JarvisType.Label,
             modifier = Modifier.padding(bottom = 8.dp)
         )
