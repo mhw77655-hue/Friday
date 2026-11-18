@@ -5,7 +5,8 @@ import org.junit.Test
 
 class RemoteProviderProtocolTest {
     @Test fun providerProtocolsAreExplicitAndDistinct() {
-        assertEquals(3, RemoteProviderProtocol.values().size)
+        assertEquals(4, RemoteProviderProtocol.values().size)
+        assertEquals(RemoteProviderProtocol.OPENAI_RESPONSES, RemoteProviderProtocol.valueOf("OPENAI_RESPONSES"))
         assertEquals(RemoteProviderProtocol.OPENAI_COMPATIBLE, RemoteProviderProtocol.valueOf("OPENAI_COMPATIBLE"))
         assertEquals(RemoteProviderProtocol.ANTHROPIC_MESSAGES, RemoteProviderProtocol.valueOf("ANTHROPIC_MESSAGES"))
         assertEquals(RemoteProviderProtocol.GEMINI_GENERATE_CONTENT, RemoteProviderProtocol.valueOf("GEMINI_GENERATE_CONTENT"))
