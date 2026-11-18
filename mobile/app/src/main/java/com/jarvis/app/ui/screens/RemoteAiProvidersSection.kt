@@ -82,7 +82,7 @@ fun RemoteAiProvidersSection() {
                 Text("Allow Friday to consult external advisers")
                 Text("Off by default. Enabling permits network requests using the selected task and imported context pack.")
             }
-            Switch(checked = councilEnabled, onCheckedChange = {
+            Switch(checked = councilEnabled, enabled = configured.isNotEmpty(), onCheckedChange = {
                 councilEnabled = it
                 council.setEnabled(it)
                 status = if (it) "External adviser calls enabled." else "External adviser calls disabled."
@@ -99,6 +99,10 @@ fun RemoteAiProvidersSection() {
                 TextButton(onClick = {
                     profiles.remove(item.id)
                     configured = profiles.all()
+                    if (configured.isEmpty()) {
+                        councilEnabled = false
+                        council.setEnabled(false)
+                    }
                     status = "${item.label} disconnected."
                 }) { Text("Remove") }
             }
