@@ -220,18 +220,36 @@ jobs:
           arch: x86_64
           profile: pixel_2
           disable-animations: true
-          emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -camera-front none -gpu swiftshader_indirect -no-snapshot-save
+          emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -camera-front none -gpu swiftshader_indirect -memory 4096 -cores 4 -no-snapshot-save
           script: |
             set -euo pipefail
             mkdir -p "$RUNNER_TEMP/friday-emulator"
             adb logcat -c
+            trap 'adb logcat -d -t 16000 > "$RUNNER_TEMP/friday-emulator/logcat.txt" 2>/dev/null || true; adb shell dumpsys activity services > "$RUNNER_TEMP/friday-emulator/services.txt" 2>/dev/null || true' EXIT
+
+            # sys.boot_completed can precede PackageManager readiness on a cold
+            # API 35 AVD. Wait for the actual package service before installing.
+            package_ready=0
+            for attempt in $(seq 1 36); do
+              if adb shell pm list packages >/dev/null 2>&1; then
+                package_ready=1
+                break
+              fi
+              echo "Waiting for Android PackageManager ($attempt/36)"
+              sleep 5
+            done
+            if [[ "$package_ready" != "1" ]]; then
+              echo "Android PackageManager never became ready after emulator boot." >&2
+              adb logcat -d -t 6000 >&2 || true
+              exit 20
+            fi
+
             adb install -r mobile/app/build/outputs/apk/debug/app-debug.apk
             python3 tools/friday-builder/apply_device_state_capsule.py .github/android-emulator/default-state-capsule.json
             ./gradlew :mobile:app:connectedDebugAndroidTest
             adb shell am start -n com.jarvis.app/.MainActivity || true
             sleep 8
             adb exec-out screencap -p > "$RUNNER_TEMP/friday-emulator/screen.png" || true
-            adb logcat -d -t 12000 > "$RUNNER_TEMP/friday-emulator/logcat.txt" || true
 
       - name: Upload emulator evidence
         if: always()
