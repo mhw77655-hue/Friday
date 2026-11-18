@@ -10,6 +10,7 @@ import com.jarvis.app.model.TokenUsage
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
+import java.time.ZoneOffset
 import java.util.concurrent.atomic.AtomicInteger
 
 data class CouncilRequest(
@@ -129,7 +130,7 @@ class ProviderCouncil(
 
     @Synchronized
     private fun reserve(estimatedTokens: Int): Boolean {
-        val today = LocalDate.now().toString()
+        val today = LocalDate.now(ZoneOffset.UTC).toString()
         if (prefs.getString(KEY_DAY, null) != today) {
             prefs.edit().putString(KEY_DAY, today).putInt(KEY_REQUESTS, 0).putInt(KEY_TOKENS, 0).commit()
         }
