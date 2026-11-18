@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -101,7 +102,7 @@ fun EnvironmentScreen(
 
         LazyColumn(
             modifier = Modifier
-                .fillMaxSize()
+                .weight(1f)
                 .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -268,7 +269,11 @@ private fun EnvironmentCard(
                         Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = JarvisColors.CoreWarning)
                     }
                 }
-            } else if (!isActive) {
+            }
+
+            // Custom environments are activatable too; edit/delete controls
+            // must not accidentally hide the primary activation action.
+            if (!isActive) {
                 Button(
                     onClick = onActivate,
                     modifier = Modifier
