@@ -124,18 +124,26 @@ def apply_capsule(data: dict[str, Any]) -> None:
     listener_component = "com.jarvis.app/com.jarvis.app.JarvisNotificationListener"
     adb("settings", "put", "secure", "enabled_notification_listeners", listener_component if listener else "")
 
-    transport = data["network"]["transport"]
+    for command in network_commands(data["network"]):
+        adb(*command)
+
+
+def network_commands(network: dict[str, Any]) -> tuple[tuple[str, ...], ...]:
+    """Translate the capsule's desired connectivity into explicit ADB actions.
+
+    Disconnected state takes precedence over transport. A capsule may describe
+    the last available transport while intentionally requesting offline mode.
+    """
+    transport = network["transport"]
+    if not network["connected"] or transport == "offline":
+        return (("svc", "wifi", "disable"), ("svc", "data", "disable"))
     if transport == "wifi":
-        adb("svc", "wifi", "enable")
-        adb("svc", "data", "disable")
-    elif transport == "cellular":
-        adb("svc", "wifi", "disable")
-        adb("svc", "data", "enable")
-    elif transport == "offline" or not data["network"]["connected"]:
-        adb("svc", "wifi", "disable")
-        adb("svc", "data", "disable")
-    else:
-        adb("svc", "wifi", "enable")
+        return (("svc", "wifi", "enable"), ("svc", "data", "disable"))
+    if transport == "cellular":
+        return (("svc", "wifi", "disable"), ("svc", "data", "enable"))
+    # Emulator Ethernet is provided by the virtual NIC; leave Wi-Fi and mobile
+    # data disabled so the AVD uses its existing Ethernet-backed connection.
+    return (("svc", "wifi", "disable"), ("svc", "data", "disable"))
 
 
 def main() -> int:
