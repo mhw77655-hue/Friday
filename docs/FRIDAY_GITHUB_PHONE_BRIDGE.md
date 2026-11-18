@@ -5,12 +5,12 @@
 Friday's Android Settings can connect directly to the public `mhw77655-hue/Friday` repository.
 
 ### Repository development request
-- The owner supplies a fine-grained GitHub token in Settings.
+- The owner supplies a fine-grained GitHub token in Settings. It is used for workflow dispatch and read-only proposal inspection, not repository source writes.
 - The token is encrypted with AES-GCM using a non-exportable Android Keystore key. The plaintext token is not written to SharedPreferences, source code, logs, or workflow payloads.
 - "Run Friday self-maintenance" sends a bounded JSON request through GitHub's `workflow_dispatch` API.
 - The request includes a consented technical snapshot: manufacturer/model, Android API/release, app version, free/total RAM, app-private storage, battery percentage, thermal status, and network transport.
 - It excludes conversation text, location, contacts, notifications, microphone/camera data, screen contents, files, and unique device identifiers.
-- The repository worker receives no write token. It can only create a patch artifact in its disposable job.
+- The repository worker receives no repository-write token. It can only create a patch artifact in its disposable job; a separate trusted publisher can create an isolated draft PR after validating the patch.
 - A separate trusted publisher checks changed paths and creates an isolated draft PR. It never merges, signs, releases, or installs.
 - Friday can query the resulting proposal PR from the phone.
 
@@ -85,7 +85,7 @@ The expiration must be in the future and no more than 30 minutes away when Frida
 Friday Settings now includes an **Let Friday develop herself** opt-in. When enabled, WorkManager schedules a bounded development request about every 12 hours, subject to network, battery-not-low and storage-not-low constraints. Enabling also queues an immediate first cycle.
 
 Each scheduled cycle:
-- Reads the product contract from `.ralph/VISION.md` and the curated owner-authored source excerpts from `.ralph/OWNER_WORDS.md`; the coding worker can search the original `New Folder chats.zip` when needed.
+- Reads the product contract from `.ralph/VISION.md` and the curated, provenance-labelled owner-authored excerpts from `.ralph/OWNER_WORDS.md`. The private conversation archives were removed from the public repository; never search for, reconstruct, request or publish them. If a genuine ambiguity remains, preserve uncertainty and ask the owner.
 - Asks the repository worker to identify one meaningful gap between the current implementation and the owner's intended outcome, implement one coherent improvement, add regression tests, and run the Android build/test suite.
 - Sends no phone telemetry, conversations, location, files, microphone/camera data or personal content. It sends only the owner-authorized development instruction and workflow metadata.
 - Allows only one open proposal at a time and throttles repeated requests to at most one per 12 hours after the previous dispatch.
