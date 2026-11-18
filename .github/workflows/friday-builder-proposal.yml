@@ -251,6 +251,13 @@ jobs:
       - name: Install pinned OpenCode worker
         run: npm install --global opencode-ai@1.19.5
 
+      - name: Restore local Qwen3 fallback model cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.ollama/models
+          key: friday-builder-ollama-qwen3-4b-instruct-v1
+
+
       - name: Run bounded proposal without repository write credentials
         env:
           REQUEST_ID: ${{ steps.request_manual.outputs.request_id || steps.request_queue.outputs.request_id || steps.request_ci.outputs.request_id }}
