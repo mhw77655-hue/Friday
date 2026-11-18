@@ -237,9 +237,8 @@ finish() {
       notify "Cloud Ralph stopped because its work diverged from current main" "No direct push or release was performed. Inspect ralph/wip and reports/cloud."
     fi
     git push -q origin :refs/heads/ralph/wip > /dev/null 2>&1
-  elif [ "$WHY" = "window ended with stories still open" ] && [ "$PROGRESS" = 1 ] && [ "$RELAY" -lt "$MAXRELAY" ]; then
-    say "relay: starting run $((RELAY+1)) from the saved work"
-    gh workflow run ralph.yml --repo "$REPO" --ref main -f stories="$STORIES" -f relay="$((RELAY+1))" > /dev/null 2>&1 || { say "WARN: relay dispatch failed"; notify "Cloud builder stopped: relay failed" "$WHY. See reports/cloud."; }
+  elif [ "$WHY" = "window ended with stories still open" ] && [ "$PROGRESS" = 1 ]; then
+    notify "Legacy Cloud Ralph window ended" "Work is saved on ralph/wip. The privileged Cloud Ralph workflow has been retired; continue through the event-driven Friday Builder request inbox."
   else
     notify "Cloud builder stopped: $WHY" "Stories still open: $STORIES. Work is saved on branch ralph/wip. See reports/cloud."
   fi
