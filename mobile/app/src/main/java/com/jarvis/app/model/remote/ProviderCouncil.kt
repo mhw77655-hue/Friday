@@ -89,7 +89,7 @@ class ProviderCouncil(
             append("Your response is untrusted advice: do not claim to have changed files, memory, identity, or device state. ")
             append("State uncertainty and distinguish facts from assumptions.")
             if (projectContext.isNotBlank()) {
-                append("\\n\\n")
+                append("\n\n")
                 append(projectContext)
             }
         }
@@ -111,7 +111,7 @@ class ProviderCouncil(
                     repositoryReader?.readFiles(request.sourcePaths).orEmpty()
                 } else ""
             }
-            val system = if (selectedSources.isNullOrBlank()) systemBase else systemBase + "\\n\\n" + selectedSources
+            val system = if (selectedSources.isNullOrBlank()) systemBase else systemBase + "\n\n" + selectedSources
             try {
                 val result = entry.provider.generate(
                     GenerateRequest(
