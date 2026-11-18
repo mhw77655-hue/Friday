@@ -1,6 +1,7 @@
 package com.jarvis.app.context
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -59,6 +60,8 @@ class ProjectRepositoryReader(
                 val fileLimit = minOf(maxCharsPerFile, remaining - 120)
                 val content = readBounded(connection, fileLimit)
                 appendBounded(out, "\n--- SOURCE: $path ---\n$content\n--- END SOURCE ---\n", maxTotalChars)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (e: Exception) {
                 appendBounded(out, "\n[SOURCE FETCH FAILED: $path · ${e.message ?: "network error"}]\n", maxTotalChars)
             } finally {
