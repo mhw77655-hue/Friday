@@ -50,9 +50,7 @@ jobs:
           report_dir="$RUNNER_TEMP/friday-history-purge-report"
           mkdir -p "$report_dir"
 
-          # --sensitive-data-removal fetches and processes all refs. Keep the
-          # raw archive contents out of logs and artifacts; only retain Git's
-          # ref/commit mapping and operational report.
+          # Never print or upload raw archive contents. Keep only ref and commit metadata.
           git filter-repo --force --sensitive-data-removal --invert-paths \
             --path "New Folder chats.zip" \
             --path "New folder.zip" \
@@ -61,67 +59,27 @@ jobs:
 
           if [ -f .git/filter-repo/changed-refs ]; then
             cp .git/filter-repo/changed-refs "$report_dir/changed-refs.txt"
+            grep -E '^refs/pull/[0-9]+/head$' .git/filter-repo/changed-refs \
+              | sed -E 's#^refs/pull/([0-9]+)/head$#\1#' \
+              | sort -nu > "$report_dir/affected-pull-requests.txt" || true
           fi
           if [ -f .git/filter-repo/commit-map ]; then
             cp .git/filter-repo/commit-map "$report_dir/commit-map.txt"
-          fi
-          if [ -f .git/filter-repo/changed-refs ]; then
-            grep -E '^refs/pull/[0-9]+/head
-          if git rev-list --objects --all | grep -E ' (New Folder chats\.zip|New folder\.zip|\.github/PRIVATE_ARCHIVE_PURGE_PENDING)$'; then
-            echo "A private archive or purge marker remains reachable after rewrite."
-            exit 1
-          fi
-
-          # git-filter-repo removes origin deliberately to prevent accidental
-          # pushes. Re-add it with the scoped workflow token.
-          git remote remove origin 2>/dev/null || true
-          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git"
-
-          set +e
-          git push --force --mirror origin 2>&1 | tee "$report_dir/push.log"
-          push_status=${PIPESTATUS[0]}
-          set -e
-
-          if [ "$push_status" -ne 0 ]; then
-            non_pull_rejections="$(grep -E 'remote rejected' "$report_dir/push.log" | grep -v 'refs/pull/' || true)"
-            pull_rejections="$(grep -E 'remote rejected.*refs/pull/' "$report_dir/push.log" || true)"
-            if [ -n "$non_pull_rejections" ] || [ -z "$pull_rejections" ]; then
-              echo "History rewrite push failed for a ref other than GitHub's read-only pull-request refs."
-              exit 1
-            fi
-            echo "Only GitHub's read-only refs/pull/* were rejected; branch and tag refs were pushed."
-          fi
-
-          echo "History rewrite and branch/tag push completed. GitHub Support cleanup of cached views and pull-request refs may still be required."
-
-      - name: Upload history rewrite report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: friday-private-archive-history-purge-report
-          path: ${{ runner.temp }}/friday-history-purge-report/
-          if-no-files-found: warn
-          retention-days: 30
- .git/filter-repo/changed-refs \
-              | sed -E 's#^refs/pull/([0-9]+)/head$#\\1#' \
-              | sort -nu > "$report_dir/affected-pull-requests.txt" || true
           fi
 
           affected_prs="$(cat "$report_dir/affected-pull-requests.txt" 2>/dev/null || true)"
           echo "Pull requests whose historical refs are affected:"
           if [ -n "$affected_prs" ]; then
-            printf '%s\\n' "$affected_prs"
+            printf '%s\n' "$affected_prs"
           else
             echo "none"
           fi
 
-          # Rewriting while PRs are open invalidates their diff references and
-          # comments. Stop before force-pushing until every open PR is merged
-          # or closed.
+          # Do not invalidate active reviews or PR diffs during a history rewrite.
           open_prs="$(gh pr list --repo "$REPOSITORY" --state open --json number --jq '.[].number')"
           if [ -n "$open_prs" ]; then
             echo "::error::Open PRs remain; merge or close them before rewriting history:"
-            printf '%s\\n' "$open_prs"
+            printf '%s\n' "$open_prs"
             exit 1
           fi
 
@@ -131,8 +89,7 @@ jobs:
             exit 1
           fi
 
-          # git-filter-repo removes origin deliberately to prevent accidental
-          # pushes. Re-add it with the scoped workflow token.
+          # git-filter-repo removes origin deliberately; restore it with the scoped workflow token.
           git remote remove origin 2>/dev/null || true
           git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${REPOSITORY}.git"
 
