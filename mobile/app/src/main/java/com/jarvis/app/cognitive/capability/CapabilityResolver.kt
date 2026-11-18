@@ -81,7 +81,9 @@ class VerifiedOutcomeCapabilitySelector(
             .filter { it.reusable && it.verifiedSuccesses >= minimumVerifiedSuccesses }
             .associateBy { it.capabilityId }
 
-        if (scores.isEmpty()) return null
+        // A winner needs comparable lived evidence against every current
+        // alternative. Unknown candidates are not silently treated as worse.
+        if (scores.size != eligible.size) return null
         val ranked = eligible.mapNotNull { capability ->
             scores[capability.descriptor.id]?.let { capability to it.verifiedSuccesses }
         }.sortedByDescending { it.second }
