@@ -334,6 +334,9 @@ jobs:
                 exit 6
               fi
             fi
+            if ! git cat-file -e "$SOURCE_SHA^{commit}" 2>/dev/null; then
+              git fetch origin "$SOURCE_SHA"
+            fi
           fi
           git checkout -B "$BRANCH" "$SOURCE_SHA"
           git apply --index --check proposal-artifact/proposal.patch
@@ -358,13 +361,13 @@ jobs:
           git config user.email "friday-proposal-publisher@users.noreply.github.com"
           git remote set-url origin "https://github.com/$REPOSITORY.git"
           gh auth setup-git
-          git commit -m "proposal: Friday development request $REQUEST_ID"
-          git push origin "$BRANCH"
           EXISTING_PR="$(gh pr list --repo "$REPOSITORY" --head "$BRANCH" --state open --json url --jq '.[0].url // empty')"
           if [[ -n "$SOURCE_BRANCH" && -z "$EXISTING_PR" ]]; then
             echo "The failed candidate no longer has an open PR; refusing to reopen an owner-closed proposal." >&2
             exit 7
           fi
+          git commit -m "proposal: Friday development request $REQUEST_ID"
+          git push origin "$BRANCH"
           if [[ -n "$EXISTING_PR" ]]; then
             PR_URL="$EXISTING_PR"
             echo "Updated existing candidate PR: $PR_URL"
