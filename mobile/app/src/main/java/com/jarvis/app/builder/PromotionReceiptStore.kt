@@ -11,6 +11,7 @@ import java.io.File
 class PromotionReceiptStore(
     private val fileStorage: FileStorage,
     private val file: File,
+    private val nowMs: () -> Long,
     private val maxRecords: Int = 128
 ) {
     private val lock = Any()
@@ -25,7 +26,7 @@ class PromotionReceiptStore(
             receipt = receipt,
             status = Status.PROMOTED,
             reason = null,
-            updatedAtMs = System.currentTimeMillis()
+            updatedAtMs = nowMs()
         )
         trim()
         persist()

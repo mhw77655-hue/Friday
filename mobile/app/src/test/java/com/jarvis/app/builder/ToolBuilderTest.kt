@@ -82,7 +82,9 @@ class ToolBuilderTest {
             failureSurface = failureSurface,
             fileStorage = fileStorage,
             scope = scope,
-            workspacesDir = File(root, "workspaces")
+            workspacesDir = File(root, "workspaces"),
+
+            nowMs = { 1_700_000_000_000L }
         )
         return Harness(
             registry = stack.registry,
@@ -255,7 +257,9 @@ class ToolBuilderTest {
                 failureSurface = FailureSurface(),
                 fileStorage = storage,
                 scope = scope,
-                workspacesDir = File(root, "workspaces")
+                workspacesDir = File(root, "workspaces"),
+
+                nowMs = { 1_700_000_000_000L }
             )
             assertEquals("archived-tool-genome", stack.genomeRegistry.bestFor("archived_tool")?.id)
             val gap = CapabilityGapDetector(stack.registry, stack.genomeRegistry).detect("archived_tool")

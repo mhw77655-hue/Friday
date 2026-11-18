@@ -443,6 +443,7 @@ object JarvisEngine {
                 fileStorage = fileStorage,
                 scope = scope,
                 workspacesDir = java.io.File(appContext.filesDir, "friday-builder/workspaces"),
+                nowMs = clock,
                 llmSynthesisProvider = com.jarvis.app.mutation.LlmSynthesisProvider(modelManager),
                 cognitiveCapabilityFabric = capabilityFabric,
                 resourceGovernor = builderGovernor,

@@ -70,7 +70,9 @@ class ToolBuilderResearchWiringTest {
             failureSurface = FailureSurface(),
             fileStorage = FileStorage(root),
             scope = CoroutineScope(Dispatchers.IO),
-            workspacesDir = File(root, "workspaces")
+            workspacesDir = File(root, "workspaces"),
+
+            nowMs = { 1_700_000_000_000L }
         )
         tempDirs += root
         return stack

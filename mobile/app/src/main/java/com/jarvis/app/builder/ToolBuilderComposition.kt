@@ -76,6 +76,7 @@ object ToolBuilderComposition {
         fileStorage: FileStorage,
         scope: CoroutineScope,
         workspacesDir: File,
+        nowMs: () -> Long,
         llmSynthesisProvider: LlmSynthesisProvider? = null,
         cognitiveCapabilityFabric: CapabilityFabric? = null,
         resourceGovernor: ResourceGovernor = ResourceGovernor(),
