@@ -168,7 +168,7 @@ class StepExecutionLoopTest {
             }
         )
         e.getTaskWorkingMemory().setGoal("replan task")
-        e.getTaskWorkingMemory().pushSubgoals(listOf("doomed step"))
+        e.getTaskWorkingMemory().pushExecutableSubgoals(listOf(TaskWorkingMemory.ExecutableSubgoal("doomed step", "doomed_step")))
 
         // First run: "doomed step" fails, replan produces "revised step"
         val r1 = e.runNext()
