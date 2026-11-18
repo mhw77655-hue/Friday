@@ -36,7 +36,7 @@ A stale repair is rejected rather than applied to a newer branch. An owner-close
 
 ## Automatic-promotion boundary
 
-The auto-merge allowlist is intentionally narrower than the worker's ability to propose code. It permits only low-risk app source/resources, tests and docs. It blocks the identity and memory substrate, security-sensitive integrations, permissions, credentials, app update/signing paths, settings and all Builder trust-control files.
+The auto-merge allowlist is intentionally narrower than the worker's ability to propose code. It permits ordinary low-risk app logic and documentation only. It blocks cognition and planning, identity/continuity, memory, capability execution, Builder/evolution/genome/mutant/validation/resource subsystems, model authority, Android/device integration, security-sensitive integrations, permissions, credentials, app update/signing paths, settings and all Builder trust-control files. Test-only changes also remain owner-reviewed.
 
 If the allowlist passes, the publisher marks the PR ready, waits for every check reported by GitHub, and asks GitHub to merge. It never bypasses branch protection. If checks fail, the proposal remains open and the failed candidate CI automatically re-enters Builder repair. If GitHub refuses the merge, the PR remains open.
 
