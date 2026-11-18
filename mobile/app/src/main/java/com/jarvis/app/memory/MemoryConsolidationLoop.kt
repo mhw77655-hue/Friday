@@ -56,6 +56,9 @@ class MemoryConsolidationLoop(
     private val idleIntervalMs: Long = DEFAULT_IDLE_INTERVAL_MS
 ) {
 
+    private val lifecycleLock = Any()
+    private val passLock = Any()
+
     @Volatile
     private var idleLoopRunning = false
 
@@ -63,12 +66,28 @@ class MemoryConsolidationLoop(
 
     /** Start the background idle tick. Idempotent; one loop per instance. */
     fun startIdleLoop() {
-        if (idleLoopRunning) return
-        idleLoopRunning = true
+        val shouldStart = synchronized(lifecycleLock) {
+            if (idleLoopRunning) {
+                false
+            } else {
+                idleLoopRunning = true
+                true
+            }
+        }
+        if (!shouldStart) return
+
         scope.launch {
-            while (true) {
-                delay(idleIntervalMs)
-                runConsolidationPass()
+            try {
+                while (true) {
+                    delay(idleIntervalMs)
+                    runConsolidationPass()
+                }
+            } finally {
+                // Cancellation or scope shutdown must not leave a permanently
+                // stale "running" flag that prevents a legitimate restart.
+                synchronized(lifecycleLock) {
+                    idleLoopRunning = false
+                }
             }
         }
     }
@@ -78,7 +97,10 @@ class MemoryConsolidationLoop(
      * feed each through the EXISTING durability gate. Returns what was scanned
      * and what the gate promoted.
      */
-    fun runConsolidationPass(): ConsolidationPassReport {
+    fun runConsolidationPass(): ConsolidationPassReport = synchronized(passLock) {
+        // The idle trigger and explicit/manual triggers share one durability
+        // gate and one profile. Serializing the complete snapshot -> promotion
+        // transaction prevents overlapping passes from racing one another.
         val statements = recentExperience().sortedBy { it.timestamp }
         var promoted = 0
         val promotions = mutableListOf<UserProfile.ProfileUpdate>()
@@ -89,7 +111,7 @@ class MemoryConsolidationLoop(
                 promotions.add(update)
             }
         }
-        return ConsolidationPassReport(
+        ConsolidationPassReport(
             scanned = statements.size,
             promoted = promoted,
             promotions = promotions
