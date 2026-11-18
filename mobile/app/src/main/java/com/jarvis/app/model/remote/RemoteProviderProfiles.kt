@@ -77,12 +77,14 @@ class RemoteProviderProfiles(context: Context) {
         credentials.clear(id)
     }
 
-    fun createEnabledProviders(): List<ModelProvider> = all()
+    data class Entry(val profile: RemoteProviderProfile, val provider: ModelProvider)
+
+    fun createEnabledEntries(): List<Entry> = all()
         .filter { it.enabled }
         .mapNotNull { profile ->
-            val secret = credentials.read(profile.id) ?: return@mapNotNull null
+            val secret = credentials.read(profile.id).orEmpty()
             runCatching {
-                OpenAiCompatibleProvider(
+                Entry(profile, OpenAiCompatibleProvider(
                     config = ProviderConfig(
                         modelId = profile.modelId,
                         authToken = null,
@@ -93,9 +95,11 @@ class RemoteProviderProfiles(context: Context) {
                     apiKey = secret,
                     providerType = ModelProviderType.CLOUD,
                     protocol = profile.protocol
-                )
+                ))
             }.getOrNull()
         }
+
+    fun createEnabledProviders(): List<ModelProvider> = createEnabledEntries().map { it.provider }
 
     fun configuredIds(): Set<String> = all().map { it.id }.toSet()
 
