@@ -46,7 +46,7 @@ class PromotionReceiptStore(
         records[receiptId] = current.copy(
             status = Status.ROLLED_BACK,
             reason = reason.take(1024),
-            updatedAtMs = System.currentTimeMillis()
+            updatedAtMs = nowMs()
         )
         persist()
     }
