@@ -272,7 +272,7 @@ jobs:
           arch: x86_64
           profile: pixel_2
           disable-animations: true
-          emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -camera-front none -gpu swiftshader_indirect -memory 4096 -cores 4 -no-snapshot-save
+          emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -camera-front none -gpu swiftshader_indirect -memory 4096 -cores 4 -no-snapshot-save -timezone UTC
           script: bash tools/friday-builder/run_virtual_phone_tests.sh
 
       - name: Upload emulator evidence
