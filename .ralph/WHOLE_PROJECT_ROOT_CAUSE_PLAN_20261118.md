@@ -242,6 +242,14 @@ The root `runtime/model_gateway/` targets a `127.0.0.1:8080` llama-server under 
 **Consequence:** future workers can incorrectly assume Friday requires a local HTTP model/TTS server, Termux paths or an unfinished browser package, contradicting the no-server/on-device architecture.  
 **Root correction:** trace all references and tests, then delete or move these assets to a clearly historical research archive only when their unique value is preserved. Remove production claims that these services back the app. The active app must remain self-contained: native local inference, Sherpa TTS/System TTS, and the GitHub workshop bridge as an optional development channel.
 
+### RC-22: "Free infrastructure" cannot mean unlimited external model/API quotas
+
+The intended deployment has no dedicated paid server. The Android app should perform runtime cognition/inference on-device; GitHub Actions can provide the repository workshop/build runner for a public repository; the phone bridge can queue work until the workshop is available. However, free external model providers and GitHub APIs still have quotas, abuse limits, concurrency limits and outages. No code can honestly guarantee unlimited free third-party inference or API calls.
+
+**Cause:** a desire for zero payment/rate limits can accidentally turn into an assumption that free providers are unlimited.  
+**Consequence:** if the Builder depends synchronously on one free model endpoint or GitHub API call, quota exhaustion can stop development or lose work.  
+**Root correction:** make the phone outbox durable and idempotent; use local inference for runtime and small planning tasks; treat external model providers as replaceable optional workers; use bounded retries/backoff and provider fallback; checkpoint long jobs; never discard a request on quota exhaustion. Keep build/test correctness independent of model-provider availability. Document actual GitHub Actions/API quotas and do not promise unlimited usage.
+
 ## 3. Architecture boundary to preserve
 
 1. **Friday on Android:** persistent identity/continuity, local cognition and presence, privacy-minimized observation, memory/experience, permissioned device actions, safe capability runtime, self-study, development-intent formation, durable offline outbox and result consumption.
