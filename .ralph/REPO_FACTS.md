@@ -61,7 +61,7 @@ This file is auto-prepended to Ralph/Builder prompts. Keep it factual, dated and
 - All 484 production Kotlin files were passed through the current whole-file Vision-shape scanner; 24 Python files were syntax-compiled and 16 shell scripts syntax-checked.
 - The scanner reported 283 candidate deviations and 392 observations. These are structural leads, not semantic verdicts; review call paths, ownership, intent and production reachability before changing code. The scanner's self-audit also found 7 candidate deviations and 6 observations.
 - Python/shell syntax checks do not prove runtime behaviour. The root `tests/` directory is not run by the current CI; `tests/test_building_system.py` imports a top-level `building` package absent from the current tracked tree.
-- Root `core/`, `manifest/` and `tests/` contain an older JARVIS Python prototype, not the current Android production architecture. Its manifest names a different `JARVIS` repository and its legacy decision/execution layer must not be treated as Friday's authority. It is under audit for quarantine/removal after reference checks.
+- Root `core/`, `manifest/` and `tests/` contain an older JARVIS Python prototype, not the current Android production architecture. `manifest/protected_paths.py` is not imported by the active Builder; the trusted workflow invokes `tools/friday-builder/validate_patch_paths.py`, which has its own hardcoded deny policy. The stale manifest names the old JARVIS repository and must not be mistaken for the active security boundary. Consolidate to one tested policy before quarantining/removing the dead manifest.
 
 ## Production-critical native inference findings
 
@@ -75,4 +75,4 @@ This file is auto-prepended to Ralph/Builder prompts. Keep it factual, dated and
 ## Historical/legacy files
 
 - `.ralph/FRIDAY_BUILD_PLAN.md`, `.ralph/REPO_UNIFICATION_AUDIT.md` and `docs/FRIDAY_BUILD_PROGRESS.md` contain historical state. Use `.ralph/WHOLE_PROJECT_ROOT_CAUSE_PLAN_20261118.md` for current dependencies and evidence; do not copy old branch/PR/archive claims into new work.
-- `core/`, `manifest/` and `tests/` are legacy JARVIS prototype candidates, not a second source of truth.
+- `core/`, `manifest/` and `tests/` are legacy JARVIS prototype candidates, not a second source of truth. The only active Builder patch-path authority is `tools/friday-builder/validate_patch_paths.py`.
