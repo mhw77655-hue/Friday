@@ -15,7 +15,6 @@ from typing import Any
 
 ALLOWED_PREFIXES = (
     "mobile/app/src/main/java/",
-    "mobile/app/src/main/res/",
     "mobile/app/src/test/",
     "mobile/app/src/androidTest/",
     "docs/",
@@ -117,7 +116,35 @@ def evaluate(paths: Any) -> tuple[bool, str]:
             return False, f"protected component: {path}"
         if not (path.startswith(ALLOWED_PREFIXES) or path in ALLOWED_ROOT_FILES):
             return False, f"path is outside the automatic-promotion allowlist: {path}"
-    return True, f"{len(paths)} changed path(s) are within the low-risk allowlist"
+
+    # Never promote a source-only patch. Every changed production Kotlin file
+    # must have a changed regression test in its matching package directory.
+    # Test-only changes are also held for review because they can weaken gates.
+    production = [
+        path for path in seen
+        if path.startswith("mobile/app/src/main/java/") and path.endswith(".kt")
+    ]
+    test_paths = [
+        path for path in seen
+        if path.startswith("mobile/app/src/test/java/") or
+           path.startswith("mobile/app/src/androidTest/java/")
+    ]
+    if not production:
+        if any(path.startswith("mobile/app/src/test/") or path.startswith("mobile/app/src/androidTest/") for path in seen):
+            return False, "test-only changes require review; tests are part of the trust boundary"
+        return True, f"{len(paths)} documentation-only path(s) are within the allowlist"
+
+    for source in production:
+        relative = source.removeprefix("mobile/app/src/main/java/")
+        package_dir = relative.rsplit("/", 1)[0] if "/" in relative else ""
+        expected_dirs = (
+            f"mobile/app/src/test/java/{package_dir}/",
+            f"mobile/app/src/androidTest/java/{package_dir}/",
+        )
+        if not any(test.startswith(expected_dirs) for test in test_paths):
+            return False, f"production source lacks a changed regression test in its package: {source}"
+
+    return True, f"{len(paths)} changed path(s) are allowlisted and every production source has a package-local changed test"
 
 
 def main() -> int:
