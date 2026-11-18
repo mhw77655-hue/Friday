@@ -64,6 +64,7 @@ object ToolBuilderComposition {
         val failureSurface: FailureSurface,
         val gns: GlobalNervousSystem,
         val rollback: RollbackController,
+        val receiptStore: PromotionReceiptStore,
         val sandbox: ResourceSandbox,
         val scope: CoroutineScope,
         val recoveredCapabilities: Set<String>
@@ -192,6 +193,10 @@ object ToolBuilderComposition {
         val rollback = RollbackController(
             registry, archive, genomeRegistry, failureSurface, cognitiveCapabilityFabric
         )
+        val receiptStore = PromotionReceiptStore(
+            fileStorage = fileStorage,
+            file = File(workspacesDir.parentFile ?: workspacesDir, "promotion-receipts.json")
+        )
         val evolution = EvolutionEngine(
             archive = archive,
             registry = registry,
@@ -226,7 +231,9 @@ object ToolBuilderComposition {
             governor = governor,
             failureSurface = failureSurface,
             nervousSystem = gns,
-            refreshResources = refreshResources
+            refreshResources = refreshResources,
+            rollbackController = rollback,
+            receiptStore = receiptStore
         )
 
         cognitiveCapabilityFabric?.let { fabric ->
@@ -247,6 +254,6 @@ object ToolBuilderComposition {
             }
         }
 
-        return Stack(builder, registry, genomeRegistry, archive, governor, failureSurface, gns, rollback, sandbox, scope, recoveredCapabilities)
+        return Stack(builder, registry, genomeRegistry, archive, governor, failureSurface, gns, rollback, receiptStore, sandbox, scope, recoveredCapabilities)
     }
 }
