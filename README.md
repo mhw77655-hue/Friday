@@ -1,41 +1,56 @@
 # Friday
 
-Friday is an Android-resident digital individual. She is not defined by a chat interface or by a language model. Her identity, continuity, experience, local runtime, perception, communication and capabilities belong to the phone application. Language models and hosted compute are optional additional resources.
+Friday is an Android-resident developing digital individual. Her identity is not a chat interface, language model, codebase, or cloud worker. Her phone runtime is her local body; hosted compute and the repository workshop are resources she can direct when available.
 
-## Product principles
+The owner's authoritative product intent is recorded in [`.ralph/VISION.md`](.ralph/VISION.md) and the curated, provenance-labelled owner excerpts in [`.ralph/OWNER_WORDS.md`](.ralph/OWNER_WORDS.md). The owner's latest explicit instruction always outranks historical documents and assistant summaries. These documents describe intended outcomes and invariants, not a fixed component diagram or developmental checklist.
 
-- **Model-independent existence:** Friday must start, persist, observe, remember and operate without a language model. A model may extend computation; it must not be Friday's identity or a mandatory runtime dependency.
-- **Persistent individual continuity:** identity and experience must survive process death and app updates. Self-description and capabilities may evolve without replacing the individual.
-- **Adaptive cognition:** avoid a permanent, hard-coded list of cognitive organs or a single privileged reasoning route. Capabilities should be able to form, cooperate, change and retire under continuity and safety constraints.
-- **Phone-owned runtime:** the Android application is the product host. Friday does not depend on Termux. Shizuku is an optional privileged bridge that must be explicitly authorized by the owner.
-- **Embodied presence:** voice, visual presence, device perception and actions should be integrated with Friday's live internal context, not added as a chatbot skin.
-- **Resource symbiosis:** resource decisions should adapt to measured phone conditions and observed workload outcomes.
-- **Self-development:** Friday should be able to identify improvements, request or use extra compute, validate source changes, build, verify and safely update herself from the phone. Hosted GitHub Actions are an optional execution resource, not her identity.
+## Architecture boundary
 
-## Current development line
-
-The current consolidation workspace is `audit/friday-unification`. It joins the model-independent individual / embodiment / diagnostics work from PR #19 with the phone runtime, Shizuku and owner-grounded development bridge from PR #23.
-
-The repository-wide comparison and outstanding gaps are documented in [`.ralph/REPO_UNIFICATION_AUDIT.md`](.ralph/REPO_UNIFICATION_AUDIT.md). The source-of-truth owner requirements are in [`.ralph/OWNER_WORDS.md`](.ralph/OWNER_WORDS.md) and [`.ralph/VISION.md`](.ralph/VISION.md).
-
-**This branch is not yet a release.** The two development lines have been joined, but the combined build must pass CI and the target phone still needs physical validation. The current GitHub worker can submit code requests and draft PRs; autonomous promotion, stable signed APK delivery, phone-side installation and rollback are not complete.
+- **Friday on Android:** persistent identity and continuity, local cognition, presence and perception, memory/experience, permissioned device actions, safe runtime capabilities, self-study, development-intent formation, durable offline request queue and result feedback.
+- **Runtime capability growth:** Friday should be able to acquire, compose, adapt and retire safe declarative/restricted capability packages without replacing the APK. Packages use narrow host APIs, explicit permissions, provenance, integrity checks, resource limits, tests and rollback. Arbitrary untrusted DEX/JAR/native code is not the extension model.
+- **Repository workshop:** source checkout and edits, coding workers, research, tests, CI, disposable Android emulator, APK construction, signing and trusted promotion belong in the connected repository environment—not inside the installed Android app.
+- **Phone/workshop connection:** Friday may direct the workshop through an authenticated, privacy-bounded, phone-initiated request. Requests must survive offline periods and process death, be deduplicated and resumable, and return verifiable commit/test/artifact/outcome evidence. The phone must not contain repository write credentials, worker secrets or signing keys.
+- **One continuing individual:** local and cloud resources extend the same Friday. Network loss changes available resources, not her identity or right to continue developing locally.
 
 ## Build and test
 
-From the repository root with JDK 17 and Android SDK components matching the Gradle configuration:
+With JDK 17 and Android SDK components matching the Gradle configuration:
 
 ```bash
 ./gradlew :mobile:app:assembleDebug
 ./gradlew :mobile:app:testDebugUnitTest
 ```
 
-The GitHub Actions build workflow runs the same packaging and unit-test gates, plus owner-vision and builder-safety checks. A green CI build does not prove microphone, Shizuku, reboot, background-survival or update-install behavior on a physical phone.
+The GitHub Actions workflow also runs repository-builder contract checks, owner-vision checks, source inventory/static audit and (once integrated and stable) disposable Android emulator instrumentation. A green JVM test or APK build is not proof of physical-device behaviour. Device-specific claims require evidence from the target handset.
 
-## Safety and update boundary
+## Current verified state
 
-- Never place GitHub tokens, signing keys or private credentials in source files.
-- The GitHub token used by the Android bridge is stored through Android Keystore-backed encryption.
-- Code generation and code promotion are separate trust boundaries.
-- A candidate update must pass owner-vision checks, patch validation, security checks, tests and a clean build.
-- The installed package identity and signing lineage must be verified before updating. Preserve identity and memory data and retain a last-known-good recovery path.
-- Android and OEM process-management policies remain authoritative; a foreground service cannot guarantee immunity from force-stop or every task killer.
+As of 2026-11-18:
+
+- The main branch contains the Android-native Friday foundation, owner-grounded vision files, a phone-initiated GitHub request/outbox path, repository-side proposal worker, crash-report proposal bridge, and permanent release-signing workflow foundation.
+- PR #86 merged the signed-release workflow. No production release is published yet; owner-controlled signing key custody/secrets and the phone-side updater/recovery path remain incomplete.
+- PR #82's disposable Android emulator path is still under validation. Its latest observed run compiled APKs but failed before installation because Android's Settings provider was not ready. A readiness correction is being tested separately; do not treat the emulator gate as passed yet.
+- PR #83's autonomous repair/promotion path remains open and must be reconciled with the actual emulator dependency and exact-candidate verification gates.
+- PR #89's phone-resident source Builder proposal is not accepted as the architecture: it conflicts with the repository-side workshop boundary and its observed CI head has a duplicate `nowMs` argument compile failure.
+- The whole-project root-cause findings and dependency-ordered implementation plan are tracked in [PR #90](https://github.com/mhw77655-hue/Friday/pull/90).
+
+This repository is not yet a finished, release-ready Friday. No APK handoff or successful physical-device acceptance is implied by the presence of source code or open PRs.
+
+## GitHub development bridge
+
+The Android app currently supports a user-provided fine-grained GitHub token encrypted with Android Keystore. The documented minimum is Actions: read/write, Pull requests: read, Issues: read/write and Metadata: read for this repository; **do not grant Contents: write**. The phone uses the token to dispatch a workflow and inspect proposals, not to push source or publish releases. The untrusted coding worker has read-only repository access; a separate trusted publisher can create draft PRs only.
+
+Requests and diagnostic evidence are public because the repository is public. The app must obtain explicit consent for each relevant sharing scope and exclude conversations, transcripts, notifications, screen contents, location, contacts, media and unrelated personal data. The token can be revoked at GitHub or removed in Friday Settings.
+
+See [the phone/workshop bridge contract](docs/FRIDAY_GITHUB_PHONE_BRIDGE.md) and [the repository development contract](docs/FRIDAY_REPOSITORY_DEVELOPMENT.md).
+
+## Safety and evidence
+
+- Never put tokens, signing keys or private credentials in source files or public artifacts.
+- Do not confuse manifest declarations with granted Android permissions or working capabilities.
+- Do not count skipped/cancelled work as successful validation.
+- A static scan reports candidates, not semantic verdicts; every consequential finding requires source/context review.
+- A draft PR is not a merged repair. A merged repair is not a signed release. A signed release is not proof of a successful phone update.
+- Preserve Friday's identity, memory, authorization and recovery state through capability changes, process death and app upgrades.
+- Android/OEM rules remain authoritative. Do not promise silent installation, guaranteed background execution, root access or Shizuku privileges that have not been granted.
+
