@@ -155,4 +155,25 @@ class CapabilityEvidenceLedgerTest {
         directory.deleteRecursively()
     }
 
+    @Test
+    fun `schema one evidence migrates with deterministic event identity`() {
+        val directory = tempDir()
+        val file = File(directory, CapabilityEvidenceLedger.FILE_NAME)
+        file.parentFile?.mkdirs()
+        file.writeText(
+            """{"schema_version":1,"evidence":[{"capability_id":"phone.contacts.read","operation":"read_contacts","outcome":"SUCCEEDED","observed_at_ms":42,"source":"legacy","verified":true,"detail":""}]}"""
+        )
+
+        val ledger = CapabilityEvidenceLedger(directory)
+        val first = ledger.load() as CapabilityEvidenceLoad.Loaded
+        val second = ledger.load() as CapabilityEvidenceLoad.Loaded
+        assertEquals(first.evidence.single().eventId, second.evidence.single().eventId)
+        assertTrue(first.evidence.single().eventId.isNotBlank())
+
+        ledger.record(evidence(EvidenceOutcome.SUCCEEDED, at = 43))
+        val rewritten = org.json.JSONObject(file.readText())
+        assertEquals(2, rewritten.getInt("schema_version"))
+        directory.deleteRecursively()
+    }
+
 }
