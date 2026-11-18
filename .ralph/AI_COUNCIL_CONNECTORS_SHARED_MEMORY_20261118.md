@@ -230,7 +230,7 @@ The first Android implementation is in **PR #95** (currently open, unmerged, and
 ### Implemented in PR #95
 
 - Android Keystore AES-GCM provider credential storage, with provider metadata stored separately.
-- Provider setup in Settings for OpenAI Responses, OpenAI-compatible Chat Completions, Anthropic Messages, and Gemini generateContent.
+- Provider setup in Settings for OpenAI Responses, OpenAI-compatible Chat Completions, Anthropic Messages, and Gemini Interactions API.
 - HTTPS-by-default endpoint validation; the only HTTP exception is explicitly opted-in 127.0.0.1 loopback, matching Android network security configuration. Redirects are disabled.
 - Native asynchronous ModelProvider adapters. Streaming and tool calling are explicitly reported as unsupported rather than simulated.
 - Provider health checks use model metadata endpoints; they do not spend generation tokens.
