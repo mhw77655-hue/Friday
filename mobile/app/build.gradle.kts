@@ -78,12 +78,6 @@ plugins {
         getByName("release") {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("fridayRelease")
-            // The physical Android phone target is ARM64. x86_64 remains
-            // enabled for disposable emulator/debug validation only.
-            ndk {
-                abiFilters.clear()
-                abiFilters += "arm64-v8a"
-            }
         }
     }
 
