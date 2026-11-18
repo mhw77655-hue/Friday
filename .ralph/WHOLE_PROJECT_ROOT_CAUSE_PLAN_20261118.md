@@ -163,6 +163,14 @@ The #83 diff creates/updates proposal PRs with `GITHUB_TOKEN`, removes the expli
 **Consequence:** memory and CPU use grow over the lifetime of Friday, while pronouns/ordinals can silently bind to stale entities.  
 **Root correction:** keep a bounded per-turn/per-segment working set with explicit lifecycle and maximum retention; aggregate mention frequency/recency incrementally rather than rescanning the entire history; assign list/group IDs to extracted enumerations; resolve ordinals only inside the relevant group and return ambiguity when the group is uncertain. Durable knowledge belongs in the memory graph, not the ephemeral reference buffer.
 
+### RC-17: The turn queue is unbounded and response timeout starts before queue admission
+
+Production `LatencyLayer` dispatches slow-path turns onto `Executors.newSingleThreadExecutor`, whose work queue is unbounded. `LatencyPipeline.pending` and `pendingInputs` are also unbounded. The response timeout is scheduled at submission time, but the pending entry is added only when the queued slow-path task eventually starts. If queue delay exceeds the timeout, the timeout callback sees no pending entry and does nothing; when the delayed task later runs, it adds a pending entry and sends the request with no remaining timeout. This can leave permanent pending state and late work after the UI already timed out.
+
+**Cause:** queue admission, execution and timeout are not one state machine; the deadline does not cover queued work.  
+**Consequence:** bursts can grow memory without bound, cause stale turns to execute after timeout, and leak pending exchanges that can misassociate later replies.  
+**Root correction:** introduce bounded admission and an explicit per-exchange lifecycle (`QUEUED → RUNNING → COMPLETED/TIMED_OUT/CANCELLED`) with one absolute deadline from submission. On timeout, cancel/remove queued work and prevent it from dispatching later; running work must settle exactly once. Apply backpressure/rejection when capacity is reached and report a clear local response rather than accumulating unbounded tasks.
+
 ## 3. Architecture boundary to preserve
 
 1. **Friday on Android:** persistent identity/continuity, local cognition and presence, privacy-minimized observation, memory/experience, permissioned device actions, safe capability runtime, self-study, development-intent formation, durable offline outbox and result consumption.
