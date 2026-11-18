@@ -57,7 +57,7 @@ class StepExecutionLoopTest {
 
         val e = engine(fabric)
         e.getTaskWorkingMemory().setGoal("test goal")
-        e.getTaskWorkingMemory().pushSubgoals(listOf("step a"))
+        e.getTaskWorkingMemory().pushExecutableSubgoals(listOf(TaskWorkingMemory.ExecutableSubgoal("step a", "step a")))
 
         val result = e.runNext()
 
@@ -98,7 +98,7 @@ class StepExecutionLoopTest {
 
         val e = engine(fabric)
         e.getTaskWorkingMemory().setGoal("full task")
-        e.getTaskWorkingMemory().pushSubgoals(listOf("step a", "step b", "step c"))
+        e.getTaskWorkingMemory().pushExecutableSubgoals(listOf(TaskWorkingMemory.ExecutableSubgoal("step a", "step a"), TaskWorkingMemory.ExecutableSubgoal("step b", "step b"), TaskWorkingMemory.ExecutableSubgoal("step c", "step c")))
 
         // Execute all three subgoals
         val r1 = e.runNext()
@@ -137,7 +137,7 @@ class StepExecutionLoopTest {
 
         val e = engine(fabric)
         e.getTaskWorkingMemory().setGoal("failing task")
-        e.getTaskWorkingMemory().pushSubgoals(listOf("doomed step"))
+        e.getTaskWorkingMemory().pushExecutableSubgoals(listOf(TaskWorkingMemory.ExecutableSubgoal("doomed step", "doomed step")))
 
         val result = e.runNext()
 
@@ -161,7 +161,7 @@ class StepExecutionLoopTest {
             },
             complete = { prompt ->
                 replanCallCount++
-                "1. revised step"
+                """{"subgoals":[{"description":"revised step","operation":"revised step"}]}"""
             }
         )
         e.getTaskWorkingMemory().setGoal("replan task")
@@ -197,11 +197,11 @@ class StepExecutionLoopTest {
                     ExecutionResult.fail(ActionFailure.Error("FLaky", "always fails", recoverable = false))
                 })
             },
-            complete = { _ -> "1. flaky step" } // replan always produces same failing step
+            complete = { _ -> """{"subgoals":[{"description":"flaky step","operation":"flaky step"}]}""" } // replan always produces same failing step
         )
         e.maxReplansPerTask = 2
         e.getTaskWorkingMemory().setGoal(" doomed task")
-        e.getTaskWorkingMemory().pushSubgoals(listOf("flaky step"))
+        e.getTaskWorkingMemory().pushExecutableSubgoals(listOf(TaskWorkingMemory.ExecutableSubgoal("flaky step", "flaky step")))
 
         // First run: fails, replan 1
         e.runNext()
@@ -230,10 +230,10 @@ class StepExecutionLoopTest {
                     ExecutionResult.ok(output = mapOf("outcome" to "fixed"))
                 })
             },
-            complete = { _ -> "1. fixed step" }
+            complete = { _ -> """{"subgoals":[{"description":"fixed step","operation":"fixed step"}]}""" }
         )
         e.getTaskWorkingMemory().setGoal("multi step")
-        e.getTaskWorkingMemory().pushSubgoals(listOf("good step", "bad step"))
+        e.getTaskWorkingMemory().pushExecutableSubgoals(listOf(TaskWorkingMemory.ExecutableSubgoal("good step", "good step"), TaskWorkingMemory.ExecutableSubgoal("bad step", "bad step")))
 
         // Execute "good step" (succeeds)
         val r1 = e.runNext()
