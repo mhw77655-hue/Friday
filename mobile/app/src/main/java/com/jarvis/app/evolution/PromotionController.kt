@@ -74,7 +74,7 @@ class PromotionController(
                 id = systemId,
                 genome = healthy,
                 spec = implementation.spec,
-                capabilities = healthy.capabilities.ifEmpty { setOf(implementation.spec.capability) },
+                capabilities = setOf(implementation.spec.capability),
                 // A promoted organism owns its own interpreter sandbox; it
                 // must not share the candidate-testing sandbox or another
                 // organism's lifecycle.
