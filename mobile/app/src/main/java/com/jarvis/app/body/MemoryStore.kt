@@ -23,6 +23,19 @@ private const val MAX_FACTS = 200
 private const val MAX_PREFERENCES = 200
 private const val MAX_CONTEXT_TURNS = 20
 
+internal fun <K, V> trimOldestEntries(
+    entries: ConcurrentHashMap<K, V>,
+    limit: Int,
+    timestamp: (V) -> Long
+) {
+    require(limit >= 0)
+    val excess = entries.size - limit
+    if (excess <= 0) return
+    entries.entries.sortedBy { timestamp(it.value) }
+        .take(excess)
+        .forEach { entry -> entries.remove(entry.key, entry.value) }
+}
+
 /**
  * Selective local memory store for JARVIS communication body.
  *
@@ -247,21 +260,9 @@ class MemoryStore(
     }
 
     /** Trim episodic memories to max size. */
-    private fun trimFacts() {
-        if (facts.size > MAX_FACTS) {
-            facts.values.sortedBy { it.timestamp }
-                .take(facts.size - MAX_FACTS)
-                .forEach { facts.remove(it.id) }
-        }
-    }
+    private fun trimFacts() = trimOldestEntries(facts, MAX_FACTS) { it.timestamp }
 
-    private fun trimPreferences() {
-        if (preferences.size > MAX_PREFERENCES) {
-            preferences.values.sortedBy { it.timestamp }
-                .take(preferences.size - MAX_PREFERENCES)
-                .forEach { preferences.remove(it.id) }
-        }
-    }
+    private fun trimPreferences() = trimOldestEntries(preferences, MAX_PREFERENCES) { it.timestamp }
 
     private fun trimEpisodic() {
         if (episodicMemories.size > MAX_EPISODIC) {
