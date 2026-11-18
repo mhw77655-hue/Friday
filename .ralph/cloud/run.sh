@@ -218,8 +218,7 @@ finish() {
       notify "Cloud Ralph verified the requested stories" "No committed source delta exists beyond main, so no proposal branch was created."
     elif git merge-base --is-ancestor origin/main HEAD; then
       BRANCH="ralph/proposal-${HEAD_SHA:0:12}-r${RELAY}"
-      gh auth setup-git > /dev/null 2>&1 || { notify "Cloud Ralph could not publish a proposal" "Trusted git authentication setup failed. Work remains on ralph/wip."; return; }
-      if git push -q origin "HEAD:refs/heads/$BRANCH" > /dev/null 2>&1; then
+      if gh auth setup-git > /dev/null 2>&1 && git push -q origin "HEAD:refs/heads/$BRANCH" > /dev/null 2>&1; then
         PR_URL=$(gh pr list --repo "$REPO" --head "$BRANCH" --base main --json url --jq '.[0].url // empty' 2>/dev/null)
         if [ -z "$PR_URL" ]; then
           PR_URL=$(gh pr create --draft --repo "$REPO" --base main --head "$BRANCH" \
@@ -232,7 +231,7 @@ finish() {
           notify "Cloud Ralph pushed a proposal branch but could not open its draft PR" "Branch: $BRANCH. Work remains review-only; no merge or release was performed."
         fi
       else
-        notify "Cloud Ralph could not push its proposal branch" "Branch: $BRANCH. Work remains on ralph/wip; main was not changed."
+        notify "Cloud Ralph could not publish its proposal branch" "Trusted git authentication or branch push failed. Work remains on ralph/wip; main was not changed."
       fi
     else
       notify "Cloud Ralph stopped because its work diverged from current main" "No direct push or release was performed. Inspect ralph/wip and reports/cloud."
