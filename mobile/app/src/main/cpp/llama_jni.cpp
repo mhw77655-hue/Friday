@@ -242,7 +242,7 @@ JNI_CLASS(nativeGenerate)(JNIEnv* env, jobject thiz, jlong handle, jstring promp
                 jstring item = static_cast<jstring>(env->GetObjectArrayElement(stopSeqArray, i));
                 if (!item) continue;
                 const char* chars = env->GetStringUTFChars(item, nullptr);
-                if (chars) {
+                if (chars && *chars) {
                     stopStorage.emplace_back(chars);
                     env->ReleaseStringUTFChars(item, chars);
                 }
