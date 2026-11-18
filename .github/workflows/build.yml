@@ -15,7 +15,8 @@ on:
 concurrency:
   group: friday-build-v2-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
   # Preserve the active candidate's full validation; newer commits wait their turn.
-  cancel-in-progress: false
+  # A newer PR commit supersedes stale validation; never cancel mainline validation.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions: {}
 

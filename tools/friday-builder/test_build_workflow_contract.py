@@ -60,7 +60,7 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertNotIn("audit/**", push)
         self.assertNotIn("friday-proposals/**", push)
         self.assertIn("concurrency:", self.workflow)
-        self.assertIn("github.event_name", self.workflow)
+        self.assertIn("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", self.workflow)
 
 if __name__ == "__main__":
     unittest.main()
