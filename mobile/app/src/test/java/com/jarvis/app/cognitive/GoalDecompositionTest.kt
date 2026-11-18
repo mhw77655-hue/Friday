@@ -2,6 +2,11 @@ package com.jarvis.app.cognitive
 
 import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.body.MemoryItem
+import com.jarvis.app.cognitive.capability.CapabilityFabric
+import com.jarvis.app.cognitive.capability.FakeCapability
+import com.jarvis.app.cognitive.capability.descriptor
+import com.jarvis.app.cognitive.capability.testImmune
+import com.jarvis.app.cognitive.execution.ExecutionResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -28,14 +33,22 @@ class GoalDecompositionTest {
         scope.cancel()
     }
 
-    private fun engine(complete: suspend (String) -> String): CognitiveEngine =
-        CognitiveEngine(
+    private fun engine(complete: suspend (String) -> String): CognitiveEngine {
+        val fabric = CapabilityFabric(testImmune(), emit = {})
+        listOf("research", "outline", "draft", "analyze", "write", "step_a", "step_b", "read").forEach { operation ->
+            fabric.register(FakeCapability(descriptor("test_$operation", operation = operation)) {
+                ExecutionResult.ok()
+            })
+        }
+        return CognitiveEngine(
             scope = scope,
             memoryStore = object : MemoryStorePort {
                 override fun queryMemories(query: String, limit: Int) = emptyList<MemoryItem>()
             },
+            capabilityFabric = fabric,
             decompositionComplete = complete
         )
+    }
 
     @Test
     fun decompose_produces_ordered_subgoals_on_working_memory() = kotlinx.coroutines.runBlocking {
