@@ -15,7 +15,7 @@ import java.net.URL
 import java.net.URLEncoder
 import java.util.concurrent.atomic.AtomicLong
 
-enum class RemoteProviderProtocol { OPENAI_RESPONSES, OPENAI_COMPATIBLE, ANTHROPIC_MESSAGES, GEMINI_GENERATE_CONTENT }
+enum class RemoteProviderProtocol { OPENAI_RESPONSES, OPENAI_COMPATIBLE, ANTHROPIC_MESSAGES, GEMINI_INTERACTIONS }
 
 /**
  * Native Android adapter for major hosted model APIs and OpenAI-compatible endpoints.
@@ -42,14 +42,14 @@ class OpenAiCompatibleProvider(
             RemoteProviderProtocol.OPENAI_RESPONSES -> openAiResponsesBody(request)
             RemoteProviderProtocol.OPENAI_COMPATIBLE -> openAiBody(request)
             RemoteProviderProtocol.ANTHROPIC_MESSAGES -> anthropicBody(request)
-            RemoteProviderProtocol.GEMINI_GENERATE_CONTENT -> geminiBody(request)
+            RemoteProviderProtocol.GEMINI_INTERACTIONS -> geminiInteractionsBody(request)
         }
         val url = when (protocol) {
             RemoteProviderProtocol.OPENAI_RESPONSES -> "$endpoint/responses"
             RemoteProviderProtocol.OPENAI_COMPATIBLE -> "$endpoint/chat/completions"
             RemoteProviderProtocol.ANTHROPIC_MESSAGES -> "$endpoint/messages"
-            RemoteProviderProtocol.GEMINI_GENERATE_CONTENT ->
-                "$endpoint/models/${URLEncoder.encode(request.modelId ?: model, "UTF-8")}:generateContent"
+            RemoteProviderProtocol.GEMINI_INTERACTIONS ->
+                "$endpoint/interactions"
         }
         parseResponse(execute(url, body), request.modelId ?: model).also { result ->
             result.usage?.let { usage ->
@@ -76,7 +76,7 @@ class OpenAiCompatibleProvider(
         val started = System.currentTimeMillis()
         try {
             val modelsUrl = when (protocol) {
-                RemoteProviderProtocol.GEMINI_GENERATE_CONTENT ->
+                RemoteProviderProtocol.GEMINI_INTERACTIONS ->
                     "${endpoint}/models/${URLEncoder.encode(model, "UTF-8")}" 
                 else -> "${endpoint}/models"
             }
@@ -164,26 +164,24 @@ class OpenAiCompatibleProvider(
         }
     }
 
-    private fun geminiBody(request: GenerateRequest): JSONObject {
+    private fun geminiInteractionsBody(request: GenerateRequest): JSONObject {
         val system = request.messages.filter { it.role == MessageRole.SYSTEM }.joinToString("\n") { it.content }
+        val input = request.messages.filter { it.role != MessageRole.SYSTEM && it.role != MessageRole.TOOL }
+            .joinToString("\n\n") { message ->
+                val role = if (message.role == MessageRole.ASSISTANT) "Assistant" else "User"
+                "$role: ${message.content}"
+            }
         return JSONObject().apply {
-            if (system.isNotBlank()) put("systemInstruction",
-                JSONObject().put("parts", JSONArray().put(JSONObject().put("text", system))))
-            put("contents", JSONArray().apply {
-                request.messages.filter { it.role != MessageRole.SYSTEM && it.role != MessageRole.TOOL }
-                    .forEach { m ->
-                        put(JSONObject()
-                            .put("role", if (m.role == MessageRole.ASSISTANT) "model" else "user")
-                            .put("parts", JSONArray().put(JSONObject().put("text", m.content))))
-                    }
-            })
-            put("generationConfig", JSONObject()
-                .put("maxOutputTokens", request.maxTokens)
+            put("model", request.modelId ?: model)
+            put("input", input)
+            put("store", false)
+            if (system.isNotBlank()) put("system_instruction", system)
+            put("generation_config", JSONObject()
+                .put("max_output_tokens", request.maxTokens)
                 .put("temperature", request.temperature.toDouble())
-                .put("topP", request.topP.toDouble()))
+                .put("top_p", request.topP.toDouble()))
         }
     }
-
     private fun execute(url: String, body: JSONObject?, method: String = "POST"): JSONObject {
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = method
@@ -199,7 +197,7 @@ class OpenAiCompatibleProvider(
                     setRequestProperty("x-api-key", apiKey)
                     setRequestProperty("anthropic-version", "2023-06-01")
                 }
-                RemoteProviderProtocol.GEMINI_GENERATE_CONTENT ->
+                RemoteProviderProtocol.GEMINI_INTERACTIONS ->
                     setRequestProperty("x-goog-api-key", apiKey)
             }
             doOutput = body != null
@@ -264,16 +262,26 @@ class OpenAiCompatibleProvider(
                 completion = json.optJSONObject("usage")?.optInt("output_tokens", 0) ?: 0
                 finish = if (json.optString("stop_reason") == "max_tokens") FinishReason.LENGTH else FinishReason.STOP
             }
-            RemoteProviderProtocol.GEMINI_GENERATE_CONTENT -> {
-                content = json.optJSONArray("candidates")?.optJSONObject(0)
-                    ?.optJSONObject("content")?.optJSONArray("parts")?.let { a ->
-                        (0 until a.length()).mapNotNull { a.optJSONObject(it)?.optString("text") }
-                            .filter { it.isNotBlank() }.joinToString("\n")
-                    }.orEmpty()
-                prompt = json.optJSONObject("usageMetadata")?.optInt("promptTokenCount", 0) ?: 0
-                completion = json.optJSONObject("usageMetadata")?.optInt("candidatesTokenCount", 0) ?: 0
-                finish = if (json.optJSONArray("candidates")?.optJSONObject(0)?.optString("finishReason") == "MAX_TOKENS")
-                    FinishReason.LENGTH else FinishReason.STOP
+            RemoteProviderProtocol.GEMINI_INTERACTIONS -> {
+                val status = json.optString("status")
+                if (status.isNotBlank() && status != "completed" && status != "incomplete") {
+                    throw IllegalStateException("Gemini interaction status: $status")
+                }
+                content = json.optJSONArray("steps")?.let { steps ->
+                    (0 until steps.length()).mapNotNull { stepIndex ->
+                        val step = steps.optJSONObject(stepIndex) ?: return@mapNotNull null
+                        if (step.optString("type") != "model_output") return@mapNotNull null
+                        step.optJSONArray("content")?.let { parts ->
+                            (0 until parts.length()).mapNotNull { partIndex ->
+                                val part = parts.optJSONObject(partIndex) ?: return@mapNotNull null
+                                if (part.optString("type") == "text") part.optString("text") else null
+                            }.filter { it.isNotBlank() }.joinToString("\n")
+                        }
+                    }.filter { it.isNotBlank() }.joinToString("\n")
+                }.orEmpty()
+                prompt = json.optJSONObject("usage")?.optInt("total_input_tokens", 0) ?: 0
+                completion = json.optJSONObject("usage")?.optInt("total_output_tokens", 0) ?: 0
+                finish = if (status == "incomplete") FinishReason.LENGTH else FinishReason.STOP
             }
         }
         if (content.isBlank()) throw IllegalStateException("Provider returned an empty response")
