@@ -9,6 +9,7 @@ import com.jarvis.app.cognitive.execution.ActionRequest
 import com.jarvis.app.cognitive.execution.ExecutionResult
 import com.jarvis.app.evolution.Behavior
 import org.json.JSONObject
+import org.json.JSONArray
 import kotlinx.coroutines.CancellationException
 
 /**
@@ -26,7 +27,7 @@ class ToolBuilderCapability(
         category = "development",
         resourceProfile = CapabilityResourceProfile(cpuCost = 0.25f, memoryCostMb = 96, optional = true),
         riskLevel = RiskLevel.MEDIUM,
-        supportedOperations = setOf("builder.create_tool", "builder.describe")
+        supportedOperations = setOf("builder.create_tool", "builder.describe", "builder.inspect", "builder.rollback")
     )
 
     override suspend fun invoke(request: ActionRequest): ExecutionResult {
@@ -36,10 +37,13 @@ class ToolBuilderCapability(
                     "contract" to "Pass parameters.spec_json: JSON {capability, description, behavior:{type, ...}, constraints:[...], max_memory_mb?, max_cpu_percent?, research_first?}.",
                     "behavior_types" to "normalize, clamp, invert, reverse_words, lookup, custom",
                     "execution" to "Pure SynthProgram only; no arbitrary Kotlin, DEX, network or file access.",
-                    "growth" to "Promoted capabilities are retained in Friday's private workspace and restored after process restart."
+                    "growth" to "Promoted capabilities are retained in Friday's private workspace and restored after process restart.",
+                    "recovery" to "Use builder.inspect to list promotion receipts and builder.rollback with receipt_id and reason to reverse a regression."
                 )
             )
             "builder.create_tool" -> createTool(request)
+            "builder.inspect" -> inspectPromotions()
+            "builder.rollback" -> rollbackPromotion(request)
             else -> ExecutionResult.fail(ActionFailure.Unsupported(request.action))
         }
     }
@@ -96,6 +100,7 @@ class ToolBuilderCapability(
         result.strategy?.let { output["strategy"] = it }
         result.fitness?.let { output["fitness"] = it.toString() }
         result.rollbackPoint?.let { output["rollback_point"] = it }
+        result.promotionReceipt?.let { output["receipt_id"] = it.genomeId }
 
         val evidence = mapOf(
             "builder" to "friday.builder.runtime",
@@ -111,6 +116,65 @@ class ToolBuilderCapability(
                     message = result.message,
                     recoverable = result.status in setOf("EVOLUTION_REJECTED", "RESOURCE_STATE_UNAVAILABLE"),
                     evidence = evidence
+                )
+            )
+        }
+    }
+
+    private fun inspectPromotions(): ExecutionResult {
+        val records = builder.promotionHistory(20)
+        val array = JSONArray()
+        records.forEach { stored ->
+            array.put(
+                JSONObject().apply {
+                    put("receipt_id", stored.receipt.genomeId)
+                    put("system_id", stored.receipt.systemId)
+                    put("status", stored.status.name)
+                    put("reason", stored.reason)
+                    put("promoted_at_ms", stored.receipt.promotedAtMs)
+                }
+            )
+        }
+        return ExecutionResult.ok(
+            output = mapOf("promotions_json" to array.toString(), "count" to records.size.toString())
+        )
+    }
+
+    private suspend fun rollbackPromotion(request: ActionRequest): ExecutionResult {
+        val receiptId = request.context["receipt_id"]
+            ?: return ExecutionResult.fail(
+                ActionFailure.Error("BUILDER_RECEIPT_REQUIRED", "builder.rollback requires context.receipt_id.")
+            )
+        val reason = request.context["reason"] ?: request.description.ifBlank { "Friday detected a capability regression." }
+        return try {
+            val result = builder.rollbackPromotion(receiptId, reason)
+            if (result.success) {
+                ExecutionResult.ok(
+                    output = mapOf(
+                        "status" to "ROLLED_BACK",
+                        "receipt_id" to (result.rejectedGenomeId ?: receiptId),
+                        "restored_genome_id" to (result.restoredGenomeId ?: ""),
+                        "reason" to result.reason
+                    ),
+                    evidence = mapOf("rollback" to "durable receipt applied")
+                )
+            } else {
+                ExecutionResult.fail(
+                    ActionFailure.Error(
+                        code = "BUILDER_ROLLBACK_FAILED",
+                        message = result.reason,
+                        recoverable = false
+                    )
+                )
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            ExecutionResult.fail(
+                ActionFailure.Error(
+                    code = "BUILDER_ROLLBACK_FAILED",
+                    message = failure.message ?: "Rollback failed.",
+                    recoverable = true
                 )
             )
         }
