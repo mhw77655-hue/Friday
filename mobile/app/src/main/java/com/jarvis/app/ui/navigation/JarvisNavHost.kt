@@ -147,7 +147,13 @@ fun JarvisNavHost() {
         bottomBar = {
             JarvisBottomBar(
                 currentRoute = currentRoute,
-                moreSelected = moreSheetOpen,
+                moreSelected = moreSheetOpen || currentRoute in setOf(
+                    ROUTE_MEMORY, ROUTE_TOOLS, ROUTE_SYSTEM, ROUTE_SANDBOX,
+                    ROUTE_SETTINGS, ROUTE_TASK_INBOX, ROUTE_APPROVALS, ROUTE_ALERTS,
+                    ROUTE_SESSIONS, ROUTE_SESSION_DETAIL, ROUTE_ENVIRONMENT, ROUTE_MODEL,
+                    ROUTE_MODEL_SIMULATION, ROUTE_VISION, ROUTE_VIDEO_KNOWLEDGE,
+                    ROUTE_VOICE_STUDIO, ROUTE_BOOTSTRAP
+                ),
                 onHome = { navigateToTab(ROUTE_HOME) },
                 onConversation = { navigateToTab(ROUTE_CONVERSATION) },
                 onMissions = { navigateToTab(ROUTE_MISSIONS) },
