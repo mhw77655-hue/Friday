@@ -344,7 +344,7 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
         stateLock.readLock().withLock {
             val handle = nativeHandle
             if (handle == 0L) {
-                ProviderHealth(false, -1, false, null, "Not loaded")
+                ProviderHealth(isHealthy = false, latencyMs = -1L, modelLoaded = false, currentModel = null, error = "Not loaded")
             } else {
                 val nativeHealth = nativeGetHealth(handle)
                 ProviderHealth(
@@ -409,12 +409,12 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
 
     /** Get detailed health */
     fun getHealth(): NativeHealth? = stateLock.readLock().withLock {
-        nativeHandle.takeIf { it != 0L }?.let(::nativeGetHealth)
+        nativeHandle.takeIf { it != 0L }?.let { nativeGetHealth(it) }
     }
 
     /** Prewarm the model (async) */
     fun prewarm(): Boolean = stateLock.readLock().withLock {
-        nativeHandle.takeIf { it != 0L }?.let(::nativePrewarm) ?: false
+        nativeHandle.takeIf { it != 0L }?.let { nativePrewarm(it) } ?: false
     }
 
     /** Wait for ready */
@@ -424,7 +424,7 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
 
     /** Cancel generation can share a read lease with the in-flight generate call. */
     fun cancel() = stateLock.readLock().withLock {
-        nativeHandle.takeIf { it != 0L }?.let(::nativeCancel)
+        nativeHandle.takeIf { it != 0L }?.let { nativeCancel(it) }
     }
 
     /** Suspend model (keep weights, release context) */
