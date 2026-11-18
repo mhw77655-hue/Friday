@@ -3,6 +3,10 @@ package com.jarvis.app.onefriday
 import com.jarvis.app.body.MemoryItem
 import com.jarvis.app.body.MemoryStorePort
 import com.jarvis.app.cognition.workspace.MentalStateClaims
+import com.jarvis.app.cognitive.Goal
+import com.jarvis.app.cognitive.GoalPriority
+import com.jarvis.app.cognitive.Subgoal
+import com.jarvis.app.cognitive.SubgoalStatus
 import com.jarvis.app.emotion.EmotionHypothesis
 import com.jarvis.app.failure.FailureSurface
 import com.jarvis.app.identity.MentalStateHypothesis
