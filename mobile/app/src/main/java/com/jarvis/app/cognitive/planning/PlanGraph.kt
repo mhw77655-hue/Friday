@@ -109,7 +109,9 @@ data class PlanNode(
     /** Why this node was deliberately skipped. */
     val skipReason: String? = null,
     /** Direct prerequisite ids currently blocking this node. */
-    val blockedBy: List<String> = emptyList()
+    val blockedBy: List<String> = emptyList(),
+    /** Validated operation arguments passed to the capability invocation context. */
+    val parameters: Map<String, String> = emptyMap()
 ) {
     val isPending: Boolean get() = status == PlanStepStatus.PENDING
     val isInProgress: Boolean get() = status == PlanStepStatus.IN_PROGRESS
