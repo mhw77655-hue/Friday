@@ -344,6 +344,39 @@ class ToolBuilderTest {
         )
         assertTrue("restored capability failed: ${restoredCall.failure}", restoredCall.success)
         assertEquals("3.0", restoredCall.output["result"])
+
+        val receiptId = built.output["receipt_id"] ?: error("Builder did not return a durable rollback receipt")
+        val inspected = secondFabric.invoker.invoke(
+            ActionRequest(
+                planId = "builder-restart",
+                stepId = "inspect-promotions",
+                action = "builder.inspect"
+            )
+        )
+        assertTrue("promotion history could not be inspected", inspected.success)
+        assertTrue(inspected.output["promotions_json"].orEmpty().contains(receiptId))
+
+        val rolledBack = secondFabric.invoker.invoke(
+            ActionRequest(
+                planId = "builder-restart",
+                stepId = "rollback-word-count",
+                action = "builder.rollback",
+                context = mapOf(
+                    "receipt_id" to receiptId,
+                    "reason" to "integration test verifies durable rollback after restart"
+                )
+            )
+        )
+        assertTrue("durable rollback failed: ${rolledBack.failure}", rolledBack.success)
+        val afterRollback = secondFabric.invoker.invoke(
+            ActionRequest(
+                planId = "builder-restart",
+                stepId = "word-count-after-rollback",
+                action = "word_count",
+                context = mapOf("text" to "must no longer resolve")
+            )
+        )
+        assertFalse("rolled-back capability remained callable", afterRollback.success)
         secondScope.cancel()
     }
 
