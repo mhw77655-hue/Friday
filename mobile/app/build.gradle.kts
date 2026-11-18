@@ -31,7 +31,7 @@ plugins {
     defaultConfig {
         applicationId = "com.jarvis.app"
         ndk {
-            abiFilters += listOf("arm64-v8a")
+            abiFilters += listOf("arm64-v8a", "x86_64")
         }
         minSdk = 26
         targetSdk = 36
