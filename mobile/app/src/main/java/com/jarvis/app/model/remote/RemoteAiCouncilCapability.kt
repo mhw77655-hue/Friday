@@ -20,7 +20,7 @@ class RemoteAiCouncilCapability(
         name = "External AI advisers",
         description = "Ask an owner-configured OpenAI, Claude, Gemini or compatible model for bounded advice.",
         category = "reasoning.external_advice",
-        requiredPermissions = setOf(CapabilityPermission.NETWORK, CapabilityPermission.USER_DATA),
+        requiredPermissions = setOf(CapabilityPermission.EXTERNAL_AI),
         supportedOperations = setOf("ai.council.consult"),
         availability = Availability.ONLINE
     )
