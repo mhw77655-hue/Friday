@@ -17,7 +17,10 @@ class JarvisApplication : Application() {
         com.jarvis.app.context.ProjectContextPackStore(File(filesDir, "friday/project_context_pack.json"))
     }
     val providerCouncil by lazy {
-        com.jarvis.app.model.remote.ProviderCouncil(this, remoteProviderProfiles, projectContextPackStore)
+        com.jarvis.app.model.remote.ProviderCouncil(
+            this, remoteProviderProfiles, projectContextPackStore,
+            com.jarvis.app.context.ProjectRepositoryReader()
+        )
     }
 
     override fun onCreate() {
