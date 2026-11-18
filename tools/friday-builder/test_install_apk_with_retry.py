@@ -1,7 +1,12 @@
+import subprocess
 import unittest
 from unittest.mock import Mock
 
-from install_apk_with_retry import install_with_retry, is_transient_storage_race
+from install_apk_with_retry import (
+    install_with_retry,
+    is_transient_storage_race,
+    is_transient_storage_session_failure,
+)
 
 
 class InstallRetryTests(unittest.TestCase):
@@ -20,6 +25,16 @@ class InstallRetryTests(unittest.TestCase):
         self.assertTrue(is_transient_storage_race(self.TRANSIENT))
         self.assertFalse(is_transient_storage_race("INSTALL_FAILED_INVALID_APK"))
         self.assertFalse(is_transient_storage_race("NullPointerException in unrelated code"))
+
+    STORAGE_TIMEOUT = (
+        "StorageManagerService: ExternalStorageServiceException: Failed to start session "
+        "Caused by: java.util.concurrent.TimeoutException"
+    )
+
+    def test_recognizes_only_the_specific_emulated_storage_session_timeout(self):
+        self.assertTrue(is_transient_storage_session_failure(self.STORAGE_TIMEOUT))
+        self.assertFalse(is_transient_storage_session_failure("INSTALL_FAILED_INVALID_APK"))
+        self.assertFalse(is_transient_storage_session_failure("StorageManagerService is running"))
 
     def test_first_install_success_does_not_retry(self):
         runner = Mock(return_value=self.result(0, "Success"))
@@ -54,6 +69,45 @@ class InstallRetryTests(unittest.TestCase):
         sleep = Mock()
         self.assertFalse(install_with_retry(
             "app.apk", max_attempts=3, runner=runner, sleep=sleep,
+        ))
+        self.assertEqual(runner.call_count, 3)
+        self.assertEqual(sleep.call_count, 2)
+
+    def test_install_timeout_retries_only_when_storage_session_failure_is_confirmed(self):
+        runner = Mock(side_effect=[
+            subprocess.TimeoutExpired(cmd=["adb", "install"], timeout=90),
+            self.result(0, stdout="Success"),
+        ])
+        diagnostics = Mock(return_value=self.STORAGE_TIMEOUT)
+        sleep = Mock()
+        self.assertTrue(install_with_retry(
+            "app.apk", runner=runner, diagnostic_reader=diagnostics, sleep=sleep,
+        ))
+        self.assertEqual(runner.call_count, 2)
+        diagnostics.assert_called_once_with("adb")
+        sleep.assert_called_once_with(5.0)
+
+    def test_unexplained_install_timeout_fails_closed(self):
+        runner = Mock(side_effect=subprocess.TimeoutExpired(cmd=["adb", "install"], timeout=90))
+        diagnostics = Mock(return_value="no storage service failure in logcat")
+        sleep = Mock()
+        self.assertFalse(install_with_retry(
+            "app.apk", runner=runner, diagnostic_reader=diagnostics, sleep=sleep,
+        ))
+        runner.assert_called_once()
+        sleep.assert_not_called()
+
+    def test_emulated_storage_timeout_retry_budget_is_bounded(self):
+        runner = Mock(side_effect=[
+            subprocess.TimeoutExpired(cmd=["adb", "install"], timeout=90),
+            subprocess.TimeoutExpired(cmd=["adb", "install"], timeout=90),
+            subprocess.TimeoutExpired(cmd=["adb", "install"], timeout=90),
+        ])
+        diagnostics = Mock(return_value=self.STORAGE_TIMEOUT)
+        sleep = Mock()
+        self.assertFalse(install_with_retry(
+            "app.apk", max_attempts=5, max_storage_timeouts=2,
+            runner=runner, diagnostic_reader=diagnostics, sleep=sleep,
         ))
         self.assertEqual(runner.call_count, 3)
         self.assertEqual(sleep.call_count, 2)
