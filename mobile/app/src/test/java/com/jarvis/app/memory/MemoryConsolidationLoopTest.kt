@@ -12,6 +12,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import java.util.concurrent.atomic.AtomicInteger
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -201,27 +202,26 @@ class MemoryConsolidationLoopTest {
         val h = Harness()
         h.statements += RecentStatement(sessionId = "session-retry", text = "I prefer concise answers to questions", timestamp = 1)
         val scope = CoroutineScope(Dispatchers.Default + Job())
-        var reads = 0
-        var reported = 0
+        val reads = AtomicInteger(0)
+        val reported = AtomicInteger(0)
         val loop = MemoryConsolidationLoop(
             userProfile = h.userProfile,
             recentExperience = {
-                reads++
-                if (reads == 1) throw IllegalStateException("temporary session-store read failure")
+                if (reads.incrementAndGet() == 1) throw IllegalStateException("temporary session-store read failure")
                 h.statements.toList()
             },
             scope = scope,
             idleIntervalMs = 5,
-            onPassFailure = { reported++ }
+            onPassFailure = { reported.incrementAndGet() }
         )
         try {
             loop.startIdleLoop()
-            repeat(100) {
-                if (h.userProfile.getPreference("communicationStyle") == "concise answers to questions") return@repeat
+            var attempts = 0
+            while (h.userProfile.getPreference("communicationStyle") != "concise answers to questions" && attempts++ < 100) {
                 delay(5)
             }
-            assertTrue("first transient failure was reported", reported >= 1)
-            assertTrue("idle worker retried the next cycle", reads >= 2)
+            assertTrue("first transient failure was reported", reported.get() >= 1)
+            assertTrue("idle worker retried the next cycle", reads.get() >= 2)
             assertEquals("later cycle still promoted the durable statement", "concise answers to questions", h.userProfile.getPreference("communicationStyle"))
             assertTrue("idle worker remains active after recovery", loop.isIdleLoopRunning())
         } finally {
