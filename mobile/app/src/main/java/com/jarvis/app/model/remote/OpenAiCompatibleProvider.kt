@@ -4,6 +4,7 @@ import com.jarvis.app.env.ModelProviderType
 import com.jarvis.app.model.*
 import com.jarvis.app.model.config.ProviderConfig
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
@@ -64,6 +65,8 @@ class OpenAiCompatibleProvider(
             val result = generate(request)
             emit(StreamEvent.Token(result.content, result.content))
             emit(StreamEvent.Done(result.usage))
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Exception) {
             emit(StreamEvent.Error(e.message ?: "Remote provider request failed"))
         }
@@ -79,6 +82,8 @@ class OpenAiCompatibleProvider(
             }
             execute(modelsUrl, null, "GET")
             ProviderHealth(true, System.currentTimeMillis() - started, false, model)
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Exception) {
             ProviderHealth(false, System.currentTimeMillis() - started, false, model,
                 e.message ?: "Provider health check failed")
