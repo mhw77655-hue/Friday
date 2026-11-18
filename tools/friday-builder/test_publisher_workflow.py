@@ -68,6 +68,19 @@ class PublisherWorkflowTests(unittest.TestCase):
         self.assertIn("VERIFIED_CONCLUSION", publisher)
         self.assertNotIn('gh pr checks "$PR_URL" --repo "$REPOSITORY" --watch', publisher)
 
+    def test_candidate_is_pushed_before_dispatch_and_merge_is_after_exact_sha_watch(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        publisher = workflow.split("  publish_draft_pr:", 1)[1]
+        pushed = publisher.index('git push origin "$BRANCH"')
+        dispatched = publisher.index('gh workflow run build.yml --repo "$REPOSITORY" --ref "$BRANCH"')
+        located = publisher.index("gh run list --repo")
+        watched = publisher.index('gh run watch "$RUN_ID" --repo "$REPOSITORY" --exit-status')
+        merged = publisher.index('gh pr merge "$PR_URL" --repo "$REPOSITORY" --squash --delete-branch')
+        self.assertLess(pushed, dispatched)
+        self.assertLess(dispatched, located)
+        self.assertLess(located, watched)
+        self.assertLess(watched, merged)
+
     def test_untrusted_worker_does_not_receive_repository_write_token(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         worker = workflow.split("  build_proposal:", 1)[1].split("  publish_draft_pr:", 1)[0]
