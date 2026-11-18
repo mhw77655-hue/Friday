@@ -44,4 +44,4 @@ High-risk proposals are deliberately left as drafts. They can still be implement
 
 ## Trust boundary
 
-Do not solve publisher permission errors by giving the coding worker a personal access token or write permissions. The worker must never receive repository-write credentials. The publisher must continue to validate paths, reject symlinks/submodules, and rely on independent hosted checks before promoting a low-risk patch.
+Do not solve this by giving the coding worker a personal access token or write permissions. Do not solve publisher permission errors by giving the coding worker any repository-write credential. The worker must never receive repository-write credentials. The publisher must continue to validate paths, reject symlinks/submodules, and rely on independent hosted checks before promoting a low-risk patch.
