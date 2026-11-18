@@ -429,7 +429,7 @@ jobs:
           gh workflow run build.yml --repo "$REPOSITORY" --ref "$BRANCH"
 
           RUN_ID=""
-          for attempt in $(seq 1 60); do
+          for _ in $(seq 1 60); do
             RUN_ID="$(gh run list --repo "$REPOSITORY" --workflow build.yml --branch "$BRANCH" --limit 20 \
               --json databaseId,headSha,event \
               --jq ".[] | select(.headSha == \"$EXPECTED_SHA\" and .event == \"workflow_dispatch\") | .databaseId" | head -n 1)"
