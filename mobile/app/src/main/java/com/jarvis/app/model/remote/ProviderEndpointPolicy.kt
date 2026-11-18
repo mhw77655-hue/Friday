@@ -4,10 +4,10 @@ import java.net.URI
 
 /**
  * Validates owner-supplied remote endpoints before credentials are attached.
- * HTTPS is mandatory except loopback/LAN HTTP endpoints explicitly opted in.
+ * HTTPS is mandatory; only the packaged 127.0.0.1 loopback exception may use HTTP.
  */
 object ProviderEndpointPolicy {
-    fun validate(raw: String, allowInsecureLocalNetwork: Boolean = false): String {
+    fun validate(raw: String, allowInsecureLoopbackHttp: Boolean = false): String {
         val uri = runCatching { URI(raw.trim()) }.getOrElse {
             throw IllegalArgumentException("Provider endpoint is not a valid URL")
         }
@@ -18,8 +18,8 @@ object ProviderEndpointPolicy {
         // Match Android's packaged network_security_config.xml exactly:
         // cleartext is allowed only for the explicit IPv4 loopback endpoint.
         val local = host == "127.0.0.1"
-        require(uri.scheme == "https" || (allowInsecureLocalNetwork && local)) {
-            "HTTPS is required; HTTP is allowed only for explicitly approved local endpoints"
+        require(uri.scheme == "https" || (allowInsecureLoopbackHttp && local)) {
+            "HTTPS is required; HTTP is allowed only for explicitly approved 127.0.0.1 loopback"
         }
         return uri.toString().trimEnd('/')
     }
