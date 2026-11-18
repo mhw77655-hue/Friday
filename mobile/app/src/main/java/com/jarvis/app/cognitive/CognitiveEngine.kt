@@ -1262,6 +1262,9 @@ class CognitiveEngine(
             if (operations.isEmpty()) append("- none currently registered\n")
             else operations.forEach { append("- ").append(it).append('\n') }
             append("""Return JSON only: {"subgoals":[{"description":"human-readable purpose","operation":"exact advertised operation","parameters":{"key":"string value"}}]}""")
+            if (operations.any { it.startsWith("builder.create_tool ") }) {
+                append("\nFor builder.create_tool, parameters must include spec_json as a JSON string with capability, description, behavior (type plus its required fields), constraints, and optional max_memory_mb/max_cpu_percent. Use builder.describe first if the schema is unclear. The Builder can create only pure SynthProgram capabilities; it cannot load arbitrary code or perform I/O.")
+            }
             append("\nNever use the description as the operation. Do not invent operations or permissions.")
             if (strict) append("\nThe previous response was invalid; correct the schema and exact operation names.")
         }
