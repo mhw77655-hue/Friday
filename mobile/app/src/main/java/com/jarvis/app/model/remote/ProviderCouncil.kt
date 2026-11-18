@@ -61,7 +61,14 @@ class ProviderCouncil(
         require(maxContextChars in 512..12_000)
     }
 
+    fun isEnabled(): Boolean = prefs.getBoolean(KEY_ENABLED, false)
+
+    fun setEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_ENABLED, enabled).commit()
+    }
+
     suspend fun consult(request: CouncilRequest): CouncilResult = mutex.withLock {
+        if (!isEnabled()) return@withLock CouncilResult(emptyList(), "External AI council is disabled in Friday settings")
         if (request.task.isBlank()) return@withLock CouncilResult(emptyList(), "Task is empty")
         if (request.maxOutputTokens !in 1..4096) return@withLock CouncilResult(emptyList(), "Output token limit is outside the allowed range")
         val adviserCount = request.maxAdvisers.coerceIn(1, 3)
@@ -144,6 +151,7 @@ class ProviderCouncil(
     }
 
     companion object {
+        private const val KEY_ENABLED = "enabled"
         private const val KEY_DAY = "utc_day"
         private const val KEY_REQUESTS = "requests"
         private const val KEY_TOKENS = "reserved_tokens"
