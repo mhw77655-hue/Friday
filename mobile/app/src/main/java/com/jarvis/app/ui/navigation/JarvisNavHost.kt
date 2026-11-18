@@ -36,6 +36,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -54,6 +56,7 @@ import com.jarvis.app.ui.screens.MoreSheet
 import com.jarvis.app.ui.screens.SandboxScreen
 import com.jarvis.app.ui.screens.SettingsScreen
 import com.jarvis.app.ui.screens.SessionsScreen
+import com.jarvis.app.ui.screens.SessionDetailScreen
 import com.jarvis.app.ui.screens.SystemScreen
 import com.jarvis.app.ui.screens.TaskInboxScreen
 import com.jarvis.app.ui.screens.ToolsScreen
@@ -75,6 +78,7 @@ private const val ROUTE_TASK_INBOX = "task_inbox"
 private const val ROUTE_APPROVALS = "approvals"
 private const val ROUTE_ALERTS = "alerts"
 private const val ROUTE_SESSIONS = "sessions"
+private const val ROUTE_SESSION_DETAIL = "session_detail/{sessionId}"
 private const val ROUTE_BOOTSTRAP = "bootstrap"
 private const val ROUTE_ENVIRONMENT = "environment"
 private const val ROUTE_MODEL = "model"
@@ -196,7 +200,27 @@ fun JarvisNavHost() {
                 val slot = EngineAccess.sessionManager()
                 val manager = slot.value
                 if (manager == null) WakingSurface(slot.readiness)
-                else SessionsScreen(sessionManager = manager, onNavigate = ::navigateToTab)
+                else SessionsScreen(
+                    sessionManager = manager,
+                    onNavigate = { route -> navController.navigate(route) }
+                )
+            }
+            composable(
+                route = ROUTE_SESSION_DETAIL,
+                arguments = listOf(navArgument("sessionId") { type = NavType.StringType })
+            ) { entry ->
+                val slot = EngineAccess.sessionManager()
+                val manager = slot.value
+                val sessionId = entry.arguments?.getString("sessionId").orEmpty()
+                if (manager == null || sessionId.isBlank()) {
+                    WakingSurface(slot.readiness)
+                } else {
+                    SessionDetailScreen(
+                        sessionId = sessionId,
+                        sessionManager = manager,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
             }
             composable(ROUTE_ENVIRONMENT) {
                 val slot = EngineAccess.environmentManager()
