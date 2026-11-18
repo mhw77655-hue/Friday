@@ -48,6 +48,7 @@ class CapabilityEvidenceLedger(
     private val file = File(directory, FILE_NAME)
     private val storage = FileStorage(directory)
 
+    @Synchronized
     fun load(): CapabilityEvidenceLoad {
         if (!file.isFile) return CapabilityEvidenceLoad.Empty
         if (file.length() > MAX_FILE_BYTES) {
@@ -65,6 +66,7 @@ class CapabilityEvidenceLedger(
         }
     }
 
+    @Synchronized
     fun record(evidence: CapabilityEvidence) {
         validate(evidence)
         val current = when (val loaded = load()) {
@@ -86,6 +88,7 @@ class CapabilityEvidenceLedger(
         storage.write(file, encoded)
     }
 
+    @Synchronized
     fun knowledge(): List<CapabilityKnowledge> {
         val evidence = when (val loaded = load()) {
             CapabilityEvidenceLoad.Empty -> emptyList()
@@ -93,16 +96,20 @@ class CapabilityEvidenceLedger(
             is CapabilityEvidenceLoad.Corrupt -> return emptyList()
         }
         return evidence.groupBy { it.capabilityId }.map { (id, rows) ->
-            val verifiedSuccesses = rows.count { it.outcome == EvidenceOutcome.SUCCEEDED && it.verified }
             val failures = rows.count { it.outcome == EvidenceOutcome.FAILED }
+            // A later verified recovery can rehabilitate a capability. Count
+            // only verified successes recorded after the most recent failure.
+            val lastFailureIndex = rows.indexOfLast { it.outcome == EvidenceOutcome.FAILED }
+            val verifiedSuccesses = rows.drop(lastFailureIndex + 1).count {
+                it.outcome == EvidenceOutcome.SUCCEEDED && it.verified
+            }
             CapabilityKnowledge(
                 capabilityId = id,
                 observations = rows.size,
                 verifiedSuccesses = verifiedSuccesses,
                 failures = failures,
                 lastObservedAtMs = rows.maxOf { it.observedAtMs },
-                // Require repeated verified success and no unresolved failure.
-                reusable = verifiedSuccesses >= MIN_VERIFIED_SUCCESSES && failures == 0
+                reusable = verifiedSuccesses >= MIN_VERIFIED_SUCCESSES
             )
         }.sortedBy { it.capabilityId }
     }
