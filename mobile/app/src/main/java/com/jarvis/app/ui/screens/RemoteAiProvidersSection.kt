@@ -51,7 +51,7 @@ fun RemoteAiProvidersSection() {
     var endpoint by remember { mutableStateOf("https://api.openai.com/v1") }
     var modelId by remember { mutableStateOf("gpt-4.1-mini") }
     var apiKey by remember { mutableStateOf("") }
-    var protocol by remember { mutableStateOf(RemoteProviderProtocol.OPENAI_COMPATIBLE) }
+    var protocol by remember { mutableStateOf(RemoteProviderProtocol.OPENAI_RESPONSES) }
     var allowLocalHttp by remember { mutableStateOf(false) }
     var protocolMenu by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Remote advisers are optional. Friday works locally when none are configured.") }
@@ -114,12 +114,12 @@ fun RemoteAiProvidersSection() {
                     DropdownMenuItem(text = { Text(item.name) }, onClick = {
                         protocol = item
                         when (item) {
-                            RemoteProviderProtocol.OPENAI_COMPATIBLE -> endpoint = "https://api.openai.com/v1"
+                            RemoteProviderProtocol.OPENAI_RESPONSES, RemoteProviderProtocol.OPENAI_COMPATIBLE -> endpoint = "https://api.openai.com/v1"
                             RemoteProviderProtocol.ANTHROPIC_MESSAGES -> endpoint = "https://api.anthropic.com/v1"
                             RemoteProviderProtocol.GEMINI_GENERATE_CONTENT -> endpoint = "https://generativelanguage.googleapis.com/v1beta"
                         }
                         label = when (item) {
-                            RemoteProviderProtocol.OPENAI_COMPATIBLE -> "OpenAI"
+                            RemoteProviderProtocol.OPENAI_RESPONSES, RemoteProviderProtocol.OPENAI_COMPATIBLE -> "OpenAI"
                             RemoteProviderProtocol.ANTHROPIC_MESSAGES -> "Claude"
                             RemoteProviderProtocol.GEMINI_GENERATE_CONTENT -> "Gemini"
                         }
