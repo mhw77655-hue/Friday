@@ -133,6 +133,8 @@ class ProviderCouncil(
                 )
                 // The reservation remains conservative: provider usage may omit
                 // cached/reasoning token detail, so do not refund on under-reporting.
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (e: Exception) {
                 // The attempted request still consumes one request reservation.
                 // Continue only when the owner explicitly asked for peer review.
