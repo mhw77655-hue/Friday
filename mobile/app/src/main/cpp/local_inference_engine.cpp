@@ -563,27 +563,31 @@ bool llama_model_resume(LlamaModel* model) {
 void llama_model_destroy(LlamaModel* model) {
     if (!model) return;
 
-    std::lock_guard<std::mutex> thread_lock(model->prewarm_mutex);
-    // Request cancellation before waiting for any in-flight generation.
-    model->cancel_flag = true;
-
-    // Prewarm owns model state until it exits. Keep the thread joinable and
-    // wait for it before releasing the model/context memory.
-    if (model->prewarm_thread.joinable()) model->prewarm_thread.join();
-
     {
-        std::lock_guard<std::mutex> lock(model->mutex);
-        set_state_unlocked(model, LLAMA_STATE_UNLOADING);
-        if (model->ctx) {
-            llama_free(model->ctx);
-            model->ctx = nullptr;
+        // Serialize destruction with any concurrent prewarm/resume attempt.
+        std::lock_guard<std::mutex> thread_lock(model->prewarm_mutex);
+        // Request cancellation before waiting for any in-flight generation.
+        model->cancel_flag = true;
+
+        // Prewarm owns model state until it exits. Keep the thread joinable and
+        // wait for it before releasing the model/context memory.
+        if (model->prewarm_thread.joinable()) model->prewarm_thread.join();
+
+        {
+            std::lock_guard<std::mutex> lock(model->mutex);
+            set_state_unlocked(model, LLAMA_STATE_UNLOADING);
+            if (model->ctx) {
+                llama_free(model->ctx);
+                model->ctx = nullptr;
+            }
+            if (model->model) {
+                llama_model_free(model->model);
+                model->model = nullptr;
+            }
+            set_state_unlocked(model, LLAMA_STATE_DORMANT);
         }
-        if (model->model) {
-            llama_model_free(model->model);
-            model->model = nullptr;
-        }
-        set_state_unlocked(model, LLAMA_STATE_DORMANT);
-    }
+    } // Release prewarm_mutex before destroying the object that owns it.
+
     LOGI("Model destroyed");
     delete model;
 }
