@@ -51,6 +51,23 @@ class PublisherWorkflowTests(unittest.TestCase):
         self.assertIn("required checks", setup)
         self.assertIn("high-risk", setup)
 
+    def test_only_trusted_publisher_gets_actions_write_and_dispatches_exact_sha(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        worker = workflow.split("  build_proposal:", 1)[1].split("  publish_draft_pr:", 1)[0]
+        publisher = workflow.split("  publish_draft_pr:", 1)[1]
+        permissions = publisher.split("    permissions:", 1)[1].split("    steps:", 1)[0]
+
+        self.assertIn("actions: write", permissions)
+        self.assertNotIn("actions: write", worker)
+        self.assertIn('gh workflow run build.yml --repo "$REPOSITORY" --ref "$BRANCH"', publisher)
+        self.assertIn("gh run list --repo", publisher)
+        self.assertIn("workflow_dispatch", publisher)
+        self.assertIn('gh run watch "$RUN_ID" --repo "$REPOSITORY" --exit-status', publisher)
+        self.assertIn("FRIDAY_PROPOSAL_SHA", publisher)
+        self.assertIn("VERIFIED_SHA", publisher)
+        self.assertIn("VERIFIED_CONCLUSION", publisher)
+        self.assertNotIn('gh pr checks "$PR_URL" --repo "$REPOSITORY" --watch', publisher)
+
     def test_untrusted_worker_does_not_receive_repository_write_token(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         worker = workflow.split("  build_proposal:", 1)[1].split("  publish_draft_pr:", 1)[0]
