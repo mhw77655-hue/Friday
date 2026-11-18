@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Wait for Android system services actually used by PackageInstaller.
+"""Wait for Android system services and storage mounts used by PackageInstaller.
 
-Boot-completed and package enumeration do not prove SettingsProvider is ready.
-PackageInstaller consults Settings during session creation, so we probe the
-provider through the same public shell API before attempting APK installation.
+Boot-completed, package enumeration and SettingsProvider do not prove that
+Android's emulated-storage FUSE session is mounted. PackageInstaller can hang
+or fail while StorageManager is still bringing that session online, so this
+probe requires both private and emulated volumes to report mounted.
 """
 from __future__ import annotations
 
@@ -128,7 +129,7 @@ def wait_for_system(
             "Waiting for Android system providers: "
             f"boot={last_state.get('boot_completed', '<unknown>')} "
             f"settings={last_state.get('settings_device_provisioned', '<unavailable>')} "
-            f"storage={last_state.get('storage_volumes', '<unavailable>')}" 
+            f"storage={last_state.get('storage_volumes', '<unavailable>')}"
         )
         sleep(min(interval_seconds, remaining))
 
