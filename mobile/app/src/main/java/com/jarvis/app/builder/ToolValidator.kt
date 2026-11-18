@@ -29,8 +29,35 @@ object ToolValidator {
         if (!hasDeterministicSynthesizer && !hasModelSynthesisContract) {
             issues += "behavior '${spec.behavior.capabilityName}' has no valid synthesis contract"
         }
-        if (spec.maxMemoryMb <= 0) issues += "memory budget must be positive"
-        if (spec.maxCpuPercent <= 0 || spec.maxCpuPercent > 100) issues += "cpu budget must be in 0-100"
+        when (val behavior = spec.behavior) {
+            is com.jarvis.app.evolution.Behavior.Normalize -> {
+                if (!behavior.sourceMin.isFinite() || !behavior.sourceMax.isFinite() ||
+                    behavior.sourceMax <= behavior.sourceMin
+                ) issues += "normalize source_max must be finite and greater than source_min"
+            }
+            is com.jarvis.app.evolution.Behavior.Clamp -> {
+                if (!behavior.min.isFinite() || !behavior.max.isFinite() || behavior.max < behavior.min) {
+                    issues += "clamp bounds must be finite and max must be >= min"
+                }
+            }
+            is com.jarvis.app.evolution.Behavior.Invert -> {
+                if (!behavior.domain.isFinite() || behavior.domain < 0.0) {
+                    issues += "invert domain must be finite and non-negative"
+                }
+            }
+            is com.jarvis.app.evolution.Behavior.ReverseWords -> {
+                if (behavior.delimiter.isEmpty()) issues += "reverse_words delimiter must not be empty"
+            }
+            is com.jarvis.app.evolution.Behavior.Lookup -> {
+                if (behavior.table.size > 128) issues += "lookup table exceeds 128 entries"
+                if (behavior.table.any { (key, value) -> key.length > 512 || value.length > 512 }) {
+                    issues += "lookup keys and values must not exceed 512 characters"
+                }
+            }
+            is com.jarvis.app.evolution.Behavior.Custom -> Unit
+        }
+        if (spec.maxMemoryMb <= 0 || spec.maxMemoryMb > 1024) issues += "memory budget must be in 1-1024 MB"
+        if (!spec.maxCpuPercent.isFinite() || spec.maxCpuPercent <= 0 || spec.maxCpuPercent > 100) issues += "cpu budget must be in 0-100"
         return Validation(issues.isEmpty(), issues)
     }
 
