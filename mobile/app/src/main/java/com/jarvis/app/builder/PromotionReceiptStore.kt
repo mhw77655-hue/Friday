@@ -8,6 +8,7 @@ import org.json.JSONObject
 import java.io.File
 
 /** Durable rollback receipts for capabilities promoted by Friday Builder. */
+// Timestamps are supplied by the single Android composition-root clock.
 class PromotionReceiptStore(
     private val fileStorage: FileStorage,
     private val file: File,
