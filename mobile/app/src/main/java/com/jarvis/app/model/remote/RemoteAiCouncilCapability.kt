@@ -18,7 +18,7 @@ class RemoteAiCouncilCapability(
     override val descriptor = CapabilityDescriptor(
         id = "friday.ai_council",
         name = "External AI advisers",
-        description = "Ask an owner-configured OpenAI, Claude, Gemini or compatible model for bounded advice.",
+        description = "Ask an owner-configured OpenAI, Claude, Gemini or compatible model for bounded advice. Optionally provide up to three repository source_paths for precise code context.",
         category = "reasoning.external_advice",
         requiredPermissions = setOf(CapabilityPermission.EXTERNAL_AI),
         supportedOperations = setOf("ai.council.consult"),
@@ -45,7 +45,13 @@ class RemoteAiCouncilCapability(
             includeProjectContext = includeContext,
             maxOutputTokens = request.context["max_output_tokens"]?.toIntOrNull() ?: 768,
             maxAdvisers = maxAdvisers,
-            independentReviewRequested = independentReview
+            independentReviewRequested = independentReview,
+            sourcePaths = request.context["source_paths"]
+                ?.split(Regex("[\\n,;]+"))
+                ?.map { it.trim() }
+                ?.filter { it.isNotBlank() }
+                ?.take(3)
+                .orEmpty()
         ))
         if (!result.succeeded) return ExecutionResult.fail(ActionFailure.Error(
             code = "COUNCIL_NO_RESPONSE",
