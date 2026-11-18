@@ -131,27 +131,60 @@ JNI_CLASS(nativeGetHealth)(JNIEnv* env, jobject thiz, jlong handle) {
 
     LlamaHealth health = llama_model_get_health(model);
 
-    jclass healthClass = env->FindClass("com/jarvis/app/model/adapters/LocalInferenceEngine$NativeHealth");
+    jclass healthClass = env->FindClass("com/jarvis/app/model/adapters/LocalInferenceEngine$Companion$NativeHealth");
     if (!healthClass) return nullptr;
 
-    jmethodID constructor = env->GetMethodID(healthClass, "<init>", "(Lcom/jarvis/app/model/adapters/LocalInferenceEngine$NativeState;ZZLjava/lang/String;JJJFJJJJF)V");
-    if (!constructor) return nullptr;
+    jclass stateClass = env->FindClass("com/jarvis/app/model/adapters/LocalInferenceEngine$Companion$NativeState");
+    if (!stateClass) {
+        env->DeleteLocalRef(healthClass);
+        return nullptr;
+    }
 
-    // Map state
-    jclass stateClass = env->FindClass("com/jarvis/app/model/adapters/LocalInferenceEngine$NativeState");
+    // Kotlin enum values() is a static method, not a static field.
+    jmethodID valuesMethod = env->GetStaticMethodID(
+        stateClass,
+        "values",
+        "()[Lcom/jarvis/app/model/adapters/LocalInferenceEngine$Companion$NativeState;"
+    );
+    if (!valuesMethod) {
+        env->DeleteLocalRef(stateClass);
+        env->DeleteLocalRef(healthClass);
+        return nullptr;
+    }
+    jobjectArray states = static_cast<jobjectArray>(env->CallStaticObjectMethod(stateClass, valuesMethod));
+    if (!states) {
+        env->DeleteLocalRef(stateClass);
+        env->DeleteLocalRef(healthClass);
+        return nullptr;
+    }
+
     jobject stateEnum = nullptr;
-    if (stateClass) {
-        jfieldID valuesField = env->GetStaticFieldID(stateClass, "values", "[Lcom/jarvis/app/model/adapters/LocalInferenceEngine$NativeState;");
-        if (valuesField) {
-            jobjectArray states = (jobjectArray)env->GetStaticObjectField(stateClass, valuesField);
-            if (states && health.state < env->GetArrayLength(states)) {
-                stateEnum = env->GetObjectArrayElement(states, health.state);
-            }
-        }
+    const jsize stateCount = env->GetArrayLength(states);
+    if (health.state >= 0 && health.state < stateCount) {
+        stateEnum = env->GetObjectArrayElement(states, health.state);
+    }
+    if (!stateEnum) {
+        env->DeleteLocalRef(states);
+        env->DeleteLocalRef(stateClass);
+        env->DeleteLocalRef(healthClass);
+        return nullptr;
+    }
+
+    // NativeHealth has five Long values after tokensPerSec (including totalTokens).
+    jmethodID constructor = env->GetMethodID(
+        healthClass,
+        "<init>",
+        "(Lcom/jarvis/app/model/adapters/LocalInferenceEngine$Companion$NativeState;ZZLjava/lang/String;JJJFJJJJJF)V"
+    );
+    if (!constructor) {
+        env->DeleteLocalRef(stateEnum);
+        env->DeleteLocalRef(states);
+        env->DeleteLocalRef(stateClass);
+        env->DeleteLocalRef(healthClass);
+        return nullptr;
     }
 
     jstring errorMsg = health.error_message ? env->NewStringUTF(health.error_message) : nullptr;
-
     jobject healthObj = env->NewObject(healthClass, constructor,
         stateEnum,
         health.model_loaded,
@@ -170,6 +203,10 @@ JNI_CLASS(nativeGetHealth)(JNIEnv* env, jobject thiz, jlong handle) {
     );
 
     if (errorMsg) env->DeleteLocalRef(errorMsg);
+    env->DeleteLocalRef(stateEnum);
+    env->DeleteLocalRef(states);
+    env->DeleteLocalRef(stateClass);
+    env->DeleteLocalRef(healthClass);
     return healthObj;
 }
 
