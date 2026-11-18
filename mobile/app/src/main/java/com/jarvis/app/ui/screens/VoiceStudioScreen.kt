@@ -31,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.EngineAccess
 import com.jarvis.app.ui.components.FridayScreenHeader
 import com.jarvis.app.voice.DefaultJarvisVoiceProfile
