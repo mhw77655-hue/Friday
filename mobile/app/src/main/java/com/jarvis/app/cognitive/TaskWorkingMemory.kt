@@ -44,12 +44,14 @@ class TaskWorkingMemory {
     private var _replanCount = 0
 
     /** Number of replans performed so far for this task. */
-    val replanCount: Int get() = _replanCount
+    val replanCount: Int @Synchronized get() = _replanCount
 
+    @Synchronized
     fun setGoal(goal: String) {
         this.goal = goal
     }
 
+    @Synchronized
     fun getGoal(): String? = goal
 
     @Synchronized
@@ -141,5 +143,6 @@ class TaskWorkingMemory {
      * Snapshot of remaining pending subgoals (for passing failure context to
      * the replan LLM call). Does not consume them.
      */
+    @Synchronized
     fun pendingSubgoalDescriptions(): List<String> = subgoals.map { it.description }
 }
