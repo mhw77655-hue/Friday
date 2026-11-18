@@ -154,7 +154,8 @@ jobs:
           echo "FRIDAY_VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
           ./gradlew :mobile:app:assembleRelease \
             -PfridayVersionCode="$VERSION_CODE" \
-            -PfridayVersionName="$VERSION_NAME"
+            -PfridayVersionName="$VERSION_NAME" \\
+            -PfridayAbiFilters=arm64-v8a
 
       - name: Verify APK signature and produce release metadata
         if: steps.changes.outputs.release_needed == 'true'
