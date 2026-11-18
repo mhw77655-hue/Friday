@@ -45,6 +45,27 @@ class FridaySeedSubstrateTest {
     }
 
     @Test
+    fun `failed durable append does not mutate experience or association state`() {
+        val blocker = File.createTempFile("friday-seed-blocker-", ".tmp")
+        val journal = File(blocker, "experiences.bin")
+        val seed = FridaySeedSubstrate(journal)
+
+        try {
+            seed.observeOutcome(
+                context = mapOf("context:before" to 1.0),
+                outcome = mapOf("outcome:uncommitted" to 1.0)
+            )
+            org.junit.Assert.fail("A journal whose parent is a regular file must reject writes")
+        } catch (_: Exception) {
+            assertEquals(0, seed.experienceCount())
+            assertEquals(0, seed.associationCount())
+            assertTrue(seed.infer(mapOf("context:before" to 1.0)).isEmpty())
+        } finally {
+            blocker.delete()
+        }
+    }
+
+    @Test
     fun `no experience means no fabricated inference`() {
         val file = tempJournal()
         val seed = FridaySeedSubstrate(file)
