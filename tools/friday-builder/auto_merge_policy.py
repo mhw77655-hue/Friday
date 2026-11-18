@@ -22,10 +22,6 @@ ALLOWED_PREFIXES = (
 ALLOWED_ROOT_FILES = {"README.md", "CHANGELOG.md"}
 # These are declarative local skill definitions/tests only; they do not execute
 # phone actions or grant permissions. Their outputs still pass the orchestrator.
-SAFE_VOICE_EXTENSION_PATHS = {
-    "mobile/app/src/main/java/com/jarvis/app/voice/LocalPhoneActionSkillRegistry.kt",
-    "mobile/app/src/test/java/com/jarvis/app/voice/PhoneActionPlannerTest.kt",
-}
 BLOCKED_SEGMENTS = {
     ".github", ".ralph", "tools", "development-requests",
     "github", "identity", "memory", "permissions", "permission",
@@ -33,6 +29,12 @@ BLOCKED_SEGMENTS = {
     "accessibility", "notification", "shizuku", "biometric",
     "voice", "runtime", "update", "installer", "signing",
     "release", "owner",
+    # These packages implement execution authority, self-modification,
+    # cognition, identity continuity, device integration or their validators.
+    "builder", "evolution", "genome", "mutant", "validation", "resource",
+    "nervous", "cognitive", "capability", "android", "model", "mutation",
+    "selfrepair", "continuity", "body", "execution", "planning", "goal",
+    "network", "cloud", "storage", "device", "platform",
 }
 BLOCKED_NAMES = {
     "AndroidManifest.xml",
@@ -108,9 +110,7 @@ def evaluate(paths: Any) -> tuple[bool, str]:
         if lower_name in {item.lower() for item in BLOCKED_NAMES}:
             return False, f"protected file: {path}"
         blocked_segments = lower_parts & BLOCKED_SEGMENTS
-        if blocked_segments and not (
-            path in SAFE_VOICE_EXTENSION_PATHS and blocked_segments == {"voice"}
-        ):
+        if blocked_segments:
             return False, f"protected subsystem: {path}"
         if any(fragment in lower_name for fragment in BLOCKED_NAME_PARTS):
             return False, f"protected component: {path}"
