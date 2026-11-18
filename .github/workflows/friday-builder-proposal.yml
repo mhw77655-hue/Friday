@@ -327,8 +327,12 @@ jobs:
           else
             BRANCH="friday-proposals/$REQUEST_ID"
             if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
-              echo "A proposal branch already exists for $REQUEST_ID; refusing to overwrite it." >&2
-              exit 6
+              git fetch origin "$BRANCH"
+              EXISTING_SHA="$(git rev-parse FETCH_HEAD)"
+              if [[ "$EXISTING_SHA" != "$SOURCE_SHA" ]]; then
+                echo "A different proposal already exists for $REQUEST_ID; refusing to overwrite it." >&2
+                exit 6
+              fi
             fi
           fi
           git checkout -B "$BRANCH" "$SOURCE_SHA"
@@ -422,7 +426,6 @@ jobs:
         if: steps.auto_merge_policy.outputs.eligible == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_URL: ${{ env.FRIDAY_PR_URL }}
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
