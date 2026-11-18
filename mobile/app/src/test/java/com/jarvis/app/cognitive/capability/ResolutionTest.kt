@@ -103,12 +103,13 @@ class ResolutionTest {
         capabilityId: String,
         outcome: EvidenceOutcome,
         at: Long,
-        verified: Boolean = true
+        verified: Boolean = true,
+        operation: String = "compute"
     ) {
         ledger.record(
             CapabilityEvidence(
                 capabilityId = capabilityId,
-                operation = "compute",
+                operation = operation,
                 outcome = outcome,
                 observedAtMs = at,
                 source = "resolver-test",
@@ -158,6 +159,31 @@ class ResolutionTest {
             val ledger = CapabilityEvidenceLedger(directory)
             recordOutcome(ledger, "A", EvidenceOutcome.SUCCEEDED, at = 1)
             recordOutcome(ledger, "A", EvidenceOutcome.SUCCEEDED, at = 2)
+            register(FakeCapability(descriptor("A", operation = "compute")))
+            register(FakeCapability(descriptor("B", operation = "compute")))
+            val learnedResolver = CapabilityResolver(
+                registry = registry,
+                degradedLevelOf = { DegradationLevel.FULL },
+                evidenceLedger = ledger
+            )
+            assertEquals(
+                ResolutionReason.AMBIGUOUS,
+                (learnedResolver.resolve(request(action = "compute"), emptySet()) as Resolution.Failure).reason
+            )
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `verified history for a different operation cannot steer this choice`() {
+        val directory = evidenceDirectory()
+        try {
+            val ledger = CapabilityEvidenceLedger(directory)
+            recordOutcome(ledger, "A", EvidenceOutcome.SUCCEEDED, at = 1, operation = "other")
+            recordOutcome(ledger, "A", EvidenceOutcome.SUCCEEDED, at = 2, operation = "other")
+            recordOutcome(ledger, "B", EvidenceOutcome.SUCCEEDED, at = 3, operation = "other")
+            recordOutcome(ledger, "B", EvidenceOutcome.SUCCEEDED, at = 4, operation = "other")
             register(FakeCapability(descriptor("A", operation = "compute")))
             register(FakeCapability(descriptor("B", operation = "compute")))
             val learnedResolver = CapabilityResolver(
