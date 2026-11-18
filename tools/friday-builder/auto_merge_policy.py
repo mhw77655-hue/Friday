@@ -53,6 +53,9 @@ BLOCKED_NAME_PARTS = (
     "seedsubstrate",
     "goalcontinuity",
     "goalstore",
+    "longtermmemory",
+    "persistentmemory",
+    "memorymanager",
     "memorysnapshot",
     "capabilityfabric",
     "capabilityexecutor",
@@ -69,16 +72,19 @@ def evaluate(paths: Any) -> tuple[bool, str]:
         if not isinstance(raw, str) or not raw or "\x00" in raw:
             return False, "PR contains an invalid path"
         path = raw.replace("\\", "/")
-        parts = PurePosixPath(path).parts
-        if path.startswith("/") or any(part in {"", ".", "..", ".git"} for part in parts):
+        if len(path) > 240 or path.startswith("/") or any(ord(char) < 32 for char in path):
             return False, f"unsafe path: {raw}"
+        raw_parts = path.split("/")
+        if any(part in {"", ".", "..", ".git"} for part in raw_parts):
+            return False, f"unsafe path: {raw}"
+        parts = tuple(raw_parts)
         if path in seen:
             return False, f"duplicate path: {path}"
         seen.add(path)
         name = parts[-1]
         lower_parts = {part.lower() for part in parts}
         lower_name = name.lower()
-        if name in BLOCKED_NAMES:
+        if lower_name in {item.lower() for item in BLOCKED_NAMES}:
             return False, f"protected file: {path}"
         if any(part in BLOCKED_SEGMENTS for part in lower_parts):
             return False, f"protected subsystem: {path}"
