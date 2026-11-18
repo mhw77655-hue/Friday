@@ -64,6 +64,15 @@ class AndroidPlatformPorts(
         }
     }
 
+    override fun grantedCapabilityPermissions(): Set<com.jarvis.app.cognitive.capability.CapabilityPermission> {
+        val enabled = (context.applicationContext as? com.jarvis.app.JarvisApplication)
+            ?.providerCouncil?.isEnabled() == true
+        return if (enabled) setOf(
+            com.jarvis.app.cognitive.capability.CapabilityPermission.NETWORK,
+            com.jarvis.app.cognitive.capability.CapabilityPermission.USER_DATA
+        ) else emptySet()
+    }
+
     override fun modelScope(): CoroutineScope = scope
 
     /**
