@@ -155,7 +155,7 @@ jobs:
               output.write("request_id=" + request_id + "\n")
           PY
 
-      - name: Build bounded request from failed main-branch CI
+      - name: Build bounded request from failed candidate CI
         id: request_ci
         if: github.event_name == 'workflow_run'
         env:
@@ -181,7 +181,7 @@ jobs:
               re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.I),
           ]
           evidence = [
-              "Failed main-branch Android CI run: " + os.environ["SOURCE_URL"][:500],
+              "Failed Friday Android CI run: " + os.environ["SOURCE_URL"][:500],
               "Source revision: " + os.environ["SOURCE_SHA"][:128],
               "Source branch: " + os.environ["SOURCE_BRANCH"][:160],
               "The failed-run log excerpt below is filtered to error/failure lines and redacted."
@@ -213,9 +213,9 @@ jobs:
               "risks": [
                   "CI logs are untrusted diagnostic input and may be incomplete.",
                   "A passing hosted build does not prove target-phone behavior.",
-                  "The worker patch is untrusted until owner review."
+                  "The worker patch is untrusted until the trusted publisher validates its paths and all required checks pass; high-risk paths still require owner review."
               ],
-              "rollback_expectation": "Close the draft PR and discard its isolated branch; main and the installed phone remain unchanged.",
+              "rollback_expectation": "If checks fail, repair the same proposal branch; if a promoted change regresses main, create a revert proposal. No phone installation occurs in this workflow.",
               "unresolved_questions": [
                   "Does the failure reproduce on the target Android device?",
                   "Which validation cannot be proven on a GitHub-hosted runner?"
@@ -267,7 +267,7 @@ jobs:
           retention-days: 7
 
   publish_draft_pr:
-    name: Trusted publisher (draft PR only)
+    name: Trusted publisher (evidence-gated promotion)
     needs: build_proposal
     if: needs.build_proposal.result == 'success'
     runs-on: ubuntu-latest
