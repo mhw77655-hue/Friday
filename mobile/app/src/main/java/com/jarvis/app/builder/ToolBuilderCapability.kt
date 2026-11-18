@@ -9,6 +9,7 @@ import com.jarvis.app.cognitive.execution.ActionRequest
 import com.jarvis.app.cognitive.execution.ExecutionResult
 import com.jarvis.app.evolution.Behavior
 import org.json.JSONObject
+import kotlinx.coroutines.CancellationException
 
 /**
  * Exposes the on-device ToolBuilder to Friday's primary CapabilityFabric.
@@ -58,7 +59,9 @@ class ToolBuilderCapability(
 
         val spec = try {
             parseSpecification(JSONObject(raw))
-        } catch (failure: Throwable) {
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
             return ExecutionResult.fail(
                 ActionFailure.Error(
                     code = "BUILDER_INVALID_SPEC",
@@ -69,7 +72,9 @@ class ToolBuilderCapability(
 
         val result = try {
             builder.build(spec)
-        } catch (failure: Throwable) {
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
             return ExecutionResult.fail(
                 ActionFailure.Error(
                     code = "BUILDER_EXECUTION_FAILED",
