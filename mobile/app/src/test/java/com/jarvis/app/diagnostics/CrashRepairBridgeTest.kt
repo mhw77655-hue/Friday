@@ -38,7 +38,7 @@ class CrashRepairBridgeTest {
         assertTrue(first.requestId!!.startsWith("crash-"))
         assertTrue(first.evidence.single().contains("JarvisEngine.wake"))
         assertTrue(first.acceptanceCriteria.any { it.contains("regression test") })
-        assertEquals("friday-crash-bridge-v1", first.privacyReviewedBy)
+        assertEquals("owner-enabled-autonomous-development", first.privacyReviewedBy)
     }
 
     @Test
@@ -59,8 +59,21 @@ class CrashRepairBridgeTest {
         assertFalse(evidence.contains("person@example.com"))
         assertFalse(evidence.contains("abc.def.ghi"))
         assertFalse(evidence.contains("secret-value"))
-        assertTrue(evidence.contains("[REDACTED_EMAIL]"))
+        assertFalse(evidence.contains("failed for"))
         assertTrue(evidence.length <= 7_800)
+    }
+
+    @Test
+    fun `crash is not submitted while owner has paused autonomous development`() {
+        val crash = JSONObject()
+            .put("exception_chain", JSONArray().put(JSONObject().put("type", "java.lang.IllegalStateException")))
+        assertNull(
+            CrashRepairBridge.createDraft(
+                crash,
+                "2026-11-18T10:01:00Z",
+                autonomousDevelopmentEnabled = false
+            )
+        )
     }
 
     @Test
