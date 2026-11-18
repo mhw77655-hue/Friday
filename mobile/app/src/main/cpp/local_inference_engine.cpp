@@ -277,9 +277,9 @@ bool llama_model_prewarm(LlamaModel* model, LlamaProgressCallback progress_cb, v
     }
 
     // Should not reach here if create() was called properly
+    if (model->prewarm_thread.joinable()) model->prewarm_thread.join();
     set_state_locked(model, LLAMA_STATE_PREWARMING);
     model->prewarm_thread = std::thread(prewarm_thread_func, model);
-    model->prewarm_thread.detach();
     return true;
 }
 
