@@ -1,0 +1,22 @@
+package com.jarvis.app.model.remote
+
+import com.jarvis.app.model.config.ProviderConfig
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class RemoteProviderProtocolTest {
+    @Test fun providerProtocolsAreExplicitAndDistinct() {
+        assertEquals(3, RemoteProviderProtocol.values().size)
+        assertEquals(RemoteProviderProtocol.OPENAI_COMPATIBLE, RemoteProviderProtocol.valueOf("OPENAI_COMPATIBLE"))
+        assertEquals(RemoteProviderProtocol.ANTHROPIC_MESSAGES, RemoteProviderProtocol.valueOf("ANTHROPIC_MESSAGES"))
+        assertEquals(RemoteProviderProtocol.GEMINI_GENERATE_CONTENT, RemoteProviderProtocol.valueOf("GEMINI_GENERATE_CONTENT"))
+    }
+
+    @Test fun endpointRequiresHttpsUnlessLocalOptIn() {
+        val safe = ProviderEndpointPolicy.validate("https://api.example.com/v1")
+        assertEquals("https://api.example.com/v1", safe)
+        assertEquals("http://localhost:11434/v1", ProviderEndpointPolicy.validate(
+            "http://localhost:11434/v1", allowInsecureLocalNetwork = true
+        ))
+    }
+}
