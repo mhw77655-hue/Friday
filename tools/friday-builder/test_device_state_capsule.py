@@ -57,6 +57,40 @@ class DeviceStateCapsuleTests(unittest.TestCase):
             (("svc", "wifi", "disable"), ("svc", "data", "enable")),
         )
 
+    def test_runtime_locale_and_timezone_must_match_the_capsule(self):
+        properties = {
+            "persist.sys.locale": "en-US",
+            "ro.product.locale": "en-US",
+            "persist.sys.timezone": "UTC",
+        }
+        MODULE.verify_runtime_defaults(self.capsule, properties.get)
+
+    def test_runtime_locale_mismatch_is_rejected_instead_of_falsely_written(self):
+        properties = {
+            "persist.sys.locale": "fr-FR",
+            "ro.product.locale": "en-US",
+            "persist.sys.timezone": "UTC",
+        }
+        with self.assertRaisesRegex(ValueError, "does not match emulator locale"):
+            MODULE.verify_runtime_defaults(self.capsule, properties.get)
+
+    def test_runtime_timezone_mismatch_is_rejected(self):
+        properties = {
+            "persist.sys.locale": "en-US",
+            "ro.product.locale": "en-US",
+            "persist.sys.timezone": "Europe/Paris",
+        }
+        with self.assertRaisesRegex(ValueError, "does not match emulator timezone"):
+            MODULE.verify_runtime_defaults(self.capsule, properties.get)
+
+    def test_runtime_locale_falls_back_to_product_default_only_when_unset(self):
+        properties = {
+            "persist.sys.locale": "",
+            "ro.product.locale": "en-US",
+            "persist.sys.timezone": "UTC",
+        }
+        MODULE.verify_runtime_defaults(self.capsule, properties.get)
+
 
 if __name__ == "__main__":
     unittest.main()
