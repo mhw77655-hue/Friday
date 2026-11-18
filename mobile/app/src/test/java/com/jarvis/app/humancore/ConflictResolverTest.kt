@@ -168,4 +168,12 @@ class ConflictResolverTest {
         assertEquals(a, b)
         assertTrue(true)
     }
+    @Test
+    fun `body memory snapshot merge is last-writer-wins and independent of dialogue log`() {
+        val old = """{"updated_at_ms":1000,"facts":[{"id":"fact_a"}]}"""
+        val newer = """{"updated_at_ms":2000,"facts":[{"id":"fact_b"}]}"""
+        assertEquals(newer, ConflictResolver.resolve(StoreKind.BODY_MEMORY, old, newer))
+        assertEquals(newer, ConflictResolver.resolve(StoreKind.BODY_MEMORY, newer, old))
+    }
+
 }
