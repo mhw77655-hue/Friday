@@ -181,6 +181,16 @@ The scanner's seven candidates are not seven defects. Manual review classifies t
 
 This triage is why the 276 scanner deviations are candidates requiring human semantic review, not a backlog of 276 automatic edits.
 
+### Manual triage of the 19 `flat_threshold` candidates
+
+These are mostly explicit resource and temporal bounds, not evidence that cognition is artificially fixed:
+
+- **Retention/capacity bounds:** `MAX_CONTEXT_TURNS`, `MAX_EPISODIC`, mailbox capacity, TTS cache size, experience/link caps, goal/subgoal/criteria/dependency caps, audit/history limits. These protect finite phone memory and queues. Keep them bounded; make values versioned/configurable by measured device tier where appropriate, never unbounded or model-controlled.
+- **Debounce/temporal bounds:** presence/absence confirmation, action dwell, condition-evaluation interval and warmup cooldown. These suppress sensor jitter, repeated actions and resource churn. Tune only from measured false-positive/latency/battery evidence.
+- **Continuity-law gates:** minimum evidence-claim count and minimum interval are policy gates. They need tests and documented rationale, but should not be silently learned from a model's own outputs.
+
+No blanket "remove hardcoded thresholds" change is justified. The root requirement is to distinguish resource/safety limits from cognitive hypotheses, measure the latter, and preserve fail-closed bounds.
+
 ## 3. Architecture boundary to preserve
 
 1. **Friday on Android:** persistent identity/continuity, local cognition and presence, privacy-minimized observation, memory/experience, permissioned device actions, safe capability runtime, self-study, development-intent formation, durable offline outbox and result consumption.
