@@ -9,26 +9,27 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.jarvis.app.JarvisEngine
 import com.jarvis.app.approvals.ApprovalEntry
 import com.jarvis.app.approvals.LocalApprovalQueue
+import com.jarvis.app.ui.components.FridayEmptyPanel
+import com.jarvis.app.ui.components.FridayMetricTile
+import com.jarvis.app.ui.components.FridayPanel
+import com.jarvis.app.ui.components.FridayScreenHeader
+import com.jarvis.app.ui.components.FridaySectionHeading
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
 import kotlinx.coroutines.flow.map
 
 /**
- * Approvals Screen — displays pending approvals for high-risk operations.
- * Wired to the LocalApprovalQueue backend.
+ * Pending approvals are read from the real LocalApprovalQueue.
+ * This screen presents owner decisions; it does not grant or execute anything.
  */
 @Composable
 fun ApprovalsScreen(
@@ -43,71 +44,86 @@ fun ApprovalsScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(JarvisColors.SurfaceBase)
-            .padding(16.dp)
     ) {
-        Text(
-            text = "APPROVALS",
-            style = JarvisType.Label
+        FridayScreenHeader(
+            eyebrow = "Owner authority",
+            title = "Approvals",
+            description = "Actions waiting for an explicit permission decision. A pending request is not an executed action."
         )
 
-        Text(
-            text = "${approvals.size} pending approval(s)",
-            style = JarvisType.Body.copy(fontSize = 14.sp),
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            FridayMetricTile(
+                label = "Pending",
+                value = approvals.size.toString(),
+                accent = if (approvals.isEmpty()) JarvisColors.CoreSuccess else JarvisColors.CoreAttention,
+                modifier = Modifier.weight(1f)
+            )
+            FridayMetricTile(
+                label = "Authority",
+                value = "OWNER",
+                accent = JarvisColors.CoreIdle,
+                modifier = Modifier.weight(1f)
+            )
+        }
 
-        LazyColumn {
-            items(approvals) { approval ->
-                ApprovalRow(approval = approval, onNavigate = onNavigate)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            item { FridaySectionHeading("Waiting for a decision", "${approvals.size} requests") }
+            if (approvals.isEmpty()) {
+                item {
+                    FridayEmptyPanel(
+                        title = "No pending approvals",
+                        description = "Friday has no high-risk operations currently waiting for your decision."
+                    )
+                }
+            } else {
+                items(approvals) { approval -> ApprovalRow(approval = approval) }
             }
         }
     }
 }
 
 @Composable
-private fun ApprovalRow(approval: ApprovalEntry, onNavigate: (String) -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = JarvisColors.SurfacePanel)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = approval.description,
-                    style = JarvisType.Body.copy(fontSize = 14.sp)
-                )
-                Text(
-                    text = approval.riskLevel,
-                    style = JarvisType.Technical.copy(fontSize = 10.sp)
-                )
-            }
-
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(vertical = 4.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Capability: ${approval.capability}",
-                    style = JarvisType.Technical.copy(fontSize = 12.sp, color = JarvisColors.TextSecondary)
-                )
-                Text(
-                    text = "Status: ${approval.status}",
-                    style = JarvisType.Technical.copy(fontSize = 12.sp, color = JarvisColors.TextSecondary)
-                )
-            }
-
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(vertical = 4.dp))
-
+private fun ApprovalRow(approval: ApprovalEntry) {
+    val riskColor = when (approval.riskLevel.lowercase()) {
+        "critical", "high" -> JarvisColors.CoreWarning
+        "medium", "elevated" -> JarvisColors.CoreAttention
+        else -> JarvisColors.CoreThinking
+    }
+    FridayPanel {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
             Text(
-                text = "Expires in: ${((approval.expiresAt - System.currentTimeMillis()) / 1000)}s",
-                style = JarvisType.Technical.copy(fontSize = 10.sp, color = JarvisColors.TextSecondary)
+                approval.description,
+                style = JarvisType.Body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold),
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                approval.riskLevel.uppercase(),
+                style = JarvisType.Label.copy(color = riskColor)
+            )
+        }
+        Text(
+            "CAPABILITY  ${approval.capability}",
+            style = JarvisType.Technical.copy(color = JarvisColors.TextSecondary)
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("STATUS  ${approval.status}", style = JarvisType.Technical)
+            Text(
+                "EXPIRES  ${((approval.expiresAt - System.currentTimeMillis()) / 1000)}s",
+                style = JarvisType.Technical.copy(color = JarvisColors.TextMuted)
             )
         }
     }
