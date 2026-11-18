@@ -52,19 +52,21 @@ struct LlamaModel {
     std::vector<int32_t> prompt_tokens_cache;
 };
 
-// llama.cpp backend state is process-global. Multiple model handles share one
-// initialization lifetime; the final handle releases it.
-static std::mutex g_backend_mutex;
-static size_t g_backend_users = 0;
+// llama.cpp backend state is process-global. Initialize it exactly once for
+// this process and release it exactly once during process shutdown; model
+// unload/reload must never tear down global backend state underneath another
+// model or force a second initialization.
+static std::once_flag g_backend_once;
 
-static void acquire_backend() {
-    std::lock_guard<std::mutex> lock(g_backend_mutex);
-    if (g_backend_users++ == 0) llama_backend_init();
+static void release_backend_at_process_exit() {
+    llama_backend_free();
 }
 
-static void release_backend() {
-    std::lock_guard<std::mutex> lock(g_backend_mutex);
-    if (g_backend_users > 0 && --g_backend_users == 0) llama_backend_free();
+static void acquire_backend() {
+    std::call_once(g_backend_once, []() {
+        llama_backend_init();
+        std::atexit(release_backend_at_process_exit);
+    });
 }
 
 struct LlamaTokenizer {
@@ -225,7 +227,6 @@ LlamaModel* llama_model_create(const LlamaModelConfig* config) {
 
     if (!model->model) {
         set_error_locked(model, "Failed to load GGUF model from %s", model->config.model_path);
-        release_backend();
         delete model;
         return nullptr;
     }
@@ -582,7 +583,6 @@ void llama_model_destroy(LlamaModel* model) {
         }
         set_state_unlocked(model, LLAMA_STATE_DORMANT);
     }
-    release_backend();
     LOGI("Model destroyed");
     delete model;
 }
