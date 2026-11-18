@@ -51,7 +51,8 @@ class RemoteAiCouncilCapability(
                 ?.map { it.trim() }
                 ?.filter { it.isNotBlank() }
                 ?.take(3)
-                .orEmpty()
+                .orEmpty(),
+            providerHint = request.context["provider_hint"]
         ))
         if (!result.succeeded) return ExecutionResult.fail(ActionFailure.Error(
             code = "COUNCIL_NO_RESPONSE",
