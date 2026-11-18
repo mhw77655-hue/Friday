@@ -1,0 +1,21 @@
+name: Temporary workflow syntax diagnosis
+on:
+  push:
+    branches: [feat/release-signing-pipeline-20261118]
+permissions: {}
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.0'
+      - name: Lint candidate workflows
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          "$(go env GOPATH)/bin/actionlint" -color .github/workflows/build.yml .github/workflows/release.yml
