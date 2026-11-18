@@ -1,4 +1,4 @@
-# FRIDAY — Owner's words extracted from `New Folder chats.zip`
+# FRIDAY — Curated owner-authored source excerpts
 
 This is a source companion to `.ralph/VISION.md`, not an AI-written replacement for the owner's words. The excerpts below are taken from speaker turns labelled `You:` in the original archive. Spelling, grammar and wording are retained. Only surrounding whitespace and line breaks are normalized for readability.
 
@@ -160,4 +160,4 @@ Source: `New Folder chats/Vision_summary.txt`, owner turn 28.
 
 The owner is asking for a developing digital individual with broad, open-ended capability—not a chatbot product with a larger feature list. The excerpts above are constraints on the *outcome*, not an approved component diagram. A builder must infer the intended result, preserve multiple interpretations when the request is ambiguous, research and invent where necessary, and test the result in the real app. It must not convert a capability into a permanent module, fixed pipeline, closed taxonomy, or prescribed developmental stage merely because that is easier to code.
 
-The owner's current instruction takes precedence over this archive. Where an old statement conflicts with a later one, retain the historical evidence but follow the later explicit correction. Never use an assistant's paraphrase as if it were the owner's own words.
+The owner's current instruction takes precedence over these historical excerpts. Where an old statement conflicts with a later one, retain the historical evidence but follow the later explicit correction. Never use an assistant's paraphrase as if it were the owner's own words.
