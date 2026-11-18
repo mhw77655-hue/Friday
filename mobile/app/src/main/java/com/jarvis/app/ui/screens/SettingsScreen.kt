@@ -157,6 +157,7 @@ fun SettingsScreen() {
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
+        RemoteAiProvidersSection()
         SectionLabel("PERSONALITY")
         Text(
             text = "This changes how JARVIS answers, not what he knows.",
