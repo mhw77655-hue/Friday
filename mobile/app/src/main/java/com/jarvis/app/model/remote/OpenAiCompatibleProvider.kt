@@ -150,6 +150,7 @@ class OpenAiCompatibleProvider(
     private fun execute(url: String, body: JSONObject?, method: String = "POST"): JSONObject {
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = method
+            instanceFollowRedirects = false
             connectTimeout = config.timeoutMs.coerceIn(1_000, 120_000).toInt()
             readTimeout = config.timeoutMs.coerceIn(1_000, 120_000).toInt()
             setRequestProperty("Accept", "application/json")
