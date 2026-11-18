@@ -483,7 +483,17 @@ class CapabilityExecutorTest {
         var graph = graphOf(FullStrategy)
         graph.nodes.map { it.id }.forEach { id -> graph = planner.skipNode(graph, id, "not required for this run") }
         val driver = FakeDriver(planner, graph)
-        val exec = CapabilityExecutor(CapabilityFabric(testImmune(), emit = {}), driver, goalPlanner = planner)
+        val directory = java.io.File.createTempFile("friday-skipped-evidence-", ".dir").apply {
+            delete()
+            mkdirs()
+        }
+        val ledger = CapabilityEvidenceLedger(directory)
+        val exec = CapabilityExecutor(
+            CapabilityFabric(testImmune(), emit = {}),
+            driver,
+            goalPlanner = planner,
+            evidenceLedger = ledger
+        )
 
         val summary = exec.run()
 
@@ -494,6 +504,10 @@ class CapabilityExecutorTest {
         assertTrue(summary.skippedReasons.values.all { it == "not required for this run" })
         assertTrue(driver.events.any { it is CognitiveEvent.PlanExecutionSkipped })
         assertFalse(driver.events.any { it is CognitiveEvent.PlanExecutionCompleted })
+        val evidence = (ledger.load() as CapabilityEvidenceLoad.Loaded).evidence
+        assertEquals(3, evidence.count { it.outcome == EvidenceOutcome.SKIPPED })
+        assertTrue(evidence.none { it.outcome == EvidenceOutcome.SUCCEEDED })
+        directory.deleteRecursively()
     }
 
     @Test
