@@ -107,6 +107,14 @@ The README also points to an obsolete branch and PRs #19/#23, and describes self
 **Cause:** obsolete prototype code and documentation were not retired or clearly quarantined when the Android-native Friday architecture became authoritative.  
 **Consequence:** workers and maintainers can import dead code, follow stale instructions, or treat an old prototype as production architecture.
 
+### RC-11: The trusted proposal publisher performs a redundant workflow dispatch without the required permission
+
+`.github/workflows/friday-builder-proposal.yml` grants the trusted publisher `contents: write` and `pull-requests: write`, then runs `gh workflow run build.yml --ref "$BRANCH"`. It does not grant `actions: write`. GitHub's workflow-dispatch API requires Actions write permission. The draft PR is created immediately before this command, and the normal `pull_request` trigger already runs the build for PRs targeting `main`, so the explicit dispatch is redundant and can turn a successfully created proposal into a failed publisher job.
+
+**Cause:** the workflow uses a second trigger path without matching permissions or proving it is needed.  
+**Consequence:** proposal publication can report failure after creating the PR, inviting duplicate retries and obscuring the actual proposal state.  
+**Root correction:** rely on the PR's normal required checks, or deliberately add a narrowly justified Actions permission and test it. Prefer removing the redundant dispatch rather than widening the publisher's authority.
+
 ## 3. Architecture boundary to preserve
 
 1. **Friday on Android:** persistent identity/continuity, local cognition and presence, privacy-minimized observation, memory/experience, permissioned device actions, safe capability runtime, self-study, development-intent formation, durable offline outbox and result consumption.
@@ -168,7 +176,7 @@ The phases are engineering work packages, not a prescribed developmental ladder 
 ### Phase 3 — Complete the repository workshop
 
 - Use isolated per-request workspaces and replaceable worker adapters.
-- Workers receive only the minimum read context and no publishing/signing credentials.
+- Workers receive only the minimum read context and no publishing/signing credentials.\n- Verify the trusted publisher's permission set against every API call. Remove the redundant `gh workflow run` after draft-PR creation if the pull_request trigger already provides the required build; do not grant Actions write merely to make a redundant call succeed.
 - Preserve WIP/checkpoints so interrupted or quota-limited workers resume instead of restarting.
 - Compare worker output by task evidence, correctness, resumability, fidelity, latency and cost—not vendor identity.
 - Keep untrusted patches separate from the trusted validator and publisher.
