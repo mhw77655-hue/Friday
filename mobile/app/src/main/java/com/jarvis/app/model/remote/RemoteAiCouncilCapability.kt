@@ -10,7 +10,7 @@ import com.jarvis.app.cognitive.execution.ExecutionResult
 
 /**
  * Exposes external model consultation through Friday's existing capability
- * invocation boundary. Network and user-data permissions are explicit.
+ * invocation boundary. The dedicated external-AI permission is owner-controlled.
  */
 class RemoteAiCouncilCapability(
     private val councilProvider: () -> ProviderCouncil?
@@ -18,7 +18,7 @@ class RemoteAiCouncilCapability(
     override val descriptor = CapabilityDescriptor(
         id = "friday.ai_council",
         name = "External AI advisers",
-        description = "Ask an owner-configured OpenAI, Claude, Gemini or compatible model for bounded advice. Optionally provide source_paths as a newline/comma-separated list of up to three exact repository paths when code context is necessary; never request the whole repository.",
+        description = "Ask an owner-configured OpenAI, Claude, Gemini or compatible model for bounded advice. Optionally set provider_hint to a configured provider label (for example OpenAI, Claude or Gemini), and provide source_paths as a newline/comma-separated list of up to three exact repository paths when code context is necessary; never request the whole repository.",
         category = "reasoning.external_advice",
         requiredPermissions = setOf(CapabilityPermission.EXTERNAL_AI),
         supportedOperations = setOf("ai.council.consult"),
