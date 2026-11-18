@@ -74,10 +74,13 @@ class FridaySeedSubstrate(
     @Synchronized
     fun observe(features: Map<String, Double>): LearningReceipt {
         val clean = cleanFeatures(features)
-        val experience = Experience(nextId++, nowMs(), clean, emptyMap())
-        val changed = associate(previousFeatures, clean)
+        // Commit the durable record before mutating the in-memory learning model.
+        // If storage fails, no association or sequence number may advance.
+        val experience = Experience(nextId, nowMs(), clean, emptyMap())
         append(experience)
+        val changed = associate(previousFeatures, clean)
         experiences.add(experience)
+        nextId++
         trimInMemory()
         previousFeatures = clean
         return LearningReceipt(experience.id, clean.size, changed)
@@ -94,10 +97,13 @@ class FridaySeedSubstrate(
     ): LearningReceipt {
         val cleanContext = cleanFeatures(context)
         val cleanOutcome = cleanFeatures(outcome)
-        val experience = Experience(nextId++, nowMs(), cleanContext, cleanOutcome)
-        val changed = associate(cleanContext, cleanOutcome)
+        // Persist first: a failed append must not teach Friday an outcome
+        // that will disappear after restart.
+        val experience = Experience(nextId, nowMs(), cleanContext, cleanOutcome)
         append(experience)
+        val changed = associate(cleanContext, cleanOutcome)
         experiences.add(experience)
+        nextId++
         trimInMemory()
         previousFeatures = cleanContext
         return LearningReceipt(experience.id, cleanContext.size + cleanOutcome.size, changed)
