@@ -260,7 +260,7 @@ class MemoryStore(
                 json.put("facts", JSONArray(facts.values.map { toJson(it) }))
                 json.put("preferences", JSONArray(preferences.values.map { toJson(it) }))
                 json.put("context_order", JSONArray(contextOrder))
-                fileStorage.write(StoreKind.DIALOGUE, json.toString(2)) // Reuse DIALOGUE store kind
+                fileStorage.write(StoreKind.BODY_MEMORY, json.toString(2))
             } catch (t: Throwable) {
                 if (t is kotlinx.coroutines.CancellationException) throw t
                 Log.w(TAG, "Persist failed: ${t.message}")
@@ -286,10 +286,17 @@ class MemoryStore(
     private fun loadFromDisk() {
         scope.launch(Dispatchers.IO) {
             try {
-                val content = fileStorage.read(StoreKind.DIALOGUE)
+                // Memory has its own document store. Older builds incorrectly
+                // wrote this snapshot into DIALOGUE (an append-only JSONL log).
+                // Migrate only a positively identified legacy memory document;
+                // never reinterpret or overwrite actual dialogue entries.
+                val current = fileStorage.read(StoreKind.BODY_MEMORY)
+                val content = current ?: fileStorage.read(StoreKind.DIALOGUE)
                 if (content.isNullOrBlank()) return@launch
 
                 val json = JSONObject(content)
+                val isMemoryDocument = json.has("episodic") || json.has("facts") || json.has("preferences")
+                if (current == null && !isMemoryDocument) return@launch
                 loadArray(json, "episodic", episodicMemories)
                 loadArray(json, "facts", facts)
                 loadArray(json, "preferences", preferences)
@@ -298,6 +305,9 @@ class MemoryStore(
                     for (i in 0 until arr.length()) {
                         contextOrder.add(arr.getString(i))
                     }
+                }
+                if (current == null && isMemoryDocument) {
+                    fileStorage.write(StoreKind.BODY_MEMORY, json.toString(2))
                 }
                 Log.i(TAG, "Loaded: ${episodicMemories.size} episodic, ${facts.size} facts, ${preferences.size} prefs")
             } catch (e: Exception) {
