@@ -89,6 +89,15 @@ The Kotlin scanner is useful for finding code shapes but its 283 findings are no
 **Cause:** one static scan is being described too broadly as a whole-project semantic audit.  
 **Consequence:** false positives can create architecture churn, while unscanned behaviour can be overlooked.
 
+### RC-10: The native inference lifecycle contains deadlocks and unsafe lifetime boundaries
+
+The production llama.cpp engine uses a non-recursive `std::mutex`. `llama_model_generate()` acquires it and then calls `set_state_locked()` / `set_error_locked()`, which attempt to acquire the same mutex again. The same nested-lock pattern exists in `llama_model_suspend()` and `llama_model_destroy()`. Those paths can deadlock deterministically when reached.
+
+The prewarm thread is detached in create/resume, while destroy later attempts to join the thread member. A detached thread is not joinable; destroying the model during prewarm can free state still referenced by the background thread. The Kotlin `LocalInferenceEngine` protects load/unload with `stateLock` but reads/uses `nativeHandle` for generate, stream, cancel, health and suspend/resume outside that lock, so concurrent unload can destroy a handle while another call is using it. Native backend init/free is global but currently performed per model, so destroying one of multiple model handles can free the shared backend under another. JNI token-count/encode/decode allocate a `LlamaTokenizer` wrapper per call without freeing it. VAD JNI passes caller-provided `numSamples` to native processing without checking it against the Java array length.
+
+**Cause:** native resource ownership, lock ownership, global backend lifetime and Kotlin handle lifetime are not expressed as one explicit lifecycle contract.  
+**Consequence:** inference, suspend, shutdown and low-memory model replacement can deadlock, race, leak or access freed memory. This is a production-critical blocker, not a model-quality issue.
+
 ### RC-9: Legacy project islands remain beside the Android Friday implementation
 
 The root `core/` Python package and `manifest/` policy files still describe an earlier JARVIS Phase-1/building-system prototype. `manifest/workspace_manifest.yaml` names the remote `github.com/mhw77655-hue/JARVIS`, not the Friday repository. `core/building_integration.py` imports a top-level `building` package that is absent from the current tracked tree. `tests/test_building_system.py` imports that same absent package, while `tests/test_phase1_exit.py` tests the obsolete echo/status loop. These Python tests are not run by the current CI; only syntax compilation runs. The old `core/decision_gate.py` auto-approves Tier-1 file writes and `core/execution_layer.py` writes to caller-supplied paths, so these files must never be mistaken for the current Android authorization/execution authority.
@@ -133,6 +142,18 @@ The phases are engineering work packages, not a prescribed developmental ladder 
 - Confirm cancelled/skipped jobs never count as green.
 
 **Exit evidence:** exact main candidate passes debug APK assembly, all required JVM tests, workflow/security checks and the disposable emulator instrumentation gate. Physical-phone claims remain separately labelled.
+
+### Phase 1A — Repair native inference lifecycle before claiming local-model support
+
+- Introduce explicit lock-aware state/error helpers so code already holding the model mutex never recursively locks it. Audit every state/error transition in generation, prewarm, suspend, resume and destroy.
+- Keep prewarm threads joinable and owned by the model; cancel/stop and join them before freeing model/context state. Handle thread-start failure without crossing the JNI boundary.
+- Make Kotlin native-handle access lifetime-safe: generation/health/cancel/suspend/resume must not race native destruction. Use a tested lifecycle lock/lease or equivalent reference-counted handle contract; preserve cancellation while preventing use-after-free.
+- Refcount or otherwise centrally own llama.cpp's process-global backend so one model cannot free backend state still used by another.
+- Free every temporary tokenizer wrapper on all JNI paths and return health/error snapshots whose storage remains valid after the native lock is released.
+- Validate VAD audio arrays, sample counts and null JNI results before passing pointers/counts to native code.
+- Add deterministic lifecycle tests for nested-lock regressions, prewarm/destroy races, cancel/destroy races, suspend/resume, multiple simultaneous model handles, repeated tokenizer calls and invalid VAD lengths. Run them on an emulator/device with bounded timeouts and collect native crash/log evidence.
+
+**Exit evidence:** repeated create → prewarm → wait → generate → cancel → suspend → resume → destroy cycles complete without deadlock, leak growth or use-after-free; concurrent unload is safe; two model handles can coexist; malformed JNI inputs are rejected before native access. Until then, local inference is not accepted as a reliable production capability.
 
 ### Phase 2 — Make the phone/workshop boundary real
 
@@ -233,8 +254,8 @@ The phases are engineering work packages, not a prescribed developmental ladder 
 2. Repair #82's real system-provider readiness and get a reproducible emulator instrumentation pass.
 3. Rebase/update #83's dependency and make emulator checks mandatory before any promotion claim.
 4. Reconcile current main docs/issues/PR state, quarantine/remove the obsolete Python JARVIS island after reference checks, and publish the requirement-to-evidence ledger.
-5. Build the durable phone outbox → repository workshop → result feedback path.
-6. Prove the Life Test and capability acquisition on the real production composition.
-7. Finish release/update, permissions, exact-device validation and historical privacy cleanup.
+5. Repair and stress-test the native inference lifecycle; do not claim local model support until the lifecycle exit gate passes.\n6. Build the durable phone outbox → repository workshop → result feedback path.
+7. Prove the Life Test and capability acquisition on the real production composition.
+8. Finish release/update, permissions, exact-device validation and historical privacy cleanup.
 
 **No APK handoff is implied by this plan. No unverified PR is approved or merged by it.**
