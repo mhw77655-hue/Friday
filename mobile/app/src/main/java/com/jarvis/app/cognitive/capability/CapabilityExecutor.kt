@@ -69,6 +69,10 @@ class CapabilityExecutor(
     var replanCount: Int = 0
         private set
 
+    /** Last persistence error; action execution remains independent of the evidence store. */
+    var evidenceRecordingError: String? = null
+        private set
+
     val executedOutcomes: List<CapabilityStepOutcome> get() = outcomes.toList()
 
     // ------------------------------------------------------------------
@@ -433,8 +437,9 @@ class CapabilityExecutor(
         verified: Boolean = false,
         detail: String
     ) {
-        runCatching {
-            evidenceLedger?.record(
+        val ledger = evidenceLedger ?: return
+        try {
+            ledger.record(
                 CapabilityEvidence(
                     capabilityId = capabilityId,
                     operation = request.action,
@@ -445,6 +450,9 @@ class CapabilityExecutor(
                     detail = detail.take(1_000)
                 )
             )
+            evidenceRecordingError = null
+        } catch (failure: Exception) {
+            evidenceRecordingError = failure.message?.take(240) ?: "Capability evidence could not be persisted."
         }
     }
 
