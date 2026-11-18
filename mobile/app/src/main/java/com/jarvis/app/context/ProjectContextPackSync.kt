@@ -2,6 +2,7 @@ package com.jarvis.app.context
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -51,6 +52,8 @@ class ProjectContextPackSync(
                 }
                 else -> ProjectContextSyncResult.Failed("GitHub context sync returned HTTP $status")
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Exception) {
             ProjectContextSyncResult.Failed(e.message ?: "Project context sync failed")
         } finally {
