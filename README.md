@@ -21,7 +21,7 @@ With JDK 17 and Android SDK components matching the Gradle configuration:
 ./gradlew :mobile:app:testDebugUnitTest
 ```
 
-The GitHub Actions workflow also runs repository-builder contract checks, owner-vision checks, source inventory/static audit and (once integrated and stable) disposable Android emulator instrumentation. A green JVM test or APK build is not proof of physical-device behaviour. Device-specific claims require evidence from the target handset.
+The current main-branch `.github/workflows/build.yml` is malformed: the latest signing-workflow edit appended duplicate job definitions and a detached script tail, so recent runs fail before jobs are scheduled. A clean integration branch is reconstructing the canonical build workflow while combining the emulator and release-signing checks; it is not verified yet. Do not treat main's current CI badge as test evidence. Once restored, the workflow must run repository-builder contract checks, owner-vision checks, source inventory/static audit, JVM tests and disposable Android emulator instrumentation. A green JVM test or APK build is not proof of physical-device behaviour. Device-specific claims require evidence from the target handset.
 
 ## Current verified state
 
@@ -29,7 +29,7 @@ As of 2026-11-18:
 
 - The main branch contains the Android-native Friday foundation, owner-grounded vision files, a phone-initiated GitHub request/outbox path, repository-side proposal worker, crash-report proposal bridge, and permanent release-signing workflow foundation.
 - PR #86 merged the signed-release workflow. No production release is published yet; owner-controlled signing key custody/secrets and the phone-side updater/recovery path remain incomplete.
-- PR #82's disposable Android emulator path is still under validation. Its latest observed run compiled APKs but failed before installation because Android's Settings provider was not ready. A readiness correction is being tested separately; do not treat the emulator gate as passed yet.
+- PR #82's disposable Android emulator path is still under validation. Its earlier run compiled APKs but failed before installation because Android's Settings provider was not ready. A tested-by-design readiness correction is included in the clean integration branch, whose full build/emulator workflow is still queued; do not treat the emulator gate as passed yet.
 - PR #83's autonomous repair/promotion path remains open and must be reconciled with the actual emulator dependency and exact-candidate verification gates.
 - PR #89's phone-resident source Builder proposal is not accepted as the architecture: it conflicts with the repository-side workshop boundary and its observed CI head has a duplicate `nowMs` argument compile failure.
 - The whole-project root-cause findings and dependency-ordered implementation plan are tracked in [PR #90](https://github.com/mhw77655-hue/Friday/pull/90).
