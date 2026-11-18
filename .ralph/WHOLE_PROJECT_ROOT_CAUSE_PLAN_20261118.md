@@ -12,7 +12,7 @@ This is an engineering plan and audit record, not a claim that Friday is complet
 
 The main tree contains **974 tracked files** across 1,232 tree entries. The latest integrated candidate's CI source-audit job read every tracked source/config file to create an inventory of **802 code/config files and 133,875 lines**. It passed all **481 production Kotlin files** under `mobile/app/src/main/java` through the whole-file Vision-shape scanner, Python syntax-compiled 29 files, and shell-syntax-checked 18 scripts.
 
-The current candidate audit artifact from run [44313554463](https://github.com/mhw77655-hue/Friday/actions/runs/44313554463) reports:
+The current candidate audit artifact from run [44314813387](https://github.com/mhw77655-hue/Friday/actions/runs/44314813387) reports:
 - 275 potential deviations and 391 observations across the production Kotlin scan (candidate findings span 136 files).
 - 221 `named_wire`, 28 `fixed_classification`, 19 `flat_threshold`, and 7 `meaning_arbiter` deviation-shaped findings.
 - A separate self-audit of `.ralph/audit.py` found 7 deviation-shaped findings and 6 observations.
