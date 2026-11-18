@@ -15,14 +15,16 @@ class CapabilityEvidenceLedgerTest {
     private fun evidence(
         outcome: EvidenceOutcome,
         verified: Boolean = true,
-        at: Long = 1L
+        at: Long = 1L,
+        operation: String = "read_contacts"
     ) = CapabilityEvidence(
         capabilityId = "phone.contacts.read",
-        operation = "read_contacts",
+        operation = operation,
         outcome = outcome,
         observedAtMs = at,
         source = "android-runtime",
-        verified = verified
+        verified = verified,
+        eventId = "event-$at-${outcome.name}-$operation"
     )
 
     @Test
@@ -102,4 +104,55 @@ class CapabilityEvidenceLedgerTest {
         }
         directory.deleteRecursively()
     }
+    @Test
+    fun `replaying the same evidence event cannot inflate confidence`() {
+        val directory = tempDir()
+        val ledger = CapabilityEvidenceLedger(directory)
+        val sameEvent = evidence(EvidenceOutcome.SUCCEEDED, at = 10)
+        ledger.record(sameEvent)
+        ledger.record(sameEvent)
+        val knowledge = ledger.knowledge().single()
+        assertEquals(1, knowledge.observations)
+        assertEquals(1, knowledge.verifiedSuccesses)
+        assertFalse(knowledge.reusable)
+        directory.deleteRecursively()
+    }
+
+    @Test
+    fun `confidence is isolated per operation even within one capability`() {
+        val directory = tempDir()
+        val ledger = CapabilityEvidenceLedger(directory)
+        ledger.record(evidence(EvidenceOutcome.SUCCEEDED, at = 1, operation = "read_contacts"))
+        ledger.record(evidence(EvidenceOutcome.SUCCEEDED, at = 2, operation = "read_contacts"))
+        ledger.record(evidence(EvidenceOutcome.SUCCEEDED, at = 1, operation = "delete_contacts"))
+        val knowledge = ledger.knowledge().associateBy { it.operation }
+        assertTrue(knowledge.getValue("read_contacts").reusable)
+        assertFalse(knowledge.getValue("delete_contacts").reusable)
+        directory.deleteRecursively()
+    }
+
+    @Test
+    fun `separate ledger instances serialize writes to the same file`() {
+        val directory = tempDir()
+        val start = java.util.concurrent.CountDownLatch(1)
+        val done = java.util.concurrent.CountDownLatch(12)
+        repeat(12) { index ->
+            Thread {
+                try {
+                    start.await()
+                    CapabilityEvidenceLedger(directory).record(
+                        evidence(EvidenceOutcome.SUCCEEDED, at = index.toLong() + 1)
+                    )
+                } finally {
+                    done.countDown()
+                }
+            }.start()
+        }
+        start.countDown()
+        assertTrue("all writers should finish", done.await(5, java.util.concurrent.TimeUnit.SECONDS))
+        val loaded = CapabilityEvidenceLedger(directory).load() as CapabilityEvidenceLoad.Loaded
+        assertEquals(12, loaded.evidence.size)
+        directory.deleteRecursively()
+    }
+
 }
