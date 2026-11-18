@@ -70,6 +70,44 @@ class FridaySeedSubstrateTest {
         file.delete()
     }
 
+
+    @Test
+    fun `corrupt journal is preserved and refuses writes rather than silently resetting memory`() {
+        val file = tempJournal()
+        val original = byteArrayOf(1, 2, 3, 4, 5, 6)
+        file.writeBytes(original)
+
+        val seed = FridaySeedSubstrate(file)
+
+        assertFalse(seed.isJournalHealthy())
+        assertEquals(original.toList(), file.readBytes().toList())
+        try {
+            seed.observe(mapOf("new" to 1.0))
+            throw AssertionError("writes to a corrupt journal must be refused")
+        } catch (_: IllegalStateException) {
+            // Expected: preserve the only copy of the unreadable history.
+        }
+        assertEquals(original.toList(), file.readBytes().toList())
+        file.delete()
+    }
+
+    @Test
+    fun `separate runtime instances refresh before appending to the same journal`() {
+        val file = tempJournal()
+        val first = FridaySeedSubstrate(file)
+        val second = FridaySeedSubstrate(file)
+
+        val a = first.observe(mapOf("event:first" to 1.0))
+        val b = second.observe(mapOf("event:second" to 1.0))
+        val c = first.observe(mapOf("event:third" to 1.0))
+
+        assertEquals(listOf(1L, 2L, 3L), listOf(a.experienceId, b.experienceId, c.experienceId))
+        val restarted = FridaySeedSubstrate(file)
+        assertEquals(3, restarted.experienceCount())
+        assertTrue(restarted.isJournalHealthy())
+        file.delete()
+    }
+
     private fun tempJournal(): File =
         File.createTempFile("friday-seed-", ".bin").apply { delete() }
 }
