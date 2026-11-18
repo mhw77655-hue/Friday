@@ -72,17 +72,16 @@ class GitHubWorkflowDispatchClient(
                     false, requestId, null, workflowUrl, "Invalid development request identifier."
                 )
             }
-            if (requestJson.toByteArray(StandardCharsets.UTF_8).size > MAX_REQUEST_BYTES) {
+            val encodedRequest = Base64.getEncoder().encodeToString(requestJson.toByteArray(StandardCharsets.UTF_8))
+            if (encodedRequest.toByteArray(StandardCharsets.UTF_8).size > MAX_ENCODED_REQUEST_BYTES) {
                 return@withContext GitHubWorkflowDispatchResult(
-                    false, requestId, null, workflowUrl, "Development request exceeds the 32 KiB workflow limit."
+                    false, requestId, null, workflowUrl, "Base64 development request exceeds the 32 KiB workflow input limit."
                 )
             }
             val token = tokenProvider()?.takeIf { it.startsWith("github_pat_") }
                 ?: return@withContext GitHubWorkflowDispatchResult(
                     false, requestId, null, workflowUrl, "A fine-grained GitHub Actions token is not configured."
                 )
-
-            val encodedRequest = Base64.getEncoder().encodeToString(requestJson.toByteArray(StandardCharsets.UTF_8))
             val body = JSONObject()
                 .put("ref", "main")
                 .put(
@@ -128,7 +127,7 @@ class GitHubWorkflowDispatchClient(
         const val DEFAULT_OWNER = "mhw77655-hue"
         const val DEFAULT_REPOSITORY = "Friday"
         const val DEFAULT_WORKFLOW = "friday-builder-proposal.yml"
-        const val MAX_REQUEST_BYTES = 32 * 1024
+        const val MAX_ENCODED_REQUEST_BYTES = 32 * 1024
         val REQUEST_ID = Regex("^[a-f0-9]{32}$")
     }
 }
