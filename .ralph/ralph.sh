@@ -172,7 +172,7 @@ run_preflight() {
 #   SYMBOL_FACTS.md  class -> real package, so a wrong-package guess is never
 #                    paid for twice (a full CI round trip each time)
 #   VISION.md        the owner's product vision, including direct source anchors
-#   OWNER_WORDS.md   curated owner-authored excerpts from New Folder chats.zip
+#   OWNER_WORDS.md   curated owner-authored excerpts; private source archive excluded
 #   prompt.md        the Ralph instructions themselves
 #
 # --print-prompt runs exactly this and exits: the real prompt, no preflight, no
@@ -189,7 +189,7 @@ build_prompt() {
   echo
   cat "$VISION_FILE"
   echo
-  echo "--- OWNER WORDS (VERBATIM ARCHIVE EXCERPTS) ---"
+  echo "--- OWNER WORDS (CURATED OWNER-AUTHORED EXCERPTS) ---"
   echo
   cat "$OWNER_WORDS_FILE"
   echo
