@@ -31,7 +31,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.EngineAccess
+import com.jarvis.app.ui.components.FridayScreenHeader
 import com.jarvis.app.voice.DefaultJarvisVoiceProfile
 import com.jarvis.app.voice.VoiceProfileStore
 import com.jarvis.app.voice.provider.VoiceSynthesisParams
@@ -120,10 +122,17 @@ fun VoiceStudioScreen() {
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text("Voice Studio", style = MaterialTheme.typography.headlineMedium)
-        Text("Shape, preserve and test Friday's spoken voice. Voice models remain replaceable; her voice profile is kept separately.")
+        FridayScreenHeader(
+            eyebrow = "Speech and expression",
+            title = "Voice studio",
+            description = "Shape, preserve and test Friday's spoken voice. Voice models remain replaceable; her voice profile is kept separately."
+        )
 
-        Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = JarvisColors.SurfacePanel),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, JarvisColors.SurfaceHairline)
+        ) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Friday's active voice", style = MaterialTheme.typography.titleMedium)
                 Text(if (referenceAvailable) "Provider: Pocket TTS · your reference voice" else "Provider: Piper VITS / English US (Amy · Low)")
@@ -159,7 +168,11 @@ fun VoiceStudioScreen() {
             }
         }
 
-        Card {
+        Card(
+            colors = CardDefaults.cardColors(containerColor = JarvisColors.SurfacePanel),
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, JarvisColors.SurfaceHairline)
+        ) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Voice identity settings", style = MaterialTheme.typography.titleMedium)
                 Text("Speech rate: ${"%.2f".format(speechRate)}×")

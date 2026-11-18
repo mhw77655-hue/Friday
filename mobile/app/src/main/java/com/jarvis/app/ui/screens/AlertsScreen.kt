@@ -3,32 +3,32 @@ package com.jarvis.app.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.jarvis.app.JarvisEngine
 import com.jarvis.app.alerts.AlertEntry
 import com.jarvis.app.alerts.LocalAlertStore
+import com.jarvis.app.ui.components.FridayEmptyPanel
+import com.jarvis.app.ui.components.FridayMetricTile
+import com.jarvis.app.ui.components.FridayPanel
+import com.jarvis.app.ui.components.FridayScreenHeader
+import com.jarvis.app.ui.components.FridaySectionHeading
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
 import kotlinx.coroutines.flow.map
 
 /**
- * Alerts Screen — displays system alerts and warnings.
- * Wired to the LocalAlertStore backend.
+ * Alerts screen backed by the real LocalAlertStore.
+ * Only undismissed stored alerts are shown; the visual treatment does not
+ * infer or create additional alert states.
  */
 @Composable
 fun AlertsScreen(
@@ -43,22 +43,45 @@ fun AlertsScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(JarvisColors.SurfaceBase)
-            .padding(16.dp)
     ) {
-        Text(
-            text = "ALERTS",
-            style = JarvisType.Label
+        FridayScreenHeader(
+            eyebrow = "Attention and events",
+            title = "Alerts",
+            description = "Signals that Friday's local alert store has not yet marked as dismissed."
         )
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier.padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            FridayMetricTile(
+                label = "Undismissed",
+                value = alerts.size.toString(),
+                accent = if (alerts.isEmpty()) JarvisColors.CoreSuccess else JarvisColors.CoreAttention,
+                modifier = Modifier.weight(1f)
+            )
+            FridayMetricTile(
+                label = "Source",
+                value = "LOCAL",
+                accent = JarvisColors.CoreThinking,
+                modifier = Modifier.weight(1f)
+            )
+        }
 
-        Text(
-            text = "${alerts.size} alert(s)",
-            style = JarvisType.Body.copy(fontSize = 14.sp),
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        LazyColumn {
-            items(alerts) { alert ->
-                AlertRow(alert = alert)
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            item { FridaySectionHeading("Current alerts", "${alerts.size} stored") }
+            if (alerts.isEmpty()) {
+                item {
+                    FridayEmptyPanel(
+                        title = "Nothing needs attention",
+                        description = "No undismissed alerts are currently recorded."
+                    )
+                }
+            } else {
+                items(alerts) { alert -> AlertRow(alert = alert) }
             }
         }
     }
@@ -66,51 +89,34 @@ fun AlertsScreen(
 
 @Composable
 private fun AlertRow(alert: AlertEntry) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = JarvisColors.SurfacePanel)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = alert.title,
-                    style = JarvisType.Body.copy(fontSize = 14.sp)
-                )
-                Text(
-                    text = alert.level,
-                    style = JarvisType.Technical.copy(fontSize = 10.sp)
-                )
-            }
-
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(vertical = 4.dp))
-
+    FridayPanel {
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(alert.title, style = JarvisType.Body.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold))
             Text(
-                text = alert.message,
-                style = JarvisType.Body.copy(fontSize = 12.sp, color = JarvisColors.TextSecondary)
+                alert.level.uppercase(),
+                style = JarvisType.Label.copy(color = alertLevelColor(alert.level))
             )
-
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.padding(vertical = 4.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Source: ${alert.source}",
-                    style = JarvisType.Technical.copy(fontSize = 10.sp, color = JarvisColors.TextSecondary)
-                )
-                Text(
-                    text = alert.timestamp,
-                    style = JarvisType.Technical.copy(fontSize = 10.sp, color = JarvisColors.TextSecondary)
-                )
-            }
         }
+        Text(alert.message, style = JarvisType.Body.copy(color = JarvisColors.TextSecondary))
+        Text(
+            "SOURCE  ${alert.source}",
+            style = JarvisType.Technical.copy(color = JarvisColors.TextMuted)
+        )
+        Text(
+            alert.timestamp,
+            style = JarvisType.Technical.copy(color = JarvisColors.TextMuted)
+        )
     }
+}
+
+private fun alertLevelColor(level: String) = when (level.lowercase()) {
+    "critical", "error", "failure" -> JarvisColors.CoreWarning
+    "warning", "attention" -> JarvisColors.CoreAttention
+    "info", "notice" -> JarvisColors.CoreThinking
+    else -> JarvisColors.TextSecondary
 }
 
 /** Engine-held process-scoped singleton (nav graph injection). */

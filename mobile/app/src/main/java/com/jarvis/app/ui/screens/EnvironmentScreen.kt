@@ -54,6 +54,8 @@ import com.jarvis.app.env.SafetyRestrictions
 import com.jarvis.app.env.SyncBehavior
 import com.jarvis.app.env.ToolCapability
 import com.jarvis.app.env.UIBehavior
+import com.jarvis.app.ui.components.FridayScreenHeader
+import com.jarvis.app.ui.components.FridaySectionHeading
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
 import kotlinx.coroutines.launch
@@ -82,10 +84,10 @@ fun EnvironmentScreen(
             .fillMaxSize()
             .background(JarvisColors.SurfaceBase)
     ) {
-        Text(
-            text = "ENVIRONMENTS",
-            style = JarvisType.Label,
-            modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp)
+        FridayScreenHeader(
+            eyebrow = "Adaptive execution",
+            title = "Environments",
+            description = "Switch the policies and resources Friday uses on this device. An environment profile is configuration, not proof that a model is installed."
         )
 
         // Active environment card
@@ -93,16 +95,14 @@ fun EnvironmentScreen(
             ActiveEnvironmentCard(environment = env)
         }
 
-        Text(
-            text = "Available Environments",
-            style = JarvisType.Label,
-            modifier = Modifier.padding(16.dp)
-        )
+        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+            FridaySectionHeading("Available environments", availableEnvs.size.toString())
+        }
 
         LazyColumn(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
+                .weight(1f)
+                .padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(availableEnvs) { env ->
@@ -155,7 +155,8 @@ private fun ActiveEnvironmentCard(environment: EnvironmentProfile) {
             .fillMaxWidth()
             .padding(16.dp),
         colors = CardDefaults.cardColors(containerColor = JarvisColors.SurfacePanel),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(22.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, JarvisColors.SurfaceHairline)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -217,7 +218,11 @@ private fun EnvironmentCard(
         colors = CardDefaults.cardColors(
             containerColor = if (isActive) JarvisColors.CoreIdle.copy(alpha = 0.12f) else JarvisColors.SurfacePanel
         ),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(22.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (isActive) JarvisColors.CoreIdle.copy(alpha = 0.4f) else JarvisColors.SurfaceHairline
+        )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -263,7 +268,11 @@ private fun EnvironmentCard(
                         Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = JarvisColors.CoreWarning)
                     }
                 }
-            } else if (!isActive) {
+            }
+
+            // Custom environments are activatable too; edit/delete controls
+            // must not accidentally hide the primary activation action.
+            if (!isActive) {
                 Button(
                     onClick = onActivate,
                     modifier = Modifier

@@ -51,6 +51,8 @@ import com.jarvis.app.model.ModelProvider
 import com.jarvis.app.model.OrganRole
 import com.jarvis.app.model.ProviderHealth
 import com.jarvis.app.model.config.ProviderConfig
+import com.jarvis.app.ui.components.FridayScreenHeader
+import com.jarvis.app.ui.components.FridaySectionHeading
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
 import kotlinx.coroutines.launch
@@ -84,19 +86,17 @@ fun ModelScreen(
             .fillMaxSize()
             .background(JarvisColors.SurfaceBase)
     ) {
+        FridayScreenHeader(
+            eyebrow = "Replaceable resources",
+            title = "Model manager",
+            description = "Language models are resources Friday can use and replace. Their runtime state does not define her identity."
+        )
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, top = 16.dp, end = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.End
         ) {
-            Text(
-                text = "MODEL MANAGER",
-                style = JarvisType.Label,
-                modifier = Modifier.weight(1f)
-            )
             IconButton(onClick = { modelManager.refreshHealth() }) {
-                Icon(Icons.Filled.Refresh, contentDescription = "Refresh health", tint = JarvisColors.TextSecondary)
+                Icon(Icons.Filled.Refresh, contentDescription = "Refresh provider health", tint = JarvisColors.CoreThinking)
             }
         }
 
@@ -113,11 +113,9 @@ fun ModelScreen(
             }
         )
 
-        Text(
-            text = "Available Providers",
-            style = JarvisType.Label,
-            modifier = Modifier.padding(16.dp)
-        )
+        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+            FridaySectionHeading("Available providers", availableProviders.size.toString())
+        }
 
         LazyColumn(
             modifier = Modifier
@@ -185,7 +183,8 @@ private fun ActiveProviderCard(
             .fillMaxWidth()
             .padding(16.dp),
         colors = CardDefaults.cardColors(containerColor = JarvisColors.SurfacePanel),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(22.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, JarvisColors.SurfaceHairline)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -247,7 +246,11 @@ private fun ProviderCard(
         colors = CardDefaults.cardColors(
             containerColor = if (isActive) JarvisColors.CoreIdle.copy(alpha = 0.12f) else JarvisColors.SurfacePanel
         ),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(22.dp),
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (isActive) JarvisColors.CoreIdle.copy(alpha = 0.4f) else JarvisColors.SurfaceHairline
+        )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(

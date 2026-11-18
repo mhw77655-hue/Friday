@@ -1,6 +1,7 @@
 package com.jarvis.app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -9,10 +10,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -20,10 +22,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.jarvis.app.ui.EngineAccess
+import com.jarvis.app.ui.components.FridayBrandMark
+import com.jarvis.app.ui.components.FridayMetricTile
+import com.jarvis.app.ui.components.FridayPanel
+import com.jarvis.app.ui.components.FridayScreenHeader
+import com.jarvis.app.ui.components.FridaySectionHeading
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
 import java.time.Instant
@@ -64,64 +70,119 @@ fun MemoryScreen() {
             .fillMaxSize()
             .background(JarvisColors.SurfaceBase)
             .verticalScroll(rememberScrollState())
-            .padding(24.dp)
+            .padding(bottom = 28.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "FRIDAY'S LOCAL MEMORY",
-                style = JarvisType.Display.copy(fontWeight = FontWeight.SemiBold),
-                modifier = Modifier.weight(1f)
-            )
-            Button(onClick = { refresh += 1 }) { Text("Refresh") }
-        }
-        Spacer(Modifier.height(16.dp))
-        Text("Identity: ${individual.identity.name}", style = JarvisType.Body)
-        Text("Experience records: ${individual.experience.experienceCount()}", style = JarvisType.Technical)
-        Text("Learned feature links: ${individual.experience.associationCount()}", style = JarvisType.Technical)
-        Spacer(Modifier.height(12.dp))
-        Text(
-            "This is Friday's model-independent memory substrate. It currently stores feature observations and associations, not full conversation transcripts or verified human-like semantic memories.",
-            style = JarvisType.Body.copy(color = JarvisColors.TextSecondary)
+        FridayScreenHeader(
+            eyebrow = "Continuity and experience",
+            title = "Memory",
+            description = "A window into Friday's local experience substrate and the associations it has recorded."
         )
 
-        Spacer(Modifier.height(24.dp))
-        Text("RECENT EXPERIENCES", style = JarvisType.Label)
-        if (experiences.isEmpty()) {
-            Text("No local experiences recorded yet.", style = JarvisType.Body)
-        } else {
-            experiences.forEach { experience ->
-                val features = experience.features.keys
-                    .filter { it.startsWith("word:") }
-                    .take(10)
-                    .joinToString(", ") { it.removePrefix("word:") }
-                val outcomes = experience.outcomes.keys.take(6).joinToString(", ")
-                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                    Text("Experience #${experience.id} · ${Instant.ofEpochMilli(experience.timestampMs)}", style = JarvisType.Technical)
-                    Text(features.ifBlank { "No lexical features" }, style = JarvisType.Body)
-                    if (outcomes.isNotBlank()) {
-                        Text("Observed outcome: $outcomes", style = JarvisType.Technical)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            FridayMetricTile(
+                label = "Experiences",
+                value = individual.experience.experienceCount().toString(),
+                accent = JarvisColors.CoreThinking,
+                modifier = Modifier.weight(1f)
+            )
+            FridayMetricTile(
+                label = "Associations",
+                value = individual.experience.associationCount().toString(),
+                accent = JarvisColors.CoreIdle,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("IDENTITY: ${individual.identity.name}", style = JarvisType.Technical)
+            TextButton(onClick = { refresh += 1 }) {
+                Text("Refresh", style = JarvisType.Label.copy(color = JarvisColors.CoreThinking))
+            }
+        }
+
+        FridayPanel(modifier = Modifier.padding(horizontal = 20.dp)) {
+            Text(
+                "WHAT THIS MEMORY IS",
+                style = JarvisType.Label.copy(color = JarvisColors.CoreIdle)
+            )
+            Text(
+                "This is Friday's model-independent memory substrate. It currently stores feature observations and associations, not full conversation transcripts or verified human-like semantic memories.",
+                style = JarvisType.Body.copy(color = JarvisColors.TextSecondary)
+            )
+        }
+
+        Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+            FridaySectionHeading("Recent experiences", "${experiences.size} shown")
+            if (experiences.isEmpty()) {
+                FridayPanel {
+                    Text("No local experiences recorded yet.", style = JarvisType.Body)
+                    Text(
+                        "Experience records will appear after Friday observes and persists an event.",
+                        style = JarvisType.Technical
+                    )
+                }
+            } else {
+                experiences.forEach { experience ->
+                    val features = experience.features.keys
+                        .filter { it.startsWith("word:") }
+                        .take(10)
+                        .joinToString(", ") { it.removePrefix("word:") }
+                    val outcomes = experience.outcomes.keys.take(6).joinToString(", ")
+                    FridayPanel(modifier = Modifier.padding(bottom = 9.dp)) {
+                        Text(
+                            "EXPERIENCE #${experience.id}",
+                            style = JarvisType.Label.copy(color = JarvisColors.CoreThinking)
+                        )
+                        Text(
+                            Instant.ofEpochMilli(experience.timestampMs).toString(),
+                            style = JarvisType.Technical.copy(color = JarvisColors.TextMuted)
+                        )
+                        Text(
+                            features.ifBlank { "No lexical features" },
+                            style = JarvisType.Body
+                        )
+                        if (outcomes.isNotBlank()) {
+                            Text(
+                                "Observed outcome: $outcomes",
+                                style = JarvisType.Technical
+                            )
+                        }
+                    }
+                }
+            }
+
+            FridaySectionHeading("Associations", "${associations.size} shown")
+            if (associations.isEmpty()) {
+                FridayPanel {
+                    Text("No associations recorded yet.", style = JarvisType.Body)
+                    Text(
+                        "Associations appear when distinct observations are linked.",
+                        style = JarvisType.Technical
+                    )
+                }
+            } else {
+                associations.forEach { association ->
+                    FridayPanel(modifier = Modifier.padding(bottom = 8.dp)) {
+                        Text(
+                            "${association.source}  →  ${association.target}",
+                            style = JarvisType.Body
+                        )
+                        Text(
+                            "${association.observations} observation(s)",
+                            style = JarvisType.Technical.copy(color = JarvisColors.TextSecondary)
+                        )
                     }
                 }
             }
         }
-
-        Spacer(Modifier.height(24.dp))
-        Text("ASSOCIATIONS", style = JarvisType.Label)
-        if (associations.isEmpty()) {
-            Text("Associations will appear after distinct experiences are connected.", style = JarvisType.Body)
-        } else {
-            associations.forEach { association ->
-                Text(
-                    "${association.source}  →  ${association.target}  ·  ${association.observations} observation(s)",
-                    style = JarvisType.Technical,
-                    modifier = Modifier.padding(vertical = 5.dp)
-                )
-            }
-        }
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(4.dp))
     }
 }
 
@@ -131,13 +192,25 @@ private fun EmptyStateScreen(message: String) {
         modifier = Modifier
             .fillMaxSize()
             .background(JarvisColors.SurfaceBase)
-            .padding(32.dp),
+            .padding(28.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = message,
-            style = JarvisType.Body.copy(color = JarvisColors.TextSecondary),
-            textAlign = TextAlign.Center
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Box(
+                modifier = Modifier.size(84.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                FridayBrandMark(Modifier.fillMaxSize())
+            }
+            Text("NOT AVAILABLE YET", style = JarvisType.Label.copy(color = JarvisColors.CoreThinking))
+            Text(
+                text = message,
+                style = JarvisType.Body.copy(color = JarvisColors.TextSecondary),
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }

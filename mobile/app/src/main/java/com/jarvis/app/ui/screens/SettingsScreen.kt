@@ -46,6 +46,8 @@ import kotlinx.coroutines.launch
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.jarvis.app.ui.components.StateChip
+import com.jarvis.app.ui.components.FridayScreenHeader
+import com.jarvis.app.ui.components.FridaySectionHeading
 import com.jarvis.app.ui.components.pressScale
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
@@ -157,10 +159,15 @@ fun SettingsScreen() {
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
+        FridayScreenHeader(
+            eyebrow = "Personal controls",
+            title = "Settings",
+            description = "Shape how Friday interacts with your device, what she may access, and which development resources are enabled."
+        )
         RemoteAiProvidersSection()
-        SectionLabel("PERSONALITY")
+        SectionLabel("RESPONSE STYLE")
         Text(
-            text = "This changes how JARVIS answers, not what he knows.",
+            text = "A saved response-style preference. A stored prompt alone is not evidence that Friday's lasting individuality or cognition has changed.",
             style = JarvisType.Label,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -171,7 +178,7 @@ fun SettingsScreen() {
                 prefs.edit().putString(KEY_PERSONA, it).apply()
             },
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("Persona prompt", style = JarvisType.Body) },
+            placeholder = { Text("Response-style preference", style = JarvisType.Body) },
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = JarvisColors.SurfaceHairline,
                 unfocusedBorderColor = JarvisColors.SurfaceHairline
@@ -638,7 +645,7 @@ fun SettingsScreen() {
 
         SectionLabel("OFFLINE MODE")
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text = "Force local-only", style = JarvisType.Body, modifier = Modifier.weight(1f))
+            Text(text = "Local-only preference", style = JarvisType.Body, modifier = Modifier.weight(1f))
             Switch(
                 checked = offlineMode,
                 onCheckedChange = {
@@ -648,6 +655,11 @@ fun SettingsScreen() {
                 colors = SwitchDefaults.colors(checkedTrackColor = JarvisColors.CoreIdle)
             )
         }
+        Text(
+            "This preference is currently saved, but it is not yet enforced across every provider and action path. Do not rely on this switch as a guarantee that all network access is disabled.",
+            style = JarvisType.Technical,
+            modifier = Modifier.padding(top = 4.dp)
+        )
 
         SectionLabel("MEMORY RULES")
         OutlinedTextField(
@@ -680,7 +692,7 @@ private fun StorageAccessRow(granted: Boolean, onTapGrant: () -> Unit) {
             Text(text = "Storage (Obsidian vault)", style = JarvisType.Body)
             Text(
                 text = if (granted) {
-                    "All files access granted — JARVIS can write to /storage/emulated/0/JarvisSync/vault"
+                    "All files access granted — Friday can write to /storage/emulated/0/JarvisSync/vault"
                 } else {
                     "Not granted — tap to open system settings and allow All files access"
                 },
@@ -719,5 +731,5 @@ private fun openAllFilesAccessSettings(context: Context) {
 
 @Composable
 private fun SectionLabel(text: String) {
-    Text(text = text, style = JarvisType.Label, modifier = Modifier.padding(top = 24.dp, bottom = 4.dp))
+    FridaySectionHeading(title = text)
 }

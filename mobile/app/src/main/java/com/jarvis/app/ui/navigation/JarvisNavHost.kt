@@ -1,4 +1,5 @@
 package com.jarvis.app.ui.navigation
+import com.jarvis.app.ui.components.FridayNavigationGlyph
 import com.jarvis.app.ui.EngineAccess
 import com.jarvis.app.ui.WakingSurface
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -11,11 +12,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -24,9 +30,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -45,6 +56,7 @@ import com.jarvis.app.ui.screens.MoreSheet
 import com.jarvis.app.ui.screens.SandboxScreen
 import com.jarvis.app.ui.screens.SettingsScreen
 import com.jarvis.app.ui.screens.SessionsScreen
+import com.jarvis.app.ui.screens.SessionDetailScreen
 import com.jarvis.app.ui.screens.SystemScreen
 import com.jarvis.app.ui.screens.TaskInboxScreen
 import com.jarvis.app.ui.screens.ToolsScreen
@@ -66,6 +78,7 @@ private const val ROUTE_TASK_INBOX = "task_inbox"
 private const val ROUTE_APPROVALS = "approvals"
 private const val ROUTE_ALERTS = "alerts"
 private const val ROUTE_SESSIONS = "sessions"
+private const val ROUTE_SESSION_DETAIL = "session_detail/{sessionId}"
 private const val ROUTE_BOOTSTRAP = "bootstrap"
 private const val ROUTE_ENVIRONMENT = "environment"
 private const val ROUTE_MODEL = "model"
@@ -135,7 +148,13 @@ fun JarvisNavHost() {
         bottomBar = {
             JarvisBottomBar(
                 currentRoute = currentRoute,
-                moreSelected = moreSheetOpen,
+                moreSelected = moreSheetOpen || currentRoute in setOf(
+                    ROUTE_MEMORY, ROUTE_TOOLS, ROUTE_SYSTEM, ROUTE_SANDBOX,
+                    ROUTE_SETTINGS, ROUTE_TASK_INBOX, ROUTE_APPROVALS, ROUTE_ALERTS,
+                    ROUTE_SESSIONS, ROUTE_SESSION_DETAIL, ROUTE_ENVIRONMENT, ROUTE_MODEL,
+                    ROUTE_MODEL_SIMULATION, ROUTE_VISION, ROUTE_VIDEO_KNOWLEDGE,
+                    ROUTE_VOICE_STUDIO, ROUTE_BOOTSTRAP
+                ),
                 onHome = { navigateToTab(ROUTE_HOME) },
                 onConversation = { navigateToTab(ROUTE_CONVERSATION) },
                 onMissions = { navigateToTab(ROUTE_MISSIONS) },
@@ -153,7 +172,10 @@ fun JarvisNavHost() {
             popExitTransition = { tabExit }
         ) {
             composable(ROUTE_HOME) {
-                HomeScreen(onOpenTools = { navigateToTab(ROUTE_TOOLS) })
+                HomeScreen(
+                    onOpenTools = { navigateToTab(ROUTE_TOOLS) },
+                    onOpenConversation = { navigateToTab(ROUTE_CONVERSATION) }
+                )
             }
             composable(ROUTE_CONVERSATION) { ConversationScreen() }
             composable(ROUTE_MISSIONS) { MissionsScreen() }
@@ -184,7 +206,27 @@ fun JarvisNavHost() {
                 val slot = EngineAccess.sessionManager()
                 val manager = slot.value
                 if (manager == null) WakingSurface(slot.readiness)
-                else SessionsScreen(sessionManager = manager, onNavigate = ::navigateToTab)
+                else SessionsScreen(
+                    sessionManager = manager,
+                    onNavigate = { route -> navController.navigate(route) }
+                )
+            }
+            composable(
+                route = ROUTE_SESSION_DETAIL,
+                arguments = listOf(navArgument("sessionId") { type = NavType.StringType })
+            ) { entry ->
+                val slot = EngineAccess.sessionManager()
+                val manager = slot.value
+                val sessionId = entry.arguments?.getString("sessionId").orEmpty()
+                if (manager == null || sessionId.isBlank()) {
+                    WakingSurface(slot.readiness)
+                } else {
+                    SessionDetailScreen(
+                        sessionId = sessionId,
+                        sessionManager = manager,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
             }
             composable(ROUTE_ENVIRONMENT) {
                 val slot = EngineAccess.environmentManager()
@@ -232,34 +274,60 @@ private fun JarvisBottomBar(
     onMissions: () -> Unit,
     onMore: () -> Unit
 ) {
-    Row(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .background(JarvisColors.SurfacePanel)
-            .border(1.dp, JarvisColors.SurfaceHairline)
-            .padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        color = JarvisColors.SurfacePanel,
+        shape = RoundedCornerShape(26.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, JarvisColors.SurfaceHairline),
+        shadowElevation = 10.dp
     ) {
-        BottomBarItem("Home", currentRoute == ROUTE_HOME, onHome)
-        BottomBarItem("Chat", currentRoute == ROUTE_CONVERSATION, onConversation)
-        BottomBarItem("Missions", currentRoute == ROUTE_MISSIONS, onMissions)
-        BottomBarItem("More", moreSelected, onMore)
+        Row(
+            modifier = Modifier.padding(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            BottomBarItem("Home", "home", currentRoute == ROUTE_HOME, onHome, Modifier.weight(1f))
+            BottomBarItem("Talk", "talk", currentRoute == ROUTE_CONVERSATION, onConversation, Modifier.weight(1f))
+            BottomBarItem("Growth", "growth", currentRoute == ROUTE_MISSIONS, onMissions, Modifier.weight(1f))
+            BottomBarItem("More", "more", moreSelected, onMore, Modifier.weight(1f))
+        }
     }
 }
 
 @Composable
-private fun BottomBarItem(label: String, selected: Boolean, onClick: () -> Unit) {
-    Text(
-        text = label,
-        style = if (selected) {
-            JarvisType.Technical.copy(color = JarvisColors.TextPrimary)
-        } else {
-            JarvisType.Technical
-        },
-        textAlign = TextAlign.Center,
-        maxLines = 1,
-        modifier = Modifier
+private fun BottomBarItem(
+    label: String,
+    glyph: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(
+                if (selected) JarvisColors.CoreIdle.copy(alpha = 0.13f)
+                else Color.Transparent
+            )
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp)
-    )
+            .padding(vertical = 9.dp),
+        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        FridayNavigationGlyph(
+            kind = glyph,
+            color = if (selected) JarvisColors.CoreIdle else JarvisColors.TextMuted,
+            modifier = Modifier.size(19.dp)
+        )
+        Text(
+            text = label,
+            style = JarvisType.Label.copy(
+                color = if (selected) JarvisColors.TextPrimary else JarvisColors.TextMuted,
+                letterSpacing = 0.02.em
+            ),
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
+    }
 }

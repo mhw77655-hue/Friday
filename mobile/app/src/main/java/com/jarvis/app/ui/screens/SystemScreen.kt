@@ -28,6 +28,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.jarvis.app.DiagnosticsViewModel
 import com.jarvis.app.DiagnosticLevel
 import com.jarvis.app.ui.components.StateChip
+import com.jarvis.app.ui.components.FridayPanel
+import com.jarvis.app.ui.components.FridayScreenHeader
+import com.jarvis.app.ui.components.FridaySectionHeading
 import com.jarvis.app.ui.theme.JarvisColors
 import com.jarvis.app.ui.theme.JarvisType
 
@@ -105,51 +108,68 @@ fun SystemScreen() {
         modifier = Modifier
             .fillMaxSize()
             .background(JarvisColors.SurfaceBase)
-            .padding(16.dp)
     ) {
-        Button(
-            onClick = { reportLauncher.launch("friday-device-report.json") },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Export full diagnostic report")
-        }
-        Text(
-            "Includes device, resource, model, voice, memory, network and failure state. " +
-                "Excludes chat messages, speech transcripts, notification contents and credentials.",
-            style = JarvisType.Technical,
-            modifier = Modifier.padding(vertical = 8.dp)
+        FridayScreenHeader(
+            eyebrow = "Device and runtime",
+            title = "System health",
+            description = "Live signals and diagnostic evidence from Friday's current Android environment."
         )
-        Button(
-            onClick = { diagnosticsViewModel.runFullDiagnostic() },
-            enabled = !diagnosticRunning,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(if (diagnosticRunning) "Running active diagnostics..." else "Run full system diagnosis")
-        }
-        Button(
-            onClick = { diagnosticsViewModel.runSelfDiagnosis() },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Run Friday architecture and autonomy diagnosis")
-        }
-        selfDiagnosticAt?.let { checkedAt ->
+
+        FridayPanel(modifier = Modifier.padding(horizontal = 20.dp)) {
+            Button(
+                onClick = { reportLauncher.launch("friday-device-report.json") },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Export diagnostic report")
+            }
             Text(
-                "Self-diagnosis: ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(checkedAt))} · ${selfDiagnosticFindings.count { it.level == DiagnosticLevel.FAILURE }} failures · ${selfDiagnosticFindings.count { it.level == DiagnosticLevel.WARNING }} warnings",
-                style = JarvisType.Technical,
-                modifier = Modifier.padding(vertical = 6.dp)
+                "Includes device, resource, model, voice, memory, network and failure state. Excludes chat messages, speech transcripts, notification contents and credentials.",
+                style = JarvisType.Technical
             )
-        }
-        LazyColumn(modifier = Modifier.weight(1f)) {
-            items(rows) { row -> SystemRowView(row) }
-            item {
+            Button(
+                onClick = { diagnosticsViewModel.runFullDiagnostic() },
+                enabled = !diagnosticRunning,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (diagnosticRunning) "Running active diagnostics..." else "Run full system diagnosis")
+            }
+            Button(
+                onClick = { diagnosticsViewModel.runSelfDiagnosis() },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Run Friday architecture and autonomy diagnosis")
+            }
+            selfDiagnosticAt?.let { checkedAt ->
                 Text(
-                    "DIAGNOSTIC FINDINGS (${diagnosticFindings.size})",
-                    style = JarvisType.Technical,
-                    modifier = Modifier.padding(top = 18.dp, bottom = 8.dp)
+                    java.text.DateFormat.getDateTimeInstance().format(java.util.Date(checkedAt)) +
+                        " · " + selfDiagnosticFindings.count { it.level == DiagnosticLevel.FAILURE } +
+                        " failures · " + selfDiagnosticFindings.count { it.level == DiagnosticLevel.WARNING } +
+                        " warnings",
+                    style = JarvisType.Technical
                 )
             }
+        }
+
+        LazyColumn(
+            modifier = Modifier.weight(1f).padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 12.dp, bottom = 28.dp)
+        ) {
+            item {
+                FridaySectionHeading("Live status", "${rows.size} signals")
+            }
+            items(rows) { row ->
+                FridayPanel { SystemRowView(row) }
+            }
+            item {
+                FridaySectionHeading("Diagnostic findings", diagnosticFindings.size.toString())
+            }
             if (diagnosticFindings.isEmpty()) {
-                item { Text("No diagnostic run has completed yet.", style = JarvisType.Technical) }
+                item {
+                    FridayPanel {
+                        Text("No diagnostic run has completed yet.", style = JarvisType.Body)
+                    }
+                }
             }
             items(diagnosticFindings) { finding ->
                 val color = when (finding.severity) {
@@ -158,22 +178,22 @@ fun SystemScreen() {
                     com.jarvis.app.diagnostics.DiagnosticSeverity.WARNING -> JarvisColors.CoreAttention
                     com.jarvis.app.diagnostics.DiagnosticSeverity.ERROR -> JarvisColors.CoreWarning
                 }
-                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                    Text("${finding.severity.name} · ${finding.title}", color = color, style = JarvisType.Technical)
+                FridayPanel {
+                    Text("${finding.severity.name} · ${finding.title}", color = color, style = JarvisType.Label)
                     Text("Observed: ${finding.observed}", style = JarvisType.Technical)
                     Text("Assessment: ${finding.likelyCause}", style = JarvisType.Technical)
                     Text("Action: ${finding.recommendedAction}", style = JarvisType.Technical)
                 }
             }
             item {
-                Text(
-                    "FRIDAY SELF-DIAGNOSIS (${selfDiagnosticFindings.size})",
-                    style = JarvisType.Technical,
-                    modifier = Modifier.padding(top = 18.dp, bottom = 8.dp)
-                )
+                FridaySectionHeading("Friday self-diagnosis", selfDiagnosticFindings.size.toString())
             }
             if (selfDiagnosticFindings.isEmpty()) {
-                item { Text("No Friday self-diagnosis has completed yet.", style = JarvisType.Technical) }
+                item {
+                    FridayPanel {
+                        Text("No Friday self-diagnosis has completed yet.", style = JarvisType.Body)
+                    }
+                }
             }
             items(selfDiagnosticFindings, key = { it.id }) { finding ->
                 val color = when (finding.level) {
@@ -181,8 +201,8 @@ fun SystemScreen() {
                     DiagnosticLevel.WARNING -> JarvisColors.CoreAttention
                     DiagnosticLevel.FAILURE -> JarvisColors.CoreWarning
                 }
-                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-                    Text("${finding.level.name} · ${finding.title}", color = color, style = JarvisType.Technical)
+                FridayPanel {
+                    Text("${finding.level.name} · ${finding.title}", color = color, style = JarvisType.Label)
                     Text(finding.detail, style = JarvisType.Technical)
                     finding.recommendation?.let { Text("Action: $it", style = JarvisType.Technical) }
                 }

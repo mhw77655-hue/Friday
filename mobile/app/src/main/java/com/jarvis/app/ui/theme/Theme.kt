@@ -14,41 +14,31 @@ import androidx.compose.ui.unit.sp
 import com.jarvis.app.R
 
 /**
- * Palette refreshed to match the approved living-UI prototype. Token
- * NAMES are unchanged on purpose — DiagnosticsViewModel.kt, SystemScreen.kt,
- * and everything else that references JarvisColors.CoreIdle etc. keeps
- * compiling untouched; only the hex values move to the richer palette.
- * One genuinely new addition: CoreAttention (amber) — the prototype's
- * "uncertain / needs input" meaning didn't have a token before (the old
- * palette only had Warning-red and Unknown-gray, nothing in between).
- * Nothing references it yet; it's here for whatever wires an
- * uncertain/needs-attention state to the UI next.
+ * Friday's visual language: deep ink, atmospheric violet and living cyan.
+ *
+ * The legacy JarvisColors/JarvisType names remain as source-compatible aliases
+ * for the existing screens while the visual system is migrated. UI tokens do
+ * not define Friday's cognitive architecture.
  */
 object JarvisColors {
-    val SurfaceBase = Color(0xFF08090C)
-    val SurfacePanel = Color(0xFF12151B)
-    val SurfaceHairline = Color(0x12FFFFFF)
-    val CoreIdle = Color(0xFF7C5CFF)       // was blue 0x3B82F6 -> now violet, matches prototype's "presence/continuity"
-    val CoreThinking = Color(0xFF4C8DFF)   // was purple 0x7C3AED -> now blue, kept deliberately distinct from CoreIdle's violet
-    val CoreSuccess = Color(0xFF34D399)    // refined mint-green
-    val CoreWarning = Color(0xFFFB4B4B)    // refined red
-    val CoreOffline = Color(0xFF5B6270)    // refined dormant gray
-    val CoreUnknown = Color(0xFF7B8394)    // lighter neutral, distinct from CoreOffline
-    val CoreAttention = Color(0xFFF5A623)  // NEW — amber, "uncertain / needs input", nothing wired to it yet
-    val TextPrimary = Color(0xFFECEDF1)
-    val TextSecondary = Color(0xFF8B93A3)
+    val SurfaceBase = Color(0xFF080B14)
+    val SurfacePanel = Color(0xFF111827)
+    val SurfaceRaised = Color(0xFF192337)
+    val SurfaceInset = Color(0xFF0D1421)
+    val SurfaceHairline = Color(0x22A9B8D2)
+    val CoreIdle = Color(0xFFB49AFF)
+    val CoreThinking = Color(0xFF6CDDF2)
+    val CoreSuccess = Color(0xFF65DDB5)
+    val CoreWarning = Color(0xFFFF6F86)
+    val CoreOffline = Color(0xFF727D92)
+    val CoreUnknown = Color(0xFFA5B0C6)
+    val CoreAttention = Color(0xFFFFC27C)
+    val TextPrimary = Color(0xFFF3F5FC)
+    val TextSecondary = Color(0xFFA3AEC4)
+    val TextMuted = Color(0xFF6F7B92)
+    val UserBubble = Color(0xFF272442)
 }
 
-/**
- * Design spec §4: "Display/Identity: Inter... weight 600", "Body: Inter,
- * weight 400", "Label: ...uppercase" (also Inter, weight per spec is
- * unspecified for Label beyond caps — kept at Medium/500 as a readable
- * mid-weight for small uppercase text), "Technical/mono: JetBrains Mono".
- * Files expected at res/font/: inter_regular.ttf, inter_medium.ttf,
- * inter_semibold.ttf, jetbrains_mono_regular.ttf — see the Termux
- * download script that fetches these before this file will compile
- * (R.font.* references fail to resolve if the files aren't present).
- */
 private val InterFamily = FontFamily(
     Font(R.font.inter_regular, FontWeight.Normal),
     Font(R.font.inter_medium, FontWeight.Medium),
@@ -63,46 +53,76 @@ object JarvisType {
     val Display = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 30.sp,
+        fontSize = 34.sp,
+        lineHeight = 40.sp,
+        letterSpacing = (-0.035).em,
+        color = JarvisColors.TextPrimary
+    )
+    val Headline = TextStyle(
+        fontFamily = InterFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 24.sp,
+        lineHeight = 30.sp,
+        letterSpacing = (-0.02).em,
         color = JarvisColors.TextPrimary
     )
     val Body = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
+        fontSize = 15.sp,
+        lineHeight = 23.sp,
         color = JarvisColors.TextPrimary
     )
     val Technical = TextStyle(
         fontFamily = JetBrainsMonoFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
+        fontSize = 11.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.015.em,
         color = JarvisColors.TextSecondary
     )
     val Label = TextStyle(
         fontFamily = InterFamily,
-        fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        letterSpacing = 0.08.em,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 10.sp,
+        lineHeight = 14.sp,
+        letterSpacing = 0.12.em,
         color = JarvisColors.TextSecondary
     )
 }
 
-private val JarvisDarkScheme = darkColorScheme(
-    background = JarvisColors.SurfaceBase,
-    surface = JarvisColors.SurfaceBase,
-    surfaceVariant = JarvisColors.SurfacePanel,
+private val FridayDarkScheme = darkColorScheme(
     primary = JarvisColors.CoreIdle,
+    onPrimary = Color(0xFF17112B),
+    primaryContainer = Color(0xFF30284B),
+    onPrimaryContainer = JarvisColors.TextPrimary,
+    secondary = JarvisColors.CoreThinking,
+    onSecondary = Color(0xFF071C23),
+    tertiary = JarvisColors.CoreSuccess,
+    background = JarvisColors.SurfaceBase,
     onBackground = JarvisColors.TextPrimary,
+    surface = JarvisColors.SurfacePanel,
     onSurface = JarvisColors.TextPrimary,
+    surfaceVariant = JarvisColors.SurfaceRaised,
+    onSurfaceVariant = JarvisColors.TextSecondary,
+    outline = JarvisColors.SurfaceHairline,
     error = JarvisColors.CoreWarning
+)
+
+private val FridayTypography = Typography(
+    displayLarge = JarvisType.Display,
+    headlineLarge = JarvisType.Headline,
+    titleLarge = JarvisType.Headline.copy(fontSize = 19.sp, lineHeight = 25.sp),
+    bodyLarge = JarvisType.Body,
+    bodyMedium = JarvisType.Body.copy(fontSize = 14.sp, lineHeight = 21.sp),
+    labelLarge = JarvisType.Label.copy(fontSize = 12.sp, letterSpacing = 0.04.em)
 )
 
 @Composable
 fun JarvisTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = JarvisDarkScheme,
-        typography = Typography(),
+        colorScheme = FridayDarkScheme,
+        typography = FridayTypography,
         content = content
     )
 }

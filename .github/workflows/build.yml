@@ -2,12 +2,10 @@ name: build
 
 on:
   push:
-    # `audit/**` exists so the AUDIT-TOOL can prove its draft patch compiles
-    # and passes the suite on a branch of its own, unmerged. Without this the
-    # patch could only ever be verified by merging it, which is the one thing
-    # the tool must never do. Nothing under audit/** is merged by CI or by the
-    # tool; a run there is evidence, not a gate on main.
-    branches: [ main, 'audit/**', 'friday-proposals/**' ]
+    # Branch candidates are validated by pull_request (or explicit
+    # workflow_dispatch for the trusted publisher); only main needs push CI.
+    # This avoids duplicate push + PR builds for every candidate commit.
+    branches: [ main ]
   pull_request:
     branches: [ main, 'audit/**' ]
   schedule:
@@ -15,7 +13,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: friday-build-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+  group: friday-build-v2-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 permissions: {}
@@ -222,7 +220,7 @@ jobs:
   android-emulator:
     name: Disposable Android phone twin (instrumented)
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 60
     permissions:
       contents: read
     steps:
