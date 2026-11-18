@@ -15,11 +15,6 @@ import time
 from typing import Callable, Sequence
 
 
-TRANSIENT_STORAGE_RACE = (
-    "NullPointerException" in " ".join(("",))  # replaced by signature predicate below
-)
-
-
 def is_transient_storage_race(output: str) -> bool:
     return (
         "NullPointerException" in output
