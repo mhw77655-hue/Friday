@@ -65,6 +65,8 @@ class IndividualGoalContinuityStore(
             if (goal != null && subgoals.any { it.goalId != goal.id }) {
                 return GoalContinuityLoad.Corrupt("A persisted subgoal belongs to a different goal.")
             }
+            validateContinuity(goal, subgoals)
+            require(root.getLong("updated_at_ms") >= 0L) { "Invalid continuity update timestamp." }
             GoalContinuityLoad.Restored(
                 IndividualGoalContinuity(
                     goal = goal,
@@ -82,14 +84,12 @@ class IndividualGoalContinuityStore(
     fun save(individualId: String, goal: Goal?, subgoals: List<Subgoal>) {
         require(individualId.isNotBlank() && individualId.length <= 128)
         require(subgoals.size <= MAX_SUBGOALS)
-        require(goal != null || subgoals.isEmpty()) { "Subgoals require a parent goal." }
-        require(goal == null || subgoals.all { it.goalId == goal.id }) {
-            "Every subgoal must belong to the current goal."
-        }
+        validateContinuity(goal, subgoals)
+        val updatedAt = nowMs().also { require(it >= 0L) { "Continuity update timestamp cannot be negative." } }
         val root = JSONObject()
             .put("schema_version", SCHEMA_VERSION)
             .put("individual_id", individualId)
-            .put("updated_at_ms", nowMs())
+            .put("updated_at_ms", updatedAt)
             .put("goal", goal?.let(::goalJson) ?: JSONObject.NULL)
             .put("subgoals", JSONArray().apply { subgoals.forEach { put(subgoalJson(it)) } })
         val serialized = root.toString()
@@ -99,10 +99,75 @@ class IndividualGoalContinuityStore(
         storage.write(file, serialized)
     }
 
+    /** Validate the durable goal graph before either saving or restoring it. */
+    private fun validateContinuity(goal: Goal?, subgoals: List<Subgoal>) {
+        require(goal != null || subgoals.isEmpty()) { "Subgoals require a parent goal." }
+        if (goal != null) {
+            require(goal.id.isNotBlank() && goal.id.length <= 128)
+            require(goal.description.isNotBlank() && goal.description.length <= 2_000)
+            require(goal.createdAt >= 0L)
+            require(goal.successCriteria.size <= MAX_CRITERIA)
+            require(goal.successCriteria.all { it.isNotBlank() && it.length <= MAX_CRITERION_LENGTH }) {
+                "Success criteria must be non-empty and within the safe length limit."
+            }
+            require(goal.parentGoalId == null || (goal.parentGoalId.isNotBlank() && goal.parentGoalId.length <= 128))
+        }
+
+        require(subgoals.size <= MAX_SUBGOALS)
+        val ids = subgoals.map { it.id }
+        require(ids.distinct().size == ids.size) { "Subgoal ids must be unique within a goal." }
+        val idSet = ids.toSet()
+        val byId = subgoals.associateBy { it.id }
+        subgoals.forEach { subgoal ->
+            require(goal != null && subgoal.goalId == goal.id) {
+                "Every subgoal must belong to the current goal."
+            }
+            require(subgoal.id.isNotBlank() && subgoal.id.length <= 128)
+            require(subgoal.description.isNotBlank() && subgoal.description.length <= 2_000)
+            require(subgoal.createdAt >= 0L)
+            require(subgoal.estimatedEffort.isFinite() && subgoal.estimatedEffort in 0.0f..10_000.0f)
+            require(subgoal.dependencies.size <= MAX_DEPENDENCIES)
+            require(subgoal.dependencies.distinct().size == subgoal.dependencies.size) {
+                "Subgoal dependencies must be unique."
+            }
+            require(subgoal.id !in subgoal.dependencies) { "A subgoal cannot depend on itself." }
+            require(subgoal.dependencies.all { it in idSet }) {
+                "Every subgoal dependency must reference a subgoal in this goal."
+            }
+        }
+
+        // Kahn's algorithm avoids recursive DFS stack growth on a valid but
+        // deeply chained owner-created goal (up to MAX_SUBGOALS nodes).
+        val remainingDependencies = subgoals.associate { it.id to it.dependencies.size }.toMutableMap()
+        val dependents = mutableMapOf<String, MutableList<String>>()
+        subgoals.forEach { node ->
+            node.dependencies.forEach { dependency ->
+                dependents.getOrPut(dependency) { mutableListOf() }.add(node.id)
+            }
+        }
+        val ready = java.util.ArrayDeque<String>()
+        remainingDependencies.forEach { (id, count) -> if (count == 0) ready.addLast(id) }
+        var visitedCount = 0
+        while (ready.isNotEmpty()) {
+            val completed = ready.removeFirst()
+            visitedCount++
+            dependents[completed].orEmpty().forEach { dependent ->
+                val remaining = (remainingDependencies[dependent] ?: 0) - 1
+                remainingDependencies[dependent] = remaining
+                if (remaining == 0) ready.addLast(dependent)
+            }
+        }
+        require(visitedCount == subgoals.size) {
+            "Subgoal dependencies must form an acyclic graph."
+        }
+    }
+
     private fun goalJson(goal: Goal): JSONObject {
         require(goal.id.isNotBlank() && goal.id.length <= 128)
         require(goal.description.isNotBlank() && goal.description.length <= 2_000)
         require(goal.successCriteria.size <= MAX_CRITERIA)
+        require(goal.successCriteria.all { it.isNotBlank() && it.length <= MAX_CRITERION_LENGTH })
+        require(goal.createdAt >= 0L)
         return JSONObject()
             .put("id", goal.id)
             .put("description", goal.description)
@@ -124,7 +189,7 @@ class IndividualGoalContinuityStore(
             createdAt = json.getLong("created_at"),
             deadline = json.optLongOrNull("deadline"),
             successCriteria = (0 until criteria.length()).map { criteria.getString(it) }
-                .also { values -> require(values.all { it.length <= 500 }) },
+                .also { values -> require(values.all { it.isNotBlank() && it.length <= MAX_CRITERION_LENGTH }) },
             status = GoalStatus.valueOf(json.getString("status")),
             parentGoalId = json.optStringOrNull("parent_goal_id")
         )
@@ -134,6 +199,8 @@ class IndividualGoalContinuityStore(
         require(subgoal.id.isNotBlank() && subgoal.id.length <= 128)
         require(subgoal.description.isNotBlank() && subgoal.description.length <= 2_000)
         require(subgoal.dependencies.size <= MAX_DEPENDENCIES)
+        require(subgoal.createdAt >= 0L)
+        require(subgoal.estimatedEffort.isFinite() && subgoal.estimatedEffort in 0.0f..10_000.0f)
         return JSONObject()
             .put("id", subgoal.id)
             .put("goal_id", subgoal.goalId)
@@ -167,6 +234,7 @@ class IndividualGoalContinuityStore(
         private const val MAX_FILE_BYTES = 128 * 1024
         private const val MAX_SUBGOALS = 64
         private const val MAX_CRITERIA = 32
+        private const val MAX_CRITERION_LENGTH = 500
         private const val MAX_DEPENDENCIES = 64
     }
 }
