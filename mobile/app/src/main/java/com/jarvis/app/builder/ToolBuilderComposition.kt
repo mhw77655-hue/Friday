@@ -119,11 +119,6 @@ object ToolBuilderComposition {
                 )
                 return@forEach
             }
-            val overlapsNative = genome.capabilities.any { operation ->
-                cognitiveCapabilityFabric?.registry?.lookupByOperation(operation)?.isNotEmpty() == true
-            }
-            if (overlapsNative) return@forEach
-
             val implementation = ArtifactRehydrator.load(workspace, genome)
             if (implementation == null) {
                 failureSurface.report(
@@ -138,10 +133,29 @@ object ToolBuilderComposition {
                 )
                 return@forEach
             }
+            val operation = implementation.spec.capability
+            if (cognitiveCapabilityFabric?.registry?.lookupByOperation(operation)?.isNotEmpty() == true) {
+                return@forEach
+            }
+            if (genome.artifactCapability != null && genome.artifactCapability != operation) {
+                failureSurface.report(
+                    com.jarvis.app.failure.FailureReport(
+                        subsystem = "BUILDER",
+                        operation = "rehydrate",
+                        severity = com.jarvis.app.failure.FailureSeverity.WARNING,
+                        category = com.jarvis.app.failure.FailureCategory.PERSISTENCE,
+                        message = "Artifact operation does not match its archived executable capability: ${genome.id}",
+                        source = "ToolBuilderComposition"
+                    )
+                )
+                return@forEach
+            }
+            val executableGenome = genome.copy(artifactCapability = operation)
             val system = SpecMicroSystem(
                 id = "organism_${genome.id}",
-                genome = genome,
+                genome = executableGenome,
                 spec = implementation.spec,
+                capabilities = setOf(operation),
                 sandbox = ResourceSandbox(),
                 failureSurface = failureSurface
             )
@@ -155,7 +169,7 @@ object ToolBuilderComposition {
                     return@forEach
                 }
             }
-            recoveredCapabilities += genome.capabilities
+            recoveredCapabilities += operation
         }
 
         val router = CapabilityRouter(registry, failureSurface)
