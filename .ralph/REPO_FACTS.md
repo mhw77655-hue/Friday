@@ -69,7 +69,7 @@ This file is auto-prepended to Ralph/Builder prompts. Keep it factual, dated and
 - `local_inference_engine.cpp` contains nested locking: generation, suspend and destroy hold a non-recursive mutex then call helpers that lock it again. Those paths can deadlock.
 - The prewarm thread is detached but destroy later attempts to join it; destroying during prewarm can free state still used by the thread.
 - Kotlin `LocalInferenceEngine` does not hold a native-handle lifetime lock around generate/stream/health/cancel/suspend/resume, while the isolated service launches concurrent IO operations. Concurrent unload can race native use.
-- llama.cpp backend init/free is process-global but currently handled per model; temporary JNI tokenizer wrappers are allocated without being freed; VAD JNI must validate sample count against array length.
+- llama.cpp backend init/free is process-global but currently handled per model; temporary JNI tokenizer wrappers are allocated without being freed; VAD JNI must validate sample count against array length. The JNI bridge also ignores its streaming callback and does not pass stop sequences to the native sampler, so do not claim true token streaming or stop-sequence enforcement.
 - Do not claim local inference reliable until native/Kotlin lifetime ownership is refactored and stress-tested across create/prewarm/generate/cancel/suspend/resume/unload and multiple handles.
 
 ## Historical/legacy files
