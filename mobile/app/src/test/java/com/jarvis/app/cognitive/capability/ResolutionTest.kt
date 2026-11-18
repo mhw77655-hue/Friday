@@ -4,12 +4,21 @@ import com.jarvis.app.failure.DegradationLevel
 import java.io.File
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
 class ResolutionTest {
 
-    private val registry = CapabilityRegistry()
-    private val resolver = CapabilityResolver(registry, degradedLevelOf = { DegradationLevel.FULL })
+    private lateinit var registry: CapabilityRegistry
+    private lateinit var resolver: CapabilityResolver
+
+    @Before
+    fun setUp() {
+        // Each test gets a fresh registry; capabilities from one test must
+        // never leak into the next test's candidate set.
+        registry = CapabilityRegistry()
+        resolver = CapabilityResolver(registry, degradedLevelOf = { DegradationLevel.FULL })
+    }
 
     private fun register(c: FakeCapability) = registry.register(c)
 
@@ -130,10 +139,36 @@ class ResolutionTest {
             // Only independent postcondition verification earns routing weight.
             recordOutcome(ledger, "A", EvidenceOutcome.SUCCEEDED, at = 1)
             recordOutcome(ledger, "A", EvidenceOutcome.SUCCEEDED, at = 2)
+            recordOutcome(ledger, "A", EvidenceOutcome.SUCCEEDED, at = 3)
+            recordOutcome(ledger, "B", EvidenceOutcome.SUCCEEDED, at = 4)
+            recordOutcome(ledger, "B", EvidenceOutcome.SUCCEEDED, at = 5)
 
             val result = learnedResolver.resolve(request(action = "compute"), emptySet()) as Resolution.Success
             assertEquals("A", result.capability.descriptor.id)
             assertEquals(ResolutionSelectionBasis.VERIFIED_OUTCOME_HISTORY, result.selectionBasis)
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
+    fun `one candidate history cannot outrank an unobserved alternative`() {
+        val directory = evidenceDirectory()
+        try {
+            val ledger = CapabilityEvidenceLedger(directory)
+            recordOutcome(ledger, "A", EvidenceOutcome.SUCCEEDED, at = 1)
+            recordOutcome(ledger, "A", EvidenceOutcome.SUCCEEDED, at = 2)
+            register(FakeCapability(descriptor("A", operation = "compute")))
+            register(FakeCapability(descriptor("B", operation = "compute")))
+            val learnedResolver = CapabilityResolver(
+                registry = registry,
+                degradedLevelOf = { DegradationLevel.FULL },
+                evidenceLedger = ledger
+            )
+            assertEquals(
+                ResolutionReason.AMBIGUOUS,
+                (learnedResolver.resolve(request(action = "compute"), emptySet()) as Resolution.Failure).reason
+            )
         } finally {
             directory.deleteRecursively()
         }
