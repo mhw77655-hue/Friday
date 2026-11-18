@@ -15,6 +15,10 @@ capture_boot_diagnostics() {
     adb shell pm list packages 2>&1 || true
     echo "=== Settings provider probe ==="
     adb shell settings get global device_provisioned 2>&1 || true
+    echo "=== Storage volume state ==="
+    adb shell sm list-volumes all 2>&1 || true
+    echo "=== Mount service diagnostics ==="
+    adb shell dumpsys mount 2>&1 || true
     echo "=== Settings provider registration ==="
     adb shell dumpsys activity providers 2>&1 || true
     echo "=== PackageInstaller service ==="
@@ -30,7 +34,7 @@ trap 'adb logcat -d -t 16000 > "$EVIDENCE_DIR/logcat.txt" 2>/dev/null || true; a
 # PackageInstaller queries Settings during session creation, so the helper polls
 # the actual provider and has unit tests for the early-boot false-positive state.
 if ! python3 tools/friday-builder/wait_for_android_system.py \
-  --timeout-seconds 300 \
+  --timeout-seconds 600 \
   --interval-seconds 5 \
   --evidence-file "$EVIDENCE_DIR/boot-readiness-diagnostics.txt"; then
   capture_boot_diagnostics
