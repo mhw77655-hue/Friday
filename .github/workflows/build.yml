@@ -257,7 +257,7 @@ jobs:
             "build-tools;35.0.0" \
             "ndk;27.3.13750724" \
             "cmake;3.22.1" \
-            "system-images;android-35;google_atd;x86_64"
+            "system-images;android-35;google_apis;x86_64"
 
       - name: Build app and instrumentation APKs
         run: ./gradlew :mobile:app:assembleDebug :mobile:app:assembleDebugAndroidTest
@@ -266,7 +266,7 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
-          target: google_atd
+          target: google_apis
           arch: x86_64
           profile: pixel_2
           cores: 2
