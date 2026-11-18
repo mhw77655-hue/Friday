@@ -7,6 +7,7 @@ import com.jarvis.app.model.Message
 import com.jarvis.app.model.MessageRole
 import com.jarvis.app.model.ModelProvider
 import com.jarvis.app.model.TokenUsage
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
