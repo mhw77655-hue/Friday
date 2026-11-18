@@ -35,12 +35,16 @@ class ResourceGovernor(private val nowMs: () -> Long = { System.currentTimeMilli
     fun requestAdmission(genome: Genome, caller: String = genome.id): AdmissionResult {
         val budget = genome.resourceBudget
         val policy = _admissionPolicy.value
+        val state = _resourceState.value
 
         val usedMemoryMb = activeResources.values.sumOf { it.memoryMb }
         val usedCpu = activeResources.values.sumOf { it.cpuPercent }
 
-        val remainingMemory = policy.totalMemoryMb - usedMemoryMb
-        val remainingCpu = policy.totalCpuPercent - usedCpu
+        val remainingMemory = minOf(
+            policy.totalMemoryMb - usedMemoryMb,
+            state.availableMemoryMb - policy.minAvailableMemoryMb
+        ).coerceAtLeast(0L)
+        val remainingCpu = (policy.totalCpuPercent - usedCpu - state.cpuLoadPercent).coerceAtLeast(0.0)
 
         val reasons = mutableListOf<String>()
         var admitted = true
@@ -128,12 +132,17 @@ class ResourceGovernor(private val nowMs: () -> Long = { System.currentTimeMilli
         val usedCpu = activeResources.values.sumOf { it.cpuPercent }
         val state = _resourceState.value
 
-        return memoryMb <= (policy.totalMemoryMb - usedMemoryMb) &&
+        val remainingMemory = minOf(
+            policy.totalMemoryMb - usedMemoryMb,
+            state.availableMemoryMb - policy.minAvailableMemoryMb
+        ).coerceAtLeast(0L)
+        val remainingCpu = (policy.totalCpuPercent - usedCpu - state.cpuLoadPercent).coerceAtLeast(0.0)
+        return memoryMb <= remainingMemory &&
             memoryMb <= policy.maxPerSystemMemoryMb &&
-            cpuPercent <= (policy.totalCpuPercent - usedCpu) &&
+            cpuPercent <= remainingCpu &&
             activeResources.size < policy.maxConcurrentSystems &&
-            (state.thermalLevel <= 1 ||
-                state.batteryPercent >= policy.minBatteryPercent ||
+            state.thermalLevel < 2 &&
+            (state.batteryPercent >= policy.minBatteryPercent ||
                 (state.isCharging && policy.allowWhileCharging))
     }
 
