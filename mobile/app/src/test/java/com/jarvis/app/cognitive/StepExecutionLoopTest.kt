@@ -258,6 +258,49 @@ class StepExecutionLoopTest {
         assertEquals("fixed step", history[2].subgoal)
     }
 
+    @Test
+    fun structured_parameters_reach_the_capability_invocation_context() = kotlinx.coroutines.runBlocking {
+        var observedSubject: String? = null
+        val fabric = CapabilityFabric(testImmune(), emit = {})
+        fabric.register(FakeCapability(descriptor("memory_reader", operation = "memory_read")) { request ->
+            observedSubject = request.context["arg:subject"]
+            ExecutionResult.ok()
+        })
+        val e = engine(fabric)
+        e.getTaskWorkingMemory().setGoal("Recall a preference")
+        e.getTaskWorkingMemory().pushExecutableSubgoals(
+            listOf(
+                TaskWorkingMemory.ExecutableSubgoal(
+                    description = "Recall the preferred language",
+                    operation = "memory_read",
+                    parameters = mapOf("subject" to "preferred language")
+                )
+            )
+        )
+
+        val result = e.runNext()
+
+        assertTrue(result!!.success)
+        assertEquals("preferred language", observedSubject)
+    }
+
+    @Test
+    fun prose_only_subgoal_is_blocked_without_invoking_any_capability() = kotlinx.coroutines.runBlocking {
+        val capability = FakeCapability(descriptor("reader", operation = "memory_read"))
+        val fabric = CapabilityFabric(testImmune(), emit = {})
+        fabric.register(capability)
+        val e = engine(fabric)
+        e.getTaskWorkingMemory().setGoal("Recall something")
+        e.getTaskWorkingMemory().pushSubgoals(listOf("Recall the preferred language"))
+
+        val result = e.runNext()
+
+        assertNotNull(result)
+        assertFalse(result!!.success)
+        assertEquals(TaskWorkingMemory.ResultStatus.BLOCKED, result.status)
+        assertEquals(0, capability.calls)
+    }
+
     private fun engineWithReplan(
         fabric: CapabilityFabric,
         complete: suspend (String) -> String
