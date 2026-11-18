@@ -22,7 +22,8 @@ class SelfModel(
     private val identitySource: IdentitySource,
     private val capabilityRegistry: CapabilityRegistry,
     private val stageHistory: StageHistorySource,
-    private val goalSource: GoalSource = GoalSource { emptyList() }
+    private val goalSource: GoalSource = GoalSource { emptyList() },
+    private val experienceStats: () -> ExperienceContinuityStats = { ExperienceContinuityStats() }
 ) {
 
     /** Friday's current identity, read live from the supplied [IdentitySource]. */
@@ -96,9 +97,33 @@ class SelfModel(
      */
     fun history(): List<StageMilestone> = stageHistory.closedMilestones()
 
-    /** Current active goals, via [GoalSource] (production: CognitiveEngine tasks). */
+    /** Current active goals, via [GoalSource] (production: CognitiveEngine state). */
     fun goals(): List<String> = goalSource.currentGoals()
+
+    /**
+     * A live continuity projection over existing identity, goal and experience
+     * authorities. It is a read-only view, not a second memory or goal store.
+     */
+    fun continuitySnapshot(): SelfContinuitySnapshot = SelfContinuitySnapshot(
+        identity = identity(),
+        experience = experienceStats(),
+        activeGoals = goals()
+    )
 }
+
+/** Bounded aggregate statistics from Friday's existing model-free experience journal. */
+data class ExperienceContinuityStats(
+    val experienceCount: Int = 0,
+    val associationCount: Int = 0,
+    val latestExperienceAtMs: Long? = null
+)
+
+/** One read-only snapshot connecting Friday's stable identity to her lived history. */
+data class SelfContinuitySnapshot(
+    val identity: SelfIdentity,
+    val experience: ExperienceContinuityStats,
+    val activeGoals: List<String>
+)
 
 /** Friday's current self-identity as reported by [IdentitySource]. */
 data class SelfIdentity(

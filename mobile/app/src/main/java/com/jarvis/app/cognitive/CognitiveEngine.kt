@@ -261,6 +261,25 @@ class CognitiveEngine(
     private val _cognitiveState = MutableStateFlow<CognitiveState>(CognitiveState())
     val cognitiveState: StateFlow<CognitiveState> = _cognitiveState.asStateFlow()
 
+    /**
+     * Restore only durable goal intent before the first turn. Execution plans
+     * are intentionally not restored: Friday must re-evaluate capabilities and
+     * rebuild a plan after restart rather than resume stale steps blindly.
+     */
+    @Synchronized
+    internal fun restoreGoalContinuity(goal: Goal?, subgoals: List<Subgoal>) {
+        check(turnCounter.get() == 0L) { "Goal continuity can only be restored before the first turn." }
+        require(goal != null || subgoals.isEmpty()) { "Subgoals require a parent goal." }
+        require(goal == null || subgoals.all { it.goalId == goal.id }) {
+            "Restored subgoals must belong to the restored goal."
+        }
+        _cognitiveState.value = _cognitiveState.value.copy(
+            currentGoal = goal,
+            activeSubgoals = subgoals,
+            currentPlan = null
+        )
+    }
+
     // Event channel for cognitive events
     private val _events = Channel<CognitiveEvent>(capacity = 64)
 

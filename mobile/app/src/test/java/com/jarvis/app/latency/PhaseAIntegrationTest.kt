@@ -228,8 +228,8 @@ class PhaseAIntegrationTest {
             // ---- Turn 4: self-referential - reflects real registry (SelfModel) ----
             harness.userMessage("Tell me about yourself")
             assertTrue(
-                "self-referential turn reflects real CapabilityRegistry",
-                harness.sentThroughBridge.last().contains("self: identity=jarvis v2; capabilities: stt")
+                "self-referential turn reflects real CapabilityRegistry; actual prompt: ${harness.sentThroughBridge.last()}",
+                harness.sentThroughBridge.last().contains("self: identity=jarvis v2; continuity:") && harness.sentThroughBridge.last().contains("capabilities: stt")
             )
 
             // ---- Turn 5: a later turn retrieves the earlier stored memory ----

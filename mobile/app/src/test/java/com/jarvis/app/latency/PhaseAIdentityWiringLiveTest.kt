@@ -197,8 +197,8 @@ class PhaseAIdentityWiringLiveTest {
             val last = harness.sentThroughBridge.last()
             assertTrue("identity context section present for self-referential turn", last.contains("[Identity context]"))
             assertTrue(
-                "self-model capabilities reflect real CapabilityRegistry state",
-                last.contains("self: identity=jarvis v2; capabilities: stt")
+                "self-model capabilities reflect real CapabilityRegistry state; actual prompt: $last",
+                last.contains("self: identity=jarvis v2; continuity:") && last.contains("capabilities: stt")
             )
         }
 

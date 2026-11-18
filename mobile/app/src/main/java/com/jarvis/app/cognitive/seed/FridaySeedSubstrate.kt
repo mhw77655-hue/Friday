@@ -209,16 +209,23 @@ class FridaySeedSubstrate(
     private fun append(experience: Experience) {
         journal.parentFile?.mkdirs()
         if (!journal.exists() || journal.length() == 0L) {
-            DataOutputStream(BufferedOutputStream(FileOutputStream(journal, false))).use {
-                it.writeInt(MAGIC)
-                it.writeInt(VERSION)
+            FileOutputStream(journal, false).use { raw ->
+                DataOutputStream(BufferedOutputStream(raw)).use { output ->
+                    output.writeInt(MAGIC)
+                    output.writeInt(VERSION)
+                    output.flush()
+                    raw.fd.sync()
+                }
             }
         }
         val bytes = encode(experience)
-        DataOutputStream(BufferedOutputStream(FileOutputStream(journal, true))).use {
-            it.writeInt(bytes.size)
-            it.write(bytes)
-            it.flush()
+        FileOutputStream(journal, true).use { raw ->
+            DataOutputStream(BufferedOutputStream(raw)).use { output ->
+                output.writeInt(bytes.size)
+                output.write(bytes)
+                output.flush()
+                raw.fd.sync()
+            }
         }
     }
 

@@ -72,14 +72,17 @@ class FridayIndividual(
             morphologySeed = SecureRandom().nextLong()
         )
         val temporary = File(directory, "identity.bin.tmp")
-        DataOutputStream(FileOutputStream(temporary, false)).use { output ->
-            output.writeInt(MAGIC)
-            output.writeInt(VERSION)
-            output.writeUTF(created.id)
-            output.writeUTF(created.name)
-            output.writeLong(created.createdAtMs)
-            output.writeLong(created.morphologySeed)
-            output.flush()
+        FileOutputStream(temporary, false).use { raw ->
+            DataOutputStream(raw).use { output ->
+                output.writeInt(MAGIC)
+                output.writeInt(VERSION)
+                output.writeUTF(created.id)
+                output.writeUTF(created.name)
+                output.writeLong(created.createdAtMs)
+                output.writeLong(created.morphologySeed)
+                output.flush()
+                raw.fd.sync()
+            }
         }
         if (!temporary.renameTo(file)) {
             temporary.delete()

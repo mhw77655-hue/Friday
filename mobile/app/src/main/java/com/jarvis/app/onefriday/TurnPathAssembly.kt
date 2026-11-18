@@ -53,6 +53,11 @@ import com.jarvis.app.resolution.CapabilityMemoryIndex
 import com.jarvis.app.resolution.FuzzyCommandResolver
 import com.jarvis.app.social.ConfidentialityFirewall
 import com.jarvis.app.social.PersonRelationshipModel
+import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 
 /**
  * ONE-2-COMPOSITION: the ONE composition root for the turn path.
@@ -224,6 +229,9 @@ class TurnPathAssembly private constructor(
             val stageHistory = PrdStageHistorySource(
                 listOf(ports.storageDir.resolve("ralph/prd.json").absolutePath)
             )
+            // The SelfModel reads live goals from the ONE CognitiveEngine once
+            // the engine is assembled. The reference avoids a second goal store.
+            val cognitiveEngineReference = AtomicReference<CognitiveEngine?>()
             val selfModel = SelfModel(
                 identitySource = object : com.jarvis.app.identity.IdentitySource {
                     override fun persistentId(): String = individual.identity.id
@@ -232,7 +240,38 @@ class TurnPathAssembly private constructor(
                     override fun pronouns(): String = "she/her"
                 },
                 capabilityRegistry = stores.capabilityRegistry(),
-                stageHistory = stageHistory
+                stageHistory = stageHistory,
+                goalSource = com.jarvis.app.identity.GoalSource {
+                    val state = cognitiveEngineReference.get()?.cognitiveState?.value
+                    buildList {
+                        state?.currentGoal?.let { goal ->
+                            if (goal.status !in setOf(
+                                    com.jarvis.app.cognitive.GoalStatus.COMPLETED,
+                                    com.jarvis.app.cognitive.GoalStatus.FAILED,
+                                    com.jarvis.app.cognitive.GoalStatus.SKIPPED,
+                                    com.jarvis.app.cognitive.GoalStatus.CANCELLED,
+                                    com.jarvis.app.cognitive.GoalStatus.ABANDONED
+                                )
+                            ) add(goal.description)
+                        }
+                        state?.activeSubgoals
+                            ?.filter { it.status !in setOf(
+                                com.jarvis.app.cognitive.SubgoalStatus.COMPLETED,
+                                com.jarvis.app.cognitive.SubgoalStatus.FAILED,
+                                com.jarvis.app.cognitive.SubgoalStatus.SKIPPED,
+                                com.jarvis.app.cognitive.SubgoalStatus.CANCELLED
+                            ) }
+                            ?.forEach { add(it.description) }
+                    }
+                },
+                experienceStats = {
+                    val recent = individual.experience.recentExperiences(1).lastOrNull()
+                    com.jarvis.app.identity.ExperienceContinuityStats(
+                        experienceCount = individual.experience.experienceCount(),
+                        associationCount = individual.experience.associationCount(),
+                        latestExperienceAtMs = recent?.timestampMs
+                    )
+                }
             )
 
             // ── Emotion: the Tier-1 reader feeds the ONE estimator seam ────────
@@ -375,6 +414,61 @@ class TurnPathAssembly private constructor(
                 expectationEngine = expectationEngine,
                 nowMs = { ports.nowMs() }
             )
+            cognitiveEngineReference.set(engine)
+
+            // Restore Friday's active intent against her stable individual ID.
+            // Plans are deliberately rebuilt after restart against live capabilities.
+            val goalContinuityStore = com.jarvis.app.cognitive.seed.IndividualGoalContinuityStore(
+                ports.storageDir.resolve("friday"),
+                nowMs = { ports.nowMs() }
+            )
+            val goalContinuityLoad = goalContinuityStore.load(individual.identity.id)
+            var persistGoalContinuity = true
+            var lastPersistedGoal: Pair<com.jarvis.app.cognitive.Goal?, List<com.jarvis.app.cognitive.Subgoal>> =
+                engine.cognitiveState.value.currentGoal to engine.cognitiveState.value.activeSubgoals
+            when (goalContinuityLoad) {
+                com.jarvis.app.cognitive.seed.GoalContinuityLoad.Empty -> Unit
+                is com.jarvis.app.cognitive.seed.GoalContinuityLoad.Restored -> {
+                    val restored = goalContinuityLoad.continuity
+                    engine.restoreGoalContinuity(restored.goal, restored.subgoals)
+                    lastPersistedGoal = restored.goal to restored.subgoals
+                }
+                com.jarvis.app.cognitive.seed.GoalContinuityLoad.IdentityMismatch -> {
+                    persistGoalContinuity = false
+                    android.util.Log.w(
+                        "FridayContinuity",
+                        "Preserving goal history because it belongs to a different individual identity."
+                    )
+                }
+                is com.jarvis.app.cognitive.seed.GoalContinuityLoad.Corrupt -> {
+                    persistGoalContinuity = false
+                    android.util.Log.e(
+                        "FridayContinuity",
+                        "Preserving unreadable goal history: ${goalContinuityLoad.reason}"
+                    )
+                }
+            }
+            if (persistGoalContinuity) {
+                ports.modelScope().launch(Dispatchers.IO) {
+                    engine.cognitiveState.collect { state ->
+                        val current = state.currentGoal to state.activeSubgoals
+                        if (current != lastPersistedGoal) {
+                            try {
+                                goalContinuityStore.save(individual.identity.id, current.first, current.second)
+                                lastPersistedGoal = current
+                            } catch (cancelled: CancellationException) {
+                                throw cancelled
+                            } catch (failure: Exception) {
+                                android.util.Log.e(
+                                    "FridayContinuity",
+                                    "Could not persist Friday's goal continuity.",
+                                    failure
+                                )
+                            }
+                        }
+                    }
+                }
+            }
 
             // ── The entry point ────────────────────────────────────────────────
             // Friday's single cognitive engine produces the reply. This layer
