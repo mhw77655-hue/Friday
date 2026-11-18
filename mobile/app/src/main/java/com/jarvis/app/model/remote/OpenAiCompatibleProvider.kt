@@ -12,6 +12,7 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.util.concurrent.atomic.AtomicLong
 
 enum class RemoteProviderProtocol { OPENAI_RESPONSES, OPENAI_COMPATIBLE, ANTHROPIC_MESSAGES, GEMINI_GENERATE_CONTENT }
 
@@ -25,6 +26,8 @@ class OpenAiCompatibleProvider(
     override val providerType: ModelProviderType = ModelProviderType.CLOUD,
     private val protocol: RemoteProviderProtocol = RemoteProviderProtocol.OPENAI_COMPATIBLE
 ) : ModelProvider {
+    private val promptTokenTotal = AtomicLong(0)
+    private val completionTokenTotal = AtomicLong(0)
     private val endpoint = ProviderEndpointPolicy.validate(
         config.parameters["endpoint"] ?: throw IllegalArgumentException("Provider endpoint is required"),
         allowInsecureLoopbackHttp = config.parameters["allowInsecureHttp"] == "true"
@@ -47,7 +50,12 @@ class OpenAiCompatibleProvider(
             RemoteProviderProtocol.GEMINI_GENERATE_CONTENT ->
                 "$endpoint/models/${URLEncoder.encode(request.modelId ?: model, "UTF-8")}:generateContent"
         }
-        parseResponse(execute(url, body), request.modelId ?: model)
+        parseResponse(execute(url, body), request.modelId ?: model).also { result ->
+            result.usage?.let { usage ->
+                promptTokenTotal.addAndGet(usage.promptTokens.toLong())
+                completionTokenTotal.addAndGet(usage.completionTokens.toLong())
+            }
+        }
     }
 
     /** Honest non-streaming fallback: one completed response event, not simulated token streaming. */
@@ -87,7 +95,11 @@ class OpenAiCompatibleProvider(
         parameters = mapOf("endpoint" to endpoint, "protocol" to protocol.name)
     )
 
-    override suspend fun tokenUsage() = TokenUsage(0, 0, 0, 0.0)
+    override suspend fun tokenUsage(): TokenUsage {
+        val prompt = promptTokenTotal.get().toInt()
+        val completion = completionTokenTotal.get().toInt()
+        return TokenUsage(prompt, completion, prompt + completion, 0.0)
+    }
 
     private fun openAiResponsesBody(request: GenerateRequest): JSONObject {
         val instructions = request.messages.filter { it.role == MessageRole.SYSTEM }
@@ -214,12 +226,12 @@ class OpenAiCompatibleProvider(
             RemoteProviderProtocol.OPENAI_RESPONSES -> {
                 val output = json.optJSONArray("output")
                 content = output?.let { items ->
-                    (0 until items.length()).mapNotNull { index ->
-                        val item = items.optJSONObject(index) ?: return@mapNotNull null
+                    (0 until items.length()).mapNotNull itemsLoop@{ index ->
+                        val item = items.optJSONObject(index) ?: return@itemsLoop null
                         if (item.optString("type") != "message") return@mapNotNull null
                         item.optJSONArray("content")?.let { parts ->
-                            (0 until parts.length()).mapNotNull { partIndex ->
-                                val part = parts.optJSONObject(partIndex) ?: return@mapNotNull null
+                            (0 until parts.length()).mapNotNull partsLoop@{ partIndex ->
+                                val part = parts.optJSONObject(partIndex) ?: return@partsLoop null
                                 if (part.optString("type") == "output_text") part.optString("text") else null
                             }.filter { it.isNotBlank() }.joinToString("\n")
                         }
