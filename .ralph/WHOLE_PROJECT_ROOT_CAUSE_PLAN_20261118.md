@@ -107,13 +107,16 @@ The README also points to an obsolete branch and PRs #19/#23, and describes self
 **Cause:** obsolete prototype code and documentation were not retired or clearly quarantined when the Android-native Friday architecture became authoritative.  
 **Consequence:** workers and maintainers can import dead code, follow stale instructions, or treat an old prototype as production architecture.
 
-### RC-11: The trusted proposal publisher performs a redundant workflow dispatch without the required permission
+### RC-11: The trusted proposal publisher dispatches validation without the required permission
 
-`.github/workflows/friday-builder-proposal.yml` grants the trusted publisher `contents: write` and `pull-requests: write`, then runs `gh workflow run build.yml --ref "$BRANCH"`. It does not grant `actions: write`. GitHub's workflow-dispatch API requires Actions write permission. The draft PR is created immediately before this command, and the normal `pull_request` trigger already runs the build for PRs targeting `main`, so the explicit dispatch is redundant and can turn a successfully created proposal into a failed publisher job.
+`.github/workflows/friday-builder-proposal.yml` creates the proposal PR using the job's `GITHUB_TOKEN`, then explicitly runs `gh workflow run build.yml --ref "$BRANCH"`. That dispatch is intentional: GitHub documents that `workflow_dispatch` always creates a workflow run, while a `pull_request` event caused by a workflow's `GITHUB_TOKEN` creates an approval-required run. The explicit dispatch avoids a human having to approve the automated proposal's CI run.
 
-**Cause:** the workflow uses a second trigger path without matching permissions or proving it is needed.  
-**Consequence:** proposal publication can report failure after creating the PR, inviting duplicate retries and obscuring the actual proposal state.  
-**Root correction:** rely on the PR's normal required checks, or deliberately add a narrowly justified Actions permission and test it. Prefer removing the redundant dispatch rather than widening the publisher's authority.
+The trusted publisher grants `contents: write` and `pull-requests: write` but omits `actions: write`. GitHub's fine-grained-token permission table for the workflow-dispatch API requires Actions: write. Thus the dispatch can fail after the draft PR has already been created.
+
+**Cause:** the publisher's permission set does not match its deliberate workflow-dispatch operation.  
+**Consequence:** a proposal can exist while the publisher job reports failure and no immediate validation run is guaranteed.  
+**Root correction:** retain the explicit dispatch and grant `actions: write` only to the trusted publisher job (or use a dedicated GitHub App token with the same narrow permission). Do not remove the dispatch unless the workflow is redesigned to handle approval-required PR checks safely. Do not grant Contents: write to the untrusted worker.
+
 
 ## 3. Architecture boundary to preserve
 
@@ -176,7 +179,7 @@ The phases are engineering work packages, not a prescribed developmental ladder 
 ### Phase 3 — Complete the repository workshop
 
 - Use isolated per-request workspaces and replaceable worker adapters.
-- Workers receive only the minimum read context and no publishing/signing credentials.\n- Verify the trusted publisher's permission set against every API call. Remove the redundant `gh workflow run` after draft-PR creation if the pull_request trigger already provides the required build; do not grant Actions write merely to make a redundant call succeed.
+- Workers receive only the minimum read context and no publishing/signing credentials.\n- Verify the trusted publisher's permission set against every API call. Keep the deliberate `workflow_dispatch` because PR events created with `GITHUB_TOKEN` require approval; grant `actions: write` only to the publisher or use an equally narrow GitHub App token. Never give that permission to the untrusted worker.
 - Preserve WIP/checkpoints so interrupted or quota-limited workers resume instead of restarting.
 - Compare worker output by task evidence, correctness, resumability, fidelity, latency and cost—not vendor identity.
 - Keep untrusted patches separate from the trusted validator and publisher.
