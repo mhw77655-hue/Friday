@@ -19,6 +19,7 @@
 #include <memory>
 #include <android/log.h>
 #include <cstdarg>
+#include <cstdio>
 #include <cstring>
 #include <cstdlib>
 
