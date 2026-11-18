@@ -11,6 +11,15 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 
 class JarvisApplication : Application() {
+    /** One app-scoped provider directory and council; no parallel model loop. */
+    val remoteProviderProfiles by lazy { com.jarvis.app.model.remote.RemoteProviderProfiles(this) }
+    val projectContextPackStore by lazy {
+        com.jarvis.app.context.ProjectContextPackStore(File(filesDir, "friday/project_context_pack.json"))
+    }
+    val providerCouncil by lazy {
+        com.jarvis.app.model.remote.ProviderCouncil(this, remoteProviderProfiles, projectContextPackStore)
+    }
+
     override fun onCreate() {
         super.onCreate()
         // Preserve a sanitized crash signature for the next user-exported report.
