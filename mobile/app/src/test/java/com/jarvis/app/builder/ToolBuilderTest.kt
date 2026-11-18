@@ -268,6 +268,86 @@ class ToolBuilderTest {
     }
 
     @Test
+    fun `phone-resident Builder creates a capability and restores it after process restart`() = runBlocking {
+        val root = tmpDir()
+        val storage = FileStorage(root)
+        val response = """
+            ```synth
+            # capability: word_count
+            words = split(trim(text), " ")
+            result = size(words)
+            TEST two_words | input text="hello world" | expect result=2
+            TEST missing_input | input | error undefined variable 'text'
+            ```
+        """.trimIndent()
+        var modelCalls = 0
+        val provider = LlmSynthesisProvider(complete = { _: GenerateRequest ->
+            modelCalls++
+            GenerateResult(content = response)
+        })
+        val firstScope = CoroutineScope(Dispatchers.IO)
+        val firstFabric = CapabilityFabric(ImmuneSystem(surface = FailureSurface()))
+        val first = ToolBuilderComposition.build(
+            research = UniversalResearchEngine(),
+            failureSurface = FailureSurface(),
+            fileStorage = storage,
+            scope = firstScope,
+            workspacesDir = File(root, "workspaces"),
+            llmSynthesisProvider = provider,
+            cognitiveCapabilityFabric = firstFabric
+        )
+
+        val specJson = """{"capability":"word_count","description":"Count whitespace-separated words in text","behavior":{"type":"custom","port":"text","value_type":"String"},"constraints":["pure function","no side effects"]}"""
+        val built = firstFabric.invoker.invoke(
+            ActionRequest(
+                planId = "builder-runtime",
+                stepId = "create-word-count",
+                action = "builder.create_tool",
+                description = "Create a reusable word counting capability",
+                context = mapOf("spec_json" to specJson)
+            )
+        )
+        assertTrue("Builder invocation failed: ${built.failure}", built.success)
+        assertTrue("the live model should synthesize the custom capability", modelCalls > 0)
+        val firstCall = firstFabric.invoker.invoke(
+            ActionRequest(
+                planId = "builder-runtime",
+                stepId = "call-word-count",
+                action = "word_count",
+                context = mapOf("text" to "one two three")
+            )
+        )
+        assertTrue("generated capability failed: ${firstCall.failure}", firstCall.success)
+        assertEquals("3.0", firstCall.output["result"])
+
+        // A new composition simulates process death/restart. It receives no
+        // model provider; the promoted artifact itself must be enough.
+        firstScope.cancel()
+        val secondScope = CoroutineScope(Dispatchers.IO)
+        val secondFabric = CapabilityFabric(ImmuneSystem(surface = FailureSurface()))
+        val second = ToolBuilderComposition.build(
+            research = UniversalResearchEngine(),
+            failureSurface = FailureSurface(),
+            fileStorage = FileStorage(root),
+            scope = secondScope,
+            workspacesDir = File(root, "workspaces"),
+            cognitiveCapabilityFabric = secondFabric
+        )
+        assertTrue("promoted capability was not restored", "word_count" in second.recoveredCapabilities)
+        val restoredCall = secondFabric.invoker.invoke(
+            ActionRequest(
+                planId = "builder-restart",
+                stepId = "call-restored-word-count",
+                action = "word_count",
+                context = mapOf("text" to "four five six")
+            )
+        )
+        assertTrue("restored capability failed: ${restoredCall.failure}", restoredCall.success)
+        assertEquals("3.0", restoredCall.output["result"])
+        secondScope.cancel()
+    }
+
+    @Test
     fun `building an already-satisfied capability is a no-op`() = runBlocking {
         val h = harness()
         val spec = ToolSpecification(
