@@ -84,6 +84,31 @@ class DeviceStateCapsuleTests(unittest.TestCase):
             (("svc", "wifi", "disable"), ("svc", "data", "enable")),
         )
 
+    def test_wifi_capsule_skips_cellular_commands_when_telephony_is_absent(self):
+        self.assertEqual(
+            MODULE.network_commands(
+                {"transport": "wifi", "connected": True},
+                supports_telephony=False,
+            ),
+            (("svc", "wifi", "enable"),),
+        )
+
+    def test_offline_capsule_skips_unsupported_cellular_data_service(self):
+        self.assertEqual(
+            MODULE.network_commands(
+                {"transport": "wifi", "connected": False},
+                supports_telephony=False,
+            ),
+            (("svc", "wifi", "disable"),),
+        )
+
+    def test_cellular_capsule_is_rejected_when_device_has_no_telephony(self):
+        with self.assertRaisesRegex(ValueError, "no telephony feature"):
+            MODULE.network_commands(
+                {"transport": "cellular", "connected": True},
+                supports_telephony=False,
+            )
+
     def test_runtime_locale_and_timezone_must_match_the_capsule(self):
         properties = {
             "persist.sys.locale": "en-US",
