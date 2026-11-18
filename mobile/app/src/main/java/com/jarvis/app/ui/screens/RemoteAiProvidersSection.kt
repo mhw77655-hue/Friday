@@ -133,7 +133,7 @@ fun RemoteAiProvidersSection() {
             visualTransformation = PasswordVisualTransformation()
         )
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Allow insecure HTTP for local/LAN only")
+            Text("Allow HTTP for 127.0.0.1 loopback only")
             Switch(checked = allowLocalHttp, onCheckedChange = { allowLocalHttp = it })
         }
         Button(onClick = {
