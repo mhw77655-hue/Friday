@@ -44,7 +44,7 @@ def probe_state() -> dict[str, str]:
 
 
 def is_system_ready(state: dict[str, str]) -> bool:
-    """Require boot, PackageManager enumeration, and a live Settings provider."""
+    """Require boot, PackageManager, SettingsProvider, and mounted private/emulated storage."""
     packages = set(state.get("packages", "").splitlines())
     settings_value = state.get("settings_device_provisioned", "").strip()
     volume_lines = [line.split() for line in state.get("storage_volumes", "").splitlines()]
