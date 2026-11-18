@@ -62,14 +62,12 @@ class OpenAiCompatibleProvider(
     override suspend fun health(): ProviderHealth = withContext(Dispatchers.IO) {
         val started = System.currentTimeMillis()
         try {
-            // Use a low-cost bounded generation probe because provider model-list
-            // endpoints differ and some keys intentionally lack list permission.
-            val probe = GenerateRequest(
-                messages = listOf(Message(MessageRole.USER, "Reply with OK.")),
-                maxTokens = 4,
-                temperature = 0f
-            )
-            generate(probe)
+            val modelsUrl = when (protocol) {
+                RemoteProviderProtocol.GEMINI_GENERATE_CONTENT ->
+                    "${endpoint}/models/${URLEncoder.encode(model, \"UTF-8\")}" 
+                else -> "${endpoint}/models"
+            }
+            execute(modelsUrl, null, "GET")
             ProviderHealth(true, System.currentTimeMillis() - started, false, model)
         } catch (e: Exception) {
             ProviderHealth(false, System.currentTimeMillis() - started, false, model,
@@ -149,9 +147,9 @@ class OpenAiCompatibleProvider(
         }
     }
 
-    private fun execute(url: String, body: JSONObject): JSONObject {
+    private fun execute(url: String, body: JSONObject?, method: String = "POST"): JSONObject {
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
-            requestMethod = "POST"
+            requestMethod = method
             connectTimeout = config.timeoutMs.coerceIn(1_000, 120_000).toInt()
             readTimeout = config.timeoutMs.coerceIn(1_000, 120_000).toInt()
             setRequestProperty("Accept", "application/json")
@@ -166,10 +164,12 @@ class OpenAiCompatibleProvider(
                 RemoteProviderProtocol.GEMINI_GENERATE_CONTENT ->
                     setRequestProperty("x-goog-api-key", apiKey)
             }
-            doOutput = true
+            doOutput = body != null
         }
         try {
-            connection.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
+            if (body != null) connection.outputStream.use {
+                it.write(body.toString().toByteArray(Charsets.UTF_8))
+            }
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
             val text = stream?.bufferedReader(Charsets.UTF_8)?.use { it.readText() }.orEmpty()
