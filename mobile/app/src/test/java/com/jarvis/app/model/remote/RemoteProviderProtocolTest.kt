@@ -1,6 +1,5 @@
 package com.jarvis.app.model.remote
 
-import com.jarvis.app.model.config.ProviderConfig
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -15,7 +14,7 @@ class RemoteProviderProtocolTest {
     @Test fun endpointRequiresHttpsUnlessLocalOptIn() {
         val safe = ProviderEndpointPolicy.validate("https://api.example.com/v1")
         assertEquals("https://api.example.com/v1", safe)
-        assertEquals("http://localhost:11434/v1", ProviderEndpointPolicy.validate(
+        assertEquals("http://127.0.0.1:11434/v1", ProviderEndpointPolicy.validate(
             "http://localhost:11434/v1", allowInsecureLocalNetwork = true
         ))
     }
