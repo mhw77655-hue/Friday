@@ -57,6 +57,19 @@ class PublisherWorkflowTests(unittest.TestCase):
         self.assertIn("env -u GITHUB_TOKEN -u GH_TOKEN -u NVIDIA_API_KEY", worker)
         self.assertNotIn("contents: write", worker)
 
+    def test_only_trusted_publisher_gets_actions_write_for_workflow_dispatch(self):
+        workflow = WORKFLOW.read_text(encoding="utf-8")
+        worker = workflow.split("  build_proposal:", 1)[1].split("  publish_draft_pr:", 1)[0]
+        publisher = workflow.split("  publish_draft_pr:", 1)[1]
+        permissions = publisher.split("    permissions:", 1)[1].split("    steps:", 1)[0]
+
+        self.assertIn("actions: read", worker)
+        self.assertNotIn("actions: write", worker)
+        self.assertIn("actions: write", permissions)
+        self.assertIn("contents: write", permissions)
+        self.assertIn("pull-requests: write", permissions)
+        self.assertIn('gh workflow run build.yml --repo "$REPOSITORY" --ref "$BRANCH"', publisher)
+
 
 if __name__ == "__main__":
     unittest.main()
