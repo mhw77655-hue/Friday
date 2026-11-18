@@ -214,6 +214,14 @@ These are mostly explicit resource and temporal bounds, not evidence that cognit
 
 No blanket "remove hardcoded thresholds" change is justified. The root requirement is to distinguish resource/safety limits from cognitive hypotheses, measure the latter, and preserve fail-closed bounds.
 
+### RC-19: The explicit intent/constraint layer is English-only despite the Arabic dialect detector
+
+`IntentInference.extractExplicitIntent()` uses English wake phrases, question leads, command prefixes, teaching/correction phrases and substring checks. `extractConstraints()` recognizes English-only time, modality, detail and privacy words (including `forget`); `extractEntities()` uses quoted strings and capitalized English word pairs. The production composition also wires an Egyptian Arabic dialect detector, but that affects response register; it does not make these input-understanding rules multilingual. A model intent-classification seam may rescue some top-level routing, but it does not supply the missing typed constraints/entities or make deterministic privacy/forget handling reliable in Arabic/code-switching.
+
+**Cause:** response dialect adaptation was added without a corresponding language-aware input semantics layer.  
+**Consequence:** Egyptian Arabic or code-switched requests can be treated as generic conversation; explicit forget/privacy/time/action constraints and entity references can be missed.  
+**Root correction:** build one language-aware intent/constraint/mention representation with dialect-aware tokenization and typed evidence. Preserve the original utterance and confidence; distinguish negation, correction, explicit remember/forget, commands and questions. Use deterministic high-confidence parsing for safety/privacy controls and model-assisted interpretation only where needed; if uncertain, ask rather than silently route as conversation. Test Egyptian Arabic, Modern Standard Arabic, English and code-switching, including negated forget/remember and permission instructions.
+
 ## 3. Architecture boundary to preserve
 
 1. **Friday on Android:** persistent identity/continuity, local cognition and presence, privacy-minimized observation, memory/experience, permissioned device actions, safe capability runtime, self-study, development-intent formation, durable offline outbox and result consumption.
