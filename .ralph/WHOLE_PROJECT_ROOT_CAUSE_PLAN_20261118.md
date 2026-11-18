@@ -262,6 +262,10 @@ The phone/workshop boundary is not "all building must happen in the cloud." Frid
 **Consequence:** generated capabilities can behave incorrectly around conditionals and can consume unbounded CPU/stack/heap on a constrained phone.  
 **Root correction:** implement lazy `if`, short-circuit `&&`/`||`, strict builtin arity/type checking, a bounded AST and execution-fuel budget, maximum source/statement/input/output sizes, bounded list/string operations and cancellation checks. Catch expected program/runtime exceptions only; allow fatal VM errors to propagate. Add direct parser/interpreter tests and fuzzing for malformed/deep/large programs, division by zero, type/arity errors, short-circuit behavior, budget exhaustion and deterministic output. A capability may be promoted only if its program and tests fit the declared budget.
 
+### Android update identity must remain stable
+
+The installed application ID is currently `com.jarvis.app`, even though the product is Friday. Treat that package ID and the permanent signing identity as continuity-critical. Do not rename the application ID as cosmetic cleanup: Android would treat a different package ID as a different app, not an in-place update. If a future owner-approved migration to a Friday-named package is desired, design an explicit data/identity migration and coexistence plan first. Keep the display name/branding separate from package identity.
+
 ## 3. Architecture boundary to preserve
 
 1. **Friday on Android:** persistent identity/continuity, local cognition and presence, privacy-minimized observation, memory/experience, permissioned device actions, safe capability runtime, self-study, development-intent formation, durable offline outbox and result consumption.
