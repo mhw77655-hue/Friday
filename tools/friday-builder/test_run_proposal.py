@@ -12,7 +12,7 @@ class BuilderFreeModelFallbackTests(unittest.TestCase):
         self.assertIn('for candidate in "${AVAILABLE_MODELS[@]}"; do', SOURCE)
 
     def test_each_model_has_a_bounded_configurable_timeout(self):
-        self.assertIn("FRIDAY_BUILDER_MODEL_ATTEMPT_TIMEOUT_SECONDS:-420", SOURCE)
+        self.assertIn("FRIDAY_BUILDER_MODEL_ATTEMPT_TIMEOUT_SECONDS:-300", SOURCE)
         self.assertIn('timeout -k 15 "$MODEL_ATTEMPT_TIMEOUT_SECONDS" opencode run', SOURCE)
         self.assertNotIn("timeout -k 15 3000 opencode run", SOURCE)
 
