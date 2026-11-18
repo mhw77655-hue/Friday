@@ -52,30 +52,37 @@ class TaskWorkingMemory {
 
     fun getGoal(): String? = goal
 
+    @Synchronized
     fun pushSubgoals(descriptions: List<String>) {
         for (desc in descriptions) {
             subgoals.addLast(SubgoalEntry(description = desc, index = nextIndex++))
         }
     }
 
+    @Synchronized
     fun pushExecutableSubgoals(subgoals: List<ExecutableSubgoal>) {
-        subgoals.forEach { item ->
-            require(item.description.isNotBlank())
+        val validated = subgoals.map { item ->
+            require(item.description.isNotBlank() && item.description.length <= 1024)
             require(item.operation.isNotBlank() && item.operation.length <= 128)
             require(item.parameters.size <= 64)
             require(item.parameters.all { (key, value) ->
                 key.isNotBlank() && key.length <= 128 && value.length <= 4096
             })
+            item.copy(parameters = item.parameters.toMap())
+        }
+        validated.forEach { item ->
             this.subgoals.addLast(
-                SubgoalEntry(item.description, nextIndex++, item.operation, item.parameters.toMap())
+                SubgoalEntry(item.description, nextIndex++, item.operation, item.parameters)
             )
         }
     }
 
+    @Synchronized
     fun nextSubgoal(): SubgoalEntry? {
         return if (subgoals.isEmpty()) null else subgoals.removeFirst()
     }
 
+    @Synchronized
     fun recordResult(
         subgoal: String,
         success: Boolean,
@@ -86,14 +93,28 @@ class TaskWorkingMemory {
         history.add(ResultEntry(subgoal = subgoal, success = success, detail = detail, status = status))
     }
 
+    @Synchronized
     fun replaceRemainingExecutableSubgoals(newSubgoals: List<ExecutableSubgoal>) {
+        val validated = newSubgoals.map { item ->
+            require(item.description.isNotBlank() && item.description.length <= 1024)
+            require(item.operation.isNotBlank() && item.operation.length <= 128)
+            require(item.parameters.size <= 64)
+            require(item.parameters.all { (key, value) ->
+                key.isNotBlank() && key.length <= 128 && value.length <= 4096
+            })
+            item.copy(parameters = item.parameters.toMap())
+        }
         subgoals.clear()
-        pushExecutableSubgoals(newSubgoals)
+        validated.forEach { item ->
+            subgoals.addLast(SubgoalEntry(item.description, nextIndex++, item.operation, item.parameters))
+        }
         _replanCount++
     }
 
+    @Synchronized
     fun getHistory(): List<ResultEntry> = history.toList()
 
+    @Synchronized
     fun clear() {
         goal = null
         subgoals.clear()
@@ -106,6 +127,7 @@ class TaskWorkingMemory {
      * Replace all remaining pending subgoals with a new ordered list.
      * Increments the replan counter. Returns the new subgoal descriptions.
      */
+    @Synchronized
     fun replaceRemainingSubgoals(newDescriptions: List<String>): List<String> {
         subgoals.clear()
         for (desc in newDescriptions) {
