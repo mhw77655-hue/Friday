@@ -154,11 +154,17 @@ class CapabilityEvidenceLedger(
         detail = json.optString("detail", "").also { require(it.length <= 1_000) },
         // Schema v1 had no event id; synthesize a stable migration id so
         // loading the old ledger remains safe and replay-deduplicable.
-        eventId = json.optString(
-            "event_id",
-            "legacy:$index:${json.optString("capability_id")}:${json.optString("operation")}:${json.optLong("observed_at_ms")}:${json.optString("outcome")}"
-        ).also { require(it.isNotBlank() && it.length <= 256) }
+        eventId = json.optString("event_id").ifBlank { legacyEventId(json, index) }
+            .also { require(it.isNotBlank() && it.length <= 256) }
     )
+
+    private fun legacyEventId(json: JSONObject, index: Int): String {
+        val legacy = "$index:${json.optString("capability_id")}:${json.optString("operation")}:${json.optLong("observed_at_ms")}:${json.optString("outcome")}"
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
+            .digest(legacy.toByteArray(Charsets.UTF_8))
+            .joinToString("") { byte -> "%02x".format(byte) }
+        return "legacy:$digest"
+    }
 
     companion object {
         const val FILE_NAME = "capability/learning-evidence.json"
