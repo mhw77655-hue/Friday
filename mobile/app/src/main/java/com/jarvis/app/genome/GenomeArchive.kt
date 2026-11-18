@@ -205,6 +205,7 @@ class GenomeArchive(
             put("requiredCapabilities", JSONArray(g.compatibilityRequirements.requiredCapabilities.toList()))
         })
         put("healthState", g.healthState.name)
+        g.artifactPath?.let { put("artifactPath", it) }
         put("provenance", JSONObject().apply {
             put("author", g.provenance.author)
             put("createdMs", g.provenance.createdMs)
