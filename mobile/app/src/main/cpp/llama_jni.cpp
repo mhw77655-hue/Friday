@@ -6,6 +6,7 @@
 #include <jni.h>
 #include <string>
 #include <cstdlib>
+#include <vector>
 #include <android/log.h>
 
 #define LOG_TAG "LocalInferenceEngineJNI"
@@ -26,6 +27,28 @@ static inline LlamaModel* getModel(jlong handle) {
 
 static inline LlamaTokenizer* getTokenizer(jlong handle) {
     return reinterpret_cast<LlamaTokenizer*>(handle);
+}
+
+struct JniTokenCallbackContext {
+    JNIEnv* env;
+    jobject callback;
+    jmethodID on_token;
+};
+
+static void forward_token_to_java(const char* token, int token_id, bool is_final, void* user_data) {
+    auto* context = static_cast<JniTokenCallbackContext*>(user_data);
+    if (!context || !context->env || !context->callback || !context->on_token) return;
+    JNIEnv* env = context->env;
+    jstring value = env->NewStringUTF(token ? token : "");
+    if (!value) return;
+    env->CallVoidMethod(context->callback, context->on_token, value,
+                        static_cast<jint>(token_id), static_cast<jboolean>(is_final));
+    env->DeleteLocalRef(value);
+    // Never allow a Java exception to unwind through llama.cpp's C++ stack.
+    if (env->ExceptionCheck()) {
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+    }
 }
 
 // ------------------------------------------------------------------
@@ -206,23 +229,47 @@ JNI_CLASS(nativeGenerate)(JNIEnv* env, jobject thiz, jlong handle, jstring promp
         jfieldID streamField = env->GetFieldID(configClass, "stream", "Z");
         nativeConfig.stream = env->GetBooleanField(genConfig, streamField);
 
-        // Stop sequences
+        // Keep owned UTF-8 copies alive for the complete synchronous native call.
         jfieldID stopSeqField = env->GetFieldID(configClass, "stopSequences", "[Ljava/lang/String;");
         jobjectArray stopSeqArray = (jobjectArray)env->GetObjectField(genConfig, stopSeqField);
+        std::vector<std::string> stopStorage;
+        std::vector<const char*> stopPointers;
         if (stopSeqArray) {
-            int count = env->GetArrayLength(stopSeqArray);
-            nativeConfig.stop_sequence_count = count;
-            if (count > 0) {
-                // Note: We can't easily pass stop sequences to native without storing them
-                // For now, we'll use a static buffer approach
+            const jsize count = env->GetArrayLength(stopSeqArray);
+            stopStorage.reserve(count);
+            for (jsize i = 0; i < count; ++i) {
+                jstring item = static_cast<jstring>(env->GetObjectArrayElement(stopSeqArray, i));
+                if (!item) continue;
+                const char* chars = env->GetStringUTFChars(item, nullptr);
+                if (chars) {
+                    stopStorage.emplace_back(chars);
+                    env->ReleaseStringUTFChars(item, chars);
+                }
+                env->DeleteLocalRef(item);
+            }
+            stopPointers.reserve(stopStorage.size());
+            for (const auto& stop : stopStorage) stopPointers.push_back(stop.c_str());
+        }
+        nativeConfig.stop_sequences = stopPointers.empty() ? nullptr : stopPointers.data();
+        nativeConfig.stop_sequence_count = static_cast<int>(stopPointers.size());
+    }
+
+    JniTokenCallbackContext callbackContext{env, callback, nullptr};
+    LlamaTokenCallback tokenCb = nullptr;
+    void* userData = nullptr;
+    if (callback && nativeConfig.stream) {
+        jclass callbackClass = env->GetObjectClass(callback);
+        if (callbackClass) {
+            callbackContext.on_token = env->GetMethodID(callbackClass, "onToken", "(Ljava/lang/String;IZ)V");
+            env->DeleteLocalRef(callbackClass);
+            if (callbackContext.on_token) {
+                tokenCb = forward_token_to_java;
+                userData = &callbackContext;
+            } else if (env->ExceptionCheck()) {
+                env->ExceptionClear();
             }
         }
     }
-
-    // For streaming callback, we'd need to store the callback and use JNI to call back
-    // For now, we'll implement non-streaming version
-    LlamaTokenCallback tokenCb = nullptr;
-    void* userData = nullptr;
 
     const char* result = llama_model_generate(model, promptStr, &nativeConfig, tokenCb, userData);
 
