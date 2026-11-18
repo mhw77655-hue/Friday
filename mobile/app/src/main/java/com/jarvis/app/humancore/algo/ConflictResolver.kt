@@ -42,6 +42,9 @@ object ConflictResolver {
             StoreKind.RELATIONSHIP -> mergeRelationship(local, remote)
             StoreKind.ADAPTATION -> mergeAdaptation(local, remote)
             StoreKind.DIALOGUE -> unionJsonLines(local, remote)
+            // Android body-memory cache is a single snapshot document, kept
+            // physically separate from the append-only dialogue log.
+            StoreKind.BODY_MEMORY -> lastWriterWins(local, remote, "updated_at_ms")
             // The evolutionary archive is device-local technical state, not a
             // Human Core sync domain; local wins if a sync envelope includes it.
             StoreKind.GENOME_ARCHIVE -> local
