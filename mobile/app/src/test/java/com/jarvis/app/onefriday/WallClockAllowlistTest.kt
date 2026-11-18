@@ -340,9 +340,29 @@ class WallClockAllowlistTest {
             }
         }.distinct().sorted()
 
+    @Test
+    fun `date conversion is not misclassified as a wall clock read`() {
+        val probe = File.createTempFile("date-conversion-probe", ".kt")
+        probe.writeText(
+            """
+            |val calendarDate = value.toLocalDate()
+            |val instant = Date()
+            """.trimMargin()
+        )
+        try {
+            assertEquals(
+                "toLocalDate() converts an existing value; Date() reads the current wall clock",
+                1,
+                directWallClockReads(probe)
+            )
+        } finally {
+            probe.delete()
+        }
+    }
+
     private val wallClock = Regex(
         "System\\.currentTimeMillis\\(\\)|Instant\\.now\\(\\)|SystemClock\\.|" +
-            "System\\.nanoTime\\(\\)|LocalDate\\.now|LocalDateTime\\.now|Date\\(\\)"
+            "System\\.nanoTime\\(\\)|LocalDate\\.now|LocalDateTime\\.now|\\bDate\\(\\)"
     )
 
     /** Direct reads in CODE lines only: KDoc, block comments and `//` are prose. */
