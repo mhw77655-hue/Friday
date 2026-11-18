@@ -61,18 +61,22 @@ class ResourceGovernor(private val nowMs: () -> Long = { System.currentTimeMilli
             admitted = false
         }
 
-        // Thermal check
-        if (_resourceState.value.thermalLevel > 1 && budget.isLatencySensitive) {
+        // Critical thermal state blocks all new development work. Moderate
+        // throttling blocks latency-sensitive candidates.
+        if (state.thermalLevel >= 2) {
+            reasons += "Device is at critical thermal state"
+            admitted = false
+        } else if (state.thermalLevel > 1 && budget.isLatencySensitive) {
             reasons += "Device is thermally throttled; latency-sensitive system rejected"
             admitted = false
         }
 
         // Battery check — reject when below minimum, unless charging is allowed
         // AND the device is actually charging.
-        if (_resourceState.value.batteryPercent < policy.minBatteryPercent &&
-            !(_resourceState.value.isCharging && policy.allowWhileCharging)
+        if (state.batteryPercent < policy.minBatteryPercent &&
+            !(state.isCharging && policy.allowWhileCharging)
         ) {
-            reasons += "Battery ${_resourceState.value.batteryPercent}% below minimum ${policy.minBatteryPercent}%"
+            reasons += "Battery ${state.batteryPercent}% below minimum ${policy.minBatteryPercent}%"
             admitted = false
         }
 
@@ -86,8 +90,9 @@ class ResourceGovernor(private val nowMs: () -> Long = { System.currentTimeMilli
         genome.safetyConstraints.forEach { constraint ->
             when (constraint) {
                 com.jarvis.app.genome.SafetyConstraint.NO_NETWORK -> {
-                    if (_resourceState.value.networkAvailable) {
+                    if (state.networkAvailable) {
                         reasons += "Safety constraint: network must be unavailable"
+                        admitted = false
                     }
                 }
                 else -> {} // Other constraints checked at build time
@@ -161,11 +166,12 @@ class ResourceGovernor(private val nowMs: () -> Long = { System.currentTimeMilli
 }
 
 data class AdmissionPolicy(
-    val totalMemoryMb: Long = 6000,        // 8GB device, reserve ~2GB for OS
-    val totalCpuPercent: Double = 80.0,     // leave headroom for OS
+    val totalMemoryMb: Long = 6000,        // usable memory budget after the OS reserve
+    val totalCpuPercent: Double = 80.0,     // maximum total CPU budget
     val maxPerSystemMemoryMb: Long = 1024,
     val maxConcurrentSystems: Int = 3,
     val minBatteryPercent: Int = 5,
+    val minAvailableMemoryMb: Long = 512,
     val allowWhileCharging: Boolean = true
 )
 
@@ -197,6 +203,7 @@ data class DeviceResourceState(
     val thermalLevel: Int = 0,           // 0=normal, 1=throttled, 2=critical
     val batteryPercent: Int = 100,
     val isCharging: Boolean = false,
+    val cpuLoadPercent: Double = 0.0,
     val networkAvailable: Boolean = false,
     val gpuAvailable: Boolean = false,
     val executionLatencyMs: Long = 0
