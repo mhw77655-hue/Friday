@@ -31,7 +31,11 @@ data class Genome(
     val mutationOperators: Set<MutationOperator> = emptySet(),
     val compatibilityRequirements: CompatibilityRequirements = CompatibilityRequirements(),
     val healthState: GenomeHealth = GenomeHealth.UNKNOWN,
-    val provenance: Provenance = Provenance(author = "system")
+    val provenance: Provenance = Provenance(author = "system"),
+    /** Private on-device workspace containing the verified executable artifact. */
+    val artifactPath: String? = null,
+    /** The single operation this artifact actually implements (not inherited genome metadata). */
+    val artifactCapability: String? = null
 ) {
 
     /** Create a child genome from a mutation. */

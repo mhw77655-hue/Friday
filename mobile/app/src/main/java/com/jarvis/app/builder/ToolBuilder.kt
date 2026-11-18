@@ -2,6 +2,8 @@ package com.jarvis.app.builder
 
 import com.jarvis.app.evolution.EvolutionEngine
 import com.jarvis.app.evolution.PromotionReceipt
+import com.jarvis.app.evolution.RollbackController
+import com.jarvis.app.evolution.RollbackResult
 import com.jarvis.app.evolution.GenomeFactory
 import com.jarvis.app.failure.FailureCategory
 import com.jarvis.app.failure.FailureReport
@@ -16,6 +18,9 @@ import com.jarvis.app.mutation.MutationEngine
 import com.jarvis.app.nervous.GlobalNervousSystem
 import com.jarvis.app.research.universal.UniversalResearchEngine
 import com.jarvis.app.resource.ResourceGovernor
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withContext
 
 /**
  * Tool Builder (§15) — the "CreateTool" capability. The complete
@@ -39,7 +44,11 @@ class ToolBuilder(
     private val archive: GenomeArchive,
     private val governor: ResourceGovernor,
     private val failureSurface: FailureSurface,
-    private val nervousSystem: GlobalNervousSystem? = null
+    private val nervousSystem: GlobalNervousSystem? = null,
+    /** Refreshes live phone resource state before any expensive build admission. */
+    private val refreshResources: () -> Unit = {},
+    private val rollbackController: RollbackController? = null,
+    private val receiptStore: PromotionReceiptStore? = null
 ) {
 
     /**
@@ -58,6 +67,30 @@ class ToolBuilder(
                 status = pre.status,
                 providerId = pre.providerId,
                 message = "capability '${spec.capability}' already provided (${pre.status}); no build needed"
+            )
+        }
+
+        try {
+            refreshResources()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (failure: Exception) {
+            failureSurface.report(
+                FailureReport(
+                    subsystem = "BUILDER",
+                    operation = "refresh_resources",
+                    severity = FailureSeverity.WARNING,
+                    category = FailureCategory.RESOURCE,
+                    message = "refusing to build with stale device-resource state: ${failure.message.orEmpty()}",
+                    source = "ToolBuilder"
+                )
+            )
+            return BuildResult(
+                spec = spec,
+                built = false,
+                gapDetected = true,
+                status = "RESOURCE_STATE_UNAVAILABLE",
+                message = "Live device resource state could not be read; no candidate was admitted."
             )
         }
 
@@ -153,6 +186,39 @@ class ToolBuilder(
         val best = run.best
         val receipt = run.receipt
 
+        // A promoted capability is not reported as a complete Builder success
+        // until its exact rollback receipt is durably stored. If that fails,
+        // immediately reverse the promotion rather than leaving an untracked
+        // runtime mutation.
+        if (receiptStore != null) {
+            try {
+                withContext(Dispatchers.IO) { receiptStore.save(receipt) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                rollbackController?.rollback(receipt, "promotion receipt could not be persisted: ${failure.message}")
+                failureSurface.report(
+                    FailureReport(
+                        subsystem = "BUILDER",
+                        operation = "persist_promotion_receipt",
+                        severity = FailureSeverity.ERROR,
+                        category = FailureCategory.PERSISTENCE,
+                        message = "Promoted capability was rolled back because its recovery receipt could not be stored.",
+                        source = "ToolBuilder"
+                    )
+                )
+                return BuildResult(
+                    spec = spec,
+                    built = false,
+                    gapDetected = true,
+                    status = "PROMOTION_RECEIPT_PERSISTENCE_FAILED",
+                    genomeId = best.genome.id,
+                    message = "promotion was rolled back because its durable recovery receipt could not be stored",
+                    candidates = run.candidates
+                )
+            }
+        }
+
         // The promoted organism is now registered; the nervous system
         // discovers it through the registry (§22 "becomes callable").
         val discovered = nervousSystem?.hasCapability(spec.capability) == true ||
@@ -176,6 +242,25 @@ class ToolBuilder(
         )
     }
 
+    /** Roll back a previously promoted capability using its durable receipt. */
+    suspend fun rollbackPromotion(receiptId: String, reason: String): RollbackResult {
+        val stored = receiptStore?.get(receiptId)
+            ?: return RollbackResult(false, null, receiptId, "No durable promotion receipt exists for '$receiptId'.")
+        if (stored.status == PromotionReceiptStore.Status.ROLLED_BACK) {
+            return RollbackResult(false, null, receiptId, "Promotion '$receiptId' was already rolled back.")
+        }
+        val controller = rollbackController
+            ?: return RollbackResult(false, null, receiptId, "Rollback controller is unavailable.")
+        val result = controller.rollback(stored.receipt, reason)
+        if (result.success) {
+            withContext(Dispatchers.IO) { receiptStore.markRolledBack(receiptId, reason) }
+        }
+        return result
+    }
+
+    fun promotionHistory(limit: Int = 32): List<PromotionReceiptStore.StoredPromotionReceipt> =
+        receiptStore?.list(limit).orEmpty()
+
     /** Convenience: search-first, then build with the discovered principle. */
     suspend fun buildWithResearch(spec: ToolSpecification, research: UniversalResearchEngine): BuildResult {
         return ToolBuilder(
@@ -187,7 +272,10 @@ class ToolBuilder(
             archive = archive,
             governor = governor,
             failureSurface = failureSurface,
-            nervousSystem = nervousSystem
+            nervousSystem = nervousSystem,
+            refreshResources = refreshResources,
+            rollbackController = rollbackController,
+            receiptStore = receiptStore
         ).build(spec.copy(researchFirst = true))
     }
 }

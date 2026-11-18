@@ -168,6 +168,30 @@ class SynthProgram private constructor(
             )
         }
 
+        private fun parseQuotedString(source: String, start: Int): Pair<String, Int> {
+            require(source.getOrNull(start) == '"') { "quoted string must start with a quote" }
+            val out = StringBuilder()
+            var index = start + 1
+            while (index < source.length) {
+                when (val ch = source[index++]) {
+                    '"' -> return out.toString() to index
+                    '\\' -> {
+                        if (index >= source.length) throw IllegalArgumentException("unfinished string escape")
+                        out.append(when (val escaped = source[index++]) {
+                            '"' -> '"'
+                            '\\' -> '\\'
+                            'n' -> '\n'
+                            'r' -> '\r'
+                            't' -> '\t'
+                            else -> throw IllegalArgumentException("unsupported string escape: \\$escaped")
+                        })
+                    }
+                    else -> out.append(ch)
+                }
+            }
+            throw IllegalArgumentException("unterminated string literal")
+        }
+
         private fun parseAssignments(spec: String, contextLine: String): Map<String, Any> {
             if (spec.isBlank()) return emptyMap()
             val out = LinkedHashMap<String, Any>()
@@ -181,10 +205,9 @@ class SynthProgram private constructor(
                 while (j < spec.length && spec[j] == ' ') j++
                 val value: Any
                 if (j < spec.length && spec[j] == '"') {
-                    val close = spec.indexOf('"', j + 1)
-                    if (close < 0) throw IllegalArgumentException("unterminated string in: $contextLine")
-                    value = spec.substring(j + 1, close)
-                    i = close + 1
+                    val parsed = parseQuotedString(spec, j)
+                    value = parsed.first
+                    i = parsed.second
                 } else {
                     val end = spec.indexOf(' ', j).let { if (it < 0) spec.length else it }
                     val token = spec.substring(j, end)
@@ -328,11 +351,9 @@ class SynthProgram private constructor(
                     e
                 }
                 c == '"' -> {
-                    val close = src.indexOf('"', pos + 1)
-                    if (close < 0) throw ProgramError("unterminated string literal in: $src")
-                    val s = src.substring(pos + 1, close)
-                    pos = close + 1
-                    StrLit(s)
+                    val parsed = parseQuotedString(src, pos)
+                    pos = parsed.second
+                    StrLit(parsed.first)
                 }
                 c.isDigit() -> {
                     val start = pos

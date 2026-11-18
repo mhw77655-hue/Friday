@@ -308,7 +308,15 @@ class EvolutionEngine(
         // PROMOTE atomically; the habitat of the winner is preserved for the
         // archive, the losers are destroyed.
         _state.value = EvolutionState.PROMOTING
-        val receipt = promotionController.promote(promoted.genome, promoted.implementation)
+        // The executable artifact remains inside Friday's private workspace.
+        // Persist its exact workspace location with the promoted genome so the
+        // next process can verify and rehydrate the same capability without a
+        // model call, APK rebuild or user-data reset.
+        val durableGenome = promoted.genome.copy(
+            artifactPath = promoted.instance.workspace.absolutePath,
+            artifactCapability = promoted.implementation.spec.capability
+        )
+        val receipt = promotionController.promote(durableGenome, promoted.implementation)
         mutantEnv.preserve(promoted.instance)
         evaluated.filter { it !== promoted }.forEach { mutantEnv.destroy(it.instance) }
         appendLog("PROMOTED ${promoted.genome.id} — registered as ${receipt.systemId}")

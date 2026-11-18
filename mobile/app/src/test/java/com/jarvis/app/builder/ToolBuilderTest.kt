@@ -82,7 +82,9 @@ class ToolBuilderTest {
             failureSurface = failureSurface,
             fileStorage = fileStorage,
             scope = scope,
-            workspacesDir = File(root, "workspaces")
+            workspacesDir = File(root, "workspaces"),
+
+            nowMs = { 1_700_000_000_000L }
         )
         return Harness(
             registry = stack.registry,
@@ -184,6 +186,7 @@ class ToolBuilderTest {
             fileStorage = FileStorage(root),
             scope = scope,
             workspacesDir = File(root, "workspaces"),
+            nowMs = { 1_700_000_000_000L },
             llmSynthesisProvider = provider,
             cognitiveCapabilityFabric = cognitiveFabric
         )
@@ -255,7 +258,9 @@ class ToolBuilderTest {
                 failureSurface = FailureSurface(),
                 fileStorage = storage,
                 scope = scope,
-                workspacesDir = File(root, "workspaces")
+                workspacesDir = File(root, "workspaces"),
+
+                nowMs = { 1_700_000_000_000L }
             )
             assertEquals("archived-tool-genome", stack.genomeRegistry.bestFor("archived_tool")?.id)
             val gap = CapabilityGapDetector(stack.registry, stack.genomeRegistry).detect("archived_tool")
@@ -265,6 +270,121 @@ class ToolBuilderTest {
         } finally {
             scope.cancel()
         }
+    }
+
+    @Test
+    fun `phone-resident Builder creates a capability and restores it after process restart`() = runBlocking {
+        val root = tmpDir()
+        val storage = FileStorage(root)
+        val response = """
+            ```synth
+            # capability: word_count
+            words = split(trim(text), " ")
+            result = size(words)
+            TEST two_words | input text="hello world" | expect result=2
+            TEST missing_input | input | error undefined variable 'text'
+            ```
+        """.trimIndent()
+        var modelCalls = 0
+        val provider = LlmSynthesisProvider(complete = { _: GenerateRequest ->
+            modelCalls++
+            GenerateResult(content = response)
+        })
+        val firstScope = CoroutineScope(Dispatchers.IO)
+        val firstFabric = CapabilityFabric(ImmuneSystem(surface = FailureSurface()))
+        val first = ToolBuilderComposition.build(
+            research = UniversalResearchEngine(),
+            failureSurface = FailureSurface(),
+            fileStorage = storage,
+            scope = firstScope,
+            workspacesDir = File(root, "workspaces"),
+            nowMs = { 1_700_000_000_000L },
+            llmSynthesisProvider = provider,
+            cognitiveCapabilityFabric = firstFabric
+        )
+
+        val specJson = """{"capability":"word_count","description":"Count whitespace-separated words in text","behavior":{"type":"custom","port":"text","value_type":"String"},"constraints":["pure function","no side effects"]}"""
+        val built = firstFabric.invoker.invoke(
+            ActionRequest(
+                planId = "builder-runtime",
+                stepId = "create-word-count",
+                action = "builder.create_tool",
+                description = "Create a reusable word counting capability",
+                context = mapOf("spec_json" to specJson)
+            )
+        )
+        assertTrue("Builder invocation failed: ${built.result?.failure}", built.success)
+        assertTrue("the live model should synthesize the custom capability", modelCalls > 0)
+        val firstCall = firstFabric.invoker.invoke(
+            ActionRequest(
+                planId = "builder-runtime",
+                stepId = "call-word-count",
+                action = "word_count",
+                context = mapOf("text" to "one two three")
+            )
+        )
+        assertTrue("generated capability failed: ${firstCall.result?.failure}", firstCall.success)
+        assertEquals("3.0", firstCall.result?.output?.get("result"))
+
+        // A new composition simulates process death/restart. It receives no
+        // model provider; the promoted artifact itself must be enough.
+        firstScope.cancel()
+        val secondScope = CoroutineScope(Dispatchers.IO)
+        val secondFabric = CapabilityFabric(ImmuneSystem(surface = FailureSurface()))
+        val second = ToolBuilderComposition.build(
+            research = UniversalResearchEngine(),
+            failureSurface = FailureSurface(),
+            fileStorage = FileStorage(root),
+            scope = secondScope,
+            workspacesDir = File(root, "workspaces"),
+            nowMs = { 1_700_000_000_000L },
+            cognitiveCapabilityFabric = secondFabric
+        )
+        assertTrue("promoted capability was not restored", "word_count" in second.recoveredCapabilities)
+        val restoredCall = secondFabric.invoker.invoke(
+            ActionRequest(
+                planId = "builder-restart",
+                stepId = "call-restored-word-count",
+                action = "word_count",
+                context = mapOf("text" to "four five six")
+            )
+        )
+        assertTrue("restored capability failed: ${restoredCall.result?.failure}", restoredCall.success)
+        assertEquals("3.0", restoredCall.result?.output?.get("result"))
+
+        val receiptId = built.result?.output?.get("receipt_id") ?: error("Builder did not return a durable rollback receipt")
+        val inspected = secondFabric.invoker.invoke(
+            ActionRequest(
+                planId = "builder-restart",
+                stepId = "inspect-promotions",
+                action = "builder.inspect"
+            )
+        )
+        assertTrue("promotion history could not be inspected", inspected.success)
+        assertTrue(inspected.result?.output?.get("promotions_json").orEmpty().contains(receiptId))
+
+        val rolledBack = secondFabric.invoker.invoke(
+            ActionRequest(
+                planId = "builder-restart",
+                stepId = "rollback-word-count",
+                action = "builder.rollback",
+                context = mapOf(
+                    "receipt_id" to receiptId,
+                    "reason" to "integration test verifies durable rollback after restart"
+                )
+            )
+        )
+        assertTrue("durable rollback failed: ${rolledBack.result?.failure}", rolledBack.success)
+        val afterRollback = secondFabric.invoker.invoke(
+            ActionRequest(
+                planId = "builder-restart",
+                stepId = "word-count-after-rollback",
+                action = "word_count",
+                context = mapOf("text" to "must no longer resolve")
+            )
+        )
+        assertFalse("rolled-back capability remained callable", afterRollback.success)
+        secondScope.cancel()
     }
 
     @Test

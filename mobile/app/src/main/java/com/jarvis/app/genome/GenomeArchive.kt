@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.ConcurrentHashMap
@@ -42,6 +43,24 @@ class GenomeArchive(
         store[genome.id] = genome
         _latestId.value = genome.id
         persistAsync()
+    }
+
+    /**
+     * Durably commit a promoted/rolled-back genome before reporting the
+     * transition complete. Ordinary candidate observations may use [put];
+     * a live capability promotion must survive immediate process death.
+     */
+    suspend fun putDurably(genome: Genome) {
+        store[genome.id] = genome
+        _latestId.value = genome.id
+        persistGeneration.incrementAndGet()
+        withContext(Dispatchers.IO) {
+            persistMutex.withLock {
+                val arr = JSONArray()
+                store.values.sortedBy { it.id }.forEach { arr.put(toJson(it)) }
+                fileStorage.write(StoreKind.GENOME_ARCHIVE, arr.toString())
+            }
+        }
     }
 
     fun get(id: String): Genome? = store[id]
@@ -205,6 +224,8 @@ class GenomeArchive(
             put("requiredCapabilities", JSONArray(g.compatibilityRequirements.requiredCapabilities.toList()))
         })
         put("healthState", g.healthState.name)
+        g.artifactPath?.let { put("artifactPath", it) }
+        g.artifactCapability?.let { put("artifactCapability", it) }
         put("provenance", JSONObject().apply {
             put("author", g.provenance.author)
             put("createdMs", g.provenance.createdMs)
@@ -331,7 +352,9 @@ class GenomeArchive(
                     runCatching { MutationOperator.valueOf(it) }.getOrNull()
                 },
                 sourceContext = provenance.optString("sourceContext", "")
-            )
+            ),
+            artifactPath = j.optString("artifactPath").takeIf { it.isNotBlank() },
+            artifactCapability = j.optString("artifactCapability").takeIf { it.isNotBlank() }
         )
     }
 

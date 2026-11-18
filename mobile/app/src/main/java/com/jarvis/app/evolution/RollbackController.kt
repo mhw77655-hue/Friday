@@ -34,15 +34,17 @@ class RollbackController(
 ) {
 
     suspend fun rollback(receipt: PromotionReceipt, reason: String): RollbackResult {
-        // 1. the promoted organism is no longer callable
-        cognitiveCapabilityFabric?.unregister(receipt.systemId)
-        registry.unregister(receipt.systemId)
-
-        // 2. the promoted genome is archived REJECTED (history preserved)
+        // Persist the rejected candidate before removing its live provider.
+        // A rollback is incomplete if its history can disappear on process death.
         val promoted = archive.get(receipt.genomeId)
         if (promoted != null) {
-            archive.put(promoted.copy(healthState = GenomeHealth.REJECTED))
+            archive.putDurably(promoted.copy(healthState = GenomeHealth.REJECTED))
         }
+
+        // Stop the promoted interpreter, then remove it from both registries.
+        registry.get(receipt.systemId)?.let { runCatching { it.shutdown() } }
+        cognitiveCapabilityFabric?.unregister(receipt.systemId)
+        registry.unregister(receipt.systemId)
 
         // 3. restore the previous current-best, if there was one
         val rollbackPoint = receipt.rollbackPoint
@@ -52,10 +54,10 @@ class RollbackController(
             }.toMap()
         val restoredGenome = rollbackPoint?.previousGenomeId?.let { archive.get(it)?.copy(healthState = GenomeHealth.HEALTHY) }
         if (previousCapabilityIndex.isNotEmpty()) {
-            previousCapabilityIndex.values.forEach(archive::put)
+            previousCapabilityIndex.values.forEach { archive.putDurably(it) }
             genomeRegistry.restoreBestByCapability(previousCapabilityIndex, restoredGenome)
         } else if (restoredGenome != null) {
-            archive.put(restoredGenome)
+            archive.putDurably(restoredGenome)
             genomeRegistry.setCurrentBest(restoredGenome)
         } else {
             genomeRegistry.setCurrentBest(null)

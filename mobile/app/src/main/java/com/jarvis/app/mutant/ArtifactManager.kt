@@ -5,6 +5,7 @@ import com.jarvis.app.mutation.FitnessModel
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.security.MessageDigest
 
 /**
  * Collects and persists every artifact of a generated candidate into its
@@ -37,10 +38,27 @@ class ArtifactManager(private val fileStorage: FileStorage) {
         workspace: File
     ): ArtifactBundle {
         val dir = File(workspace, "artifacts").apply { mkdirs() }
-        fileStorage.write(File(dir, "source.txt"), implementation.sourceCode)
-        fileStorage.write(File(dir, "spec.json"), specToJson(implementation.spec).toString(2))
-        fileStorage.write(File(dir, "tests.json"), JSONArray(implementation.tests.map { testCaseToJson(it) }).toString(2))
-        fileStorage.write(File(dir, "config.json"), JSONObject(configuration).toString(2))
+        val source = implementation.sourceCode
+        val spec = specToJson(implementation.spec).toString(2)
+        val tests = JSONArray(implementation.tests.map { testCaseToJson(it) }).toString(2)
+        val config = JSONObject(configuration).toString(2)
+        fileStorage.write(File(dir, "source.txt"), source)
+        fileStorage.write(File(dir, "spec.json"), spec)
+        fileStorage.write(File(dir, "tests.json"), tests)
+        fileStorage.write(File(dir, "config.json"), config)
+        fileStorage.write(
+            File(dir, "manifest.json"),
+            JSONObject().apply {
+                put("schemaVersion", 1)
+                put("runtimeFormat", if (implementation.language == "synth") "synth-v1" else "unsupported")
+                put("candidateId", candidateId)
+                put("genomeId", genomeId)
+                put("sourceSha256", sha256(source))
+                put("specSha256", sha256(spec))
+                put("testsSha256", sha256(tests))
+                put("createdAtMs", System.currentTimeMillis())
+            }.toString(2)
+        )
 
         return ArtifactBundle(
             candidateId = candidateId,
@@ -73,6 +91,11 @@ class ArtifactManager(private val fileStorage: FileStorage) {
     fun appendLog(workspace: File, line: String) {
         fileStorage.append(File(File(workspace, "artifacts"), "run.log"), line)
     }
+
+    private fun sha256(value: String): String =
+        MessageDigest.getInstance("SHA-256")
+            .digest(value.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it.toInt() and 0xff) }
 
     private fun specToJson(spec: AlgorithmSpec): JSONObject = JSONObject().apply {
         put("capability", spec.capability)

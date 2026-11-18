@@ -19,7 +19,9 @@ import com.jarvis.app.nervous.CapabilityRouter
 class CapabilityGapDetector(
     private val registry: MicroSystemRegistry,
     private val genomeRegistry: GenomeRegistry,
-    private val router: CapabilityRouter? = null
+    private val router: CapabilityRouter? = null,
+    /** Native capabilities already resident in the primary cognitive fabric. */
+    private val nativeProviderExists: (String) -> Boolean = { false }
 ) {
 
     fun detect(capability: String): GapAnalysis {
@@ -31,6 +33,14 @@ class CapabilityGapDetector(
                 status = "SATISFIED",
                 providerId = live.first().id,
                 routeCost = router?.costTier(live.first()) ?: 0
+            )
+        }
+        if (nativeProviderExists(capability)) {
+            return GapAnalysis(
+                capability = capability,
+                gap = false,
+                status = "SATISFIED_NATIVE",
+                providerId = "cognitive-capability-fabric"
             )
         }
         val bestGenome = genomeRegistry.bestFor(capability)
