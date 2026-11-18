@@ -59,4 +59,4 @@ enum class LatencyClass { LOW, MEDIUM, HIGH, UNBOUNDED }
 
 /** Minimal permission seam. The fabric carries tokens; the invocation boundary
  *  verifies them. Deliberately tiny — future capabilities extend this set. */
-enum class CapabilityPermission { READ, WRITE, EXECUTE, NETWORK, SYSTEM, USER_DATA, EXTERNAL_AI, REPOSITORY_BUILD }
+enum class CapabilityPermission { READ, WRITE, EXECUTE, NETWORK, SYSTEM, USER_DATA, EXTERNAL_AI, REPOSITORY_BUILD, REPOSITORY_BUILD_STATUS }
