@@ -147,6 +147,14 @@ The #83 diff creates/updates proposal PRs with `GITHUB_TOKEN`, removes the expli
 **Consequence:** a crash or development request cannot reliably be tied to the exact code running on the phone; the workshop may repair current `main` while diagnosing a different installed build, and the resulting evidence is not reproducible.  
 **Root correction:** embed the immutable build commit SHA in `BuildConfig` at CI/release build time; propagate it as `installed_source_sha` through the encrypted outbox and public request envelope; have the worker fetch and verify that exact commit for diagnosis. Track the candidate's `target_base_sha` separately. If the installed SHA is unknown (local build), mark it explicitly unknown rather than substituting `main` or `installed-app`. Include source SHA and artifact digest in build/promotion receipts.
 
+### RC-16: Working-reference history is unbounded and ordinal resolution ignores list scope
+
+`CognitiveEngine` constructs one `ReferenceStore` for its lifetime and records every extracted entity mention on each turn. `ReferenceStore.recordMentions()` prepends to an unbounded mutable list; `all()` returns the full history and there is no session reset, retention cap or segment eviction. `SalienceScorer.topSalient()` enumerates every unique entity and calls `score()`, which scans the full mention list for each entity, making repeated ranking quadratic as the conversation grows. `PronounResolver`'s ordinal path sorts the entire conversation history and selects `chronological[position - 1]`, rather than resolving within the current list/utterance group. Old mentions can therefore be selected by "the first/second one" after unrelated lists have occurred.
+
+**Cause:** a short-lived working-reference buffer was implemented as an unlimited conversation archive, and ordinal reference resolution has no explicit list frame.  
+**Consequence:** memory and CPU use grow over the lifetime of Friday, while pronouns/ordinals can silently bind to stale entities.  
+**Root correction:** keep a bounded per-turn/per-segment working set with explicit lifecycle and maximum retention; aggregate mention frequency/recency incrementally rather than rescanning the entire history; assign list/group IDs to extracted enumerations; resolve ordinals only inside the relevant group and return ambiguity when the group is uncertain. Durable knowledge belongs in the memory graph, not the ephemeral reference buffer.
+
 ## 3. Architecture boundary to preserve
 
 1. **Friday on Android:** persistent identity/continuity, local cognition and presence, privacy-minimized observation, memory/experience, permissioned device actions, safe capability runtime, self-study, development-intent formation, durable offline outbox and result consumption.
