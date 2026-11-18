@@ -14,16 +14,25 @@ package com.jarvis.app.cognitive
  */
 class TaskWorkingMemory {
 
+    data class ExecutableSubgoal(
+        val description: String,
+        val operationId: String
+    )
+
+    enum class ResultStatus { SUCCEEDED, FAILED, BLOCKED, SKIPPED }
+
     data class SubgoalEntry(
         val description: String,
-        val index: Int
+        val index: Int,
+        val operationId: String? = null
     )
 
     data class ResultEntry(
         val subgoal: String,
         val success: Boolean,
         val detail: String,
-        val timestamp: Long = System.currentTimeMillis()
+        val timestamp: Long = System.currentTimeMillis(),
+        val status: ResultStatus = if (success) ResultStatus.SUCCEEDED else ResultStatus.FAILED
     )
 
     private var goal: String? = null
@@ -47,12 +56,31 @@ class TaskWorkingMemory {
         }
     }
 
+    /** Add subgoals whose operation identifiers were explicitly produced by a planner. */
+    fun pushExecutableSubgoals(subgoals: List<ExecutableSubgoal>) {
+        subgoals.forEach { subgoal ->
+            require(subgoal.description.isNotBlank())
+            require(subgoal.operationId.isNotBlank() && subgoal.operationId.length <= 128)
+            this.subgoals.addLast(
+                SubgoalEntry(subgoal.description, nextIndex++, subgoal.operationId)
+            )
+        }
+    }
+
     fun nextSubgoal(): SubgoalEntry? {
         return if (subgoals.isEmpty()) null else subgoals.removeFirst()
     }
 
-    fun recordResult(subgoal: String, success: Boolean, detail: String = "") {
-        history.add(ResultEntry(subgoal = subgoal, success = success, detail = detail))
+    fun recordResult(
+        subgoal: String,
+        success: Boolean,
+        detail: String = "",
+        status: ResultStatus = if (success) ResultStatus.SUCCEEDED else ResultStatus.FAILED
+    ) {
+        require(success == (status == ResultStatus.SUCCEEDED)) {
+            "Only a succeeded result may set success=true."
+        }
+        history.add(ResultEntry(subgoal = subgoal, success = success, detail = detail, status = status))
     }
 
     fun getHistory(): List<ResultEntry> = history.toList()
