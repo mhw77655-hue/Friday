@@ -88,7 +88,7 @@ class AutoMergePolicyTests(unittest.TestCase):
 
     def test_rejects_production_source_without_package_local_regression_test(self):
         ok, reason = MODULE.evaluate([
-            "mobile/app/src/main/java/com/jarvis/app/cognitive/CognitiveEngine.kt",
+            "mobile/app/src/main/java/com/jarvis/app/formatting/TextFormatter.kt",
         ])
         self.assertFalse(ok)
         self.assertIn("lacks a changed regression test", reason)
@@ -102,7 +102,7 @@ class AutoMergePolicyTests(unittest.TestCase):
 
     def test_rejects_test_only_changes_that_could_weaken_the_gate(self):
         ok, reason = MODULE.evaluate([
-            "mobile/app/src/test/java/com/jarvis/app/cognitive/CognitiveEngineTest.kt",
+            "mobile/app/src/test/java/com/jarvis/app/formatting/TextFormatterTest.kt",
         ])
         self.assertFalse(ok)
         self.assertIn("test-only changes require review", reason)
