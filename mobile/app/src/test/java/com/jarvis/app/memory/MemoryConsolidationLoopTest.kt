@@ -197,6 +197,39 @@ class MemoryConsolidationLoopTest {
     }
 
     @Test
+    fun `transient snapshot failure is reported and the idle worker retries next cycle`() = runBlocking {
+        val h = Harness()
+        h.statements += RecentStatement(sessionId = "session-retry", text = "I prefer concise answers to questions", timestamp = 1)
+        val scope = CoroutineScope(Dispatchers.Default + Job())
+        var reads = 0
+        var reported = 0
+        val loop = MemoryConsolidationLoop(
+            userProfile = h.userProfile,
+            recentExperience = {
+                reads++
+                if (reads == 1) throw IllegalStateException("temporary session-store read failure")
+                h.statements.toList()
+            },
+            scope = scope,
+            idleIntervalMs = 5,
+            onPassFailure = { reported++ }
+        )
+        try {
+            loop.startIdleLoop()
+            repeat(100) {
+                if (h.userProfile.getPreference("communicationStyle") == "concise answers to questions") return@repeat
+                delay(5)
+            }
+            assertTrue("first transient failure was reported", reported >= 1)
+            assertTrue("idle worker retried the next cycle", reads >= 2)
+            assertEquals("later cycle still promoted the durable statement", "concise answers to questions", h.userProfile.getPreference("communicationStyle"))
+            assertTrue("idle worker remains active after recovery", loop.isIdleLoopRunning())
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
     fun `idle-scheduled loop consolidates automatically and the pass is manually triggerable`(): Unit =
         runBlocking {
             val h = Harness()
