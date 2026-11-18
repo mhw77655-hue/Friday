@@ -448,7 +448,7 @@ object JarvisEngine {
                 cognitiveCapabilityFabric = capabilityFabric,
                 resourceGovernor = builderGovernor,
                 refreshResources = refreshBuilderResources,
-                nowMs = { assembly.ports.nowMs() }
+                nowMs = clock
             )
             this.toolBuilderStack = builderStack
             this.toolBuilder = builderStack.builder
