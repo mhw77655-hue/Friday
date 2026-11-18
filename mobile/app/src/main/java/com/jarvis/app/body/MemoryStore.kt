@@ -256,6 +256,7 @@ class MemoryStore(
         scope.launch(Dispatchers.IO) {
             try {
                 val json = JSONObject()
+                json.put("updated_at_ms", System.currentTimeMillis())
                 json.put("episodic", JSONArray(episodicMemories.values.map { toJson(it) }))
                 json.put("facts", JSONArray(facts.values.map { toJson(it) }))
                 json.put("preferences", JSONArray(preferences.values.map { toJson(it) }))
