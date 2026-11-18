@@ -163,6 +163,11 @@ object JarvisEngine {
     // the android capability adapter stack. Each exposes a real hosted call path.
     @Volatile var universalResearchEngine: com.jarvis.app.research.universal.UniversalResearchEngine? = null
         private set
+    /** Phone-resident Builder runtime; only restricted SynthPrograms are persisted and rehydrated. */
+    @Volatile var toolBuilderStack: com.jarvis.app.builder.ToolBuilderComposition.Stack? = null
+        private set
+    @Volatile var toolBuilder: com.jarvis.app.builder.ToolBuilder? = null
+        private set
     @Volatile var ownerBiometricBinder: com.jarvis.app.identity.owner.OwnerBiometricBinder? = null
         private set
     @Volatile var androidRiskGate: com.jarvis.app.android.RiskGate? = null
@@ -406,6 +411,58 @@ object JarvisEngine {
                 cloudRouter = cloudModelRouter,
                 store = com.jarvis.app.research.universal.InMemoryMechanismsStore()
             )
+
+            // Friday's Builder lives in the phone runtime. It can synthesize
+            // restricted declarative programs and persist them locally; it
+            // cannot load arbitrary DEX/Kotlin or bypass the capability fabric.
+            val builderGovernor = com.jarvis.app.resource.ResourceGovernor()
+            val refreshBuilderResources: () -> Unit = {
+                val snapshot = com.jarvis.app.model.AndroidResourceSnapshot(appContext)
+                val activityManager = appContext.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+                val memoryInfo = android.app.ActivityManager.MemoryInfo().also(activityManager::getMemoryInfo)
+                val totalMemoryMb = (memoryInfo.totalMem / (1024L * 1024L)).coerceAtLeast(512L)
+                val connectivity = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+                val activeNetwork = connectivity.activeNetwork
+                val networkAvailable = activeNetwork != null &&
+                    connectivity.getNetworkCapabilities(activeNetwork)
+                        ?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) == true
+                val state = com.jarvis.app.resource.DeviceResourceState(
+                    totalMemoryMb = totalMemoryMb,
+                    availableMemoryMb = snapshot.availableMemoryMb,
+                    thermalLevel = snapshot.thermalLevel,
+                    batteryPercent = snapshot.batteryPercent,
+                    isCharging = snapshot.isCharging,
+                    cpuLoadPercent = snapshot.cpuLoadPercent,
+                    networkAvailable = networkAvailable,
+                    gpuAvailable = false
+                )
+                builderGovernor.updateDeviceState(state)
+                val usableMemoryMb = (totalMemoryMb - maxOf(1024L, totalMemoryMb / 4)).coerceAtLeast(512L)
+                builderGovernor.updatePolicy(
+                    com.jarvis.app.resource.AdmissionPolicy(
+                        totalMemoryMb = usableMemoryMb,
+                        totalCpuPercent = 70.0,
+                        maxPerSystemMemoryMb = (usableMemoryMb / 3).coerceIn(128L, 1024L),
+                        maxConcurrentSystems = 1,
+                        minBatteryPercent = 15,
+                        allowWhileCharging = true
+                    )
+                )
+            }
+            val builderStack = com.jarvis.app.builder.ToolBuilderComposition.build(
+                research = universalResearchEngine,
+                failureSurface = failureSurface,
+                fileStorage = fileStorage,
+                scope = scope,
+                workspacesDir = java.io.File(appContext.filesDir, "friday-builder/workspaces"),
+                nowMs = clock,
+                llmSynthesisProvider = com.jarvis.app.mutation.LlmSynthesisProvider(modelManager),
+                cognitiveCapabilityFabric = capabilityFabric,
+                resourceGovernor = builderGovernor,
+                refreshResources = refreshBuilderResources
+            )
+            this.toolBuilderStack = builderStack
+            this.toolBuilder = builderStack.builder
 
             // ── Phase B: Owner-binding chain ─────────────────────────────────
             // The real owner-binding entry point over Friday's Android Keystore-backed
@@ -869,6 +926,16 @@ object JarvisEngine {
         ) : DeviceControlOutcome()
 
         data class Unverified(val attempts: List<String>) : DeviceControlOutcome()
+    }
+
+    /** Ask the phone-resident Builder to develop a missing capability. */
+    suspend fun requestBuild(
+        spec: com.jarvis.app.builder.ToolSpecification
+    ): com.jarvis.app.builder.BuildResult {
+        val builder = checkNotNull(toolBuilder) {
+            "JarvisEngine.init() must run first; Friday Builder is not available"
+        }
+        return builder.build(spec)
     }
 
     /**
