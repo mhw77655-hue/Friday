@@ -12,6 +12,10 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.FileOutputStream
+import java.io.IOException
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
@@ -90,6 +94,24 @@ internal object DownloadTransferPlanner {
             startOffset = start,
             totalBytes = total
         )
+    }
+}
+
+/** Atomic replacement for a validated model asset. The old model remains
+ * intact if the filesystem cannot perform the same-directory atomic move. */
+internal object AtomicModelFilePromoter {
+    fun replace(partial: File, target: File) {
+        target.parentFile?.mkdirs()
+        try {
+            Files.move(
+                partial.toPath(),
+                target.toPath(),
+                StandardCopyOption.ATOMIC_MOVE,
+                StandardCopyOption.REPLACE_EXISTING
+            )
+        } catch (failure: AtomicMoveNotSupportedException) {
+            throw IOException("Atomic model replacement is not supported.", failure)
+        }
     }
 }
 
@@ -238,12 +260,7 @@ class OfflineModelDownloader(context: Context) {
     }
 
     private fun promote(asset: OfflineModelAsset, partial: File, target: File): File {
-        if (target.exists()) check(target.delete()) {
-            "Could not replace the previous model file safely."
-        }
-        check(partial.renameTo(target)) {
-            "Could not move the completed model into Friday's private storage."
-        }
+        AtomicModelFilePromoter.replace(partial, target)
         mutableState.value = OfflineDownloadState(
             modelId = asset.id,
             downloadedBytes = target.length(),
