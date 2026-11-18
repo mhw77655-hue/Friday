@@ -69,6 +69,32 @@ class AutoMergePolicyTests(unittest.TestCase):
         self.assertFalse(MODULE.evaluate(["mobile/app/build.gradle.kts"])[0])
         self.assertFalse(MODULE.evaluate([".gitignore"])[0])
 
+    def test_rejects_production_source_without_package_local_regression_test(self):
+        ok, reason = MODULE.evaluate([
+            "mobile/app/src/main/java/com/jarvis/app/cognitive/CognitiveEngine.kt",
+        ])
+        self.assertFalse(ok)
+        self.assertIn("lacks a changed regression test", reason)
+
+    def test_rejects_regression_test_from_an_unrelated_package(self):
+        ok, _ = MODULE.evaluate([
+            "mobile/app/src/main/java/com/jarvis/app/cognitive/CognitiveEngine.kt",
+            "mobile/app/src/test/java/com/jarvis/app/android/CognitiveEngineTest.kt",
+        ])
+        self.assertFalse(ok)
+
+    def test_rejects_test_only_changes_that_could_weaken_the_gate(self):
+        ok, reason = MODULE.evaluate([
+            "mobile/app/src/test/java/com/jarvis/app/cognitive/CognitiveEngineTest.kt",
+        ])
+        self.assertFalse(ok)
+        self.assertIn("test-only changes require review", reason)
+
+    def test_rejects_resource_only_changes_until_they_have_dedicated_validation(self):
+        self.assertFalse(MODULE.evaluate([
+            "mobile/app/src/main/res/values/strings.xml",
+        ])[0])
+
     def test_rejects_empty_or_malformed_lists(self):
         self.assertFalse(MODULE.evaluate([])[0])
         self.assertFalse(MODULE.evaluate("not a list")[0])
