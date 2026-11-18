@@ -303,6 +303,7 @@ class TurnPathAssembly private constructor(
             // ── Capability fabric, routing, and fuzzy command resolution ───────
             val failureSurface = ports.failureSurface()
             val capabilityFabric = CapabilityFabric(ImmuneSystem(surface = failureSurface))
+            ports.registerCapabilities(capabilityFabric)
             val capabilityEvidenceLedger = com.jarvis.app.cognitive.capability.CapabilityEvidenceLedger(
                 ports.storageDir.resolve("friday"),
                 nowMs = { ports.nowMs() }
