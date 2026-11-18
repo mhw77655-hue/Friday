@@ -139,7 +139,7 @@ object ToolBuilderComposition {
                 return@forEach
             }
             val system = SpecMicroSystem(
-                id = "friday_generated_${genome.id}",
+                id = "organism_${genome.id}",
                 genome = genome,
                 spec = implementation.spec,
                 sandbox = ResourceSandbox(),
