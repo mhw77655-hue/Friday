@@ -70,7 +70,7 @@ class ProviderCouncil(
     suspend fun consult(request: CouncilRequest): CouncilResult = mutex.withLock {
         if (!isEnabled()) return@withLock CouncilResult(emptyList(), "External AI council is disabled in Friday settings")
         if (request.task.isBlank()) return@withLock CouncilResult(emptyList(), "Task is empty")
-        if (request.maxOutputTokens !in 1..4096) return@withLock CouncilResult(emptyList(), "Output token limit is outside the allowed range")
+        if (request.maxOutputTokens !in 16..4096) return@withLock CouncilResult(emptyList(), "Output token limit is outside the allowed range")
         val adviserCount = request.maxAdvisers.coerceIn(1, 3)
         if (adviserCount > 1 && !request.independentReviewRequested) {
             return@withLock CouncilResult(emptyList(), "Multiple advisers require an explicit independent-review request")
