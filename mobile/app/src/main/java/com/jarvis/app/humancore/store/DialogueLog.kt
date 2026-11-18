@@ -117,10 +117,16 @@ class DialogueLog(
     private fun parseEntry(line: String): DialogueEntry? {
         return try {
             val o = JSONObject(line)
+            // Reject unrelated JSON documents (including legacy MemoryStore
+            // snapshots) instead of creating empty phantom dialogue entries.
+            if (!o.has("ts") || !o.has("trigger") || !o.has("text")) return null
+            val trigger = o.getString("trigger")
+            val text = o.getString("text")
+            if (trigger.isBlank() || text.isBlank()) return null
             DialogueEntry(
-                ts = o.optLong("ts"),
-                trigger = o.optString("trigger"),
-                text = o.optString("text"),
+                ts = o.getLong("ts"),
+                trigger = trigger,
+                text = text,
                 snapshotRef = if (o.isNull("snapshotRef")) null else o.optString("snapshotRef"),
                 surfaced = o.optBoolean("surfaced")
             )
