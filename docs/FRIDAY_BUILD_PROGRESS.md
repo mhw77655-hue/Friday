@@ -133,3 +133,20 @@ Dormant legacy `ToolBuilder`, evolution and mutant-environment source files stil
 Friday is not finished when code compiles or when a large APK exists. The first complete build is finished only when the same individual remains present across offline/restart/model replacement, can use the phone's supported senses and actions, develops from experience, can direct repository-side construction safely, can judge the resulting work independently, and has passed the target-device and release acceptance gates.
 
 Until then, percentages remain estimates of engineering completion, not claims of sentience or production readiness.
+
+
+## 2026-11-18 — verified CI root-cause updates
+
+The disposable Android phone exposed two separate early-boot races that the original readiness check did not cover:
+
+1. `sys.boot_completed=1`, package enumeration and a responsive SettingsProvider did not prove that PackageInstaller's storage dependencies were ready. `PackageManagerInternal.freeStorage` could still be null.
+2. The emulated-storage FUSE/ExternalStorageService session could time out after those earlier probes had passed. The volume mounted later, after an ADB install attempt had already hung.
+
+The corrected test contract now requires the package manager, SettingsProvider, private storage volume and emulated storage volume to be ready before installation. Diagnostics include `sm list-volumes all` and the mount service. APK installation retries only the known PackageManagerInternal race or a confirmed ExternalStorageService startup timeout; unrelated install failures remain fail-closed. The new contract and retry cases have unit tests. Current-head emulator validation is pending; these code changes are not yet described as a green emulator result.
+
+Other concrete fixes:
+- The Android builder's composition tests now pass the required deterministic clock to all three affected fixtures. The builder branch's debug build and JVM test lane passed.
+- The trusted proposal publisher now has a dedicated candidate branch that grants Actions write only to the trusted publisher, explicitly dispatches the canonical build for the exact proposal SHA, waits for that run, and refuses promotion on missing, stale or failed evidence. Its static workflow and publisher contract checks have passed; its emulator lane remains pending.
+- The provider-council, redesigned Android interface and first verified-outcome learning work have been consolidated into one draft candidate branch. The learning mechanism is intentionally narrow: verified Android media-control outcomes can influence later selection only when all current alternatives have comparable repeated evidence. It cannot bypass permission or risk checks.
+
+These are implementation and test milestones, not a release claim. The remaining release gates are exact-head emulator success, integration with the repository Builder runtime, release signing, and real-device acceptance.
