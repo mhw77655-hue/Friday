@@ -1,5 +1,7 @@
 # Friday build progress
 
+> **Historical snapshot — 2026-11-16.** This scorecard and its branch/PR references are not the current repository status and must not be used as a live completion estimate. For the 2026-11-18 main/PR/CI state and the current dependency-ordered build plan, see [WHOLE_PROJECT_ROOT_CAUSE_PLAN_20261118.md](../.ralph/WHOLE_PROJECT_ROOT_CAUSE_PLAN_20261118.md). Percentages are retained here only as historical context; they are not evidence that any current acceptance gate has passed.
+
 **Snapshot:** 2026-11-16  
 **Working branch:** `audit/friday-offline-runtime`  
 **Overall end-state build completion:** **25%**
