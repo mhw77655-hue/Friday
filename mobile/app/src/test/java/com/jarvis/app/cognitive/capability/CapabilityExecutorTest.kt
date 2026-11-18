@@ -508,6 +508,7 @@ class CapabilityExecutorTest {
         assertEquals(3, evidence.count { it.outcome == EvidenceOutcome.SKIPPED })
         assertTrue(evidence.none { it.outcome == EvidenceOutcome.SUCCEEDED })
         directory.deleteRecursively()
+        Unit
     }
 
     @Test
@@ -556,6 +557,7 @@ class CapabilityExecutorTest {
         assertEquals(setOf("A", "B", "C"), knowledge.map { it.capabilityId }.toSet())
         assertTrue(knowledge.all { it.reusable && it.verifiedSuccesses == 2 })
         directory.deleteRecursively()
+        Unit
     }
 
     @Test
@@ -579,6 +581,7 @@ class CapabilityExecutorTest {
         })
         assertTrue(evidence.any { it.capabilityId == "C" && it.outcome == EvidenceOutcome.SUCCEEDED && !it.verified })
         directory.deleteRecursively()
+        Unit
     }
 
 }
