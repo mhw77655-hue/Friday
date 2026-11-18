@@ -153,4 +153,39 @@ class StorePersistenceTest {
         g2.registry.loadAll()
         assertTrue("dialogue log persisted at least one entry", g2.registry.dialogue.read().isNotEmpty())
     }
+    @Test
+    fun `body memory snapshot cannot overwrite or masquerade as internal dialogue log`() {
+        val dir = tempDir()
+        val storage = com.jarvis.app.humancore.store.FileStorage(dir)
+        val dialogueLine = """{"ts":123,"trigger":"new_session","text":"A real dialogue entry","snapshotRef":"v1","surfaced":false}"""
+        storage.append(StoreKind.DIALOGUE, dialogueLine)
+        storage.write(
+            StoreKind.BODY_MEMORY,
+            """{"episodic":[],"facts":[],"preferences":[],"context_order":[]}"""
+        )
+
+        val dialogue = com.jarvis.app.humancore.store.DialogueLog(storage) { 123L }
+        dialogue.load()
+
+        assertEquals(1, dialogue.read().size)
+        assertEquals("A real dialogue entry", dialogue.read().single().text)
+        assertTrue(storage.read(StoreKind.DIALOGUE)!!.contains("A real dialogue entry"))
+        assertTrue(storage.read(StoreKind.BODY_MEMORY)!!.contains("\"episodic\""))
+    }
+
+    @Test
+    fun `legacy body memory document is ignored by dialogue log parser`() {
+        val dir = tempDir()
+        val storage = com.jarvis.app.humancore.store.FileStorage(dir)
+        storage.write(
+            StoreKind.DIALOGUE,
+            """{"episodic":[],"facts":[],"preferences":[],"context_order":[]}"""
+        )
+
+        val dialogue = com.jarvis.app.humancore.store.DialogueLog(storage) { 123L }
+        dialogue.load()
+
+        assertTrue("legacy memory JSON must not become an empty phantom dialogue entry", dialogue.read().isEmpty())
+    }
+
 }
