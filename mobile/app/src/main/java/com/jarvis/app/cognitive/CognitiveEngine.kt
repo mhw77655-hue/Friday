@@ -11,6 +11,7 @@ import com.jarvis.app.failure.FailureCause
 import com.jarvis.app.failure.FailureEvent
 import com.jarvis.app.turn.TurnContext
 import com.jarvis.app.model.ModelManager
+import com.jarvis.app.cognitive.capability.BuiltInCapabilityEvidenceVerifier
 import com.jarvis.app.cognitive.capability.CapabilityExecutor
 import com.jarvis.app.cognitive.capability.CapabilityFabric
 import com.jarvis.app.cognitive.execution.ActionPort
@@ -1423,7 +1424,8 @@ class CognitiveEngine(
             granted = capabilityPermissions(),
             goalPlanner = goalPlanner,
             nowMs = nowMs,
-            evidenceLedger = capabilityEvidenceLedger
+            evidenceLedger = capabilityEvidenceLedger,
+            evidenceVerifier = BuiltInCapabilityEvidenceVerifier::verify
         )
         executor.load()
         val outcome = executor.executeNextStep()
