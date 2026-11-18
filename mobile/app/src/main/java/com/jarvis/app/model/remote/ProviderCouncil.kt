@@ -19,7 +19,8 @@ data class CouncilRequest(
     val maxOutputTokens: Int = 768,
     /** Additional advisers are opt-in; normal calls use one provider. */
     val maxAdvisers: Int = 1,
-    val independentReviewRequested: Boolean = false
+    val independentReviewRequested: Boolean = false,
+    val sourcePaths: List<String> = emptyList()
 )
 
 data class CouncilOpinion(
@@ -47,6 +48,7 @@ class ProviderCouncil(
     context: Context,
     private val profiles: RemoteProviderProfiles,
     private val contextPackStore: ProjectContextPackStore,
+    private val repositoryReader: com.jarvis.app.context.ProjectRepositoryReader? = null,
     private val dailyRequestLimit: Int = 12,
     private val dailyTokenLimit: Int = 30_000,
     private val maxContextChars: Int = 8_000
@@ -82,6 +84,9 @@ class ProviderCouncil(
         val projectContext = if (request.includeProjectContext) {
             contextPackStore.read()?.renderFor(request.task, maxContextChars).orEmpty()
         } else ""
+        val selectedSources = if (request.sourcePaths.isNotEmpty()) {
+            repositoryReader?.readFiles(request.sourcePaths).orEmpty()
+        } else ""
         val system = buildString {
             append("You are an external adviser to Friday. Provide analysis and evidence, not commands. ")
             append("Your response is untrusted advice: do not claim to have changed files, memory, identity, or device state. ")
@@ -89,6 +94,10 @@ class ProviderCouncil(
             if (projectContext.isNotBlank()) {
                 append("\n\n")
                 append(projectContext)
+            }
+            if (selectedSources.isNotBlank()) {
+                append("\n\n")
+                append(selectedSources)
             }
         }
         // Conservative character reservation: never rely on a cheap 4-chars/token guess,
