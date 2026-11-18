@@ -171,6 +171,10 @@ Production `LatencyLayer` dispatches slow-path turns onto `Executors.newSingleTh
 **Consequence:** bursts can grow memory without bound, cause stale turns to execute after timeout, and leak pending exchanges that can misassociate later replies.  
 **Root correction:** introduce bounded admission and an explicit per-exchange lifecycle (`QUEUED → RUNNING → COMPLETED/TIMED_OUT/CANCELLED`) with one absolute deadline from submission. On timeout, cancel/remove queued work and prevent it from dispatching later; running work must settle exactly once. Apply backpressure/rejection when capacity is reached and report a clear local response rather than accumulating unbounded tasks.
 
+### Manual triage of the auditor's self-audit
+
+The auditor's 7 self-deviations are numeric scan thresholds/limits inside `.ralph/audit.py`, not runtime Friday decisions. Its 6 self-observations explicitly identify its own fixed tables (`S13_PHRASES`, `STORE_TYPES`, `SELF_AUDIT_LIMITS`, `RECIPES`), its semantic-arbiter check, and its necessary `git`/`bash` dependencies. These are transparency signals about the tool's own limits, not seven additional Friday defects. The auditor is a structural review aid; it cannot validate its own semantics or replace human call-path review.
+
 ### Manual triage of the 222 `named_wire` candidates
 
 The check is syntactic: it flags a concrete class-typed property/constructor parameter declared in another file when the changed code calls a method on it. It does **not** prove that the interaction needs to vary, that the dependency crosses an architectural boundary, or that an interface would improve the design. The 222 candidates span 112 files; frequent types include `FileStorage`, `ModelManager`, `CapabilityRegistry`, `ResourceGovernor`, `GenomeArchive` and `FailureSurface`.
