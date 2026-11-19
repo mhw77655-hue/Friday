@@ -11,8 +11,8 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.workflow = WORKFLOW.read_text(encoding="utf-8")
 
     def job_ids(self):
-        jobs = self.workflow.split("\njobs:\n", 1)[1]
-        return re.findall(r"^  ([a-z][a-z0-9_-]*):\s*$", jobs, flags=re.MULTILINE)
+        jobs = self.workflow.split("\\njobs:\\n", 1)[1]
+        return re.findall(r"^  ([a-z][a-z0-9_-]*):\\s*$", jobs, flags=re.MULTILINE)
 
     def test_required_job_ids_are_unique_and_canonical(self):
         ids = self.job_ids()
@@ -39,7 +39,7 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn("sudo chmod 666 /dev/kvm", self.workflow)
         self.assertIn("ANDROID_KVM_READY", self.workflow)
         self.assertIn("x86_64 software emulation is too slow and unreliable", self.workflow)
-        self.assertIn("-memory 3072 -cores 2", self.workflow)
+        self.assertIn("-memory 4096 -cores 4", self.workflow)
 
     def test_workflow_dispatch_is_available_for_trusted_publisher(self):
         self.assertIn("workflow_dispatch:", self.workflow)
@@ -53,7 +53,6 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn("-memory 4096 -cores 4", emulator)
         self.assertNotIn("-cores 2", emulator)
 
-
     def test_candidate_branches_do_not_run_duplicate_push_and_pull_request_builds(self):
         push = self.workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
         self.assertIn("branches: [ main ]", push)
@@ -61,6 +60,7 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertNotIn("friday-proposals/**", push)
         self.assertIn("concurrency:", self.workflow)
         self.assertIn("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", self.workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
