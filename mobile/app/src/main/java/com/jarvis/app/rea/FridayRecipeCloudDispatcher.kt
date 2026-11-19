@@ -35,6 +35,10 @@ class FridayRecipeCloudDispatcher(
             return FridayCloudProposalResult(false, id, url,
                 "Owner has not enabled automatic repository requests or configured the GitHub Actions token.")
         }
+        val recipeEvidence = "FRIDAY_REA_COMPATIBILITY_RECIPE_JSON: " + recipe.toJson().toString()
+        if (recipeEvidence.toByteArray(Charsets.UTF_8).size > 7_500) {
+            return FridayCloudProposalResult(false, id, url, "The compatibility recipe exceeds the cloud request evidence limit.")
+        }
         val evidence = buildList {
             add("Source Android package: " + packageName)
             reports.take(8).forEach { report ->
@@ -44,7 +48,7 @@ class FridayRecipeCloudDispatcher(
             }
             add("Transferable principle: " + recipe.transferablePrinciple)
             recipe.evidenceAndUnknowns.take(4).forEach { add("Evidence/unknown: " + it) }
-        }.take(12)
+        }.take(11) + recipeEvidence
         val request = JSONObject()
             .put("schema_version", 1)
             .put("request_id", id)
@@ -52,7 +56,7 @@ class FridayRecipeCloudDispatcher(
             .put("source_revision", "main")
             .put("intended_outcome",
                 "Implement a Friday-compatible, independently validated integration derived from this reviewed recipe: " + recipe.title)
-            .put("evidence", JSONArray(evidence + listOf("FRIDAY_REA_COMPATIBILITY_RECIPE_JSON: " + recipe.toJson().toString())))
+            .put("evidence", JSONArray(evidence))
             .put("acceptance_criteria", JSONArray(listOf(
                 "Translate the recipe into Friday's existing capability and runtime interfaces; do not copy proprietary implementation code.",
                 "Add regression tests for the discovered behaviour and the Friday adapter.",
