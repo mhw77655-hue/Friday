@@ -53,7 +53,8 @@ class ReverseEngineeringAgent(
         val externalRoot = requireNotNull(context.getExternalFilesDir(null)) { "App-specific external storage is unavailable" }
         val root = File(externalRoot, "rea/inbox/$packageName").canonicalFile
         val files = extraction.getJSONArray("files")
-        val reports = (0 until files.length()).map { index ->
+        val reports = try {
+            (0 until files.length()).map { index ->
             val item = files.getJSONObject(index)
             val file = File(item.getString("path")).canonicalFile
             check(file.toPath().startsWith(root.toPath())) { "Extracted APK escaped the REA inbox" }
@@ -65,6 +66,10 @@ class ReverseEngineeringAgent(
                 "Extracted APK checksum mismatch"
             }
             report
+            }
+        } finally {
+            // APKs are temporary analysis inputs; release up to 500 MB immediately.
+            root.deleteRecursively()
         }
         check(reports.isNotEmpty()) { "No APK files were extracted" }
 
