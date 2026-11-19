@@ -100,6 +100,15 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn("EMULATOR_JOB_RESULT", reporter)
         self.assertIn("SOURCE_AUDIT_JOB_RESULT", reporter)
 
+    def test_previous_crash_is_enqueued_before_risky_engine_startup(self):
+        application = (ROOT / "mobile" / "app" / "src" / "main" / "java" / "com" / "jarvis" / "app" / "JarvisApplication.kt").read_text(encoding="utf-8")
+        self.assertIn("CrashRepairBridge.enqueuePreviousCrash(this)", application)
+        self.assertLess(
+            application.index("CrashRepairBridge.enqueuePreviousCrash(this)"),
+            application.index("JarvisEngine.init(this)"),
+            "Previous crash evidence must be durably queued before engine initialization can crash again.",
+        )
+
     def test_rea_contract_covers_methods_without_bytecode(self):
         source = (ROOT / "mobile" / "app" / "src" / "main" / "java" / "com" / "jarvis" / "app" / "rea" / "DexStructureInspector.kt").read_text(encoding="utf-8")
         self.assertIn("val body = implementation ?: return null", source)
