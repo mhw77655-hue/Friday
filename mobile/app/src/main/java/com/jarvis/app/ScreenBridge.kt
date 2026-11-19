@@ -134,6 +134,14 @@ object ScreenBridge {
      * whitelist through a fixed Shizuku command. No caller-supplied shell
      * command or package path crosses the Binder boundary.
      */
+    /** Extracts target APK splits into Friday's app-specific inbox through Shizuku. */
+    suspend fun extractPackageApks(packageName: String): String? = withContext(Dispatchers.IO) {
+        val svc = service ?: return@withContext null
+        runCatching { svc.extractPackageApks(packageName) }
+            .onFailure { _status.value = "APK extraction failed: ${it.message}" }
+            .getOrNull()
+    }
+
     suspend fun setDozeWhitelist(enabled: Boolean): String? = withContext(Dispatchers.IO) {
         val svc = service ?: return@withContext null
         runCatching { svc.setDozeWhitelist(enabled) }
