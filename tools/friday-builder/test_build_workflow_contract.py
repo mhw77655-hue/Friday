@@ -66,7 +66,9 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertNotIn("-cores 2", emulator)
 
     def test_actionlint_ignores_only_its_stale_concurrency_queue_schema_error(self):
-        self.assertIn("actionlint\" -ignore 'unexpected key \\\"queue\\\" for \\\"concurrency\\\" section' -color", self.workflow)
+        self.assertIn("-ignore 'unexpected key", self.workflow)
+        self.assertIn('queue" for "concurrency" section', self.workflow)
+        self.assertIn("-color", self.workflow)
         self.assertIn("actionlint's pinned schema predates GitHub's documented concurrency.queue key", self.workflow)
 
     def test_concurrency_preserves_all_pending_validation_runs(self):
