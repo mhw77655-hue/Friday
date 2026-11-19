@@ -63,6 +63,13 @@ class FridayRecipeCloudDispatcher(
                         .put("classes", JSONArray(dex.classDescriptors.take(16).map { it.take(180) }))
                         .put("methods", JSONArray(dex.interestingMethods.take(12).map { it.take(220) }))
                         .put("apiHosts", JSONArray(dex.apiHosts.take(12).map { it.take(180) }))
+                        .put("methodEvidence", JSONArray(dex.methodEvidence.take(4).map { method ->
+                            JSONObject()
+                                .put("signature", method.signature.take(320))
+                                .put("opcodes", JSONArray(method.opcodeSequence.take(40)))
+                                .put("references", JSONArray(method.referencedSymbols.take(12).map { it.take(180) }))
+                                .put("strings", JSONArray(method.stringLiterals.take(8).map { it.take(140) }))
+                        }))
                         .put("warning", dex.warning ?: JSONObject.NULL)
                         .toString()
                     add("DEX_STRUCTURE_JSON: " + dexEvidence)
