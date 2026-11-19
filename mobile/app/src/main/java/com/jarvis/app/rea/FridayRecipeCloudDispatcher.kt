@@ -52,17 +52,17 @@ class FridayRecipeCloudDispatcher(
                 // the cloud worker inspect class/package/method/API-host clues
                 // and independently decide what is transferable. No APK bytes,
                 // app-private data, or credentials cross this boundary.
-                report.dexStructure.take(8).forEach { dex ->
+                report.dexStructure.take(1).forEach { dex ->
                     val dexEvidence = JSONObject()
                         .put("file", dex.fileName)
                         .put("parsed", dex.parsed)
                         .put("classCount", dex.classCount)
                         .put("methodCount", dex.methodCount)
                         .put("fieldCount", dex.fieldCount)
-                        .put("packages", JSONArray(dex.packageNames.take(80)))
-                        .put("classes", JSONArray(dex.classDescriptors.take(100)))
-                        .put("methods", JSONArray(dex.interestingMethods.take(100)))
-                        .put("apiHosts", JSONArray(dex.apiHosts.take(40)))
+                        .put("packages", JSONArray(dex.packageNames.take(16).map { it.take(120) }))
+                        .put("classes", JSONArray(dex.classDescriptors.take(16).map { it.take(180) }))
+                        .put("methods", JSONArray(dex.interestingMethods.take(12).map { it.take(220) }))
+                        .put("apiHosts", JSONArray(dex.apiHosts.take(12).map { it.take(180) }))
                         .put("warning", dex.warning ?: JSONObject.NULL)
                         .toString()
                     add("DEX_STRUCTURE_JSON: " + dexEvidence)
