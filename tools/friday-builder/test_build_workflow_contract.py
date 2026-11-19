@@ -41,6 +41,16 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn("x86_64 software emulation is too slow and unreliable", self.workflow)
         self.assertIn("-memory 4096 -cores 4", self.workflow)
 
+    def test_virtual_phone_requires_real_friday_install_and_foreground_launch(self):
+        script = (ROOT / "tools" / "friday-builder" / "run_virtual_phone_tests.sh").read_text(encoding="utf-8")
+        self.assertIn("install_apk_with_retry.py mobile/app/build/outputs/apk/debug/app-debug.apk", script)
+        self.assertIn("adb shell pm path com.jarvis.app", script)
+        self.assertIn("adb shell am start -W -n com.jarvis.app/.MainActivity", script)
+        self.assertIn("Status: ok", script)
+        self.assertIn("ACTIVITY com.jarvis.app/.MainActivity", script)
+        self.assertIn("FRIDAY_PROCESS_MISSING", script)
+        self.assertNotIn("am start -n com.jarvis.app/.MainActivity || true", script)
+
     def test_workflow_dispatch_is_available_for_trusted_publisher(self):
         self.assertIn("workflow_dispatch:", self.workflow)
 
