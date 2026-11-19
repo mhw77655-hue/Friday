@@ -14,11 +14,10 @@ on:
 
 concurrency:
   group: friday-build-v2-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
-  # Preserve every validation request instead of replacing pending runs.
-  # queue:max is essential here; cancel-in-progress:false alone still permits
-  # GitHub to replace an older pending run when a newer commit arrives.
-  queue: max
-  cancel-in-progress: false
+  # PR commits supersede older candidates: validate the newest tree instead of
+  # serially spending runner time on obsolete revisions. Mainline runs are not
+  # cancelled, so release validation is preserved.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions: {}
 
