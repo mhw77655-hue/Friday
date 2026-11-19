@@ -91,7 +91,8 @@ class BuildWorkflowContractTests(unittest.TestCase):
 
     def test_failure_report_runs_for_failed_skipped_or_cancelled_required_jobs(self):
         reporter = self.workflow.split("  report-failure:", 1)[1]
-        self.assertIn("if: ${{ always() &&", reporter)
+        self.assertIn("if: ${{ always() && !cancelled() &&", reporter)
+        self.assertIn("superseded", self.workflow.lower())
         for job in ("debug-apk", "android-emulator", "full-source-audit"):
             self.assertIn(f"needs.{job}.result != 'success'", reporter)
         self.assertIn("A skipped or cancelled lane is not a pass", reporter)
