@@ -59,7 +59,7 @@ class FridayCompatibilityConverter(private val adviser: ReverseEngineeringAdvise
     suspend fun convert(packageName: String, reports: List<ApkArtifactInspector.Report>): FridayCompatibilityRecipe? {
         if (!PACKAGE_NAME.matches(packageName) || reports.isEmpty() || reports.size > 24) return null
         val evidence = JSONObject().put("packageName", packageName)
-            .put("apkFiles", JSONArray(reports.map { it.toJson() })).toString()
+            .put("apkFiles", JSONArray(reports.take(4).map { it.toJson() })).toString()
         val prompt = """
             You are Friday's reverse-engineering and compatibility analyst.
             Analyze the bounded APK structural evidence. Infer transferable behaviours
