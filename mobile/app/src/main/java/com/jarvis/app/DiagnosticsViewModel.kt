@@ -404,6 +404,12 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 val findings = withContext(Dispatchers.IO) {
                     diagnosticRunner.run(signals, CrashJournal.read(getApplication()))
                 }
+                // Capture the actual handset profile alongside active probes.
+                // Full evidence stays in app-private storage for local diagnosis.
+                withContext(Dispatchers.IO) {
+                    val snapshot = com.jarvis.app.diagnostics.DeviceCompatibilitySnapshot.capture(getApplication())
+                    com.jarvis.app.diagnostics.DeviceCompatibilitySnapshot.persist(getApplication(), snapshot)
+                }
                 _diagnosticFindings.value = findings
                 diagnosticEvents.record("active_diagnostic",
                     "errors=${findings.count { it.severity == com.jarvis.app.diagnostics.DiagnosticSeverity.ERROR }}; " +
@@ -485,6 +491,13 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 .put("association_count", it.experience.associationCount())
         } ?: JSONObject.NULL)
         report.put("last_crash", CrashJournal.read(app) ?: JSONObject.NULL)
+        val compatibility = com.jarvis.app.diagnostics.DeviceCompatibilitySnapshot.capture(app)
+        com.jarvis.app.diagnostics.DeviceCompatibilitySnapshot.persist(app, compatibility)
+        report.put("device_compatibility", compatibility)
+        report.put(
+            "device_compatibility_cloud_projection",
+            com.jarvis.app.diagnostics.DeviceCompatibilitySnapshot.cloudProjection(compatibility)
+        )
         report.put("active_diagnostics", diagnosticRunner.toJson(_diagnosticFindings.value))
         report.put("android_process_exit_history", diagnosticRunner.exitHistoryJson())
         report.put("telemetry_summary", Telemetry.summarize())
