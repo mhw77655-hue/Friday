@@ -26,6 +26,8 @@ class ApkArtifactInspectorTest {
             assertEquals(listOf("arm64-v8a"), report.nativeAbis)
             assertTrue(report.manifestBytes > 0)
             assertEquals(64, report.sha256.length)
+            assertEquals(2, report.dexStructure.size)
+            assertTrue(report.dexStructure.all { !it.parsed })
         } finally {
             apk.delete()
         }
@@ -57,5 +59,13 @@ class ApkArtifactInspectorTest {
         val recipe = converter.convert("com.example.target", listOf(report))
         assertNotNull(recipe)
         assertEquals(FridayIntegrationKind.CAPABILITY_ADAPTER, recipe?.integrationKind)
+    }
+    @Test fun recipeConverterOnlyAdmitsRestrictedPureCapabilities() {
+        val pure = FridayCompatibilityRecipe("Normalize a value", FridayIntegrationKind.DATA_TRANSFORMER,
+            "Normalize numeric inputs within a bounded range.", listOf("Capability"),
+            listOf("Validate input", "Normalize output"), emptyList(), "Low", listOf("Runtime behaviour needs tests."))
+        assertNotNull(FridayRecipeToolConverter.toToolSpecification("com.example.source", pure))
+        val host = pure.copy(integrationKind = FridayIntegrationKind.ANDROID_BRIDGE)
+        assertNull(FridayRecipeToolConverter.toToolSpecification("com.example.source", host))
     }
 }
