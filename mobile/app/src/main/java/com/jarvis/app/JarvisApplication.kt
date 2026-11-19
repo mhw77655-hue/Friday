@@ -21,7 +21,11 @@ class JarvisApplication : Application() {
             this,
             com.jarvis.app.rea.FridayCompatibilityConverter(
                 com.jarvis.app.rea.ProviderCouncilReverseEngineeringAdviser(providerCouncil)
-            )
+            ),
+            cloudAnalysisConsent = {
+                getSharedPreferences("friday_rea_settings", MODE_PRIVATE)
+                    .getBoolean("owner_enabled_cloud_analysis", false)
+            }
         )
     }
 
@@ -32,6 +36,15 @@ class JarvisApplication : Application() {
             nowMs = { JarvisEngine.nowMs() }
         )
     }
+
+    /** Owner-controlled opt-in; false by default. */
+    fun setReaCloudAnalysisEnabled(enabled: Boolean): Boolean =
+        getSharedPreferences("friday_rea_settings", MODE_PRIVATE).edit()
+            .putBoolean("owner_enabled_cloud_analysis", enabled).commit()
+
+    fun isReaCloudAnalysisEnabled(): Boolean =
+        getSharedPreferences("friday_rea_settings", MODE_PRIVATE)
+            .getBoolean("owner_enabled_cloud_analysis", false)
 
     override fun onCreate() {
         super.onCreate()
