@@ -39,14 +39,25 @@ class ReverseEngineeringCapability(
             "false", null, "" -> false
             else -> return failure("REA_CLOUD_CONSENT_INVALID", "Cloud analysis consent must be explicitly true or false.")
         }
+        val buildCapability = when (request.context["build_compatible_capability"]?.trim()?.lowercase()) {
+            "true" -> true
+            "false", null, "" -> false
+            else -> return failure("REA_BUILD_FLAG_INVALID", "Capability build flag must be explicitly true or false.")
+        }
+        if (buildCapability && !allowCloud) {
+            return failure("REA_BUILD_REQUIRES_RECIPE", "Building requires an AI-reviewed compatibility recipe.")
+        }
         return try {
-            val result = agent.analyzeInstalledPackage(packageName, allowCloud)
+            val result = agent.analyzeInstalledPackage(packageName, allowCloud, buildCapability)
             val reports = JSONArray(result.reports.map { it.toJson() })
             val output = JSONObject()
                 .put("packageName", result.packageName)
                 .put("apkReports", reports)
                 .put("recipe", result.recipe?.toJson() ?: JSONObject.NULL)
                 .put("cloudAnalysisAttempted", result.cloudAnalysisAttempted)
+                .put("buildStatus", result.buildStatus ?: JSONObject.NULL)
+                .put("buildMessage", result.buildMessage ?: JSONObject.NULL)
+                .put("builtCapabilityId", result.builtCapabilityId ?: JSONObject.NULL)
                 .put("warnings", JSONArray(result.warnings))
             ExecutionResult.ok(
                 output = mapOf("rea_result_json" to output.toString()),
