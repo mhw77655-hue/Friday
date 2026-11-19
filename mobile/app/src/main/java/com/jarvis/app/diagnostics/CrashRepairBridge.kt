@@ -1,6 +1,7 @@
 package com.jarvis.app.diagnostics
 
 import android.app.Application
+import android.content.Context
 import com.jarvis.app.github.DevelopmentRequestOutboxScheduler
 import com.jarvis.app.github.outbox.DevelopmentRequestDraft
 import com.jarvis.app.github.outbox.DevelopmentRequestOutbox
@@ -93,7 +94,8 @@ object CrashRepairBridge {
      * delivery and idempotency; scheduler runs only when the GitHub credential
      * has been configured. A missing credential leaves the request on disk.
      */
-    fun enqueuePreviousCrash(application: Application): EnqueueOutcome? {
+    fun enqueuePreviousCrash(context: Context): EnqueueOutcome? {
+        val application = context.applicationContext as? Application ?: return null
         // The existing owner-controlled autonomous-development switch is the
         // authorization boundary for sending bounded diagnostics to the repo.
         if (!com.jarvis.app.github.FridayEvolutionScheduler.isEnabled(application)) return null
