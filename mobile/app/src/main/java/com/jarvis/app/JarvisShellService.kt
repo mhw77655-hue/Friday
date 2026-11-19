@@ -87,7 +87,7 @@ class JarvisShellService : IJarvisShellService.Stub() {
             return JSONObject().put("ok", false).put("error", "package_path_unavailable").toString()
         }
         val paths = listing.lineSequence().map { it.trim().removePrefix("package:") }
-            .filter { it.endsWith(".apk") && SAFE_APK_ROOTS.any(it::startsWith) }
+            .filter { path -> path.endsWith(".apk") && SAFE_APK_ROOTS.any { root -> path.startsWith(root) } }
             .distinct().toList()
         if (paths.isEmpty() || paths.size > MAX_SPLIT_APKS) {
             return JSONObject().put("ok", false).put("error", "no_supported_apk_paths").toString()
