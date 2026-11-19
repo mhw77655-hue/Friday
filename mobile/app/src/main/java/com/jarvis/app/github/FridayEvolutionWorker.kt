@@ -25,6 +25,12 @@ class FridayEvolutionWorker(
     override suspend fun doWork(): Result {
         if (!FridayEvolutionScheduler.isEnabled(applicationContext)) return Result.success()
         return try {
+            // The main process can outlive a crashed :voice/:inference process.
+            // Periodic evolution therefore scans durable crash journals too,
+            // instead of relying only on the next launcher cold start.
+            runCatching {
+                com.jarvis.app.diagnostics.CrashRepairBridge.enqueuePreviousCrash(applicationContext)
+            }
             val includeAggregateEvidence =
                 FridayEvolutionScheduler.isAggregateEvidenceEnabled(applicationContext)
 
