@@ -16,6 +16,14 @@ class JarvisApplication : Application() {
     val projectContextPackStore by lazy {
         com.jarvis.app.context.ProjectContextPackStore(File(filesDir, "friday/project_context_pack.json"))
     }
+    val repositoryBuildSettings by lazy { com.jarvis.app.builder.GitHubTokenVault(this) }
+    val repositoryBuildDispatchClient by lazy {
+        com.jarvis.app.builder.GitHubWorkflowDispatchClient({ repositoryBuildSettings.token() })
+    }
+    val reverseEngineeringCloudDispatcher by lazy {
+        com.jarvis.app.rea.FridayRecipeCloudDispatcher(repositoryBuildSettings, repositoryBuildDispatchClient)
+    }
+
     val reverseEngineeringAgent by lazy {
         com.jarvis.app.rea.ReverseEngineeringAgent(
             this,
@@ -26,7 +34,8 @@ class JarvisApplication : Application() {
                 getSharedPreferences("friday_rea_settings", MODE_PRIVATE)
                     .getBoolean("owner_enabled_cloud_analysis", false)
             },
-            toolBuilderProvider = { JarvisEngine.toolBuilderStack?.builder }
+            toolBuilderProvider = { JarvisEngine.toolBuilderStack?.builder },
+            cloudProposalDispatcherProvider = { reverseEngineeringCloudDispatcher }
         )
     }
 
