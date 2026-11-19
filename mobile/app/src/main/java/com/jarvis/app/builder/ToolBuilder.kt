@@ -203,9 +203,10 @@ class ToolBuilder(
         // until its exact rollback receipt is durably stored. If that fails,
         // immediately reverse the promotion rather than leaving an untracked
         // runtime mutation.
-        if (receiptStore != null) {
+        val durableReceiptStore = receiptStore
+        if (durableReceiptStore != null) {
             try {
-                withContext(Dispatchers.IO) { receiptStore.save(receipt) }
+                withContext(Dispatchers.IO) { durableReceiptStore.save(receipt) }
             } catch (cancelled: CancellationException) {
                 // Cancellation must not strand a live promotion without a
                 // durable recovery record. Finish rollback outside the
@@ -221,7 +222,7 @@ class ToolBuilder(
                     }
                     if (rollback?.success == true) {
                         runCatching {
-                            receiptStore.markRolledBack(
+                            durableReceiptStore.markRolledBack(
                                 receipt.genomeId,
                                 "promotion receipt persistence was cancelled"
                             )
