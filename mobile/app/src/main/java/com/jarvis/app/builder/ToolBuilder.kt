@@ -211,27 +211,44 @@ class ToolBuilder(
                 // durable recovery record. Finish rollback outside the
                 // cancelled coroutine, then preserve normal cancellation.
                 withContext(kotlinx.coroutines.NonCancellable + Dispatchers.IO) {
-                    runCatching {
-                        rollbackController.rollback(
-                            receipt,
-                            "promotion receipt persistence was cancelled"
-                        )
+                    val rollback = rollbackController?.let { controller ->
+                        runCatching {
+                            controller.rollback(
+                                receipt,
+                                "promotion receipt persistence was cancelled"
+                            )
+                        }.getOrNull()
                     }
-                    runCatching {
-                        receiptStore.markRolledBack(
-                            receipt.genomeId,
-                            "promotion receipt persistence was cancelled"
+                    if (rollback?.success == true) {
+                        runCatching {
+                            receiptStore.markRolledBack(
+                                receipt.genomeId,
+                                "promotion receipt persistence was cancelled"
+                            )
+                        }
+                    } else {
+                        failureSurface.report(
+                            FailureReport(
+                                subsystem = "BUILDER",
+                                operation = "rollback_after_receipt_cancellation",
+                                severity = FailureSeverity.ERROR,
+                                category = FailureCategory.PERSISTENCE,
+                                message = "Promotion receipt persistence was cancelled and rollback could not be confirmed; manual recovery is required.",
+                                source = "ToolBuilder"
+                            )
                         )
                     }
                 }
                 throw cancelled
             } catch (failure: Exception) {
-                val rollback = runCatching {
-                    rollbackController.rollback(
-                        receipt,
-                        "promotion receipt could not be persisted: ${failure.message}"
-                    )
-                }.getOrNull()
+                val rollback = rollbackController?.let { controller ->
+                    runCatching {
+                        controller.rollback(
+                            receipt,
+                            "promotion receipt could not be persisted: ${failure.message}"
+                        )
+                    }.getOrNull()
+                }
                 if (rollback?.success != true) {
                     failureSurface.report(
                         FailureReport(
