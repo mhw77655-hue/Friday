@@ -14,8 +14,10 @@ on:
 
 concurrency:
   group: friday-build-v2-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
-  # Never cancel an active validation run. A newer candidate waits for the
-  # current run to finish; GitHub retains the newest pending run for this group.
+  # Preserve every validation request instead of replacing pending runs.
+  # queue:max is essential here; cancel-in-progress:false alone still permits
+  # GitHub to replace an older pending run when a newer commit arrives.
+  queue: max
   cancel-in-progress: false
 
 permissions: {}
@@ -426,7 +428,7 @@ jobs:
   report-failure:
     # Inspect every required validation lane. A skipped/failed lane is not success;
     # cancellation remains distinct and is not misreported as a test failure.
-    if: ${{ !cancelled() && (needs.debug-apk.result != 'success' || needs.android-emulator.result != 'success' || needs.full-source-audit.result != 'success') }}
+    if: ${{ always() && (needs.debug-apk.result != 'success' || needs.android-emulator.result != 'success' || needs.full-source-audit.result != 'success') }}
     needs:
       - debug-apk
       - android-emulator
@@ -455,8 +457,9 @@ jobs:
               `- Workflow run: ${runUrl}`,
               `- Commit: ${context.sha}`,
               `- Trigger: ${context.eventName}`,
+              `- Debug/build/tests: ${context.payload.workflow_run?.conclusion ?? 'inspect job result'}`,
               '',
-              'Open the run and inspect the first failing step and uploaded JUnit results.',
+              'Inspect each required job in the run. A skipped or cancelled lane is not a pass.',
               'This incident is diagnostic only; it does not authorize source changes, approval or release.'
             ].join('\\n');
             const match = existing.data.find(issue => issue.title === title && !issue.pull_request);
