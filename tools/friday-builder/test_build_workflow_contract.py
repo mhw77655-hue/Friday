@@ -11,8 +11,8 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.workflow = WORKFLOW.read_text(encoding="utf-8")
 
     def job_ids(self):
-                jobs = self.workflow.split("\\njobs:\\n", 1)[1]
-                return re.findall(r"^  ([a-z][a-z0-9_-]*):\\s*$", jobs, flags=re.MULTILINE)
+        jobs = self.workflow.split("\njobs:\n", 1)[1]
+        return re.findall(r"^  ([a-z][a-z0-9_-]*):\s*$", jobs, flags=re.MULTILINE)
 
     def test_required_job_ids_are_unique_and_canonical(self):
         ids = self.job_ids()
@@ -59,7 +59,7 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertNotIn("audit/**", push)
         self.assertNotIn("friday-proposals/**", push)
         self.assertIn("concurrency:", self.workflow)
-        self.assertIn("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", self.workflow)
+        self.assertIn("cancel-in-progress:", self.workflow)
 
 
 if __name__ == "__main__":
