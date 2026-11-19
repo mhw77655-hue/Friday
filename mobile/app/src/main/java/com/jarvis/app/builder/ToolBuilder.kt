@@ -272,7 +272,7 @@ class ToolBuilder(
                     )
                 }
                 runCatching {
-                    receiptStore.markRolledBack(
+                    durableReceiptStore.markRolledBack(
                         receipt.genomeId,
                         "promotion receipt could not be persisted: ${failure.message}"
                     )
