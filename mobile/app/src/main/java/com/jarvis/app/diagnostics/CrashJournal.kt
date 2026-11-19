@@ -37,8 +37,11 @@ object CrashJournal {
     }
 
     /** Read every process-specific crash record; secondary Android processes must not overwrite main. */
-    fun readAll(application: Application): List<JSONObject> {
-        val directory = diagnosticsDirectory(application)
+    fun readAll(application: Application): List<JSONObject> =
+        readAllFrom(diagnosticsDirectory(application))
+
+    /** Storage seam exercised on a real Android runtime by instrumentation tests. */
+    internal fun readAllFrom(directory: File): List<JSONObject> {
         val files = directory.listFiles()?.filter { file ->
             file.isFile && ((file.name.startsWith(FILE_PREFIX) && file.name.endsWith(".json")) || file.name == "last-crash.json")
         }.orEmpty()
@@ -52,25 +55,42 @@ object CrashJournal {
     /** Backwards-compatible newest-record accessor. */
     fun read(application: Application): JSONObject? = readAll(application).lastOrNull()
 
-    /** Remove only the acknowledged process record after it is safely in the outbox. */
-    fun acknowledge(application: Application, record: JSONObject): Boolean {
+    /** Remove only the acknowledged record after it is safely in the outbox. */
+    fun acknowledge(application: Application, record: JSONObject): Boolean =
+        acknowledgeFrom(diagnosticsDirectory(application), record)
+
+    /** Exact-content acknowledgement protects a newer crash from an older worker. */
+    internal fun acknowledgeFrom(directory: File, record: JSONObject): Boolean {
         val process = record.optString("process", "unknown")
-        val atUtc = record.optString("at_utc")
-        val eventFile = fileFor(application, process, record.toString())
+        val eventFile = File(directory, fileNameFor(process, record.toString()))
         if (eventFile.exists()) {
-            // Never acknowledge a different/newer event that happens to share
-            // the same process name.
             val stored = runCatching {
                 AtomicFile(eventFile).openRead().bufferedReader(Charsets.UTF_8).use { JSONObject(it.readText()) }
             }.getOrNull() ?: return false
             if (stored.toString() != record.toString()) return false
             return runCatching { AtomicFile(eventFile).delete(); true }.getOrDefault(false)
         }
-        // Migration path for records written by earlier single-file builds.
-        val legacyProcessFile = fileFor(application, process)
+        // Migration paths for records written by earlier single-file builds.
+        val legacyProcessFile = File(directory, fileNameFor(process))
         if (legacyProcessFile.exists()) return runCatching { AtomicFile(legacyProcessFile).delete(); true }.getOrDefault(false)
-        val legacyFile = File(diagnosticsDirectory(application), "last-crash.json")
+        val legacyFile = File(directory, "last-crash.json")
         return if (legacyFile.exists()) runCatching { AtomicFile(legacyFile).delete(); true }.getOrDefault(false) else false
+    }
+
+    /** Persist one immutable crash event with AtomicFile's backup/rename protocol. */
+    internal fun writeRecord(directory: File, record: JSONObject) {
+        directory.mkdirs()
+        val process = record.optString("process", "unknown")
+        val atomic = AtomicFile(File(directory, fileNameFor(process, record.toString())))
+        val stream = atomic.startWrite()
+        try {
+            stream.write(record.toString().toByteArray(Charsets.UTF_8))
+            stream.flush()
+            atomic.finishWrite(stream)
+        } catch (error: Throwable) {
+            atomic.failWrite(stream)
+            throw error
+        }
     }
 
     internal fun fileNameFor(processName: String): String {
@@ -123,16 +143,7 @@ object CrashJournal {
     private fun persist(application: Application, threadName: String, failure: Throwable) {
         val processName = currentProcessName(application)
         val record = createRecord(threadName, failure, processName = processName)
-        val atomic = AtomicFile(fileFor(application, processName, record.toString()))
-        val stream = atomic.startWrite()
-        try {
-            stream.write(record.toString().toByteArray(Charsets.UTF_8))
-            stream.flush()
-            atomic.finishWrite(stream)
-        } catch (error: Throwable) {
-            atomic.failWrite(stream)
-            throw error
-        }
+        writeRecord(diagnosticsDirectory(application), record)
     }
 
     private fun diagnosticsDirectory(application: Application): File =
