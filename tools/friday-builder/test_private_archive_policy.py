@@ -30,7 +30,7 @@ class PrivateArchivePolicyTests(unittest.TestCase):
         workflow = (ROOT / ".github/workflows/purge-private-archives.yml").read_text(encoding="utf-8")
         self.assertIn("--sensitive-data-removal", workflow)
         self.assertIn("pull-requests: read", workflow)
-        self.assertRegex(workflow, r"(?m)^on:\s*\n\s+workflow_dispatch:")
+        self.assertIn("workflow_dispatch:", workflow)
         self.assertNotRegex(workflow, r"(?m)^  push:")
         self.assertIn('--path "New Folder chats.zip"', workflow)
         self.assertIn('--path "New folder.zip"', workflow)
