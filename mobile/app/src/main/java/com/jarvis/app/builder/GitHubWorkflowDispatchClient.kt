@@ -197,7 +197,7 @@ class GitHubWorkflowDispatchClient(
         }
     }
 
-    private fun workflowUrl() =
+    fun workflowUrl() =
         "https://github.com/$owner/$repository/actions/workflows/$workflowFile"
 
     companion object {
