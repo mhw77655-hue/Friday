@@ -81,8 +81,10 @@ class FridayCompatibilityConverter(private val adviser: ReverseEngineeringAdvise
     }
 
     private fun parse(raw: String): FridayCompatibilityRecipe? = runCatching {
-        val jsonText = raw.substringAfter("\`\`\`json", raw).substringBefore("\`\`\`").trim()
-        val json = JSONObject(jsonText)
+        val start = raw.indexOf('{')
+        val end = raw.lastIndexOf('}')
+        if (start < 0 || end <= start) return null
+        val json = JSONObject(raw.substring(start, end + 1))
         val allowed = setOf("title", "integrationKind", "transferablePrinciple", "fridayInterfaces",
             "implementationPlan", "permissionRequirements", "risk", "evidenceAndUnknowns")
         if (json.keys().asSequence().toSet() != allowed) return null
