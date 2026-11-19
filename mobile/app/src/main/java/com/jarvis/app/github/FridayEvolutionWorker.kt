@@ -47,11 +47,22 @@ class FridayEvolutionWorker(
             )
             // Start recurring work only after the immediate cycle completes;
             // this prevents the two workers from racing into duplicate builds.
+            FridayEvolutionScheduler.clearFailure(applicationContext)
             FridayEvolutionScheduler.ensurePeriodic(applicationContext)
             Result.success()
         } catch (cancelled: CancellationException) {
             throw cancelled
-        } catch (_: Exception) {
+        } catch (failure: GitHubDispatchException) {
+            FridayEvolutionScheduler.recordFailure(applicationContext, failure.message ?: "GitHub dispatch failed")
+            if (isRetryableGitHubStatus(failure.statusCode)) Result.retry() else Result.failure()
+        } catch (failure: IllegalStateException) {
+            // Missing/invalid configuration is not a transient network failure.
+            // Persist the blocker and stop the infinite retry loop; enabling or
+            // manually starting evolution after fixing Settings creates new work.
+            FridayEvolutionScheduler.recordFailure(applicationContext, failure.message ?: "Evolution configuration is invalid")
+            Result.failure()
+        } catch (failure: Exception) {
+            FridayEvolutionScheduler.recordFailure(applicationContext, failure.message ?: failure.javaClass.simpleName)
             Result.retry()
         }
     }
@@ -62,6 +73,8 @@ object FridayEvolutionScheduler {
     private const val PREFS = "friday_autonomous_evolution"
     private const val KEY_ENABLED = "enabled"
     private const val KEY_SHARE_AGGREGATE_EVIDENCE = "share_aggregate_evidence"
+    private const val KEY_LAST_FAILURE = "last_failure"
+    private const val KEY_LAST_FAILURE_AT = "last_failure_at"
     private const val UNIQUE_PERIODIC = "friday-autonomous-evolution"
     private const val UNIQUE_NOW = "friday-autonomous-evolution-now"
 
@@ -73,6 +86,25 @@ object FridayEvolutionScheduler {
     fun isAggregateEvidenceEnabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY_SHARE_AGGREGATE_EVIDENCE, false)
+
+    /** Durable diagnostic for a stopped or retrying autonomous development cycle. */
+    fun lastFailure(context: Context): String? =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_LAST_FAILURE, null)
+
+    internal fun recordFailure(context: Context, message: String) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(KEY_LAST_FAILURE, message.take(500))
+            .putLong(KEY_LAST_FAILURE_AT, System.currentTimeMillis())
+            .apply()
+    }
+
+    internal fun clearFailure(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .remove(KEY_LAST_FAILURE)
+            .remove(KEY_LAST_FAILURE_AT)
+            .apply()
+    }
 
     fun setAggregateEvidenceEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
