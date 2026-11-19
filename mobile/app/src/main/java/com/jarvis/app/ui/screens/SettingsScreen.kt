@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Button
 import androidx.compose.material3.TextButton
@@ -94,6 +95,7 @@ fun SettingsScreen() {
     val githubDeviceChannel = remember { com.jarvis.app.github.GitHubDeviceChannel(context) }
     var githubChannelConnected by remember { mutableStateOf(githubDeviceChannel.isConnected()) }
     var githubChannelStatus by remember { mutableStateOf(if (githubChannelConnected) githubDeviceChannel.issueUrl().orEmpty() else "Phone channel stopped.") }
+    var showDeviceChannelConsent by remember { mutableStateOf(false) }
     val githubScope = rememberCoroutineScope()
     val shizukuAvailable by com.jarvis.app.ShizukuBridge.isAvailable.collectAsState()
     val shizukuGranted by com.jarvis.app.ShizukuBridge.isGranted.collectAsState()
@@ -447,19 +449,7 @@ fun SettingsScreen() {
             modifier = Modifier.padding(bottom = 8.dp)
         )
         Button(
-            onClick = {
-                githubScope.launch {
-                    githubBusy = true
-                    runCatching { githubDeviceChannel.connect() }
-                        .onSuccess {
-                            com.jarvis.app.github.GitHubDeviceChannelScheduler.enable(context)
-                            githubChannelConnected = true
-                            githubChannelStatus = "Connected: $it. Background polling enabled."
-                        }
-                        .onFailure { githubChannelStatus = it.message ?: "Could not connect device channel." }
-                    githubBusy = false
-                }
-            },
+            onClick = { showDeviceChannelConsent = true },
             enabled = githubConnected && !githubBusy && !githubChannelConnected,
             modifier = Modifier.fillMaxWidth()
         ) { Text("Connect phone to GitHub") }
@@ -504,10 +494,47 @@ fun SettingsScreen() {
             modifier = Modifier.padding(top = 6.dp)
         )
         Text(
-            text = "This channel uses a public GitHub issue as its command queue. Diagnostic replies are public and contain only device model, Android/app version, RAM/storage, battery, thermal and network transport. No remote shell, arbitrary file access, microphone, camera, screen capture, location, contacts, notifications, or silent app actions are supported. Disconnect closes the issue and stops polling.",
+            text = "This channel uses a public GitHub issue as its command queue. Reports and replies are visible to readers of the public repository. Reports include device compatibility, aggregate runtime/identity/plan/capability state, model readiness, and recent crash exception types and stack locations. Exception messages, private memories, prompts, transcripts, conversations, arbitrary files, location, microphone/camera data and screen contents are excluded. The only supported phone command is diagnostics.snapshot; no remote shell or app-control actions are available.",
             style = JarvisType.Label,
             modifier = Modifier.padding(top = 8.dp)
         )
+        if (showDeviceChannelConsent) {
+            AlertDialog(
+                onDismissRequest = { showDeviceChannelConsent = false },
+                title = { Text("Connect public diagnostic channel?") },
+                text = {
+                    Text(
+                        "Diagnostic commands and replies will be public on the Friday GitHub repository. " +
+                            "Reports contain device/resource metadata, aggregate runtime and development state, " +
+                            "model readiness, and crash exception types with stack locations. They exclude " +
+                            "exception messages, private memories, prompts, transcripts, conversations, files, " +
+                            "location, microphone/camera data and screen contents. The phone only answers " +
+                            "diagnostics.snapshot; this does not give ChatGPT shell access or permission to " +
+                            "change anything on your phone. Continue only if you accept public publication " +
+                            "of this technical metadata."
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showDeviceChannelConsent = false
+                        githubScope.launch {
+                            githubBusy = true
+                            runCatching { githubDeviceChannel.connect() }
+                                .onSuccess {
+                                    com.jarvis.app.github.GitHubDeviceChannelScheduler.enable(context)
+                                    githubChannelConnected = true
+                                    githubChannelStatus = "Connected: $it. Background polling enabled."
+                                }
+                                .onFailure { githubChannelStatus = it.message ?: "Could not connect device channel." }
+                            githubBusy = false
+                        }
+                    }) { Text("Connect") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeviceChannelConsent = false }) { Text("Cancel") }
+                }
+            )
+        }
 
         SectionLabel("FRIDAY RUNTIME")
         Text(
