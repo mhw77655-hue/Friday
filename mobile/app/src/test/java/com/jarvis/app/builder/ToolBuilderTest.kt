@@ -388,6 +388,40 @@ class ToolBuilderTest {
     }
 
     @Test
+    fun `receipt persistence failure rolls back the live promotion`() = runBlocking {
+        val root = tmpDir()
+        // Force the receipt store's atomic replacement to fail after the
+        // capability has been promoted. The Builder must reverse that
+        // promotion instead of leaving an untracked live capability.
+        File(root, "promotion-receipts.json").mkdirs()
+        val scope = CoroutineScope(Dispatchers.IO)
+        val stack = ToolBuilderComposition.build(
+            research = UniversalResearchEngine(),
+            failureSurface = FailureSurface(),
+            fileStorage = FileStorage(root),
+            scope = scope,
+            workspacesDir = File(root, "workspaces"),
+            nowMs = { 1_700_000_000_000L }
+        )
+
+        val result = stack.builder.build(
+            ToolSpecification(
+                capability = "receipt_failure_probe",
+                description = "reverse the order of words in a sentence",
+                behavior = Behavior.ReverseWords()
+            )
+        )
+
+        assertFalse("a build without a durable receipt must not report success", result.built)
+        assertEquals("PROMOTION_RECEIPT_PERSISTENCE_FAILED", result.status)
+        assertNotNull(result.genomeId)
+        assertTrue("failed promotion remained callable", stack.registry.provides("receipt_failure_probe").isEmpty())
+        assertFalse("failed promotion remained in the nervous system", stack.gns.hasCapability("receipt_failure_probe"))
+        assertEquals(GenomeHealth.REJECTED, stack.archive.get(result.genomeId!!)?.healthState)
+        scope.cancel()
+    }
+
+    @Test
     fun `building an already-satisfied capability is a no-op`() = runBlocking {
         val h = harness()
         val spec = ToolSpecification(
