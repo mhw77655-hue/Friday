@@ -104,6 +104,7 @@ fun SettingsScreen() {
     var reaBusy by remember { mutableStateOf(false) }
     val fridayApplication = context.applicationContext as? com.jarvis.app.JarvisApplication
     var reaCloudAnalysis by remember { mutableStateOf(fridayApplication?.isReaCloudAnalysisEnabled() == true) }
+    var reaBuildCapability by remember { mutableStateOf(false) }
 
     // Bumped on ON_RESUME so the storage-permission row re-checks after
     // the user comes back from the system "All files access" screen --
@@ -670,6 +671,18 @@ fun SettingsScreen() {
                 colors = SwitchDefaults.colors(checkedTrackColor = JarvisColors.CoreIdle)
             )
         }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Build compatible capability when safe", style = JarvisType.Body)
+                Text("On-device Builder only accepts pure adapters and data transformers; Android/API changes need a cloud repository proposal.", style = JarvisType.Technical)
+            }
+            Switch(
+                checked = reaBuildCapability,
+                enabled = reaCloudAnalysis,
+                onCheckedChange = { reaBuildCapability = it },
+                colors = SwitchDefaults.colors(checkedTrackColor = JarvisColors.CoreIdle)
+            )
+        }
         Button(
             onClick = {
                 githubScope.launch {
@@ -677,12 +690,13 @@ fun SettingsScreen() {
                     reaStatus = "Extracting and inspecting APK splits through Shizuku-Next..."
                     reaStatus = runCatching {
                         val app = fridayApplication ?: error("Friday application context is unavailable.")
-                        val result = app.reverseEngineeringAgent.analyzeInstalledPackage(reaPackageName.trim(), reaCloudAnalysis)
+                        val result = app.reverseEngineeringAgent.analyzeInstalledPackage(reaPackageName.trim(), reaCloudAnalysis, reaBuildCapability)
                         val report = result.reports.joinToString("\n") { item ->
                             item.fileName + " · " + item.sizeBytes + " bytes · DEX " + item.dexFiles.size + " · ABI " + item.nativeAbis.joinToString(",")
                         }
                         val recipe = result.recipe?.let { "Recipe: " + it.title + " (" + it.integrationKind.name + ")" } ?: "No recipe produced."
-                        listOf(report, recipe, result.warnings.joinToString("\n")).filter { it.isNotBlank() }.joinToString("\n")
+                        val build = result.buildStatus?.let { "Builder: " + it + " · " + result.buildMessage.orEmpty() } ?: "Builder: not requested."
+                        listOf(report, recipe, build, result.warnings.joinToString("\n")).filter { it.isNotBlank() }.joinToString("\n")
                     }.getOrElse { it.message ?: "REA inspection failed." }
                     reaBusy = false
                 }
