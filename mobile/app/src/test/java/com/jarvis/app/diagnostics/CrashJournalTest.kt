@@ -35,6 +35,19 @@ class CrashJournalTest {
     }
 
     @Test
+    fun `repeated crashes in one process retain distinct event files`() {
+        val first = CrashJournal.fileNameFor("com.jarvis.app:voice", "2026-11-19T10:00:00Z")
+        val second = CrashJournal.fileNameFor("com.jarvis.app:voice", "2026-11-19T10:00:01Z")
+        val otherProcess = CrashJournal.fileNameFor("com.jarvis.app:inference", "2026-11-19T10:00:00Z")
+
+        assertTrue(first != second)
+        assertTrue(first != otherProcess)
+        assertTrue(second != otherProcess)
+        assertTrue(first.endsWith(".json"))
+        assertTrue(!first.contains(":"))
+    }
+
+    @Test
     fun `crash record preserves cause chain in order`() {
         val failure = IllegalStateException("outer", IllegalArgumentException("inner"))
         val chain = CrashJournal.createRecord("main", failure).getJSONArray("exception_chain")
