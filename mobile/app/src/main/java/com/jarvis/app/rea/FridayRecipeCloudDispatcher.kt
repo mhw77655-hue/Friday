@@ -106,10 +106,15 @@ class FridayRecipeCloudDispatcher(
                 "Which observed behaviours can be independently verified from the supplied metadata?",
                 "Does this integration require Android host changes or can it remain a restricted runtime capability?"
             )))
+            // Enabling cloud REA is explicit owner consent for this bounded
+            // evidence transfer; it is not a completed privacy/security audit.
+            .put("owner_consent", JSONObject()
+                .put("status", "confirmed_by_owner_controlled_setting")
+                .put("confirmed_at", now().toString())
+                .put("scope", "bounded APK inventory, DEX structure and reviewed compatibility recipe"))
             .put("privacy_review", JSONObject()
-                .put("status", "approved")
-                .put("reviewed_by", "owner-enabled-rea-cloud-analysis")
-                .put("reviewed_at", now().toString())
+                .put("status", "not_performed")
+                .put("reason", "Owner consent to this transfer does not constitute an independent privacy review.")
                 .put("aggregate_runtime_evidence_enabled", false)
                 .put("aggregate_runtime_evidence_scope", "none"))
         val result = client.dispatch(id, request.toString())
