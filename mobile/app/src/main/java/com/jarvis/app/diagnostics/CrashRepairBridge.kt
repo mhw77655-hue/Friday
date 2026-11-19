@@ -95,19 +95,29 @@ object CrashRepairBridge {
      */
     fun enqueuePreviousCrash(application: Application): EnqueueOutcome? {
         // The existing owner-controlled autonomous-development switch is the
-        // authorization boundary for sending diagnostics to the public repo.
-        // Pausing development must pause crash uploads too, even if the token
-        // remains stored on-device.
-        val enabled = com.jarvis.app.github.FridayEvolutionScheduler.isEnabled(application)
-        val crash = CrashJournal.read(application) ?: return null
-        val draft = createDraft(crash, autonomousDevelopmentEnabled = enabled) ?: return null
-        val outcome = DevelopmentRequestOutbox(application.filesDir).enqueue(draft)
-        when (outcome) {
-            is EnqueueOutcome.Enqueued, is EnqueueOutcome.Duplicate ->
-                DevelopmentRequestOutboxScheduler.ensureScheduled(application)
-            is EnqueueOutcome.Rejected -> Unit
+        // authorization boundary for sending bounded diagnostics to the repo.
+        if (!com.jarvis.app.github.FridayEvolutionScheduler.isEnabled(application)) return null
+        val crashes = CrashJournal.readAll(application)
+        if (crashes.isEmpty()) return null
+
+        var firstOutcome: EnqueueOutcome? = null
+        var hasAcknowledgedWork = false
+        crashes.forEach { crash ->
+            val draft = createDraft(crash, autonomousDevelopmentEnabled = true) ?: return@forEach
+            val outcome = DevelopmentRequestOutbox(application.filesDir).enqueue(draft)
+            if (firstOutcome == null) firstOutcome = outcome
+            when (outcome) {
+                is EnqueueOutcome.Enqueued, is EnqueueOutcome.Duplicate -> {
+                    // Only delete the local journal after the durable outbox
+                    // confirms the request is safely stored or already known.
+                    CrashJournal.acknowledge(application, crash)
+                    hasAcknowledgedWork = true
+                }
+                is EnqueueOutcome.Rejected -> Unit // preserve evidence for diagnosis
+            }
         }
-        return outcome
+        if (hasAcknowledgedWork) DevelopmentRequestOutboxScheduler.ensureScheduled(application)
+        return firstOutcome
     }
 
     private fun safe(raw: String): String {
