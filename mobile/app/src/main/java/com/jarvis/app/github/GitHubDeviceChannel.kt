@@ -62,7 +62,7 @@ internal fun collectNewDeviceChannelComments(
 
 class GitHubDeviceChannel(context: Context) {
     private val app = context.applicationContext
-    private val tokenStore = GitHubTokenStore(app)
+    private val tokenStore = GitHubDeviceChannelTokenStore(app)
     private val prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
     private val http = OkHttpClient.Builder()
         .connectTimeout(12, TimeUnit.SECONDS)

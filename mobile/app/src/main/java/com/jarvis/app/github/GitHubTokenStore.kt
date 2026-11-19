@@ -14,8 +14,12 @@ import javax.crypto.spec.GCMParameterSpec
  * Stores a fine-grained GitHub token encrypted with a non-exportable Android
  * Keystore key. Only the ciphertext and IV are written to SharedPreferences.
  */
-class GitHubTokenStore(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+class GitHubTokenStore(
+    context: Context,
+    private val prefsName: String = DEFAULT_PREFS,
+    private val keyAlias: String = DEFAULT_KEY_ALIAS
+) {
+    private val prefs = context.applicationContext.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
 
     @Synchronized
     fun save(token: String) {
@@ -52,7 +56,7 @@ class GitHubTokenStore(context: Context) {
     fun clear() {
         prefs.edit().clear().apply()
         runCatching {
-            KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }.deleteEntry(KEY_ALIAS)
+            KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }.deleteEntry(keyAlias)
         }
     }
 
@@ -62,7 +66,7 @@ class GitHubTokenStore(context: Context) {
         val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE)
         generator.init(
             KeyGenParameterSpec.Builder(
-                KEY_ALIAS,
+                keyAlias,
                 KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
             )
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
@@ -75,10 +79,28 @@ class GitHubTokenStore(context: Context) {
 
     companion object {
         private const val ANDROID_KEYSTORE = "AndroidKeyStore"
-        private const val KEY_ALIAS = "friday.github.bridge.token"
+        private const val DEFAULT_KEY_ALIAS = "friday.github.bridge.token"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
-        private const val PREFS = "friday_github_secure"
+        private const val DEFAULT_PREFS = "friday_github_secure"
         private const val CIPHERTEXT = "token_ciphertext"
         private const val IV = "token_iv"
     }
+}
+
+
+/**
+ * Separate least-privilege credential for the phone observer. It is isolated
+ * from the Actions/PR credential used by repository development workflows.
+ */
+class GitHubDeviceChannelTokenStore(context: Context) {
+    private val delegate = GitHubTokenStore(
+        context = context,
+        prefsName = "friday_github_device_channel_secure",
+        keyAlias = "friday.github.device.channel.token"
+    )
+
+    fun save(token: String) = delegate.save(token)
+    fun read(): String? = delegate.read()
+    fun isConfigured(): Boolean = delegate.isConfigured()
+    fun clear() = delegate.clear()
 }

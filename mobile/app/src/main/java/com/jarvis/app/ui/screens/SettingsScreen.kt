@@ -92,6 +92,9 @@ fun SettingsScreen() {
     var githubConnected by remember { mutableStateOf(githubTokenStore.isConfigured()) }
     var githubBusy by remember { mutableStateOf(false) }
     var githubStatus by remember { mutableStateOf(if (githubConnected) "GitHub token stored securely." else "Not connected.") }
+    val githubDeviceChannelTokenStore = remember { com.jarvis.app.github.GitHubDeviceChannelTokenStore(context) }
+    var githubDeviceChannelToken by remember { mutableStateOf("") }
+    var githubDeviceChannelTokenConfigured by remember { mutableStateOf(githubDeviceChannelTokenStore.isConfigured()) }
     val githubDeviceChannel = remember { com.jarvis.app.github.GitHubDeviceChannel(context) }
     var githubChannelConnected by remember { mutableStateOf(githubDeviceChannel.isConnected()) }
     var githubChannelStatus by remember { mutableStateOf(if (githubChannelConnected) githubDeviceChannel.issueUrl().orEmpty() else "Phone channel stopped.") }
@@ -257,7 +260,7 @@ fun SettingsScreen() {
 
         SectionLabel("GITHUB DEVELOPMENT LINK")
         Text(
-            text = "Connect Friday to her public GitHub repository. A fine-grained token is encrypted with Android Keystore. Grant only Actions: Read and write, Pull requests: Read, and Issues: Read and write for the Friday repository. Do NOT grant Contents: Write.",
+            text = "Connect Friday's development workflow to the public repository. This credential is encrypted with Android Keystore. Grant only Actions: Read and write and Pull requests: Read for the Friday repository. Do NOT grant Contents: Write. Phone diagnostics use a separate Issues-only token below.",
             style = JarvisType.Label,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -283,17 +286,8 @@ fun SettingsScreen() {
                             runCatching {
                                 com.jarvis.app.github.DevelopmentRequestOutboxScheduler.ensureScheduled(context, appendIfActive = true)
                             }
-                            runCatching {
-                                com.jarvis.app.github.FridayEvolutionScheduler.enable(context)
-                            }
-                                .onSuccess {
-                                    autonomousEvolution = true
-                                    githubStatus = "GitHub token saved securely. Friday's autonomous development is enabled and the first cycle is queued."
-                                }
-                                .onFailure {
-                                    autonomousEvolution = com.jarvis.app.github.FridayEvolutionScheduler.isEnabled(context)
-                                    githubStatus = "GitHub token saved securely, but the first development cycle could not be scheduled: ${it.message ?: "unknown error"}"
-                                }
+                            autonomousEvolution = com.jarvis.app.github.FridayEvolutionScheduler.isEnabled(context)
+                            githubStatus = "Development token saved securely. Autonomous development remains unchanged; enable it separately below."
                         }
                         .onFailure { githubStatus = it.message ?: "Could not save GitHub token." }
                 },
@@ -301,15 +295,12 @@ fun SettingsScreen() {
             ) { Text("Save GitHub token") }
             TextButton(onClick = {
                 githubScope.launch {
-                    runCatching { githubDeviceChannel.disconnect() }
-                    com.jarvis.app.github.GitHubDeviceChannelScheduler.disable(context)
                     com.jarvis.app.github.FridayEvolutionScheduler.disable(context)
                     autonomousEvolution = false
                     githubTokenStore.clear()
                     githubConnected = false
-                    githubChannelConnected = false
                     githubToken = ""
-                    githubStatus = "GitHub token removed and phone polling stopped."
+                    githubStatus = "Development connection removed. The separate phone-diagnostics connection is unchanged."
                 }
             }) { Text("Disconnect") }
         }
@@ -378,7 +369,7 @@ fun SettingsScreen() {
 
         SectionLabel("AUTONOMOUS DEVELOPMENT")
         Text(
-            text = "Saving a valid GitHub token starts this automatically: Friday queues her first development cycle and then checks in about every 12 hours. She asks the repository builder to inspect her vision and implementation, make one evidence-backed improvement, test it and open a draft proposal. When this switch is on, a previous-process crash is also sent to the public repository as a bounded exception-type and stack trace report so the Builder can diagnose it. Exception message text, conversations, screen contents and files are not uploaded. Pausing this switch stops crash uploads even while the GitHub token remains stored. Existing open proposals block duplicate cycles. GitHub Actions is extra compute, not Friday's identity; aggregate device evidence remains a separate opt-in.",
+            text = "Only when you explicitly enable this switch, Friday queues her first development cycle and then checks in about every 12 hours. She asks the repository builder to inspect her vision and implementation, make one evidence-backed improvement, test it and open a draft proposal. When this switch is on, a previous-process crash is also sent to the public repository as a bounded exception-type and stack trace report so the Builder can diagnose it. Exception message text, conversations, screen contents and files are not uploaded. Pausing this switch stops crash uploads even while the GitHub token remains stored. Existing open proposals block duplicate cycles. GitHub Actions is extra compute, not Friday's identity; aggregate device evidence remains a separate opt-in.",
             style = JarvisType.Label,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -444,13 +435,52 @@ fun SettingsScreen() {
 
         SectionLabel("LIVE PHONE DIAGNOSTICS CHANNEL")
         Text(
+            text = "This uses a separate fine-grained token encrypted with Android Keystore. Grant only Issues: Read and write for the Friday repository (GitHub also requires Metadata: Read). Do not grant Actions, Contents, Pull requests, or access to other repositories. This credential cannot dispatch builds or modify source.",
+            style = JarvisType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        OutlinedTextField(
+            value = githubDeviceChannelToken,
+            onValueChange = { githubDeviceChannelToken = it },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("github_pat_… (Issues only)", style = JarvisType.Body) },
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Button(
+                onClick = {
+                    runCatching { githubDeviceChannelTokenStore.save(githubDeviceChannelToken) }
+                        .onSuccess {
+                            githubDeviceChannelToken = ""
+                            githubDeviceChannelTokenConfigured = true
+                            githubChannelStatus = "Observer-only credential saved securely."
+                        }
+                        .onFailure { githubChannelStatus = it.message ?: "Could not save observer credential." }
+                },
+                enabled = githubDeviceChannelToken.isNotBlank()
+            ) { Text("Save observer token") }
+            if (githubDeviceChannelTokenConfigured) {
+                TextButton(onClick = {
+                    githubScope.launch {
+                        runCatching { githubDeviceChannel.disconnect() }
+                        com.jarvis.app.github.GitHubDeviceChannelScheduler.disable(context)
+                        githubDeviceChannelTokenStore.clear()
+                        githubDeviceChannelTokenConfigured = false
+                        githubChannelConnected = false
+                        githubChannelStatus = "Observer credential removed; phone polling stopped."
+                    }
+                }) { Text("Remove token") }
+            }
+        }
+        Text(
             text = "Friday can keep a phone-initiated connection to this repository using WorkManager. It checks GitHub about every 15 minutes when Android permits background work. The only remote command accepted is diagnostics.snapshot, and only comments written by the repository owner are considered.",
             style = JarvisType.Label,
             modifier = Modifier.padding(bottom = 8.dp)
         )
         Button(
             onClick = { showDeviceChannelConsent = true },
-            enabled = githubConnected && !githubBusy && !githubChannelConnected,
+            enabled = githubDeviceChannelTokenConfigured && !githubBusy && !githubChannelConnected,
             modifier = Modifier.fillMaxWidth()
         ) { Text("Connect phone to GitHub") }
         Row(verticalAlignment = Alignment.CenterVertically) {

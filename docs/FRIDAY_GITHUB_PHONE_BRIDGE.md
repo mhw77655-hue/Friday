@@ -22,7 +22,7 @@ Friday's Android Settings can connect directly to the public `mhw77655-hue/Frida
 - CI failures on pull-request branches do not automatically launch a worker, avoiding untrusted PR code triggering privileged publication.
 
 ### Phone-initiated diagnostic command channel
-- The owner explicitly connects the phone from Settings.
+- The owner explicitly connects the phone from Settings using a dedicated fine-grained token with Issues: Read and write and Metadata: Read only. This token is separate from the development-workflow token and cannot dispatch builds or access repository contents.
 - Friday creates a public GitHub issue as an auditable command queue.
 - WorkManager polls the issue when Android permits background work, with a 15-minute periodic interval; foreground manual polling is also available.
 - Only comments authored by the repository owner are considered.
@@ -33,19 +33,15 @@ Friday's Android Settings can connect directly to the public `mhw77655-hue/Frida
 
 ## Setup required after the workflow is merged to main
 
-1. Create a GitHub fine-grained personal access token for repository `Friday` only.
-2. Grant only:
-   - Actions: Read and write
-   - Pull requests: Read
-   - Issues: Read and write
-   - Metadata: Read (GitHub's required repository metadata permission)
-3. Do not grant Contents: Write, Administration, Workflows write beyond the Actions permission, or access to other repositories.
-4. In Friday Settings, paste the `github_pat_` token and save it. The app stores it encrypted with Android Keystore.
-5. Use "Connect phone to GitHub" to create the device channel and enable periodic polling.
-6. Use "Run Friday self-maintenance" to send a device snapshot and request one evidence-supported repair proposal.
-7. Use "Check latest repair proposal" to retrieve the draft PR link.
+1. Create two GitHub fine-grained personal access tokens, each scoped to repository `Friday` only.
+2. **Development token** (used only for repository workflows): Actions: Read and write; Pull requests: Read; Metadata: Read. Do not grant Contents: Write or Administration.
+3. **Observer token** (used only by the phone diagnostics channel): Issues: Read and write; Metadata: Read. Do not grant Actions, Contents, Pull requests, or access to other repositories.
+4. In Friday Settings, save the development token in the GitHub Development Link section and the observer token in Live Phone Diagnostics Channel. Each is encrypted under a separate Android Keystore key and stored independently.
+5. Use `Connect phone to GitHub` to create the device channel and enable periodic polling.
+6. Autonomous development remains off until its separate switch is explicitly enabled. Saving either credential does not enable it.
+7. Use `Run Friday self-maintenance` to send a device snapshot and request one evidence-supported repair proposal, or `Check latest repair proposal` to retrieve the draft PR link.
 
-The token is not embedded in the APK. The user can revoke it from GitHub at any time or remove it in Friday Settings.
+Neither token is embedded in the APK. The user can revoke each token from GitHub at any time or remove it independently in Friday Settings.
 
 ## Owner command protocol
 
