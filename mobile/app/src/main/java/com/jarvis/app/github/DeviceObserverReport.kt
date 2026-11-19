@@ -12,23 +12,25 @@ import org.json.JSONObject
  * code without exporting the message or arbitrary process state.
  */
 internal object DeviceObserverReport {
-    fun crashSummary(records: List<JSONObject>, maxRecords: Int = 5): JSONArray {
+    const val MAX_RECORDS = 4
+
+    fun crashSummary(records: List<JSONObject>, maxRecords: Int = MAX_RECORDS): JSONArray {
         require(maxRecords in 1..20) { "Crash summary limit must be between 1 and 20." }
         return JSONArray().apply {
             records.takeLast(maxRecords).forEach { record ->
                 val chain = record.optJSONArray("exception_chain") ?: JSONArray()
                 val safeChain = JSONArray()
-                for (index in 0 until minOf(chain.length(), 6)) {
+                for (index in 0 until minOf(chain.length(), 4)) {
                     val item = chain.optJSONObject(index) ?: continue
                     val frames = item.optJSONArray("frames") ?: JSONArray()
                     val safeFrames = JSONArray()
-                    for (frameIndex in 0 until minOf(frames.length(), 8)) {
+                    for (frameIndex in 0 until minOf(frames.length(), 5)) {
                         val frame = frames.optJSONObject(frameIndex) ?: continue
                         safeFrames.put(
                             JSONObject()
-                                .put("class", frame.optString("class").take(160))
-                                .put("method", frame.optString("method").take(120))
-                                .put("file", frame.optString("file").take(120))
+                                .put("class", frame.optString("class").take(100))
+                                .put("method", frame.optString("method").take(80))
+                                .put("file", frame.optString("file").take(80))
                                 .put("line", frame.optInt("line", -1))
                         )
                     }

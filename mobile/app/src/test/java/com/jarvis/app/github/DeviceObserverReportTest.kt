@@ -59,8 +59,8 @@ class DeviceObserverReportTest {
 
         val result = DeviceObserverReport.crashSummary(records)
 
-        assertEquals(5, result.length())
-        assertEquals("2026-11-19T20:00:04Z", result.getJSONObject(0).getString("at_utc"))
-        assertEquals("2026-11-19T20:00:08Z", result.getJSONObject(4).getString("at_utc"))
+        assertEquals(4, result.length())
+        assertEquals("2026-11-19T20:00:05Z", result.getJSONObject(0).getString("at_utc"))
+        assertEquals("2026-11-19T20:00:08Z", result.getJSONObject(3).getString("at_utc"))
     }
 }

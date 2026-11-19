@@ -233,6 +233,7 @@ class GitHubDeviceChannel(context: Context) {
         val manager = com.jarvis.app.JarvisEngine.modelManager
         val provider = runCatching { manager?.activeProvider?.value }.getOrNull()
         val health = runCatching { manager?.providerHealth?.value }.getOrNull()
+        val crashRecords = (app as? Application)?.let(CrashJournal::readAll).orEmpty()
         val model = JSONObject()
             .put("provider", provider?.providerType?.name ?: "unavailable")
             .put("loaded", health?.modelLoaded ?: false)
@@ -246,7 +247,9 @@ class GitHubDeviceChannel(context: Context) {
             .put("device", device)
             .put("runtime", runtime)
             .put("model", model)
-            .put("recent_crashes", DeviceObserverReport.crashSummary((app as? Application)?.let(CrashJournal::readAll).orEmpty()))
+            .put("crash_record_count", crashRecords.size)
+            .put("crash_history_truncated", crashRecords.size > DeviceObserverReport.MAX_RECORDS)
+            .put("recent_crashes", DeviceObserverReport.crashSummary(crashRecords))
             .toString()
     }
 
