@@ -92,13 +92,13 @@ class BuildWorkflowContractTests(unittest.TestCase):
     def test_failure_report_runs_for_failed_skipped_or_cancelled_required_jobs(self):
         reporter = self.workflow.split("  report-failure:", 1)[1]
         self.assertIn("if: ${{ always() && !cancelled() &&", reporter)
-        self.assertIn("superseded", self.workflow.lower())
+        self.assertIn("supersede", self.workflow.lower())
         for job in ("debug-apk", "android-emulator", "full-source-audit"):
             self.assertIn(f"needs.{job}.result != 'success'", reporter)
-        self.assertIn("A skipped or cancelled lane is not a pass", reporter)
-        self.assertIn("DEBUG_JOB_RESULT", reporter)
-        self.assertIn("EMULATOR_JOB_RESULT", reporter)
-        self.assertIn("SOURCE_AUDIT_JOB_RESULT", reporter)
+        self.assertIn("a skipped or cancelled lane is not a pass", reporter.lower())
+        self.assertIn("debug_job_result", reporter)
+        self.assertIn("emulator_job_result", reporter)
+        self.assertIn("source_audit_job_result", reporter)
 
     def test_rea_contract_covers_methods_without_bytecode(self):
         source = (ROOT / "mobile" / "app" / "src" / "main" / "java" / "com" / "jarvis" / "app" / "rea" / "DexStructureInspector.kt").read_text(encoding="utf-8")
