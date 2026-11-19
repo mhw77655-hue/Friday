@@ -1,6 +1,10 @@
 package com.jarvis.app.symbiosis
 
 import java.io.File
+import java.io.FileOutputStream
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import java.util.Properties
 import kotlin.math.max
 import kotlin.math.min
@@ -399,11 +403,41 @@ class LiquidSymbiosisEngine(private val persistenceFile: File? = null) {
                 p.setProperty(prefix + "memory", value.memoryPeakMb.toString())
                 p.setProperty(prefix + "reward", value.rewardEma.toString())
             }
-            val temp = File(file.parentFile, file.name + ".tmp")
-            temp.outputStream().use { p.store(it, "Friday Nano Liquid Symbiosis state") }
-            if (file.exists()) file.delete()
-            temp.renameTo(file)
+            atomicWriteProperties(file, p, "Friday Nano Liquid Symbiosis state")
             lastPersistAtMs = now
         }
+    }
+}
+
+
+/**
+ * Crash-safe replacement for small private state snapshots.
+ *
+ * The old implementation deleted the last known-good snapshot before renaming
+ * the temporary file. A process death or rename failure in that gap destroyed
+ * the only durable copy. Write and sync a sibling temporary file, then replace
+ * the destination atomically where the filesystem supports it.
+ */
+internal fun atomicWriteProperties(destination: File, properties: Properties, comment: String) {
+    val parent = requireNotNull(destination.parentFile) { "State file must have a parent directory" }
+    check(parent.isDirectory || parent.mkdirs()) { "Could not create state directory" }
+    val temporary = File(parent, destination.name + ".tmp")
+    try {
+        FileOutputStream(temporary).use { output ->
+            properties.store(output, comment)
+            output.fd.sync()
+        }
+        try {
+            Files.move(
+                temporary.toPath(),
+                destination.toPath(),
+                StandardCopyOption.ATOMIC_MOVE,
+                StandardCopyOption.REPLACE_EXISTING
+            )
+        } catch (_: AtomicMoveNotSupportedException) {
+            Files.move(temporary.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        }
+    } finally {
+        if (temporary.exists()) temporary.delete()
     }
 }
