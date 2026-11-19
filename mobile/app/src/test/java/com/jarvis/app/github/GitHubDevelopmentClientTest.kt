@@ -47,6 +47,20 @@ class GitHubDevelopmentClientTest {
     }
 
     @Test
+    fun `only transient GitHub statuses are retried`() {
+        assertTrue(isRetryableGitHubStatus(408))
+        assertTrue(isRetryableGitHubStatus(425))
+        assertTrue(isRetryableGitHubStatus(429))
+        assertTrue(isRetryableGitHubStatus(500))
+        assertTrue(isRetryableGitHubStatus(503))
+        assertFalse(isRetryableGitHubStatus(400))
+        assertFalse(isRetryableGitHubStatus(401))
+        assertFalse(isRetryableGitHubStatus(403))
+        assertFalse(isRetryableGitHubStatus(404))
+        assertFalse(isRetryableGitHubStatus(422))
+    }
+
+    @Test
     fun `open proposal blocks first cycle without local history`() {
         assertFalse(shouldDispatchAutonomousCycle(
             hasOpenProposal = true,
