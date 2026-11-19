@@ -8,6 +8,7 @@ import android.util.AtomicFile
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.security.MessageDigest
 import java.time.Instant
 import kotlin.system.exitProcess
 
