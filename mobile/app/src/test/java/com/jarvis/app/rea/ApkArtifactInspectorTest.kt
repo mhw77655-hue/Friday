@@ -60,6 +60,15 @@ class ApkArtifactInspectorTest {
         assertNotNull(recipe)
         assertEquals(FridayIntegrationKind.CAPABILITY_ADAPTER, recipe?.integrationKind)
     }
+    @Test fun methodsWithoutBytecodeAreIgnoredWithoutFailingInspection() {
+        assertNull(
+            DexStructureInspector.extractMethodEvidence(
+                "Lexample/AbstractAdapter;->convert(Ljava/lang/String;)Ljava/lang/String;",
+                null
+            )
+        )
+    }
+
     @Test fun dexMethodEvidenceSerializesCallsOpcodesAndLiterals() {
         val evidence = DexMethodEvidence(
             signature = "Lexample/Adapter;->convert(Ljava/lang/String;)Ljava/lang/String;",
