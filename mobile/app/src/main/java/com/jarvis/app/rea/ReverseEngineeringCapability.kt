@@ -44,11 +44,19 @@ class ReverseEngineeringCapability(
             "false", null, "" -> false
             else -> return failure("REA_BUILD_FLAG_INVALID", "Capability build flag must be explicitly true or false.")
         }
+        val submitCloudProposal = when (request.context["submit_cloud_proposal"]?.trim()?.lowercase()) {
+            "true" -> true
+            "false", null, "" -> false
+            else -> return failure("REA_CLOUD_SUBMIT_FLAG_INVALID", "Cloud proposal flag must be explicitly true or false.")
+        }
+        if (submitCloudProposal && !allowCloud) {
+            return failure("REA_CLOUD_SUBMIT_REQUIRES_RECIPE", "Cloud proposal submission requires an AI-reviewed recipe.")
+        }
         if (buildCapability && !allowCloud) {
             return failure("REA_BUILD_REQUIRES_RECIPE", "Building requires an AI-reviewed compatibility recipe.")
         }
         return try {
-            val result = agent.analyzeInstalledPackage(packageName, allowCloud, buildCapability)
+            val result = agent.analyzeInstalledPackage(packageName, allowCloud, buildCapability, submitCloudProposal)
             val reports = JSONArray(result.reports.map { it.toJson() })
             val output = JSONObject()
                 .put("packageName", result.packageName)
@@ -58,6 +66,10 @@ class ReverseEngineeringCapability(
                 .put("buildStatus", result.buildStatus ?: JSONObject.NULL)
                 .put("buildMessage", result.buildMessage ?: JSONObject.NULL)
                 .put("builtCapabilityId", result.builtCapabilityId ?: JSONObject.NULL)
+                .put("cloudProposalAccepted", result.cloudProposalAccepted)
+                .put("cloudProposalRequestId", result.cloudProposalRequestId ?: JSONObject.NULL)
+                .put("cloudProposalUrl", result.cloudProposalUrl ?: JSONObject.NULL)
+                .put("cloudProposalMessage", result.cloudProposalMessage ?: JSONObject.NULL)
                 .put("warnings", JSONArray(result.warnings))
             ExecutionResult.ok(
                 output = mapOf("rea_result_json" to output.toString()),
