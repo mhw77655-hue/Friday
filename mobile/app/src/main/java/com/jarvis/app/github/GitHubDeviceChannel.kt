@@ -1,5 +1,6 @@
 package com.jarvis.app.github
 
+import android.app.Application
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -245,7 +246,7 @@ class GitHubDeviceChannel(context: Context) {
             .put("device", device)
             .put("runtime", runtime)
             .put("model", model)
-            .put("recent_crashes", DeviceObserverReport.crashSummary(CrashJournal.readAll(app)))
+            .put("recent_crashes", DeviceObserverReport.crashSummary((app as? Application)?.let(CrashJournal::readAll).orEmpty()))
             .toString()
     }
 
