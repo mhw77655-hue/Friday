@@ -43,7 +43,9 @@ class JarvisApplication : Application() {
         // process owns Friday's cognitive composition root and lifecycle.
         // Secondary capability habitats construct only their own organs.
         if (currentProcessName() != packageName) return
-        // Initialize the Shizuku-Next API bridge before any device capability is requested.\n        runCatching { ShizukuBridge.init() }\n        JarvisEngine.init(this)
+        // Initialize the Shizuku-Next API bridge before any device capability is requested.
+        runCatching { ShizukuBridge.init() }
+        JarvisEngine.init(this)
         // Recover any development request that was queued before process death.
         // A damaged outbox must never prevent Friday from starting.
         runCatching {
