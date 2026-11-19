@@ -21,6 +21,20 @@ class CrashJournalTest {
     }
 
     @Test
+    fun `each Android process receives a separate crash journal filename`() {
+        val main = CrashJournal.fileNameFor("com.jarvis.app")
+        val voice = CrashJournal.fileNameFor("com.jarvis.app:voice")
+        val inference = CrashJournal.fileNameFor("com.jarvis.app:inference")
+
+        assertTrue(main != voice)
+        assertTrue(main != inference)
+        assertTrue(voice != inference)
+        assertTrue(voice.startsWith("last-crash-"))
+        assertTrue(voice.endsWith(".json"))
+        assertTrue(!voice.contains(":"))
+    }
+
+    @Test
     fun `crash record preserves cause chain in order`() {
         val failure = IllegalStateException("outer", IllegalArgumentException("inner"))
         val chain = CrashJournal.createRecord("main", failure).getJSONArray("exception_chain")
