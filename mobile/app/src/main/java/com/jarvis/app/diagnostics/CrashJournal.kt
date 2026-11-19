@@ -15,7 +15,7 @@ import kotlin.system.exitProcess
  * speech, screen contents, local variables, or arbitrary process memory.
  */
 object CrashJournal {
-    private const val FILE_NAME = "last-crash.json"
+    private const val FILE_PREFIX = "last-crash-"
     @Volatile private var installed = false
 
     fun install(application: Application) {
@@ -35,10 +35,33 @@ object CrashJournal {
         }
     }
 
-    fun read(application: Application): JSONObject? = runCatching {
-        val atomic = AtomicFile(fileFor(application))
-        atomic.openRead().bufferedReader(Charsets.UTF_8).use { JSONObject(it.readText()) }
-    }.getOrNull()
+    /** Read every process-specific crash record; secondary Android processes must not overwrite main. */
+    fun readAll(application: Application): List<JSONObject> {
+        val directory = diagnosticsDirectory(application)
+        val files = directory.listFiles()?.filter { file ->
+            file.isFile && file.name.startsWith(FILE_PREFIX) && file.name.endsWith(".json")
+        }.orEmpty()
+        return files.mapNotNull { file ->
+            runCatching {
+                AtomicFile(file).openRead().bufferedReader(Charsets.UTF_8).use { JSONObject(it.readText()) }
+            }.getOrNull()
+        }.sortedBy { it.optString("at_utc") }
+    }
+
+    /** Backwards-compatible newest-record accessor. */
+    fun read(application: Application): JSONObject? = readAll(application).lastOrNull()
+
+    /** Remove only the acknowledged process record after it is safely in the outbox. */
+    fun acknowledge(application: Application, record: JSONObject): Boolean {
+        val process = record.optString("process", "unknown")
+        return runCatching { fileFor(application, process).delete() }.getOrDefault(false)
+    }
+
+    internal fun fileNameFor(processName: String): String {
+        val safe = processName.map { if (it.isLetterOrDigit() || it == '.' || it == '_' || it == '-') it else '_' }
+            .joinToString("").take(100).ifBlank { "unknown" }
+        return "$FILE_PREFIX$safe.json"
+    }
 
     internal fun createRecord(
         threadName: String,
@@ -86,10 +109,11 @@ object CrashJournal {
         }
     }
 
-    private fun fileFor(application: Application): File =
-        File(File(application.filesDir, "diagnostics"), FILE_NAME).apply {
-            parentFile?.mkdirs()
-        }
+    private fun diagnosticsDirectory(application: Application): File =
+        File(application.filesDir, "diagnostics").apply { mkdirs() }
+
+    private fun fileFor(application: Application, processName: String): File =
+        File(diagnosticsDirectory(application), fileNameFor(processName))
 
     private fun redact(value: String): String {
         val assignments = Regex(
