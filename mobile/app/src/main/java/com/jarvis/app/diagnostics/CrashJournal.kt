@@ -39,7 +39,7 @@ object CrashJournal {
     fun readAll(application: Application): List<JSONObject> {
         val directory = diagnosticsDirectory(application)
         val files = directory.listFiles()?.filter { file ->
-            file.isFile && file.name.startsWith(FILE_PREFIX) && file.name.endsWith(".json")
+            file.isFile && ((file.name.startsWith(FILE_PREFIX) && file.name.endsWith(".json")) || file.name == "last-crash.json")
         }.orEmpty()
         return files.mapNotNull { file ->
             runCatching {
@@ -54,7 +54,9 @@ object CrashJournal {
     /** Remove only the acknowledged process record after it is safely in the outbox. */
     fun acknowledge(application: Application, record: JSONObject): Boolean {
         val process = record.optString("process", "unknown")
-        return runCatching { fileFor(application, process).delete() }.getOrDefault(false)
+        val current = runCatching { fileFor(application, process).delete() }.getOrDefault(false)
+        val legacy = runCatching { File(diagnosticsDirectory(application), "last-crash.json").delete() }.getOrDefault(false)
+        return current || legacy
     }
 
     internal fun fileNameFor(processName: String): String {
