@@ -56,14 +56,14 @@ object CrashJournal {
     fun acknowledge(application: Application, record: JSONObject): Boolean {
         val process = record.optString("process", "unknown")
         val atUtc = record.optString("at_utc")
-        val eventFile = fileFor(application, process, atUtc)
+        val eventFile = fileFor(application, process, record.toString())
         if (eventFile.exists()) {
             // Never acknowledge a different/newer event that happens to share
             // the same process name.
             val stored = runCatching {
                 AtomicFile(eventFile).openRead().bufferedReader(Charsets.UTF_8).use { JSONObject(it.readText()) }
             }.getOrNull() ?: return false
-            if (stored.optString("at_utc") != atUtc || stored.optString("process") != process) return false
+            if (stored.toString() != record.toString()) return false
             return runCatching { AtomicFile(eventFile).delete(); true }.getOrDefault(false)
         }
         // Migration path for records written by earlier single-file builds.
@@ -80,11 +80,11 @@ object CrashJournal {
     }
 
     /** Unique durable filename per crash event, not merely per process. */
-    internal fun fileNameFor(processName: String, atUtc: String): String {
+    internal fun fileNameFor(processName: String, eventContent: String): String {
         val process = processName.map { if (it.isLetterOrDigit() || it == '.' || it == '_' || it == '-') it else '_' }
             .joinToString("").take(70).ifBlank { "unknown" }
         val event = MessageDigest.getInstance("SHA-256")
-            .digest(atUtc.toByteArray(Charsets.UTF_8))
+            .digest(eventContent.toByteArray(Charsets.UTF_8))
             .take(8).joinToString("") { "%02x".format(it) }
         return "$FILE_PREFIX$process-$event.json"
     }
@@ -123,7 +123,7 @@ object CrashJournal {
     private fun persist(application: Application, threadName: String, failure: Throwable) {
         val processName = currentProcessName(application)
         val record = createRecord(threadName, failure, processName = processName)
-        val atomic = AtomicFile(fileFor(application, processName, record.optString("at_utc")))
+        val atomic = AtomicFile(fileFor(application, processName, record.toString()))
         val stream = atomic.startWrite()
         try {
             stream.write(record.toString().toByteArray(Charsets.UTF_8))
@@ -155,8 +155,8 @@ object CrashJournal {
     private fun fileFor(application: Application, processName: String): File =
         File(diagnosticsDirectory(application), fileNameFor(processName))
 
-    private fun fileFor(application: Application, processName: String, atUtc: String): File =
-        File(diagnosticsDirectory(application), fileNameFor(processName, atUtc))
+    private fun fileFor(application: Application, processName: String, eventContent: String): File =
+        File(diagnosticsDirectory(application), fileNameFor(processName, eventContent))
 
     private fun redact(value: String): String {
         val assignments = Regex(
