@@ -631,6 +631,11 @@ fun SettingsScreen() {
             )
         }
         Text(text = shizukuStatus, style = JarvisType.Technical, modifier = Modifier.padding(vertical = 6.dp))
+        Text(
+            text = "For resilience, enable Shizuku-Next Start on boot and watchdog/automatic recovery in its own Settings. Friday reconnects its privileged UserService when the Shizuku binder returns; Android and device firmware can still prevent the server from starting.",
+            style = JarvisType.Technical,
+            modifier = Modifier.padding(bottom = 6.dp)
+        )
         Button(
             onClick = {
                 githubScope.launch {
