@@ -226,9 +226,22 @@ jobs:
   # This is a reproducible emulator baseline, not a bit-for-bit clone of the
   # owner's handset. No account data, credentials or personal app data enter it.
   android-emulator:
-    name: Disposable Android phone twin (instrumented)
+    name: Disposable Android phone twin (${{ matrix.profile }})
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Stable install/launch lane: isolates app regressions from emulator pressure.
+          - profile: stable
+            cores: 4
+            ram_mb: 4096
+          # Deliberately harsher than the owner's 8 GB handset; exercises adaptive
+          # admission and recovery under a 3 GB / 2-vCPU resource envelope.
+          - profile: constrained
+            cores: 2
+            ram_mb: 3072
     permissions:
       contents: read
     steps:
@@ -292,18 +305,18 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_2
-          cores: 4
-          ram-size: 4096M
+          cores: ${{ matrix.cores }}
+          ram-size: ${{ matrix.ram_mb }}M
           heap-size: 512M
           disable-animations: true
-          emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -camera-front none -gpu swiftshader_indirect -memory 4096 -cores 4 -no-snapshot -wipe-data -timezone Etc/UTC
+          emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -camera-front none -gpu swiftshader_indirect -memory ${{ matrix.ram_mb }} -cores ${{ matrix.cores }} -no-snapshot -wipe-data -timezone Etc/UTC
           script: bash tools/friday-builder/run_virtual_phone_tests.sh
 
       - name: Upload emulator evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: friday-virtual-phone-evidence
+          name: friday-virtual-phone-evidence-${{ matrix.profile }}
           path: |
             mobile/app/build/reports/androidTests/
             mobile/app/build/outputs/androidTest-results/
