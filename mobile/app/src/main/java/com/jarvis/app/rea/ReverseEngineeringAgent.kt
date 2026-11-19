@@ -82,10 +82,17 @@ class ReverseEngineeringAgent(
         if (buildCompatibleCapability) {
             val selectedRecipe = recipe ?: error("A valid AI-reviewed recipe is required before building.")
             val spec = FridayRecipeToolConverter.toToolSpecification(packageName, selectedRecipe)
-                ?: error("This recipe requires a repository-level Android/API integration; it cannot be safely compiled as an on-device pure capability.")
-            val builder = toolBuilderProvider() ?: error("Friday's Tool Builder is not ready.")
-            buildResult = builder.build(spec)
-            if (!buildResult.built) warnings += "Builder did not promote the capability: " + buildResult.status + " — " + buildResult.message
+            if (spec == null) {
+                warnings += "This recipe requires an Android/API host change; it must use the cloud repository Builder, not the restricted on-device synth runtime."
+            } else {
+                val builder = toolBuilderProvider()
+                if (builder == null) {
+                    warnings += "Friday's on-device Tool Builder is not ready."
+                } else {
+                    buildResult = builder.build(spec)
+                    if (!buildResult.built) warnings += "Builder did not promote the capability: " + buildResult.status + " — " + buildResult.message
+                }
+            }
         }
         var cloudProposal: FridayCloudProposalResult? = null
         if (submitCloudProposal) {
