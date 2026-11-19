@@ -1,5 +1,6 @@
 package com.jarvis.app
 
+import android.content.Context
 import android.content.pm.PackageManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,9 +18,12 @@ object ShizukuBridge {
     private val _isGranted = MutableStateFlow(false)
     val isGranted: StateFlow<Boolean> = _isGranted.asStateFlow()
 
+    @Volatile private var applicationContext: Context? = null
+
     private val binderReceivedListener = Shizuku.OnBinderReceivedListener {
         _isAvailable.value = true
         checkPermission()
+        if (_isGranted.value) applicationContext?.let(ScreenBridge::bind)
     }
 
     private val binderDeadListener = Shizuku.OnBinderDeadListener {
@@ -30,18 +34,21 @@ object ShizukuBridge {
 
     private val permissionResultListener = Shizuku.OnRequestPermissionResultListener { _, grantResult ->
         _isGranted.value = grantResult == PackageManager.PERMISSION_GRANTED
+        if (_isGranted.value) applicationContext?.let(ScreenBridge::bind)
     }
 
     @Volatile private var initialized = false
 
     @Synchronized
-    fun init() {
+    fun init(context: Context) {
         if (initialized) return
         initialized = true
+        applicationContext = context.applicationContext
         Shizuku.addBinderReceivedListenerSticky(binderReceivedListener)
         Shizuku.addBinderDeadListener(binderDeadListener)
         Shizuku.addRequestPermissionResultListener(permissionResultListener)
         refresh()
+        if (_isGranted.value) applicationContext?.let(ScreenBridge::bind)
     }
 
     private fun checkPermission() {
