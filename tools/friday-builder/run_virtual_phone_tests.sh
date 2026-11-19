@@ -64,6 +64,15 @@ if ! python3 tools/friday-builder/install_apk_with_retry.py mobile/app/build/out
   exit 22
 fi
 
+# The synthetic capsule deliberately begins with microphone access denied.
+# Instrumentation validates the denied baseline; the final foreground smoke test
+# grants the permission explicitly so Friday can leave Android's permission
+# controller and prove that the actual app activity remains resumed.
+if ! adb shell pm grant com.jarvis.app android.permission.RECORD_AUDIO; then
+  echo "FRIDAY_MIC_PERMISSION_SETUP_FAILED: could not grant the test-only voice permission." >&2
+  exit 29
+fi
+
 PACKAGE_PATH="$(adb shell pm path com.jarvis.app 2>&1 | tr -d '\r')"
 if [[ "$PACKAGE_PATH" != package:* ]]; then
   echo "FRIDAY_PACKAGE_MISSING: PackageManager cannot resolve com.jarvis.app after install." >&2
