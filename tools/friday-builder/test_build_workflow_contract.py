@@ -79,11 +79,9 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn("-memory ${{ matrix.ram_mb }} -cores ${{ matrix.cores }}", emulator)
         self.assertIn("friday-virtual-phone-evidence-${{ matrix.profile }}", emulator)
 
-    def test_actionlint_ignores_only_its_stale_concurrency_queue_schema_error(self):
-        self.assertIn("-ignore 'unexpected key", self.workflow)
-        self.assertIn('queue" for "concurrency" section', self.workflow)
-        self.assertIn("-color", self.workflow)
-        self.assertIn("actionlint's pinned schema predates GitHub's documented concurrency.queue key", self.workflow)
+    def test_actionlint_runs_without_schema_suppressions(self):
+        self.assertIn('"$(go env GOPATH)/bin/actionlint" -color', self.workflow)
+        self.assertNotIn("-ignore 'unexpected key", self.workflow)
 
     def test_newer_pr_commits_supersede_obsolete_validation_without_cancelling_main(self):
         concurrency = self.workflow.split("concurrency:", 1)[1].split("permissions:", 1)[0]
