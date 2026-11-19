@@ -1,7 +1,7 @@
 package com.jarvis.app.rea
 
-import org.jf.dexlib2.Opcodes
-import org.jf.dexlib2.dexbacked.DexBackedDexFile
+import com.android.tools.smali.dexlib2.Opcodes
+import com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile
 import java.io.BufferedInputStream
 import java.io.File
 import java.net.URI
