@@ -57,6 +57,7 @@ object ScreenBridge {
             _status.value = "bound"
             return
         }
+        if (_status.value == "binding...") return
         val args = Shizuku.UserServiceArgs(ComponentName(context, JarvisShellService::class.java))
             .daemon(true)
             .tag("friday-device-capability-core")
