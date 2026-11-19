@@ -1,6 +1,7 @@
 package com.jarvis.app.diagnostics
 
 import android.app.Application
+import android.app.ActivityManager
 import android.os.Process
 import android.os.Build
 import android.util.AtomicFile
@@ -98,7 +99,7 @@ object CrashJournal {
     }
 
     private fun persist(application: Application, threadName: String, failure: Throwable) {
-        val processName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) Application.getProcessName() else "unknown"
+        val processName = currentProcessName(application)
         val record = createRecord(threadName, failure, processName = processName)
         val atomic = AtomicFile(fileFor(application, processName))
         val stream = atomic.startWrite()
@@ -114,6 +115,20 @@ object CrashJournal {
 
     private fun diagnosticsDirectory(application: Application): File =
         File(application.filesDir, "diagnostics").apply { mkdirs() }
+
+    /** API 28+ official process name with a pre-28 /proc and ActivityManager fallback. */
+    private fun currentProcessName(application: Application): String {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            Application.getProcessName().takeIf { it.isNotBlank() }?.let { return it }
+        }
+        runCatching {
+            File("/proc/self/cmdline").readText().substringBefore('\u0000').trim()
+        }.getOrNull()?.takeIf { it.isNotBlank() }?.let { return it }
+        val manager = application.getSystemService(Application.ACTIVITY_SERVICE) as? ActivityManager
+        return manager?.runningAppProcesses
+            ?.firstOrNull { it.pid == Process.myPid() }?.processName
+            ?.takeIf { it.isNotBlank() } ?: application.packageName
+    }
 
     private fun fileFor(application: Application, processName: String): File =
         File(diagnosticsDirectory(application), fileNameFor(processName))
