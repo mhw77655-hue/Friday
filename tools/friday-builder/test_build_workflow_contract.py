@@ -65,6 +65,28 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn("-memory 4096 -cores 4", emulator)
         self.assertNotIn("-cores 2", emulator)
 
+    def test_concurrency_preserves_all_pending_validation_runs(self):
+        concurrency = self.workflow.split("concurrency:", 1)[1].split("permissions:", 1)[0]
+        self.assertIn("queue: max", concurrency)
+        self.assertIn("cancel-in-progress: false", concurrency)
+        self.assertNotIn("retains the newest pending run", concurrency)
+
+    def test_failure_report_runs_for_failed_skipped_or_cancelled_required_jobs(self):
+        reporter = self.workflow.split("  report-failure:", 1)[1]
+        self.assertIn("if: ${{ always() &&", reporter)
+        for job in ("debug-apk", "android-emulator", "full-source-audit"):
+            self.assertIn(f"needs.{job}.result != 'success'", reporter)
+        self.assertIn("A skipped or cancelled lane is not a pass", reporter)
+        self.assertIn("DEBUG_JOB_RESULT", reporter)
+        self.assertIn("EMULATOR_JOB_RESULT", reporter)
+        self.assertIn("SOURCE_AUDIT_JOB_RESULT", reporter)
+
+    def test_rea_contract_covers_methods_without_bytecode(self):
+        source = (ROOT / "mobile" / "app" / "src" / "main" / "java" / "com" / "jarvis" / "app" / "rea" / "DexStructureInspector.kt").read_text(encoding="utf-8")
+        self.assertIn("val body = implementation ?: return null", source)
+        self.assertIn("extractMethodEvidence(signature, method.implementation)", source)
+        self.assertNotIn("method.implementation.instructions", source)
+
     def test_candidate_branches_do_not_run_duplicate_push_and_pull_request_builds(self):
         push = self.workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
         self.assertIn("branches: [ main ]", push)
