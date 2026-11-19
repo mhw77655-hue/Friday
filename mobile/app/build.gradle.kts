@@ -139,6 +139,7 @@ kotlin {
 }
 
 dependencies {
+    implementation("org.smali:dexlib2:2.5.2")
     // Camera-based presence perception is optional at runtime but must compile.
     implementation("androidx.camera:camera-camera2:1.4.2")
     implementation("androidx.camera:camera-lifecycle:1.4.2")
