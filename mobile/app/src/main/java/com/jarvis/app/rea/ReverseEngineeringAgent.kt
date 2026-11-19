@@ -38,7 +38,8 @@ class ReverseEngineeringAgent(
             "APK extraction failed: " + extraction.optString("error", "unknown")
         }
 
-        val root = File(context.getExternalFilesDir(null), "rea/inbox/$packageName").canonicalFile
+        val externalRoot = requireNotNull(context.getExternalFilesDir(null)) { "App-specific external storage is unavailable" }
+        val root = File(externalRoot, "rea/inbox/$packageName").canonicalFile
         val files = extraction.getJSONArray("files")
         val reports = (0 until files.length()).map { index ->
             val item = files.getJSONObject(index)
