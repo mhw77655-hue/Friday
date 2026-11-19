@@ -53,6 +53,12 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn("FRIDAY_PROCESS_MISSING", script)
         self.assertNotIn("am start -n com.jarvis.app/.MainActivity || true", script)
 
+    def test_junit_gate_fails_on_skipped_tests_instead_of_reporting_partial_success(self):
+        summary = self.workflow.split("- name: Summarize test results", 1)[1].split("  # A disposable Android device", 1)[0]
+        self.assertIn("if s:", summary)
+        self.assertIn("validation must not silently skip tests", summary)
+        self.assertIn("if f or e:", summary)
+
     def test_workflow_dispatch_is_available_for_trusted_publisher(self):
         self.assertIn("workflow_dispatch:", self.workflow)
 
