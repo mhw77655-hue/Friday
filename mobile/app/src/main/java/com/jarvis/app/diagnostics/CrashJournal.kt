@@ -63,18 +63,21 @@ object CrashJournal {
     internal fun acknowledgeFrom(directory: File, record: JSONObject): Boolean {
         val process = record.optString("process", "unknown")
         val eventFile = File(directory, fileNameFor(process, record.toString()))
-        if (eventFile.exists()) {
-            val stored = runCatching {
-                AtomicFile(eventFile).openRead().bufferedReader(Charsets.UTF_8).use { JSONObject(it.readText()) }
-            }.getOrNull() ?: return false
-            if (stored.toString() != record.toString()) return false
-            return runCatching { AtomicFile(eventFile).delete(); true }.getOrDefault(false)
-        }
+        if (eventFile.exists()) return deleteIfExact(eventFile, record)
         // Migration paths for records written by earlier single-file builds.
         val legacyProcessFile = File(directory, fileNameFor(process))
-        if (legacyProcessFile.exists()) return runCatching { AtomicFile(legacyProcessFile).delete(); true }.getOrDefault(false)
+        if (legacyProcessFile.exists()) return deleteIfExact(legacyProcessFile, record)
         val legacyFile = File(directory, "last-crash.json")
-        return if (legacyFile.exists()) runCatching { AtomicFile(legacyFile).delete(); true }.getOrDefault(false) else false
+        return deleteIfExact(legacyFile, record)
+    }
+
+    private fun deleteIfExact(file: File, record: JSONObject): Boolean {
+        if (!file.exists()) return false
+        val stored = runCatching {
+            AtomicFile(file).openRead().bufferedReader(Charsets.UTF_8).use { JSONObject(it.readText()) }
+        }.getOrNull() ?: return false
+        if (stored.toString() != record.toString()) return false
+        return runCatching { AtomicFile(file).delete(); true }.getOrDefault(false)
     }
 
     /** Persist one immutable crash event with AtomicFile's backup/rename protocol. */
