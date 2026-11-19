@@ -143,7 +143,7 @@ class JarvisShellService : IJarvisShellService.Stub() {
     }.getOrElse { "unavailable: ${it.javaClass.simpleName}" }
 
     companion object {
-        private val PACKAGE_NAME = Regex("[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+")
+        private val PACKAGE_NAME = Regex("""[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+""")
         private val SAFE_APK_ROOTS = listOf("/data/app/", "/system/", "/system_ext/", "/product/", "/vendor/", "/apex/")
         private const val MAX_SPLIT_APKS = 24
         private const val MAX_APK_BYTES = 200L * 1024L * 1024L
