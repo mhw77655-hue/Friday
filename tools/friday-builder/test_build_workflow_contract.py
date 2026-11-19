@@ -85,11 +85,11 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn("-color", self.workflow)
         self.assertIn("actionlint's pinned schema predates GitHub's documented concurrency.queue key", self.workflow)
 
-    def test_concurrency_preserves_all_pending_validation_runs(self):
+    def test_newer_pr_commits_supersede_obsolete_validation_without_cancelling_main(self):
         concurrency = self.workflow.split("concurrency:", 1)[1].split("permissions:", 1)[0]
-        self.assertIn("queue: max", concurrency)
-        self.assertIn("cancel-in-progress: false", concurrency)
-        self.assertNotIn("retains the newest pending run", concurrency)
+        self.assertIn("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", concurrency)
+        self.assertIn("PR commits supersede older candidates", concurrency)
+        self.assertNotIn("queue: max", concurrency)
 
     def test_failure_report_runs_for_failed_skipped_or_cancelled_required_jobs(self):
         reporter = self.workflow.split("  report-failure:", 1)[1]
