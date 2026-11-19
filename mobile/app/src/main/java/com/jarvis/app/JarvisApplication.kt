@@ -57,7 +57,7 @@ class JarvisApplication : Application() {
         // Secondary capability habitats construct only their own organs.
         if (currentProcessName() != packageName) return
         // Initialize the Shizuku-Next API bridge before any device capability is requested.
-        runCatching { ShizukuBridge.init() }
+        runCatching { ShizukuBridge.init(this) }
         JarvisEngine.init(this)
         // Recover any development request that was queued before process death.
         // A damaged outbox must never prevent Friday from starting.
