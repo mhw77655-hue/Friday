@@ -173,7 +173,7 @@ dependencies {
     // platform org.json is only a stub under test, so the real org.json jar is
     // provided on the test classpath — standard practice, test-only.
     testImplementation("junit:junit:4.13.2")
-    testImplementation("org.json:json:20240303")
+    testImplementation("org.json:json:20260814")
 
     // Galaxy Memory Stage 02 unit tests run against pure-Kotlin zero-native
     // reference implementations (FakeMemoryGraphStore, KotlinVectorStore in
