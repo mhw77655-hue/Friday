@@ -52,7 +52,7 @@ class FridayRecipeCloudDispatcher(
             .put("source_revision", "main")
             .put("intended_outcome",
                 "Implement a Friday-compatible, independently validated integration derived from this reviewed recipe: " + recipe.title)
-            .put("evidence", JSONArray(evidence))
+            .put("evidence", JSONArray(evidence + listOf("FRIDAY_REA_COMPATIBILITY_RECIPE_JSON: " + recipe.toJson().toString())))
             .put("acceptance_criteria", JSONArray(listOf(
                 "Translate the recipe into Friday's existing capability and runtime interfaces; do not copy proprietary implementation code.",
                 "Add regression tests for the discovered behaviour and the Friday adapter.",
@@ -70,13 +70,12 @@ class FridayRecipeCloudDispatcher(
                 "Which observed behaviours can be independently verified from the supplied metadata?",
                 "Does this integration require Android host changes or can it remain a restricted runtime capability?"
             )))
-            .put("rea_recipe", recipe.toJson())
             .put("privacy_review", JSONObject()
-                .put("status", "owner_opted_in")
-                .put("binary_apk_uploaded", false)
-                .put("chat_history_included", false)
-                .put("provider_credentials_included", false)
-                .put("app_private_data_included", false))
+                .put("status", "approved")
+                .put("reviewed_by", "owner-enabled-rea-cloud-analysis")
+                .put("reviewed_at", now().toString())
+                .put("aggregate_runtime_evidence_enabled", false)
+                .put("aggregate_runtime_evidence_scope", "none"))
         val result = client.dispatch(id, request.toString())
         return FridayCloudProposalResult(
             accepted = result.accepted,
