@@ -25,7 +25,8 @@ class JarvisApplication : Application() {
             cloudAnalysisConsent = {
                 getSharedPreferences("friday_rea_settings", MODE_PRIVATE)
                     .getBoolean("owner_enabled_cloud_analysis", false)
-            }
+            },
+            toolBuilderProvider = { JarvisEngine.toolBuilderStack?.builder }
         )
     }
 
