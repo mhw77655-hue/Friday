@@ -28,7 +28,7 @@ Friday's Android Settings can connect directly to the public `mhw77655-hue/Frida
 - Only comments authored by the repository owner are considered.
 - Commands must include a unique ID, expiry timestamp, and an allowlisted action.
 - The only supported action is `diagnostics.snapshot`.
-- The phone returns a bounded technical health snapshot as a comment.
+- The phone returns a bounded technical snapshot as a comment: device compatibility, content-free runtime/development aggregates, selected model readiness, and recent crash exception types/stack locations. Exception messages and private memory/conversation content are excluded.
 - Stop channel closes the issue and cancels scheduled polling.
 
 ## Setup required after the workflow is merged to main
@@ -62,7 +62,7 @@ The expiration must be in the future and no more than 30 minutes away when Frida
 
 ## Important platform and privacy limits
 
-- The Friday repository is public. Workflow inputs, device-channel issue commands, and diagnostic replies are public to repository readers. The app explicitly warns before sending.
+- The Friday repository is public. Workflow inputs, device-channel issue commands, and diagnostic replies are public to repository readers. The app explicitly warns before sending. Reports include technical device/runtime metadata and bounded stack locations, but omit exception messages, private memories, prompts, transcripts and conversation content.
 - This is a periodic pull channel, not an always-on socket. Android WorkManager may defer jobs due to Doze, battery optimization, network constraints, or OEM policies. Android recommends WorkManager for deferrable background tasks; continuous foreground services require a visible notification and are subject to platform restrictions.
 - The phone can be diagnosed only while Friday is installed, paired, permitted to run, and able to reach GitHub.
 - The channel is intentionally read-only. It does not expose ADB, a shell, arbitrary files, screen contents, microphone/camera streams, contacts, notifications, location, or silent app actions.

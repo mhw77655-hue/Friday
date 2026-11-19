@@ -1,19 +1,14 @@
 package com.jarvis.app.github
 
-import android.app.ActivityManager
 import android.content.Context
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
-import android.os.BatteryManager
-import android.os.Build
-import android.os.PowerManager
-import android.os.StatFs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import com.jarvis.app.diagnostics.CrashJournal
+import com.jarvis.app.diagnostics.DeviceCompatibilitySnapshot
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
@@ -92,8 +87,9 @@ class GitHubDeviceChannel(context: Context) {
                     "This issue is a public command queue for the owner's Friday Android device. " +
                     "The phone polls periodically and accepts only owner-authored, expiring " +
                     "`diagnostics.snapshot` commands. Replies contain a bounded technical " +
-                    "health snapshot (device model, Android/API/app version, RAM/storage, " +
-                    "battery, thermal and network transport). No conversations, location, " +
+                    "snapshot (device compatibility, content-free runtime/development aggregates, " +
+                    "model readiness, and recent crash signatures; exception messages are omitted). " +
+                    "No conversations, private memories, location, " +
                     "contacts, notifications, microphone, camera, screen contents, files or " +
                     "unique device identifiers are transmitted. No shell, arbitrary file access, " +
                     "app-control or installation commands are supported.\n\n" +
@@ -224,29 +220,33 @@ class GitHubDeviceChannel(context: Context) {
     }
 
     private fun snapshot(): String {
-        val activity = app.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-        val memory = ActivityManager.MemoryInfo().also(activity::getMemoryInfo)
-        val stat = StatFs(app.filesDir.absolutePath)
-        val battery = app.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
-        val batteryPct = battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-        val power = app.getSystemService(Context.POWER_SERVICE) as PowerManager
-        val thermal = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) power.currentThermalStatus.toString() else "unavailable"
-        val connectivity = app.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val caps = connectivity.getNetworkCapabilities(connectivity.activeNetwork)
-        val network = when {
-            caps == null -> "offline"
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "cellular"
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ethernet"
-            else -> "other"
-        }
-        val version = runCatching { app.packageManager.getPackageInfo(app.packageName, 0).versionName ?: "unknown" }.getOrDefault("unknown")
-        val manufacturer = Build.MANUFACTURER.take(40).replace(Regex("[^A-Za-z0-9 ._-]"), "")
-        val model = Build.MODEL.take(50).replace(Regex("[^A-Za-z0-9 ._-]"), "")
-        return "device=$manufacturer $model; android_api=${Build.VERSION.SDK_INT}; app=$version; " +
-            "ram_free_mb=${memory.availMem / MB}; ram_total_mb=${memory.totalMem / MB}; " +
-            "app_storage_free_mb=${stat.availableBytes / MB}; app_storage_total_mb=${stat.totalBytes / MB}; " +
-            "battery=${batteryPct.takeIf { it in 0..100 } ?: -1}%; thermal_status=$thermal; network=$network"
+        // This is a passive read: it never starts a self-study run, executes a
+        // capability, reads private memory content, or exposes conversation data.
+        val device = DeviceCompatibilitySnapshot.cloudProjection(
+            DeviceCompatibilitySnapshot.capture(app)
+        )
+        val runtime = DevelopmentEvidenceCollector.collect(
+            runStudyIfMissing = false
+        ).toJson()
+
+        val manager = com.jarvis.app.JarvisEngine.modelManager
+        val provider = runCatching { manager?.activeProvider?.value }.getOrNull()
+        val health = runCatching { manager?.providerHealth?.value }.getOrNull()
+        val model = JSONObject()
+            .put("provider", provider?.providerType?.name ?: "unavailable")
+            .put("loaded", health?.modelLoaded ?: false)
+            .put("healthy", health?.isHealthy ?: false)
+            .put("model", health?.currentModel ?: JSONObject.NULL)
+            .put("latency_ms", health?.latencyMs ?: -1)
+
+        return JSONObject()
+            .put("schema", "friday-observer-snapshot-v1")
+            .put("captured_at_ms", System.currentTimeMillis())
+            .put("device", device)
+            .put("runtime", runtime)
+            .put("model", model)
+            .put("recent_crashes", DeviceObserverReport.crashSummary(CrashJournal.readAll(app)))
+            .toString()
     }
 
     private data class DeviceCommand(val id: String, val expires: Instant, val action: String)
@@ -260,7 +260,5 @@ class GitHubDeviceChannel(context: Context) {
         private const val KEY_ISSUE_NUMBER = "issue_number"
         private const val KEY_LAST_COMMENT_ID = "last_comment_id"
         private const val KEY_SEEN_COMMAND_IDS = "seen_command_ids"
-        private const val MB = 1024L * 1024L
-        private val JSON_MEDIA_TYPE = "application/vnd.github+json; charset=utf-8".toMediaType()
     }
 }

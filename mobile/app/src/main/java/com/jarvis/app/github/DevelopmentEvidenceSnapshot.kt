@@ -116,7 +116,15 @@ private fun longMap(values: Map<String, Long>) = JSONObject().apply {
 
 /** Reads only safe aggregates from Friday's already-wired product composition. */
 internal object DevelopmentEvidenceCollector {
-    fun collect(nowMs: Long = System.currentTimeMillis()): DevelopmentEvidenceSnapshot {
+    /**
+     * [runStudyIfMissing] is false for diagnostics: observation must not cause
+     * new self-study work or change Friday's state merely to answer a query.
+     * Existing development-cycle callers retain the previous default behavior.
+     */
+    fun collect(
+        nowMs: Long = System.currentTimeMillis(),
+        runStudyIfMissing: Boolean = true
+    ): DevelopmentEvidenceSnapshot {
         val individual = runCatching { JarvisEngine.fridayIndividual }.getOrNull()
         val cognitive = runCatching { JarvisEngine.cognitiveEngine }.getOrNull()
         val plan = runCatching { cognitive?.getCurrentPlanGraph() }.getOrNull()
@@ -124,7 +132,7 @@ internal object DevelopmentEvidenceCollector {
         val symbioticPlan = runCatching { JarvisEngine.nanoSymbiosis?.plan?.value }.getOrNull()
         val report = runCatching {
             val selfStudy = JarvisEngine.applicationSelfStudy
-            selfStudy?.latestReport() ?: selfStudy?.study(nowMs)
+            selfStudy?.latestReport() ?: if (runStudyIfMissing) selfStudy?.study(nowMs) else null
         }.getOrNull()
 
         val selfStudy = report?.let {
