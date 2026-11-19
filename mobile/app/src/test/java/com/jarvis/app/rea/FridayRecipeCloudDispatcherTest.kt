@@ -64,9 +64,12 @@ class FridayRecipeCloudDispatcherTest {
         assertEquals(setOf(
             "schema_version", "request_id", "created_at", "source_revision", "intended_outcome",
             "evidence", "acceptance_criteria", "risks", "rollback_expectation",
-            "unresolved_questions", "privacy_review"
+            "unresolved_questions", "owner_consent", "privacy_review"
         ), request.keys().asSequence().toSet())
-        assertEquals("approved", request.getJSONObject("privacy_review").getString("status"))
+        assertEquals("confirmed_by_owner_controlled_setting",
+            request.getJSONObject("owner_consent").getString("status"))
+        assertEquals("not_performed", request.getJSONObject("privacy_review").getString("status"))
+        assertTrue(request.getJSONObject("privacy_review").getString("reason").contains("does not constitute"))
         val evidence = request.getJSONArray("evidence").toString()
         assertTrue(evidence.contains("FRIDAY_REA_COMPATIBILITY_RECIPE_JSON"))
         assertTrue(evidence.contains("DEX_STRUCTURE_JSON"))
