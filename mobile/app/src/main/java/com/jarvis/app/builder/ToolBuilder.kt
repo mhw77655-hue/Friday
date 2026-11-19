@@ -153,6 +153,19 @@ class ToolBuilder(
         // DESIGN: derive the child genome from the enriched behavioral requirement.
         val parent = GenomeFactory.genomeFor(enrichedRequirement)
 
+        // A production build must always have a durable receipt store AND
+        // a rollback controller. Otherwise promotion could mutate the live
+        // capability registry without a recoverable record.
+        if (receiptStore == null || rollbackController == null) {
+            return BuildResult(
+                spec = spec,
+                built = false,
+                gapDetected = true,
+                status = "RECOVERY_NOT_CONFIGURED",
+                message = "Builder refused to promote a capability because durable promotion receipts and rollback are not both configured."
+            )
+        }
+
         // EVOLVE through the full loop inside the mutant habitat
         val run = evolution.evolve(
             parent = parent,
@@ -194,9 +207,58 @@ class ToolBuilder(
             try {
                 withContext(Dispatchers.IO) { receiptStore.save(receipt) }
             } catch (cancelled: CancellationException) {
+                // Cancellation must not strand a live promotion without a
+                // durable recovery record. Finish rollback outside the
+                // cancelled coroutine, then preserve normal cancellation.
+                withContext(kotlinx.coroutines.NonCancellable + Dispatchers.IO) {
+                    runCatching {
+                        rollbackController.rollback(
+                            receipt,
+                            "promotion receipt persistence was cancelled"
+                        )
+                    }
+                    runCatching {
+                        receiptStore.markRolledBack(
+                            receipt.genomeId,
+                            "promotion receipt persistence was cancelled"
+                        )
+                    }
+                }
                 throw cancelled
             } catch (failure: Exception) {
-                rollbackController?.rollback(receipt, "promotion receipt could not be persisted: ${failure.message}")
+                val rollback = runCatching {
+                    rollbackController.rollback(
+                        receipt,
+                        "promotion receipt could not be persisted: ${failure.message}"
+                    )
+                }.getOrNull()
+                if (rollback?.success != true) {
+                    failureSurface.report(
+                        FailureReport(
+                            subsystem = "BUILDER",
+                            operation = "rollback_after_receipt_failure",
+                            severity = FailureSeverity.ERROR,
+                            category = FailureCategory.PERSISTENCE,
+                            message = "Promotion receipt persistence failed and rollback could not be confirmed; manual recovery is required.",
+                            source = "ToolBuilder"
+                        )
+                    )
+                    return BuildResult(
+                        spec = spec,
+                        built = false,
+                        gapDetected = true,
+                        status = "PROMOTION_ROLLBACK_FAILED",
+                        genomeId = best.genome.id,
+                        message = "promotion receipt persistence failed and rollback could not be confirmed; inspect Builder diagnostics before retrying",
+                        candidates = run.candidates
+                    )
+                }
+                runCatching {
+                    receiptStore.markRolledBack(
+                        receipt.genomeId,
+                        "promotion receipt could not be persisted: ${failure.message}"
+                    )
+                }
                 failureSurface.report(
                     FailureReport(
                         subsystem = "BUILDER",
