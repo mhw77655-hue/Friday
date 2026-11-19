@@ -66,20 +66,20 @@ class JarvisApplication : Application() {
         // process owns Friday's cognitive composition root and lifecycle.
         // Secondary capability habitats construct only their own organs.
         if (currentProcessName() != packageName) return
-        // Initialize the Shizuku-Next API bridge before any device capability is requested.
-        runCatching { ShizukuBridge.init(this) }
-        JarvisEngine.init(this)
+        // Recover crash evidence BEFORE initializing Shizuku or the cognitive
+        // engine. If either subsystem is the startup crash source, the next
+        // process must still be able to enqueue the previous failure.
+        runCatching {
+            com.jarvis.app.diagnostics.CrashRepairBridge.enqueuePreviousCrash(this)
+        }
         // Recover any development request that was queued before process death.
         // A damaged outbox must never prevent Friday from starting.
         runCatching {
             com.jarvis.app.github.DevelopmentRequestOutboxScheduler.ensureScheduled(this)
         }
-        // A crash is reported automatically on the next successful process
-        // start. The report contains only the bounded CrashJournal evidence;
-        // GitHub receives a durable request and owns diagnosis/repair.
-        runCatching {
-            com.jarvis.app.diagnostics.CrashRepairBridge.enqueuePreviousCrash(this)
-        }
+        // Initialize the Shizuku-Next API bridge before any device capability is requested.
+        runCatching { ShizukuBridge.init(this) }
+        JarvisEngine.init(this)
 
         // Process-scoped background/foreground for the Companion Core (plan
         // §4.3, audit R-A3). ProcessLifecycleOwner fires ON_STOP only when the
