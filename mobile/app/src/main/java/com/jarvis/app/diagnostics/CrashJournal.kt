@@ -54,9 +54,10 @@ object CrashJournal {
     /** Remove only the acknowledged process record after it is safely in the outbox. */
     fun acknowledge(application: Application, record: JSONObject): Boolean {
         val process = record.optString("process", "unknown")
-        val current = runCatching { fileFor(application, process).delete() }.getOrDefault(false)
-        val legacy = runCatching { File(diagnosticsDirectory(application), "last-crash.json").delete() }.getOrDefault(false)
-        return current || legacy
+        val currentFile = fileFor(application, process)
+        if (currentFile.exists()) return runCatching { currentFile.delete() }.getOrDefault(false)
+        val legacyFile = File(diagnosticsDirectory(application), "last-crash.json")
+        return if (legacyFile.exists()) runCatching { legacyFile.delete() }.getOrDefault(false) else false
     }
 
     internal fun fileNameFor(processName: String): String {
@@ -99,7 +100,7 @@ object CrashJournal {
     private fun persist(application: Application, threadName: String, failure: Throwable) {
         val processName = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) Application.getProcessName() else "unknown"
         val record = createRecord(threadName, failure, processName = processName)
-        val atomic = AtomicFile(fileFor(application))
+        val atomic = AtomicFile(fileFor(application, processName))
         val stream = atomic.startWrite()
         try {
             stream.write(record.toString().toByteArray(Charsets.UTF_8))
