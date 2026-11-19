@@ -105,6 +105,7 @@ fun SettingsScreen() {
     val fridayApplication = context.applicationContext as? com.jarvis.app.JarvisApplication
     var reaCloudAnalysis by remember { mutableStateOf(fridayApplication?.isReaCloudAnalysisEnabled() == true) }
     var reaBuildCapability by remember { mutableStateOf(false) }
+    var reaSubmitCloudProposal by remember { mutableStateOf(false) }
 
     // Bumped on ON_RESUME so the storage-permission row re-checks after
     // the user comes back from the system "All files access" screen --
@@ -683,6 +684,18 @@ fun SettingsScreen() {
                 colors = SwitchDefaults.colors(checkedTrackColor = JarvisColors.CoreIdle)
             )
         }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Send reviewed recipe to cloud Builder", style = JarvisType.Body)
+                Text("Uses the encrypted GitHub Actions token and automatic-request consent. Sends recipe and metadata only, never the APK binary.", style = JarvisType.Technical)
+            }
+            Switch(
+                checked = reaSubmitCloudProposal,
+                enabled = reaCloudAnalysis,
+                onCheckedChange = { reaSubmitCloudProposal = it },
+                colors = SwitchDefaults.colors(checkedTrackColor = JarvisColors.CoreIdle)
+            )
+        }
         Button(
             onClick = {
                 githubScope.launch {
@@ -690,13 +703,14 @@ fun SettingsScreen() {
                     reaStatus = "Extracting and inspecting APK splits through Shizuku-Next..."
                     reaStatus = runCatching {
                         val app = fridayApplication ?: error("Friday application context is unavailable.")
-                        val result = app.reverseEngineeringAgent.analyzeInstalledPackage(reaPackageName.trim(), reaCloudAnalysis, reaBuildCapability)
+                        val result = app.reverseEngineeringAgent.analyzeInstalledPackage(reaPackageName.trim(), reaCloudAnalysis, reaBuildCapability, reaSubmitCloudProposal)
                         val report = result.reports.joinToString("\n") { item ->
                             item.fileName + " · " + item.sizeBytes + " bytes · DEX " + item.dexFiles.size + " · ABI " + item.nativeAbis.joinToString(",")
                         }
                         val recipe = result.recipe?.let { "Recipe: " + it.title + " (" + it.integrationKind.name + ")" } ?: "No recipe produced."
                         val build = result.buildStatus?.let { "Builder: " + it + " · " + result.buildMessage.orEmpty() } ?: "Builder: not requested."
-                        listOf(report, recipe, build, result.warnings.joinToString("\n")).filter { it.isNotBlank() }.joinToString("\n")
+                        val cloud = if (result.cloudProposalAccepted) "Cloud proposal accepted: " + result.cloudProposalUrl.orEmpty() else result.cloudProposalMessage ?: "Cloud proposal: not requested."
+                        listOf(report, recipe, build, cloud, result.warnings.joinToString("\n")).filter { it.isNotBlank() }.joinToString("\n")
                     }.getOrElse { it.message ?: "REA inspection failed." }
                     reaBusy = false
                 }
