@@ -60,7 +60,9 @@ jobs:
       - name: Lint all GitHub Actions workflows
         run: |
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
-          "$(go env GOPATH)/bin/actionlint" -color
+          # actionlint's pinned schema predates GitHub's documented concurrency.queue key.
+          # Ignore only that one schema false-positive; retain every other workflow check.
+          "$(go env GOPATH)/bin/actionlint" -ignore 'unexpected key "queue" for "concurrency" section' -color
 
       - name: Set up JDK 17
         id: setup-java
