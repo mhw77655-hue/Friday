@@ -44,6 +44,8 @@ class BuildWorkflowContractTests(unittest.TestCase):
     def test_virtual_phone_requires_real_friday_install_and_foreground_launch(self):
         script = (ROOT / "tools" / "friday-builder" / "run_virtual_phone_tests.sh").read_text(encoding="utf-8")
         self.assertIn("install_apk_with_retry.py mobile/app/build/outputs/apk/debug/app-debug.apk", script)
+        self.assertIn("adb shell pm grant com.jarvis.app android.permission.RECORD_AUDIO", script)
+        self.assertIn("synthetic capsule deliberately begins with microphone access denied", script)
         self.assertIn("adb shell pm path com.jarvis.app", script)
         self.assertIn("adb shell am start -W -n com.jarvis.app/.MainActivity", script)
         self.assertIn("Status: ok", script)
