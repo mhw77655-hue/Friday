@@ -440,6 +440,10 @@ jobs:
       - name: Open or update a maintenance incident
         continue-on-error: true
         uses: actions/github-script@v7
+        env:
+          DEBUG_JOB_RESULT: ${{ needs.debug-apk.result }}
+          EMULATOR_JOB_RESULT: ${{ needs.android-emulator.result }}
+          SOURCE_AUDIT_JOB_RESULT: ${{ needs.full-source-audit.result }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -457,9 +461,11 @@ jobs:
               `- Workflow run: ${runUrl}`,
               `- Commit: ${context.sha}`,
               `- Trigger: ${context.eventName}`,
-              `- Debug/build/tests: ${context.payload.workflow_run?.conclusion ?? 'inspect job result'}`,
+              `- Debug/build/tests: ${process.env.DEBUG_JOB_RESULT}`,
+              `- Android emulator: ${process.env.EMULATOR_JOB_RESULT}`,
+              `- Whole-source audit: ${process.env.SOURCE_AUDIT_JOB_RESULT}`,
               '',
-              'Inspect each required job in the run. A skipped or cancelled lane is not a pass.',
+              'A skipped or cancelled lane is not a pass. Inspect the first failing step and uploaded JUnit/emulator evidence.',
               'This incident is diagnostic only; it does not authorize source changes, approval or release.'
             ].join('\\n');
             const match = existing.data.find(issue => issue.title === title && !issue.pull_request);
