@@ -16,13 +16,15 @@ object ApkArtifactInspector {
     data class Report(
         val fileName: String, val sizeBytes: Long, val sha256: String, val entryCount: Int,
         val dexFiles: List<String>, val nativeAbis: List<String>,
-        val notablePaths: List<String>, val manifestBytes: Long
+        val notablePaths: List<String>, val manifestBytes: Long,
+        val dexStructure: List<DexStructureReport> = emptyList()
     ) {
         fun toJson(): JSONObject = JSONObject()
             .put("fileName", fileName).put("sizeBytes", sizeBytes).put("sha256", sha256)
             .put("entryCount", entryCount).put("dexFiles", JSONArray(dexFiles))
             .put("nativeAbis", JSONArray(nativeAbis)).put("notablePaths", JSONArray(notablePaths))
             .put("manifestBytes", manifestBytes)
+            .put("dexStructure", JSONArray(dexStructure.map { it.toJson() }))
     }
 
     fun inspect(apk: File): Report {
@@ -53,7 +55,7 @@ object ApkArtifactInspector {
             }
         }
         return Report(apk.name.take(128), apk.length(), sha256(apk), count,
-            dex.toList().sorted(), abis.toList().sorted(), notable.toList().sorted(), manifestBytes)
+            dex.toList().sorted(), abis.toList().sorted(), notable.toList().sorted(), manifestBytes, DexStructureInspector.inspect(apk))
     }
 
     private fun sha256(file: File): String {
