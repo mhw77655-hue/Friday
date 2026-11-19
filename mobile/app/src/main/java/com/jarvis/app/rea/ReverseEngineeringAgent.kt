@@ -12,6 +12,8 @@ data class ReverseEngineeringResult(
     val packageName: String, val reports: List<ApkArtifactInspector.Report>,
     val recipe: FridayCompatibilityRecipe?, val cloudAnalysisAttempted: Boolean,
     val buildStatus: String?, val buildMessage: String?, val builtCapabilityId: String?,
+    val cloudProposalAccepted: Boolean, val cloudProposalRequestId: String?,
+    val cloudProposalUrl: String?, val cloudProposalMessage: String?,
     val warnings: List<String>
 )
 
@@ -20,12 +22,14 @@ class ReverseEngineeringAgent(
     private val context: Context,
     private val converter: FridayCompatibilityConverter,
     private val cloudAnalysisConsent: () -> Boolean = { false },
-    private val toolBuilderProvider: () -> com.jarvis.app.builder.ToolBuilder? = { null }
+    private val toolBuilderProvider: () -> com.jarvis.app.builder.ToolBuilder? = { null },
+    private val cloudProposalDispatcherProvider: () -> FridayRecipeCloudDispatcher? = { null }
 ) {
     suspend fun analyzeInstalledPackage(
         packageName: String,
         allowCloudAnalysis: Boolean,
-        buildCompatibleCapability: Boolean = false
+        buildCompatibleCapability: Boolean = false,
+        submitCloudProposal: Boolean = false
     ): ReverseEngineeringResult {
         require(PACKAGE_NAME.matches(packageName)) { "Invalid Android package name" }
         check(ShizukuBridge.isAvailable.value) { "Shizuku-Next server is unavailable" }
@@ -83,6 +87,15 @@ class ReverseEngineeringAgent(
             buildResult = builder.build(spec)
             if (!buildResult.built) warnings += "Builder did not promote the capability: " + buildResult.status + " — " + buildResult.message
         }
+        var cloudProposal: FridayCloudProposalResult? = null
+        if (submitCloudProposal) {
+            val selectedRecipe = recipe ?: error("A valid AI-reviewed recipe is required before cloud submission.")
+            if (!cloudAnalysisConsent()) error("Owner has not enabled cloud analysis for REA.")
+            val dispatcher = cloudProposalDispatcherProvider()
+                ?: error("Friday cloud repository dispatcher is unavailable.")
+            cloudProposal = dispatcher.submit(packageName, selectedRecipe, reports)
+            if (!cloudProposal.accepted) warnings += "Cloud Builder did not accept the proposal: " + cloudProposal.message
+        }
         warnings += "Full DEX decompilation and binary APK upload are not yet implemented."
         return ReverseEngineeringResult(
             packageName = packageName,
@@ -92,6 +105,10 @@ class ReverseEngineeringAgent(
             buildStatus = buildResult?.status,
             buildMessage = buildResult?.message,
             builtCapabilityId = buildResult?.spec?.capability?.takeIf { buildResult.built },
+            cloudProposalAccepted = cloudProposal?.accepted == true,
+            cloudProposalRequestId = cloudProposal?.requestId,
+            cloudProposalUrl = cloudProposal?.workflowUrl,
+            cloudProposalMessage = cloudProposal?.message,
             warnings = warnings
         )
     }
