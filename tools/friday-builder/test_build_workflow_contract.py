@@ -96,9 +96,9 @@ class BuildWorkflowContractTests(unittest.TestCase):
         for job in ("debug-apk", "android-emulator", "full-source-audit"):
             self.assertIn(f"needs.{job}.result != 'success'", reporter)
         self.assertIn("a skipped or cancelled lane is not a pass", reporter.lower())
-        self.assertIn("debug_job_result", reporter)
-        self.assertIn("emulator_job_result", reporter)
-        self.assertIn("source_audit_job_result", reporter)
+        self.assertIn("DEBUG_JOB_RESULT", reporter)
+        self.assertIn("EMULATOR_JOB_RESULT", reporter)
+        self.assertIn("SOURCE_AUDIT_JOB_RESULT", reporter)
 
     def test_rea_contract_covers_methods_without_bytecode(self):
         source = (ROOT / "mobile" / "app" / "src" / "main" / "java" / "com" / "jarvis" / "app" / "rea" / "DexStructureInspector.kt").read_text(encoding="utf-8")
