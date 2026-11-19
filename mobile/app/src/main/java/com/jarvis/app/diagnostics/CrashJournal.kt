@@ -163,12 +163,6 @@ object CrashJournal {
             ?.takeIf { it.isNotBlank() } ?: application.packageName
     }
 
-    private fun fileFor(application: Application, processName: String): File =
-        File(diagnosticsDirectory(application), fileNameFor(processName))
-
-    private fun fileFor(application: Application, processName: String, eventContent: String): File =
-        File(diagnosticsDirectory(application), fileNameFor(processName, eventContent))
-
     private fun redact(value: String): String {
         val assignments = Regex(
             "(?i)(api[_-]?key|token|password|secret|authorization)(\\s*[:=]\\s*)([^\\s,;]+)"
