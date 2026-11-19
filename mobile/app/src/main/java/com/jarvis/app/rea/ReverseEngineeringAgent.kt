@@ -16,7 +16,9 @@ data class ReverseEngineeringResult(
 
 /** Device-side REA coordinator. Heavy DEX decompilation is delegated off-device. */
 class ReverseEngineeringAgent(
-    private val context: Context, private val converter: FridayCompatibilityConverter
+    private val context: Context,
+    private val converter: FridayCompatibilityConverter,
+    private val cloudAnalysisConsent: () -> Boolean = { false }
 ) {
     suspend fun analyzeInstalledPackage(packageName: String, allowCloudAnalysis: Boolean): ReverseEngineeringResult {
         require(PACKAGE_NAME.matches(packageName)) { "Invalid Android package name" }
@@ -56,8 +58,12 @@ class ReverseEngineeringAgent(
         }
         check(reports.isNotEmpty()) { "No APK files were extracted" }
 
-        // Cloud consent covers only structural metadata in this first iteration,
-        // not the binary APK. Full binary upload will be a separate explicit step.
+        // A model-supplied boolean is not owner consent. Both the invocation and
+        // the app's owner-controlled setting must permit cloud analysis.
+        if (allowCloudAnalysis && !cloudAnalysisConsent()) {
+            error("Owner has not enabled cloud analysis for REA.")
+        }
+        // This first cloud stage sends structural metadata, not the binary APK.
         val recipe = if (allowCloudAnalysis) converter.convert(packageName, reports) else null
         val warnings = buildList {
             if (!allowCloudAnalysis) add("Cloud analysis was not authorized; only local APK structure was inspected.")
