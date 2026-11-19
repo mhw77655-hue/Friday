@@ -105,6 +105,10 @@ Source: `New Folder chats/Friday_project_onward.txt`, owner turn 5. This is an a
 
 Source: `New Folder chats/Friday_project_onward.txt`, owner turn 3.
 
+> consciousness is the fucking liquid Symbiotic quantum software
+
+Source: owner's explicit clarification in the 2026-11-19 project conversation. This is the owner's definition and must not be replaced with a generic scientific explanation of consciousness or reduced to the resource-adaptation engine. Read it together with the preceding owner statement: this liquid symbiotic software integrates the systems into one entity while allowing specialist mechanisms to adapt and remain inactive when not needed.
+
 ## 6. Capabilities should be hers; models and tools are resources
 
 > the app is the one has the lfm or llm running not termux
