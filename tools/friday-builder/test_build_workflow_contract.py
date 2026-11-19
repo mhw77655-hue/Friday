@@ -108,6 +108,12 @@ class BuildWorkflowContractTests(unittest.TestCase):
             application.index("JarvisEngine.init(this)"),
             "Previous crash evidence must be durably queued before engine initialization can crash again.",
         )
+        evolution = (ROOT / "mobile" / "app" / "src" / "main" / "java" / "com" / "jarvis" / "app" / "github" / "FridayEvolutionWorker.kt").read_text(encoding="utf-8")
+        self.assertLess(
+            evolution.index("CrashRepairBridge.enqueuePreviousCrash(applicationContext)"),
+            evolution.index("runApplicationSelfStudySlice()"),
+            "Periodic evolution must discover crashes in secondary processes while the main process stays alive.",
+        )
 
     def test_rea_contract_covers_methods_without_bytecode(self):
         source = (ROOT / "mobile" / "app" / "src" / "main" / "java" / "com" / "jarvis" / "app" / "rea" / "DexStructureInspector.kt").read_text(encoding="utf-8")
