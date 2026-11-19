@@ -37,7 +37,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         handleSharedVideoIntent(intent)
-        ShizukuBridge.init()
+        ShizukuBridge.init(this)
         // KWS/Vosk/TTS are owned by JarvisEngine, started once in
         // JarvisApplication.onCreate() — never re-initialized or released
         // here. That per-Activity churn was itself a crash source.
