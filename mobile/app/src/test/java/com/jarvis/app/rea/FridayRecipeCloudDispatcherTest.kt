@@ -40,8 +40,17 @@ class FridayRecipeCloudDispatcherTest {
             risk = "Low when kept inside the restricted interpreter.",
             evidenceAndUnknowns = listOf("Static APK inventory cannot prove runtime behaviour.")
         )
+        val dexEvidence = DexStructureReport(
+            fileName = "classes.dex", byteSize = 4096, parsed = true,
+            classCount = 2, methodCount = 7, fieldCount = 3,
+            packageNames = listOf("com.example.feature"),
+            classDescriptors = listOf("Lcom/example/feature/UsefulAdapter;"),
+            interestingMethods = listOf("Lcom/example/feature/UsefulAdapter;->transform(Ljava/lang/String;)Ljava/lang/String;"),
+            apiHosts = listOf("api.example.org")
+        )
         val report = ApkArtifactInspector.Report("base.apk", 123, "a".repeat(64), 1,
-            listOf("classes.dex"), listOf("arm64-v8a"), listOf("assets/config.json"), 100)
+            listOf("classes.dex"), listOf("arm64-v8a"), listOf("assets/config.json"), 100,
+            dexStructure = listOf(dexEvidence))
         val result = dispatcher.submit("com.example.source", recipe, listOf(report))
 
         assertTrue(result.accepted)
@@ -52,7 +61,11 @@ class FridayRecipeCloudDispatcherTest {
             "unresolved_questions", "privacy_review"
         ), request.keys().asSequence().toSet())
         assertEquals("approved", request.getJSONObject("privacy_review").getString("status"))
-        assertTrue(request.getJSONArray("evidence").toString().contains("FRIDAY_REA_COMPATIBILITY_RECIPE_JSON"))
+        val evidence = request.getJSONArray("evidence").toString()
+        assertTrue(evidence.contains("FRIDAY_REA_COMPATIBILITY_RECIPE_JSON"))
+        assertTrue(evidence.contains("DEX_STRUCTURE_JSON"))
+        assertTrue(evidence.contains("UsefulAdapter"))
+        assertTrue(evidence.contains("api.example.org"))
         assertFalse(request.toString().contains("binary_apk"))
         assertFalse(request.toString().contains("base64_apk"))
     }
