@@ -99,6 +99,11 @@ fun SettingsScreen() {
     val shizukuGranted by com.jarvis.app.ShizukuBridge.isGranted.collectAsState()
     val shizukuStatus by com.jarvis.app.ScreenBridge.status.collectAsState()
     var shizukuSnapshot by remember { mutableStateOf("") }
+    var reaPackageName by remember { mutableStateOf("") }
+    var reaStatus by remember { mutableStateOf("Choose an installed app package to inspect.") }
+    var reaBusy by remember { mutableStateOf(false) }
+    val fridayApplication = context.applicationContext as? com.jarvis.app.JarvisApplication
+    var reaCloudAnalysis by remember { mutableStateOf(fridayApplication?.isReaCloudAnalysisEnabled() == true) }
 
     // Bumped on ON_RESUME so the storage-permission row re-checks after
     // the user comes back from the system "All files access" screen --
@@ -637,6 +642,55 @@ fun SettingsScreen() {
         if (shizukuSnapshot.isNotBlank()) {
             Text(text = shizukuSnapshot, style = JarvisType.Technical, modifier = Modifier.padding(top = 6.dp))
         }
+
+        SectionLabel("REVERSE ENGINEERING AGENT")
+        Text(
+            text = "Inspect an installed APK through Shizuku-Next. Friday inventories DEX splits, native ABIs, resources and hashes, then asks independent configured AI advisers to turn the evidence into a Friday-compatible engineering recipe. APK binaries are not uploaded in this first stage.",
+            style = JarvisType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        OutlinedTextField(
+            value = reaPackageName,
+            onValueChange = { reaPackageName = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            placeholder = { Text("Android package, e.g. com.example.app", style = JarvisType.Body) }
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Allow cloud analysis of APK metadata", style = JarvisType.Body)
+                Text("Owner opt-in · metadata only · no APK binary upload", style = JarvisType.Technical)
+            }
+            Switch(
+                checked = reaCloudAnalysis,
+                onCheckedChange = { enabled ->
+                    val saved = fridayApplication?.setReaCloudAnalysisEnabled(enabled) == true
+                    if (saved) reaCloudAnalysis = enabled else reaStatus = "Could not save the owner cloud-analysis setting."
+                },
+                colors = SwitchDefaults.colors(checkedTrackColor = JarvisColors.CoreIdle)
+            )
+        }
+        Button(
+            onClick = {
+                githubScope.launch {
+                    reaBusy = true
+                    reaStatus = "Extracting and inspecting APK splits through Shizuku-Next..."
+                    reaStatus = runCatching {
+                        val app = fridayApplication ?: error("Friday application context is unavailable.")
+                        val result = app.reverseEngineeringAgent.analyzeInstalledPackage(reaPackageName.trim(), reaCloudAnalysis)
+                        val report = result.reports.joinToString("\n") { item ->
+                            item.fileName + " · " + item.sizeBytes + " bytes · DEX " + item.dexFiles.size + " · ABI " + item.nativeAbis.joinToString(",")
+                        }
+                        val recipe = result.recipe?.let { "Recipe: " + it.title + " (" + it.integrationKind.name + ")" } ?: "No recipe produced."
+                        listOf(report, recipe, result.warnings.joinToString("\n")).filter { it.isNotBlank() }.joinToString("\n")
+                    }.getOrElse { it.message ?: "REA inspection failed." }
+                    reaBusy = false
+                }
+            },
+            enabled = !reaBusy && reaPackageName.isNotBlank() && shizukuAvailable && shizukuGranted,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(if (reaBusy) "Inspecting..." else "Reverse engineer installed app") }
+        Text(text = reaStatus, style = JarvisType.Technical, modifier = Modifier.padding(vertical = 6.dp))
 
         SectionLabel("PERMISSIONS")
         StorageAccessRow(
