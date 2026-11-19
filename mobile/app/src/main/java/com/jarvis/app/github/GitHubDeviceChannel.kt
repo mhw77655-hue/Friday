@@ -264,5 +264,6 @@ class GitHubDeviceChannel(context: Context) {
         private const val KEY_ISSUE_NUMBER = "issue_number"
         private const val KEY_LAST_COMMENT_ID = "last_comment_id"
         private const val KEY_SEEN_COMMAND_IDS = "seen_command_ids"
+        private val JSON_MEDIA_TYPE = "application/vnd.github+json; charset=utf-8".toMediaType()
     }
 }
