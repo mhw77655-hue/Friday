@@ -46,7 +46,13 @@ class FridayRecipeCloudDispatcherTest {
             packageNames = listOf("com.example.feature"),
             classDescriptors = listOf("Lcom/example/feature/UsefulAdapter;"),
             interestingMethods = listOf("Lcom/example/feature/UsefulAdapter;->transform(Ljava/lang/String;)Ljava/lang/String;"),
-            apiHosts = listOf("api.example.org")
+            apiHosts = listOf("api.example.org"),
+            methodEvidence = listOf(DexMethodEvidence(
+                signature = "Lcom/example/feature/UsefulAdapter;->transform(Ljava/lang/String;)Ljava/lang/String;",
+                opcodeSequence = listOf("INVOKE_VIRTUAL", "MOVE_RESULT_OBJECT", "RETURN_OBJECT"),
+                referencedSymbols = listOf("Ljava/lang/String;->trim()Ljava/lang/String;"),
+                stringLiterals = listOf("https://api.example.org/v1")
+            ))
         )
         val report = ApkArtifactInspector.Report("base.apk", 123, "a".repeat(64), 1,
             listOf("classes.dex"), listOf("arm64-v8a"), listOf("assets/config.json"), 100,
@@ -66,6 +72,8 @@ class FridayRecipeCloudDispatcherTest {
         assertTrue(evidence.contains("DEX_STRUCTURE_JSON"))
         assertTrue(evidence.contains("UsefulAdapter"))
         assertTrue(evidence.contains("api.example.org"))
+        assertTrue(evidence.contains("INVOKE_VIRTUAL"))
+        assertTrue(evidence.contains("https://api.example.org/v1"))
         assertFalse(request.toString().contains("binary_apk"))
         assertFalse(request.toString().contains("base64_apk"))
     }
