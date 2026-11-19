@@ -45,7 +45,7 @@ object DexStructureInspector {
     private const val MAX_CLASSES = 10_000
     private const val MAX_METHODS = 20_000
     private const val MAX_STRINGS_SCANNED = 12_000
-    private const val MAX_RECORDED_SYMBOLS = 300
+    private const val MAX_RECORDED_SYMBOLS = 100
     private val INTERESTING_METHODS = setOf(
         "connect", "execute", "request", "send", "receive", "parse", "decode",
         "encrypt", "decrypt", "initialize", "init", "start", "stop", "build",
@@ -117,7 +117,7 @@ object DexStructureInspector {
                             packageNames = packages.toList().sorted().take(MAX_RECORDED_SYMBOLS),
                             classDescriptors = classNames.toList().sorted().take(MAX_RECORDED_SYMBOLS),
                             interestingMethods = methods.toList().sorted(),
-                            apiHosts = hosts.toList().sorted().take(80)
+                            apiHosts = hosts.toList().sorted().take(40)
                         )
                     }
                 }.getOrElse { failure ->
