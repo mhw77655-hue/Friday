@@ -17,7 +17,7 @@ concurrency:
   # PR commits supersede older candidates: validate the newest tree instead of
   # serially spending runner time on obsolete revisions. Mainline runs are not
   # cancelled, so release validation is preserved.
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 permissions: {}
 
