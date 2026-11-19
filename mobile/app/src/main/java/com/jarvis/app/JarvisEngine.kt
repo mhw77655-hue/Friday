@@ -151,6 +151,8 @@ object JarvisEngine {
         private set
     @Volatile var capabilityFabric: com.jarvis.app.cognitive.capability.CapabilityFabric? = null
         private set
+    @Volatile var reverseEngineeringAgent: com.jarvis.app.rea.ReverseEngineeringAgent? = null
+        private set
     @Volatile var capabilityMemoryIndex: com.jarvis.app.resolution.CapabilityMemoryIndex? = null
         private set
     @Volatile var fuzzyCommandResolver: com.jarvis.app.resolution.FuzzyCommandResolver? = null
@@ -528,6 +530,24 @@ object JarvisEngine {
             JarvisEngine.identityContext = identityContext
             JarvisEngine.continuityGate = continuityGate
             JarvisEngine.capabilityFabric = capabilityFabric
+            // REA is part of the live capability fabric, not a detached demo.
+            val reaAgent = (appContext as? JarvisApplication)?.reverseEngineeringAgent
+            if (reaAgent != null) {
+                JarvisEngine.reverseEngineeringAgent = reaAgent
+                val registration = capabilityFabric.register(
+                    com.jarvis.app.rea.ReverseEngineeringCapability(reaAgent)
+                )
+                if (registration !is com.jarvis.app.cognitive.capability.CapabilityRegistry.RegisterResult.Ok) {
+                    failureSurface.report(
+                        com.jarvis.app.failure.FailureReport(
+                            subsystem = "REA", operation = "register", severity = com.jarvis.app.failure.FailureSeverity.WARNING,
+                            category = com.jarvis.app.failure.FailureCategory.INITIALIZATION,
+                            message = "Reverse Engineering Agent capability registration was rejected.",
+                            source = "JarvisEngine"
+                        )
+                    )
+                }
+            }
             JarvisEngine.capabilityMemoryIndex = capabilityMemoryIndex
             JarvisEngine.fuzzyCommandResolver = fuzzyCommandResolver
             JarvisEngine.cloudModelRouter = cloudModelRouter
