@@ -31,14 +31,26 @@ fun interface ReverseEngineeringAdviser {
 /** Friday's existing authenticated multi-provider council is the REA analyst, never the executor. */
 class ProviderCouncilReverseEngineeringAdviser(private val council: ProviderCouncil) : ReverseEngineeringAdviser {
     override suspend fun advise(prompt: String): String? {
-        val result = council.consult(
+        // Two independent reviewers first; a separate provider call reconciles
+        // disagreements into the strict recipe schema consumed by the converter.
+        val peerReview = council.consult(
             CouncilRequest(task = prompt, includeProjectContext = true,
-                maxOutputTokens = 1_200, maxAdvisers = 2, independentReviewRequested = true)
+                maxOutputTokens = 900, maxAdvisers = 2, independentReviewRequested = true)
         )
-        if (!result.succeeded) return null
-        return result.opinions.joinToString("\n\n--- INDEPENDENT ADVISER ---\n\n") { opinion ->
-            "ADVISER " + opinion.providerLabel + " (" + opinion.modelId + ")\n" + opinion.answer
+        if (!peerReview.succeeded) return null
+        val reviews = peerReview.opinions.joinToString("\n\n--- INDEPENDENT REVIEW ---\n\n") { opinion ->
+            "REVIEWER " + opinion.providerLabel + " (" + opinion.modelId + ")\n" + opinion.answer
         }
+        val synthesis = council.consult(
+            CouncilRequest(
+                task = "Reconcile these independent reverse-engineering reviews. Resolve factual disagreement conservatively. Return exactly one strict JSON object matching the requested recipe schema; no markdown or executable code.\n\nORIGINAL TASK:\n" +
+                    prompt + "\n\nREVIEWS:\n" + reviews,
+                includeProjectContext = false,
+                maxOutputTokens = 1_200,
+                maxAdvisers = 1
+            )
+        )
+        return synthesis.opinions.firstOrNull()?.answer
     }
 }
 
