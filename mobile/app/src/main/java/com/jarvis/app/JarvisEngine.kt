@@ -541,7 +541,7 @@ object JarvisEngine {
                     failureSurface.report(
                         com.jarvis.app.failure.FailureReport(
                             subsystem = "REA", operation = "register", severity = com.jarvis.app.failure.FailureSeverity.WARNING,
-                            category = com.jarvis.app.failure.FailureCategory.INITIALIZATION,
+                            category = com.jarvis.app.failure.FailureCategory.CONFIGURATION,
                             message = "Reverse Engineering Agent capability registration was rejected.",
                             source = "JarvisEngine"
                         )
