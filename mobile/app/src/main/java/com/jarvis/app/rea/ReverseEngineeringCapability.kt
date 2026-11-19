@@ -8,6 +8,7 @@ import com.jarvis.app.cognitive.capability.RiskLevel
 import com.jarvis.app.cognitive.execution.ActionFailure
 import com.jarvis.app.cognitive.execution.ActionRequest
 import com.jarvis.app.cognitive.execution.ExecutionResult
+import kotlinx.coroutines.CancellationException
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -76,6 +77,8 @@ class ReverseEngineeringCapability(
                 evidence = mapOf("apk_split_count" to result.reports.size.toString(),
                     "recipe_created" to (result.recipe != null).toString())
             )
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (e: Exception) {
             failure("REA_ANALYSIS_FAILED", e.message ?: "Reverse engineering failed.")
         }
