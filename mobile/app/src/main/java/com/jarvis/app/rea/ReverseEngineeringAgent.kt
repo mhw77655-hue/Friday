@@ -11,6 +11,7 @@ import java.io.File
 data class ReverseEngineeringResult(
     val packageName: String, val reports: List<ApkArtifactInspector.Report>,
     val recipe: FridayCompatibilityRecipe?, val cloudAnalysisAttempted: Boolean,
+    val buildStatus: String?, val buildMessage: String?, val builtCapabilityId: String?,
     val warnings: List<String>
 )
 
@@ -18,9 +19,14 @@ data class ReverseEngineeringResult(
 class ReverseEngineeringAgent(
     private val context: Context,
     private val converter: FridayCompatibilityConverter,
-    private val cloudAnalysisConsent: () -> Boolean = { false }
+    private val cloudAnalysisConsent: () -> Boolean = { false },
+    private val toolBuilderProvider: () -> com.jarvis.app.builder.ToolBuilder? = { null }
 ) {
-    suspend fun analyzeInstalledPackage(packageName: String, allowCloudAnalysis: Boolean): ReverseEngineeringResult {
+    suspend fun analyzeInstalledPackage(
+        packageName: String,
+        allowCloudAnalysis: Boolean,
+        buildCompatibleCapability: Boolean = false
+    ): ReverseEngineeringResult {
         require(PACKAGE_NAME.matches(packageName)) { "Invalid Android package name" }
         check(ShizukuBridge.isAvailable.value) { "Shizuku-Next server is unavailable" }
         check(ShizukuBridge.isGranted.value) { "Friday has not been granted Shizuku access" }
@@ -65,12 +71,29 @@ class ReverseEngineeringAgent(
         }
         // This first cloud stage sends structural metadata, not the binary APK.
         val recipe = if (allowCloudAnalysis) converter.convert(packageName, reports) else null
-        val warnings = buildList {
-            if (!allowCloudAnalysis) add("Cloud analysis was not authorized; only local APK structure was inspected.")
-            if (allowCloudAnalysis && recipe == null) add("No valid compatibility recipe was returned by the AI council.")
-            add("Full DEX decompilation and binary APK upload are not yet implemented.")
+        var buildResult: com.jarvis.app.builder.BuildResult? = null
+        val warnings = mutableListOf<String>()
+        if (!allowCloudAnalysis) warnings += "Cloud analysis was not authorized; only local APK structure was inspected."
+        if (allowCloudAnalysis && recipe == null) warnings += "No valid compatibility recipe was returned by the AI council."
+        if (buildCompatibleCapability) {
+            val selectedRecipe = recipe ?: error("A valid AI-reviewed recipe is required before building.")
+            val spec = FridayRecipeToolConverter.toToolSpecification(packageName, selectedRecipe)
+                ?: error("This recipe requires a repository-level Android/API integration; it cannot be safely compiled as an on-device pure capability.")
+            val builder = toolBuilderProvider() ?: error("Friday's Tool Builder is not ready.")
+            buildResult = builder.build(spec)
+            if (!buildResult.built) warnings += "Builder did not promote the capability: " + buildResult.status + " — " + buildResult.message
         }
-        return ReverseEngineeringResult(packageName, reports, recipe, allowCloudAnalysis, warnings)
+        warnings += "Full DEX decompilation and binary APK upload are not yet implemented."
+        return ReverseEngineeringResult(
+            packageName = packageName,
+            reports = reports,
+            recipe = recipe,
+            cloudAnalysisAttempted = allowCloudAnalysis,
+            buildStatus = buildResult?.status,
+            buildMessage = buildResult?.message,
+            builtCapabilityId = buildResult?.spec?.capability?.takeIf { buildResult.built },
+            warnings = warnings
+        )
     }
 
     companion object {
