@@ -2,6 +2,7 @@ package com.jarvis.app.rea
 
 import com.android.tools.smali.dexlib2.Opcodes
 import com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile
+import com.android.tools.smali.dexlib2.iface.MethodImplementation
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
 import com.android.tools.smali.dexlib2.iface.reference.StringReference
 import java.io.BufferedInputStream
@@ -76,6 +77,41 @@ object DexStructureInspector {
         "observe", "create", "update", "download", "upload", "process", "analyze"
     )
 
+    /**
+     * Extracts bounded evidence from a concrete method body. Abstract and native
+     * methods legitimately have no implementation and are ignored, not treated
+     * as malformed DEX. Kept internal so the null-body contract is unit-tested.
+     */
+    internal fun extractMethodEvidence(
+        signature: String,
+        implementation: MethodImplementation?
+    ): DexMethodEvidence? {
+        val body = implementation ?: return null
+        val opcodes = mutableListOf<String>()
+        val references = linkedSetOf<String>()
+        val literals = linkedSetOf<String>()
+        body.instructions.take(MAX_INSTRUCTIONS_PER_METHOD).forEach { instruction ->
+            opcodes += instruction.opcode.name
+            val reference = (instruction as? ReferenceInstruction)?.reference
+            when (reference) {
+                is StringReference -> if (literals.size < MAX_LITERALS_PER_METHOD) {
+                    literals += reference.string.take(180)
+                }
+                null -> Unit
+                else -> if (references.size < MAX_REFERENCES_PER_METHOD) {
+                    references += reference.toString().take(220)
+                }
+            }
+        }
+        if (opcodes.isEmpty()) return null
+        return DexMethodEvidence(
+            signature = signature.take(320),
+            opcodeSequence = opcodes,
+            referencedSymbols = references.toList(),
+            stringLiterals = literals.toList()
+        )
+    }
+
     fun inspect(apk: File): List<DexStructureReport> {
         val reports = mutableListOf<DexStructureReport>()
         var totalBytes = 0L
@@ -121,35 +157,10 @@ object DexStructureInspector {
                                 // Capture only a small, deterministic slice of method bodies.
                                 // This gives the cloud REA actual behavioural clues (calls,
                                 // opcodes and embedded protocol strings) without shipping DEX.
-                                if (methodEvidence.size < MAX_METHOD_EVIDENCE && method.implementation != null) {
+                                if (methodEvidence.size < MAX_METHOD_EVIDENCE) {
                                     runCatching {
-                                        val opcodes = mutableListOf<String>()
-                                        val references = linkedSetOf<String>()
-                                        val literals = linkedSetOf<String>()
-                                        method.implementation.instructions
-                                            .take(MAX_INSTRUCTIONS_PER_METHOD)
-                                            .forEach { instruction ->
-                                                opcodes += instruction.opcode.name
-                                                val reference = (instruction as? ReferenceInstruction)?.reference
-                                                when (reference) {
-                                                    is StringReference -> if (literals.size < MAX_LITERALS_PER_METHOD) {
-                                                        literals += reference.string.take(180)
-                                                    }
-                                                    null -> Unit
-                                                    else -> if (references.size < MAX_REFERENCES_PER_METHOD) {
-                                                        references += reference.toString().take(220)
-                                                    }
-                                                }
-                                            }
-                                        if (opcodes.isNotEmpty()) {
-                                            methodEvidence += DexMethodEvidence(
-                                                signature = signature.take(320),
-                                                opcodeSequence = opcodes,
-                                                referencedSymbols = references.toList(),
-                                                stringLiterals = literals.toList()
-                                            )
-                                        }
-                                    }
+                                        extractMethodEvidence(signature, method.implementation)
+                                    }.getOrNull()?.let(methodEvidence::add)
                                 }
                                 if (methodCount >= MAX_METHODS) break
                             }
