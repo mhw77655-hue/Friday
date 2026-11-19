@@ -16,6 +16,15 @@ class JarvisApplication : Application() {
     val projectContextPackStore by lazy {
         com.jarvis.app.context.ProjectContextPackStore(File(filesDir, "friday/project_context_pack.json"))
     }
+    val reverseEngineeringAgent by lazy {
+        com.jarvis.app.rea.ReverseEngineeringAgent(
+            this,
+            com.jarvis.app.rea.FridayCompatibilityConverter(
+                com.jarvis.app.rea.ProviderCouncilReverseEngineeringAdviser(providerCouncil)
+            )
+        )
+    }
+
     val providerCouncil by lazy {
         com.jarvis.app.model.remote.ProviderCouncil(
             this, remoteProviderProfiles, projectContextPackStore,
@@ -34,7 +43,7 @@ class JarvisApplication : Application() {
         // process owns Friday's cognitive composition root and lifecycle.
         // Secondary capability habitats construct only their own organs.
         if (currentProcessName() != packageName) return
-        JarvisEngine.init(this)
+        // Initialize the Shizuku-Next API bridge before any device capability is requested.\n        runCatching { ShizukuBridge.init() }\n        JarvisEngine.init(this)
         // Recover any development request that was queued before process death.
         // A damaged outbox must never prevent Friday from starting.
         runCatching {
