@@ -13,6 +13,7 @@ interface IJarvisShellService : IInterface {
     fun diagnosticsSnapshot(): String
     fun captureScreenSummary(): String
     fun setDozeWhitelist(enabled: Boolean): String
+    fun extractPackageApks(packageName: String): String
     fun destroy()
 
     abstract class Stub : Binder(), IJarvisShellService {
@@ -49,6 +50,13 @@ interface IJarvisShellService : IInterface {
                     return true
                 }
                 // Shizuku UserService destruction transaction for a hand-written Binder contract.
+                TRANSACTION_EXTRACT_PACKAGE_APKS -> {
+                    data.enforceInterface(DESCRIPTOR)
+                    val result = extractPackageApks(data.readString().orEmpty())
+                    reply?.writeNoException()
+                    reply?.writeString(result)
+                    return true
+                }
                 SHIZUKU_DESTROY_TRANSACTION -> {
                     destroy()
                     return true
@@ -62,6 +70,7 @@ interface IJarvisShellService : IInterface {
             const val TRANSACTION_DIAGNOSTICS = IBinder.FIRST_CALL_TRANSACTION
             const val TRANSACTION_CAPTURE_SCREEN = IBinder.FIRST_CALL_TRANSACTION + 1
             const val TRANSACTION_DOZE_WHITELIST = IBinder.FIRST_CALL_TRANSACTION + 2
+            const val TRANSACTION_EXTRACT_PACKAGE_APKS = IBinder.FIRST_CALL_TRANSACTION + 3
             const val SHIZUKU_DESTROY_TRANSACTION = 16777114
 
             @JvmStatic
@@ -113,6 +122,21 @@ interface IJarvisShellService : IInterface {
                 remote.transact(Stub.TRANSACTION_DOZE_WHITELIST, data, reply, 0)
                 reply.readException()
                 reply.readString() ?: "Doze whitelist result unavailable."
+            } finally {
+                data.recycle()
+                reply.recycle()
+            }
+        }
+
+        override fun extractPackageApks(packageName: String): String {
+            val data = Parcel.obtain()
+            val reply = Parcel.obtain()
+            return try {
+                data.writeInterfaceToken(Stub.DESCRIPTOR)
+                data.writeString(packageName)
+                remote.transact(Stub.TRANSACTION_EXTRACT_PACKAGE_APKS, data, reply, 0)
+                reply.readException()
+                reply.readString() ?: "{}"
             } finally {
                 data.recycle()
                 reply.recycle()
