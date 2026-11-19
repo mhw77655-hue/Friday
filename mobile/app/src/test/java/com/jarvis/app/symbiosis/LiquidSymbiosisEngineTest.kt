@@ -6,6 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import java.nio.file.Files
+import java.util.Properties
 
 class LiquidSymbiosisEngineTest {
     @Test
@@ -94,6 +95,26 @@ class LiquidSymbiosisEngineTest {
         val restored = LiquidSymbiosisEngine(file)
         assertEquals(first.strategy(SymbioticOrgan.REASONING), restored.strategy(SymbioticOrgan.REASONING))
         assertEquals(first.snapshot().generation, restored.snapshot().generation)
+    }
+
+    @Test
+    fun `state replacement keeps a complete durable snapshot and removes temporary file`() {
+        val directory = Files.createTempDirectory("friday-atomic-state").toFile()
+        val destination = File(directory, "state.properties")
+        val first = Properties().apply { setProperty("generation", "1") }
+        atomicWriteProperties(destination, first, "first snapshot")
+
+        val second = Properties().apply {
+            setProperty("generation", "2")
+            setProperty("strategy", "constrained")
+        }
+        atomicWriteProperties(destination, second, "replacement snapshot")
+
+        val restored = Properties()
+        destination.inputStream().use(restored::load)
+        assertEquals("2", restored.getProperty("generation"))
+        assertEquals("constrained", restored.getProperty("strategy"))
+        assertFalse(File(directory, "state.properties.tmp").exists())
     }
 
     @Test
