@@ -291,10 +291,7 @@ class NanoSymbioticController(
                 setProperty("maximumObservedProcessPssMb", r.maximumObservedProcessPssMb.toString())
                 setProperty("lastObservedAtMs", r.lastObservedAtMs.toString())
             }
-            val temp = File(hostStudyFile.parentFile, hostStudyFile.name + ".tmp")
-            temp.outputStream().use { p.store(it, "NAE host study; technical aggregates only") }
-            if (hostStudyFile.exists()) hostStudyFile.delete()
-            temp.renameTo(hostStudyFile)
+            atomicWriteProperties(hostStudyFile, p, "NAE host study; technical aggregates only")
         }
     }
 
@@ -314,10 +311,7 @@ class NanoSymbioticController(
                     ).joinToString(",")
                 )
             }
-            val temp = File(evidenceFile.parentFile, evidenceFile.name + ".tmp")
-            temp.outputStream().use { properties.store(it, "NAE aggregate workload evidence; no user content") }
-            if (evidenceFile.exists()) evidenceFile.delete()
-            temp.renameTo(evidenceFile)
+            atomicWriteProperties(evidenceFile, properties, "NAE aggregate workload evidence; no user content")
         }
     }
 }
