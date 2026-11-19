@@ -2,6 +2,8 @@ package com.jarvis.app.rea
 
 import com.android.tools.smali.dexlib2.Opcodes
 import com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile
+import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
+import com.android.tools.smali.dexlib2.iface.reference.StringReference
 import java.io.BufferedInputStream
 import java.io.File
 import java.net.URI
@@ -18,7 +20,8 @@ data class DexStructureReport(
     val classDescriptors: List<String>,
     val interestingMethods: List<String>,
     val apiHosts: List<String>,
-    val warning: String? = null
+    val warning: String? = null,
+    val methodEvidence: List<DexMethodEvidence> = emptyList()
 ) {
     fun toJson(): org.json.JSONObject = org.json.JSONObject()
         .put("fileName", fileName)
@@ -31,12 +34,28 @@ data class DexStructureReport(
         .put("classDescriptors", org.json.JSONArray(classDescriptors))
         .put("interestingMethods", org.json.JSONArray(interestingMethods))
         .put("apiHosts", org.json.JSONArray(apiHosts))
+        .put("methodEvidence", org.json.JSONArray(methodEvidence.map { it.toJson() }))
         .put("warning", warning ?: org.json.JSONObject.NULL)
 }
 
+data class DexMethodEvidence(
+    val signature: String,
+    val opcodeSequence: List<String>,
+    val referencedSymbols: List<String>,
+    val stringLiterals: List<String>
+) {
+    fun toJson(): org.json.JSONObject = org.json.JSONObject()
+        .put("signature", signature)
+        .put("opcodes", org.json.JSONArray(opcodeSequence))
+        .put("references", org.json.JSONArray(referencedSymbols))
+        .put("strings", org.json.JSONArray(stringLiterals))
+}
+
 /**
- * Lightweight static DEX inspection. It extracts symbol/structure evidence only;
- * it does not execute, decompile, modify or upload application code.
+ * Bounded static DEX inspection. It extracts class, method, opcode, reference
+ * and literal evidence without executing APK code or attempting to reconstruct
+ * proprietary source. This is a lightweight on-device REA pass; heavier
+ * semantic reconstruction remains a cloud-side task.
  */
 object DexStructureInspector {
     private const val MAX_DEX_FILES = 8
@@ -46,6 +65,10 @@ object DexStructureInspector {
     private const val MAX_METHODS = 20_000
     private const val MAX_STRINGS_SCANNED = 12_000
     private const val MAX_RECORDED_SYMBOLS = 100
+    private const val MAX_METHOD_EVIDENCE = 24
+    private const val MAX_INSTRUCTIONS_PER_METHOD = 40
+    private const val MAX_REFERENCES_PER_METHOD = 12
+    private const val MAX_LITERALS_PER_METHOD = 8
     private val INTERESTING_METHODS = setOf(
         "connect", "execute", "request", "send", "receive", "parse", "decode",
         "encrypt", "decrypt", "initialize", "init", "start", "stop", "build",
@@ -78,6 +101,7 @@ object DexStructureInspector {
                         val packages = linkedSetOf<String>()
                         val classNames = linkedSetOf<String>()
                         val methods = linkedSetOf<String>()
+                        val methodEvidence = mutableListOf<DexMethodEvidence>()
                         var methodCount = 0
                         var fieldCount = 0
                         for (classDef in classes) {
@@ -89,9 +113,43 @@ object DexStructureInspector {
                             fieldCount += classDef.fields.count()
                             for (method in classDef.methods) {
                                 methodCount++
+                                val parameters = method.parameterTypes.joinToString("") { it.toString() }
+                                val signature = descriptor + "->" + method.name + "(" + parameters + ")" + method.returnType
                                 if (method.name.lowercase() in INTERESTING_METHODS && methods.size < MAX_RECORDED_SYMBOLS) {
-                                    val parameters = method.parameterTypes.joinToString("") { it.toString() }
-                                    methods += descriptor + "->" + method.name + "(" + parameters + ")" + method.returnType
+                                    methods += signature
+                                }
+                                // Capture only a small, deterministic slice of method bodies.
+                                // This gives the cloud REA actual behavioural clues (calls,
+                                // opcodes and embedded protocol strings) without shipping DEX.
+                                if (methodEvidence.size < MAX_METHOD_EVIDENCE && method.implementation != null) {
+                                    runCatching {
+                                        val opcodes = mutableListOf<String>()
+                                        val references = linkedSetOf<String>()
+                                        val literals = linkedSetOf<String>()
+                                        method.implementation.instructions
+                                            .take(MAX_INSTRUCTIONS_PER_METHOD)
+                                            .forEach { instruction ->
+                                                opcodes += instruction.opcode.name
+                                                val reference = (instruction as? ReferenceInstruction)?.reference
+                                                when (reference) {
+                                                    is StringReference -> if (literals.size < MAX_LITERALS_PER_METHOD) {
+                                                        literals += reference.string.take(180)
+                                                    }
+                                                    null -> Unit
+                                                    else -> if (references.size < MAX_REFERENCES_PER_METHOD) {
+                                                        references += reference.toString().take(220)
+                                                    }
+                                                }
+                                            }
+                                        if (opcodes.isNotEmpty()) {
+                                            methodEvidence += DexMethodEvidence(
+                                                signature = signature.take(320),
+                                                opcodeSequence = opcodes,
+                                                referencedSymbols = references.toList(),
+                                                stringLiterals = literals.toList()
+                                            )
+                                        }
+                                    }
                                 }
                                 if (methodCount >= MAX_METHODS) break
                             }
@@ -117,7 +175,8 @@ object DexStructureInspector {
                             packageNames = packages.toList().sorted().take(MAX_RECORDED_SYMBOLS),
                             classDescriptors = classNames.toList().sorted().take(MAX_RECORDED_SYMBOLS),
                             interestingMethods = methods.toList().sorted(),
-                            apiHosts = hosts.toList().sorted().take(40)
+                            apiHosts = hosts.toList().sorted().take(40),
+                            methodEvidence = methodEvidence
                         )
                     }
                 }.getOrElse { failure ->
