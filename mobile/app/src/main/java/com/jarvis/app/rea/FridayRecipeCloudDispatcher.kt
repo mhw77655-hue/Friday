@@ -80,8 +80,11 @@ class FridayRecipeCloudDispatcher(
                 "Implement a Friday-compatible, independently validated integration derived from this reviewed recipe: " + recipe.title)
             .put("evidence", JSONArray(evidence))
             .put("acceptance_criteria", JSONArray(listOf(
-                "Translate the recipe into Friday's existing capability and runtime interfaces; do not copy proprietary implementation code.",
-                "Add regression tests for the discovered behaviour and the Friday adapter.",
+                "Use the supplied DEX structure, class/package names, method signatures, referenced API hosts and APK inventory as evidence; distinguish observed facts from hypotheses.",
+                "Identify a concrete transferable mechanism or documented integration surface; do not infer runtime behaviour from a symbol name alone.",
+                "Implement a working Friday-compatible adapter or host integration, not merely another research report or architecture proposal.",
+                "Prefer reconstructing behaviour from public/documented interfaces and independently verified semantics; do not copy proprietary implementation code.",
+                "Add regression tests proving the adapted behaviour and Friday integration, including malformed or unsupported source evidence.",
                 "Run Builder safety contracts, JVM tests, Android build and disposable-device instrumentation.",
                 "Keep platform permissions, identity, memory, credentials, signing and update control-plane changes owner-reviewed."
             )))
