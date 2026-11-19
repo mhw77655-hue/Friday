@@ -324,7 +324,9 @@ class ToolBuilder(
 
     /** Roll back a previously promoted capability using its durable receipt. */
     suspend fun rollbackPromotion(receiptId: String, reason: String): RollbackResult {
-        val stored = receiptStore?.get(receiptId)
+        val durableReceiptStore = receiptStore
+            ?: return RollbackResult(false, null, receiptId, "Durable promotion receipt storage is unavailable.")
+        val stored = durableReceiptStore.get(receiptId)
             ?: return RollbackResult(false, null, receiptId, "No durable promotion receipt exists for '$receiptId'.")
         if (stored.status == PromotionReceiptStore.Status.ROLLED_BACK) {
             return RollbackResult(false, null, receiptId, "Promotion '$receiptId' was already rolled back.")
@@ -333,7 +335,7 @@ class ToolBuilder(
             ?: return RollbackResult(false, null, receiptId, "Rollback controller is unavailable.")
         val result = controller.rollback(stored.receipt, reason)
         if (result.success) {
-            withContext(Dispatchers.IO) { receiptStore.markRolledBack(receiptId, reason) }
+            withContext(Dispatchers.IO) { durableReceiptStore.markRolledBack(receiptId, reason) }
         }
         return result
     }
