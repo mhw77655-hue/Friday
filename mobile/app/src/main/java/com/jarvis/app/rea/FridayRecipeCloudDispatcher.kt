@@ -43,8 +43,30 @@ class FridayRecipeCloudDispatcher(
             add("Source Android package: " + packageName)
             reports.take(8).forEach { report ->
                 add("APK " + report.fileName + " sha256=" + report.sha256 +
-                    " size=" + report.sizeBytes + " dex=" + report.dexFiles.joinToString(",") +
-                    " abis=" + report.nativeAbis.joinToString(","))
+                    " size=" + report.sizeBytes + " entries=" + report.entryCount +
+                    " dex=" + report.dexFiles.joinToString(",") +
+                    " abis=" + report.nativeAbis.joinToString(",") +
+                    " notable=" + report.notablePaths.take(80).joinToString(","))
+                // Send the actual bounded DEX structure evidence used by the
+                // REA analyst, not just the APK hash and filenames. This lets
+                // the cloud worker inspect class/package/method/API-host clues
+                // and independently decide what is transferable. No APK bytes,
+                // app-private data, or credentials cross this boundary.
+                report.dexStructure.take(8).forEach { dex ->
+                    val dexEvidence = JSONObject()
+                        .put("file", dex.fileName)
+                        .put("parsed", dex.parsed)
+                        .put("classCount", dex.classCount)
+                        .put("methodCount", dex.methodCount)
+                        .put("fieldCount", dex.fieldCount)
+                        .put("packages", JSONArray(dex.packageNames.take(80)))
+                        .put("classes", JSONArray(dex.classDescriptors.take(100)))
+                        .put("methods", JSONArray(dex.interestingMethods.take(100)))
+                        .put("apiHosts", JSONArray(dex.apiHosts.take(40)))
+                        .put("warning", dex.warning ?: JSONObject.NULL)
+                        .toString()
+                    add("DEX_STRUCTURE_JSON: " + dexEvidence)
+                }
             }
             add("Transferable principle: " + recipe.transferablePrinciple)
             recipe.evidenceAndUnknowns.take(4).forEach { add("Evidence/unknown: " + it) }
