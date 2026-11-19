@@ -39,7 +39,10 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn("sudo chmod 666 /dev/kvm", self.workflow)
         self.assertIn("ANDROID_KVM_READY", self.workflow)
         self.assertIn("x86_64 software emulation is too slow and unreliable", self.workflow)
-        self.assertIn("-memory 4096 -cores 4", self.workflow)
+        self.assertIn("ram_mb: 4096", self.workflow)
+        self.assertIn("ram_mb: 3072", self.workflow)
+        self.assertIn("cores: 4", self.workflow)
+        self.assertIn("cores: 2", self.workflow)
 
     def test_virtual_phone_requires_real_friday_install_and_foreground_launch(self):
         script = (ROOT / "tools" / "friday-builder" / "run_virtual_phone_tests.sh").read_text(encoding="utf-8")
@@ -62,14 +65,19 @@ class BuildWorkflowContractTests(unittest.TestCase):
     def test_workflow_dispatch_is_available_for_trusted_publisher(self):
         self.assertIn("workflow_dispatch:", self.workflow)
 
-    def test_android_emulator_matches_github_runner_resource_budget(self):
+    def test_android_emulator_covers_stable_and_constrained_resource_profiles(self):
         emulator = self.workflow.split("  android-emulator:", 1)[1].split("  full-source-audit:", 1)[0]
         self.assertIn('"system-images;android-35;google_apis;x86_64"', emulator)
         self.assertIn("target: google_apis", emulator)
+        self.assertIn("profile: stable", emulator)
         self.assertIn("cores: 4", emulator)
-        self.assertIn("ram-size: 4096M", emulator)
-        self.assertIn("-memory 4096 -cores 4", emulator)
-        self.assertNotIn("-cores 2", emulator)
+        self.assertIn("ram_mb: 4096", emulator)
+        self.assertIn("profile: constrained", emulator)
+        self.assertIn("cores: 2", emulator)
+        self.assertIn("ram_mb: 3072", emulator)
+        self.assertIn("ram-size: ${{ matrix.ram_mb }}M", emulator)
+        self.assertIn("-memory ${{ matrix.ram_mb }} -cores ${{ matrix.cores }}", emulator)
+        self.assertIn("friday-virtual-phone-evidence-${{ matrix.profile }}", emulator)
 
     def test_actionlint_ignores_only_its_stale_concurrency_queue_schema_error(self):
         self.assertIn("-ignore 'unexpected key", self.workflow)
