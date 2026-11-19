@@ -442,7 +442,7 @@ jobs:
   report-failure:
     # Inspect every required validation lane. A skipped/failed lane is not success;
     # cancellation remains distinct and is not misreported as a test failure.
-    if: ${{ always() && (needs.debug-apk.result != 'success' || needs.android-emulator.result != 'success' || needs.full-source-audit.result != 'success') }}
+    if: ${{ always() && !cancelled() && (needs.debug-apk.result != 'success' || needs.android-emulator.result != 'success' || needs.full-source-audit.result != 'success') }}
     needs:
       - debug-apk
       - android-emulator
