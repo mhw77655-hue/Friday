@@ -83,16 +83,15 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn('"$(go env GOPATH)/bin/actionlint" -color', self.workflow)
         self.assertNotIn("-ignore 'unexpected key", self.workflow)
 
-    def test_newer_pr_commits_supersede_obsolete_validation_without_cancelling_main(self):
+    def test_each_candidate_revision_keeps_its_own_validation_run(self):
         concurrency = self.workflow.split("concurrency:", 1)[1].split("permissions:", 1)[0]
-        self.assertIn("cancel-in-progress: true", concurrency)
-        self.assertIn("PR commits supersede older candidates", concurrency)
-        self.assertNotIn("queue: max", concurrency)
+        self.assertIn("github.run_id", concurrency)
+        self.assertIn("cancel-in-progress: false", concurrency)
+        self.assertNotIn("github.head_ref", concurrency)
 
     def test_failure_report_runs_for_failed_skipped_or_cancelled_required_jobs(self):
         reporter = self.workflow.split("  report-failure:", 1)[1]
         self.assertIn("if: ${{ always() && !cancelled() &&", reporter)
-        self.assertIn("supersede", self.workflow.lower())
         for job in ("debug-apk", "android-emulator", "full-source-audit"):
             self.assertIn(f"needs.{job}.result != 'success'", reporter)
         self.assertIn("a skipped or cancelled lane is not a pass", reporter.lower())
