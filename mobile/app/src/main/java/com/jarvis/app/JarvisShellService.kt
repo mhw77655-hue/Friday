@@ -142,7 +142,15 @@ class JarvisShellService : IJarvisShellService.Stub() {
         process.inputStream.bufferedReader().use { it.readText().take(12_000) }
     }.getOrElse { "unavailable: ${it.javaClass.simpleName}" }
 
-    companion object {\n        private val PACKAGE_NAME = Regex("[A-Za-z][A-Za-z0-9_]*(\\\\.[A-Za-z0-9_]+)+")\n        private val SAFE_APK_ROOTS = listOf("/data/app/", "/system/", "/system_ext/", "/product/", "/vendor/", "/apex/")\n        private const val MAX_SPLIT_APKS = 24\n        private const val MAX_APK_BYTES = 200L * 1024L * 1024L\n        private const val MAX_PACKAGE_BYTES = 500L * 1024L * 1024L\n    }\n\n    override fun destroy() {
+    companion object {
+        private val PACKAGE_NAME = Regex("[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z0-9_]+)+")
+        private val SAFE_APK_ROOTS = listOf("/data/app/", "/system/", "/system_ext/", "/product/", "/vendor/", "/apex/")
+        private const val MAX_SPLIT_APKS = 24
+        private const val MAX_APK_BYTES = 200L * 1024L * 1024L
+        private const val MAX_PACKAGE_BYTES = 500L * 1024L * 1024L
+    }
+
+    override fun destroy() {
         // Shizuku owns this dedicated UserService process.
         Process.killProcess(Process.myPid())
     }
