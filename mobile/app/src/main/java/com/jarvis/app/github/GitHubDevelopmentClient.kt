@@ -33,6 +33,10 @@ internal class GitHubDispatchException(
     message: String
 ) : IOException(message)
 
+/** Only transient server/rate-limit responses should keep WorkManager retrying. */
+internal fun isRetryableGitHubStatus(statusCode: Int): Boolean =
+    statusCode == 408 || statusCode == 425 || statusCode == 429 || statusCode in 500..599
+
 /**
  * Pure dispatch guard shared by the phone worker and JVM regression tests.
  * An existing proposal blocks a new cycle even on a freshly installed device
@@ -375,7 +379,10 @@ class GitHubDevelopmentClient(context: Context) {
             .get()
             .build()
         http.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw IOException("Could not check existing proposals (HTTP ${response.code}).")
+            if (!response.isSuccessful) throw GitHubDispatchException(
+                response.code,
+                "Could not check existing proposals (HTTP ${response.code})."
+            )
             val proposals = JSONArray(response.body?.string().orEmpty())
             return (0 until proposals.length()).any { index ->
                 proposals.getJSONObject(index)
