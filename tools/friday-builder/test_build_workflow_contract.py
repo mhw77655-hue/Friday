@@ -85,7 +85,7 @@ class BuildWorkflowContractTests(unittest.TestCase):
 
     def test_newer_pr_commits_supersede_obsolete_validation_without_cancelling_main(self):
         concurrency = self.workflow.split("concurrency:", 1)[1].split("permissions:", 1)[0]
-        self.assertIn("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", concurrency)
+        self.assertIn("cancel-in-progress: true", concurrency)
         self.assertIn("PR commits supersede older candidates", concurrency)
         self.assertNotIn("queue: max", concurrency)
 
