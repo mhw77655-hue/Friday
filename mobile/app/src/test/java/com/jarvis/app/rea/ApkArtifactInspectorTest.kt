@@ -60,6 +60,27 @@ class ApkArtifactInspectorTest {
         assertNotNull(recipe)
         assertEquals(FridayIntegrationKind.CAPABILITY_ADAPTER, recipe?.integrationKind)
     }
+    @Test fun dexMethodEvidenceSerializesCallsOpcodesAndLiterals() {
+        val evidence = DexMethodEvidence(
+            signature = "Lexample/Adapter;->convert(Ljava/lang/String;)Ljava/lang/String;",
+            opcodeSequence = listOf("INVOKE_VIRTUAL", "RETURN_OBJECT"),
+            referencedSymbols = listOf("Ljava/lang/String;->trim()Ljava/lang/String;"),
+            stringLiterals = listOf("https://example.org/api")
+        )
+        val report = DexStructureReport(
+            fileName = "classes.dex", byteSize = 128, parsed = true,
+            classCount = 1, methodCount = 1, fieldCount = 0,
+            packageNames = listOf("example"), classDescriptors = listOf("Lexample/Adapter;"),
+            interestingMethods = listOf(evidence.signature), apiHosts = listOf("example.org"),
+            methodEvidence = listOf(evidence)
+        )
+        val json = report.toJson().getJSONArray("methodEvidence").getJSONObject(0)
+        assertEquals(evidence.signature, json.getString("signature"))
+        assertTrue(json.getJSONArray("opcodes").toString().contains("INVOKE_VIRTUAL"))
+        assertTrue(json.getJSONArray("references").toString().contains("trim"))
+        assertTrue(json.getJSONArray("strings").toString().contains("https://example.org/api"))
+    }
+
     @Test fun recipeConverterOnlyAdmitsRestrictedPureCapabilities() {
         val pure = FridayCompatibilityRecipe("Normalize a value", FridayIntegrationKind.DATA_TRANSFORMER,
             "Normalize numeric inputs within a bounded range.", listOf("Capability"),
