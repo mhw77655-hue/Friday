@@ -2,6 +2,7 @@ package com.jarvis.app.rea
 
 import org.jf.dexlib2.Opcodes
 import org.jf.dexlib2.dexbacked.DexBackedDexFile
+import java.io.BufferedInputStream
 import java.io.File
 import java.net.URI
 import java.util.zip.ZipFile
@@ -71,7 +72,7 @@ object DexStructureInspector {
                 }
                 totalBytes += size
                 val report = runCatching {
-                    zip.getInputStream(entry).use { input ->
+                    BufferedInputStream(zip.getInputStream(entry)).use { input ->
                         val dex = DexBackedDexFile.fromInputStream(Opcodes.getDefault(), input)
                         val classes = dex.classes.take(MAX_CLASSES)
                         val packages = linkedSetOf<String>()
