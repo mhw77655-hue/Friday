@@ -188,6 +188,7 @@ object CognitiveReconstitutionPlanner {
                         donor.baseCheckpointFingerprint.isBlank() ||
                         payload.architectureFingerprint != target.architectureFingerprint ||
                         payload.tokenizerFingerprint != target.tokenizerFingerprint ||
+                        payload.baseCheckpointFingerprint != target.baseCheckpointFingerprint ||
                         donor.architectureFingerprint != target.architectureFingerprint ||
                         donor.tokenizerFingerprint != target.tokenizerFingerprint ||
                         donor.baseCheckpointFingerprint != target.baseCheckpointFingerprint
