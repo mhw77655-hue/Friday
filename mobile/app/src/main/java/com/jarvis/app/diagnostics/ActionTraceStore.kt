@@ -81,11 +81,12 @@ class ActionTraceStore(
         withFileLock { readRoot().optJSONArray("events")?.length() ?: 0 }
     }
 
-    fun exportJson(): String = synchronized(monitor) {
+    fun exportJson(capabilities: JSONObject = JSONObject()): String = synchronized(monitor) {
         withFileLock {
             val stored = readRoot()
             JSONObject()
                 .put("report_type", "FRIDAY_LIVE_TEST_REPORT")
+                .put("device_capabilities", capabilities)
                 .put("schema_version", SCHEMA_VERSION)
                 .put("report_id", UUID.randomUUID().toString())
                 .put("generated_at_utc", Instant.now().toString())
@@ -98,7 +99,7 @@ class ActionTraceStore(
         }
     }
 
-    fun exportText(): String = synchronized(monitor) {
+    fun exportText(capabilities: JSONObject = JSONObject()): String = synchronized(monitor) {
         withFileLock {
             val root = readRoot()
             val events = root.optJSONArray("events") ?: JSONArray()
@@ -131,11 +132,19 @@ class ActionTraceStore(
                     }
                 }
                 appendLine()
+                appendLine("DEVICE CAPABILITIES AT EXPORT")
+                appendLine("microphone_permission: ${capabilities.optBoolean("microphone_permission")}")
+                appendLine("accessibility_service_enabled: ${capabilities.optBoolean("accessibility_service_enabled")}")
+                appendLine("accessibility_service_connected: ${capabilities.optBoolean("accessibility_service_connected")}")
+                appendLine("write_settings_permission: ${capabilities.optBoolean("write_settings_permission")}")
+                appendLine("notification_listener_enabled: ${capabilities.optBoolean("notification_listener_enabled")}")
+                appendLine("shizuku_status: ${capabilities.optString("shizuku_status", "unknown")}")
+                appendLine()
                 appendLine("VERIFICATION")
                 appendLine("Executor-reported success is not proof of the intended outcome. All events remain not_independently_verified until a separate postcondition verifier supplies evidence.")
                 appendLine()
                 appendLine("MACHINE_READABLE_JSON")
-                append(exportJsonUnlocked(root, reportId))
+                append(exportJsonUnlocked(root, reportId, capabilities))
             }
         }
     }
@@ -146,7 +155,7 @@ class ActionTraceStore(
         }
     }
 
-    private fun exportJsonUnlocked(root: JSONObject, reportId: String): String =
+    private fun exportJsonUnlocked(root: JSONObject, reportId: String, capabilities: JSONObject): String =
         JSONObject()
             .put("report_type", "FRIDAY_LIVE_TEST_REPORT")
             .put("schema_version", SCHEMA_VERSION)
@@ -156,6 +165,7 @@ class ActionTraceStore(
             .put("app_version", root.optString("app_version", appVersion))
             .put("android_api", root.optInt("android_api", androidApi))
             .put("source_revision", root.optString("source_revision", sourceRevision))
+            .put("device_capabilities", capabilities)
             .put("events", root.optJSONArray("events") ?: JSONArray())
             .toString(2)
 
@@ -233,9 +243,34 @@ object PhoneActionDiagnostics {
 
     fun eventCount(): Int = runCatching { store?.eventCount() ?: 0 }.getOrDefault(0)
 
-    fun exportText(): String = runCatching {
-        store?.exportText() ?: "FRIDAY LIVE TEST REPORT\nDiagnostics are not initialized in this process."
+    fun exportText(context: android.content.Context): String = runCatching {
+        store?.exportText(capabilitySnapshot(context.applicationContext))
+            ?: "FRIDAY LIVE TEST REPORT\nDiagnostics are not initialized in this process."
     }.getOrDefault("FRIDAY LIVE TEST REPORT\nThe local action journal could not be read.")
+
+    private fun capabilitySnapshot(context: android.content.Context): JSONObject {
+        val enabledAccessibility = android.provider.Settings.Secure.getString(
+            context.contentResolver,
+            android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ).orEmpty()
+        val expectedService = "${context.packageName}/com.jarvis.app.voice.FridayAccessibilityService"
+        val enabledNotificationListeners = android.provider.Settings.Secure.getString(
+            context.contentResolver,
+            "enabled_notification_listeners"
+        ).orEmpty()
+        val expectedNotificationListener = "${context.packageName}/com.jarvis.app.JarvisNotificationListener"
+        val shizukuStatus = runCatching { com.jarvis.app.ScreenBridge.status.value }
+            .getOrDefault("unknown")
+            .replace(Regex("[^A-Za-z0-9 _=·.-]"), "_")
+            .take(100)
+        return JSONObject()
+            .put("microphone_permission", context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED)
+            .put("accessibility_service_enabled", enabledAccessibility.split(':').any { it.equals(expectedService, ignoreCase = true) })
+            .put("accessibility_service_connected", com.jarvis.app.voice.FridayAccessibilityService.isEnabled())
+            .put("write_settings_permission", android.provider.Settings.System.canWrite(context))
+            .put("notification_listener_enabled", enabledNotificationListeners.split(':').any { it.equals(expectedNotificationListener, ignoreCase = true) })
+            .put("shizuku_status", shizukuStatus)
+    }
 
     fun clear() {
         runCatching { store?.clear() }
