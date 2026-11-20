@@ -554,7 +554,7 @@ fun SettingsScreen() {
                         }.getOrElse { it.message ?: "Could not enable Doze exemption." }
                     }
                 },
-                enabled = shizukuStatus == "bound"
+                enabled = shizukuStatus.startsWith("bound · verified Shizuku uid=")
             ) { Text("Shizuku: protect Friday") }
             TextButton(
                 onClick = {
@@ -565,7 +565,7 @@ fun SettingsScreen() {
                         }.getOrElse { it.message ?: "Could not remove Doze exemption." }
                     }
                 },
-                enabled = shizukuStatus == "bound"
+                enabled = shizukuStatus.startsWith("bound · verified Shizuku uid=")
             ) { Text("Remove") }
         }
         Text(
@@ -622,7 +622,7 @@ fun SettingsScreen() {
                         ?: "Device service is not connected."
                 }
             },
-            enabled = shizukuStatus == "bound",
+            enabled = shizukuStatus.startsWith("bound · verified Shizuku uid="),
             modifier = Modifier.fillMaxWidth()
         ) { Text("Read live device diagnostics") }
         if (shizukuSnapshot.isNotBlank()) {
