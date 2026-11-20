@@ -33,6 +33,13 @@ class PhoneCommandInterpreterTest {
         assertEquals(PhoneControlCommand.SetBrightness(45), PhoneCommandInterpreter.parse("set brightness to 45%"))
         assertNull(PhoneCommandInterpreter.parse("set brightness to 0 percent"))
         assertNull(PhoneCommandInterpreter.parse("set media volume to 101 percent"))
+        assertEquals(PhoneControlCommand.Back, PhoneCommandInterpreter.parse("ارجع للخلف"))
+        assertEquals(PhoneControlCommand.OpenSettings, PhoneCommandInterpreter.parse("افتح الإعدادات"))
+        assertEquals(PhoneControlCommand.OpenApp("واتساب"), PhoneCommandInterpreter.parse("افتح واتساب"))
+        assertEquals(PhoneControlCommand.VolumeUp, PhoneCommandInterpreter.parse("علي الصوت"))
+        assertEquals(PhoneControlCommand.VolumeDown, PhoneCommandInterpreter.parse("وطي الصوت"))
+        assertEquals(PhoneControlCommand.SetMediaVolume(35), PhoneCommandInterpreter.parse("خلي صوت الميديا 35%"))
+        assertEquals(PhoneControlCommand.SetBrightness(40), PhoneCommandInterpreter.parse("خلي السطوع 40%"))
         assertEquals(PhoneControlCommand.OpenInternetPanel, PhoneCommandInterpreter.parse("open wifi settings"))
         assertEquals(PhoneControlCommand.OpenInternetPanel, PhoneCommandInterpreter.parse("turn off wifi"))
     }
