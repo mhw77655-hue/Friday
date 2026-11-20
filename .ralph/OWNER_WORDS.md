@@ -179,3 +179,27 @@ Current explicit corrections and priorities:
 - Every claim of progress must be supported by the real Android path and, where relevant, physical-phone evidence.
 
 Source: owner's explicit instruction in the active project conversation, 2026-11-20. This current direction supersedes conflicting historical assistant proposals and stale implementation plans.
+
+
+### Direct source passages added from the uploaded conversation archive
+
+> @Web search for the millions time consciousness is the fucking liquid Symbiotic quantum software not the scientific reason
+
+Source: `New Folder chats/Execution_failures_review__1_.txt`, owner turn 4. This is the owner's explicit correction of the framing: retain his liquid Symbiotic quantum software concept; do not substitute a scientific or philosophical debate for the intended engineering.
+
+> Yeah mate the voice is actually the main thing no matter what's firsts  
+> I need your plan to have multi parallel phases trying to do as much job as possible to complete it from every direction not just waiting for a fucking Ralph turtle to finish something  
+> So the new plan just in plain text  
+> A plan to actually have a liquid Symbiotic software and branches from it because what u both said feels allot of fixed loops and fixed frozen architecture
+
+Source: `New Folder chats/Continue_Vision_Summary (1).txt`, owner turn 16. Voice is the first user-visible priority; independent work must progress in parallel under the liquid trunk/branches concept, without freezing the architecture.
+
+> Dude you are missing the point  
+> She doesn't look into just the specialized parts like there companies do  
+> She does a universal stuff  
+> ...  
+> she doesn't just learn about me and the people but what i can do even how i drive and how I react  
+> ...  
+> The cameras in my glasses the car how does the road behave if there's an input Friday can reach it
+
+Source: `New Folder chats/Continue_Vision_Summary (1).txt`, owner turn 35. The example establishes universal learning across the owner's actions and any relevant accessible environmental evidence; it is not a request for a dedicated driving subsystem.
