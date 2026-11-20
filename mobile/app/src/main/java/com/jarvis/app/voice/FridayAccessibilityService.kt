@@ -345,7 +345,13 @@ class FridayAccessibilityService : AccessibilityService() {
                 is PhoneControlResult.UserActionRequired -> "user_action_required"
             }
             com.jarvis.app.diagnostics.PhoneActionDiagnostics.record(
-                action = command.javaClass.simpleName.substringBefore('
+                action = command.javaClass.simpleName,
+                route = if (service == null) "accessibility_unavailable" else "accessibility",
+                outcome = outcome,
+                durationMs = android.os.SystemClock.elapsedRealtime() - startedAt
+            )
+            return result
+        }
 
         fun isEnabled(): Boolean = active.get() != null
 
