@@ -121,9 +121,13 @@ class UniversalResearchEngine(
         channels += CandidateSource.LOCAL_CATALOG
 
         // Channel 2: cloud reasoning via the real CloudModelRouter.
-        if (cloudRouter != null) {
+        if (cloudRouter != null && cloudRouter.poolMembers().isNotEmpty()) {
             val provider = CloudResearchProvider(cloudRouter)
-            val cloudMechanisms = provider.search(gapDescription, targetDomains.ifEmpty { ResearchDomain.values().toSet() }, emptyList())
+            val cloudMechanisms = provider.search(
+                gapDescription,
+                targetDomains.ifEmpty { ResearchDomain.values().toSet() },
+                emptyList()
+            )
             candidates += cloudMechanisms.take(maxResults).map { toMechanismCandidate(gapDescription, it) }
             channels += CandidateSource.CLOUD_REASONING
         }
