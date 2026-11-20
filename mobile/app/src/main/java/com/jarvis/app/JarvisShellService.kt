@@ -52,6 +52,34 @@ class JarvisShellService : IJarvisShellService.Stub() {
      * command shape are fixed in code; the Binder caller supplies only a
      * boolean. Read-back verification is required before reporting success.
      */
+    /** Launch one installed application by package name and verify the resumed activity. */
+    override fun launchApp(packageName: String): String {
+        if (!PACKAGE_NAME.matches(packageName)) {
+            return "status=rejected; reason=invalid-package-name"
+        }
+        val launch = runFixed(
+            "am", "start",
+            "-a", "android.intent.action.MAIN",
+            "-c", "android.intent.category.LAUNCHER",
+            "-p", packageName
+        )
+        if (launch.startsWith("unavailable:") || launch == "timeout" ||
+            launch.contains("Error:", ignoreCase = true)
+        ) {
+            return "status=failed; launch=$launch"
+        }
+        val activities = runFixed("dumpsys", "activity", "activities")
+        if (activities.startsWith("unavailable:") || activities == "timeout") {
+            return "status=unverified; launch=$launch; foreground=unavailable"
+        }
+        val resumed = activities.lineSequence().any { line ->
+            line.contains(packageName) &&
+                (line.contains("mResumedActivity", ignoreCase = true) ||
+                 line.contains("topResumedActivity", ignoreCase = true))
+        }
+        return "status=${if (resumed) "verified" else "not-verified"}; package=$packageName; launch=${launch.take(500)}"
+    }
+
     override fun setDozeWhitelist(enabled: Boolean): String {
         val packageName = "com.jarvis.app"
         val sign = if (enabled) "+" else "-"
@@ -67,6 +95,8 @@ class JarvisShellService : IJarvisShellService.Stub() {
         val verified = present == enabled
         return "status=${if (verified) "verified" else "not-verified"}; enabled=$present; command=$commandResult"
     }
+
+    private val PACKAGE_NAME = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+")
 
     private fun readFile(path: String, maxChars: Int): String =
         runCatching { File(path).takeIf { it.isFile && it.canRead() }?.readText()?.take(maxChars) }
