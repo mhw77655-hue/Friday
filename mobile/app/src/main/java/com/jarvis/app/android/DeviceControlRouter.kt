@@ -173,7 +173,8 @@ class DeviceControlRouter(
                     route = attempt.backendId,
                     outcome = outcome,
                     durationMs = attempt.durationMs,
-                    verificationState = verificationState
+                    verificationState = verificationState,
+                    verificationStage = attempt.evidence.stage.name
                 )
             }
         }
