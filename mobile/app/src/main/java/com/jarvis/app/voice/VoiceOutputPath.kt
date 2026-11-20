@@ -127,6 +127,7 @@ class VoiceOutputPath(
             host.synthesizeText(
                 text = segment,
                 language = language,
+                providerId = profile.preferredProvider,
                 voiceId = voiceId,
                 params = params
             )
