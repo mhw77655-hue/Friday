@@ -16,7 +16,7 @@ The curated OWNER_WORDS file preserves owner-authored excerpts and provenance. D
 
 ## 2. The destination is not a fixed architecture
 
-Friday is one continuing digital individual. Preserve the owner's term **liquid Symbiotic quantum software**; do not redirect project work into a consciousness debate or replace the concept with a conventional fixed multi-agent architecture.
+Do not build a chatbot and call it Friday. Friday is one continuing digital individual. Preserve the owner's term **liquid Symbiotic quantum software**; do not redirect project work into a consciousness debate or replace the concept with a conventional fixed multi-agent architecture.
 
 The protected continuity/security floor is the trunk. Capabilities are open branches. They exchange information through Need, Affordance, Resource field, Outcome and Continuity/floor contracts. These are open exchange surfaces, not a mandatory pipeline or cognitive taxonomy. Do not create permanent specialist ownership, closed capability lists, fixed cognitive stages or a frozen personality. Friday must learn universally from relevant accessible experiences and domains.
 
