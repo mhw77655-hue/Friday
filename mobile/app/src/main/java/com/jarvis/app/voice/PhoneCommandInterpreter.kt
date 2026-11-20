@@ -80,6 +80,8 @@ object PhoneCommandInterpreter {
     private fun normalizeSpokenCommand(raw: String): String {
         var value = raw.trim().trimEnd('.', '!', '?', ',').trim()
         val prefixes = listOf(
+            Regex("^يا\\s+(?:فرايداي|فرايدي)[, :]?\\s*", RegexOption.IGNORE_CASE),
+            Regex("^(?:فرايداي|فرايدي)[, :]?\\s*", RegexOption.IGNORE_CASE),
             Regex("^hey\\s+friday[, :]?\\s*", RegexOption.IGNORE_CASE),
             Regex("^friday[, :]?\\s*", RegexOption.IGNORE_CASE),
             Regex("^would\\s+you\\s+please\\s+", RegexOption.IGNORE_CASE),
