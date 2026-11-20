@@ -79,44 +79,44 @@ class LiquidEnvironmentManager(
 
     /** Activate an environment by profile */
     suspend fun activate(profile: EnvironmentProfile): Result<Unit> {
-        // Cancel any in-flight activation
+        // Cancel any in-flight activation. Its caller receives the cancellation
+        // result instead of a false success.
         activationJob?.cancel()
-
-        activationJob = scope.launch {
+        var activationResult: Result<Unit> = Result.failure(
+            IllegalStateException("Environment activation did not complete")
+        )
+        val job = scope.launch {
             _lifecycleEvents.emit(EnvironmentLifecycleEvent.Activating(profile.id))
-
             try {
                 // 1. Deactivate current if different
                 _activeEnvironment.value?.let { current ->
-                    if (current.id != profile.id) {
-                        deactivateInternal(current)
-                    }
+                    if (current.id != profile.id) deactivateInternal(current)
                 }
 
                 // 2. Validate profile is available
-                val available = _availableEnvironments.value
-                val target = available.find { it.id == profile.id }
+                val target = _availableEnvironments.value.find { it.id == profile.id }
                     ?: throw IllegalStateException("Profile ${profile.id} not registered")
 
-                // 3. Apply the environment
-                val result = applyEnvironment(target)
+                // 3. Apply the environment and propagate provider failures
+                applyEnvironment(target).getOrThrow()
 
-                if (result.isSuccess) {
-                    _activeEnvironment.value = target
-                    repository.saveActiveProfileId(target.id)
-                    _lifecycleEvents.emit(EnvironmentLifecycleEvent.Active(target))
-                } else {
-                    throw result.exceptionOrNull() ?: IllegalStateException("Activation failed")
-                }
+                _activeEnvironment.value = target
+                repository.saveActiveProfileId(target.id)
+                _lifecycleEvents.emit(EnvironmentLifecycleEvent.Active(target))
+                activationResult = Result.success(Unit)
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                activationResult = Result.failure(cancelled)
+                throw cancelled
             } catch (e: Exception) {
                 _lifecycleEvents.emit(EnvironmentLifecycleEvent.Failed(profile.id, e))
                 // Try to restore previous
                 _activeEnvironment.value?.let { restore(it) }
+                activationResult = Result.failure(e)
             }
         }
-
-        activationJob?.join()
-        return Result.success(Unit)
+        activationJob = job
+        job.join()
+        return activationResult
     }
 
     /** Delete a custom profile (built-ins are immutable) */
@@ -161,7 +161,7 @@ class LiquidEnvironmentManager(
 
     private suspend fun applyEnvironment(profile: EnvironmentProfile): Result<Unit> = try {
         // 1. Switch ModelManager provider
-        modelManager.switchProvider(profile.provider, profile.modelSource)
+        modelManager.switchProvider(profile.provider, profile.modelSource).getOrThrow()
 
         // 2. Attach RuntimeBinder to appropriate runtime
         when (profile.provider) {
