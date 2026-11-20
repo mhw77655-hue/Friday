@@ -97,10 +97,12 @@ class VoiceProviderSelector(
             compareBy(
                 // 1. the user's explicit provider choice wins outright
                 { if (it.id == profile.preferredProvider) 0 else 1 },
-                // 2. the profile's fallback order
-                { profile.fallbackProviders.indexOf(it.id).let { i -> if (i >= 0) i else 99 } },
-                // 3. the resource/quality preference
+                // 2. resource/quality preference must remain effective;
+                // a fallback is a recovery candidate, not a reason to ignore
+                // an explicit battery or quality constraint.
                 { preferenceScore(it, profile) },
+                // 3. the profile's fallback order breaks equivalent matches
+                { profile.fallbackProviders.indexOf(it.id).let { i -> if (i >= 0) i else 99 } },
                 // 4. registry priority as the tie-break
                 { registry.priorityOf(it.id) }
             )
