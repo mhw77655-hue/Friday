@@ -22,6 +22,7 @@ class ActionTraceStore(
     private val directory: File,
     private val appVersion: String,
     private val androidApi: Int,
+    private val sourceRevision: String = "unknown",
     private val maxEvents: Int = DEFAULT_MAX_EVENTS,
     private val sessionId: String = UUID.randomUUID().toString()
 ) {
@@ -69,6 +70,7 @@ class ActionTraceStore(
                 .put("session_id", sessionId)
                 .put("app_version", appVersion.take(80))
                 .put("android_api", androidApi)
+                .put("source_revision", sourceRevision.take(80))
                 .put("events", bounded)
             writeRoot(updated)
             traceId
@@ -90,6 +92,7 @@ class ActionTraceStore(
                 .put("session_id", stored.optString("session_id", sessionId))
                 .put("app_version", stored.optString("app_version", appVersion))
                 .put("android_api", stored.optInt("android_api", androidApi))
+                .put("source_revision", stored.optString("source_revision", sourceRevision))
                 .put("events", stored.optJSONArray("events") ?: JSONArray())
                 .toString(2)
         }
@@ -106,6 +109,7 @@ class ActionTraceStore(
                 appendLine("session_id: ${root.optString("session_id", sessionId)}")
                 appendLine("app_version: ${root.optString("app_version", appVersion)}")
                 appendLine("android_api: ${root.optInt("android_api", androidApi)}")
+                appendLine("source_revision: ${root.optString("source_revision", sourceRevision)}")
                 appendLine("generated_at_utc: ${Instant.now()}")
                 appendLine()
                 appendLine("PRIVACY")
@@ -150,6 +154,7 @@ class ActionTraceStore(
             .put("session_id", root.optString("session_id", sessionId))
             .put("app_version", root.optString("app_version", appVersion))
             .put("android_api", root.optInt("android_api", androidApi))
+            .put("source_revision", root.optString("source_revision", sourceRevision))
             .put("events", root.optJSONArray("events") ?: JSONArray())
             .toString(2)
 
@@ -216,7 +221,8 @@ object PhoneActionDiagnostics {
         store = ActionTraceStore(
             directory = File(app.filesDir, "diagnostics"),
             appVersion = version,
-            androidApi = android.os.Build.VERSION.SDK_INT
+            androidApi = android.os.Build.VERSION.SDK_INT,
+            sourceRevision = com.jarvis.app.BuildConfig.SOURCE_REVISION
         )
     }
 
