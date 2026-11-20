@@ -621,7 +621,7 @@ class ModelManager(
                 generate(
                     GenerateRequest(
                         messages = listOf(Message(MessageRole.USER, message)),
-                        maxTokens = 200
+                        maxTokens = 512
                     )
                 )
             }
@@ -634,8 +634,10 @@ class ModelManager(
                     delay(RETRY_DELAYS_MS.getOrElse(attempt) { RETRY_DELAYS_MS.last() })
                     attemptSend(message, attempt + 1, tierHandle)
                 } else {
-                    _status.value = "local brain unreachable after ${attempt + 1} attempts"
-                    _lastReply.value = MODEL_SERVER_UNREACHABLE_REPLY
+                    _status.value = "$providerLabel reasoning provider unreachable after ${attempt + 1} attempts"
+                    _lastReply.value = if (providerLabel == "cloud") {
+                        "I couldn't reach my configured remote reasoning provider. I'll continue with the local capabilities available to me."
+                    } else MODEL_SERVER_UNREACHABLE_REPLY
                 }
             }
         } catch (e: Exception) {
@@ -644,8 +646,10 @@ class ModelManager(
                 attemptSend(message, attempt + 1, tierHandle)
             } else {
                 _status.value =
-                    "local brain unreachable after ${attempt + 1} attempts (${e.message})"
-                _lastReply.value = MODEL_SERVER_UNREACHABLE_REPLY
+                    "$providerLabel reasoning provider unreachable after ${attempt + 1} attempts (${e.message})"
+                _lastReply.value = if (providerLabel == "cloud") {
+                    "I couldn't reach my configured remote reasoning provider. I'll continue with the local capabilities available to me."
+                } else MODEL_SERVER_UNREACHABLE_REPLY
             }
         }
     }
