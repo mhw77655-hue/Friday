@@ -13,6 +13,7 @@ import com.jarvis.app.android.ControlAction
 import com.jarvis.app.android.MediaSessionControlBackend
 import com.jarvis.app.android.PlatformMediaSessionControlPort
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.math.roundToInt
 
 /**
  * Phone-wide action bridge for Friday's voice command router.
@@ -48,6 +49,8 @@ class FridayAccessibilityService : AccessibilityService() {
         PhoneControlCommand.PreviousTrack -> media(ActionType.PREV_TRACK)
         PhoneControlCommand.VolumeUp -> adjustVolume(AudioManager.ADJUST_RAISE)
         PhoneControlCommand.VolumeDown -> adjustVolume(AudioManager.ADJUST_LOWER)
+        is PhoneControlCommand.SetMediaVolume -> setMediaVolume(command.percent)
+        is PhoneControlCommand.SetBrightness -> setBrightness(command.percent)
         PhoneControlCommand.OpenInternetPanel -> openInternetPanel()
         PhoneControlCommand.ScrollForward -> scroll(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
         PhoneControlCommand.ScrollBackward -> scroll(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD)
@@ -96,6 +99,42 @@ class FridayAccessibilityService : AccessibilityService() {
         startActivity(Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         PhoneControlResult.Success
     }.getOrElse { PhoneControlResult.Unavailable("Android Settings could not be opened.") }
+
+    private fun setMediaVolume(percent: Int): PhoneControlResult = runCatching {
+        require(percent in 0..100) { "Media volume must be between 0 and 100 percent." }
+        val audio = getSystemService(AUDIO_SERVICE) as AudioManager
+        val maximum = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val target = (maximum * percent / 100f).roundToInt().coerceIn(0, maximum)
+        audio.setStreamVolume(AudioManager.STREAM_MUSIC, target, AudioManager.FLAG_SHOW_UI)
+        val actual = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+        if (actual == target) PhoneControlResult.Success
+        else PhoneControlResult.Unavailable("Android did not apply the requested media volume; actual level is $actual of $maximum.")
+    }.getOrElse { PhoneControlResult.Unavailable("Media volume could not be changed: ${it.message.orEmpty()}") }
+
+    private fun setBrightness(percent: Int): PhoneControlResult = runCatching {
+        require(percent in 1..100) { "Brightness must be between 1 and 100 percent." }
+        if (!Settings.System.canWrite(this)) {
+            val intent = Intent(Settings.ACTION_MANAGE_WRITE_SETTINGS)
+                .setData(android.net.Uri.parse("package:$packageName"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+            return PhoneControlResult.UserActionRequired("I opened Android's Modify system settings permission for Friday. Grant it, then repeat the brightness request.")
+        }
+        val mode = Settings.System.getInt(
+            contentResolver,
+            Settings.System.SCREEN_BRIGHTNESS_MODE,
+            Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL
+        )
+        if (mode != Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL) {
+            return PhoneControlResult.UserActionRequired("Automatic brightness is enabled. Turn it off first if you want me to set a fixed brightness level.")
+        }
+        val target = (255 * percent / 100f).roundToInt().coerceIn(1, 255)
+        val written = Settings.System.putInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS, target)
+        if (!written) return PhoneControlResult.Unavailable("Android rejected the brightness setting.")
+        val actual = Settings.System.getInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS, -1)
+        if (actual == target) PhoneControlResult.Success
+        else PhoneControlResult.Unavailable("Brightness read-back did not match the requested level.")
+    }.getOrElse { PhoneControlResult.Unavailable("Brightness could not be changed: ${it.message.orEmpty()}") }
 
     private fun openInternetPanel(): PhoneControlResult = runCatching {
         val intent = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
@@ -275,6 +314,8 @@ sealed interface PhoneControlCommand {
     data object PreviousTrack : PhoneControlCommand
     data object VolumeUp : PhoneControlCommand
     data object VolumeDown : PhoneControlCommand
+    data class SetMediaVolume(val percent: Int) : PhoneControlCommand
+    data class SetBrightness(val percent: Int) : PhoneControlCommand
     data object OpenInternetPanel : PhoneControlCommand
     data object ScrollForward : PhoneControlCommand
     data object ScrollBackward : PhoneControlCommand
