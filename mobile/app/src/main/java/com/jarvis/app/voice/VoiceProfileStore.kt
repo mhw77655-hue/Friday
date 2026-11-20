@@ -23,19 +23,25 @@ internal fun migrateLegacyFridayVoiceProfile(profile: VoiceProfile): VoiceProfil
     if (profile.id != DefaultJarvisVoiceProfile.id) return profile
     val hasReference = !profile.referenceAudioPath.isNullOrBlank()
     val provider = profile.preferredProvider?.lowercase()
-    val needsMigration = provider.isNullOrBlank() || provider == "system"
+    // The former built-in Piper/Amy default was a speed-first placeholder.
+    // Move that uncustomized default to the higher-quality Kokoro voice while
+    // preserving explicit Piper voice choices and owner reference recordings.
+    val needsMigration = provider.isNullOrBlank() || provider == "system" ||
+        (provider == "piper" && profile.preferredVoice.isNullOrBlank())
     val migratedProvider = when {
         needsMigration && hasReference -> "pocket"
-        needsMigration -> "piper"
+        needsMigration -> "sherpa"
         else -> provider
     }
     val migratedVoice = when {
         needsMigration && hasReference -> "reference"
-        needsMigration -> null
+        needsMigration -> "speaker_2"
         else -> profile.preferredVoice
     }
     val neuralFallbacks = profile.fallbackProviders.filterNot { it.equals("system", ignoreCase = true) }
-        .ifEmpty { if (migratedProvider == "piper") listOf("sherpa") else listOf("piper", "sherpa") }
+        .ifEmpty {
+            if (migratedProvider == "sherpa") listOf("piper", "sherpa-arabic") else listOf("sherpa")
+        }
     return profile.copy(
         preferredProvider = migratedProvider,
         preferredVoice = migratedVoice,
