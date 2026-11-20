@@ -63,6 +63,10 @@ object AckSpeech {
      */
     fun fastSpeak(phrase: String) {
         if (phrase.isBlank()) return
+        // The normal app path is attached before LatencyLayer.init(). Use
+        // Friday's neural voice for acknowledgements too; do not let the
+        // latency shortcut reintroduce Google's generic system voice.
+        if (LatencyLayer.speakAckViaFridayVoice(phrase)) return
         val cached = cachedFileFor(phrase)
         if (cached != null && TtsBridge.playCached(cached)) return
         TtsBridge.speak(phrase)

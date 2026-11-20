@@ -84,7 +84,6 @@ object LatencyLayer {
         SpeechEngine.init(context)
         AckSpeech.init(context)
         startCollectorsOnce(pipeline())
-        AckSpeech.prepare()
     }
 
     /** Bind the body's streaming TTS to the reply path (idempotent, late). */
@@ -151,11 +150,22 @@ object LatencyLayer {
         pipeline().ackOnly(commandText, ackPhrase)
     }
 
-    /** Speak a short line through the fast (on-device, pre-warmed) channel. */
+    /**
+     * Route acknowledgement speech through Friday's selected voice identity.
+     * Returns false only during bootstrap before the voice path is attached.
+     */
+    fun speakAckViaFridayVoice(phrase: String): Boolean {
+        if (phrase.isBlank()) return true
+        val speak = streamingSpeak ?: return false
+        speak(phrase)
+        return true
+    }
+
+    /** Speak a short acknowledgement through Friday's own voice path. */
     fun speakAck(phrase: String) {
         if (phrase.isBlank()) return
         ensureStarted()
-        AckSpeech.fastSpeak(phrase)
+        if (!speakAckViaFridayVoice(phrase)) AckSpeech.fastSpeak(phrase)
     }
 
     /** Speak a full reply through the slow (cloud-or-device) channel. */
