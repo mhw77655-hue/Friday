@@ -124,11 +124,24 @@ A milestone is accepted only when its relevant code/tests pass, the real composi
 
 Do not redirect project planning into a debate about consciousness. The owner's project definition is liquid Symbiotic quantum software and the human-like capabilities that technology can support. Keep the work on architecture, implementation, experience, measurable behaviour and demonstrated outcomes. Do not replace the owner's terminology with a different philosophical or scientific framing.
 
-## 12. The single active plan
+## 14. The single active plan
 
 .ralph/FRIDAY_DELIVERY_PLAN.md is the sole active delivery plan. This vision defines the destination; the delivery plan defines the coordinated route. .ralph/OWNER_WORDS.md preserves owner-authored source excerpts and provenance. PRDs, build plans, prompts, audits, README material and implementation documents must be reconciled to these sources. No older plan may be run as an alternative roadmap.
 
 All objectives progress in parallel where safely separable. Voice is the first user-visible priority. Work converges on one canonical main product line and one Friday; do not create competing Friday products, long-lived product branches or alternative vision plans.
+
+## 12. Known deviations recorded in the earlier implementation audit
+
+This is a disclosed baseline from the prior repository audit, not proof that every item remains present in the current HEAD. Re-check each item against live source and production wiring before describing its current status. Disclosure does not make a deviation compliant.
+
+- ClaimKind (WORKSPACE-CORE) was a closed enum. Section 4 requires open-ended kinds rather than a predefined type list.
+- CONTINUITY-LAW's ChangeLayer (FAST/SLOW/CORE) was a fixed, named three-way classification into which claims were sorted. Section 4 rejects a fixed cognitive taxonomy.
+- CONTINUITY-LAW's SLOW-layer acceptance threshold was a flat evidence count and flat time interval, identical regardless of how established the challenged value already was. Sections 3 and 4 require development to respond to accumulated evidence.
+- The Human Core's four permanent passes, single-owner modules and rule-table learning were identified as legacy scaffolding, not Friday's permanent cognitive organization. Keep or replace each part only according to production-path evidence and Life Tests; nothing remains because it was written first.
+- Earlier audits recorded separate Android and JVM/Termux compositions with different stubs and resource reporting. Re-audit the current main branch; the Android app is the production host and Termux is not a required runtime.
+- Earlier audits recorded intent always classified as STATEMENT, no live prediction and an identity record still saying JARVIS / he. Verify each against current source and the installed application before claiming it is fixed.
+
+These are findings to re-check, not exemptions or instructions to preserve the old implementation.
 
 ## 13. Anti-drift checklist
 
