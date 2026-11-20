@@ -28,6 +28,8 @@ All objectives progress in parallel where safely separable. Voice is the first u
 
 There is one Friday and one canonical main product line. Do not create competing Friday products, long-lived feature branches or alternative vision plans.
 
+The first seed must already have functional foundations for multiple-signal human interaction, context, multiple interpretations, uncertainty, prediction and learning; these are outcomes, not permanent modules. Open-ended owner interaction is the primary concept test, while engineering tests probe specific mechanisms. The far-future vision (such as vehicle, glasses and home integrations) is a destination, not a demand to build every capability in the first release.
+
 ## Product principles
 
 - **One individual:** local, cloud, model and device changes extend the same Friday.
