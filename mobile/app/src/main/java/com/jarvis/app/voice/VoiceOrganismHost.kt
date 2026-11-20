@@ -154,10 +154,46 @@ class VoiceOrganismHost(
             svc.synthesize(text, language, voiceId ?: "", encodeOptions(params), path)
         } catch (e: RemoteException) {
             _voiceState.value = VoiceState.FAILED
+            onFailure(
+                FailureReport(
+                    subsystem = "VOICE_OUTPUT",
+                    operation = "synthesize_ipc",
+                    severity = FailureSeverity.ERROR,
+                    category = FailureCategory.TTS,
+                    message = "Friday's isolated voice habitat became unreachable during synthesis.",
+                    source = "VoiceOrganismHost",
+                    cause = e.message,
+                    recoverability = Recoverability.RETRYABLE,
+                    recoveryAction = RecoveryAction.REINITIALIZE
+                )
+            )
             null
         }
-        _voiceState.value = VoiceState.READY
-        decodeAudioResult(resultJson, path)
+        if (resultJson == null) return@withContext null
+        val audio = decodeAudioResult(resultJson, path)
+        if (audio == null) {
+            _voiceState.value = VoiceState.DEGRADED
+            val reason = runCatching {
+                org.json.JSONObject(resultJson).optString("error").takeIf { it.isNotBlank() && it != "null" }
+            }.getOrNull()
+            onFailure(
+                FailureReport(
+                    subsystem = "VOICE_OUTPUT",
+                    operation = "synthesize",
+                    severity = FailureSeverity.DEGRADED,
+                    category = FailureCategory.TTS,
+                    message = "Friday's selected neural voice did not produce playable audio; no generic system voice was substituted.",
+                    source = "VoiceOrganismHost",
+                    cause = reason,
+                    dependency = language,
+                    recoverability = Recoverability.RETRYABLE,
+                    recoveryAction = RecoveryAction.RETRY_WITH_BACKOFF
+                )
+            )
+        } else {
+            _voiceState.value = VoiceState.READY
+        }
+        audio
     }
 
     /** Ask the habitat to stop the in-flight synthesis. */
