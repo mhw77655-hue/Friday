@@ -148,11 +148,24 @@ class PhoneCommandOrchestrator(
             )
         }
         val decisionStartedAt = System.nanoTime()
-        val decision = tool.judge(
-            utterance = utterance,
-            command = command,
-            remoteConfigured = remoteConfigured()
-        )
+        val decision = try {
+            tool.judge(
+                utterance = utterance,
+                command = command,
+                remoteConfigured = remoteConfigured()
+            )
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            com.jarvis.app.diagnostics.PhoneActionDiagnostics.record(
+                action = command.javaClass.simpleName,
+                route = "phone_decision",
+                outcome = "decision_unavailable",
+                durationMs = ((System.nanoTime() - decisionStartedAt) / 1_000_000L).coerceAtLeast(0L),
+                verificationState = "not_attempted"
+            )
+            return Outcome.Unavailable("Friday's phone-action decision service could not complete. Nothing was changed.")
+        }
         val decisionOutcome = when (decision.verdict) {
             FridayPhoneDecisionTool.Verdict.EXECUTE -> "decision_execute"
             FridayPhoneDecisionTool.Verdict.CONFIRM -> "decision_confirm"
@@ -161,7 +174,7 @@ class PhoneCommandOrchestrator(
         }
         com.jarvis.app.diagnostics.PhoneActionDiagnostics.record(
             action = command.javaClass.simpleName,
-            route = "phone_decision",
+            route = "phone_decision_${decision.source.name.lowercase()}",
             outcome = decisionOutcome,
             durationMs = ((System.nanoTime() - decisionStartedAt) / 1_000_000L).coerceAtLeast(0L),
             verificationState = "not_attempted"
