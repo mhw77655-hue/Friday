@@ -6,7 +6,7 @@ import org.junit.Test
 class VoiceProfileMigrationTest {
 
     @Test
-    fun `legacy built in profile without provider migrates to Piper neural voice`() {
+    fun `legacy built in profile without provider migrates to Kokoro neural voice`() {
         val legacy = DefaultJarvisVoiceProfile.copy(
             preferredProvider = null,
             preferredVoice = "legacy-system-voice",
@@ -15,13 +15,13 @@ class VoiceProfileMigrationTest {
 
         val migrated = migrateLegacyFridayVoiceProfile(legacy)
 
-        assertEquals("piper", migrated.preferredProvider)
-        assertEquals(null, migrated.preferredVoice)
+        assertEquals("sherpa", migrated.preferredProvider)
+        assertEquals("speaker_2", migrated.preferredVoice)
         assertEquals(listOf("sherpa"), migrated.fallbackProviders)
     }
 
     @Test
-    fun `legacy system provider migrates to neural voice`() {
+    fun `legacy system provider migrates to Kokoro neural voice`() {
         val legacy = DefaultJarvisVoiceProfile.copy(
             preferredProvider = "system",
             preferredVoice = "en-us-x",
@@ -30,8 +30,8 @@ class VoiceProfileMigrationTest {
 
         val migrated = migrateLegacyFridayVoiceProfile(legacy)
 
-        assertEquals("piper", migrated.preferredProvider)
-        assertEquals(null, migrated.preferredVoice)
+        assertEquals("sherpa", migrated.preferredProvider)
+        assertEquals("speaker_2", migrated.preferredVoice)
         assertEquals(listOf("sherpa"), migrated.fallbackProviders)
     }
 
