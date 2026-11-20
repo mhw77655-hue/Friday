@@ -71,6 +71,62 @@ if ! find "$EVIDENCE_DIR/ui-audit" -maxdepth 1 -type f -name '*.png' | grep -q .
   exit 31
 fi
 
+# Validate the visual audit manifest against every captured PNG and produce a
+# human-readable index. This is the one-shot UI evidence that can be inspected
+# without connecting to or watching the phone live.
+python3 - "$EVIDENCE_DIR/ui-audit" <<'PY'
+import hashlib
+import html
+import json
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1])
+manifest_path = root / "friday-ui-audit" / "manifest.json"
+if not manifest_path.is_file():
+    raise SystemExit("FRIDAY_UI_AUDIT_MANIFEST_MISSING")
+data = json.loads(manifest_path.read_text(encoding="utf-8"))
+screens = data.get("screens", [])
+if len(screens) < 18:
+    raise SystemExit(f"FRIDAY_UI_AUDIT_INCOMPLETE: expected >=18 screens, got {len(screens)}")
+rows = []
+for item in screens:
+    image = root / "friday-ui-audit" / item["file"]
+    if not image.is_file():
+        raise SystemExit(f"FRIDAY_UI_AUDIT_SCREEN_MISSING: {item['file']}")
+    digest = hashlib.sha256(image.read_bytes()).hexdigest()
+    if digest != item.get("sha256"):
+        raise SystemExit(f"FRIDAY_UI_AUDIT_HASH_MISMATCH: {item['file']}")
+    rows.append(
+        f'<section><h2>{html.escape(item["title"])}</h2>'
+        f'<p>{item["width_px"]} × {item["height_px"]} px · SHA-256 verified</p>'
+        f'<img loading="lazy" src="friday-ui-audit/{html.escape(item["file"])}"></section>'
+    )
+(root / "index.html").write_text(
+    '<!doctype html><meta charset="utf-8"><title>Friday visual diagnostic</title>'
+    '<style>body{font:16px system-ui;max-width:1100px;margin:2rem auto;padding:0 1rem}'
+    'img{max-width:100%;height:auto;border:1px solid #888;border-radius:12px}'
+    'section{margin:2rem 0}h2{font-size:1.1rem}</style>'
+    f'<h1>Friday one-shot visual diagnostic</h1>'
+    f'<p>{len(rows)} screens · Android {html.escape(str(data.get("android_release")))} '
+    f'API {html.escape(str(data.get("android_sdk")))} · '
+    f'{html.escape(str(data.get("device_manufacturer")))} {html.escape(str(data.get("device_model")))}</p>'
+    + ''.join(rows),
+    encoding="utf-8",
+)
+(root / "visual-audit-report.md").write_text(
+    "# Friday one-shot visual diagnostic\n\n"
+    f"- Screens captured: {len(rows)}\n"
+    f"- Device profile: {data.get('device_manufacturer')} {data.get('device_model')}\n"
+    f"- Android: {data.get('android_release')} (API {data.get('android_sdk')})\n"
+    "- Every screenshot SHA-256 was checked against the manifest.\n"
+    "- Scope: app UI only; no audio, camera, notifications or off-app recording.\n"
+    "- Open index.html for the complete visual report.\n",
+    encoding="utf-8",
+)
+print(f"FRIDAY_UI_AUDIT_VERIFIED: {len(rows)} full-screen captures")
+PY
+
 # Instrumentation may leave the target app stopped or uninstall it. Reinstall
 # the exact debug APK before the real application launch smoke test.
 if ! python3 tools/friday-builder/install_apk_with_retry.py mobile/app/build/outputs/apk/debug/app-debug.apk --max-attempts 6 --retry-interval-seconds 5; then
