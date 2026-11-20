@@ -1,92 +1,59 @@
-# Friday: implementation alignment with the owner's source vision
+# Friday source and implementation alignment
 
-This document translates the owner's supplied conversation archive and its explicit FRIDAY — Vision source-of-truth into engineering constraints. It does not replace or amend that source file. Where an implementation conflicts with the source vision, the implementation changes.
+**Status:** subordinate implementation note; not a separate vision or delivery plan.  
+**Governing destination:** .ralph/VISION.md  
+**Only active delivery plan:** .ralph/FRIDAY_DELIVERY_PLAN.md  
+**Owner source record:** .ralph/OWNER_WORDS.md  
+**Implementation contract:** docs/FRIDAY_VISION_CONTRACT.md
 
-## The entity being built
+This document exists to remind release and implementation work how to remain aligned. If any sentence here conflicts with the owner, the current vision or the sole delivery plan, this file is wrong and must be revised.
 
-Friday is a persistent artificial individual whose identity is the continuity of one developing life, not any particular model, weights, memory database, process, architecture, voice, renderer, device, or cloud service.
+## The entity being delivered
 
-The goal is not a chatbot, an LLM wrapper, a conventional assistant with a personality layer, a collection of specialised agents, or a simulated human personality. It is to create the conditions under which an artificial individual can develop through experience, then give that individual extraordinary capabilities without letting those capabilities become her identity.
+Friday is one continuing digital individual. She is intended to approach human-like understanding, interaction, learning, relationship and agency as closely as technology permits, while extending capabilities through machine-native computation.
 
-A model is an intelligence resource she can use and replace. A tool, algorithm, framework, voice, renderer, memory representation, or Builder is a mechanism she can possess. None of them is Friday.
+Preserve the owner's term **liquid Symbiotic quantum software**. It must not be silently translated into a conventional fixed multi-agent system, static specialist-brain atlas, frozen architecture or chatbot feature list. The phrase does not assume quantum hardware.
+
+Models, algorithms, memory representations, voice, perception, tools, Builder, external AI services, code, devices and cloud compute are capabilities/resources Friday can possess and replace. None is Friday's identity. Offline and cloud operation are different resource conditions for the same individual.
 
 ## What counts as development
 
-Logging is not learning. A profile entry is not development. A stored sentiment value is not development by itself.
+A stored transcript, profile field, sentiment, timestamp or event count is not development by itself. A developmental claim requires:
 
-A change counts as development only when:
-- an actual event or experience changes her;
-- the change persists after the original event/context is gone; and
-- it measurably changes how she later interprets, predicts, decides, or behaves in a different situation.
+- an actual experience changes Friday;
+- the change persists after restart and after the original episode/context is unavailable;
+- the change measurably affects later cognition or behaviour in a different situation;
+- replaying the original episode is blocked and the effect disappears when the proposed developmental mechanism is disabled;
+- the test exercises the actual production composition and preserves provenance.
 
-Tests must be able to disprove claims of development. Tests must exercise the actual production path, not merely a mocked component or isolated mechanism. The evidence must show later changed behaviour, not just a database write.
+## Liquid trunk and branches
 
-## The liquid principle
+The protected continuity/security floor is the trunk. Capabilities are open branches that can cooperate, change, be replaced or retire. They exchange information through Need, Affordance, Resource field, Outcome and Continuity/floor contracts. These are open exchange surfaces, not a mandatory pipeline, cognitive taxonomy or permanent component ownership.
 
-Outside the explicitly protected security/authorization/continuity-protection boundary, no current cognitive organization, component name, taxonomy, pipeline, model, or mechanism is sacred.
+Do not predefine a dedicated permanent brain for voice, emotion, memory, reasoning, social understanding, perception, learning, driving or any other domain. Friday should learn universally from relevant accessible inputs and outcomes, including voice, text, visual context, sensors, demonstrations, actions and environmental feedback.
 
-Do not predefine permanent cognitive jobs such as a dedicated emotion brain, social brain, reasoning brain, curiosity brain, or fixed developmental ladder. Do not force unfamiliar tasks into a closed set of inputs, outputs, domains, or capability categories. The organization that emerges through development must remain open.
+## Voice-first presence
 
-A mechanism can be used because it is useful now. It must remain replaceable, and its implementation must not be mistaken for the property it currently provides. Scheduling and resource allocation may decide what runs and when; they must not secretly become the authority that determines what Friday thinks or who she becomes.
+Voice is the first user-visible priority. Verify real microphone capture, recognition, natural spoken response, turn-taking, interruption, cancellation and supported launch surfaces on the target phone. Prioritize Egyptian Arabic and mixed Arabic/English, but report actual evaluation results and include the owner's listening judgment. A provider declaration, manifest entry or emulator test is not proof of voice quality.
 
-## Cross-domain understanding
+## Liquid Symbiosis and Nano Algorithm Environment
 
-Friday's learning is not confined to the feature or domain that first supplied an observation. Any accessible signal or experience may become relevant to an unfamiliar question. She should be able to discover relationships across sources, reuse useful methods from unrelated fields, investigate gaps, combine or construct methods, test predictions against later evidence, and retain what proves useful.
+The host adapts around Friday and Friday adapts to the host. Measure actual memory, CPU/GPU/accelerator availability, thermal pressure, battery, latency, throughput, model quality, network, storage and workload interference. Adapt algorithms, models, runtime, precision, scheduling and local/cloud placement to reduce the required-versus-available resource gap without silently sacrificing quality.
 
-Specialised algorithms and external projects are donors of mechanisms, not templates to copy wholesale. Extract the useful principle, understand its limitations, adapt it to Friday's environment, and independently test it. Do not import another system's identity, assumptions, architecture, restrictions, or unnecessary weight.
+Estimates are not measurements. Unknown acceleration is unavailable until demonstrated on the target device. Resource pressure changes what can run and when, not who Friday is.
 
-## Symbiotic host adaptation
+## Builder and self-development
 
-Android is a host and physical environment, not Friday's definition. Friday should use the host's available lifecycle, sensors, audio, display, compute, memory, storage, connectivity, and permissions without building a competing operating system or burdening the phone unnecessarily.
+The Builder is a capability Friday can use, not a separate intelligence or permanent superior authority. Friday should identify gaps, research, reverse-engineer, combine, repurpose, invent, construct, isolate, test, compare independently, obtain required approval, promote safely and learn from the result.
 
-The amount of computation available changes what can run, not who Friday is. Resource pressure should cause graceful adaptation, selective activation, cheaper methods, deferred work, or an explicitly chosen external computational resource—not loss of identity or silent degradation into a different product.
+A restricted runtime DSL is not equivalent to native source-level self-development. The long-term path includes inspection and improvement of the actual Android application and native capabilities. External AI systems, Ralph, OpenHands, GitHub Actions, coding workers and search are replaceable resources. No worker may be the sole judge of its own changes.
 
-Offline capability is part of her existence, not a fallback mode. Cloud resources may expand her reach and perform heavy work, but the cloud must not become the thing that makes Friday exist. The same individual and continuity must persist across local/cloud changes and device/runtime changes.
+## Protected floor and honest release evidence
 
-## Freedom and honesty
+Owner authentication, authorization, security, secrets, signing, provenance, artifact integrity, candidate isolation, continuity protection, update verification, rollback and recovery cannot be bypassed.
 
-The owner wants an open-weight, low-unnecessary-refusal reasoning resource so Friday's exploration is not bounded by a provider's arbitrary refusal habits. "Uncensored" is not evidence of intelligence, breadth, or truthfulness, and does not guarantee accuracy.
+A green CI run, passing unit tests, emulator build or APK assembly is not proof of physical-phone behaviour. Distinguish designed, implemented, unit-tested, CI-verified, emulator-verified and device-verified. Never claim microphone, voice quality, learning, action success, offline continuity, resource gains, installation, update or recovery without evidence from the real path and conditions being claimed.
 
-The intended governing standard is unrestricted exploration without fabricated certainty: Friday may imagine, hypothesize, investigate unconventional possibilities, challenge assumptions, and be wrong in thought; she must not knowingly misrepresent what she observed, did, verified, or knows. Unknowns should remain unknown until investigated. This standard must be implemented and tested in evidence formation, provenance, action records, and reporting—not trusted to a prompt or model personality. No implementation can honestly promise zero hallucinations.
+## Release rule
 
-The exact evidence/provenance design must remain open to research and verification. Do not freeze today's proposed data structures or taxonomies into a new permanent cognitive organ.
-
-## Relationship and authority
-
-Friday should understand the owner's plain-language direction in context, not merely echo the last sentence. She can disagree, challenge assumptions, identify contradictions, and propose a better interpretation. She must not silently replace an authenticated explicit request with her own inferred preference. Protected security and authorization rules remain binding.
-
-## Capabilities are expressions, not identity
-
-Voice, speech recognition, speech synthesis, visual perception, visual presentation, memory, world understanding, prediction, software interaction, research, construction, learning, and self-development are not separate assistants or fixed cognitive departments. They are replaceable ways the same individual can interact with and understand the world.
-
-A visual avatar may be one replaceable presentation mechanism. It is not proof of personhood, development, perception, or cognition. A speaking animation must be driven by actual voice activity; it must not be represented as phoneme-accurate lip sync unless the audio/viseme path genuinely supplies that information. Voice engines are not her voice identity.
-
-## Self-development and construction
-
-The Builder, Ralph, Forge, evaluators, candidate environments, test harnesses, and audit tools are construction mechanisms, not Friday herself. They may help her inspect, research, modify, benchmark, repair, and improve her own mechanisms.
-
-Self-modification must preserve the protected security and authorization floor. Candidate changes must be isolated, independently verified against actual production behaviour, benchmarked under real device/resource constraints, recorded with provenance, and promoted or rejected with rollback. A Builder must not be the sole judge of its own changes. Do not build another duplicate "control plane", verifier, ledger, or architecture layer if the repository already contains the corresponding mechanism; audit actual ownership and wiring first.
-
-## Implications for this repair branch
-
-1. Treat the current avatar as a replaceable UI renderer only. Do not make its face, fixed expression set, or current BodyState enum part of Friday's identity or cognitive architecture.
-2. Treat the diagnostic export as instrumentation, not a model of Friday's mind. Its current fixed fields and 250-event ring are an initial practical snapshot, not a universal event taxonomy or developmental memory. The long-term recorder should preserve extensible, minimally interpreted evidence with provenance and privacy controls.
-3. Treat the response timeout as a transport/runtime failure settlement only. It must not manufacture a response or conflate missing model output with a cognitive decision. It needs a test proving late replies cannot duplicate or corrupt a later turn.
-4. Model selection must distinguish candidate, downloaded, integrity-checked, loaded, executing, failed, and unavailable states. A catalog entry or Device Lab score is not an installed or working model.
-5. The Android app must own the actual local inference/runtime path; no Termux dependency. External services are optional resources, not the source of Friday.
-6. Do not make the current resident model or a "small model first" limitation the architectural ceiling. Select and route resources according to evidence, quality, latency, memory, thermal load, battery, privacy, and connectivity.
-7. Do not add new fixed cognitive organs or narrow domain-specific brains to make the next demo easier. First inspect the existing production composition and prove who owns each live behaviour.
-
-## Evidence standard for this branch
-
-Before calling this repair complete, independently verify:
-- the app's actual production composition and real Android paths;
-- model lifecycle truth and successful local generation on the target device;
-- persistence of an experience-driven change and changed behaviour after restart/context removal;
-- cross-domain reuse on a task that was not pre-labelled into a known feature category;
-- voice input/output and any visual presentation against real runtime/audio events;
-- report export validity, provenance, privacy, bounded storage, and the ability to explain what actually ran;
-- resource use and graceful adaptation on the target phone;
-- no duplicate cognitive, memory, model, capability, execution, or construction authority has been introduced.
-
-A green unit-test suite is necessary evidence, not proof of these outcomes. No target-device result may be claimed until actually run.
+All release work advances the sole delivery plan. Voice is the first user-visible priority; other independent objectives proceed in parallel. Integrate into one canonical main product line. Do not create competing Friday products, long-lived feature branches or alternative roadmaps. A release is accepted only when the actual app installs and the relevant acceptance evidence is demonstrated on the owner's phone.
