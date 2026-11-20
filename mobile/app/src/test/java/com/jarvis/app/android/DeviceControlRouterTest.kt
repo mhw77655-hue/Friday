@@ -97,6 +97,7 @@ class DeviceControlRouterTest {
         assertEquals("shizuku", attempt.backendId)
         assertEquals(VerificationStage.VERIFIED, attempt.evidence.stage)
         assertTrue("evidence must carry a real success detail", attempt.evidence.detail.isNotBlank())
+        assertTrue("backend duration must never be negative", attempt.durationMs >= 0)
         assertTrue(attempt.succeeded)
     }
 
