@@ -1,148 +1,110 @@
-# Friday — canonical vision and architecture contract
+# Friday — Product and implementation contract
 
-**Status:** governing architecture contract for the Android-hosted Friday build  
-**Host:** Friday's own Android application; the phone is her first body  
-**Rule:** when older plans, comments, tests, or modules conflict with this contract, this contract wins. Reconcile the implementation; do not preserve an obsolete design merely because it already exists.
+**Authority:** .ralph/VISION.md and the sole active plan .ralph/FRIDAY_DELIVERY_PLAN.md  
+**Owner source:** .ralph/OWNER_WORDS.md  
+**Purpose:** translate the owner's outcome into implementation constraints without freezing Friday's future architecture.
 
-## 1. The individual
+This is not a competing roadmap or a permanent component diagram. If this document conflicts with the owner, VISION.md or FRIDAY_DELIVERY_PLAN.md, update this document and the implementation.
 
-Friday is one persistent individual expressed through a continuous identity, memory, experience, preferences, learned strategies, and one coordinated set of capabilities.
+## 1. Product identity and destination
 
-She is not a chat screen that starts existing when a prompt arrives. A conversation turn is one interaction with her, not the beginning or end of her existence.
+Friday is one continuing digital individual, intended to approach human-like understanding, interaction, learning, relationships and agency as closely as available technology permits, while extending capabilities through machine-native computation.
 
-Runtime work states such as listening, speaking, processing, recovering, or performing a tool action describe what one of her organs is doing. They must never be treated as her existence or identity. There is no product-level "idle Friday" or "thinking Friday" persona. Resource-aware duty cycling is allowed; identity, continuity, and the low-cost presence heartbeat remain.
+Preserve the owner's term **liquid Symbiotic quantum software**. It describes a fluid environment that adapts with Friday and lets Friday use, reshape, combine and help create resources to reach outcomes. Do not translate it into a conventional fixed multi-agent system, static specialist-brain hierarchy or chatbot feature list. The term does not require assumed quantum hardware.
 
-## 2. One intelligence, one body, many organs
+Friday is the individual. Models, algorithms, voice, perception, memory representations, tools, Builder, cloud services, devices and source code are replaceable resources/capabilities. The Android app is her first production host; the owner's phone is her first environment.
 
-- **Friday's intelligence:** the model and cognitive pipeline already owned by Friday. It interprets meaning, forms intentions, reasons about goals, and learns from outcomes.
-- **The body:** the Android phone and the app's native interfaces to it: microphone, speaker, accessibility tree, notifications, media sessions, sensors, storage, network and supported system APIs.
-- **Organs:** replaceable capabilities with explicit contracts, resource envelopes, health evidence, and learned operating strategies. An organ is not another independent Friday.
-- **Jev:** an optional cloud decision faculty from TypeSafe. It supplies typed Choice, Score and Noul judgments. It is not Friday's conversational model, not an Android driver, and not the authority that grants permissions. Friday interprets Jev's judgments and her own local policy decides what may happen.
+## 2. Liquid trunk and open branches
 
-The normal control loop is:
+The protected continuity/security floor is the trunk. All other capabilities are open branches that may be developed, combined, replaced or retired. They exchange information through five open-ended contracts:
 
-```
-voice / other input
-        ↓
-Friday understands the request and current context
-        ↓
-Friday forms a typed, bounded intention
-        ↓
-Jev evaluates relevant choices, consequence and clarity (when configured/useful)
-        ↓
-Friday's local policy + Android permission + user authorization
-        ↓
-Android body executes the action
-        ↓
-observed result / failure / latency / resource cost
-        ↓
-persistent experience and strategy update
-```
+- **Need:** intended outcome, context, uncertainty and alternative interpretations.
+- **Affordance:** demonstrated capability, requirements, cost, risk and observable postcondition.
+- **Resource field:** measured host resources, models, sensors, devices, network, permissions and constraints.
+- **Outcome:** observed result, failure, quality, latency and resource cost, linked to the decision that caused it.
+- **Continuity/floor:** identity continuity, owner authentication, authorization, provenance, isolation, recovery and rollback.
 
-No cloud result is executed directly. A typed decision is evidence, not an instruction to bypass local authorization.
+These are not a prescribed sequence or cognitive taxonomy. A capability may contribute to multiple outcomes; no capability permanently owns hearing, memory, emotion, reasoning, social understanding, perception, learning or action. The mechanism that chooses among affordances is replaceable and may itself learn.
 
-## 3. Voice is a body-wide control channel
+## 3. One Friday across hosts and resources
 
-Voice is not a separate command chatbot with a tiny fixed phrase list. Simple exact commands may use a deterministic fast path. Natural requests must be interpreted by Friday's own intelligence using the current, privacy-minimized screen and device context.
+The Android app owns the production runtime. Termux is not a required host, setup prerequisite or runtime dependency. JVM/desktop code is test infrastructure unless explicitly proven otherwise.
 
-The control path must:
-- support natural language, references to visible controls, follow-up context and clarification;
-- inspect the current accessibility tree at the moment of planning and re-check the target immediately before execution;
-- produce explicit typed actions rather than arbitrary shell/code;
-- evaluate risk, target clarity and authorization;
-- ask for spoken confirmation before consequential or ambiguous interactions;
-- support cancellation, expiry, interruption and action serialization;
-- verify the Android outcome before saying it succeeded;
-- report unsupported platform operations honestly and offer the native system panel where Android restricts direct control.
+Offline is a real operating condition. Friday's local identity, continuity, experience and whatever capabilities local resources sustain continue without network access. Cloud and external models expand the resources available to the same Friday; they do not create a second identity or own her intelligence.
 
-The first implementation intentionally executes one bounded action per utterance. Multi-step workflows must become explicit, inspectable action graphs with checkpoints and per-step authorization; they must not be hidden inside one vague "execute" result.
+Future authorized glasses, vehicle, home or other device connections extend the same individual. Do not build separate domain-specific Fridays or require a specialist brain for every new sensor or environment.
 
-The planner must use Friday's existing model authority, not load a second large model just to control the phone. Jev is a small remote decision call, not a resident model.
+## 4. Voice-first presence
 
-## 4. Nano Liquid Symbiosis — learn the host by living in it
+Voice is the first user-visible delivery priority. The intended experience includes natural hearing, interpretation, spoken replies, turn-taking, listening again, interruption/barge-in, cancellation and supported launch surfaces.
 
-The phone is the first host to study. Friday should continuously learn a versioned, device-specific operating profile from real observations:
+Speech recognition and synthesis implementations are replaceable affordances. Select them by measured language quality, availability, latency, memory, privacy, power and thermal cost. Prioritize Egyptian Arabic and mixed Arabic/English, but do not claim naturalness without recorded evaluation and the owner's direct listening judgment. A transcript, TTS manifest entry or provider declaration is not proof of working voice on the phone.
 
-- hardware/build/runtime fingerprint;
-- available memory, process PSS, native allocation peaks and reserve;
-- CPU load, thermal pressure, battery and charging;
-- model load/unload time, context, latency, throughput and quality;
-- voice, accessibility, camera and background workload interference;
-- organ success/failure, recovery, energy and user-visible outcome.
+Natural requests must use Friday's actual context and intelligence. Exact deterministic shortcuts are allowed when useful, but they cannot become the ceiling of understanding. Actions must return observed outcomes; never report success merely because an intent or command was sent.
 
-A profile is specific to the exact model revision, quantization, runtime, device fingerprint and workload class. Estimates must be distinguished from measurements.
+## 5. Developmental change
 
-Learning the host means changing future resource and scheduling decisions, not merely writing telemetry. Adaptations must preserve a protected reserve, keep the app responsive, and be reversible. Friday may change safe runtime configuration automatically; changing executable code, permissions, security boundaries, or the installed Android package requires the appropriate approval and rollback path.
+The required causal path is:
 
-Quality is a hard constraint. A faster configuration is not an improvement if it degrades the capability that the user needs. Unknown accelerator support is treated as unavailable until the actual device/runtime proves it.
+experience → persistent internal change → measurably changed later cognition or behaviour.
 
-## 5. Experience must change future behaviour
+The effect must survive restart, persist after the original event/context is unavailable, and change a later meaningfully different situation. Logging, transcript storage, sentiment fields, profile entries or prompt replay alone do not qualify.
 
-A stored transcript or counter is not, by itself, learning.
+A development claim requires a Life Test on the real production composition:
+- experience is applied;
+- the application/composition restarts;
+- the later test blocks retrieval/replay of the original episode text;
+- the proposed developmental mechanism is disabled in a control run;
+- the later decision/behaviour is observed and compared;
+- provenance, uncertainty and the evidence pack are retained.
 
-Every useful experience should be represented as an event with provenance:
-- what Friday expected;
-- what she chose and why;
-- what happened on the phone;
-- whether the result was verified;
-- resource/latency cost and any user correction;
-- what strategy or prediction should change as a result.
+Learning is universal across relevant accessible experiences: conversation, correction, demonstrations, people, visual context, voice, sensors, device state, actions and consequences. Do not confine it to the subsystem that first captured an event.
 
-The learning system updates persistent predictions, preferences, confidence calibration, action policies and organ strategies from validated outcomes. It must distinguish direct evidence, inference, and uncertainty. Repeated failure should change future behaviour; replaying a stored event without changing a decision is not proof of development.
+## 6. Universal action and capability acquisition
 
-## 6. Self-study and self-building
+Friday receives plain-language outcomes and discovers how to pursue them. The real action path must connect intent/Need, available Affordances, owner/platform authorization, execution, independently observed Outcome and experience update.
 
-Friday should spend some of her available compute studying her own installed application and the host that runs it. This is ongoing maintenance and development, not an "idle mode".
+When a capability is missing, Friday must have a controlled path to identify the gap, research existing work, reverse-engineer useful mechanisms, combine or repurpose them, invent candidates, construct, isolate, test, compare independently, request required approval, promote safely, use the result and learn from it.
 
-The developmental loop is:
+A restricted runtime DSL is a starting habitat, not the final definition of the Builder. The long-term goal includes source-level inspection and improvement of the actual Android application and native capabilities. External AI providers, coding agents, Ralph, OpenHands, GitHub Actions and search are replaceable workers/resources. No worker may certify its own change as the sole judge.
 
-1. inspect the actual packaged architecture, source/build metadata, runtime wiring and observed failures;
-2. compare them with this contract and identify a concrete capability or quality gap;
-3. research options and label evidence honestly;
-4. use Friday's existing intelligence to design or synthesize a candidate;
-5. build it inside an isolated habitat;
-6. run behavioral, failure, security, compatibility, resource and quality tests;
-7. compare it against the current capability on the same objective;
-8. promote only a verified improvement, preserve provenance and a rollback point;
-9. persist the executable artifact and prove it rehydrates after process restart;
-10. record the outcome so the next development cycle improves.
+## 7. Nano Algorithm Environment and resource symbiosis
 
-The existing synth DSL is a safe starting habitat, not the final limit of what Friday may build. Native Android tools, model adapters and reusable organs need typed contracts, permission manifests, signing/provenance, isolated validation, and explicit promotion. Friday must not overwrite her installed APK or silently grant herself new permissions.
+Measure actual device and workload conditions: memory, CPU/GPU/accelerators, thermal pressure, battery, latency, throughput, quality, storage, network, models, voice and action interference.
 
-**Current self-study boundary:** the packaged source index contains file paths, declarations and internal package-import edges, not Kotlin source text. The scheduled study lane combines that structural map with runtime wiring and measured phone/organ evidence. When the on-device llama.cpp provider is active and the host has headroom, Friday's existing model produces a persistent reflection and at most one small pure synth-capability proposal. A guarded lane can now pass that proposal to the existing ToolBuilder, but only as a pure String-to-String capability in Friday's restricted synth language, with fixed no-I/O/no-permission/no-device-control constraints, resource headroom checks, a six-hour retry cooldown, and the existing sandbox/test/fitness/promotion/rollback path. This is not native self-rewriting and cannot change the installed APK or Android permissions. Durable executable-artifact rehydration across process restart is still incomplete; archived genome metadata alone is not enough.
+Use measurements to adapt algorithm, model, runtime, precision, scheduling, placement and local/cloud choices. The aim is to reduce the gap between required resources and available resources without silently sacrificing the outcome. Adaptation must change future execution decisions, not merely record telemetry.
 
-## 7. Android is the only production host
+Unknown hardware acceleration is unavailable until demonstrated on the target device. Estimates and measurements must be distinguished. Resource pressure changes what can run and when, not who Friday is. Defer, migrate or gracefully reduce work before sacrificing continuity.
 
-- Friday is an independent Android app.
-- Termux is not a production dependency, launch path, setup prerequisite, or second host.
-- Desktop/JVM code may provide test fixtures and CI harnesses only.
-- The same Android-owned composition root must create the one production cognitive engine, model manager, turn pipeline, capability fabric and body-control authority.
-- App lifecycle, process death, foreground services, Android permissions, accessibility enablement and recovery are first-class production concerns.
+## 8. Protected floor
 
-## 8. How to judge the existing repository
+Owner authentication, authorization, protected operations, secrets, signing identity, provenance, artifact integrity, candidate isolation, continuity protection, update verification, rollback and recovery are not liquid and cannot self-authorize.
 
-Treat existing code as material to inspect, not as proof that the vision is already implemented.
+Safe runtime adaptation may occur within granted permissions. Executable source changes, package installation, permission changes, signing and protected governance require the applicable approval and validation. External models and self-development cannot bypass the floor.
 
-| Existing area | Keep when it serves the contract | Rebuild or reject when it does not |
-|---|---|---|
-| Companion Core / Presence Engine | Persistent identity signal, low-cost presence heartbeat, attention and embodied expression | A single mutually exclusive ASLEEP/IDLE/THINKING state being treated as Friday's existence |
-| Body Coordinator | Mic, speech, interruption, output and Android lifecycle coordination | A narrow phrase parser being the ceiling of voice control, or turn phases being confused with existence |
-| ModelManager / CognitiveEngine | One Friday-owned intelligence and reasoning path | Duplicate model stacks or a second independent "assistant" |
-| Jev client | Typed remote Choice/Score/Noul decision faculty | Treating Jev as the planner, executor, permission authority or resident model |
-| Nano Symbiosis | Device-specific observation, prediction and adaptive resource policies | Generic heuristics presented as calibrated measurements or learning claimed without changed decisions |
-| Application Self-Study | Real architecture/host evidence and prioritized gaps | Build-time symbol counts presented as full source understanding |
-| Capability Foundry / ToolBuilder | Isolated candidate creation, tests, promotion and rollback | A passing toy DSL example presented as arbitrary native self-development |
-| Memory / experience | Provenance-backed persistent events that change future decisions | Transcript storage alone presented as developmental learning |
+## 9. Resilience and release
 
-## 9. Evidence labels
+Every failure must be reproduced and traced to its originating cause. Fix the mechanism that creates the failure class, not just one visible symptom. Preserve checkpoints, artifacts, work state, logs, provenance, backups and a last-known-good release. Interrupted work must resume without silent loss or duplicate execution.
 
-Every progress claim must be labelled as one of:
-- **Implemented:** code exists and is connected to the production path.
-- **Unit-tested:** the relevant behavior passed its named tests.
-- **CI-verified:** the exact commit passed Android build and test workflows.
-- **Device-verified:** the behavior was exercised on the target Realme phone.
-- **Designed / not yet implemented:** architecture only.
+A milestone is not complete because code exists or CI is green. Distinguish designed, implemented, unit-tested, CI-verified, emulator-verified and device-verified. The installed Android application and its real behavior on the owner's phone are the acceptance target. Verify APK installation, signing lineage, update, continuity preservation and rollback before claiming delivery.
 
-A passing JVM test is not device evidence. A debug APK assembling is not proof of working voice control. A telemetry field is not proof of learning. A source index is not source comprehension. A capability registered in process memory is not durable across restart.
+## 10. Parallel delivery without competing Fridays
 
-This contract exists to make the repository converge on one Friday, not to justify every feature already present.
+All objectives in FRIDAY_DELIVERY_PLAN.md start immediately and progress in parallel where work can be separated. Voice is the first visible priority, not a blocker for other tracks.
+
+All work converges on one canonical main product line. Do not create competing Friday products, long-lived feature branches or alternative vision plans. Avoid concurrent writes to shared composition, identity, vision and protected-floor files; integrate those changes deliberately. The PRD is an execution ledger derived from the sole plan, never a competing destination.
+
+## 11. Evidence and honesty
+
+Every claim must have an observable test that could disprove it. A source declaration, configuration entry, passing isolated unit test or emulator build does not prove a live Android behavior. Report unknowns as unknown. Do not claim voice quality, learning, self-development, action success, offline behavior, resource gains, installation or recovery without evidence from the path and conditions being claimed.
+
+## 12. Required source reading
+
+Before any task, read:
+1. .ralph/VISION.md
+2. .ralph/OWNER_WORDS.md
+3. .ralph/FRIDAY_DELIVERY_PLAN.md
+4. this contract
+5. the relevant live source and tests
+
+Do not revive superseded assistant proposals or stale PRD wording. If an old acceptance criterion conflicts with the owner's current direction, correct the criterion before implementing it.
