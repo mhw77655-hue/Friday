@@ -83,7 +83,8 @@ fi
 sleep 8
 adb shell dumpsys activity activities > "$EVIDENCE_DIR/activity-stack.txt"
 adb shell dumpsys activity top > "$EVIDENCE_DIR/activity-top.txt"
-if ! grep -Eq 'com\\.jarvis\\.app/(\\.MainActivity|com\\.jarvis\\.app\\.MainActivity)' "$EVIDENCE_DIR/activity-stack.txt"; then
+if ! grep -Fq 'com.jarvis.app/.MainActivity' "$EVIDENCE_DIR/activity-stack.txt" && \
+   ! grep -Fq 'com.jarvis.app/com.jarvis.app.MainActivity' "$EVIDENCE_DIR/activity-stack.txt"; then
   echo "ANDROID_LAUNCH_COMPONENT_MISSING: Friday's MainActivity is not present in the live task stack." >&2
   cat "$EVIDENCE_DIR/activity-stack.txt" >&2
   exit 25
