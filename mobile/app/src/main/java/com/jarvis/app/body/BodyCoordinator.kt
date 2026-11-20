@@ -275,20 +275,10 @@ class BodyCoordinator(
         // Warm the model
         warmModel()
 
-        // Manual push-to-talk endpoint closure: when the user finishes speaking
-        // during a listening/wake turn, route the closure through the platform
-        // STT path (which owns live mic recognition during LISTENING). Speech
-        // input is handled on the LISTENING transition via the platform
-        // recognizer — there is no Vosk/sherpa continuous decode to bridge.
-        backgroundScope.launch {
-            JarvisMic.speechEnded.collect {
-                // Only act when we were actively listening to a push-to-talk turn.
-                if (_state.value == BodyState.LISTENING || _state.value == BodyState.WAKE) {
-                    emitEvent(BodyEvent.SpeechEnd(JarvisMic.utteranceSamples()))
-                }
-            }
-        }
-
+        // SpeechRecognizer owns the microphone during LISTENING and performs
+        // its own end-of-speech detection. JarvisMic is stopped for that lease;
+        // running AudioRecord beside SpeechRecognizer causes competing capture
+        // and can mute or starve the actual transcript.
         // Emit ready
         emitEvent(BodyEvent.Reset)
     }
@@ -568,6 +558,9 @@ class BodyCoordinator(
                 handleError(trigger as? BodyEvent.ErrorOccurred)
             }
             BodyState.IDLE -> {
+                // The platform recognizer has released its microphone lease.
+                // Resume local capture only after the interaction returns idle.
+                startMic()
                 scheduleReasoningRelease()
             }
             BodyState.USER_PRESENT -> {
@@ -608,24 +601,32 @@ class BodyCoordinator(
                     recoveryAction = com.jarvis.app.failure.RecoveryAction.FALLBACK
                 )
             )
+            // Close the transport cleanly instead of leaving the UI stuck in
+            // LISTENING when no platform recognizer exists.
+            emitEvent(BodyEvent.SttResult("", 0f, languageRouter.currentLanguage.value.code))
             return
         }
+
+        // One microphone owner at a time: the platform recognizer owns live
+        // capture and endpointing for this turn. JarvisMic resumes on IDLE.
+        JarvisMic.stop()
+
         val locale = when (languageRouter.currentLanguage.value) {
             LanguageRouter.Language.EGYPTIAN_ARABIC -> java.util.Locale("ar", "EG")
             LanguageRouter.Language.ENGLISH -> java.util.Locale.US
         }
         recognizer.recognize(locale) { text ->
             val clean = text?.trim().orEmpty()
-            if (clean.isNotBlank()) {
-                SpeechBridge.recordResult(clean)
-                emitEvent(
-                    BodyEvent.SttResult(
-                        clean,
-                        0.9f,
-                        languageRouter.currentLanguage.value.code
-                    )
+            if (clean.isNotBlank()) SpeechBridge.recordResult(clean)
+            // Deliver success OR failure. A null/blank result must close the
+            // listening state and release the mic lease rather than strand it.
+            emitEvent(
+                BodyEvent.SttResult(
+                    clean,
+                    if (clean.isNotBlank()) 0.9f else 0f,
+                    languageRouter.currentLanguage.value.code
                 )
-            }
+            )
         }
     }
 
