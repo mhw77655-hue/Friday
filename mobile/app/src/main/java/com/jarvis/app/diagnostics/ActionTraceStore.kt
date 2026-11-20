@@ -240,6 +240,38 @@ class ActionTraceStore(
     }
 }
 
+/**
+ * Export only crash type and bounded stack frames. Exception messages can
+ * contain user data or secrets, so they never cross the live-test bridge.
+ */
+internal fun sanitizedCrashSummary(previousCrash: JSONObject?): JSONObject {
+    val summary = JSONObject()
+    if (previousCrash == null) return summary
+    summary.put("at_utc", previousCrash.optString("at_utc", "unknown"))
+    summary.put("process", previousCrash.optString("process", "unknown"))
+    summary.put("thread", previousCrash.optString("thread", "unknown"))
+    val safeChain = JSONArray()
+    val chain = previousCrash.optJSONArray("exception_chain") ?: JSONArray()
+    for (index in 0 until minOf(chain.length(), 6)) {
+        val item = chain.optJSONObject(index) ?: continue
+        val safeFrames = JSONArray()
+        val frames = item.optJSONArray("frames") ?: JSONArray()
+        for (frameIndex in 0 until minOf(frames.length(), 12)) {
+            val frame = frames.optJSONObject(frameIndex) ?: continue
+            safeFrames.put(JSONObject()
+                .put("class", frame.optString("class", "unknown").take(180))
+                .put("method", frame.optString("method", "unknown").take(120))
+                .put("file", frame.optString("file", "unknown").take(120))
+                .put("line", frame.optInt("line", -1)))
+        }
+        safeChain.put(JSONObject()
+            .put("type", item.optString("type", "unknown").take(180))
+            .put("frames", safeFrames))
+    }
+    summary.put("exception_chain", safeChain)
+    return summary
+}
+
 /** Android-facing process singleton; initialized by JarvisApplication. */
 object PhoneActionDiagnostics {
     @Volatile private var store: ActionTraceStore? = null
@@ -295,31 +327,7 @@ object PhoneActionDiagnostics {
         val previousCrash = application?.let { app ->
             runCatching { CrashJournal.read(app) }.getOrNull()
         }
-        val crashSummary = JSONObject()
-        if (previousCrash != null) {
-            crashSummary.put("at_utc", previousCrash.optString("at_utc", "unknown"))
-            crashSummary.put("process", previousCrash.optString("process", "unknown"))
-            crashSummary.put("thread", previousCrash.optString("thread", "unknown"))
-            val safeChain = JSONArray()
-            val chain = previousCrash.optJSONArray("exception_chain") ?: JSONArray()
-            for (index in 0 until minOf(chain.length(), 6)) {
-                val item = chain.optJSONObject(index) ?: continue
-                val safeFrames = JSONArray()
-                val frames = item.optJSONArray("frames") ?: JSONArray()
-                for (frameIndex in 0 until minOf(frames.length(), 12)) {
-                    val frame = frames.optJSONObject(frameIndex) ?: continue
-                    safeFrames.put(JSONObject()
-                        .put("class", frame.optString("class", "unknown").take(180))
-                        .put("method", frame.optString("method", "unknown").take(120))
-                        .put("file", frame.optString("file", "unknown").take(120))
-                        .put("line", frame.optInt("line", -1)))
-                }
-                safeChain.put(JSONObject()
-                    .put("type", item.optString("type", "unknown").take(180))
-                    .put("frames", safeFrames))
-            }
-            crashSummary.put("exception_chain", safeChain)
-        }
+        val crashSummary = sanitizedCrashSummary(previousCrash)
         return JSONObject()
             .put("microphone_permission", context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED)
             .put("accessibility_service_enabled", enabledAccessibility.split(':').any { it.equals(expectedService, ignoreCase = true) })
