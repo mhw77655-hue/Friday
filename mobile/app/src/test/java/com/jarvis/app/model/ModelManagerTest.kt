@@ -3,6 +3,7 @@ package com.jarvis.app.model
 import com.jarvis.app.env.ModelProviderType
 import com.jarvis.app.model.adapters.HeuristicAdapter
 import com.jarvis.app.model.config.ProviderConfig
+import com.jarvis.app.model.remote.PrimaryRemoteModelProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.CoroutineScope
@@ -83,6 +84,26 @@ class ModelManagerTest {
         assertTrue(m.providerHealth.value.isHealthy)
         // Hosted providers do not load weights into the phone's memory.
         assertTrue(!m.providerHealth.value.modelLoaded)
+    }
+
+
+    @Test
+    fun `cloud provider configured after manager startup is resolved without restart`() = runBlocking {
+        var configured: ModelProvider? = null
+        val dynamicCloud = PrimaryRemoteModelProvider { configured }
+        val m = ModelManager(
+            context = null,
+            scope = CoroutineScope(Dispatchers.Default),
+            cloudProvider = dynamicCloud
+        )
+
+        assertTrue("unconfigured provider must not activate", m.setActiveProvider(ModelProviderType.CLOUD).isFailure)
+        configured = FakeCloudProvider()
+        val result = m.setActiveProvider(ModelProviderType.CLOUD)
+
+        assertTrue("newly configured provider must become available without rebuilding the manager", result.isSuccess)
+        assertSame(dynamicCloud, m.activeProvider.value)
+        assertTrue(m.providerHealth.value.isHealthy)
     }
 
     @Test
