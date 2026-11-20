@@ -8,6 +8,7 @@ import android.os.BatteryManager
 import android.os.Build
 import android.os.PowerManager
 import android.os.StatFs
+import com.jarvis.app.ScreenBridge
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -23,7 +24,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * GitHub Issues is used as a phone-initiated, auditable command relay.
- * The only executable command is diagnostics.snapshot (read-only).
+ * Supported commands are diagnostics.snapshot and shizuku.acceptance (read-only).
  * Every command must be authored by the repository owner and expire quickly.
  * Issue comments and replies are public because the Friday repository is public.
  */
@@ -91,7 +92,7 @@ class GitHubDeviceChannel(context: Context) {
                 "## Friday phone-initiated diagnostic channel\n\n" +
                     "This issue is a public command queue for the owner's Friday Android device. " +
                     "The phone polls periodically and accepts only owner-authored, expiring " +
-                    "`diagnostics.snapshot` commands. Replies contain a bounded technical " +
+                    "`diagnostics.snapshot` and `shizuku.acceptance` commands. Replies contain bounded technical " +
                     "health snapshot (device model, Android/API/app version, RAM/storage, " +
                     "battery, thermal and network transport). No conversations, location, " +
                     "contacts, notifications, microphone, camera, screen contents, files or " +
@@ -187,15 +188,44 @@ class GitHubDeviceChannel(context: Context) {
         return DeviceCommand(id, expiry, action)
     }
 
-    private fun execute(command: DeviceCommand): String {
+    private suspend fun execute(command: DeviceCommand): String {
         val now = Instant.now()
         if (!command.expires.isAfter(now) || Duration.between(now, command.expires) > Duration.ofMinutes(30)) {
             return "status=expired; no operation performed"
         }
-        if (command.action != "diagnostics.snapshot") {
-            return "status=rejected; unsupported action; only diagnostics.snapshot is permitted"
+        return when (command.action) {
+            "diagnostics.snapshot" -> "status=ok; " + snapshot()
+            "shizuku.acceptance" -> verifyPhysicalShizukuExecution()
+            else -> "status=rejected; unsupported action; allowed actions are diagnostics.snapshot and shizuku.acceptance"
         }
-        return "status=ok; " + snapshot()
+    }
+
+    /**
+     * Phone-initiated physical-device acceptance probe. This does not execute
+     * arbitrary shell commands or mutate device state. It requires Friday's
+     * Shizuku permission, binds the real UserService, checks its Linux UID,
+     * then obtains a fresh diagnostic response from that same process.
+     *
+     * The GitHub issue is public, so only minimum evidence (UID and SDK)
+     * is returned; no model, fingerprint, PID, storage, battery, screen,
+     * or personal data is posted.
+     */
+    private suspend fun verifyPhysicalShizukuExecution(): String {
+        val binding = ScreenBridge.ensureVerifiedBinding(app)
+        if (!binding.startsWith("bound · verified Shizuku uid=")) {
+            return "status=failed; stage=binder_identity; detail=$binding"
+        }
+        val raw = ScreenBridge.diagnosticsSnapshot()
+            ?: return "status=failed; stage=user_service_call; detail=diagnostics_unavailable"
+        val uid = runCatching { JSONObject(raw).optInt("uid", -1) }.getOrDefault(-1)
+        val sdk = runCatching { JSONObject(raw).optInt("sdk", -1) }.getOrDefault(-1)
+        if (uid != 0 && uid != 2000) {
+            return "status=failed; stage=privilege; uid=$uid"
+        }
+        if (sdk < 26) {
+            return "status=failed; stage=diagnostics; sdk=$sdk"
+        }
+        return "status=verified; stage=physical_shizuku_user_service; uid=$uid; android_api=$sdk; diagnostics=read_back"
     }
 
     private fun postResult(token: String, issueNumber: Int, id: String, result: String) {
