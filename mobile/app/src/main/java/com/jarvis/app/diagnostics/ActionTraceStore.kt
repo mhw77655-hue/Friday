@@ -230,7 +230,10 @@ class ActionTraceStore(
     private fun safeOutcome(value: String): String = when (value) {
         "success_reported", "verified", "not_verified", "not_attempted",
         "not_found", "ambiguous", "unavailable", "user_action_required",
-        "fallback_attempted", "failed" -> value
+        "fallback_attempted", "failed", "planned", "recognized",
+        "decision_execute", "decision_confirm", "decision_reject",
+        "decision_unavailable", "confirmation_requested",
+        "confirmation_approved", "confirmation_cancelled" -> value
         else -> "unknown"
     }
 
