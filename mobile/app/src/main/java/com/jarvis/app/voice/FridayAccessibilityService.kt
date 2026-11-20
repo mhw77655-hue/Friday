@@ -8,6 +8,7 @@ import android.view.accessibility.AccessibilityEvent
 import android.graphics.Rect
 import android.media.AudioManager
 import android.provider.Settings
+import com.jarvis.app.ScreenBridge
 import com.jarvis.app.android.ActionType
 import com.jarvis.app.android.ControlAction
 import com.jarvis.app.android.MediaSessionControlBackend
@@ -279,11 +280,29 @@ class FridayAccessibilityService : AccessibilityService() {
         val match = pm.getInstalledApplications(0).firstOrNull { app ->
             pm.getApplicationLabel(app).toString().trim().equals(label.trim(), ignoreCase = true)
         } ?: return PhoneControlResult.NotFound(label)
+
+        // Prefer the explicitly verified Shizuku UserService when it is ready.
+        // Its typed launchApp operation checks the resumed activity; ordinary
+        // Android launch remains the least-privilege fallback when Shizuku is
+        // absent or the shell operation is unsupported on this OEM build.
+        val shizukuResult = ScreenBridge.launchApp(match.packageName)
+        if (shizukuResult?.startsWith("status=verified") == true) {
+            return PhoneControlResult.Success
+        }
+
         val launch = pm.getLaunchIntentForPackage(match.packageName)
-            ?: return PhoneControlResult.Unavailable("That app has no launch activity.")
+            ?: return PhoneControlResult.Unavailable(
+                "That app has no launch activity. Shizuku result: ${shizukuResult ?: "unavailable"}"
+            )
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        startActivity(launch)
-        return PhoneControlResult.Success
+        return runCatching {
+            startActivity(launch)
+            PhoneControlResult.Success
+        }.getOrElse {
+            PhoneControlResult.Unavailable(
+                "Android could not launch that app. Shizuku result: ${shizukuResult ?: "unavailable"}"
+            )
+        }
     }
 
     companion object {
