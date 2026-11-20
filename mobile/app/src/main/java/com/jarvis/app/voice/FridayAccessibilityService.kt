@@ -286,11 +286,13 @@ class FridayAccessibilityService : AccessibilityService() {
         // Android launch remains the least-privilege fallback when Shizuku is
         // absent or the shell operation is unsupported on this OEM build.
         val shizukuStartedAt = android.os.SystemClock.elapsedRealtime()
-        val shizukuResult = runCatching { ScreenBridge.launchApp(match.packageName) }.getOrNull()
+        val shizukuAttempt = runCatching { ScreenBridge.launchApp(match.packageName) }
+        val shizukuResult = shizukuAttempt.getOrNull()
         com.jarvis.app.diagnostics.PhoneActionDiagnostics.record(
             action = "OpenApp",
             route = "shizuku",
             outcome = when {
+                shizukuAttempt.isFailure -> "failed"
                 shizukuResult == null -> "unavailable"
                 shizukuResult.startsWith("status=verified") -> "success_reported"
                 else -> "fallback_attempted"
@@ -302,9 +304,17 @@ class FridayAccessibilityService : AccessibilityService() {
         }
 
         val launch = pm.getLaunchIntentForPackage(match.packageName)
-            ?: return PhoneControlResult.Unavailable(
+        if (launch == null) {
+            com.jarvis.app.diagnostics.PhoneActionDiagnostics.record(
+                action = "OpenApp",
+                route = "android_package_manager",
+                outcome = "unavailable",
+                durationMs = 0
+            )
+            return PhoneControlResult.Unavailable(
                 "That app has no launch activity. Shizuku result: ${shizukuResult ?: "unavailable"}"
             )
+        }
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         val fallbackStartedAt = android.os.SystemClock.elapsedRealtime()
         return runCatching {
