@@ -102,10 +102,11 @@ class ActionTraceStore(
         withFileLock {
             val root = readRoot()
             val events = root.optJSONArray("events") ?: JSONArray()
+            val reportId = UUID.randomUUID().toString()
             buildString {
                 appendLine("FRIDAY LIVE TEST REPORT")
                 appendLine("schema: $SCHEMA_VERSION")
-                appendLine("report_id: ${UUID.randomUUID()}")
+                appendLine("report_id: $reportId")
                 appendLine("session_id: ${root.optString("session_id", sessionId)}")
                 appendLine("app_version: ${root.optString("app_version", appVersion)}")
                 appendLine("android_api: ${root.optInt("android_api", androidApi)}")
@@ -134,7 +135,7 @@ class ActionTraceStore(
                 appendLine("Executor-reported success is not proof of the intended outcome. All events remain not_independently_verified until a separate postcondition verifier supplies evidence.")
                 appendLine()
                 appendLine("MACHINE_READABLE_JSON")
-                append(exportJsonUnlocked(root))
+                append(exportJsonUnlocked(root, reportId))
             }
         }
     }
@@ -145,11 +146,11 @@ class ActionTraceStore(
         }
     }
 
-    private fun exportJsonUnlocked(root: JSONObject): String =
+    private fun exportJsonUnlocked(root: JSONObject, reportId: String): String =
         JSONObject()
             .put("report_type", "FRIDAY_LIVE_TEST_REPORT")
             .put("schema_version", SCHEMA_VERSION)
-            .put("report_id", UUID.randomUUID().toString())
+            .put("report_id", reportId)
             .put("generated_at_utc", Instant.now().toString())
             .put("session_id", root.optString("session_id", sessionId))
             .put("app_version", root.optString("app_version", appVersion))
