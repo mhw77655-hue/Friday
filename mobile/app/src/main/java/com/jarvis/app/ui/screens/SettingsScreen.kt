@@ -665,7 +665,7 @@ fun SettingsScreen() {
         )
         Button(
             onClick = {
-                val report = com.jarvis.app.diagnostics.PhoneActionDiagnostics.exportText()
+                val report = com.jarvis.app.diagnostics.PhoneActionDiagnostics.exportText(context)
                 val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                 clipboard.setPrimaryClip(ClipData.newPlainText("Friday live test report", report))
                 actionTraceCount = com.jarvis.app.diagnostics.PhoneActionDiagnostics.eventCount()
@@ -675,7 +675,7 @@ fun SettingsScreen() {
         ) { Text("Copy live test report") }
         Button(
             onClick = {
-                val report = com.jarvis.app.diagnostics.PhoneActionDiagnostics.exportText()
+                val report = com.jarvis.app.diagnostics.PhoneActionDiagnostics.exportText(context)
                 val share = Intent(Intent.ACTION_SEND).apply {
                     type = "text/plain"
                     putExtra(Intent.EXTRA_TEXT, report)
