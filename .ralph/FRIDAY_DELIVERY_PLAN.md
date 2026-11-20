@@ -79,7 +79,7 @@ Source-level self-development is distinct from creating a restricted runtime scr
 
 Failures must produce diagnosis and root-cause repair, not isolated retries or cosmetic status changes. Preserve interrupted work, checkpoints, artifacts, logs, provenance, backups and last-known-good releases. CI is necessary but not sufficient. The final product is what installs and works on the owner's phone.
 
-**Acceptance evidence:** repeatable recovery tests; interrupted work resumes without corruption or silent loss; signed update lineage and rollback are verified; real-device acceptance report; downloadable, installable APK artifact and a documented release path.
+**Acceptance evidence:** repeatable recovery tests; interrupted work resumes without corruption or silent loss; signed update lineage and rollback are verified; real-device acceptance report; downloadable, installable APK artifact and a documented release path. A physical-phone live-test diagnostic bridge must let the owner copy a structured, privacy-filtered action trace into the existing development conversation; see [the diagnostic bridge contract](../docs/FRIDAY_LIVE_TEST_DIAGNOSTIC_BRIDGE.md).
 
 ## 4. How parallel progress works
 
