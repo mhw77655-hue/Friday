@@ -29,14 +29,14 @@ class BuildWorkflowContractTests(unittest.TestCase):
         smoke = smoke.split("      # Run tests even when APK assembly fails.", 1)[0]
         self.assertIn("friday-ci-smoke.p12", smoke)
         self.assertIn("keytool -genkeypair", smoke)
-        self.assertIn("apksigner verify --verbose", smoke)
+        self.assertIn("apksigner\" verify --verbose", smoke)
         self.assertNotIn("        if:", smoke)
         self.assertNotIn("Detect release-signing changes", debug)
 
     def test_compiled_apk_must_contain_a_launcher_icon(self):
         debug = self.workflow.split("  debug-apk:", 1)[1].split("  android-emulator:", 1)[0]
         self.assertEqual(debug.count("Verify Friday launcher icon is packaged"), 1)
-        self.assertIn("aapt dump badging mobile/app/build/outputs/apk/debug/app-debug.apk", debug)
+        self.assertIn('"$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging mobile/app/build/outputs/apk/debug/app-debug.apk', debug)
         self.assertIn("application: label='FRIDAY' icon='[^']+'", debug)
         manifest = (ROOT / "mobile" / "app" / "src" / "main" / "AndroidManifest.xml").read_text(encoding="utf-8")
         self.assertIn('android:icon="@mipmap/ic_launcher"', manifest)
