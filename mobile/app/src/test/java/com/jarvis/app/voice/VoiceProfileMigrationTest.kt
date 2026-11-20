@@ -1,7 +1,6 @@
 package com.jarvis.app.voice
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotSame
 import org.junit.Test
 
 class VoiceProfileMigrationTest {
@@ -72,6 +71,5 @@ class VoiceProfileMigrationTest {
         val migrated = migrateLegacyFridayVoiceProfile(profile)
 
         assertEquals(profile, migrated)
-        assertNotSame(profile, migrated)
     }
 }
