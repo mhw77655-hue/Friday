@@ -401,7 +401,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                     "notifications" to lastNotifText,
                     "shizuku" to shizukuText.value,
                     "microphone" to micText.value,
-                    "speech_recognition" to sttText.value,
+                    "speech_recognition" to safeSpeechRecognitionSummary(sttText.value),
                     "hotword" to hotwordText.value,
                     "text_to_speech" to ttsText.value,
                     "voice_process" to voiceSubstrateText.value,
