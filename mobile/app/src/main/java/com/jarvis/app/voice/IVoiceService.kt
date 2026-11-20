@@ -31,7 +31,7 @@ interface IVoiceService : IInterface {
      * Writes audio to [outPath]; returns a JSON string:
      * `{"success":bool,"sampleRate":int,"channels":int,"durationMs":long,"error":string|null}`.
      */
-    fun synthesize(text: String, language: String, voiceId: String, optionsJson: String, outPath: String): String
+    fun synthesize(text: String, language: String, providerId: String, voiceId: String, optionsJson: String, outPath: String): String
 
     /** Stop the current synthesis. Returns true if anything was cancelled. */
     fun cancel(): Boolean
@@ -64,10 +64,11 @@ interface IVoiceService : IInterface {
                     data.enforceInterface(Stub.DESCRIPTOR)
                     val text = data.readString() ?: ""
                     val language = data.readString() ?: ""
+                    val providerId = data.readString() ?: ""
                     val voiceId = data.readString() ?: ""
                     val optionsJson = data.readString() ?: "{}"
                     val outPath = data.readString() ?: ""
-                    val result = synthesize(text, language, voiceId, optionsJson, outPath)
+                    val result = synthesize(text, language, providerId, voiceId, optionsJson, outPath)
                     reply?.writeNoException()
                     reply?.writeString(result)
                     return true
@@ -138,13 +139,14 @@ interface IVoiceService : IInterface {
                 }
             }
 
-            override fun synthesize(text: String, language: String, voiceId: String, optionsJson: String, outPath: String): String {
+            override fun synthesize(text: String, language: String, providerId: String, voiceId: String, optionsJson: String, outPath: String): String {
                 val data = Parcel.obtain()
                 val reply = Parcel.obtain()
                 return try {
                     data.writeInterfaceToken(Stub.DESCRIPTOR)
                     data.writeString(text)
                     data.writeString(language)
+                    data.writeString(providerId)
                     data.writeString(voiceId)
                     data.writeString(optionsJson)
                     data.writeString(outPath)
