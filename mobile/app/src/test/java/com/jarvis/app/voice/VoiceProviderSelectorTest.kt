@@ -68,6 +68,26 @@ class VoiceProviderSelectorTest {
         listOf(VoiceInfo("speaker_0", "Speaker 0", "en", quality = VoiceQuality.HIGH))
     )
 
+
+    @Test
+    fun `neural candidates preserve preferred order and exclude system tts`() {
+        val piper = FakeProvider("piper", setOf("en"), VoiceQuality.MEDIUM, memoryMb = 128)
+        val kokoro = FakeProvider("sherpa", setOf("en"), VoiceQuality.HIGH, memoryMb = 220)
+        val system = FakeProvider("system", setOf("en"), VoiceQuality.MEDIUM, memoryMb = 20)
+        val selector = VoiceProviderSelector(registry(system to 100, kokoro to 10, piper to 0))
+        val candidates = selector.neuralCandidates(
+            DefaultJarvisVoiceProfile.copy(language = "en", fallbackProviders = listOf("sherpa"))
+        )
+        assertEquals(listOf("piper", "sherpa"), candidates.map { it.id })
+    }
+
+    @Test
+    fun `neural candidates fail closed when only system tts supports the language`() {
+        val system = FakeProvider("system", setOf("system"), VoiceQuality.MEDIUM)
+        val selector = VoiceProviderSelector(registry(system to 0))
+        assertTrue(selector.neuralCandidates(DefaultJarvisVoiceProfile.copy(language = "system")).isEmpty())
+    }
+
     @Test
     fun `selects the only en provider for an en profile`() {
         val sel = VoiceProviderSelector(registry(en() to 0)).select(

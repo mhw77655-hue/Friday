@@ -47,5 +47,6 @@ val DefaultJarvisVoiceProfile = VoiceProfile(
     speechRate = 1.0f,
     pitch = 1.0f,
     qualityPreference = VoiceQuality.HIGH,
-    resourcePreference = ResourcePreference.BALANCED
+    resourcePreference = ResourcePreference.BALANCED,
+    fallbackProviders = listOf("sherpa")
 )

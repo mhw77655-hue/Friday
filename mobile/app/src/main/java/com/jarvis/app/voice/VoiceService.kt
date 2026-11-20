@@ -147,18 +147,26 @@ class VoiceService : Service() {
                 pitch = params.pitch,
                 pronunciation = params.pronunciationHints
             )
-            val selection = service.selector.select(profile)
+            val candidates = service.selector.neuralCandidates(profile)
             val result = CompletableDeferred<String>()
-            // Serialized inference: one synthesis at a time in the habitat.
+            // Serialized inference: try the selected neural provider first,
+            // then the profile's declared neural fallbacks. Never substitute
+            // Android/Google system TTS for Friday's selected voice identity.
             val accepted = scheduler.submit {
-                when (selection) {
-                    is VoiceProviderSelector.Selection.Selected ->
-                        result.complete(runSynthesis(selection.provider, selection.voice?.id, text, language, params, outFile(outPath)))
-                    is VoiceProviderSelector.Selection.Fallback ->
-                        result.complete(runSynthesis(selection.provider, selection.voice?.id, text, language, params, outFile(outPath)))
-                    is VoiceProviderSelector.Selection.Failure ->
-                        result.complete(json(false, error = selection.reason))
+                var lastResult = json(false, error = "no neural provider supports ${language}")
+                for (provider in candidates) {
+                    val selectedVoice = service.registry.voicesOf(provider)
+                        .firstOrNull { it.id == voiceId }
+                        ?: service.registry.voicesOf(provider).firstOrNull()
+                    val output = outFile(outPath).apply { delete() }
+                    val attempt = runSynthesis(provider, selectedVoice?.id, text, language, params, output)
+                    if (runCatching { JSONObject(attempt).optBoolean("success") }.getOrDefault(false)) {
+                        lastResult = attempt
+                        break
+                    }
+                    lastResult = attempt
                 }
+                result.complete(lastResult)
             }
             if (!accepted) return json(false, error = "voice scheduler closed")
             // First synthesis may download the model; allow generous time, but

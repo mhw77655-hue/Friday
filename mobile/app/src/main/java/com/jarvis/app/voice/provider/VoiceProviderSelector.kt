@@ -72,6 +72,18 @@ class VoiceProviderSelector(
         )
     }
 
+    /**
+     * Ordered neural providers for a profile. System TTS is intentionally
+     * excluded from Friday's identity path: a provider failure must not
+     * silently turn her into a different generic assistant voice.
+     */
+    fun neuralCandidates(profile: VoiceProfile): List<VoiceProvider> {
+        val languageCandidates = registry.discover(language = profile.language)
+            .filter { it.id != "system" }
+        if (languageCandidates.isEmpty()) return emptyList()
+        return orderProviders(languageCandidates, profile).distinctBy { it.id }
+    }
+
     // ───────────────────────────────────────────────── internal
 
     private fun orderProviders(
