@@ -5,10 +5,12 @@ import com.jarvis.app.model.adapters.HeuristicAdapter
 import com.jarvis.app.model.config.ProviderConfig
 import com.jarvis.app.model.remote.PrimaryRemoteModelProvider
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertSame
@@ -86,6 +88,24 @@ class ModelManagerTest {
         assertTrue(!m.providerHealth.value.modelLoaded)
     }
 
+
+
+    @Test
+    fun `live send reaches the selected cloud provider and reports cloud success`() = runBlocking {
+        val cloud = FakeCloudProvider()
+        val m = ModelManager(
+            context = null,
+            scope = CoroutineScope(Dispatchers.Default),
+            cloudProvider = cloud
+        )
+        assertTrue(m.setActiveProvider(ModelProviderType.CLOUD).isSuccess)
+
+        m.send("Hello Friday")
+        val reply = withTimeout(5_000) { m.lastReply.first { it == "remote answer" } }
+
+        assertEquals("remote answer", reply)
+        assertEquals("ok (cloud)", m.status.value)
+    }
 
     @Test
     fun `cloud provider configured after manager startup is resolved without restart`() = runBlocking {
