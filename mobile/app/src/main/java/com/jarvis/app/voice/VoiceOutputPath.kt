@@ -8,12 +8,19 @@ import android.util.Log
 import com.jarvis.app.body.StreamingTts
 import com.jarvis.app.body.VocabularyStore
 import com.jarvis.app.voice.provider.VoiceSynthesisParams
+import com.jarvis.app.failure.FailureCategory
+import com.jarvis.app.failure.FailureReport
+import com.jarvis.app.failure.FailureSeverity
+import com.jarvis.app.failure.Recoverability
+import com.jarvis.app.failure.RecoveryAction
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -84,12 +91,33 @@ class VoiceOutputPath(
                     // when the saved default profile language is English.
                     val segmentLanguage = if (containsArabic(segment)) "ar-EG" else lang
                     val spoken = habitatSpeak(segment, segmentLanguage, voiceId ?: profile.preferredVoice, profile, vocabulary)
-                    if (!spoken && fallback != null && profile.referenceAudioPath.isNullOrBlank()) {
-                        // Never silently substitute a different voice after the
-                        // owner explicitly selected Friday's reference identity.
-                        fallback.speakStreaming(segment, vocabulary ?: emptyVocabulary())
-                    } else if (!spoken && !profile.referenceAudioPath.isNullOrBlank()) {
-                        Log.w(TAG, "Reference voice synthesis failed; refusing to substitute an unrelated voice")
+                    if (!spoken) {
+                        // Friday's default profile explicitly selects a neural
+                        // provider. Falling back to Android/Google TTS silently
+                        // changes her voice identity — the exact mismatch this
+                        // path is meant to prevent. System TTS is allowed only
+                        // for profiles that did not select a provider.
+                        if (profile.preferredProvider.isNullOrBlank() &&
+                            profile.referenceAudioPath.isNullOrBlank() && fallback != null
+                        ) {
+                            fallback.speakStreaming(segment, vocabulary ?: emptyVocabulary())
+                        } else {
+                            val reason = "Selected voice provider did not produce audio; no alternate system voice was substituted."
+                            Log.w(TAG, reason)
+                            host.onFailure(
+                                FailureReport(
+                                    subsystem = "VOICE_OUTPUT",
+                                    operation = "synthesize",
+                                    severity = FailureSeverity.DEGRADED,
+                                    category = FailureCategory.TTS,
+                                    message = reason,
+                                    source = "VoiceOutputPath",
+                                    dependency = profile.preferredProvider ?: "reference voice",
+                                    recoverability = Recoverability.RETRYABLE,
+                                    recoveryAction = RecoveryAction.RETRY_WITH_BACKOFF
+                                )
+                            )
+                        }
                     }
                 }
             } catch (e: Throwable) {
@@ -125,9 +153,14 @@ class VoiceOutputPath(
         profile: VoiceProfile,
         vocabulary: VocabularyStore?
     ): Boolean {
-        // Only route through the habitat when it is bound and not failed; else
-        // the caller falls through to the legacy path without blocking.
-        val substrate = host.state.value
+        // Binding is asynchronous. Wait briefly for the isolated habitat
+        // rather than immediately substituting Android's generic system voice.
+        val substrate = withTimeoutOrNull(20_000L) {
+            host.state.first {
+                it.state == VoiceOrganismHost.State.BOUND ||
+                    it.state == VoiceOrganismHost.State.DISABLED
+            }
+        } ?: return false
         if (substrate.state != VoiceOrganismHost.State.BOUND) return false
         if (host.voiceState.value == VoiceOrganismHost.VoiceState.FAILED) return false
 

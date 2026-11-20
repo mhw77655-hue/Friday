@@ -63,7 +63,7 @@ fun VoiceStudioScreen() {
     val initialProfile = remember { profileStore.get(DefaultJarvisVoiceProfile.id) ?: DefaultJarvisVoiceProfile }
     var referencePath by remember { mutableStateOf((initialProfile.referenceAudioPath ?: prefs.getString("reference_path", null))?.takeIf { File(it).isFile }) }
     val referenceAvailable = referencePath?.let { File(it).isFile } == true
-    var status by remember { mutableStateOf(if (referenceAvailable) "Reference sample available; Pocket TTS loads on first use" else "Piper active; no reference sample selected") }
+    var status by remember { mutableStateOf(if (referenceAvailable) "Reference sample available; Pocket TTS loads on first use" else "Piper selected; synthesis is verified on first preview") }
     var speechRate by remember { mutableFloatStateOf(profileStore.get(DefaultJarvisVoiceProfile.id)?.speechRate ?: 1f) }
     var busy by remember { mutableStateOf(false) }
 
@@ -135,9 +135,9 @@ fun VoiceStudioScreen() {
         ) {
             Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Friday's active voice", style = MaterialTheme.typography.titleMedium)
-                Text(if (referenceAvailable) "Provider: Pocket TTS · your reference voice" else "Provider: Piper VITS / English US (Amy · Low)")
+                Text(if (referenceAvailable) "Selected provider: Pocket TTS · your reference voice" else "Selected provider: Piper VITS / English US (Amy · Low)")
                 Text("Voice process: ${host?.state?.value?.state ?: "not ready"}")
-                Text(if (referenceAvailable) "Friday uses your locally saved voice sample. The Pocket TTS pack is downloaded on first synthesis." else "Piper is active. No reference sample is selected, so voice cloning is not active.")
+                Text(if (referenceAvailable) "Friday uses your locally saved voice sample. The Pocket TTS pack is downloaded on first synthesis." else "Piper is selected, not yet verified on this device. Its model is downloaded on first synthesis; a failed load is reported instead of silently switching to system TTS.")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(enabled = !busy && host != null, onClick = {
                         scope.launch {
