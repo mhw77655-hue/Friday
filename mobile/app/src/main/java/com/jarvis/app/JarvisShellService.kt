@@ -13,6 +13,9 @@ import java.util.concurrent.TimeUnit
  */
 class JarvisShellService : IJarvisShellService.Stub() {
 
+    /** Proves the bound process is actually running with Shizuku shell/root identity. */
+    override fun identity(): String = "uid=${Process.myUid()};pid=${Process.myPid()}"
+
     override fun diagnosticsSnapshot(): String {
         val result = JSONObject()
             .put("schema", 1)
