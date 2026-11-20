@@ -52,6 +52,34 @@ class ActionTraceStoreTest {
     }
 
     @Test
+    fun `crash report projection preserves stack evidence but excludes exception messages`() {
+        val crash = org.json.JSONObject()
+            .put("at_utc", "2026-11-20T20:00:00Z")
+            .put("process", "com.jarvis.app")
+            .put("thread", "main")
+            .put("exception_chain", org.json.JSONArray().put(
+                org.json.JSONObject()
+                    .put("type", "java.lang.IllegalStateException")
+                    .put("message", "private-token=do-not-export")
+                    .put("frames", org.json.JSONArray().put(
+                        org.json.JSONObject()
+                            .put("class", "com.jarvis.app.MainActivity")
+                            .put("method", "onCreate")
+                            .put("file", "MainActivity.kt")
+                            .put("line", 42)
+                    ))
+            ))
+
+        val safe = sanitizedCrashSummary(crash).toString()
+        assertTrue(safe.contains("java.lang.IllegalStateException"))
+        assertTrue(safe.contains("MainActivity.kt"))
+        assertTrue(safe.contains("onCreate"))
+        assertFalse(safe.contains("private-token"))
+        assertFalse(safe.contains("do-not-export"))
+        assertFalse(safe.contains("message"))
+    }
+
+    @Test
     fun `clear removes stored traces`() {
         val directory = Files.createTempDirectory("friday-action-clear").toFile()
         val store = ActionTraceStore(directory, "test", 35)
