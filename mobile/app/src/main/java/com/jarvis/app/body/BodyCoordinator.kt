@@ -4,9 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.jarvis.app.JarvisEngine
 import com.jarvis.app.JarvisMic
-import com.jarvis.app.JarvisTts
 import com.jarvis.app.SpeechBridge
-import com.jarvis.app.TtsBridge
 import com.jarvis.app.voice.HotwordAvailability
 import com.jarvis.app.voice.HotwordAvailabilityProbe
 import com.jarvis.app.voice.JarvisSpeechRecognizer
@@ -109,8 +107,6 @@ class BodyCoordinator(
 
     // ── Subsystem references ──
     private var speechRecognizer: JarvisSpeechRecognizer? = null
-    private var tts: JarvisTts? = null
-    private var ttsRetryCount = 0
     private var modelRetryCount = 0
     private val phoneActionPlanner by lazy {
         com.jarvis.app.voice.PhoneActionPlanner(modelManager)
@@ -252,21 +248,8 @@ class BodyCoordinator(
             )
         }
 
-        // TTS (re-enabled, unchanged) — pure android.speech.tts.TextToSpeech
-        // with zero native/JNI code. Never implicated in the crash; speech
-        // output is safe to enable and does actually fire on a real turn.
-        tts = JarvisTts(context, onStatusChanged = { status -> TtsBridge.updateStatus(status) },
-            onFailure = { r -> recoveryController.handle(r) })
-        val ttsStarted = tts?.start() ?: false
-        if (ttsStarted) TtsBridge.attach(tts!!)
-        Log.i(TAG, "TTS: ${if (ttsStarted) "started" else "FAILED"}")
-        recoveryController.register(
-            com.jarvis.app.failure.RecoveryController.RetrySpec(
-                subsystem = "TTS",
-                operation = "init",
-                action = { tts?.start() ?: false }
-            )
-        )
+        // Speech output is owned by JarvisEngine's isolated neural voice habitat.
+        // This coordinator handles listening and conversation lifecycle only.
 
         // Presence monitor
         presenceMonitor = PresenceMonitor(context, backgroundScope) { present ->
@@ -415,8 +398,6 @@ class BodyCoordinator(
         if (_state.value != BodyState.IDLE && _state.value != BodyState.USER_PRESENT) {
             speechRecognizer?.cancel()
             runCatching { JarvisEngine.getVoiceOutputPath()?.interrupt() }
-            runCatching { tts?.interrupt() }
-            runCatching { TtsBridge.stopSpeaking() }
             emitEvent(BodyEvent.Reset)
         }
         // Pause the optional background AudioRecord owner while SpeechRecognizer
@@ -703,8 +684,6 @@ class BodyCoordinator(
     private fun handleInterruption(trigger: BodyEvent) {
         // Stop TTS immediately (habitat output path, ack/full path, streaming path)
         runCatching { com.jarvis.app.JarvisEngine.getVoiceOutputPath()?.interrupt() }
-        tts?.interrupt()
-        TtsBridge.stopSpeaking()
         try {
             com.jarvis.app.JarvisEngine.getStreamingTts().interrupt()
         } catch (e: IllegalStateException) {
@@ -847,7 +826,6 @@ class BodyCoordinator(
         backgroundJob.cancel()
         eventQueue.close()
         speechRecognizer?.cancel()
-        tts?.stop()
         presenceMonitor?.stop()
         warmupExecutor.shutdown()
 
