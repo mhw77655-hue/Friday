@@ -12,7 +12,7 @@ Before every task, read these files in order:
 
 The owner's latest authenticated explicit instruction outranks all repository documents. VISION defines the destination; FRIDAY_DELIVERY_PLAN is the only active delivery plan. The contract, PRD, build notes, audits and code are subordinate. If they conflict, correct the subordinate document before implementing. Never revive a superseded roadmap or assistant proposal.
 
-The curated OWNER_WORDS file preserves owner-authored excerpts and provenance. Do not attribute assistant paraphrases to the owner. The complete personal archive is private and must not be copied into this public repository. The archive was supplied for this project and its owner-authored meaning is represented by curated excerpts; do not tell the owner the archive is inaccessible or use old assistant plans as authority.
+The curated OWNER_WORDS file preserves owner-authored excerpts and provenance. Do not attribute assistant paraphrases to the owner. The complete personal archive is private and must not be copied into this public repository. Do not search for, reconstruct, request, or publish private archives or screenshots. The archive was supplied for this project and its owner-authored meaning is represented by curated excerpts; do not tell the owner the archive is inaccessible or use old assistant plans as authority.
 
 ## 2. The destination is not a fixed architecture
 
