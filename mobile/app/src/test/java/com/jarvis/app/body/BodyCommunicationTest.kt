@@ -40,6 +40,16 @@ class BodyCommunicationTest {
         assertEquals(BodyState.IDLE, s)
     }
 
+
+    @Test
+    fun `failed platform recognition closes listening instead of stranding the voice state`() {
+        val next = BodyStateMachine.next(
+            BodyState.LISTENING,
+            BodyEvent.SttResult("", 0f, "en")
+        )
+        assertEquals(BodyState.IDLE, next)
+    }
+
     @Test
     fun `reply generation completes the turn to speaking then idle`() {
         var s = BodyState.THINKING
