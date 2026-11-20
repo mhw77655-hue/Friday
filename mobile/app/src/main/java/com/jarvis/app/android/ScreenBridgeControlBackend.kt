@@ -31,14 +31,29 @@ class ScreenBridgeControlBackend : ControlBackend {
         ScreenBridge.status.value == "bound"
 
     override fun execute(action: ControlAction): VerificationEvidence {
-        if (action.actionType != ActionType.SCREENSCAPE_SUMMARY) {
-            return VerificationEvidence(VerificationStage.NOT_ATTEMPTED, id, "unsupported action ${action.actionType}")
-        }
-        val text = ScreenBridge.captureScreenSummary()
-        return if (text.isNotBlank() && text != "not bound") {
-            VerificationEvidence(VerificationStage.VERIFIED, id, text.take(200))
-        } else {
-            VerificationEvidence(VerificationStage.NOT_ATTEMPTED, id, "no screen text captured yet")
+        return when (action.actionType) {
+            ActionType.SCREENSCAPE_SUMMARY -> {
+                val text = ScreenBridge.captureScreenSummary()
+                if (text.isNotBlank() && text != "not bound") {
+                    VerificationEvidence(VerificationStage.VERIFIED, id, text.take(200))
+                } else {
+                    VerificationEvidence(VerificationStage.NOT_ATTEMPTED, id, "no screen text captured yet")
+                }
+            }
+            ActionType.LAUNCH_APP -> {
+                val packageName = action.packageName
+                if (packageName.isNullOrBlank()) {
+                    return VerificationEvidence(VerificationStage.NOT_ATTEMPTED, id, "package name is required")
+                }
+                val result = ScreenBridge.launchApp(packageName)
+                    ?: return VerificationEvidence(VerificationStage.NOT_ATTEMPTED, id, "Shizuku service is not bound")
+                if (result.startsWith("status=verified")) {
+                    VerificationEvidence(VerificationStage.VERIFIED, id, result.take(200))
+                } else {
+                    VerificationEvidence(VerificationStage.NOT_ATTEMPTED, id, result.take(200))
+                }
+            }
+            else -> VerificationEvidence(VerificationStage.NOT_ATTEMPTED, id, "unsupported action ${action.actionType}")
         }
     }
 }
