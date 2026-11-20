@@ -22,9 +22,9 @@ class MainActivity : ComponentActivity() {
     ) { granted ->
         if (granted) {
             if (com.jarvis.app.runtime.FridayRuntimeController.isEnabled(this)) {
-                com.jarvis.app.runtime.FridayRuntimeController.startWithMicrophone(this)
-            } else {
-                JarvisMic.start(lifecycleScope)
+                // Keep the runtime resident; Android SpeechRecognizer owns live
+                // capture during a conversational turn.
+                com.jarvis.app.runtime.FridayRuntimeController.startCore(this)
             }
             if (intent.getBooleanExtra(
                     com.jarvis.app.voice.FridayVoiceInteractionSession.EXTRA_FRIDAY_VOICE_INVOCATION,
@@ -46,14 +46,11 @@ class MainActivity : ComponentActivity() {
             this, Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
 
-        if (hasMicPermission) {
-            if (com.jarvis.app.runtime.FridayRuntimeController.isEnabled(this)) {
-                com.jarvis.app.runtime.FridayRuntimeController.startWithMicrophone(this)
-            } else {
-                JarvisMic.start(lifecycleScope)
-            }
-        } else {
+        if (!hasMicPermission) {
             micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        } else if (com.jarvis.app.runtime.FridayRuntimeController.isEnabled(this)) {
+            // Avoid a second AudioRecord while the conversation recognizer is active.
+            com.jarvis.app.runtime.FridayRuntimeController.startCore(this)
         }
         if (hasMicPermission && intent.getBooleanExtra(
                 com.jarvis.app.voice.FridayVoiceInteractionSession.EXTRA_FRIDAY_VOICE_INVOCATION,
@@ -87,8 +84,8 @@ class MainActivity : ComponentActivity() {
             ) {
                 // This visible-activity handoff is the permitted place to
                 // restore microphone capture after boot or service restart.
-                com.jarvis.app.runtime.FridayRuntimeController.startWithMicrophone(this)
-            } else {
+                // Do not keep a second AudioRecord open while the visible
+                // conversation uses Android SpeechRecognizer.
                 com.jarvis.app.runtime.FridayRuntimeController.startCore(this)
             }
         }

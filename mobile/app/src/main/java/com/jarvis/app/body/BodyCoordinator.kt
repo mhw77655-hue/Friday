@@ -3,7 +3,6 @@ package com.jarvis.app.body
 import android.content.Context
 import android.util.Log
 import com.jarvis.app.JarvisEngine
-import com.jarvis.app.JarvisMic
 import com.jarvis.app.JarvisTts
 import com.jarvis.app.SpeechBridge
 import com.jarvis.app.TtsBridge
@@ -106,7 +105,6 @@ class BodyCoordinator(
     val events: SharedFlow<BodyEvent> = _events.asSharedFlow()
 
     // ── Subsystem references ──
-    private var micJob: Job? = null
     private var speechRecognizer: JarvisSpeechRecognizer? = null
     private var tts: JarvisTts? = null
     private var ttsRetryCount = 0
@@ -267,9 +265,6 @@ class BodyCoordinator(
             )
         )
 
-        // Start mic capture
-        startMic()
-
         // Presence monitor
         presenceMonitor = PresenceMonitor(context, backgroundScope) { present ->
             emitEvent(BodyEvent.UserPresenceChanged(present))
@@ -279,46 +274,8 @@ class BodyCoordinator(
         // Warm the model
         warmModel()
 
-        // Manual push-to-talk endpoint closure: when the user finishes speaking
-        // during a listening/wake turn, route the closure through the platform
-        // STT path (which owns live mic recognition during LISTENING). Speech
-        // input is handled on the LISTENING transition via the platform
-        // recognizer — there is no Vosk/sherpa continuous decode to bridge.
-        backgroundScope.launch {
-            JarvisMic.speechEnded.collect {
-                // Only act when we were actively listening to a push-to-talk turn.
-                if (_state.value == BodyState.LISTENING || _state.value == BodyState.WAKE) {
-                    emitEvent(BodyEvent.SpeechEnd(JarvisMic.utteranceSamples()))
-                }
-            }
-        }
-
         // Emit ready
         emitEvent(BodyEvent.Reset)
-    }
-
-    private fun startMic() {
-        micJob = backgroundScope.launch(Dispatchers.Default) {
-            try {
-                JarvisMic.start(backgroundScope)
-            } catch (t: Throwable) {
-                if (t is kotlinx.coroutines.CancellationException) throw t
-                Log.e(TAG, "Mic start failed: ${t.message}")
-                failureSurface.report(
-                    com.jarvis.app.failure.FailureReport(
-                        subsystem = "MIC",
-                        operation = "start",
-                        severity = com.jarvis.app.failure.FailureSeverity.ERROR,
-                        category = com.jarvis.app.failure.FailureCategory.VOICE_INPUT,
-                        message = "Mic capture failed to start — voice input unavailable",
-                        source = "BodyCoordinator",
-                        cause = t.message,
-                        recoverability = com.jarvis.app.failure.Recoverability.PERMANENT,
-                        recoveryAction = com.jarvis.app.failure.RecoveryAction.USER_ACTION_REQUIRED
-                    )
-                )
-            }
-        }
     }
 
     /** Main event loop — single-threaded coordination. */
@@ -866,8 +823,6 @@ class BodyCoordinator(
         // consumers finish is their child job cancelled.
         backgroundJob.cancel()
         eventQueue.close()
-        micJob?.cancel()
-        JarvisMic.stop()
         _voiceConversationActive.value = false
         speechRecognizer?.cancel()
         tts?.stop()
