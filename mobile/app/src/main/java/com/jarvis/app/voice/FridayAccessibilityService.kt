@@ -285,7 +285,18 @@ class FridayAccessibilityService : AccessibilityService() {
         // Its typed launchApp operation checks the resumed activity; ordinary
         // Android launch remains the least-privilege fallback when Shizuku is
         // absent or the shell operation is unsupported on this OEM build.
+        val shizukuStartedAt = android.os.SystemClock.elapsedRealtime()
         val shizukuResult = ScreenBridge.launchApp(match.packageName)
+        com.jarvis.app.diagnostics.PhoneActionDiagnostics.record(
+            action = "OpenApp",
+            route = "shizuku",
+            outcome = when {
+                shizukuResult == null -> "unavailable"
+                shizukuResult.startsWith("status=verified") -> "success_reported"
+                else -> "fallback_attempted"
+            },
+            durationMs = android.os.SystemClock.elapsedRealtime() - shizukuStartedAt
+        )
         if (shizukuResult?.startsWith("status=verified") == true) {
             return PhoneControlResult.Success
         }
@@ -295,10 +306,23 @@ class FridayAccessibilityService : AccessibilityService() {
                 "That app has no launch activity. Shizuku result: ${shizukuResult ?: "unavailable"}"
             )
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val fallbackStartedAt = android.os.SystemClock.elapsedRealtime()
         return runCatching {
             startActivity(launch)
+            com.jarvis.app.diagnostics.PhoneActionDiagnostics.record(
+                action = "OpenApp",
+                route = "android_package_manager",
+                outcome = "success_reported",
+                durationMs = android.os.SystemClock.elapsedRealtime() - fallbackStartedAt
+            )
             PhoneControlResult.Success
         }.getOrElse {
+            com.jarvis.app.diagnostics.PhoneActionDiagnostics.record(
+                action = "OpenApp",
+                route = "android_package_manager",
+                outcome = "failed",
+                durationMs = android.os.SystemClock.elapsedRealtime() - fallbackStartedAt
+            )
             PhoneControlResult.Unavailable(
                 "Android could not launch that app. Shizuku result: ${shizukuResult ?: "unavailable"}"
             )
@@ -308,9 +332,66 @@ class FridayAccessibilityService : AccessibilityService() {
     companion object {
         private val active = AtomicReference<FridayAccessibilityService?>()
 
-        fun execute(command: PhoneControlCommand): PhoneControlResult =
-            active.get()?.perform(command)
+        fun execute(command: PhoneControlCommand): PhoneControlResult {
+            val startedAt = android.os.SystemClock.elapsedRealtime()
+            val service = active.get()
+            val result = service?.perform(command)
                 ?: PhoneControlResult.Unavailable("Enable Friday's accessibility control in Android Settings first.")
+            val outcome = when (result) {
+                PhoneControlResult.Success -> "success_reported"
+                is PhoneControlResult.NotFound -> "not_found"
+                is PhoneControlResult.Ambiguous -> "ambiguous"
+                is PhoneControlResult.Unavailable -> "unavailable"
+                is PhoneControlResult.UserActionRequired -> "user_action_required"
+            }
+            com.jarvis.app.diagnostics.PhoneActionDiagnostics.record(
+                action = command.javaClass.simpleName.substringBefore('
+
+        fun isEnabled(): Boolean = active.get() != null
+
+        /** A short-lived local-only description; editable/password values are never copied. */
+        fun activeScreenSummary(): String =
+            active.get()?.describeActiveWindow() ?: "Friday Accessibility service is not connected."
+    }
+}
+
+sealed interface PhoneControlCommand {
+    data object Back : PhoneControlCommand
+    data object Home : PhoneControlCommand
+    data object Recents : PhoneControlCommand
+    data object Notifications : PhoneControlCommand
+    data object QuickSettings : PhoneControlCommand
+    data object OpenSettings : PhoneControlCommand
+    data object PlayMedia : PhoneControlCommand
+    data object PauseMedia : PhoneControlCommand
+    data object NextTrack : PhoneControlCommand
+    data object PreviousTrack : PhoneControlCommand
+    data object VolumeUp : PhoneControlCommand
+    data object VolumeDown : PhoneControlCommand
+    data class SetMediaVolume(val percent: Int) : PhoneControlCommand
+    data class SetBrightness(val percent: Int) : PhoneControlCommand
+    data object OpenInternetPanel : PhoneControlCommand
+    data object ScrollForward : PhoneControlCommand
+    data object ScrollBackward : PhoneControlCommand
+    data class TapText(val text: String) : PhoneControlCommand
+    data class TypeText(val text: String) : PhoneControlCommand
+    data class OpenApp(val label: String) : PhoneControlCommand
+}
+
+sealed interface PhoneControlResult {
+    data object Success : PhoneControlResult
+    data class NotFound(val target: String) : PhoneControlResult
+    data class Ambiguous(val target: String, val matches: Int) : PhoneControlResult
+    data class Unavailable(val reason: String) : PhoneControlResult
+    data class UserActionRequired(val reason: String) : PhoneControlResult
+}
+),
+                route = if (service == null) "accessibility_unavailable" else "accessibility",
+                outcome = outcome,
+                durationMs = android.os.SystemClock.elapsedRealtime() - startedAt
+            )
+            return result
+        }
 
         fun isEnabled(): Boolean = active.get() != null
 
