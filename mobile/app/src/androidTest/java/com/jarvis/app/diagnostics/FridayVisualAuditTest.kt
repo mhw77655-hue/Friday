@@ -1,6 +1,9 @@
 package com.jarvis.app.diagnostics
 
 import android.content.Intent
+import android.graphics.BitmapFactory
+import android.os.Build
+import java.security.MessageDigest
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -14,7 +17,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
-import java.io.FileOutputStream
 
 /**
  * One-shot visual diagnostic, not a live screen stream.
@@ -41,11 +43,19 @@ class FridayVisualAuditTest {
             Thread.sleep(700)
             val file = File(output, "%02d_%s.png".format(manifest.length(), id))
             check(device.takeScreenshot(file)) { "Screenshot failed for $title" }
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(file.absolutePath, bounds)
+            val digest = MessageDigest.getInstance("SHA-256")
+                .digest(file.readBytes())
+                .joinToString("") { "%02x".format(it) }
             manifest.put(JSONObject()
                 .put("id", id)
                 .put("title", title)
                 .put("file", file.name)
-                .put("bytes", file.length()))
+                .put("bytes", file.length())
+                .put("width_px", bounds.outWidth)
+                .put("height_px", bounds.outHeight)
+                .put("sha256", digest))
         }
 
         // Launch the installed target app. A microphone permission prompt is
@@ -59,6 +69,11 @@ class FridayVisualAuditTest {
         assertTrue("Friday never reached its navigation surface", device.hasObject(By.text("Talk")))
 
         capture("startup", "Startup / Home")
+        device.findObject(By.text("More")).click()
+        assertTrue("More navigation sheet did not open", device.wait(Until.hasObject(By.text("Explore Friday")), 5_000))
+        capture("navigation_sheet", "Full navigation sheet")
+        device.pressBack()
+        device.waitForIdle(1_000)
         device.findObject(By.text("Talk")).click()
         device.waitForIdle(2_000)
         capture("conversation", "Conversation")
@@ -94,11 +109,18 @@ class FridayVisualAuditTest {
 
         File(output, "manifest.json").writeText(
             JSONObject()
-                .put("schema", 1)
+                .put("schema", 2)
                 .put("package", context.packageName)
+                .put("android_release", Build.VERSION.RELEASE)
+                .put("android_sdk", Build.VERSION.SDK_INT)
+                .put("device_model", Build.MODEL)
+                .put("device_manufacturer", Build.MANUFACTURER)
+                .put("display_width_px", device.displayWidth)
+                .put("display_height_px", device.displayHeight)
+                .put("capture_mode", "one-shot-ui-automator-full-display")
                 .put("screens", manifest)
                 .toString(2)
         )
-        assertTrue("Visual audit produced too few screenshots", manifest.length() >= 17)
+        assertTrue("Visual audit produced too few screenshots", manifest.length() >= 18)
     }
 }
