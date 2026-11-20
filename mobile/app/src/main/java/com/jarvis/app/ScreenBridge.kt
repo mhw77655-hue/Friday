@@ -140,7 +140,7 @@ object ScreenBridge {
             return _lastScreenText.value
         }
         _lastScreenText.value = if (texts.isNotEmpty()) {
-            texts.joinToString(", ")
+            texts.joinToString("\\n")
         } else {
             "(no visible text found)"
         }
@@ -196,21 +196,38 @@ object ScreenBridge {
             .getOrNull()
     }
 
+    /**
+     * Convert the real uiautomator hierarchy returned by the Shizuku UserService
+     * into the same bounded semantic-node format consumed by Friday's phone
+     * action planner. Never export text from editable or password fields.
+     */
     private fun extractVisibleText(xml: String): List<String> {
         val parser: XmlPullParser = Xml.newPullParser()
         parser.setInput(StringReader(xml))
-
-        val seen = LinkedHashSet<String>()
+        val nodes = mutableListOf<String>()
         var event = parser.eventType
-        while (event != XmlPullParser.END_DOCUMENT) {
-            if (event == XmlPullParser.START_TAG) {
-                val text = parser.getAttributeValue(null, "text")
-                val desc = parser.getAttributeValue(null, "content-desc")
-                if (!text.isNullOrBlank()) seen.add(text.trim())
-                if (!desc.isNullOrBlank()) seen.add(desc.trim())
+        while (event != XmlPullParser.END_DOCUMENT && nodes.size < 80) {
+            if (event == XmlPullParser.START_TAG && parser.name == "node") {
+                fun attr(name: String): String = parser.getAttributeValue(null, name).orEmpty()
+                val className = attr("class")
+                val editable = className.contains("EditText", ignoreCase = true)
+                val password = attr("password").equals("true", ignoreCase = true)
+                val visibleText = if (editable || password) "" else attr("text").trim()
+                val description = attr("content-desc").trim()
+                val resourceId = attr("resource-id").trim()
+                val labels = listOf(visibleText, description, resourceId)
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                if (labels.isNotEmpty()) {
+                    nodes += "node=${labels.joinToString(" | ")}" +
+                        ";clickable=${attr("clickable") == "true"}" +
+                        ";editable=$editable" +
+                        ";focused=${attr("focused") == "true"}" +
+                        ";scrollable=${attr("scrollable") == "true"}"
+                }
             }
             event = parser.next()
         }
-        return seen.toList().take(25)
+        return nodes
     }
 }
