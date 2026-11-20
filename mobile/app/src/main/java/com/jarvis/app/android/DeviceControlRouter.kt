@@ -88,7 +88,8 @@ class DeviceControlRouter(
                             "availability check threw"
                         ),
                         error = failure.javaClass.simpleName,
-                        durationMs = elapsedMs(attemptStartedAt)
+                        durationMs = elapsedMs(attemptStartedAt),
+                        failureStage = "availability_check"
                     )
                 )
                 continue
@@ -104,7 +105,8 @@ class DeviceControlRouter(
                             "backend unavailable"
                         ),
                         error = "unavailable",
-                        durationMs = elapsedMs(attemptStartedAt)
+                        durationMs = elapsedMs(attemptStartedAt),
+                        failureStage = "availability"
                     )
                 )
                 continue
@@ -122,7 +124,8 @@ class DeviceControlRouter(
                             "execution threw"
                         ),
                         error = failure.javaClass.simpleName,
-                        durationMs = elapsedMs(attemptStartedAt)
+                        durationMs = elapsedMs(attemptStartedAt),
+                        failureStage = "execution"
                     )
                 )
                 continue
@@ -133,7 +136,8 @@ class DeviceControlRouter(
                     succeeded = evidence.isComplete,
                     evidence = evidence,
                     error = if (evidence.isComplete) null else "not verified",
-                    durationMs = elapsedMs(attemptStartedAt)
+                    durationMs = elapsedMs(attemptStartedAt),
+                    failureStage = if (evidence.isComplete) null else "verification"
                 )
             )
             if (evidence.isComplete) {
@@ -174,7 +178,8 @@ class DeviceControlRouter(
                     outcome = outcome,
                     durationMs = attempt.durationMs,
                     verificationState = verificationState,
-                    verificationStage = attempt.evidence.stage.name
+                    verificationStage = attempt.evidence.stage.name,
+                    failureStage = attempt.failureStage
                 )
             }
         }
