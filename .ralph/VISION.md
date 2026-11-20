@@ -363,7 +363,7 @@ absence of an applicable item does not exempt a new form of drift.
 
 ## 14. The owner's own words
 
-The complete source archive is `New Folder chats.zip` at the repository root. Curated excerpts taken from the owner's own conversation turns, with source filenames and turn references, are preserved in `.ralph/OWNER_WORDS.md`. Read that file alongside this vision before planning or changing Friday.
+The full private conversation archives are intentionally excluded from the public repository. Curated owner-authored excerpts, with source filenames and turn references, are preserved in `.ralph/OWNER_WORDS.md`. Read that file alongside this vision before planning or changing Friday.
 
 These direct statements are part of the vision:
 
