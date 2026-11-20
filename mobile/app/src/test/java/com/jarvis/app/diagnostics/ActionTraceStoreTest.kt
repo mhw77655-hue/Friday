@@ -10,7 +10,7 @@ class ActionTraceStoreTest {
     @Test
     fun `records bounded action timeline and marks executor success unverified`() {
         val directory = Files.createTempDirectory("friday-action-journal").toFile()
-        val store = ActionTraceStore(directory, "test-build", 35, maxEvents = 2, sessionId = "session-test")
+        val store = ActionTraceStore(directory, "test-build", 35, sourceRevision = "abc123", maxEvents = 2, sessionId = "session-test")
 
         store.record("OpenApp", "accessibility", "success_reported", 12)
         store.record("SetMediaVolume", "accessibility", "unavailable", 5)
@@ -19,6 +19,7 @@ class ActionTraceStoreTest {
         assertEquals(2, store.eventCount())
         val json = store.exportJson()
         assertTrue(json.contains("session-test"))
+        assertTrue(json.contains("abc123"))
         assertTrue(json.contains("SetMediaVolume"))
         assertFalse(json.contains("\"OpenApp\""))
         assertTrue(json.contains("not_independently_verified"))
