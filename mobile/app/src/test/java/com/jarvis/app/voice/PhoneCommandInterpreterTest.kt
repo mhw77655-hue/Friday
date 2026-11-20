@@ -36,6 +36,8 @@ class PhoneCommandInterpreterTest {
         assertEquals(PhoneControlCommand.Back, PhoneCommandInterpreter.parse("ارجع للخلف"))
         assertEquals(PhoneControlCommand.OpenSettings, PhoneCommandInterpreter.parse("افتح الإعدادات"))
         assertEquals(PhoneControlCommand.OpenApp("واتساب"), PhoneCommandInterpreter.parse("افتح واتساب"))
+        assertEquals(PhoneControlCommand.OpenApp("واتساب"), PhoneCommandInterpreter.parse("يا فرايداي افتح واتساب"))
+        assertEquals(PhoneControlCommand.Back, PhoneCommandInterpreter.parse("فرايداي ارجع للخلف"))
         assertEquals(PhoneControlCommand.VolumeUp, PhoneCommandInterpreter.parse("علي الصوت"))
         assertEquals(PhoneControlCommand.VolumeDown, PhoneCommandInterpreter.parse("وطي الصوت"))
         assertEquals(PhoneControlCommand.SetMediaVolume(35), PhoneCommandInterpreter.parse("خلي صوت الميديا 35%"))
