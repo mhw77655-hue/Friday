@@ -10,6 +10,7 @@ import android.os.Parcel
  * It deliberately exposes typed diagnostics only: never a caller-supplied shell command.
  */
 interface IJarvisShellService : IInterface {
+    fun identity(): String
     fun diagnosticsSnapshot(): String
     fun captureScreenSummary(): String
     fun setDozeWhitelist(enabled: Boolean): String
@@ -25,6 +26,13 @@ interface IJarvisShellService : IInterface {
             when (code) {
                 INTERFACE_TRANSACTION -> {
                     reply?.writeString(DESCRIPTOR)
+                    return true
+                }
+                TRANSACTION_IDENTITY -> {
+                    data.enforceInterface(DESCRIPTOR)
+                    val result = identity()
+                    reply?.writeNoException()
+                    reply?.writeString(result)
                     return true
                 }
                 TRANSACTION_DIAGNOSTICS -> {
@@ -68,10 +76,11 @@ interface IJarvisShellService : IInterface {
 
         companion object {
             const val DESCRIPTOR = "com.jarvis.app.IJarvisShellService"
-            const val TRANSACTION_DIAGNOSTICS = IBinder.FIRST_CALL_TRANSACTION
-            const val TRANSACTION_CAPTURE_SCREEN = IBinder.FIRST_CALL_TRANSACTION + 1
-            const val TRANSACTION_DOZE_WHITELIST = IBinder.FIRST_CALL_TRANSACTION + 2
-            const val TRANSACTION_LAUNCH_APP = IBinder.FIRST_CALL_TRANSACTION + 3
+            const val TRANSACTION_IDENTITY = IBinder.FIRST_CALL_TRANSACTION
+            const val TRANSACTION_DIAGNOSTICS = IBinder.FIRST_CALL_TRANSACTION + 1
+            const val TRANSACTION_CAPTURE_SCREEN = IBinder.FIRST_CALL_TRANSACTION + 2
+            const val TRANSACTION_DOZE_WHITELIST = IBinder.FIRST_CALL_TRANSACTION + 3
+            const val TRANSACTION_LAUNCH_APP = IBinder.FIRST_CALL_TRANSACTION + 4
             const val SHIZUKU_DESTROY_TRANSACTION = 16777114
 
             @JvmStatic
@@ -85,6 +94,20 @@ interface IJarvisShellService : IInterface {
 
     class Proxy(private val remote: IBinder) : IJarvisShellService {
         override fun asBinder(): IBinder = remote
+
+        override fun identity(): String {
+            val data = Parcel.obtain()
+            val reply = Parcel.obtain()
+            return try {
+                data.writeInterfaceToken(Stub.DESCRIPTOR)
+                remote.transact(Stub.TRANSACTION_IDENTITY, data, reply, 0)
+                reply.readException()
+                reply.readString() ?: ""
+            } finally {
+                data.recycle()
+                reply.recycle()
+            }
+        }
 
         override fun diagnosticsSnapshot(): String {
             val data = Parcel.obtain()
