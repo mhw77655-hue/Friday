@@ -134,14 +134,16 @@ class VoiceService : Service() {
 
         override fun ping(): Long = SystemClock.elapsedRealtime()
 
-        override fun synthesize(text: String, language: String, voiceId: String, optionsJson: String, outPath: String): String {
+        override fun synthesize(text: String, language: String, providerId: String, voiceId: String, optionsJson: String, outPath: String): String {
             if (text.isBlank()) {
                 return json(false, error = "empty text")
             }
             val params = parseOptions(optionsJson)
             val profile = com.jarvis.app.voice.DefaultJarvisVoiceProfile.copy(
                 language = language.ifBlank { "en" },
-                preferredProvider = if (!params.referenceAudioPath.isNullOrBlank()) "pocket" else "piper",
+                preferredProvider = if (!params.referenceAudioPath.isNullOrBlank()) "pocket" else providerId.ifBlank {
+                    com.jarvis.app.voice.DefaultJarvisVoiceProfile.preferredProvider ?: "piper"
+                },
                 preferredVoice = if (!params.referenceAudioPath.isNullOrBlank()) "reference" else voiceId.ifBlank { null },
                 speechRate = params.speechRate,
                 pitch = params.pitch,
