@@ -32,14 +32,21 @@ class UserProfile(
      * User Model's node via [WorldModelService]. Supersedes any prior value for
      * [key] (never an in-place overwrite).
      */
+    @Synchronized
     fun setPreference(key: String, value: String, source: String = "profile") {
+        // Idle consolidation revisits a bounded recent-history window. Do not
+        // append a new bi-temporal graph fact when the durable value is already
+        // identical; repeated ticks must be idempotent.
+        if (worldModel.getUserPreference(key) == value) return
         worldModel.setUserPreference(key, value, source)
     }
 
     /** The currently-valid durable value of [key], or null if unset. */
+    @Synchronized
     fun getPreference(key: String): String? = worldModel.getUserPreference(key)
 
     /** All currently-valid durable preferences as a map (key -> value). */
+    @Synchronized
     fun allPreferences(): Map<String, String> {
         val node = worldModel.getEntity(WorldModelService.USER_NODE_NAME) ?: return emptyMap()
         val prefix = "preference:"
@@ -56,10 +63,12 @@ class UserProfile(
      * @return the durable profile change committed this call, or null when
      *   nothing durable was written.
      */
+    @Synchronized
     fun ingestUtterance(text: String, sessionId: String): ProfileUpdate? {
         val explicit = gate.extractExplicit(text)
         if (explicit != null) {
             val (cat, value) = explicit
+            if (getPreference(cat) == value) return null
             setPreference(cat, value, source = "explicit utterance")
             return ProfileUpdate(cat, value, PromotionReason.EXPLICIT)
         }
@@ -71,6 +80,7 @@ class UserProfile(
         val distinctSessions = observationsBySession.count { (_, sigs) -> sigs.contains(candidate) }
         if (distinctSessions >= repetitionThreshold) {
             val (cat, value) = candidate
+            if (getPreference(cat) == value) return null
             setPreference(cat, value, source = "repeated across sessions")
             return ProfileUpdate(cat, value, PromotionReason.REPEATED_PATTERN)
         }
