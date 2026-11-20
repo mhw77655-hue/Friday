@@ -72,6 +72,7 @@ class DeviceControlRouter(
      */
     fun executeWithEvidence(action: ControlAction): DeviceControlExecution {
         val localAttempts = mutableListOf<BackendAttempt>()
+        val parentTraceId = java.util.UUID.randomUUID().toString()
         var winner: ControlBackend? = null
         for (backend in chain) {
             val attemptStartedAt = System.nanoTime()
@@ -157,7 +158,8 @@ class DeviceControlRouter(
                 route = "device_control_router",
                 outcome = "unavailable",
                 durationMs = 0,
-                verificationState = "not_attempted"
+                verificationState = "not_attempted",
+                parentTraceId = parentTraceId
             )
         } else {
             snapshot.forEach { attempt ->
@@ -179,7 +181,8 @@ class DeviceControlRouter(
                     durationMs = attempt.durationMs,
                     verificationState = verificationState,
                     verificationStage = attempt.evidence.stage.name,
-                    failureStage = attempt.failureStage
+                    failureStage = attempt.failureStage,
+                    parentTraceId = parentTraceId
                 )
             }
         }
