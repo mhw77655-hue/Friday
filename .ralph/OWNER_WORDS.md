@@ -221,3 +221,8 @@ Source: `New Folder chats/Understanding_Your_Motive.txt`, owner turn 6. The far-
 > the key to understand me isn't just from chatting it's from all the sensors all the possible reserves
 
 Source: `New Folder chats/Understanding_Your_Motive.txt`, owner turn 6. Treat words, voice, face, body language, history, context and other legitimately available signals as evidence with uncertainty; no single sensor or signal is automatically truth.
+
+
+> the concept test is the last fixed point because u can't possibly test a person unless u interact with it in general not in specific ways like your rules does so Im trying to fix that anything she does wrong is has to be rebuilt by her
+
+Source: `New Folder chats/Claude (22) (9).txt`, owner turn 9. This does not prohibit falsifiable engineering tests. It means narrow scripted tests must not become the definition of Friday or replace open-ended interaction; tests verify specific mechanisms, while the broader concept is evaluated through ongoing interaction and lived outcomes.
