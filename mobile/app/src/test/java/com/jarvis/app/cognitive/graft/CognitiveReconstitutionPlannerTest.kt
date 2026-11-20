@@ -21,8 +21,7 @@ class CognitiveReconstitutionPlannerTest {
         quality: Double = 0.9,
         memoryMb: Long = 100,
         sizeBytes: Long = 1_000,
-        dependencies: Set<String> = setOf("language-core"),
-        payloadOverrides: CapabilityPayload.() -> CapabilityPayload = { this }
+        dependencies: Set<String> = setOf("language-core")
     ): CapabilityGraft {
         val donor = DonorModelManifest(
             modelId = "donor-code",
@@ -45,7 +44,7 @@ class CognitiveReconstitutionPlannerTest {
             targetRepresentationDimensions = 64,
             executableTestSuiteFingerprint = "tests-1",
             executableTestsPassed = true
-        ).payloadOverrides()
+        )
         return CapabilityGraft(
             graftId = id,
             donor = donor,
