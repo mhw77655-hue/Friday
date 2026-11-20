@@ -1,3 +1,8 @@
+internal fun isAutomaticDeviceSnapshotDue(nowMs: Long, lastPublishedAtMs: Long, intervalMs: Long): Boolean {
+    require(intervalMs > 0L)
+    return lastPublishedAtMs <= 0L || nowMs - lastPublishedAtMs >= intervalMs
+}
+
 package com.jarvis.app.github
 
 import android.app.Application
@@ -214,7 +219,7 @@ class GitHubDeviceChannel(context: Context) {
     private fun publishAutomaticSnapshot(token: String, issueNumber: Int, force: Boolean = false): Boolean {
         val now = System.currentTimeMillis()
         val last = prefs.getLong(KEY_LAST_AUTO_SNAPSHOT_AT, 0L)
-        if (!force && last > 0L && now - last < AUTOMATIC_SNAPSHOT_INTERVAL_MS) return false
+        if (!force && !isAutomaticDeviceSnapshotDue(now, last, AUTOMATIC_SNAPSHOT_INTERVAL_MS)) return false
         val report = snapshot()
         if (report.length > MAX_AUTOMATIC_SNAPSHOT_CHARS) {
             throw IOException("Sanitized device evidence exceeded its publication limit.")

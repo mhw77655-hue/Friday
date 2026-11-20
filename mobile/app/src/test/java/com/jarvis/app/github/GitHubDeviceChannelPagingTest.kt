@@ -9,6 +9,23 @@ class GitHubDeviceChannelPagingTest {
     private fun comments(vararg ids: Long): List<JSONObject> =
         ids.map { JSONObject().put("id", it).put("body", "comment-$it") }
 
+
+    @Test
+    fun `automatic device snapshot is due on first connection`() {
+        assertTrue(isAutomaticDeviceSnapshotDue(10_000L, 0L, 21_600_000L))
+    }
+
+    @Test
+    fun `automatic device snapshot waits for six hour interval`() {
+        assertTrue(!isAutomaticDeviceSnapshotDue(21_599_999L, 0L + 1L, 21_600_000L))
+        assertTrue(isAutomaticDeviceSnapshotDue(21_600_001L, 1L, 21_600_000L))
+    }
+
+    @Test
+    fun `clock rollback does not trigger early automatic snapshot`() {
+        assertTrue(!isAutomaticDeviceSnapshotDue(5_000L, 10_000L, 6_000L))
+    }
+
     @Test
     fun `fetches older pages until saved cursor and returns chronological comments`() {
         val requestedPages = mutableListOf<Int>()
