@@ -11,7 +11,8 @@
         "A real typed interaction reaches the production path and returns an honest result; failures remain visible and recoverable.",
         "Identity and durable experience survive process death, force-stop/restart and an app update; evidence identifies the exact device, build and test.",
         "Offline operation is demonstrated on the target phone without Termux or a mandatory cloud/model dependency.",
-        "The production composition, actual gaps and evidence are documented; no duplicate Friday identity or competing production host remains."
+        "The production composition, actual gaps and evidence are documented; no duplicate Friday identity or competing production host remains.",
+        "The first seed has functional coverage for multiple-signal human interaction, working/long-term context, people/world context, uncertainty, multiple interpretations, prediction and learning; these are demonstrated outcomes, not permanent modules."
       ],
       "verifyCommand": "python3 -m json.tool .ralph/prd.json >/dev/null && bash .ralph/ci_verify.sh --build-status",
       "priority": 1,
@@ -43,7 +44,8 @@
         "The application/composition restarts between the experience and the later test; the original episode text is blocked from replay and retrieval.",
         "A mechanism-off control removes the effect; the normal run retains it.",
         "The later test is meaningfully different from the original episode and demonstrates generalization in observable behaviour, not merely a database write or self-report.",
-        "Provenance, uncertainty, test inputs, traces and evidence pack are retained; no fixed personality or developmental-stage blueprint is introduced."
+        "Provenance, uncertainty, test inputs, traces and evidence pack are retained; no fixed personality or developmental-stage blueprint is introduced.",
+        "Open-ended owner interaction remains the primary concept test; engineering Life Tests probe specific causal mechanisms and do not define Friday's personality or exhaustively define an individual."
       ],
       "verifyCommand": "python3 -m json.tool .ralph/prd.json >/dev/null && bash .ralph/ci_verify.sh --build-status",
       "priority": 3,
@@ -59,7 +61,9 @@
         "An unfamiliar request can be mapped to available affordances without requiring a pre-labelled specialist category; ambiguity is preserved or clarified when material.",
         "At least one useful set of phone actions executes through the production capability path and verifies postconditions rather than reporting that a command was merely sent.",
         "A cross-domain Life Test demonstrates that evidence from one activity can influence a different later situation without replaying the original event.",
-        "Consequential or ambiguous actions respect owner authorization, Android permissions and protected operations."
+        "Consequential or ambiguous actions respect owner authorization, Android permissions and protected operations.",
+        "When multiple signals are available, Friday can retain conflicting evidence and multiple plausible interpretations with uncertainty; no single sensor, facial expression, voice cue or text statement is automatically treated as truth.",
+        "Far-future glasses, vehicle and home integrations remain future horizons, not first-release blockers; the seed proves the general ability to use relevant accessible evidence and extend to new hosts later."
       ],
       "verifyCommand": "python3 -m json.tool .ralph/prd.json >/dev/null && bash .ralph/ci_verify.sh --build-status",
       "priority": 4,
@@ -92,7 +96,9 @@
         "Candidate creation occurs in an isolated environment and is tested against the same objective as the current implementation by an independent verifier.",
         "Required owner approval, Android permission boundaries, signing/provenance and rollback are enforced before executable promotion.",
         "An approved capability becomes usable in Friday's actual production path, survives restart as applicable, and its observed outcome informs later development.",
-        "External AI providers, Ralph, OpenHands, GitHub Actions and coding workers remain replaceable resources; none owns Friday or solely certifies its own change."
+        "External AI providers, Ralph, OpenHands, GitHub Actions and coding workers remain replaceable resources; none owns Friday or solely certifies its own change.",
+        "The owner can state an intended outcome or direction in ordinary language; after authentication and required authorization, Friday determines the implementation without requiring the owner to design her internal architecture.",
+        "Friday can identify and diagnose a shortcoming in her own behaviour or capability, propose a repair, verify it independently, explain what changed and retain rollback evidence."
       ],
       "verifyCommand": "python3 -m json.tool .ralph/prd.json >/dev/null && bash .ralph/ci_verify.sh --build-status",
       "priority": 6,
