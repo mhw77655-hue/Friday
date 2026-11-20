@@ -57,6 +57,20 @@ fi
 python3 tools/friday-builder/apply_device_state_capsule.py .github/android-emulator/default-state-capsule.json
 ./gradlew :mobile:app:connectedDebugAndroidTest
 
+# The instrumentation screenshot sweep captures each user-facing destination
+# on this exact virtual device. Pull the app-private evidence directory into
+# the run artifact; absence is a failed visual-diagnostics test, not a pass.
+UI_AUDIT_DEVICE_DIR="/sdcard/Android/data/com.jarvis.app/files/friday-ui-audit"
+mkdir -p "$EVIDENCE_DIR/ui-audit"
+if ! adb pull "$UI_AUDIT_DEVICE_DIR" "$EVIDENCE_DIR/ui-audit"; then
+  echo "FRIDAY_UI_AUDIT_ARTIFACT_MISSING: instrumentation did not produce app screenshots." >&2
+  exit 30
+fi
+if ! find "$EVIDENCE_DIR/ui-audit" -maxdepth 1 -type f -name '*.png' | grep -q .; then
+  echo "FRIDAY_UI_AUDIT_EMPTY: no screen captures were pulled from the device." >&2
+  exit 31
+fi
+
 # Instrumentation may leave the target app stopped or uninstall it. Reinstall
 # the exact debug APK before the real application launch smoke test.
 if ! python3 tools/friday-builder/install_apk_with_retry.py mobile/app/build/outputs/apk/debug/app-debug.apk --max-attempts 6 --retry-interval-seconds 5; then
