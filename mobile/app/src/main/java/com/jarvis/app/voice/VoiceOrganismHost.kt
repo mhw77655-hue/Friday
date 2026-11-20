@@ -143,6 +143,7 @@ class VoiceOrganismHost(
     suspend fun synthesizeText(
         text: String,
         language: String = "en",
+        providerId: String? = null,
         voiceId: String? = null,
         params: com.jarvis.app.voice.provider.VoiceSynthesisParams = com.jarvis.app.voice.provider.VoiceSynthesisParams(),
         outPath: String? = null
@@ -151,7 +152,7 @@ class VoiceOrganismHost(
         val path = outPath ?: File(context.cacheDir, "voice_${System.currentTimeMillis()}.wav").absolutePath
         _voiceState.value = VoiceState.BUSY
         val resultJson = try {
-            svc.synthesize(text, language, voiceId ?: "", encodeOptions(params), path)
+            svc.synthesize(text, language, providerId ?: "", voiceId ?: "", encodeOptions(params), path)
         } catch (e: RemoteException) {
             _voiceState.value = VoiceState.FAILED
             onFailure(
