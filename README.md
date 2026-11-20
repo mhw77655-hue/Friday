@@ -34,7 +34,7 @@ There is one Friday and one canonical main product line. Do not create competing
 - **Offline continuity:** the phone remains a real host when disconnected; cloud is optional expansion.
 - **Development:** experience must persistently change later cognition or behaviour and pass a replay-blocked, mechanism-off Life Test.
 - **Liquid cognition:** capabilities are replaceable; no permanent cognitive ownership, fixed specialist-brain atlas or mandatory pipeline.
-- **Universal learning:** relevant evidence may come from voice, text, visual context, sensors, device state, demonstrations, actions and consequences.
+- **Universal learning:** relevant evidence may come from voice/tone, text, visual context, facial/body signals where available, sensors, device state, demonstrations, actions and consequences. Conflicting signals remain hypotheses with uncertainty; no single signal is automatically truth.
 - **Voice-first presence:** natural hearing, understanding, spoken response, turn-taking and interruption are the first user-visible priority.
 - **Resource symbiosis:** adapt algorithms, models and execution to measured host conditions without silently sacrificing quality.
 - **Self-development:** Friday can identify gaps, research, construct, test and safely promote improvements. External workers are resources, not Friday.
