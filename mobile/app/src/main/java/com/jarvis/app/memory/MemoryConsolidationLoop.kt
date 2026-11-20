@@ -62,13 +62,18 @@ class MemoryConsolidationLoop(
     fun isIdleLoopRunning(): Boolean = idleLoopRunning
 
     /** Start the background idle tick. Idempotent; one loop per instance. */
+    @Synchronized
     fun startIdleLoop() {
         if (idleLoopRunning) return
         idleLoopRunning = true
         scope.launch {
-            while (true) {
-                delay(idleIntervalMs)
-                runConsolidationPass()
+            try {
+                while (true) {
+                    delay(idleIntervalMs)
+                    runConsolidationPass()
+                }
+            } finally {
+                idleLoopRunning = false
             }
         }
     }
@@ -78,6 +83,7 @@ class MemoryConsolidationLoop(
      * feed each through the EXISTING durability gate. Returns what was scanned
      * and what the gate promoted.
      */
+    @Synchronized
     fun runConsolidationPass(): ConsolidationPassReport {
         val statements = recentExperience().sortedBy { it.timestamp }
         var promoted = 0
