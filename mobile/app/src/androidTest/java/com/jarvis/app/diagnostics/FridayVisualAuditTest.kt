@@ -64,11 +64,39 @@ class FridayVisualAuditTest {
             ?: error("Friday launch intent is unavailable")
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         context.startActivity(launch)
-        if (device.wait(Until.hasObject(By.text("Don't allow")), 4_000)) {
-            device.findObject(By.text("Don't allow")).click()
+        // Decline every first-run permission prompt that appears during this
+        // visual-only audit. A single app launch can request more than one
+        // permission on Android 13+; leaving the second dialog open hides Friday.
+        repeat(4) {
+            val deny = device.findObject(By.text("Don't allow"))
+            if (deny.exists()) {
+                deny.click()
+                device.waitForIdle(1_000)
+            }
         }
-        device.wait(Until.hasObject(By.text("Talk")), 45_000)
-        assertTrue("Friday never reached its navigation surface", device.hasObject(By.text("Talk")))
+
+        // Always preserve the first rendered frame and accessibility hierarchy,
+        // even when startup never reaches the normal navigation surface. This
+        // makes a failed visual audit inspectable instead of returning only a
+        // generic assertion and an unrelated logcat dump.
+        capture("startup_initial", "Initial rendered app state")
+        val initialHierarchy = File(output, "startup_initial_hierarchy.xml")
+        device.dumpWindowHierarchy(initialHierarchy)
+
+        val navigationReady = device.wait(Until.hasObject(By.text("Talk")), 45_000)
+        if (!navigationReady) {
+            capture("startup_failure", "App state when navigation readiness timed out")
+            val failureHierarchy = File(output, "startup_failure_hierarchy.xml")
+            device.dumpWindowHierarchy(failureHierarchy)
+            val visibleNodes = failureHierarchy.takeIf { it.exists() }?.readText()
+                ?.lineSequence()
+                ?.filter { it.contains("text=") || it.contains("content-desc=") }
+                ?.take(80)
+                ?.joinToString(" ")
+                ?.take(6_000)
+                .orEmpty()
+            error("Friday never reached its navigation surface. Visible UI hierarchy: $visibleNodes")
+        }
 
         capture("startup", "Startup / Home")
         device.findObject(By.text("More")).click()
