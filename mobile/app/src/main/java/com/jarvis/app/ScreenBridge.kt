@@ -44,7 +44,7 @@ object ScreenBridge {
                 return
             }
             service = candidate
-            _status.value = "verified · Shizuku uid=$uid"
+            _status.value = "bound · verified Shizuku uid=$uid"
         }
         override fun onServiceDisconnected(name: ComponentName?) {
             service = null
