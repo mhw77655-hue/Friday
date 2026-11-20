@@ -115,33 +115,10 @@ jobs:
           name: debug-apk
           path: mobile/app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Detect release-signing changes
-        id: release_signing_diff
-        env:
-          EVENT_NAME: ${{ github.event_name }}
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          BEFORE_SHA: ${{ github.event.before }}
-        run: |
-          set -euo pipefail
-          if [[ "$EVENT_NAME" == "pull_request" ]]; then
-            BASE_SHA="$PR_BASE_SHA"
-          else
-            BASE_SHA="$BEFORE_SHA"
-          fi
-          if [[ ! "$BASE_SHA" =~ ^[0-9a-f]{40}$ || "$BASE_SHA" =~ ^0{40}$ ]]; then
-            echo "run_smoke=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          git fetch origin "$BASE_SHA"
-          CHANGED="$(git diff --name-only "$BASE_SHA" "$GITHUB_SHA")"
-          if grep -Eq '^(mobile/app/build.gradle.kts|\.github/workflows/release.yml)$' <<< "$CHANGED"; then
-            echo "run_smoke=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run_smoke=false" >> "$GITHUB_OUTPUT"
-          fi
-
+      # Exercise the production release variant on every complete CI run.
+      # This disposable CI key proves packaging/signing mechanics only; it is
+      # never published and is never confused with the permanent owner key.
       - name: Build and verify release variant with a disposable CI key
-        if: steps.release_signing_diff.outputs.run_smoke == 'true'
         run: |
           set -euo pipefail
           KEYSTORE="$RUNNER_TEMP/friday-ci-smoke.p12"
