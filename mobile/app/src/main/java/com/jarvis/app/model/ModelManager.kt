@@ -86,7 +86,7 @@ class ModelManager(
         ModelProviderType.OLLAMA to ollamaAdapter,
         ModelProviderType.REMOTE_JARVIS to remoteJarvisAdapter,
         ModelProviderType.HEURISTIC to heuristicAdapter,
-        ModelProviderType.CLOUD to (cloudProvider ?: heuristicAdapter)
+        ModelProviderType.CLOUD to (cloudProvider ?: heuristicAdapter),
         ModelProviderType.NONE to heuristicAdapter
     )
 
