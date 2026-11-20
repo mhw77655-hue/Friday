@@ -10,6 +10,28 @@ object PhoneCommandInterpreter {
         val cleaned = normalizeSpokenCommand(utterance)
         val text = cleaned.lowercase()
         if (text.isBlank()) return null
+        when (text) {
+            "ارجع", "ارجع للخلف", "رجعني", "ارجع خطوة" -> return PhoneControlCommand.Back
+            "الرئيسية", "روح للرئيسية", "افتح الشاشة الرئيسية" -> return PhoneControlCommand.Home
+            "افتح الإعدادات", "افتح الاعدادات", "إعدادات الهاتف", "اعدادات الهاتف" -> return PhoneControlCommand.OpenSettings
+            "افتح الإشعارات", "افتح الاشعارات", "وريني الإشعارات", "وريني الاشعارات" -> return PhoneControlCommand.Notifications
+            "افتح التطبيقات الأخيرة", "افتح التطبيقات الاخيرة" -> return PhoneControlCommand.Recents
+            "افتح الإعدادات السريعة", "افتح الاعدادات السريعة" -> return PhoneControlCommand.QuickSettings
+            "علي الصوت", "علي صوت الميديا", "ارفع الصوت", "زود الصوت" -> return PhoneControlCommand.VolumeUp
+            "وطي الصوت", "وطي صوت الميديا", "قلل الصوت", "اخفض الصوت" -> return PhoneControlCommand.VolumeDown
+            "شغل الموسيقى", "شغل المزيكا", "كمل الموسيقى", "كمل المزيكا" -> return PhoneControlCommand.PlayMedia
+            "وقف الموسيقى", "وقف المزيكا", "اقفل الموسيقى", "اقفل المزيكا" -> return PhoneControlCommand.PauseMedia
+            "افتح إعدادات الواي فاي", "افتح اعدادات الواي فاي", "افتح الواي فاي" -> return PhoneControlCommand.OpenInternetPanel
+        }
+        Regex("^(?:افتح|شغل|شغّل)\\s+(.+)$").matchEntire(text)?.groupValues?.get(1)
+            ?.trim()?.takeIf { it.isNotBlank() && it.length <= 60 && !it.contains(" و ") }
+            ?.let { return PhoneControlCommand.OpenApp(it) }
+        Regex("^خلي (?:صوت الميديا|الصوت) (?:على )?(\\d{1,3})%?$").matchEntire(text)
+            ?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it in 0..100 }
+            ?.let { return PhoneControlCommand.SetMediaVolume(it) }
+        Regex("^(?:خلي السطوع|اضبط السطوع على|ظبط السطوع على) (\\d{1,3})%?$").matchEntire(text)
+            ?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it in 1..100 }
+            ?.let { return PhoneControlCommand.SetBrightness(it) }
         Regex("^set (?:the )?(?:media )?volume to (\\d{1,3})%?$").matchEntire(text)
             ?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it in 0..100 }
             ?.let { return PhoneControlCommand.SetMediaVolume(it) }
