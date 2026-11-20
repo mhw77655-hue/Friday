@@ -39,6 +39,16 @@ class DiagnosticEventLogTest {
     }
 
     @Test
+    fun `speech recognition transcript is excluded from exported event history`() {
+        val log = DiagnosticEventLog()
+        log.record("speech_recognition", "STT: heard my private bank account number 123456")
+        val event = log.snapshot().single()
+        assertEquals("recognition_result_received; transcript omitted", event.state)
+        assertFalse(event.state.contains("123456"))
+        assertFalse(event.state.contains("bank account"))
+    }
+
+    @Test
     fun `history remains bounded`() {
         val log = DiagnosticEventLog(capacity = 2)
         log.record("battery", "50%")
