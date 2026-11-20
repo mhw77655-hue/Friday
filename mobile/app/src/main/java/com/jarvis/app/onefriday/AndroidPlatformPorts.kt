@@ -172,8 +172,7 @@ class AndroidPlatformPorts(
     override fun cloudModelProvider(): com.jarvis.app.model.ModelProvider? =
         (context.applicationContext as? com.jarvis.app.JarvisApplication)
             ?.remoteProviderProfiles
-            ?.createEnabledProviders()
-            ?.firstOrNull()
+            ?.createPrimaryProvider()
 
     override fun hasLanguageModel(modelManager: com.jarvis.app.model.ModelManager): Boolean {
         val provider = modelManager.activeProvider.value
