@@ -28,7 +28,7 @@ class ScreenBridgeControlBackend : ControlBackend {
     override val id: String = "shizuku"
 
     override fun available(): Boolean =
-        ScreenBridge.status.value == "bound"
+        ScreenBridge.status.value.startsWith("bound · verified Shizuku uid=")
 
     override fun execute(action: ControlAction): VerificationEvidence {
         return when (action.actionType) {
