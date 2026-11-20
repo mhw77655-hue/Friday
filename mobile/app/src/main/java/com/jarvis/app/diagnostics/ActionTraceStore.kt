@@ -38,7 +38,8 @@ class ActionTraceStore(
         action: String,
         route: String,
         outcome: String,
-        durationMs: Long
+        durationMs: Long,
+        verificationState: String = "not_independently_verified"
     ): String = synchronized(monitor) {
         withFileLock {
             val root = readRoot()
@@ -57,7 +58,7 @@ class ActionTraceStore(
                 .put("route", safeToken(route))
                 .put("outcome", safeOutcome(outcome))
                 .put("duration_ms", durationMs.coerceAtLeast(0))
-                .put("verification_state", "not_independently_verified")
+                .put("verification_state", safeVerificationState(verificationState))
             events.put(event)
 
             val bounded = JSONArray()
@@ -227,9 +228,15 @@ class ActionTraceStore(
         value.replace(Regex("[^A-Za-z0-9_.-]"), "_").take(80).ifBlank { "unknown" }
 
     private fun safeOutcome(value: String): String = when (value) {
-        "success_reported", "not_found", "ambiguous", "unavailable",
-        "user_action_required", "fallback_attempted", "failed" -> value
+        "success_reported", "verified", "not_verified", "not_attempted",
+        "not_found", "ambiguous", "unavailable", "user_action_required",
+        "fallback_attempted", "failed" -> value
         else -> "unknown"
+    }
+
+    private fun safeVerificationState(value: String): String = when (value) {
+        "verified", "not_attempted", "not_independently_verified" -> value
+        else -> "not_independently_verified"
     }
 
     companion object {
@@ -289,8 +296,16 @@ object PhoneActionDiagnostics {
         )
     }
 
-    fun record(action: String, route: String, outcome: String, durationMs: Long) {
-        runCatching { store?.record(action, route, outcome, durationMs) }
+    fun record(
+        action: String,
+        route: String,
+        outcome: String,
+        durationMs: Long,
+        verificationState: String = "not_independently_verified"
+    ) {
+        runCatching {
+            store?.record(action, route, outcome, durationMs, verificationState)
+        }
     }
 
     fun eventCount(): Int = runCatching { store?.eventCount() ?: 0 }.getOrDefault(0)
