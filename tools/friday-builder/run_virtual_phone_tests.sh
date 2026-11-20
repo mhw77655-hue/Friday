@@ -56,7 +56,34 @@ fi
 
 python3 tools/friday-builder/apply_device_state_capsule.py .github/android-emulator/default-state-capsule.json
 ./gradlew :mobile:app:connectedDebugAndroidTest
-timeout 30s adb shell am start -n com.jarvis.app/.MainActivity || true
+
+# The instrumentation runner may clean up the target package after its test
+# session. Restore the exact APK under test before attempting a real launch;
+# otherwise a missing package is silently mistaken for a successful phone run.
+if ! python3 tools/friday-builder/install_apk_with_retry.py \
+  mobile/app/build/outputs/apk/debug/app-debug.apk \
+  --max-attempts 6 \
+  --retry-interval-seconds 5; then
+  echo "ANDROID_REINSTALL_FAILED: target APK could not be restored after instrumentation." >&2
+  exit 22
+fi
+
+# Reapply the sanitized baseline because a runner cleanup may have removed
+# app data and runtime grants along with the package.
+python3 tools/friday-builder/apply_device_state_capsule.py .github/android-emulator/default-state-capsule.json
+
+if ! adb shell pm path com.jarvis.app | grep -q '^package:'; then
+  echo "ANDROID_PACKAGE_MISSING: com.jarvis.app is not installed after restoration." >&2
+  exit 23
+fi
+if ! timeout 30s adb shell am start -W -n com.jarvis.app/.MainActivity; then
+  echo "ANDROID_LAUNCH_FAILED: Friday's launcher activity did not start." >&2
+  exit 24
+fi
 sleep 8
-adb shell dumpsys activity top > "$EVIDENCE_DIR/activity-top.txt" 2>/dev/null || true
-adb exec-out screencap -p > "$EVIDENCE_DIR/screen.png" || true
+adb shell dumpsys activity top > "$EVIDENCE_DIR/activity-top.txt"
+grep -q "com.jarvis.app" "$EVIDENCE_DIR/activity-top.txt" || {
+  echo "ANDROID_ACTIVITY_NOT_RESUMED: Friday did not reach the foreground." >&2
+  exit 25
+}
+adb exec-out screencap -p > "$EVIDENCE_DIR/screen.png"
