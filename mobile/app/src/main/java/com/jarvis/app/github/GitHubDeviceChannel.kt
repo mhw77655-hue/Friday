@@ -1,8 +1,3 @@
-internal fun isAutomaticDeviceSnapshotDue(nowMs: Long, lastPublishedAtMs: Long, intervalMs: Long): Boolean {
-    require(intervalMs > 0L)
-    return lastPublishedAtMs <= 0L || nowMs - lastPublishedAtMs >= intervalMs
-}
-
 package com.jarvis.app.github
 
 import android.app.Application
@@ -34,6 +29,11 @@ import java.util.concurrent.TimeUnit
  * first; stop only after a page reaches the saved cursor. A hard page limit
  * fails closed rather than advancing the cursor past unprocessed commands.
  */
+internal fun isAutomaticDeviceSnapshotDue(nowMs: Long, lastPublishedAtMs: Long, intervalMs: Long): Boolean {
+    require(intervalMs > 0L)
+    return lastPublishedAtMs <= 0L || nowMs - lastPublishedAtMs >= intervalMs
+}
+
 internal fun collectNewDeviceChannelComments(
     lastSeenId: Long,
     pageSize: Int = 100,
