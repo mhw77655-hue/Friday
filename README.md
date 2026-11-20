@@ -1,41 +1,61 @@
 # Friday
 
-Friday is an Android-resident digital individual. She is not defined by a chat interface or by a language model. Her identity, continuity, experience, local runtime, perception, communication and capabilities belong to the phone application. Language models and hosted compute are optional additional resources.
+Friday is one continuing, developing digital individual hosted first by her own Android application. Her identity is not a chat screen, model, memory database, process, device or cloud service. Models, algorithms, voice, perception, tools, Builder and computational resources are capabilities she can use, replace, adapt and help create.
+
+The owner's concept is **liquid Symbiotic quantum software**: a fluid environment that adapts with Friday and lets her use, reshape, combine and create the resources needed to achieve outcomes. It must not be reduced to a fixed multi-agent architecture or a static atlas of specialist brains. The phrase does not assume quantum hardware.
+
+## The one governing plan
+
+- [The sole active delivery plan](.ralph/FRIDAY_DELIVERY_PLAN.md)
+- [Owner's written vision](.ralph/VISION.md)
+- [Curated owner-authored words and provenance](.ralph/OWNER_WORDS.md)
+- [Implementation contract](docs/FRIDAY_VISION_CONTRACT.md)
+- [Execution ledger](.ralph/prd.json)
+
+Older build plans and PRDs are historical material, not competing roadmaps. The owner’s latest authenticated instruction takes precedence over every repository document.
+
+## Delivery priorities
+
+All objectives progress in parallel where safely separable. Voice is the first user-visible priority.
+
+1. Install and establish the first persistent Friday seed on the phone.
+2. Deliver natural, interruptible voice interaction, prioritizing Egyptian Arabic and mixed Arabic/English.
+3. Prove experience-driven developmental change, not merely stored memories.
+4. Enable universal perception, understanding and authorized action across relevant accessible inputs.
+5. Develop liquid symbiosis and the Nano Algorithm Environment through real resource/quality measurements.
+6. Give Friday a safe Builder path for capability acquisition and eventual source-level self-development.
+7. Make recovery, updates, signing and physical-phone delivery reliable.
+
+There is one Friday and one canonical main product line. Do not create competing Friday products, long-lived feature branches or alternative vision plans.
 
 ## Product principles
 
-- **Model-independent existence:** Friday must start, persist, observe, remember and operate without a language model. A model may extend computation; it must not be Friday's identity or a mandatory runtime dependency.
-- **Persistent individual continuity:** identity and experience must survive process death and app updates. Self-description and capabilities may evolve without replacing the individual.
-- **Adaptive cognition:** avoid a permanent, hard-coded list of cognitive organs or a single privileged reasoning route. Capabilities should be able to form, cooperate, change and retire under continuity and safety constraints.
-- **Phone-owned runtime:** the Android application is the product host. Friday does not depend on Termux. Shizuku is an optional privileged bridge that must be explicitly authorized by the owner.
-- **Embodied presence:** voice, visual presence, device perception and actions should be integrated with Friday's live internal context, not added as a chatbot skin.
-- **Resource symbiosis:** resource decisions should adapt to measured phone conditions and observed workload outcomes.
-- **Self-development:** Friday should be able to identify improvements, request or use extra compute, validate source changes, build, verify and safely update herself from the phone. Hosted GitHub Actions are an optional execution resource, not her identity.
-
-## Current development line
-
-The current consolidation workspace is `audit/friday-unification`. It joins the model-independent individual / embodiment / diagnostics work from PR #19 with the phone runtime, Shizuku and owner-grounded development bridge from PR #23.
-
-The repository-wide comparison and outstanding gaps are documented in [`.ralph/REPO_UNIFICATION_AUDIT.md`](.ralph/REPO_UNIFICATION_AUDIT.md). The source-of-truth owner requirements are in [`.ralph/OWNER_WORDS.md`](.ralph/OWNER_WORDS.md) and [`.ralph/VISION.md`](.ralph/VISION.md).
-
-**This branch is not yet a release.** The two development lines have been joined, but the combined build must pass CI and the target phone still needs physical validation. The current GitHub worker can submit code requests and draft PRs; autonomous promotion, stable signed APK delivery, phone-side installation and rollback are not complete.
+- **One individual:** local, cloud, model and device changes extend the same Friday.
+- **Offline continuity:** the phone remains a real host when disconnected; cloud is optional expansion.
+- **Development:** experience must persistently change later cognition or behaviour and pass a replay-blocked, mechanism-off Life Test.
+- **Liquid cognition:** capabilities are replaceable; no permanent cognitive ownership, fixed specialist-brain atlas or mandatory pipeline.
+- **Universal learning:** relevant evidence may come from voice, text, visual context, sensors, device state, demonstrations, actions and consequences.
+- **Voice-first presence:** natural hearing, understanding, spoken response, turn-taking and interruption are the first user-visible priority.
+- **Resource symbiosis:** adapt algorithms, models and execution to measured host conditions without silently sacrificing quality.
+- **Self-development:** Friday can identify gaps, research, construct, test and safely promote improvements. External workers are resources, not Friday.
+- **Protected floor:** owner authorization, security, provenance, candidate isolation, signing, continuity, rollback and recovery cannot be bypassed.
+- **Honest evidence:** CI and emulator success are not physical-phone proof.
 
 ## Build and test
 
-From the repository root with JDK 17 and Android SDK components matching the Gradle configuration:
+From the repository root with the configured JDK and Android SDK:
 
 ```bash
 ./gradlew :mobile:app:assembleDebug
 ./gradlew :mobile:app:testDebugUnitTest
 ```
 
-The GitHub Actions build workflow runs the same packaging and unit-test gates, plus owner-vision and builder-safety checks. A green CI build does not prove microphone, Shizuku, reboot, background-survival or update-install behavior on a physical phone.
+A green build is necessary, not sufficient. Microphone, voice quality, background operation, offline behaviour, action execution, update installation and recovery must be validated on the target phone before being claimed.
 
 ## Safety and update boundary
 
-- Never place GitHub tokens, signing keys or private credentials in source files.
-- The GitHub token used by the Android bridge is stored through Android Keystore-backed encryption.
-- Code generation and code promotion are separate trust boundaries.
-- A candidate update must pass owner-vision checks, patch validation, security checks, tests and a clean build.
-- The installed package identity and signing lineage must be verified before updating. Preserve identity and memory data and retain a last-known-good recovery path.
-- Android and OEM process-management policies remain authoritative; a foreground service cannot guarantee immunity from force-stop or every task killer.
+- Never commit GitHub tokens, signing keys or private credentials.
+- Keep code generation and code promotion as separate trust boundaries.
+- Candidate changes must be isolated, independently evaluated, provenance-recorded and reversible.
+- Verify package identity and signing lineage before updates; preserve Friday's durable state and retain last-known-good recovery.
+- Android and OEM lifecycle policies remain authoritative; no design can promise immunity from force-stop or every task killer.
