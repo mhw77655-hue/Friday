@@ -23,8 +23,6 @@ class MainActivity : ComponentActivity() {
         if (granted) {
             if (com.jarvis.app.runtime.FridayRuntimeController.isEnabled(this)) {
                 com.jarvis.app.runtime.FridayRuntimeController.startWithMicrophone(this)
-            } else {
-                JarvisMic.start(lifecycleScope)
             }
             if (intent.getBooleanExtra(
                     com.jarvis.app.voice.FridayVoiceInteractionSession.EXTRA_FRIDAY_VOICE_INVOCATION,
@@ -49,8 +47,6 @@ class MainActivity : ComponentActivity() {
         if (hasMicPermission) {
             if (com.jarvis.app.runtime.FridayRuntimeController.isEnabled(this)) {
                 com.jarvis.app.runtime.FridayRuntimeController.startWithMicrophone(this)
-            } else {
-                JarvisMic.start(lifecycleScope)
             }
         } else {
             micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
@@ -117,10 +113,7 @@ class MainActivity : ComponentActivity() {
                 it is EngineReadinessState.Ready || it is EngineReadinessState.FailedToWake
             }
             if (readiness is EngineReadinessState.Ready) {
-                JarvisEngine.getBodyCoordinator().apply {
-                    emitEvent(com.jarvis.app.body.BodyEvent.WakeDetected(1.0f))
-                    emitEvent(com.jarvis.app.body.BodyEvent.SpeechStart)
-                }
+                JarvisEngine.getBodyCoordinator().startVoiceConversation()
             } else {
                 Toast.makeText(
                     this@MainActivity,
@@ -153,11 +146,6 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        if (!com.jarvis.app.runtime.FridayRuntimeController.isEnabled(this) ||
-            !com.jarvis.app.runtime.FridayRuntimeController.isMicrophoneServiceActive(this)
-        ) {
-            JarvisMic.stop()
-        }
         // KWS/Vosk/TTS intentionally NOT released here — they belong to
         // JarvisEngine for the life of the process, not this Activity.
     }

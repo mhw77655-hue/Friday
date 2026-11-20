@@ -56,6 +56,35 @@ class FridayRuntimeService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
+            ACTION_PAUSE_MICROPHONE -> {
+                stopOwnedMicrophone()
+                runCatching {
+                    ServiceCompat.startForeground(
+                        this, NOTIFICATION_ID, buildNotification(false),
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0
+                    )
+                }
+                return START_STICKY
+            }
+            ACTION_RESUME_MICROPHONE -> {
+                val permitted = FridayRuntimeController.isEnabled(this) &&
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
+                    PackageManager.PERMISSION_GRANTED &&
+                    ProcessLifecycleOwner.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)
+                if (permitted) {
+                    runtimeScope.launch {
+                        synchronized(this@FridayRuntimeService) {
+                            if (!microphoneOwned) {
+                                JarvisMic.start(runtimeScope)
+                                microphoneOwned = JarvisMic.isRecording.value
+                                FridayRuntimeController.setMicrophoneServiceActive(this@FridayRuntimeService, microphoneOwned)
+                            }
+                        }
+                    }
+                }
+                return START_STICKY
+            }
             ACTION_STOP -> {
                 stopOwnedMicrophone()
                 ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
@@ -222,6 +251,8 @@ class FridayRuntimeService : Service() {
 
         const val ACTION_START_CORE = "com.jarvis.app.runtime.START_CORE"
         const val ACTION_START_WITH_MICROPHONE = "com.jarvis.app.runtime.START_WITH_MICROPHONE"
+        const val ACTION_PAUSE_MICROPHONE = "com.jarvis.app.runtime.PAUSE_MICROPHONE"
+        const val ACTION_RESUME_MICROPHONE = "com.jarvis.app.runtime.RESUME_MICROPHONE"
         const val ACTION_STOP = "com.jarvis.app.runtime.STOP"
     }
 }
@@ -265,6 +296,24 @@ object FridayRuntimeController {
         val intent = Intent(context, FridayRuntimeService::class.java)
             .setAction(FridayRuntimeService.ACTION_START_CORE)
         ContextCompat.startForegroundService(context, intent)
+    }
+
+    /** Temporarily transfer microphone ownership to the foreground recognizer. */
+    fun pauseMicrophone(context: Context) {
+        if (!isServiceRunning(context) || !isMicrophoneServiceActive(context)) return
+        context.startService(
+            Intent(context, FridayRuntimeService::class.java)
+                .setAction(FridayRuntimeService.ACTION_PAUSE_MICROPHONE)
+        )
+    }
+
+    /** Return microphone ownership to the runtime after an explicit voice session. */
+    fun resumeMicrophone(context: Context) {
+        if (!isEnabled(context) || !isServiceRunning(context)) return
+        context.startService(
+            Intent(context, FridayRuntimeService::class.java)
+                .setAction(FridayRuntimeService.ACTION_RESUME_MICROPHONE)
+        )
     }
 
     /** Call only from a visible activity after RECORD_AUDIO is granted. */

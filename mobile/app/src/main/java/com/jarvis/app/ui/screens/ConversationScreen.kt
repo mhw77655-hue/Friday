@@ -58,6 +58,7 @@ fun ConversationScreen() {
         return
     }
     val turns by conversationViewModel.turns.collectAsStateWithLifecycle()
+    val voiceConversationActive by bodyCoordinator.voiceConversationActive.collectAsStateWithLifecycle()
     var input by remember { mutableStateOf("") }
     val listState = rememberLazyListState()
 
@@ -116,7 +117,8 @@ fun ConversationScreen() {
             value = input,
             onValueChange = { input = it },
             onSend = { sendCurrentInput() },
-            bodyCoordinator = bodyCoordinator
+            bodyCoordinator = bodyCoordinator,
+            voiceConversationActive = voiceConversationActive
         )
     }
 }
@@ -202,7 +204,8 @@ private fun InputRow(
     value: String,
     onValueChange: (String) -> Unit,
     onSend: () -> Unit,
-    bodyCoordinator: BodyCoordinator
+    bodyCoordinator: BodyCoordinator,
+    voiceConversationActive: Boolean
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
@@ -236,7 +239,7 @@ private fun InputRow(
             IconButton(onClick = { bodyCoordinator.toggleListening() }) {
                 FridayNavigationGlyph(
                     kind = "mic",
-                    color = JarvisColors.CoreThinking,
+                    color = if (voiceConversationActive) JarvisColors.CoreSuccess else JarvisColors.CoreThinking,
                     modifier = Modifier.size(21.dp)
                 )
             }

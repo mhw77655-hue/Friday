@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.RandomAccessFile
@@ -84,12 +86,15 @@ class VoiceOutputPath(
                     // when the saved default profile language is English.
                     val segmentLanguage = if (containsArabic(segment)) "ar-EG" else lang
                     val spoken = habitatSpeak(segment, segmentLanguage, voiceId ?: profile.preferredVoice, profile, vocabulary)
-                    if (!spoken && fallback != null && profile.referenceAudioPath.isNullOrBlank()) {
-                        // Never silently substitute a different voice after the
-                        // owner explicitly selected Friday's reference identity.
+                    if (!spoken && profile.preferredProvider.isNullOrBlank() &&
+                        fallback != null && profile.referenceAudioPath.isNullOrBlank()
+                    ) {
+                        // Legacy TTS is only a fallback for profiles without a
+                        // selected neural identity. Friday's selected voice must
+                        // never silently become the generic Android/Google voice.
                         fallback.speakStreaming(segment, vocabulary ?: emptyVocabulary())
-                    } else if (!spoken && !profile.referenceAudioPath.isNullOrBlank()) {
-                        Log.w(TAG, "Reference voice synthesis failed; refusing to substitute an unrelated voice")
+                    } else if (!spoken) {
+                        Log.w(TAG, "Friday's selected voice provider did not produce audio; no system voice was substituted")
                     }
                 }
             } catch (e: Throwable) {
@@ -125,9 +130,14 @@ class VoiceOutputPath(
         profile: VoiceProfile,
         vocabulary: VocabularyStore?
     ): Boolean {
-        // Only route through the habitat when it is bound and not failed; else
-        // the caller falls through to the legacy path without blocking.
-        val substrate = host.state.value
+        // Binding is asynchronous. Wait for the isolated neural voice habitat
+        // instead of immediately falling back to the generic Android TTS voice.
+        val substrate = withTimeoutOrNull(20_000L) {
+            host.state.first {
+                it.state == VoiceOrganismHost.State.BOUND ||
+                    it.state == VoiceOrganismHost.State.DISABLED
+            }
+        } ?: return false
         if (substrate.state != VoiceOrganismHost.State.BOUND) return false
         if (host.voiceState.value == VoiceOrganismHost.VoiceState.FAILED) return false
 
