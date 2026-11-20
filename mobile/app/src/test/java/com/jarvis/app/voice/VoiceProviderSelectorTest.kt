@@ -78,7 +78,7 @@ class VoiceProviderSelectorTest {
         val candidates = selector.neuralCandidates(
             DefaultJarvisVoiceProfile.copy(language = "en", fallbackProviders = listOf("sherpa"))
         )
-        assertEquals(listOf("piper", "sherpa"), candidates.map { it.id })
+        assertEquals(listOf("sherpa", "piper"), candidates.map { it.id })
     }
 
     @Test
@@ -99,14 +99,14 @@ class VoiceProviderSelectorTest {
 
 
     @Test
-    fun `default English voice prefers the speed-first Piper provider`() {
+    fun `default English voice prefers the higher-quality Kokoro provider`() {
         val piper = FakeProvider("piper", setOf("en"), VoiceQuality.MEDIUM, memoryMb = 128)
         val kokoro = FakeProvider("sherpa", setOf("en"), VoiceQuality.HIGH, memoryMb = 220)
         val sel = VoiceProviderSelector(registry(kokoro to 10, piper to 0)).select(
             DefaultJarvisVoiceProfile.copy(language = "en")
         )
         assertTrue(sel is VoiceProviderSelector.Selection.Selected)
-        assertEquals("piper", (sel as VoiceProviderSelector.Selection.Selected).provider.id)
+        assertEquals("sherpa", (sel as VoiceProviderSelector.Selection.Selected).provider.id)
     }
 
     @Test
