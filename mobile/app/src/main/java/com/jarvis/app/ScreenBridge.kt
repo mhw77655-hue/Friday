@@ -11,6 +11,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import org.xmlpull.v1.XmlPullParser
 import rikka.shizuku.Shizuku
 import java.io.StringReader
@@ -18,6 +20,7 @@ import java.io.StringReader
 object ScreenBridge {
     private var service: IJarvisShellService? = null
     private var userServiceArgs: Shizuku.UserServiceArgs? = null
+    @Volatile private var verifiedUid: Int? = null
 
     private val _status = MutableStateFlow("not bound")
     val status: StateFlow<String> = _status.asStateFlow()
@@ -30,6 +33,7 @@ object ScreenBridge {
             val candidate = IJarvisShellService.Stub.asInterface(binder)
             if (candidate == null) {
                 service = null
+                verifiedUid = null
                 _status.value = "null service binder"
                 return
             }
@@ -40,22 +44,27 @@ object ScreenBridge {
             val uid = Regex("(?:^|;)uid=(\\d+)(?:;|$)").find(identity)?.groupValues?.get(1)?.toIntOrNull()
             if (uid != 0 && uid != 2000) {
                 service = null
+                verifiedUid = null
                 _status.value = "rejected Shizuku identity: ${if (uid == null) "unverified" else "uid=$uid"}"
                 return
             }
             service = candidate
+            verifiedUid = uid
             _status.value = "bound · verified Shizuku uid=$uid"
         }
         override fun onServiceDisconnected(name: ComponentName?) {
             service = null
+            verifiedUid = null
             _status.value = "disconnected"
         }
         override fun onBindingDied(name: ComponentName?) {
             service = null
+            verifiedUid = null
             _status.value = "binding died"
         }
         override fun onNullBinding(name: ComponentName?) {
             service = null
+            verifiedUid = null
             _status.value = "empty binding"
         }
     }
@@ -70,7 +79,7 @@ object ScreenBridge {
             return
         }
         if (service != null) {
-            _status.value = "bound"
+            _status.value = verifiedUid?.let { "bound · verified Shizuku uid=$it" } ?: "bound · identity unverified"
             return
         }
         val args = Shizuku.UserServiceArgs(ComponentName(context, JarvisShellService::class.java))
@@ -88,6 +97,7 @@ object ScreenBridge {
 
     fun onShizukuUnavailable() {
         service = null
+        verifiedUid = null
         _status.value = "Shizuku unavailable"
         _lastScreenText.value = "not bound"
     }
@@ -135,6 +145,27 @@ object ScreenBridge {
             "(no visible text found)"
         }
         return _lastScreenText.value
+    }
+
+    /**
+     * Bind from a foreground-safe main-thread handoff and wait for the remote
+     * UserService to prove its actual shell/root UID. A live Shizuku server or
+     * a granted permission alone never satisfies this contract.
+     */
+    suspend fun ensureVerifiedBinding(context: Context, timeoutMillis: Long = 12_000): String {
+        withContext(Dispatchers.Main.immediate) {
+            if (service == null) bind(context)
+        }
+        return withTimeoutOrNull(timeoutMillis) {
+            _status.first { status ->
+                status.startsWith("bound · verified Shizuku uid=") ||
+                    status.startsWith("Shizuku not running") ||
+                    status.startsWith("Shizuku permission not granted") ||
+                    status.startsWith("rejected Shizuku identity") ||
+                    status.startsWith("bind failed") ||
+                    status == "binding died" || status == "empty binding"
+            }
+        } ?: "Shizuku binding verification timed out"
     }
 
     /** Launches an installed app by package name through a typed Shizuku operation. */
