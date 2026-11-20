@@ -488,9 +488,23 @@ class BodyCoordinator(
         }
 
         if (phoneActionPlanner.shouldHandle(text)) {
-            val screen = withContext(Dispatchers.Main.immediate) {
+            val accessibilityScreen = withContext(Dispatchers.Main.immediate) {
                 com.jarvis.app.voice.FridayAccessibilityService.activeScreenSummary()
             }
+            // Shizuku is a real screen-observation backend, not a connection
+            // indicator. If Friday's Accessibility service is unavailable,
+            // capture the current UI hierarchy through the verified shell
+            // UserService on IO and feed its semantic nodes to the same planner.
+            val screen = if (
+                accessibilityScreen == "Friday Accessibility service is not connected." ||
+                accessibilityScreen == "No accessible active window."
+            ) {
+                withContext(Dispatchers.IO) {
+                    val captured = com.jarvis.app.ScreenBridge.captureScreenSummary()
+                    captured.takeIf { it.isNotBlank() && it != "not bound" }
+                        ?: accessibilityScreen
+                }
+            } else accessibilityScreen
             when (val plan = phoneActionPlanner.plan(text, screen)) {
                 is com.jarvis.app.voice.PhoneActionPlanner.Result.Action ->
                     handlePhoneOutcome(phoneCommandOrchestrator.handlePlanned(text, plan.command), text)
