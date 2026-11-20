@@ -527,7 +527,7 @@ class LatencyPipeline(
             reactorFirstSegment()
 
             val outbound = replyDelivery(reply)
-            val verified = bridgeStatus() == "ok (local)"
+            val verified = bridgeStatus().startsWith("ok (")
 
             appendTurn(Turn(fromJarvis = true, text = outbound, verified = verified))
             logObsidian(true, outbound)
