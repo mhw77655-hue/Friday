@@ -55,6 +55,27 @@ if ! python3 tools/friday-builder/install_apk_with_retry.py \
 fi
 
 python3 tools/friday-builder/apply_device_state_capsule.py .github/android-emulator/default-state-capsule.json
+
+# Match the owner's actual Realme 9 Pro 5G display geometry from the
+# 2026-11-20 device log: 1080x2412 at 480 dpi (360 dp logical width).
+# This makes the one-shot UI screenshots representative without live screen
+# sharing or requiring the owner to run a test on the handset.
+adb shell wm size 1080x2412
+adb shell wm density 480
+adb shell settings put system font_scale 1.0
+{
+  echo "Target display: 1080x2412 @ 480 dpi (360 dp logical width)"
+  echo "=== wm size ==="
+  adb shell wm size 2>&1 || true
+  echo "=== wm density ==="
+  adb shell wm density 2>&1 || true
+  echo "=== app/system locale ==="
+  adb shell getprop persist.sys.locale 2>&1 || true
+  adb shell getprop ro.build.version.release 2>&1 || true
+  echo "=== display cutout/refresh information ==="
+  adb shell dumpsys display 2>&1 | grep -m 3 -E 'DisplayDeviceInfo|density|refreshRate' || true
+} > "$EVIDENCE_DIR/realme-layout-profile.txt"
+
 ./gradlew :mobile:app:connectedDebugAndroidTest
 
 # The instrumentation screenshot sweep captures each user-facing destination
