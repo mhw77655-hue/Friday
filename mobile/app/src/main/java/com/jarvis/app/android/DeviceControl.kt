@@ -52,7 +52,8 @@ data class BackendAttempt(
     val backendId: String,
     val succeeded: Boolean,
     val evidence: VerificationEvidence,
-    val error: String? = null
+    val error: String? = null,
+    val durationMs: Long = 0L
 )
 
 /**
