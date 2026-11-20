@@ -134,18 +134,19 @@ object JarvisEngine {
         val substrate = runCatching { host?.state?.value }.getOrNull()
         val voiceState = runCatching { host?.voiceState?.value?.name }.getOrNull()
         val output = voiceOutputPath
-        return JSONObject()
-            .put("host_attached", host != null)
-            .put("habitat_state", substrate?.state?.name ?: "UNAVAILABLE")
-            .put("voice_state", voiceState ?: "UNAVAILABLE")
-            .put("voice_process_alive", substrate?.voicePid?.let { it > 0 } ?: false)
-            .put("voice_pid_present", substrate?.voicePid != null)
-            .put("binder_ping_latency_ms", substrate?.pingLatencyMs ?: -1L)
-            .put("restart_count", substrate?.restartCount ?: 0)
-            .put("last_restart_ms", substrate?.lastRestartMs ?: -1L)
-            .put("output_path_attached", output != null)
-            .put("is_speaking", runCatching { output?.isSpeaking?.value ?: false }.getOrDefault(false))
-            .put("audio_level", runCatching { output?.audioLevel?.value ?: 0f }.getOrDefault(0f))
+        return com.jarvis.app.voice.VoiceRuntimeEvidence(
+            hostAttached = host != null,
+            habitatState = substrate?.state?.name ?: "UNAVAILABLE",
+            voiceState = voiceState ?: "UNAVAILABLE",
+            voiceProcessAlive = substrate?.voicePid?.let { it > 0 } ?: false,
+            voicePidPresent = substrate?.voicePid != null,
+            binderPingLatencyMs = substrate?.pingLatencyMs ?: -1L,
+            restartCount = substrate?.restartCount ?: 0,
+            lastRestartMs = substrate?.lastRestartMs ?: -1L,
+            outputPathAttached = output != null,
+            isSpeaking = runCatching { output?.isSpeaking?.value ?: false }.getOrDefault(false),
+            audioOutputActive = runCatching { (output?.audioLevel?.value ?: 0f) > 0.01f }.getOrDefault(false)
+        ).toJson()
     }
 
     // Phase A subsystems — constructed in init() and passed into CognitiveEngine seams.
