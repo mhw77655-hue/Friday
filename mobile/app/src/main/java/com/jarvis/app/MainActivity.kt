@@ -36,7 +36,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        handleSharedVideoIntent(intent)
+        handleSharedContentIntent(intent)
         ShizukuBridge.init()
         // KWS/Vosk/TTS are owned by JarvisEngine, started once in
         // JarvisApplication.onCreate() — never re-initialized or released
@@ -131,24 +131,76 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun handleSharedVideoIntent(intent: Intent?) {
+    /**
+     * Android shares are an input surface, not all video. Preserve the existing
+     * video/TikTok intake path, but route ordinary shared text into the same
+     * BodyCoordinator path as typed conversation input. This also gives the
+     * owner a user-controlled way to hand a reply/report back into Friday.
+     */
+    private fun handleSharedContentIntent(intent: Intent?) {
         if (intent?.action != Intent.ACTION_SEND && intent?.action != Intent.ACTION_SEND_MULTIPLE) return
         lifecycleScope.launch {
-            runCatching { VideoIntakeRepository(applicationContext).importSharedIntent(intent) }
-                .onSuccess { items ->
-                    val mediaCount = items.count { it.localPath != null }
-                    val linkCount = items.count { it.sharedUrl != null }
-                    val message = when {
-                        items.isEmpty() -> "Friday could not find a video or TikTok link in that share."
-                        mediaCount > 0 -> "Imported $mediaCount video(s). Open More → Video Experience for their status."
-                        else -> "Saved $linkCount video link(s). Share the actual video file when you want Friday to analyze it."
-                    }
-                    Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+            val sharedText = if (intent.action == Intent.ACTION_SEND) {
+                intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.trim().orEmpty()
+            } else {
+                ""
+            }
+            val imported = runCatching {
+                VideoIntakeRepository(applicationContext).importSharedIntent(intent)
+            }
+            imported.onFailure {
+                Toast.makeText(
+                    this@MainActivity,
+                    it.message ?: "Shared content could not be imported.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            val items = imported.getOrNull() ?: return@launch
+            if (items.isNotEmpty()) {
+                val mediaCount = items.count { it.localPath != null }
+                val linkCount = items.count { it.sharedUrl != null }
+                val message = when {
+                    mediaCount > 0 -> "Imported $mediaCount video(s). Open More → Video Experience for their status."
+                    else -> "Saved $linkCount video link(s). Share the actual video file when you want Friday to analyze it."
                 }
-                .onFailure {
-                    Toast.makeText(this@MainActivity, it.message ?: "Video import failed.", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+                return@launch
+            }
+
+            if (intent.type?.startsWith("text/") == true && sharedText.isNotBlank()) {
+                if (sharedText.length > MAX_SHARED_TEXT_CHARS) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "That shared text is too large. Copy a shorter excerpt into Friday.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    return@launch
                 }
+                val readiness = JarvisEngine.readinessState.first {
+                    it is EngineReadinessState.Ready || it is EngineReadinessState.FailedToWake
+                }
+                if (readiness is EngineReadinessState.Ready) {
+                    JarvisEngine.getBodyCoordinator().submitText(sharedText)
+                    Toast.makeText(this@MainActivity, "Shared text sent to Friday.", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Friday is not ready to receive shared text yet.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            } else {
+                Toast.makeText(
+                    this@MainActivity,
+                    "Friday could not find supported video, TikTok link or text in that share.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
         }
+    }
+
+    private companion object {
+        const val MAX_SHARED_TEXT_CHARS = 64_000
     }
 
     override fun onDestroy() {
