@@ -56,10 +56,14 @@ class CloudResearchProvider(
     }
 
     override suspend fun simulate(algorithm: com.jarvis.app.research.CandidateAlgorithm): com.jarvis.app.research.SimulationResult {
+        // Cloud reasoning can propose and translate a candidate; it does not
+        // execute candidate code. Returning success here used to let an
+        // unexecuted proposal pass the ResearchOrchestrator's simulation gate.
         return com.jarvis.app.research.SimulationResult(
-            success = true,
-            metrics = mapOf("confidence" to 0.5),
-            durationMs = 0
+            success = false,
+            metrics = mapOf("executed" to 0.0, "confidence" to 0.0),
+            durationMs = 0,
+            error = "Candidate was not executed. A separately validated sandbox simulator is required."
         )
     }
 
@@ -67,7 +71,11 @@ class CloudResearchProvider(
         return emptyList()
     }
 
-    override suspend fun health(): Boolean = true
+    // This adapter is configured only when at least one provider is present.
+    // This reports configuration, not live network health: CloudProvider has
+    // no probe contract, so claiming a successful remote health check would be
+    // fabricated.
+    override suspend fun health(): Boolean = router.poolMembers().isNotEmpty()
 
     private fun buildPrompt(
         problemStatement: String,
