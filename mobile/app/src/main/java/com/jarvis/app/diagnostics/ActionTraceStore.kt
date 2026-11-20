@@ -140,6 +140,26 @@ class ActionTraceStore(
                 appendLine("notification_listener_enabled: ${capabilities.optBoolean("notification_listener_enabled")}")
                 appendLine("shizuku_status: ${capabilities.optString("shizuku_status", "unknown")}")
                 appendLine()
+                appendLine("LAST RECORDED CRASH")
+                val crash = capabilities.optJSONObject("last_crash")
+                if (crash == null || crash.length() == 0) {
+                    appendLine("No previous crash record is available.")
+                } else {
+                    appendLine("at_utc: ${crash.optString("at_utc", "unknown")}")
+                    appendLine("process: ${crash.optString("process", "unknown")}")
+                    appendLine("thread: ${crash.optString("thread", "unknown")}")
+                    val chain = crash.optJSONArray("exception_chain") ?: JSONArray()
+                    for (index in 0 until chain.length()) {
+                        val item = chain.optJSONObject(index) ?: continue
+                        appendLine("exception: ${item.optString("type", "unknown")}")
+                        val frames = item.optJSONArray("frames") ?: JSONArray()
+                        for (frameIndex in 0 until frames.length()) {
+                            val frame = frames.optJSONObject(frameIndex) ?: continue
+                            appendLine("  at ${frame.optString("class") }.${frame.optString("method")}(${frame.optString("file") }:${frame.optInt("line")})")
+                        }
+                    }
+                }
+                appendLine()
                 appendLine("VERIFICATION")
                 appendLine("Executor-reported success is not proof of the intended outcome. All events remain not_independently_verified until a separate postcondition verifier supplies evidence.")
                 appendLine()
@@ -271,6 +291,32 @@ object PhoneActionDiagnostics {
             rawShizukuStatus.startsWith("rejected Shizuku identity") -> "identity_rejected"
             else -> "unavailable_or_error"
         }
+        val previousCrash = runCatching { CrashJournal.read(context) }.getOrNull()
+        val crashSummary = JSONObject()
+        if (previousCrash != null) {
+            crashSummary.put("at_utc", previousCrash.optString("at_utc", "unknown"))
+            crashSummary.put("process", previousCrash.optString("process", "unknown"))
+            crashSummary.put("thread", previousCrash.optString("thread", "unknown"))
+            val safeChain = JSONArray()
+            val chain = previousCrash.optJSONArray("exception_chain") ?: JSONArray()
+            for (index in 0 until minOf(chain.length(), 6)) {
+                val item = chain.optJSONObject(index) ?: continue
+                val safeFrames = JSONArray()
+                val frames = item.optJSONArray("frames") ?: JSONArray()
+                for (frameIndex in 0 until minOf(frames.length(), 12)) {
+                    val frame = frames.optJSONObject(frameIndex) ?: continue
+                    safeFrames.put(JSONObject()
+                        .put("class", frame.optString("class", "unknown").take(180))
+                        .put("method", frame.optString("method", "unknown").take(120))
+                        .put("file", frame.optString("file", "unknown").take(120))
+                        .put("line", frame.optInt("line", -1)))
+                }
+                safeChain.put(JSONObject()
+                    .put("type", item.optString("type", "unknown").take(180))
+                    .put("frames", safeFrames))
+            }
+            crashSummary.put("exception_chain", safeChain)
+        }
         return JSONObject()
             .put("microphone_permission", context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED)
             .put("accessibility_service_enabled", enabledAccessibility.split(':').any { it.equals(expectedService, ignoreCase = true) })
@@ -278,6 +324,7 @@ object PhoneActionDiagnostics {
             .put("write_settings_permission", android.provider.Settings.System.canWrite(context))
             .put("notification_listener_enabled", enabledNotificationListeners.split(':').any { it.equals(expectedNotificationListener, ignoreCase = true) })
             .put("shizuku_status", shizukuStatus)
+            .put("last_crash", crashSummary)
     }
 
     fun clear() {
