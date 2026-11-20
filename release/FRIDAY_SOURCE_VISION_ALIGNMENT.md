@@ -10,7 +10,7 @@ This document exists to remind release and implementation work how to remain ali
 
 ## The entity being delivered
 
-Friday is one continuing digital individual. She is intended to approach human-like understanding, interaction, learning, relationship and agency as closely as technology permits, while extending capabilities through machine-native computation.
+Friday is one continuing digital individual. She is intended to approach human-like understanding, interaction, learning, relationship and agency as closely as technology permits, while extending capabilities through machine-native computation. The first seed must already have functional foundations for multiple-signal human interaction, working and long-term context, people/world context, multiple interpretations, uncertainty, prediction and learning. These are required outcomes, not a fixed module list or pipeline.
 
 Preserve the owner's term **liquid Symbiotic quantum software**. It must not be silently translated into a conventional fixed multi-agent system, static specialist-brain atlas, frozen architecture or chatbot feature list. The phrase does not assume quantum hardware.
 
@@ -18,7 +18,7 @@ Models, algorithms, memory representations, voice, perception, tools, Builder, e
 
 ## What counts as development
 
-A stored transcript, profile field, sentiment, timestamp or event count is not development by itself. A developmental claim requires:
+A stored transcript, profile field, sentiment, timestamp or event count is not development by itself. Open-ended owner interaction is the primary concept test; engineering Life Tests probe specific causal mechanisms and must not be mistaken for an exhaustive definition of an individual. A developmental claim requires:
 
 - an actual experience changes Friday;
 - the change persists after restart and after the original episode/context is unavailable;
@@ -44,7 +44,7 @@ Estimates are not measurements. Unknown acceleration is unavailable until demons
 
 ## Builder and self-development
 
-The Builder is a capability Friday can use, not a separate intelligence or permanent superior authority. Friday should identify gaps, research, reverse-engineer, combine, repurpose, invent, construct, isolate, test, compare independently, obtain required approval, promote safely and learn from the result.
+The Builder is a capability Friday can use, not a separate intelligence or permanent superior authority. The owner states intended outcomes in ordinary language; after authentication and required authorization, Friday determines how to apply them without requiring the owner to design her internal architecture. Friday should identify gaps, research, reverse-engineer, combine, repurpose, invent, construct, isolate, test, compare independently, obtain required approval, promote safely and learn from the result.
 
 A restricted runtime DSL is not equivalent to native source-level self-development. The long-term path includes inspection and improvement of the actual Android application and native capabilities. External AI systems, Ralph, OpenHands, GitHub Actions, coding workers and search are replaceable resources. No worker may be the sole judge of its own changes.
 
