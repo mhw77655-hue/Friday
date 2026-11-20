@@ -41,7 +41,8 @@ class ActionTraceStore(
         durationMs: Long,
         verificationState: String = "not_independently_verified",
         verificationStage: String = "UNKNOWN",
-        failureStage: String? = null
+        failureStage: String? = null,
+        parentTraceId: String? = null
     ): String = synchronized(monitor) {
         withFileLock {
             val root = readRoot()
@@ -53,6 +54,7 @@ class ActionTraceStore(
             val event = JSONObject()
                 .put("sequence", sequence)
                 .put("trace_id", traceId)
+                .put("parent_trace_id", parentTraceId?.take(80) ?: JSONObject.NULL)
                 .put("session_id", sessionId)
                 .put("at_utc", Instant.now().toString())
                 .put("elapsed_realtime_ms", System.nanoTime() / 1_000_000L)
@@ -139,7 +141,8 @@ class ActionTraceStore(
                                 "outcome=${event.optString("outcome")} duration_ms=${event.optLong("duration_ms")} " +
                                 "verification=${event.optString("verification_state")} " +
                                 "verification_stage=${event.optString("verification_stage")} " +
-                                "failure_stage=${event.optString("failure_stage")} trace=${event.optString("trace_id")}"
+                                "failure_stage=${event.optString("failure_stage")} trace=${event.optString("trace_id")} " +
+                                "parent_trace=${event.optString("parent_trace_id", "none")}"
                         )
                     }
                 }
@@ -327,10 +330,11 @@ object PhoneActionDiagnostics {
         durationMs: Long,
         verificationState: String = "not_independently_verified",
         verificationStage: String = "UNKNOWN",
-        failureStage: String? = null
+        failureStage: String? = null,
+        parentTraceId: String? = null
     ) {
         runCatching {
-            store?.record(action, route, outcome, durationMs, verificationState, verificationStage, failureStage)
+            store?.record(action, route, outcome, durationMs, verificationState, verificationStage, failureStage, parentTraceId)
         }
     }
 
