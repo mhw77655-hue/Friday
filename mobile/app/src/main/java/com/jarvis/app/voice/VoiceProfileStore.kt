@@ -13,6 +13,36 @@ import org.json.JSONObject
  * habitat only ever receives `(language, voiceId, options)` per request. JSON
  * keeps the store trivial and testable without any Android DI.
  */
+/**
+ * Migrate the built-in Friday voice away from legacy Android system TTS.
+ * Old installs may have persisted a null/"system" provider before the neural
+ * habitat became the production voice path. Preserve explicit neural choices
+ * and reference-voice selections; never silently revive Google/system speech.
+ */
+internal fun migrateLegacyFridayVoiceProfile(profile: VoiceProfile): VoiceProfile {
+    if (profile.id != DefaultJarvisVoiceProfile.id) return profile
+    val hasReference = !profile.referenceAudioPath.isNullOrBlank()
+    val provider = profile.preferredProvider?.lowercase()
+    val needsMigration = provider.isNullOrBlank() || provider == "system"
+    val migratedProvider = when {
+        needsMigration && hasReference -> "pocket"
+        needsMigration -> "piper"
+        else -> provider
+    }
+    val migratedVoice = when {
+        needsMigration && hasReference -> "reference"
+        needsMigration -> null
+        else -> profile.preferredVoice
+    }
+    val neuralFallbacks = profile.fallbackProviders.filterNot { it.equals("system", ignoreCase = true) }
+        .ifEmpty { if (migratedProvider == "piper") listOf("sherpa") else listOf("piper", "sherpa") }
+    return profile.copy(
+        preferredProvider = migratedProvider,
+        preferredVoice = migratedVoice,
+        fallbackProviders = neuralFallbacks
+    )
+}
+
 class VoiceProfileStore(context: Context) {
 
     private val prefs: SharedPreferences =
@@ -24,11 +54,10 @@ class VoiceProfileStore(context: Context) {
         val profiles = (0 until arr.length()).mapNotNull { i ->
             decode(arr.getJSONObject(i))
         }.map { profile ->
-            // Preserve the persisted id for compatibility while correcting
-            // the built-in profile's former JARVIS display name.
-            if (profile.id == DefaultJarvisVoiceProfile.id &&
+            val renamed = if (profile.id == DefaultJarvisVoiceProfile.id &&
                 profile.name.equals("Jarvis", ignoreCase = true)
             ) profile.copy(name = DefaultJarvisVoiceProfile.name) else profile
+            migrateLegacyFridayVoiceProfile(renamed)
         }
         return profiles.ifEmpty { listOf(DefaultJarvisVoiceProfile) }
     }

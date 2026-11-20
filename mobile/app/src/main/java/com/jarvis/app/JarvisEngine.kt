@@ -643,15 +643,12 @@ object JarvisEngine {
             JarvisEngine.voiceOrganismHost = voiceHost
 
             // R2 voice organism: the capability-level wrapper and output path.
-            // The output path speaks through the habitat per sentence (Kokoro),
-            // falling back to the legacy streaming TTS when the habitat is not
-            // ready — the body still answers.
+            // All spoken replies use the isolated neural habitat. If it fails,
+            // Friday reports degraded voice output rather than changing identity.
             val voiceProfileStore = com.jarvis.app.voice.VoiceProfileStore(appContext)
             val voiceOutputPath = com.jarvis.app.voice.VoiceOutputPath(
                 host = voiceHost,
-                context = appContext,
                 scope = scope,
-                fallback = streamingTts,
                 profileStore = voiceProfileStore
             )
             JarvisEngine.voiceOutputPath = voiceOutputPath
@@ -684,17 +681,23 @@ object JarvisEngine {
             // sherpa-onnx and its downloaded model packs; the app process only
             // plays the resulting PCM through AudioTrack. No Termux Chatterbox
             // server or localhost speech service is part of the live path.
-            val legacyReplySpeech: (String) -> Unit = { text ->
-                val tts = JarvisEngine.getStreamingTts()
-                runCatching { tts.speakStreaming(text, getBodyCoordinator().vocabularyStore) }
-                    .onFailure { tts.speak(text) }
-            }
             com.jarvis.app.latency.LatencyLayer.setStreamingSpeak { text ->
                 val output = JarvisEngine.voiceOutputPath
                 if (output != null) {
                     output.speak(text, vocabulary = getBodyCoordinator().vocabularyStore)
                 } else {
-                    legacyReplySpeech(text)
+                    failureSurface.report(
+                        com.jarvis.app.failure.FailureReport(
+                            subsystem = "VOICE_OUTPUT",
+                            operation = "route_reply",
+                            severity = com.jarvis.app.failure.FailureSeverity.DEGRADED,
+                            category = com.jarvis.app.failure.FailureCategory.TTS,
+                            message = "Friday's neural voice output path is not initialized; generic system speech was suppressed.",
+                            source = "JarvisEngine",
+                            recoverability = com.jarvis.app.failure.Recoverability.RETRYABLE,
+                            recoveryAction = com.jarvis.app.failure.RecoveryAction.REINITIALIZE
+                        )
+                    )
                 }
             }
 

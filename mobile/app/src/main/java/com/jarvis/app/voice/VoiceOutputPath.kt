@@ -1,11 +1,9 @@
 package com.jarvis.app.voice
 
-import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import android.util.Log
-import com.jarvis.app.body.StreamingTts
 import com.jarvis.app.body.VocabularyStore
 import com.jarvis.app.voice.provider.VoiceSynthesisParams
 import kotlinx.coroutines.CoroutineScope
@@ -15,7 +13,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -40,9 +37,7 @@ private const val TAG = "VoiceOutputPath"
  */
 class VoiceOutputPath(
     private val host: VoiceOrganismHost,
-    private val context: Context,
     private val scope: CoroutineScope,
-    private val fallback: StreamingTts? = null,
     private val profileStore: VoiceProfileStore
 ) {
 
@@ -58,19 +53,7 @@ class VoiceOutputPath(
     @Volatile private var nativePlaybackActive = false
     private var job: Job? = null
 
-    init {
-        // The legacy fallback queues TTS asynchronously. Mirror its actual
-        // playback callback state rather than the speak() enqueue call.
-        fallback?.let { fallbackPath ->
-            scope.launch {
-                fallbackPath.isSpeaking.collect { active ->
-                    if (!nativePlaybackActive) _isSpeaking.value = active
-                }
-            }
-        }
-    }
-
-    /** Speak [text] through the habitat, per sentence, with legacy fallback. */
+    /** Speak [text] through Friday's neural voice habitat, per sentence. */
     fun speak(text: String, language: String? = null, voiceId: String? = null, vocabulary: VocabularyStore? = null) {
         if (text.isBlank()) return
         interrupt()
@@ -86,15 +69,8 @@ class VoiceOutputPath(
                     // when the saved default profile language is English.
                     val segmentLanguage = if (containsArabic(segment)) "ar-EG" else lang
                     val spoken = habitatSpeak(segment, segmentLanguage, voiceId ?: profile.preferredVoice, profile, vocabulary)
-                    if (!spoken && profile.preferredProvider.isNullOrBlank() &&
-                        fallback != null && profile.referenceAudioPath.isNullOrBlank()
-                    ) {
-                        // Legacy TTS is only a fallback for profiles without a
-                        // selected neural identity. Friday's selected voice must
-                        // never silently become the generic Android/Google voice.
-                        fallback.speakStreaming(segment, vocabulary ?: emptyVocabulary())
-                    } else if (!spoken) {
-                        Log.w(TAG, "Friday's selected voice provider did not produce audio; no system voice was substituted")
+                    if (!spoken) {
+                        Log.w(TAG, "Friday's neural voice did not produce audio; generic system speech is disabled")
                     }
                 }
             } catch (e: Throwable) {
@@ -118,7 +94,6 @@ class VoiceOutputPath(
         _isSpeaking.value = false
         _audioLevel.value = 0f
         runCatching { host.cancelVoice() }
-        runCatching { fallback?.interrupt() }
         job?.cancel()
         job = null
     }
@@ -210,7 +185,7 @@ class VoiceOutputPath(
         } finally {
             runCatching { track.release() }
             nativePlaybackActive = false
-            _isSpeaking.value = fallback?.isSpeaking?.value ?: false
+            _isSpeaking.value = false
             _audioLevel.value = 0f
         }
     }
@@ -271,7 +246,6 @@ class VoiceOutputPath(
         return hints
     }
 
-    private fun emptyVocabulary(): VocabularyStore = VocabularyStore(context)
 }
 
 
