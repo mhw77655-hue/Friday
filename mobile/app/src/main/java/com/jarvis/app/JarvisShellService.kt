@@ -50,11 +50,6 @@ class JarvisShellService : IJarvisShellService.Stub() {
         }
     }
 
-    /**
-     * Shizuku-backed Doze exemption for Friday only. The package name and
-     * command shape are fixed in code; the Binder caller supplies only a
-     * boolean. Read-back verification is required before reporting success.
-     */
     /** Launch one installed application by package name and verify the resumed activity. */
     override fun launchApp(packageName: String): String {
         if (!PACKAGE_NAME.matches(packageName)) {
@@ -83,6 +78,11 @@ class JarvisShellService : IJarvisShellService.Stub() {
         return "status=${if (resumed) "verified" else "not-verified"}; package=$packageName; launch=${launch.take(500)}"
     }
 
+    /**
+     * Shizuku-backed Doze exemption for Friday only. The package name and
+     * command shape are fixed in code; the Binder caller supplies only a
+     * boolean. Read-back verification is required before reporting success.
+     */
     override fun setDozeWhitelist(enabled: Boolean): String {
         val packageName = "com.jarvis.app"
         val sign = if (enabled) "+" else "-"
