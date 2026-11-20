@@ -27,8 +27,24 @@ object ScreenBridge {
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-            service = IJarvisShellService.Stub.asInterface(binder)
-            _status.value = if (service != null) "bound" else "null service binder"
+            val candidate = IJarvisShellService.Stub.asInterface(binder)
+            if (candidate == null) {
+                service = null
+                _status.value = "null service binder"
+                return
+            }
+            // A Binder connection alone is not proof of privilege. Ask the
+            // remote UserService to report its actual Linux UID and accept
+            // only Android shell (2000) or root (0).
+            val identity = runCatching { candidate.identity() }.getOrNull().orEmpty()
+            val uid = Regex("(?:^|;)uid=(\\d+)(?:;|$)").find(identity)?.groupValues?.get(1)?.toIntOrNull()
+            if (uid != 0 && uid != 2000) {
+                service = null
+                _status.value = "rejected Shizuku identity: ${if (uid == null) "unverified" else "uid=$uid"}"
+                return
+            }
+            service = candidate
+            _status.value = "verified · Shizuku uid=$uid"
         }
         override fun onServiceDisconnected(name: ComponentName?) {
             service = null
@@ -60,7 +76,7 @@ object ScreenBridge {
         val args = Shizuku.UserServiceArgs(ComponentName(context, JarvisShellService::class.java))
             .daemon(true)
             .tag("friday-device-capability-core")
-            .version(3)
+            .version(4)
         userServiceArgs = args
         try {
             _status.value = "binding..."
