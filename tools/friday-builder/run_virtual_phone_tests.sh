@@ -61,20 +61,24 @@ python3 tools/friday-builder/apply_device_state_capsule.py .github/android-emula
 # on this exact virtual device. Pull the app-private evidence directory into
 # the run artifact; absence is a failed visual-diagnostics test, not a pass.
 UI_AUDIT_DEVICE_DIR="/sdcard/Android/data/com.jarvis.app/files/friday-ui-audit"
-mkdir -p "$EVIDENCE_DIR/ui-audit"
-if ! adb pull "$UI_AUDIT_DEVICE_DIR" "$EVIDENCE_DIR/ui-audit"; then
+UI_AUDIT_PULL_DIR="$EVIDENCE_DIR/ui-audit-pull"
+mkdir -p "$UI_AUDIT_PULL_DIR"
+if ! adb pull "$UI_AUDIT_DEVICE_DIR" "$UI_AUDIT_PULL_DIR"; then
   echo "FRIDAY_UI_AUDIT_ARTIFACT_MISSING: instrumentation did not produce app screenshots." >&2
   exit 30
 fi
-if ! find "$EVIDENCE_DIR/ui-audit" -maxdepth 1 -type f -name '*.png' | grep -q .; then
-  echo "FRIDAY_UI_AUDIT_EMPTY: no screen captures were pulled from the device." >&2
+UI_AUDIT_MANIFEST="$(find "$UI_AUDIT_PULL_DIR" -type f -name manifest.json -print -quit)"
+if [[ -z "$UI_AUDIT_MANIFEST" ]]; then
+  echo "FRIDAY_UI_AUDIT_MANIFEST_MISSING: no manifest was pulled from the test device." >&2
+  find "$UI_AUDIT_PULL_DIR" -maxdepth 3 -type f -printf '%p\\n' >&2 || true
   exit 31
 fi
+UI_AUDIT_SOURCE_DIR="$(dirname "$UI_AUDIT_MANIFEST")"
 
 # Validate the visual audit manifest against every captured PNG and produce a
 # human-readable index. This is the one-shot UI evidence that can be inspected
 # without connecting to or watching the phone live.
-python3 - "$EVIDENCE_DIR/ui-audit" <<'PY'
+python3 - "$UI_AUDIT_SOURCE_DIR" <<'PY'
 import hashlib
 import html
 import json
@@ -82,16 +86,14 @@ import pathlib
 import sys
 
 root = pathlib.Path(sys.argv[1])
-manifest_path = root / "friday-ui-audit" / "manifest.json"
-if not manifest_path.is_file():
-    raise SystemExit("FRIDAY_UI_AUDIT_MANIFEST_MISSING")
+manifest_path = root / "manifest.json"
 data = json.loads(manifest_path.read_text(encoding="utf-8"))
 screens = data.get("screens", [])
 if len(screens) < 18:
     raise SystemExit(f"FRIDAY_UI_AUDIT_INCOMPLETE: expected >=18 screens, got {len(screens)}")
 rows = []
 for item in screens:
-    image = root / "friday-ui-audit" / item["file"]
+    image = root / item["file"]
     if not image.is_file():
         raise SystemExit(f"FRIDAY_UI_AUDIT_SCREEN_MISSING: {item['file']}")
     digest = hashlib.sha256(image.read_bytes()).hexdigest()
@@ -100,7 +102,7 @@ for item in screens:
     rows.append(
         f'<section><h2>{html.escape(item["title"])}</h2>'
         f'<p>{item["width_px"]} × {item["height_px"]} px · SHA-256 verified</p>'
-        f'<img loading="lazy" src="friday-ui-audit/{html.escape(item["file"])}"></section>'
+        f'<img loading="lazy" src="{html.escape(item["file"])}"></section>'
     )
 (root / "index.html").write_text(
     '<!doctype html><meta charset="utf-8"><title>Friday visual diagnostic</title>'
@@ -115,13 +117,13 @@ for item in screens:
     encoding="utf-8",
 )
 (root / "visual-audit-report.md").write_text(
-    "# Friday one-shot visual diagnostic\n\n"
-    f"- Screens captured: {len(rows)}\n"
-    f"- Device profile: {data.get('device_manufacturer')} {data.get('device_model')}\n"
-    f"- Android: {data.get('android_release')} (API {data.get('android_sdk')})\n"
-    "- Every screenshot SHA-256 was checked against the manifest.\n"
-    "- Scope: app UI only; no audio, camera, notifications or off-app recording.\n"
-    "- Open index.html for the complete visual report.\n",
+    "# Friday one-shot visual diagnostic\\n\\n"
+    f"- Screens captured: {len(rows)}\\n"
+    f"- Device profile: {data.get('device_manufacturer')} {data.get('device_model')}\\n"
+    f"- Android: {data.get('android_release')} (API {data.get('android_sdk')})\\n"
+    "- Every screenshot SHA-256 was checked against the manifest.\\n"
+    "- Scope: app UI only; no audio, camera, notifications or off-app recording.\\n"
+    "- Open index.html for the complete visual report.\\n",
     encoding="utf-8",
 )
 print(f"FRIDAY_UI_AUDIT_VERIFIED: {len(rows)} full-screen captures")
