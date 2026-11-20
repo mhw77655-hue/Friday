@@ -81,8 +81,6 @@ object LatencyLayer {
         appContext = context.applicationContext
         this.modelManager = modelManager
         WarmupEngine.attach(modelManager)
-        SpeechEngine.init(context)
-        AckSpeech.init(context)
         startCollectorsOnce(pipeline())
     }
 
@@ -123,7 +121,24 @@ object LatencyLayer {
 
     private fun speakReply(text: String) {
         val streaming = streamingSpeak
-        if (streaming != null) streaming(text) else SpeechEngine.fullSpeak(text)
+        if (streaming != null) {
+            streaming(text)
+        } else {
+            // Friday must not silently become a different assistant because
+            // her own voice organ has not attached yet.
+            failureSink?.invoke(
+                com.jarvis.app.failure.FailureReport(
+                    subsystem = "VOICE_OUTPUT",
+                    operation = "route_reply",
+                    severity = com.jarvis.app.failure.FailureSeverity.DEGRADED,
+                    category = com.jarvis.app.failure.FailureCategory.TTS,
+                    message = "Friday's voice path is not attached; generic system speech was suppressed.",
+                    source = "LatencyLayer",
+                    recoverability = com.jarvis.app.failure.Recoverability.RETRYABLE,
+                    recoveryAction = com.jarvis.app.failure.RecoveryAction.REINITIALIZE
+                )
+            )
+        }
     }
 
     /** The conversation turns, sourced from the layer (survives across screens). */
@@ -165,7 +180,20 @@ object LatencyLayer {
     fun speakAck(phrase: String) {
         if (phrase.isBlank()) return
         ensureStarted()
-        if (!speakAckViaFridayVoice(phrase)) AckSpeech.fastSpeak(phrase)
+        if (!speakAckViaFridayVoice(phrase)) {
+            failureSink?.invoke(
+                com.jarvis.app.failure.FailureReport(
+                    subsystem = "VOICE_OUTPUT",
+                    operation = "route_acknowledgement",
+                    severity = com.jarvis.app.failure.FailureSeverity.DEGRADED,
+                    category = com.jarvis.app.failure.FailureCategory.TTS,
+                    message = "Friday's voice path is not attached; generic acknowledgement speech was suppressed.",
+                    source = "LatencyLayer",
+                    recoverability = com.jarvis.app.failure.Recoverability.RETRYABLE,
+                    recoveryAction = com.jarvis.app.failure.RecoveryAction.REINITIALIZE
+                )
+            )
+        }
     }
 
     /** Speak a full reply through the slow (cloud-or-device) channel. */
