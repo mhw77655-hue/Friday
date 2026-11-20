@@ -678,12 +678,18 @@ fun SettingsScreen() {
                 val report = com.jarvis.app.diagnostics.PhoneActionDiagnostics.exportText(context)
                 val share = Intent(Intent.ACTION_SEND).apply {
                     type = "text/plain"
+                    putExtra(Intent.EXTRA_SUBJECT, "Friday live test report")
                     putExtra(Intent.EXTRA_TEXT, report)
                 }
-                context.startActivity(Intent.createChooser(share, "Share Friday diagnostic report"))
+                context.startActivity(Intent.createChooser(share, "Send Friday report to ChatGPT"))
             },
             modifier = Modifier.fillMaxWidth()
-        ) { Text("Share diagnostic report") }
+        ) { Text("Send report to ChatGPT") }
+        Text(
+            text = "Choose ChatGPT in the Android share sheet, open this same development conversation, and send the report. If ChatGPT is not offered, use Copy live test report and paste it here. The report includes action traces, app/build identity, device capability status and sanitized crash evidence—not your spoken words or screen contents.",
+            style = JarvisType.Technical,
+            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+        )
         TextButton(
             onClick = {
                 com.jarvis.app.diagnostics.PhoneActionDiagnostics.clear()
