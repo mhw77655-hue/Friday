@@ -418,8 +418,6 @@ class BodyCoordinator(
         voiceRetryCount.set(0)
         speechRecognizer?.cancel()
         runCatching { JarvisEngine.getVoiceOutputPath()?.interrupt() }
-        runCatching { tts?.interrupt() }
-        runCatching { TtsBridge.stopSpeaking() }
         emitEvent(BodyEvent.Reset)
         runCatching { com.jarvis.app.runtime.FridayRuntimeController.resumeMicrophone(context) }
     }
