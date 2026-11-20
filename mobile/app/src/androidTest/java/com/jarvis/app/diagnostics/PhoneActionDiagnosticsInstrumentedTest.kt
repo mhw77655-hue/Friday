@@ -25,7 +25,8 @@ class PhoneActionDiagnosticsInstrumentedTest {
                 action = "OpenSettings",
                 route = "accessibility",
                 outcome = "success_reported",
-                durationMs = 17
+                durationMs = 17,
+                parentTraceId = "instrumented-parent-trace"
             )
 
             val report = PhoneActionDiagnostics.exportText(context)
@@ -47,6 +48,7 @@ class PhoneActionDiagnosticsInstrumentedTest {
             assertTrue(report.contains("action=OpenSettings"))
             assertTrue(report.contains("route=accessibility"))
             assertTrue(report.contains("outcome=success_reported"))
+            assertTrue(report.contains("parent_trace=instrumented-parent-trace"))
             assertTrue(report.contains("MACHINE_READABLE_JSON"))
         } finally {
             PhoneActionDiagnostics.clear()
