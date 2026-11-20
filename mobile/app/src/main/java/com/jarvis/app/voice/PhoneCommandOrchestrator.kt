@@ -67,6 +67,13 @@ class PhoneCommandOrchestrator(
         }
         if (!acquired) return Outcome.Unavailable("A phone action or confirmation is already in progress.")
         return try {
+            com.jarvis.app.diagnostics.PhoneActionDiagnostics.record(
+                action = command.javaClass.simpleName,
+                route = "phone_action_planner",
+                outcome = "planned",
+                durationMs = 0,
+                verificationState = "not_attempted"
+            )
             evaluateAndExecute(utterance, command)
         } finally {
             synchronized(lock) { inFlight = false }
@@ -87,10 +94,24 @@ class PhoneCommandOrchestrator(
         if (waiting != null) {
             if (normalized in CONFIRM_WORDS) {
                 synchronized(lock) { pending = null }
+                com.jarvis.app.diagnostics.PhoneActionDiagnostics.record(
+                    action = waiting.command.javaClass.simpleName,
+                    route = "phone_confirmation",
+                    outcome = "confirmation_approved",
+                    durationMs = 0,
+                    verificationState = "not_attempted"
+                )
                 return Outcome.ActionResult(waiting.command, executeSafely(waiting.command))
             }
             if (normalized in CANCEL_WORDS) {
                 synchronized(lock) { pending = null }
+                com.jarvis.app.diagnostics.PhoneActionDiagnostics.record(
+                    action = waiting.command.javaClass.simpleName,
+                    route = "phone_confirmation",
+                    outcome = "confirmation_cancelled",
+                    durationMs = 0,
+                    verificationState = "not_attempted"
+                )
                 return Outcome.Cancelled
             }
             // Any unrelated utterance invalidates the pending action. Never
@@ -99,6 +120,13 @@ class PhoneCommandOrchestrator(
         }
 
         val command = PhoneCommandInterpreter.parse(utterance) ?: return null
+        com.jarvis.app.diagnostics.PhoneActionDiagnostics.record(
+            action = command.javaClass.simpleName,
+            route = "phone_command_parser",
+            outcome = "recognized",
+            durationMs = 0,
+            verificationState = "not_attempted"
+        )
         return evaluateAndExecute(utterance, command)
     }
 
@@ -107,18 +135,48 @@ class PhoneCommandOrchestrator(
         command: PhoneControlCommand
     ): Outcome {
         val description = PhoneCommandInterpreter.describe(command)
-        val tool = decisionTool() ?: return Outcome.Unavailable(
-            "Friday's phone-action organ is not ready. Nothing was changed."
-        )
+        val tool = decisionTool() ?: run {
+            com.jarvis.app.diagnostics.PhoneActionDiagnostics.record(
+                action = command.javaClass.simpleName,
+                route = "phone_decision",
+                outcome = "decision_unavailable",
+                durationMs = 0,
+                verificationState = "not_attempted"
+            )
+            return Outcome.Unavailable(
+                "Friday's phone-action organ is not ready. Nothing was changed."
+            )
+        }
+        val decisionStartedAt = System.nanoTime()
         val decision = tool.judge(
             utterance = utterance,
             command = command,
             remoteConfigured = remoteConfigured()
         )
+        val decisionOutcome = when (decision.verdict) {
+            FridayPhoneDecisionTool.Verdict.EXECUTE -> "decision_execute"
+            FridayPhoneDecisionTool.Verdict.CONFIRM -> "decision_confirm"
+            FridayPhoneDecisionTool.Verdict.REJECT -> "decision_reject"
+            FridayPhoneDecisionTool.Verdict.UNAVAILABLE -> "decision_unavailable"
+        }
+        com.jarvis.app.diagnostics.PhoneActionDiagnostics.record(
+            action = command.javaClass.simpleName,
+            route = "phone_decision",
+            outcome = decisionOutcome,
+            durationMs = ((System.nanoTime() - decisionStartedAt) / 1_000_000L).coerceAtLeast(0L),
+            verificationState = "not_attempted"
+        )
         return when (decision.verdict) {
             FridayPhoneDecisionTool.Verdict.EXECUTE ->
                 Outcome.ActionResult(command, executeSafely(command))
             FridayPhoneDecisionTool.Verdict.CONFIRM -> {
+                com.jarvis.app.diagnostics.PhoneActionDiagnostics.record(
+                    action = command.javaClass.simpleName,
+                    route = "phone_confirmation",
+                    outcome = "confirmation_requested",
+                    durationMs = 0,
+                    verificationState = "not_attempted"
+                )
                 synchronized(lock) {
                     pending = PendingConfirmation(
                         command = command,
