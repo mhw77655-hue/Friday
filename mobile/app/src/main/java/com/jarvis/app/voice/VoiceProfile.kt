@@ -42,11 +42,13 @@ val DefaultJarvisVoiceProfile = VoiceProfile(
     id = "jarvis",
     name = "Friday",
     language = "en",
-    preferredProvider = "piper",
-    preferredVoice = null,
+    // Kokoro speaker_2 (af_nicole) is the default natural neural voice;
+    // Piper remains an offline, lower-resource fallback.
+    preferredProvider = "sherpa",
+    preferredVoice = "speaker_2",
     speechRate = 1.0f,
     pitch = 1.0f,
     qualityPreference = VoiceQuality.HIGH,
     resourcePreference = ResourcePreference.BALANCED,
-    fallbackProviders = listOf("sherpa")
+    fallbackProviders = listOf("piper", "sherpa-arabic")
 )
