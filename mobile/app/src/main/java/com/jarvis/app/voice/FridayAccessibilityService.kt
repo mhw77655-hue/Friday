@@ -118,7 +118,7 @@ class FridayAccessibilityService : AccessibilityService() {
                 .setData(android.net.Uri.parse("package:$packageName"))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(intent)
-            return PhoneControlResult.UserActionRequired("I opened Android's Modify system settings permission for Friday. Grant it, then repeat the brightness request.")
+            return@runCatching PhoneControlResult.UserActionRequired("I opened Android's Modify system settings permission for Friday. Grant it, then repeat the brightness request.")
         }
         val mode = Settings.System.getInt(
             contentResolver,
@@ -126,11 +126,11 @@ class FridayAccessibilityService : AccessibilityService() {
             Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL
         )
         if (mode != Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL) {
-            return PhoneControlResult.UserActionRequired("Automatic brightness is enabled. Turn it off first if you want me to set a fixed brightness level.")
+            return@runCatching PhoneControlResult.UserActionRequired("Automatic brightness is enabled. Turn it off first if you want me to set a fixed brightness level.")
         }
         val target = (255 * percent / 100f).roundToInt().coerceIn(1, 255)
         val written = Settings.System.putInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS, target)
-        if (!written) return PhoneControlResult.Unavailable("Android rejected the brightness setting.")
+        if (!written) return@runCatching PhoneControlResult.Unavailable("Android rejected the brightness setting.")
         val actual = Settings.System.getInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS, -1)
         if (actual == target) PhoneControlResult.Success
         else PhoneControlResult.Unavailable("Brightness read-back did not match the requested level.")
