@@ -1,6 +1,6 @@
 # Friday live-test diagnostic bridge
 
-**Status:** implementation contract; the phone-to-chat handoff is not yet implemented.
+**Status:** partial implementation on `main`; local action journaling, a text report, capability snapshot, and Android copy/share UI exist. The full end-to-end bridge acceptance gate is not met.
 **Authority:** `.ralph/FRIDAY_DELIVERY_PLAN.md`, especially Objectives A, D and G.
 **Purpose:** let the owner test the installed Friday, bring a precise failure report into the existing ChatGPT conversation, and have the failure diagnosed against the exact source revision.
 
@@ -90,6 +90,18 @@ The JSON attachment carries the full bounded event list and structured fields. K
 
 The bridge is complete only when a physical-phone test can be performed, the owner can copy a report into the existing conversation, and that report is sufficient to reconstruct the action timeline and distinguish interpretation failure, capability/permission failure, executor failure, and verification failure. Emulator tests and a green CI run do not satisfy this gate.
 
-## Important existing-code finding
+## Current implementation audit (2026-11-21)
 
-At the time this contract was written, `CrashJournal` and `CrashRepairBridge` exist, but they cover uncaught process crashes and a GitHub development-request path. They are not a complete action journal or a direct handoff into this conversation. `MainActivity` declares shared `text/plain` input but currently sends shared intents through video intake. Do not describe either existing path as the completed live-test bridge.
+The current `main` implementation is a useful first slice, not completion:
+
+- `ActionTraceStore` persists a bounded 200-event local JSON journal using an atomic file replacement and a file lock. It records action, route, outcome, duration and a verification label; its default is local-only.
+- `DeviceControlRouter.executeWithEvidence` records each backend considered, including unavailable routes and failed attempts, and only treats explicit `VerificationStage.VERIFIED` evidence as verified.
+- `PhoneActionDiagnostics` exports a text report with embedded machine-readable JSON, app version, source revision, Android API, selected permission/service states and sanitized crash stack frames.
+- Settings exposes Copy live test report, a text Sharesheet action and Clear local journal. An Android instrumented test exercises the report composition.
+- The journal events currently receive separate trace IDs per backend attempt. There is not yet a shared parent/correlation ID tying every fallback rung to one requested outcome. The current event schema also lacks the complete interpretation, expected/observed postcondition and candidate-selection evidence specified above.
+- The current UI does not yet provide the full export controls in this contract (owner-selected request text, optional screen evidence, or a separate JSON file attachment). The text report is the present handoff.
+- Device manufacturer/model and the full synchronized UI/logcat evidence are not included in the action-journal report. The separate device support report is not the same artifact and must not be mistaken for the completed action trace.
+
+A privacy defect was also found during this audit: the general subsystem diagnostic history could retain a recognized speech transcript, and the default support report could include exception messages and OS trace excerpts. The current main-line fixes reduce speech recognition events to status categories, exclude exception messages from the default active diagnostics, export only sanitized crash summaries, and leave OS trace contents out of the default report. These changes still require CI verification.
+
+`CrashJournal` and `CrashRepairBridge` remain separate crash/development-request mechanisms; neither alone is the live-test bridge. `MainActivity` also routes incoming shared text intents through video intake, which should be corrected if Friday is expected to receive shared diagnostic text. Do not describe the current copy/share UI or these existing paths as the completed live-test bridge.
