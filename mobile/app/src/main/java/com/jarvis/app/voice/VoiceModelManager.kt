@@ -29,6 +29,8 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
+import java.nio.channels.FileChannel
+import java.nio.file.StandardOpenOption
 
 private const val TAG = "VoiceModelManager"
 
@@ -208,6 +210,28 @@ class VoiceModelManager(
     // ─────────────────────────────────────────────── download + extract
 
     private fun downloadAndExtract(entry: VoiceModelEntry): Result<File> {
+        val lockFile = File(modelsDir, ".${entry.id}.download.lock")
+        return try {
+            FileChannel.open(
+                lockFile.toPath(),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.WRITE
+            ).use { channel ->
+                channel.lock().use {
+                    val target = modelDirFor(entry)
+                    if (containsRequiredFiles(target, entry)) {
+                        Result.success(target)
+                    } else {
+                        downloadAndExtractUnlocked(entry)
+                    }
+                }
+            }
+        } catch (failure: Exception) {
+            Result.failure(failure)
+        }
+    }
+
+    private fun downloadAndExtractUnlocked(entry: VoiceModelEntry): Result<File> {
         val target = modelDirFor(entry)
         val tmpArchive = File(modelsDir, "${entry.id}.downloading")
         val tmpExtract = File(modelsDir, "${entry.id}.extracting")

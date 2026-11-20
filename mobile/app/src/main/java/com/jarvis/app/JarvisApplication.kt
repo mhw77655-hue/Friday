@@ -80,6 +80,12 @@ class JarvisApplication : Application() {
         // Initialize the Shizuku-Next API bridge before any device capability is requested.
         runCatching { ShizukuBridge.init(this) }
         JarvisEngine.init(this)
+        // Download the local reasoning model and neural voice automatically
+        // on unmetered connectivity. The worker is idempotent and resumes
+        // interrupted GGUF transfers without asking the owner to manage models.
+        runCatching {
+            com.jarvis.app.model.storage.ResidentModelBootstrapScheduler.ensureScheduled(this)
+        }
 
         // Process-scoped background/foreground for the Companion Core (plan
         // §4.3, audit R-A3). ProcessLifecycleOwner fires ON_STOP only when the

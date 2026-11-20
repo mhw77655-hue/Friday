@@ -8,6 +8,8 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
@@ -16,8 +18,11 @@ import java.io.IOException
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.nio.channels.FileChannel
+import java.nio.file.StandardOpenOption
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.ConcurrentHashMap
 
 data class OfflineDownloadState(
     val modelId: String? = null,
@@ -136,6 +141,25 @@ class OfflineModelDownloader(context: Context) {
     fun installedFile(asset: OfflineModelAsset): File = File(modelDir, asset.filename)
 
     suspend fun download(asset: OfflineModelAsset): File = withContext(Dispatchers.IO) {
+        val processMutex = processLocks.computeIfAbsent(asset.id) { Mutex() }
+        processMutex.withLock {
+            val lockFile = File(modelDir, ".${asset.id}.download.lock")
+            FileChannel.open(
+                lockFile.toPath(),
+                StandardOpenOption.CREATE,
+                StandardOpenOption.WRITE
+            ).use { channel ->
+                channel.lock().use { downloadLocked(asset) }
+            }
+        }
+    }
+
+    /**
+     * The process mutex protects multiple downloader instances in the app
+     * process; the file lock protects the same model from the UI and WorkManager
+     * across process boundaries.
+     */
+    private suspend fun downloadLocked(asset: OfflineModelAsset): File {
         val target = installedFile(asset)
         if (target.isFile &&
             target.length() >= asset.expectedMinimumBytes &&
@@ -149,7 +173,7 @@ class OfflineModelDownloader(context: Context) {
                 installedPath = target.absolutePath,
                 complete = true
             )
-            return@withContext target
+            return target
         }
 
         val partial = File(modelDir, asset.filename + ".part")
@@ -167,7 +191,7 @@ class OfflineModelDownloader(context: Context) {
             hasGgufHeader(partial) &&
             matchesSha256(partial, asset.sha256)
         ) {
-            return@withContext promote(asset, partial, target)
+            return promote(asset, partial, target)
         }
 
         val available = StatFs(modelDir.absolutePath).availableBytes
@@ -247,7 +271,7 @@ class OfflineModelDownloader(context: Context) {
             error("The downloaded model SHA-256 did not match the pinned asset; the partial file was discarded.")
         }
 
-        promote(asset, partial, target)
+        return promote(asset, partial, target)
     }
 
     private fun buildRequest(asset: OfflineModelAsset, offset: Long): Request {
@@ -308,6 +332,7 @@ class OfflineModelDownloader(context: Context) {
     }
 
     companion object {
+        private val processLocks = ConcurrentHashMap<String, Mutex>()
         private const val MIN_FREE_BYTES = 128L * 1024L * 1024L
     }
 }

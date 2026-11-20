@@ -31,7 +31,8 @@ object VoiceModelManifest {
         speakerCount = 11,
         quality = com.jarvis.app.voice.provider.VoiceQuality.HIGH,
         startupCostMs = 6_000,
-        latencyMs = 350
+        latencyMs = 350,
+        archiveSha256 = "c9f0dd393615805b0bab050c340834d5e684e732aec91c0e860cd30e982c08bd"
     )
 
 
@@ -52,7 +53,8 @@ object VoiceModelManifest {
         speakerCount = 1,
         quality = com.jarvis.app.voice.provider.VoiceQuality.MEDIUM,
         startupCostMs = 2_500,
-        latencyMs = 180
+        latencyMs = 180,
+        archiveSha256 = "c70f5284a09a7fd4ed203b39b2ff51cac1432b422b852eb647b481dade3cf639"
     )
 
     /** kokoro-en-v0_19 (fp32) — slightly higher quality, ~3x the download. */
