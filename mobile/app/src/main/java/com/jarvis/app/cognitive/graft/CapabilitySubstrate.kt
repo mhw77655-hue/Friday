@@ -168,22 +168,29 @@ object CognitiveReconstitutionPlanner {
                     if (payload.kind != CapabilityPayloadKind.PARAMETER_DELTA) {
                         issues += GraftRejection.TRANSFER_METHOD_PAYLOAD_MISMATCH
                     }
-                    if (donor.architectureFingerprint != target.architectureFingerprint ||
-                        donor.tokenizerFingerprint != target.tokenizerFingerprint ||
-                        donor.baseCheckpointFingerprint != target.baseCheckpointFingerprint ||
+                    if (donor.architectureFingerprint.isBlank() ||
+                        donor.tokenizerFingerprint.isBlank() ||
+                        donor.baseCheckpointFingerprint.isBlank() ||
                         payload.architectureFingerprint != target.architectureFingerprint ||
                         payload.tokenizerFingerprint != target.tokenizerFingerprint ||
-                        payload.baseCheckpointFingerprint != target.baseCheckpointFingerprint
+                        payload.baseCheckpointFingerprint != target.baseCheckpointFingerprint ||
+                        donor.architectureFingerprint != target.architectureFingerprint ||
+                        donor.tokenizerFingerprint != target.tokenizerFingerprint ||
+                        donor.baseCheckpointFingerprint != target.baseCheckpointFingerprint
                     ) issues += GraftRejection.INCOMPATIBLE_PARAMETER_LINEAGE
                 }
                 CapabilityTransferMethod.ADAPTER -> {
                     if (payload.kind != CapabilityPayloadKind.ADAPTER) {
                         issues += GraftRejection.TRANSFER_METHOD_PAYLOAD_MISMATCH
                     }
-                    if (donor.architectureFingerprint != target.architectureFingerprint ||
-                        donor.tokenizerFingerprint != target.tokenizerFingerprint ||
+                    if (donor.architectureFingerprint.isBlank() ||
+                        donor.tokenizerFingerprint.isBlank() ||
+                        donor.baseCheckpointFingerprint.isBlank() ||
                         payload.architectureFingerprint != target.architectureFingerprint ||
-                        payload.tokenizerFingerprint != target.tokenizerFingerprint
+                        payload.tokenizerFingerprint != target.tokenizerFingerprint ||
+                        donor.architectureFingerprint != target.architectureFingerprint ||
+                        donor.tokenizerFingerprint != target.tokenizerFingerprint ||
+                        donor.baseCheckpointFingerprint != target.baseCheckpointFingerprint
                     ) issues += GraftRejection.INCOMPATIBLE_PARAMETER_LINEAGE
                 }
                 CapabilityTransferMethod.KNOWLEDGE_DISTILLATION -> {
