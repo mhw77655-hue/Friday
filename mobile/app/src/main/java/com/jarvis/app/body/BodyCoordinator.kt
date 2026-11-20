@@ -74,6 +74,10 @@ class BodyCoordinator(
     private val _state = MutableStateFlow(BodyState.IDLE)
     val state: StateFlow<BodyState> = _state.asStateFlow()
 
+    private val _voiceConversationActive = MutableStateFlow(false)
+    val voiceConversationActive: StateFlow<Boolean> = _voiceConversationActive.asStateFlow()
+    private val voiceRecognitionRetryCount = java.util.concurrent.atomic.AtomicInteger(0)
+
     private val _visualState = MutableStateFlow(VisualState(bodyState = BodyState.IDLE))
     val visualState: StateFlow<VisualState> = _visualState.asStateFlow()
 
@@ -421,20 +425,47 @@ class BodyCoordinator(
      * A second tap ends recognition. A tap during output/processing interrupts
      * the current interaction, resets the transport, and begins a fresh capture.
      */
-    fun toggleListening() {
-        when (_state.value) {
-            BodyState.LISTENING, BodyState.WAKE, BodyState.HEARING -> {
-                speechRecognizer?.cancel()
-                emitEvent(BodyEvent.Reset)
-            }
-            BodyState.SPEAKING, BodyState.RESPONDING, BodyState.THINKING, BodyState.RETRIEVING -> {
-                emitEvent(BodyEvent.BargeIn(""))
-                emitEvent(BodyEvent.Reset)
-                emitEvent(BodyEvent.SpeechStart)
-            }
-            BodyState.IDLE -> emitEvent(BodyEvent.SpeechStart)
-            else -> {
-                emitEvent(BodyEvent.Reset)
+    /**
+     * Toggle a multi-turn voice conversation. Android recognition is one-shot,
+     * so an explicit session is re-armed after each completed spoken reply.
+     */
+    fun toggleListening() = toggleVoiceConversation()
+
+    fun toggleVoiceConversation() {
+        if (_voiceConversationActive.value) stopVoiceConversation() else startVoiceConversation()
+    }
+
+    /** Begin an owner-initiated voice session; callers must already hold mic permission. */
+    fun startVoiceConversation() {
+        if (_voiceConversationActive.value) return
+        _voiceConversationActive.value = true
+        voiceRecognitionRetryCount.set(0)
+        if (_state.value != BodyState.IDLE && _state.value != BodyState.USER_PRESENT) {
+            speechRecognizer?.cancel()
+            runCatching { JarvisEngine.getVoiceOutputPath()?.interrupt() }
+            runCatching { TtsBridge.stopSpeaking() }
+            emitEvent(BodyEvent.Reset)
+        }
+        emitEvent(BodyEvent.WakeDetected(1.0f))
+        emitEvent(BodyEvent.SpeechStart)
+    }
+
+    /** End the session and stop active recognition or speech playback. */
+    fun stopVoiceConversation() {
+        if (!_voiceConversationActive.value) return
+        _voiceConversationActive.value = false
+        voiceRecognitionRetryCount.set(0)
+        speechRecognizer?.cancel()
+        runCatching { JarvisEngine.getVoiceOutputPath()?.interrupt() }
+        runCatching { tts?.interrupt() }
+        runCatching { TtsBridge.stopSpeaking() }
+        emitEvent(BodyEvent.Reset)
+    }
+
+    private fun resumeVoiceConversationAfter(delayMs: Long) {
+        backgroundScope.launch {
+            delay(delayMs)
+            if (_voiceConversationActive.value && _state.value == BodyState.IDLE) {
                 emitEvent(BodyEvent.SpeechStart)
             }
         }
@@ -483,6 +514,11 @@ class BodyCoordinator(
         // Route after committing the transport transition so an immediate
         // action acknowledgment cannot race the state/visual update.
         inputTextToRoute?.let(inputQueue::enqueue)
+
+        if (event is BodyEvent.TtsEnd && _voiceConversationActive.value && _state.value == BodyState.IDLE) {
+            voiceRecognitionRetryCount.set(0)
+            resumeVoiceConversationAfter(300L)
+        }
     }
 
     private suspend fun routeInputText(text: String) {
@@ -595,6 +631,8 @@ class BodyCoordinator(
     private fun startPlatformRecognition() {
         val recognizer = speechRecognizer
         if (recognizer == null || !recognizer.isAvailable()) {
+            _voiceConversationActive.value = false
+            emitEvent(BodyEvent.Reset)
             failureSurface.report(
                 com.jarvis.app.failure.FailureReport(
                     subsystem = "STT_PLATFORM",
@@ -617,6 +655,7 @@ class BodyCoordinator(
         recognizer.recognize(locale) { text ->
             val clean = text?.trim().orEmpty()
             if (clean.isNotBlank()) {
+                voiceRecognitionRetryCount.set(0)
                 SpeechBridge.recordResult(clean)
                 emitEvent(
                     BodyEvent.SttResult(
@@ -625,6 +664,13 @@ class BodyCoordinator(
                         languageRouter.currentLanguage.value.code
                     )
                 )
+            } else if (_voiceConversationActive.value) {
+                // Recover from no-match/timeouts without silently ending an
+                // explicitly active multi-turn conversation.
+                val retry = voiceRecognitionRetryCount.incrementAndGet().coerceAtMost(5)
+                val backoffMs = (500L shl (retry - 1)).coerceAtMost(8_000L)
+                emitEvent(BodyEvent.Reset)
+                resumeVoiceConversationAfter(backoffMs)
             }
         }
     }
@@ -822,6 +868,7 @@ class BodyCoordinator(
         eventQueue.close()
         micJob?.cancel()
         JarvisMic.stop()
+        _voiceConversationActive.value = false
         speechRecognizer?.cancel()
         tts?.stop()
         presenceMonitor?.stop()

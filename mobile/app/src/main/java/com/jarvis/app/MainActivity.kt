@@ -117,10 +117,7 @@ class MainActivity : ComponentActivity() {
                 it is EngineReadinessState.Ready || it is EngineReadinessState.FailedToWake
             }
             if (readiness is EngineReadinessState.Ready) {
-                JarvisEngine.getBodyCoordinator().apply {
-                    emitEvent(com.jarvis.app.body.BodyEvent.WakeDetected(1.0f))
-                    emitEvent(com.jarvis.app.body.BodyEvent.SpeechStart)
-                }
+                JarvisEngine.getBodyCoordinator().startVoiceConversation()
             } else {
                 Toast.makeText(
                     this@MainActivity,
