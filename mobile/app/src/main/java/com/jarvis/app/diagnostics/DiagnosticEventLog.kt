@@ -48,6 +48,14 @@ class DiagnosticEventLog(private val capacity: Int = 250) {
             else -> "available; content omitted"
         }
         "voice_process" -> raw.substringBefore(" ping=").trim()
+        // Recognition text is private user content. Keep only lifecycle/status signals.
+        "speech_recognition" -> when {
+            raw.contains("heard", ignoreCase = true) -> "recognition_result_received; transcript omitted"
+            raw.contains("error", ignoreCase = true) || raw.contains("fail", ignoreCase = true) -> "recognition_error"
+            raw.contains("listen", ignoreCase = true) || raw.contains("record", ignoreCase = true) -> "recognition_active"
+            raw.contains("idle", ignoreCase = true) -> "idle"
+            else -> "status_changed; transcript omitted"
+        }
         else -> raw.trim()
     }
 }
