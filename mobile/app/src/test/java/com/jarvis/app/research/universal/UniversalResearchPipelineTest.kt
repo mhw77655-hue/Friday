@@ -180,4 +180,36 @@ class UniversalResearchPipelineTest {
 
     private fun UniversalResearchEngine.ResearchResult.principals(): List<String> =
         candidates.map { it.principle }
+
+    @Test
+    fun `cloud research is not reported configured when the production pool is empty`() = runBlocking<Unit> {
+        val provider = CloudResearchProvider(CloudModelRouter(emptyList()))
+        assertFalse("an empty production cloud pool is not healthy/configured", provider.health())
+    }
+
+    @Test
+    fun `cloud proposal cannot pass simulation without executing in a sandbox`() = runBlocking<Unit> {
+        val provider = CloudResearchProvider(
+            CloudModelRouter(listOf(StubCloudProvider("configured-test-provider", cloudMechanismsText)))
+        )
+        val candidate = com.jarvis.app.research.CandidateAlgorithm(
+            id = "candidate-not-executed",
+            mechanismId = "mechanism-1",
+            name = "candidate",
+            description = "proposal only",
+            implementationSketch = "not executable code",
+            targetDomain = ResearchDomain.OTHER,
+            provenance = com.jarvis.app.research.Provenance(
+                author = "test",
+                sourceReference = "unit-test"
+            )
+        )
+
+        val result = provider.simulate(candidate)
+
+        assertFalse("a reasoning provider must not claim an execution it did not perform", result.success)
+        assertEquals(0.0, result.metrics["executed"] ?: -1.0, 0.0)
+        assertTrue(result.error.orEmpty().contains("sandbox"))
+    }
+
 }
