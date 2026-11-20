@@ -350,7 +350,8 @@ class TurnPathAssembly private constructor(
                 failureSurface = failureSurface,
                 workloadOutcomeRecorder = { organ, succeeded, latencyMs, peakMemoryMb ->
                     ports.recordWorkloadOutcome(organ, succeeded, latencyMs, peakMemoryMb)
-                }
+                },
+                cloudProvider = ports.cloudModelProvider()
             )
             val cognitiveAdmissionPolicy = CognitiveAdmissionPolicy()
             val anchorEngine = AnchorEngine(modelManager, cognitiveAdmissionPolicy)
