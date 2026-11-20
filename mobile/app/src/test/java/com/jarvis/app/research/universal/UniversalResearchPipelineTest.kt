@@ -181,6 +181,21 @@ class UniversalResearchPipelineTest {
     private fun UniversalResearchEngine.ResearchResult.principals(): List<String> =
         candidates.map { it.principle }
 
+
+    @Test
+    fun `empty production cloud pool is not reported as an exercised research channel`() = runBlocking<Unit> {
+        val store = InMemoryMechanismsStore()
+        val engine = UniversalResearchEngine(
+            cloudRouter = CloudModelRouter(emptyList()),
+            store = store
+        )
+
+        val result = engine.researchPersist("find a resilient memory consolidation mechanism")
+
+        assertFalse("empty provider pool must not be reported as cloud research", CandidateSource.CLOUD_REASONING in result.channels)
+        assertTrue("local catalog remains available", CandidateSource.LOCAL_CATALOG in result.channels)
+    }
+
     @Test
     fun `cloud research is not reported configured when the production pool is empty`() = runBlocking<Unit> {
         val provider = CloudResearchProvider(CloudModelRouter(emptyList()))
