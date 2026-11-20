@@ -116,7 +116,12 @@ class ActionTraceStore(
                 appendLine("session_id: ${root.optString("session_id", sessionId)}")
                 appendLine("app_version: ${root.optString("app_version", appVersion)}")
                 appendLine("android_api: ${root.optInt("android_api", androidApi)}")
+                appendLine("device: ${capabilities.optString("manufacturer", "unknown")} ${capabilities.optString("model", "unknown")}")
+                appendLine("android_release: ${capabilities.optString("android_release", "unknown")}")
                 appendLine("source_revision: ${root.optString("source_revision", sourceRevision)}")
+                val firstEventAt = events.optJSONObject(0)?.optString("at_utc") ?: "unknown"
+                val lastEventAt = events.optJSONObject((events.length() - 1).coerceAtLeast(0))?.optString("at_utc") ?: "unknown"
+                appendLine("time_window: $firstEventAt - $lastEventAt")
                 appendLine("generated_at_utc: ${Instant.now()}")
                 appendLine()
                 appendLine("PRIVACY")
@@ -365,6 +370,9 @@ object PhoneActionDiagnostics {
         }
         val crashSummary = sanitizedCrashSummary(previousCrash)
         return JSONObject()
+            .put("manufacturer", android.os.Build.MANUFACTURER.take(80))
+            .put("model", android.os.Build.MODEL.take(120))
+            .put("android_release", android.os.Build.VERSION.RELEASE.take(40))
             .put("microphone_permission", context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED)
             .put("accessibility_service_enabled", enabledAccessibility.split(':').any { it.equals(expectedService, ignoreCase = true) })
             .put("accessibility_service_connected", com.jarvis.app.voice.FridayAccessibilityService.isEnabled())
