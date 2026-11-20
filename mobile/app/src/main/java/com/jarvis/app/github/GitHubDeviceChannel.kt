@@ -85,11 +85,12 @@ class GitHubDeviceChannel(context: Context) {
             .put(
                 "body",
                 "## Friday phone-initiated diagnostic channel\n\n" +
-                    "This issue is a public command queue for the owner's Friday Android device. " +
-                    "The phone polls periodically and accepts only owner-authored, expiring " +
-                    "`diagnostics.snapshot` commands. Replies contain a bounded technical " +
-                    "snapshot (device compatibility, content-free runtime/development aggregates, " +
-                    "model readiness, and recent crash signatures; exception messages are omitted). " +
+                    "This issue is a public evidence channel for the owner's Friday Android device. " +
+                    "The phone publishes one bounded technical snapshot when connected and then at " +
+                    "most every six hours while enabled. It also accepts only owner-authored, expiring " +
+                    "`diagnostics.snapshot` commands. Reports contain device compatibility, " +
+                    "content-free runtime/development aggregates, model readiness, and recent crash " +
+                    "signatures; exception messages are omitted. " +
                     "No conversations, private memories, location, " +
                     "contacts, notifications, microphone, camera, screen contents, files or " +
                     "unique device identifiers are transmitted. No shell, arbitrary file access, " +

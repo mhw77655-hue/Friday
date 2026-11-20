@@ -524,7 +524,7 @@ fun SettingsScreen() {
             modifier = Modifier.padding(top = 6.dp)
         )
         Text(
-            text = "This channel uses a public GitHub issue as its command queue. Reports and replies are visible to readers of the public repository. Reports include device compatibility, aggregate runtime/identity/plan/capability state, model readiness, and recent crash exception types and stack locations. Exception messages, private memories, prompts, transcripts, conversations, arbitrary files, location, microphone/camera data and screen contents are excluded. The only supported phone command is diagnostics.snapshot; no remote shell or app-control actions are available.",
+            text = "This channel uses a public GitHub issue as its evidence and command queue. Reports are visible to readers of the public repository. Friday publishes one sanitized snapshot on connection and then at most every six hours while enabled. Reports include device compatibility, aggregate runtime/identity/plan/capability state, model readiness, and recent crash exception types and stack locations. Exception messages, private memories, prompts, transcripts, conversations, raw logcat, arbitrary files, location, microphone/camera data and screen contents are excluded. The only supported phone command is diagnostics.snapshot; no remote shell or app-control actions are available.",
             style = JarvisType.Label,
             modifier = Modifier.padding(top = 8.dp)
         )
@@ -535,11 +535,11 @@ fun SettingsScreen() {
                 text = {
                     Text(
                         "Diagnostic commands and replies will be public on the Friday GitHub repository. " +
-                            "Reports contain device/resource metadata, aggregate runtime and development state, " +
+                            "Friday publishes one sanitized snapshot on connection and then at most every six hours while enabled. Reports contain device/resource metadata, aggregate runtime and development state, " +
                             "model readiness, and crash exception types with stack locations. They exclude " +
                             "exception messages, private memories, prompts, transcripts, conversations, files, " +
                             "location, microphone/camera data and screen contents. The phone only answers " +
-                            "diagnostics.snapshot; automatic reports are also published on that schedule. This does not give ChatGPT shell access or permission to " +
+                            "diagnostics.snapshot; scheduled reports are also published automatically. This does not give ChatGPT shell access or permission to " +
                             "change anything on your phone. Continue only if you accept public publication " +
                             "of this technical metadata."
                     )
