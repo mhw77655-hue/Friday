@@ -412,6 +412,13 @@ class BodyCoordinator(
         }
         _voiceConversationActive.value = true
         voiceRetryCount.set(0)
+        if (_state.value != BodyState.IDLE && _state.value != BodyState.USER_PRESENT) {
+            speechRecognizer?.cancel()
+            runCatching { JarvisEngine.getVoiceOutputPath()?.interrupt() }
+            runCatching { tts?.interrupt() }
+            runCatching { TtsBridge.stopSpeaking() }
+            emitEvent(BodyEvent.Reset)
+        }
         // Pause the optional background AudioRecord owner while SpeechRecognizer
         // owns the microphone; resume it only when this explicit session ends.
         if (com.jarvis.app.runtime.FridayRuntimeController.isMicrophoneServiceActive(context)) {
