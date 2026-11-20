@@ -100,7 +100,8 @@ class VoiceService : Service() {
                 SherpaTtsVoiceProvider(modelManager, VoiceModelManifest.pocketTtsEnInt8, id = "pocket"),
                 priority = VoiceProviderRegistry.HIGH_PRIORITY + 20
             )
-            register(SystemTtsVoiceProvider(this@VoiceService), priority = VoiceProviderRegistry.DEFAULT_PRIORITY)
+            // No Android/Google TTS provider is registered in Friday's identity habitat.
+            // Neural providers may fail honestly; they never substitute a generic voice.
         }
         selector = VoiceProviderSelector(registry)
         providers = registry.all()
