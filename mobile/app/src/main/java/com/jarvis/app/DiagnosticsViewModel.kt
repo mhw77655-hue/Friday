@@ -134,6 +134,14 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             "associations=${individual.experience.associationCount()}"
     }
 
+    private fun safeSpeechRecognitionSummary(raw: String): String = when {
+        raw.contains("heard", ignoreCase = true) -> "recognition result received; transcript omitted"
+        raw.contains("error", ignoreCase = true) || raw.contains("fail", ignoreCase = true) -> "recognition error"
+        raw.contains("listen", ignoreCase = true) || raw.contains("record", ignoreCase = true) -> "recognition active"
+        raw.contains("idle", ignoreCase = true) -> "idle"
+        else -> "status changed; transcript omitted"
+    }
+
     private fun safeLastModelTurnSummary(): String = when {
         lastBrainText.startsWith("ok (local)") -> "last turn succeeded"
         lastBrainText.startsWith("sending") -> "turn in progress"
@@ -456,7 +464,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             .put("notifications", lastNotifText)
             .put("shizuku", shizukuText.value)
             .put("microphone", micText.value)
-            .put("speech_recognition", sttText.value)
+            .put("speech_recognition", safeSpeechRecognitionSummary(sttText.value))
             .put("hotword", hotwordText.value)
             .put("text_to_speech", ttsText.value)
             .put("voice_process", voiceSubstrateText.value)
@@ -484,7 +492,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 .put("experience_count", it.experience.experienceCount())
                 .put("association_count", it.experience.associationCount())
         } ?: JSONObject.NULL)
-        report.put("last_crash", CrashJournal.read(app) ?: JSONObject.NULL)
+        report.put("last_crash", com.jarvis.app.diagnostics.sanitizedCrashSummary(CrashJournal.read(app)))
         report.put("active_diagnostics", diagnosticRunner.toJson(_diagnosticFindings.value))
         report.put("android_process_exit_history", diagnosticRunner.exitHistoryJson())
         report.put("telemetry_summary", Telemetry.summarize())
