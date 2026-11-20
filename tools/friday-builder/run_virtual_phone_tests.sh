@@ -81,9 +81,15 @@ if ! timeout 30s adb shell am start -W -n com.jarvis.app/.MainActivity; then
   exit 24
 fi
 sleep 8
+adb shell dumpsys activity activities > "$EVIDENCE_DIR/activity-stack.txt"
 adb shell dumpsys activity top > "$EVIDENCE_DIR/activity-top.txt"
-grep -q "com.jarvis.app" "$EVIDENCE_DIR/activity-top.txt" || {
-  echo "ANDROID_ACTIVITY_NOT_RESUMED: Friday did not reach the foreground." >&2
+if ! grep -Eq 'com\\.jarvis\\.app/(\\.MainActivity|com\\.jarvis\\.app\\.MainActivity)' "$EVIDENCE_DIR/activity-stack.txt"; then
+  echo "ANDROID_LAUNCH_COMPONENT_MISSING: Friday's MainActivity is not present in the live task stack." >&2
+  cat "$EVIDENCE_DIR/activity-stack.txt" >&2
   exit 25
-}
+fi
+if ! adb shell pidof com.jarvis.app >/dev/null 2>&1; then
+  echo "ANDROID_APP_PROCESS_MISSING: Friday's application process is not running after launch." >&2
+  exit 26
+fi
 adb exec-out screencap -p > "$EVIDENCE_DIR/screen.png"
