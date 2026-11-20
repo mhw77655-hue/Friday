@@ -336,4 +336,21 @@ class LatencyPipelineTest {
         r.scheduled.first { it.first == LatencyPipeline.ACK_ONLY_IDLE_MS }.second()
         assertEquals(LatencyLayer.Phase.IDLE, p.phase.value)
     }
+    @Test
+    fun `successful cloud replies are verified outcomes`() {
+        val pipeline = LatencyPipeline(
+            dispatch = { it() },
+            bridgeSend = {},
+            bridgeStatus = { "ok (cloud)" }
+        )
+
+        pipeline.onUserInput("Tell me something")
+        pipeline.onReplyReady("A real cloud response")
+
+        val reply = pipeline.turns.value.last()
+        assertTrue(reply.fromJarvis)
+        assertEquals("A real cloud response", reply.text)
+        assertTrue("successful hosted reasoning must not be marked unverified", reply.verified)
+    }
+
 }
