@@ -134,7 +134,24 @@ class AndroidPlatformPorts(
 
     override fun runLater(ms: Long, block: () -> Unit) = LatencyLayer.scheduleTurnWork(ms, block)
 
-    override fun speakFastAck(text: String) = AckSpeech.fastSpeak(text)
+    /**
+     * Fast acknowledgements must use the same selected voice identity as full
+     * replies. The old path spoke these through JarvisTts directly, bypassing
+     * Friday's isolated voice habitat and producing a visibly different
+     * system voice ("One moment", etc.) at the start of every exchange.
+     *
+     * The voice output path is installed before the engine becomes READY. Keep
+     * the legacy ack only as a bootstrap fallback if this adapter is exercised
+     * before that wiring is complete.
+     */
+    override fun speakFastAck(text: String) {
+        val fridayVoice = com.jarvis.app.JarvisEngine.getVoiceOutputPath()
+        if (fridayVoice != null) {
+            fridayVoice.speak(text)
+        } else {
+            AckSpeech.fastSpeak(text)
+        }
+    }
 
     /** The same sink the app wired: sentence-streaming TTS when the body has
      *  attached, platform TTS otherwise. */

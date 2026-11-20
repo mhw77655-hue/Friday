@@ -132,7 +132,7 @@ object AckPhrases {
 
     private val pools = mapOf(
         Bucket.POSITIVE to listOf("On it.", "Coming right up.", "Right away."),
-        Bucket.NEUTRAL to listOf("One moment.", "Mm-hm.", "Let me think."),
+        Bucket.NEUTRAL to listOf("Mm-hm.", "Let me think.", "I’m thinking."),
         Bucket.LOW to listOf("Working on it.", "Okay.", "Just a second.")
     )
 
