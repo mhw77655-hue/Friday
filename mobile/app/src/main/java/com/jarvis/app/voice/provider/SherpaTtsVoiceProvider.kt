@@ -82,10 +82,20 @@ class SherpaTtsVoiceProvider(
                 )
             )
         }
+        val kokoroEnglishNames = listOf(
+            "af", "af_bella", "af_nicole", "af_sarah", "af_sky",
+            "am_adam", "am_michael", "bf_emma", "bf_isabella", "bm_george", "bm_lewis"
+        )
         return (0 until entry.speakerCount).map { i ->
+            val voiceName = when {
+                id == "piper" -> "Amy · English US"
+                id == "sherpa" -> kokoroEnglishNames.getOrElse(i) { "Kokoro speaker ${i + 1}" }
+                id == "sherpa-arabic" -> "Nabra Arabic"
+                else -> "Kokoro speaker ${i + 1}"
+            }
             VoiceInfo(
                 id = "speaker_$i",
-                name = if (id == "piper") "Amy · English US" else "Kokoro speaker ${i + 1}",
+                name = voiceName,
                 language = entry.languages.firstOrNull() ?: "en",
                 quality = entry.quality
             )
