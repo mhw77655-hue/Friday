@@ -4,6 +4,9 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.Intent
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.widget.Toast
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -104,6 +107,7 @@ fun SettingsScreen() {
     // so without this the row would show the stale pre-grant value
     // until some unrelated recomposition happened to occur.
     var resumeSignal by remember { mutableIntStateOf(0) }
+    var actionTraceCount by remember(resumeSignal) { mutableIntStateOf(com.jarvis.app.diagnostics.PhoneActionDiagnostics.eventCount()) }
     val lifecycleOwner = LocalLifecycleOwner.current
     val phoneControlConnected = remember(resumeSignal) {
         com.jarvis.app.voice.FridayAccessibilityService.isEnabled()
@@ -647,6 +651,47 @@ fun SettingsScreen() {
                 colors = SwitchDefaults.colors(checkedTrackColor = JarvisColors.CoreIdle)
             )
         }
+
+        SectionLabel("LIVE TEST ACTION JOURNAL")
+        Text(
+            text = "Friday records phone-control attempts locally so failures can be diagnosed here. The journal stores action categories, execution routes, outcomes and durations—not spoken requests, typed text, tap labels, screen contents or credentials. Executor-reported success is deliberately marked unverified until a separate outcome check exists.",
+            style = JarvisType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Text(
+            text = "$actionTraceCount action events currently stored on this phone.",
+            style = JarvisType.Technical,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Button(
+            onClick = {
+                val report = com.jarvis.app.diagnostics.PhoneActionDiagnostics.exportText()
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("Friday live test report", report))
+                actionTraceCount = com.jarvis.app.diagnostics.PhoneActionDiagnostics.eventCount()
+                Toast.makeText(context, "Friday diagnostic report copied. Paste it into the development conversation.", Toast.LENGTH_LONG).show()
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Copy live test report") }
+        Button(
+            onClick = {
+                val report = com.jarvis.app.diagnostics.PhoneActionDiagnostics.exportText()
+                val share = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, report)
+                }
+                context.startActivity(Intent.createChooser(share, "Share Friday diagnostic report"))
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Share diagnostic report") }
+        TextButton(
+            onClick = {
+                com.jarvis.app.diagnostics.PhoneActionDiagnostics.clear()
+                actionTraceCount = 0
+                Toast.makeText(context, "Local action journal cleared.", Toast.LENGTH_SHORT).show()
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Clear local journal") }
 
         SectionLabel("MEMORY RULES")
         OutlinedTextField(
