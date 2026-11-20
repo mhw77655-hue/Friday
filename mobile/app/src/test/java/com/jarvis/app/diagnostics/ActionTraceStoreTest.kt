@@ -23,7 +23,7 @@ class ActionTraceStoreTest {
         assertTrue(json.contains("SetMediaVolume"))
         assertFalse(json.contains("\"OpenApp\""))
         assertTrue(json.contains("not_independently_verified"))
-        assertTrue(json.contains("verification_state\\\": \\\"verified"))
+        assertTrue(json.contains("\"verification_state\": \"verified\""))
         assertTrue(json.contains("success_reported"))
     }
 
