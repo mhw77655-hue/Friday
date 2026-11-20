@@ -76,6 +76,9 @@ interface PlatformPorts {
     /** Warm the model so the first real reply is not a cold load. */
     fun warmModel()
 
+    /** Optional owner-configured remote reasoning provider for the live conversation path. */
+    fun cloudModelProvider(): com.jarvis.app.model.ModelProvider? = null
+
     /** Whether the phone currently has a real language model available. Test hosts default to true. */
     fun hasLanguageModel(modelManager: com.jarvis.app.model.ModelManager): Boolean = true
 
