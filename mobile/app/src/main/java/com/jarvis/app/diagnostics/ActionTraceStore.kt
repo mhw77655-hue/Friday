@@ -1,0 +1,236 @@
+package com.jarvis.app.diagnostics
+
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.io.FileOutputStream
+import java.io.RandomAccessFile
+import java.nio.file.AtomicMoveNotSupportedException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.time.Instant
+import java.util.UUID
+
+/**
+ * Bounded, local-only journal for phone-control attempts.
+ *
+ * It deliberately stores operation categories rather than spoken text,
+ * tap labels, typed payloads, screen contents, exception messages or secrets.
+ * Executor success is never promoted to verified outcome by this journal.
+ */
+class ActionTraceStore(
+    private val directory: File,
+    private val appVersion: String,
+    private val androidApi: Int,
+    private val maxEvents: Int = DEFAULT_MAX_EVENTS,
+    private val sessionId: String = UUID.randomUUID().toString()
+) {
+    private val journalFile = File(directory, FILE_NAME)
+    private val lockFile = File(directory, LOCK_FILE)
+    private val monitor = Any()
+
+    init {
+        require(maxEvents > 0)
+    }
+
+    fun record(
+        action: String,
+        route: String,
+        outcome: String,
+        durationMs: Long
+    ): String = synchronized(monitor) {
+        withFileLock {
+            val root = readRoot()
+            val events = root.optJSONArray("events") ?: JSONArray()
+            val sequence = (0 until events.length())
+                .mapNotNull { events.optJSONObject(it)?.optLong("sequence") }
+                .maxOrNull()?.plus(1) ?: 1L
+            val traceId = UUID.randomUUID().toString()
+            val event = JSONObject()
+                .put("sequence", sequence)
+                .put("trace_id", traceId)
+                .put("session_id", sessionId)
+                .put("at_utc", Instant.now().toString())
+                .put("elapsed_realtime_ms", System.nanoTime() / 1_000_000L)
+                .put("action", safeToken(action))
+                .put("route", safeToken(route))
+                .put("outcome", safeOutcome(outcome))
+                .put("duration_ms", durationMs.coerceAtLeast(0))
+                .put("verification_state", "not_independently_verified")
+            events.put(event)
+
+            val bounded = JSONArray()
+            val first = (events.length() - maxEvents).coerceAtLeast(0)
+            for (index in first until events.length()) {
+                bounded.put(events.getJSONObject(index))
+            }
+            val updated = JSONObject()
+                .put("schema_version", SCHEMA_VERSION)
+                .put("session_id", sessionId)
+                .put("app_version", appVersion.take(80))
+                .put("android_api", androidApi)
+                .put("events", bounded)
+            writeRoot(updated)
+            traceId
+        }
+    }
+
+    fun eventCount(): Int = synchronized(monitor) {
+        withFileLock { readRoot().optJSONArray("events")?.length() ?: 0 }
+    }
+
+    fun exportJson(): String = synchronized(monitor) {
+        withFileLock {
+            val stored = readRoot()
+            JSONObject()
+                .put("report_type", "FRIDAY_LIVE_TEST_REPORT")
+                .put("schema_version", SCHEMA_VERSION)
+                .put("report_id", UUID.randomUUID().toString())
+                .put("generated_at_utc", Instant.now().toString())
+                .put("session_id", stored.optString("session_id", sessionId))
+                .put("app_version", stored.optString("app_version", appVersion))
+                .put("android_api", stored.optInt("android_api", androidApi))
+                .put("events", stored.optJSONArray("events") ?: JSONArray())
+                .toString(2)
+        }
+    }
+
+    fun exportText(): String = synchronized(monitor) {
+        withFileLock {
+            val root = readRoot()
+            val events = root.optJSONArray("events") ?: JSONArray()
+            buildString {
+                appendLine("FRIDAY LIVE TEST REPORT")
+                appendLine("schema: $SCHEMA_VERSION")
+                appendLine("report_id: ${UUID.randomUUID()}")
+                appendLine("session_id: ${root.optString("session_id", sessionId)}")
+                appendLine("app_version: ${root.optString("app_version", appVersion)}")
+                appendLine("android_api: ${root.optInt("android_api", androidApi)}")
+                appendLine("generated_at_utc: ${Instant.now()}")
+                appendLine()
+                appendLine("PRIVACY")
+                appendLine("Spoken text, typed payloads, tap labels, screen contents, notifications, secrets and exception messages are not recorded.")
+                appendLine()
+                appendLine("EXECUTION TIMELINE")
+                if (events.length() == 0) {
+                    appendLine("No phone-control actions have been recorded yet.")
+                } else {
+                    for (index in 0 until events.length()) {
+                        val event = events.optJSONObject(index) ?: continue
+                        appendLine(
+                            "#${event.optLong("sequence")} ${event.optString("at_utc")} " +
+                                "action=${event.optString("action")} route=${event.optString("route")} " +
+                                "outcome=${event.optString("outcome")} duration_ms=${event.optLong("duration_ms")} " +
+                                "verification=${event.optString("verification_state")} trace=${event.optString("trace_id")}"
+                        )
+                    }
+                }
+                appendLine()
+                appendLine("VERIFICATION")
+                appendLine("Executor-reported success is not proof of the intended outcome. All events remain not_independently_verified until a separate postcondition verifier supplies evidence.")
+                appendLine()
+                appendLine("MACHINE_READABLE_JSON")
+                append(exportJsonUnlocked(root))
+            }
+        }
+    }
+
+    fun clear() = synchronized(monitor) {
+        withFileLock {
+            if (journalFile.exists()) journalFile.delete()
+        }
+    }
+
+    private fun exportJsonUnlocked(root: JSONObject): String =
+        JSONObject()
+            .put("report_type", "FRIDAY_LIVE_TEST_REPORT")
+            .put("schema_version", SCHEMA_VERSION)
+            .put("report_id", UUID.randomUUID().toString())
+            .put("generated_at_utc", Instant.now().toString())
+            .put("session_id", root.optString("session_id", sessionId))
+            .put("app_version", root.optString("app_version", appVersion))
+            .put("android_api", root.optInt("android_api", androidApi))
+            .put("events", root.optJSONArray("events") ?: JSONArray())
+            .toString(2)
+
+    private fun readRoot(): JSONObject = runCatching {
+        if (!journalFile.isFile) JSONObject()
+        else JSONObject(journalFile.readText(Charsets.UTF_8))
+    }.getOrElse { JSONObject() }
+
+    private fun writeRoot(root: JSONObject) {
+        directory.mkdirs()
+        val temporary = File(directory, "$FILE_NAME.${UUID.randomUUID()}.tmp")
+        FileOutputStream(temporary).use { output ->
+            output.write(root.toString().toByteArray(Charsets.UTF_8))
+            output.flush()
+            output.fd.sync()
+        }
+        try {
+            Files.move(
+                temporary.toPath(),
+                journalFile.toPath(),
+                StandardCopyOption.ATOMIC_MOVE,
+                StandardCopyOption.REPLACE_EXISTING
+            )
+        } catch (_: AtomicMoveNotSupportedException) {
+            Files.move(temporary.toPath(), journalFile.toPath(), StandardCopyOption.REPLACE_EXISTING)
+        } finally {
+            if (temporary.exists()) temporary.delete()
+        }
+    }
+
+    private fun <T> withFileLock(block: () -> T): T {
+        directory.mkdirs()
+        RandomAccessFile(lockFile, "rw").use { file ->
+            file.channel.lock().use { return block() }
+        }
+    }
+
+    private fun safeToken(value: String): String =
+        value.replace(Regex("[^A-Za-z0-9_.-]"), "_").take(80).ifBlank { "unknown" }
+
+    private fun safeOutcome(value: String): String = when (value) {
+        "success_reported", "not_found", "ambiguous", "unavailable",
+        "user_action_required", "fallback_attempted", "failed" -> value
+        else -> "unknown"
+    }
+
+    companion object {
+        const val DEFAULT_MAX_EVENTS = 200
+        private const val SCHEMA_VERSION = 1
+        private const val FILE_NAME = "phone-action-traces.json"
+        private const val LOCK_FILE = "phone-action-traces.lock"
+    }
+}
+
+/** Android-facing process singleton; initialized by JarvisApplication. */
+object PhoneActionDiagnostics {
+    @Volatile private var store: ActionTraceStore? = null
+
+    fun install(context: android.content.Context) {
+        val app = context.applicationContext
+        val version = runCatching {
+            app.packageManager.getPackageInfo(app.packageName, 0).versionName ?: "unknown"
+        }.getOrDefault("unknown")
+        store = ActionTraceStore(
+            directory = File(app.filesDir, "diagnostics"),
+            appVersion = version,
+            androidApi = android.os.Build.VERSION.SDK_INT
+        )
+    }
+
+    fun record(action: String, route: String, outcome: String, durationMs: Long) {
+        runCatching { store?.record(action, route, outcome, durationMs) }
+    }
+
+    fun eventCount(): Int = runCatching { store?.eventCount() ?: 0 }.getOrDefault(0)
+
+    fun exportText(): String = runCatching {
+        store?.exportText() ?: "FRIDAY LIVE TEST REPORT\nDiagnostics are not initialized in this process."
+    }.getOrDefault("FRIDAY LIVE TEST REPORT\nThe local action journal could not be read.")
+
+    fun clear() {
+        runCatching { store?.clear() }
+    }
+}
