@@ -218,7 +218,7 @@ class GitHubDeviceChannel(context: Context) {
         val raw = ScreenBridge.diagnosticsSnapshot()
             ?: return "status=failed; stage=user_service_call; detail=diagnostics_unavailable"
         val uid = runCatching { JSONObject(raw).optInt("uid", -1) }.getOrDefault(-1)
-        val sdk = runCatching { JSONObject(raw).optInt("sdk", -1) }.getOrDefault(-1)
+        val sdk = runCatching { JSONObject(raw).optString("sdk").trim().toIntOrNull() ?: -1 }.getOrDefault(-1)
         if (uid != 0 && uid != 2000) {
             return "status=failed; stage=privilege; uid=$uid"
         }
