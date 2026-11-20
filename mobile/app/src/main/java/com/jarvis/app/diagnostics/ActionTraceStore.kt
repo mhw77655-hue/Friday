@@ -291,7 +291,10 @@ object PhoneActionDiagnostics {
             rawShizukuStatus.startsWith("rejected Shizuku identity") -> "identity_rejected"
             else -> "unavailable_or_error"
         }
-        val previousCrash = runCatching { CrashJournal.read(context) }.getOrNull()
+        val application = context.applicationContext as? android.app.Application
+        val previousCrash = application?.let { app ->
+            runCatching { CrashJournal.read(app) }.getOrNull()
+        }
         val crashSummary = JSONObject()
         if (previousCrash != null) {
             crashSummary.put("at_utc", previousCrash.optString("at_utc", "unknown"))
