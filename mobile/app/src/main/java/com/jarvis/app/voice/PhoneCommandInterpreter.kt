@@ -23,6 +23,13 @@ object PhoneCommandInterpreter {
             "previous track", "last track", "previous song" -> PhoneControlCommand.PreviousTrack
             "turn up the volume", "increase volume", "volume up", "louder" -> PhoneControlCommand.VolumeUp
             "turn down the volume", "decrease volume", "volume down", "quieter" -> PhoneControlCommand.VolumeDown
+            else -> when {
+                Regex("^set (?:the )?(?:media )?volume to (\\d{1,3})%?$").matchEntire(text)?.groupValues?.get(1)?.toIntOrNull()
+                    ?.takeIf { it in 0..100 }?.let { return PhoneControlCommand.SetMediaVolume(it) }
+                Regex("^set (?:the )?brightness to (\\d{1,3})%?$").matchEntire(text)?.groupValues?.get(1)?.toIntOrNull()
+                    ?.takeIf { it in 1..100 }?.let { return PhoneControlCommand.SetBrightness(it) }
+                else -> Unit
+            }
             "open internet settings", "open wifi settings", "connectivity settings",
             "turn on wifi", "turn off wifi", "enable wifi", "disable wifi",
             "connect to wifi", "disconnect wifi" -> PhoneControlCommand.OpenInternetPanel
@@ -86,6 +93,8 @@ object PhoneCommandInterpreter {
         PhoneControlCommand.PreviousTrack -> "Skip to the previous media track"
         PhoneControlCommand.VolumeUp -> "Increase media volume by one step"
         PhoneControlCommand.VolumeDown -> "Decrease media volume by one step"
+        is PhoneControlCommand.SetMediaVolume -> "Set media volume to ${command.percent} percent"
+        is PhoneControlCommand.SetBrightness -> "Set screen brightness to ${command.percent} percent"
         PhoneControlCommand.OpenInternetPanel -> "Open Android internet connectivity panel"
         PhoneControlCommand.ScrollForward -> "Scroll the active screen down"
         PhoneControlCommand.ScrollBackward -> "Scroll the active screen up"
