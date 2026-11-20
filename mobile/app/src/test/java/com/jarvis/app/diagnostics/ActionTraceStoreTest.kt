@@ -13,7 +13,7 @@ class ActionTraceStoreTest {
         val store = ActionTraceStore(directory, "test-build", 35, sourceRevision = "abc123", maxEvents = 2, sessionId = "session-test")
 
         store.record("OpenApp", "accessibility", "success_reported", 12)
-        store.record("SetMediaVolume", "accessibility", "verified", 5, verificationState = "verified")
+        store.record("SetMediaVolume", "accessibility", "verified", 5, verificationState = "verified", verificationStage = "VERIFIED")
         store.record("Back", "accessibility", "success_reported", 3)
 
         assertEquals(2, store.eventCount())
@@ -24,6 +24,7 @@ class ActionTraceStoreTest {
         assertFalse(json.contains("\"OpenApp\""))
         assertTrue(json.contains("not_independently_verified"))
         assertTrue(json.contains("\"verification_state\": \"verified\""))
+        assertTrue(json.contains("\"verification_stage\": \"VERIFIED\""))
         assertTrue(json.contains("success_reported"))
     }
 
@@ -84,11 +85,13 @@ class ActionTraceStoreTest {
     fun `unknown verification labels cannot be promoted to verified`() {
         val directory = Files.createTempDirectory("friday-verification-state").toFile()
         val store = ActionTraceStore(directory, "test", 35)
-        store.record("Back", "accessibility", "verified", 1, verificationState = "trust-me")
+        store.record("Back", "accessibility", "verified", 1, verificationState = "trust-me", verificationStage = "fake")
 
         val json = store.exportJson()
         assertTrue(json.contains("not_independently_verified"))
         assertFalse(json.contains("trust-me"))
+        assertTrue(json.contains("\"verification_stage\": \"UNKNOWN\""))
+        assertFalse(json.contains("\"verification_stage\": \"fake\""))
     }
 
     @Test
