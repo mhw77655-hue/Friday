@@ -164,11 +164,23 @@ class AndroidPlatformPorts(
         WarmupEngine.prime()
     }
 
+    /**
+     * Reuse the owner's encrypted OpenAI / Claude / Gemini provider profiles as
+     * a replaceable live-reasoning organ. Adviser-council permission remains
+     * separate: selecting a CLOUD environment is the explicit live-chat choice.
+     */
+    override fun cloudModelProvider(): com.jarvis.app.model.ModelProvider? =
+        (context.applicationContext as? com.jarvis.app.JarvisApplication)
+            ?.remoteProviderProfiles
+            ?.createEnabledProviders()
+            ?.firstOrNull()
+
     override fun hasLanguageModel(modelManager: com.jarvis.app.model.ModelManager): Boolean {
         val provider = modelManager.activeProvider.value
         val health = modelManager.providerHealth.value
+        val remoteIsStateless = provider.providerType == com.jarvis.app.env.ModelProviderType.CLOUD
         return provider.providerType != com.jarvis.app.env.ModelProviderType.HEURISTIC &&
-            health.isHealthy && health.modelLoaded
+            health.isHealthy && (health.modelLoaded || remoteIsStateless)
     }
 
     /**
