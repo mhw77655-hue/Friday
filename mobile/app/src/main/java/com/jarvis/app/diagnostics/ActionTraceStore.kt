@@ -259,10 +259,18 @@ object PhoneActionDiagnostics {
             "enabled_notification_listeners"
         ).orEmpty()
         val expectedNotificationListener = "${context.packageName}/com.jarvis.app.JarvisNotificationListener"
-        val shizukuStatus = runCatching { com.jarvis.app.ScreenBridge.status.value }
+        val rawShizukuStatus = runCatching { com.jarvis.app.ScreenBridge.status.value }
             .getOrDefault("unknown")
-            .replace(Regex("[^A-Za-z0-9 _=·.-]"), "_")
-            .take(100)
+        val shizukuStatus = when {
+            rawShizukuStatus.startsWith("bound · verified Shizuku uid=0") -> "verified_root_uid"
+            rawShizukuStatus.startsWith("bound · verified Shizuku uid=2000") -> "verified_shell_uid"
+            rawShizukuStatus == "Shizuku not running" -> "not_running"
+            rawShizukuStatus == "Shizuku permission not granted" -> "permission_missing"
+            rawShizukuStatus == "binding..." -> "binding"
+            rawShizukuStatus == "disconnected" || rawShizukuStatus == "binding died" -> "disconnected"
+            rawShizukuStatus.startsWith("rejected Shizuku identity") -> "identity_rejected"
+            else -> "unavailable_or_error"
+        }
         return JSONObject()
             .put("microphone_permission", context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED)
             .put("accessibility_service_enabled", enabledAccessibility.split(':').any { it.equals(expectedService, ignoreCase = true) })
