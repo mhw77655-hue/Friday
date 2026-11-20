@@ -17,18 +17,28 @@ import com.jarvis.app.ui.navigation.JarvisNavHost
 import com.jarvis.app.ui.theme.JarvisTheme
 
 class MainActivity : ComponentActivity() {
+    private var pendingConversationStart = false
+
     private val micPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
+            val shouldStartConversation = pendingConversationStart || intent.getBooleanExtra(
+                com.jarvis.app.voice.FridayVoiceInteractionSession.EXTRA_FRIDAY_VOICE_INVOCATION,
+                false
+            )
+            pendingConversationStart = false
             if (com.jarvis.app.runtime.FridayRuntimeController.isEnabled(this)) {
-                com.jarvis.app.runtime.FridayRuntimeController.startWithMicrophone(this)
+                if (shouldStartConversation) {
+                    com.jarvis.app.runtime.FridayRuntimeController.startCore(this)
+                } else {
+                    com.jarvis.app.runtime.FridayRuntimeController.startWithMicrophone(this)
+                }
             }
-            if (intent.getBooleanExtra(
-                    com.jarvis.app.voice.FridayVoiceInteractionSession.EXTRA_FRIDAY_VOICE_INVOCATION,
-                    false
-                )
-            ) beginAssistantListening()
+            if (shouldStartConversation) beginAssistantListening()
+        } else {
+            pendingConversationStart = false
+            Toast.makeText(this, "Microphone permission is needed for voice conversations.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -36,9 +46,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         handleSharedVideoIntent(intent)
         ShizukuBridge.init(this)
-        // KWS/Vosk/TTS are owned by JarvisEngine, started once in
-        // JarvisApplication.onCreate() — never re-initialized or released
-        // here. That per-Activity churn was itself a crash source.
+        // Voice input/output are owned by JarvisEngine and initialized once
+        // by JarvisApplication; this Activity only requests runtime permission.
 
         val hasMicPermission = ContextCompat.checkSelfPermission(
             this, Manifest.permission.RECORD_AUDIO
@@ -99,6 +108,28 @@ class MainActivity : ComponentActivity() {
                 false
             )
         ) beginAssistantListening()
+    }
+
+
+    /**
+     * The conversation screen must pass through the Activity permission gate.
+     * Starting SpeechRecognizer directly from Compose can create AudioRecord
+     * before RECORD_AUDIO is granted, producing a first-turn failure.
+     */
+    fun toggleVoiceConversationFromUi() {
+        val body = runCatching { JarvisEngine.getBodyCoordinator() }.getOrNull()
+        if (body?.voiceConversationActive?.value == true) {
+            body.stopVoiceConversation()
+            return
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            pendingConversationStart = true
+            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            return
+        }
+        beginAssistantListening()
     }
 
     private fun beginAssistantListening() {

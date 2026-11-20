@@ -35,6 +35,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.platform.LocalContext
+import com.jarvis.app.MainActivity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -207,6 +209,7 @@ private fun InputRow(
     bodyCoordinator: BodyCoordinator,
     voiceConversationActive: Boolean
 ) {
+    val hostActivity = LocalContext.current as? MainActivity
     Surface(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
         color = JarvisColors.SurfacePanel,
@@ -236,7 +239,7 @@ private fun InputRow(
                     cursorColor = JarvisColors.CoreThinking
                 )
             )
-            IconButton(onClick = { bodyCoordinator.toggleListening() }) {
+            IconButton(onClick = { hostActivity?.toggleVoiceConversationFromUi() }) {
                 FridayNavigationGlyph(
                     kind = "mic",
                     color = if (voiceConversationActive) JarvisColors.CoreSuccess else JarvisColors.CoreThinking,
