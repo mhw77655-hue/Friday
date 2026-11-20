@@ -169,10 +169,12 @@ class AndroidPlatformPorts(
      * a replaceable live-reasoning organ. Adviser-council permission remains
      * separate: selecting a CLOUD environment is the explicit live-chat choice.
      */
-    override fun cloudModelProvider(): com.jarvis.app.model.ModelProvider? =
-        (context.applicationContext as? com.jarvis.app.JarvisApplication)
-            ?.remoteProviderProfiles
-            ?.createPrimaryProvider()
+    override fun cloudModelProvider(): com.jarvis.app.model.ModelProvider =
+        com.jarvis.app.model.remote.PrimaryRemoteModelProvider {
+            (context.applicationContext as? com.jarvis.app.JarvisApplication)
+                ?.remoteProviderProfiles
+                ?.createPrimaryProvider()
+        }
 
     override fun hasLanguageModel(modelManager: com.jarvis.app.model.ModelManager): Boolean {
         val provider = modelManager.activeProvider.value
