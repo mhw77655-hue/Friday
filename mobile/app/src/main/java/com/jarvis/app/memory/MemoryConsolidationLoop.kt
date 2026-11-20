@@ -47,6 +47,13 @@ data class ConsolidationPassReport(
  * Triggering: [startIdleLoop] runs a slow background idle tick in production;
  * [runConsolidationPass] is the same body exposed for manual triggering and
  * deterministic tests.
+ *
+ * Passes are serialized and idempotent. Recent experience is the WHOLE
+ * recorded history, so without this the idle tick would re-ingest every past
+ * statement on every tick, re-writing the same durable fact forever and racing
+ * the graph store against concurrent readers. A statement is identified by
+ * (sessionId, text, timestamp) and fed to the durability gate exactly once;
+ * later passes still report it as scanned but never promote or write it again.
  */
 class MemoryConsolidationLoop(
     private val userProfile: UserProfile,
@@ -59,9 +66,13 @@ class MemoryConsolidationLoop(
     @Volatile
     private var idleLoopRunning = false
 
+    /** Statements already fed to the durability gate, guarded by this instance's monitor. */
+    private val processedStatements = mutableSetOf<ProcessedStatement>()
+
     fun isIdleLoopRunning(): Boolean = idleLoopRunning
 
     /** Start the background idle tick. Idempotent; one loop per instance. */
+    @Synchronized
     fun startIdleLoop() {
         if (idleLoopRunning) return
         idleLoopRunning = true
@@ -75,15 +86,22 @@ class MemoryConsolidationLoop(
 
     /**
      * Run one consolidation pass: review the recent per-session statements and
-     * feed each through the EXISTING durability gate. Returns what was scanned
-     * and what the gate promoted.
+     * feed each NEW one through the EXISTING durability gate. Returns what was
+     * scanned and what the gate promoted. Serialized, so an idle tick and a
+     * manual trigger (or two manual triggers) never drive the profile and graph
+     * store concurrently.
      */
+    @Synchronized
     fun runConsolidationPass(): ConsolidationPassReport {
         val statements = recentExperience().sortedBy { it.timestamp }
         var promoted = 0
         val promotions = mutableListOf<UserProfile.ProfileUpdate>()
         for (statement in statements) {
+            val key = ProcessedStatement(statement.sessionId, statement.text, statement.timestamp)
+            if (key in processedStatements) continue
             val update = userProfile.ingestUtterance(statement.text, statement.sessionId)
+            // Record only after the gate succeeds, so a failed ingest is retried.
+            processedStatements.add(key)
             if (update != null) {
                 promoted++
                 promotions.add(update)
@@ -95,6 +113,12 @@ class MemoryConsolidationLoop(
             promotions = promotions
         )
     }
+
+    private data class ProcessedStatement(
+        val sessionId: String,
+        val text: String,
+        val timestamp: Long
+    )
 
     companion object {
         const val DEFAULT_IDLE_INTERVAL_MS: Long = 5 * 60_000L

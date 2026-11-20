@@ -55,7 +55,12 @@ class UserProfile(
      *
      * @return the durable profile change committed this call, or null when
      *   nothing durable was written.
+     *
+     * Serialized because the background consolidation loop and the live turn
+     * path share this profile and both feed the same per-session observation
+     * state; unsynchronized concurrent writes could corrupt or lose that state.
      */
+    @Synchronized
     fun ingestUtterance(text: String, sessionId: String): ProfileUpdate? {
         val explicit = gate.extractExplicit(text)
         if (explicit != null) {

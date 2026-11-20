@@ -39,10 +39,13 @@ import org.junit.Test
 class MemoryConsolidationLoopTest {
 
     /** Pure-Kotlin, zero-JDBC in-memory [MemoryGraphStore] (same store interface
-     *  the production composition uses, so the loop writes the same graph). */
+     *  the production composition uses, so the loop writes the same graph).
+     *  Synchronized because the production store (Android SQLite) is safe under
+     *  the concurrent reads/writes the real idle loop can produce. */
     private class InMemoryGraph : MemoryGraphStore {
         private val nodes = mutableListOf<MemoryNode>()
         private var idCounter = 0
+        @Synchronized
         override fun addFact(subject: String, predicate: String, `object`: String, source: String): String {
             val now = System.currentTimeMillis()
             val id = "mem-${++idCounter}"
@@ -60,6 +63,7 @@ class MemoryConsolidationLoopTest {
             return id
         }
 
+        @Synchronized
         override fun query(subject: String?, predicate: String?, asOfTime: Long): List<MemoryNode> =
             nodes.filter { n ->
                 (subject == null || n.subject == subject) &&
@@ -67,9 +71,11 @@ class MemoryConsolidationLoopTest {
                     n.validFrom <= asOfTime && (n.validUntil == null || n.validUntil > asOfTime)
             }
 
+        @Synchronized
         override fun getHistory(subject: String, predicate: String): List<MemoryNode> =
             nodes.filter { it.subject == subject && it.predicate == predicate }.sortedBy { it.validFrom }
 
+        @Synchronized
         override fun nodeCount(): Long = nodes.size.toLong()
         override fun close() {}
     }
@@ -108,6 +114,24 @@ class MemoryConsolidationLoopTest {
             "concise answers to questions",
             h.userProfile.getPreference("communicationStyle")
         )
+    }
+
+    @Test
+    fun `repeated passes over the same recent experience do not re-promote or grow the graph`() {
+        val h = Harness()
+        h.statements += RecentStatement(sessionId = "session-a", text = "I prefer concise answers to questions", timestamp = 1)
+        val loop = h.loop()
+
+        val first = loop.runConsolidationPass()
+        assertEquals("first pass promotes the explicit statement", 1, first.promoted)
+        val nodesAfterFirst = h.graph.nodeCount()
+
+        val replay = loop.runConsolidationPass()
+
+        assertEquals("a replay still reviews the same recent experience", 1, replay.scanned)
+        assertEquals("an already-promoted statement is never promoted again", 0, replay.promoted)
+        assertTrue("a replay reports no promotions", replay.promotions.isEmpty())
+        assertEquals("a replay writes nothing new to the graph", nodesAfterFirst, h.graph.nodeCount())
     }
 
     @Test
@@ -185,9 +209,14 @@ class MemoryConsolidationLoopTest {
             h.statements += RecentStatement(sessionId = "session-once", text = "I prefer concise answers to questions", timestamp = 1)
 
             loop.startIdleLoop()
-            delay(300)
             try {
                 assertTrue("idle loop started", loop.isIdleLoopRunning())
+                val deadline = System.currentTimeMillis() + 5_000
+                while (h.userProfile.getPreference("communicationStyle") == null &&
+                    System.currentTimeMillis() < deadline
+                ) {
+                    delay(10)
+                }
                 assertEquals(
                     "idle tick consolidated the explicit statement automatically",
                     "concise answers to questions",
