@@ -9,7 +9,6 @@ import android.os.Debug
 import android.os.SystemClock
 import android.util.Log
 import com.jarvis.app.voice.provider.SherpaTtsVoiceProvider
-import com.jarvis.app.voice.provider.SystemTtsVoiceProvider
 import com.jarvis.app.voice.provider.VoiceProvider
 import com.jarvis.app.voice.provider.VoiceProviderRegistry
 import com.jarvis.app.voice.provider.VoiceProviderSelector
@@ -143,7 +142,7 @@ class VoiceService : Service() {
             val profile = com.jarvis.app.voice.DefaultJarvisVoiceProfile.copy(
                 language = language.ifBlank { "en" },
                 preferredProvider = if (!params.referenceAudioPath.isNullOrBlank()) "pocket" else providerId.ifBlank {
-                    com.jarvis.app.voice.DefaultJarvisVoiceProfile.preferredProvider ?: "piper"
+                    com.jarvis.app.voice.DefaultJarvisVoiceProfile.preferredProvider ?: "sherpa"
                 },
                 preferredVoice = if (!params.referenceAudioPath.isNullOrBlank()) "reference" else voiceId.ifBlank { null },
                 speechRate = params.speechRate,
