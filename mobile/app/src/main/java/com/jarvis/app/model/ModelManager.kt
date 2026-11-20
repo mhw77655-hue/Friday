@@ -606,8 +606,9 @@ class ModelManager(
     }
 
     private suspend fun attemptSend(message: String, attempt: Int, tierHandle: ModelHandle? = null) {
+        val providerLabel = if (_activeProvider.value.providerType == ModelProviderType.CLOUD) "cloud" else "local"
         _status.value =
-            if (attempt == 0) "sending (local)" else "retrying local (attempt ${attempt + 1})"
+            if (attempt == 0) "sending ($providerLabel)" else "retrying $providerLabel (attempt ${attempt + 1})"
         try {
             val result = if (tierHandle != null) {
                 val content = modelBackend.generate(tierHandle, message)
@@ -626,7 +627,7 @@ class ModelManager(
             }
             val content = result.content
             if (content.isNotBlank() && result.finishReason != FinishReason.ERROR) {
-                _status.value = "ok (local)"
+                _status.value = "ok ($providerLabel)"
                 _lastReply.value = content
             } else {
                 if (attempt < MAX_RETRIES) {
