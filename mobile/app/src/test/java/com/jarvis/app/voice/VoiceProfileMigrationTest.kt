@@ -17,7 +17,7 @@ class VoiceProfileMigrationTest {
 
         assertEquals("sherpa", migrated.preferredProvider)
         assertEquals("speaker_2", migrated.preferredVoice)
-        assertEquals(listOf("sherpa"), migrated.fallbackProviders)
+        assertEquals(listOf("piper", "sherpa-arabic"), migrated.fallbackProviders)
     }
 
     @Test
@@ -32,7 +32,7 @@ class VoiceProfileMigrationTest {
 
         assertEquals("sherpa", migrated.preferredProvider)
         assertEquals("speaker_2", migrated.preferredVoice)
-        assertEquals(listOf("sherpa"), migrated.fallbackProviders)
+        assertEquals(listOf("piper", "sherpa-arabic"), migrated.fallbackProviders)
     }
 
     @Test

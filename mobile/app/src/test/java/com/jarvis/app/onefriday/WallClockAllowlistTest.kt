@@ -187,7 +187,6 @@ class WallClockAllowlistTest {
 
         // ── latency: the timers the AC names as the honest exception ──────────
         put("latency/LatencyLayer.kt", 1)
-        put("latency/SpeechEngine.kt", 1)
         put("latency/WarmupEngine.kt", 1)
 
         // ── memory ────────────────────────────────────────────────────────────
@@ -279,7 +278,6 @@ class WallClockAllowlistTest {
         put("identity/owner/PlatformBiometricPromptResultMapper.kt", "biometric result timestamp on a device-only mapper")
 
         put("latency/LatencyLayer.kt", "the pipeline's own nowMs DEFAULT; the ONE root overrides it with the host clock, which is what InjectedClockTest proves")
-        put("latency/SpeechEngine.kt", "temp-file name for a synthesized clip (uniqueness, not elapsed time)")
         put("latency/WarmupEngine.kt", "warm-up window read; a device warm-up timer")
 
         put("memory/AndroidMemoryGraphStore.kt", "constructor fallback only; AndroidPlatformStores passes the root-owned clock to SQLite")

@@ -33,7 +33,7 @@ private const val TAG = "VoiceService"
  * R1 was a supervised placeholder (tone bytes proving the boundary). R2 hosts
  * the real providers:
  *
- *   - [VoiceProviderRegistry] (Sherpa/Kokoro + Android system TTS),
+ *   - [VoiceProviderRegistry] (Kokoro, Piper, Arabic and reference-conditioned neural providers),
  *   - [VoiceProviderSelector] (profile → provider, deterministic),
  *   - [VoiceModelManager] (lazy download / admission / lifecycle),
  *   - [VoiceFailureController] (classified failures cross IPC to the host).

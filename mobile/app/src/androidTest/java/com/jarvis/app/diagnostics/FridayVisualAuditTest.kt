@@ -69,7 +69,7 @@ class FridayVisualAuditTest {
         // permission on Android 13+; leaving the second dialog open hides Friday.
         repeat(4) {
             val deny = device.findObject(By.text("Don't allow"))
-            if (deny.exists()) {
+            if (deny != null) {
                 deny.click()
                 device.waitForIdle(1_000)
             }
