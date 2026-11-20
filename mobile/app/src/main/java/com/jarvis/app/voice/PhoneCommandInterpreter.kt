@@ -10,6 +10,12 @@ object PhoneCommandInterpreter {
         val cleaned = normalizeSpokenCommand(utterance)
         val text = cleaned.lowercase()
         if (text.isBlank()) return null
+        Regex("^set (?:the )?(?:media )?volume to (\\d{1,3})%?$").matchEntire(text)
+            ?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it in 0..100 }
+            ?.let { return PhoneControlCommand.SetMediaVolume(it) }
+        Regex("^set (?:the )?brightness to (\\d{1,3})%?$").matchEntire(text)
+            ?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it in 1..100 }
+            ?.let { return PhoneControlCommand.SetBrightness(it) }
         return when (text) {
             "go back", "back", "previous screen", "navigate back", "take me back", "return to previous screen" -> PhoneControlCommand.Back
             "go home", "home screen", "open home", "take me home", "return home", "return to home screen" -> PhoneControlCommand.Home
@@ -23,13 +29,6 @@ object PhoneCommandInterpreter {
             "previous track", "last track", "previous song" -> PhoneControlCommand.PreviousTrack
             "turn up the volume", "increase volume", "volume up", "louder" -> PhoneControlCommand.VolumeUp
             "turn down the volume", "decrease volume", "volume down", "quieter" -> PhoneControlCommand.VolumeDown
-            else -> when {
-                Regex("^set (?:the )?(?:media )?volume to (\\d{1,3})%?$").matchEntire(text)?.groupValues?.get(1)?.toIntOrNull()
-                    ?.takeIf { it in 0..100 }?.let { return PhoneControlCommand.SetMediaVolume(it) }
-                Regex("^set (?:the )?brightness to (\\d{1,3})%?$").matchEntire(text)?.groupValues?.get(1)?.toIntOrNull()
-                    ?.takeIf { it in 1..100 }?.let { return PhoneControlCommand.SetBrightness(it) }
-                else -> Unit
-            }
             "open internet settings", "open wifi settings", "connectivity settings",
             "turn on wifi", "turn off wifi", "enable wifi", "disable wifi",
             "connect to wifi", "disconnect wifi" -> PhoneControlCommand.OpenInternetPanel
