@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -43,6 +44,7 @@ class MemoryConsolidationLoopTest {
     private class InMemoryGraph : MemoryGraphStore {
         private val nodes = mutableListOf<MemoryNode>()
         private var idCounter = 0
+        @Synchronized
         override fun addFact(subject: String, predicate: String, `object`: String, source: String): String {
             val now = System.currentTimeMillis()
             val id = "mem-${++idCounter}"
@@ -60,6 +62,7 @@ class MemoryConsolidationLoopTest {
             return id
         }
 
+        @Synchronized
         override fun query(subject: String?, predicate: String?, asOfTime: Long): List<MemoryNode> =
             nodes.filter { n ->
                 (subject == null || n.subject == subject) &&
@@ -67,9 +70,11 @@ class MemoryConsolidationLoopTest {
                     n.validFrom <= asOfTime && (n.validUntil == null || n.validUntil > asOfTime)
             }
 
+        @Synchronized
         override fun getHistory(subject: String, predicate: String): List<MemoryNode> =
             nodes.filter { it.subject == subject && it.predicate == predicate }.sortedBy { it.validFrom }
 
+        @Synchronized
         override fun nodeCount(): Long = nodes.size.toLong()
         override fun close() {}
     }
@@ -185,20 +190,28 @@ class MemoryConsolidationLoopTest {
             h.statements += RecentStatement(sessionId = "session-once", text = "I prefer concise answers to questions", timestamp = 1)
 
             loop.startIdleLoop()
-            delay(300)
             try {
+                withTimeout(2_000) {
+                    while (h.userProfile.getPreference("communicationStyle") == null) delay(5)
+                }
                 assertTrue("idle loop started", loop.isIdleLoopRunning())
                 assertEquals(
                     "idle tick consolidated the explicit statement automatically",
                     "concise answers to questions",
                     h.userProfile.getPreference("communicationStyle")
                 )
+                // The idle loop revisits recent experience, but must not append
+                // duplicate graph facts or race readers on every tick.
+                delay(50)
+                assertEquals("one durable fact after repeated idle ticks", 1L, h.graph.nodeCount())
             } finally {
                 scope.cancel()
+                scope.coroutineContext[Job]?.join()
             }
 
             // Manual trigger for testing always runs the same pass body.
             val manual = h.loop().runConsolidationPass()
             assertEquals("manual pass scans the same recent experience", 1, manual.scanned)
+            assertEquals("manual replay does not append a duplicate durable fact", 1L, h.graph.nodeCount())
         }
 }
