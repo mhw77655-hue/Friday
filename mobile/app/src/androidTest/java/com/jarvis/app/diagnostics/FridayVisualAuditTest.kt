@@ -64,7 +64,9 @@ class FridayVisualAuditTest {
             ?: error("Friday launch intent is unavailable")
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         context.startActivity(launch)
-        device.wait(Until.hasObject(By.text("Don't allow")), 4_000)?.click()
+        if (device.wait(Until.hasObject(By.text("Don't allow")), 4_000)) {
+            device.findObject(By.text("Don't allow")).click()
+        }
         device.wait(Until.hasObject(By.text("Talk")), 45_000)
         assertTrue("Friday never reached its navigation surface", device.hasObject(By.text("Talk")))
 
@@ -92,11 +94,11 @@ class FridayVisualAuditTest {
         for ((index, title) in destinations.withIndex()) {
             device.findObject(By.text("More")).click()
             device.wait(Until.hasObject(By.text("Explore Friday")), 5_000)
-            val item = UiScrollable(UiSelector().scrollable(true))
+            val found = UiScrollable(UiSelector().scrollable(true))
                 .setAsVerticalList()
                 .scrollIntoView(UiSelector().text(title))
-            check(item.exists()) { "Navigation destination not exposed: $title" }
-            item.click()
+            check(found) { "Navigation destination not exposed: $title" }
+            device.findObject(By.text(title)).click()
             device.waitForIdle(2_000)
             capture("destination_%02d".format(index + 1), title)
         }
