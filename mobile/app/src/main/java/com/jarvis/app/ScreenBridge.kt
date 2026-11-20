@@ -121,6 +121,14 @@ object ScreenBridge {
         return _lastScreenText.value
     }
 
+    /** Launches an installed app by package name through a typed Shizuku operation. */
+    fun launchApp(packageName: String): String? {
+        val svc = service ?: return null
+        return runCatching { svc.launchApp(packageName) }
+            .onFailure { _status.value = "app launch failed: ${it.message}" }
+            .getOrNull()
+    }
+
     /** Reads bounded device diagnostics through the same privileged UserService. */
     suspend fun diagnosticsSnapshot(): String? = withContext(Dispatchers.IO) {
         val svc = service ?: return@withContext null
