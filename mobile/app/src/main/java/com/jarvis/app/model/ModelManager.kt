@@ -66,7 +66,9 @@ class ModelManager(
     private val autoSweep: Boolean = true,
     // NAE learns from real model-load outcomes; this callback stores aggregate
     // evidence only and cannot influence the current load's result.
-    private val workloadOutcomeRecorder: ((String, Boolean, Long, Long) -> Unit)? = null
+    private val workloadOutcomeRecorder: ((String, Boolean, Long, Long) -> Unit)? = null,
+    /** Optional owner-configured hosted reasoning organ; never an identity owner. */
+    private val cloudProvider: ModelProvider? = null
 ) {
     // One down-episode, one entry: the flag is what makes "not one per retry"
     // true by construction rather than a property of the surface's dedupe.
@@ -84,7 +86,7 @@ class ModelManager(
         ModelProviderType.OLLAMA to ollamaAdapter,
         ModelProviderType.REMOTE_JARVIS to remoteJarvisAdapter,
         ModelProviderType.HEURISTIC to heuristicAdapter,
-        ModelProviderType.CLOUD to heuristicAdapter, // CloudProviderAdapter is a stub for now
+        ModelProviderType.CLOUD to (cloudProvider ?: heuristicAdapter)
         ModelProviderType.NONE to heuristicAdapter
     )
 
@@ -105,7 +107,13 @@ class ModelManager(
 
     // Available provider profiles for the Model Manager UI
     private val _availableProviders = MutableStateFlow<List<ModelProvider>>(
-        listOf(llamaCppAdapter, ollamaAdapter, remoteJarvisAdapter, heuristicAdapter)
+        buildList {
+            add(llamaCppAdapter)
+            add(ollamaAdapter)
+            add(remoteJarvisAdapter)
+            add(heuristicAdapter)
+            cloudProvider?.let(::add)
+        }
     )
     val availableProviders = _availableProviders.asStateFlow()
 
@@ -152,16 +160,17 @@ class ModelManager(
             }
             ModelProviderType.HEURISTIC -> heuristicAdapter
             ModelProviderType.NONE -> heuristicAdapter
-            ModelProviderType.CLOUD -> {
-                // TODO: CloudProviderAdapter
-                heuristicAdapter
-            }
+            ModelProviderType.CLOUD -> cloudProvider
+                ?: throw IllegalStateException("No enabled remote reasoning provider is configured")
         }
 
         // Health check new provider before switching
         val health = newProvider.health()
+        if (type == ModelProviderType.CLOUD && !health.isHealthy) {
+            throw IllegalStateException(health.error ?: "The configured remote reasoning provider is unavailable")
+        }
         if (!health.isHealthy && type != ModelProviderType.HEURISTIC && type != ModelProviderType.NONE) {
-            // Still switch but emit warning health
+            // Local providers may still be selected for recovery/diagnostics; health remains visible.
         }
 
         _activeProvider.value = newProvider
