@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import java.io.IOException
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertSame
@@ -49,11 +50,13 @@ class ModelManagerTest {
     }
 
 
-    private class FakeCloudProvider : ModelProvider {
+    private class FakeCloudProvider(private val failGenerate: Boolean = false) : ModelProvider {
         override val providerType = ModelProviderType.CLOUD
         override val config = ProviderConfig(modelId = "remote-test")
-        override suspend fun generate(request: GenerateRequest) =
-            GenerateResult("remote answer", model = "remote-test")
+        override suspend fun generate(request: GenerateRequest): GenerateResult {
+            if (failGenerate) throw IOException("simulated remote outage")
+            return GenerateResult("remote answer", model = "remote-test")
+        }
         override fun stream(request: GenerateRequest): Flow<StreamEvent> =
             flowOf(StreamEvent.Token("remote answer", "remote answer"), StreamEvent.Done())
         override suspend fun health() = ProviderHealth(
@@ -67,6 +70,99 @@ class ModelManagerTest {
             supportsTools = false, supportsVision = false
         )
         override suspend fun tokenUsage() = TokenUsage(0, 0, 0)
+    }
+
+    private class FakeModelBackend(var available: Boolean = true) : ModelBackend {
+        private val loaded = mutableSetOf<ModelHandle>()
+        private var nextId = 0L
+        var loadCount = 0
+            private set
+        var generateCount = 0
+            private set
+        var lastConfig: ModelBackendConfig? = null
+            private set
+
+        override suspend fun loadModel(config: ModelBackendConfig): ModelHandle {
+            loadCount += 1
+            lastConfig = config
+            return ModelHandle(++nextId, config.modelId).also { loaded += it }
+        }
+
+        override suspend fun generate(handle: ModelHandle, prompt: String): String {
+            check(isLoaded(handle)) { "stale handle" }
+            generateCount += 1
+            return "resident answer"
+        }
+
+        override suspend fun unloadModel(handle: ModelHandle) {
+            loaded.remove(handle)
+        }
+
+        override fun isLoaded(handle: ModelHandle): Boolean = handle in loaded
+        override fun isAvailable(handle: ModelHandle): Boolean = available && handle in loaded
+        fun simulateProcessDeath() = loaded.clear()
+    }
+
+    @Test
+    fun `heuristic conversation uses installed resident model instead of phrase adapter`() = runBlocking {
+        val backend = FakeModelBackend()
+        val m = ModelManager(
+            context = null,
+            scope = CoroutineScope(Dispatchers.Default),
+            backend = backend,
+            autoSweep = false
+        )
+
+        m.send("Hello Friday")
+        val reply = withTimeout(5_000) { m.lastReply.first { it == "resident answer" } }
+
+        assertEquals("resident answer", reply)
+        assertEquals(1, backend.generateCount)
+        assertEquals("resident", backend.lastConfig?.modelId)
+        assertEquals(ModelProviderType.LLAMA_CPP, backend.lastConfig?.providerType)
+        assertEquals("ok (resident)", m.status.value)
+    }
+
+    @Test
+    fun `stale cached resident handle is discarded and reloaded after inference process death`() = runBlocking {
+        val backend = FakeModelBackend()
+        val m = ModelManager(
+            context = null,
+            scope = CoroutineScope(Dispatchers.Default),
+            backend = backend,
+            autoSweep = false
+        )
+
+        val first = m.request(OrganRole.RESIDENT, "initial-anchor", "resident", ModelProviderType.LLAMA_CPP)
+        assertTrue(m.isTierLoaded(ModelTier.RESIDENT))
+        backend.simulateProcessDeath()
+        assertTrue(!m.isTierLoaded(ModelTier.RESIDENT))
+
+        val second = m.request(OrganRole.RESIDENT, "re-anchor", "resident", ModelProviderType.LLAMA_CPP)
+        assertTrue(first.id != second.id)
+        assertEquals(2, backend.loadCount)
+        assertTrue(m.isTierLoaded(ModelTier.RESIDENT))
+    }
+
+    @Test
+    fun `cloud outage falls back to the installed local resident model`() = runBlocking {
+        val cloud = FakeCloudProvider(failGenerate = true)
+        val backend = FakeModelBackend()
+        val m = ModelManager(
+            context = null,
+            scope = CoroutineScope(Dispatchers.Default),
+            backend = backend,
+            cloudProvider = cloud,
+            autoSweep = false
+        )
+        assertTrue(m.setActiveProvider(ModelProviderType.CLOUD).isSuccess)
+
+        m.send("Continue our conversation")
+        val reply = withTimeout(15_000) { m.lastReply.first { it == "resident answer" } }
+
+        assertEquals("resident answer", reply)
+        assertEquals(1, backend.generateCount)
+        assertEquals("ok (resident)", m.status.value)
     }
 
     @Test

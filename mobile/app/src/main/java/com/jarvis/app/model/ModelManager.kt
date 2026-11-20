@@ -309,13 +309,18 @@ class ModelManager(
      */
     private fun defaultModelId(tier: ModelTier): String = when (tier) {
         ModelTier.ON_DEMAND_REASONING -> TIER_MODEL_ID_REASONING
-        else ->
-            _activeProvider.value.config?.modelId?.takeIf { it.isNotBlank() } ?: when (tier) {
-                ModelTier.RESIDENT -> "resident"
-                ModelTier.VOICE -> "voice"
-                ModelTier.VISION -> "vision"
-                ModelTier.ON_DEMAND_REASONING -> TIER_MODEL_ID_REASONING
+        ModelTier.RESIDENT -> {
+            // A hosted provider's model id is never a local GGUF filename.
+            // The local resident remains available as FRIDAY's offline organ.
+            val activeType = _activeProvider.value.providerType
+            if (activeType in setOf(ModelProviderType.CLOUD, ModelProviderType.HEURISTIC, ModelProviderType.NONE)) {
+                "resident"
+            } else {
+                _activeProvider.value.config?.modelId?.takeIf { it.isNotBlank() } ?: "resident"
             }
+        }
+        ModelTier.VOICE -> "voice"
+        ModelTier.VISION -> "vision"
     }
 
     /**
@@ -350,8 +355,18 @@ class ModelManager(
         while (true) {
             val cached = synchronized(lifecycleLock) { cachedByTier[tier] }
             if (cached != null) {
-                synchronized(lifecycleLock) { lastUsedMs[tier] = clock() }
-                return WakeResult(handle = cached, requestedTier = role.tier, servedTier = tier)
+                if (modelBackend.isLoaded(cached) && modelBackend.isAvailable(cached)) {
+                    synchronized(lifecycleLock) { lastUsedMs[tier] = clock() }
+                    return WakeResult(handle = cached, requestedTier = role.tier, servedTier = tier)
+                }
+                // The isolated inference process may have died while the
+                // manager retained its old handle. Never serve a dead cache.
+                synchronized(lifecycleLock) {
+                    if (cachedByTier[tier] == cached) {
+                        cachedByTier.remove(tier)
+                        lastUsedMs.remove(tier)
+                    }
+                }
             }
             if (tier == ModelTier.RESIDENT) {
                 val handle = loadOnce(tier, modelId = modelId ?: defaultModelId(tier), providerType = providerType)
@@ -378,8 +393,10 @@ class ModelManager(
      * this read is what the AnchorEngine uses to verify the anchor is held
      * and to detect the moment a turn finds it missing.
      */
-    fun isTierLoaded(tier: ModelTier): Boolean =
-        synchronized(lifecycleLock) { cachedByTier.containsKey(tier) }
+    fun isTierLoaded(tier: ModelTier): Boolean {
+        val handle = synchronized(lifecycleLock) { cachedByTier[tier] } ?: return false
+        return modelBackend.isLoaded(handle) && modelBackend.isAvailable(handle)
+    }
 
     /**
      * Release an organ: stamp [role]'s tier as last-used *now*, starting its
@@ -420,9 +437,17 @@ class ModelManager(
     }
 
     private fun beginLoad(tier: ModelTier): LoadOutcome = synchronized(lifecycleLock) {
-        cachedByTier[tier]?.let { LoadOutcome.Cached(it) }
-            ?: inflight[tier]?.let { LoadOutcome.InFlight(it) }
-            ?: LoadOutcome.Lead(CompletableDeferred<ModelHandle>()).also { inflight[tier] = it.deferred }
+        val cached = cachedByTier[tier]
+        if (cached != null && modelBackend.isLoaded(cached) && modelBackend.isAvailable(cached)) {
+            LoadOutcome.Cached(cached)
+        } else {
+            if (cached != null) {
+                cachedByTier.remove(tier)
+                lastUsedMs.remove(tier)
+            }
+            inflight[tier]?.let { LoadOutcome.InFlight(it) }
+                ?: LoadOutcome.Lead(CompletableDeferred<ModelHandle>()).also { inflight[tier] = it.deferred }
+        }
     }
 
     /**
@@ -494,7 +519,13 @@ class ModelManager(
                     modelBackend.loadModel(
                         ModelBackendConfig(
                             modelId = modelId,
-                            providerType = providerType ?: _activeProvider.value.providerType
+                            providerType = providerType ?: run {
+                                val activeType = _activeProvider.value.providerType
+                                if (
+                                    tier in setOf(ModelTier.RESIDENT, ModelTier.ON_DEMAND_REASONING) &&
+                                    activeType in setOf(ModelProviderType.CLOUD, ModelProviderType.HEURISTIC, ModelProviderType.NONE)
+                                ) ModelProviderType.LLAMA_CPP else activeType
+                            }
                         )
                     )
                 } catch (e: Exception) {
@@ -597,26 +628,92 @@ class ModelManager(
         turnServeHandle.set(null)
     }
 
-    /** Fire-and-forget conversation send against the active provider. */
+    /**
+     * Fire-and-forget conversation send. A booked reasoning organ serves this
+     * turn first; otherwise the installed local resident model is the default
+     * when the active provider is only the heuristic fallback. Hosted providers
+     * remain primary when explicitly selected, with the resident model as the
+     * automatic fallback if they become unavailable.
+     */
     fun send(message: String) {
-        val booked = turnServeHandle.getAndSet(null)?.takeIf { modelBackend.isLoaded(it) }
+        val booked = turnServeHandle.getAndSet(null)?.takeIf {
+            modelBackend.isLoaded(it) && modelBackend.isAvailable(it)
+        }
         scope.launch {
-            attemptSend(message, attempt = 0, tierHandle = booked)
+            if (message.isBlank()) {
+                if (_activeProvider.value.providerType == ModelProviderType.HEURISTIC) {
+                    val resident = loadResidentHandle("conversation-warmup")
+                    _status.value = if (resident != null) "ok (resident ready)" else "ok (limited offline)"
+                } else {
+                    runCatching { health() }
+                }
+                return@launch
+            }
+            val resident = if (booked == null &&
+                _activeProvider.value.providerType == ModelProviderType.HEURISTIC
+            ) loadResidentHandle("conversation-turn") else null
+            attemptSend(message, attempt = 0, tierHandle = booked ?: resident)
         }
     }
 
-    private suspend fun attemptSend(message: String, attempt: Int, tierHandle: ModelHandle? = null) {
+    private suspend fun loadResidentHandle(task: String): ModelHandle? {
+        val handle = runCatching {
+            request(
+                role = OrganRole.RESIDENT,
+                task = task,
+                modelId = "resident",
+                providerType = ModelProviderType.LLAMA_CPP
+            )
+        }.getOrNull() ?: return null
+        return handle.takeIf { modelBackend.isLoaded(it) && modelBackend.isAvailable(it) }
+    }
+
+    private suspend fun fallbackAfterFailure(
+        message: String,
+        failedHandle: ModelHandle?,
+        allowFallback: Boolean
+    ) {
+        if (allowFallback) {
+            if (failedHandle != null) {
+                // A booked/local organ failed; try the selected provider once.
+                attemptSend(message, attempt = 0, tierHandle = null, allowFallback = false)
+                return
+            }
+            if (_activeProvider.value.providerType != ModelProviderType.HEURISTIC) {
+                val resident = loadResidentHandle("conversation-provider-fallback")
+                if (resident != null) {
+                    _status.value = "switching to local resident"
+                    attemptSend(message, attempt = 0, tierHandle = resident, allowFallback = false)
+                    return
+                }
+            }
+        }
         val providerLabel = if (_activeProvider.value.providerType == ModelProviderType.CLOUD) "cloud" else "local"
+        _status.value = "$providerLabel reasoning provider unreachable"
+        _lastReply.value = if (providerLabel == "cloud") {
+            "I couldn't reach my configured remote reasoning provider, and my local resident model isn't available yet."
+        } else MODEL_SERVER_UNREACHABLE_REPLY
+    }
+
+    private suspend fun attemptSend(
+        message: String,
+        attempt: Int,
+        tierHandle: ModelHandle? = null,
+        allowFallback: Boolean = true
+    ) {
+        val providerLabel = when {
+            tierHandle?.modelId == TIER_MODEL_ID_REASONING -> "reasoning"
+            tierHandle != null -> "resident"
+            _activeProvider.value.providerType == ModelProviderType.CLOUD -> "cloud"
+            else -> "local"
+        }
         _status.value =
             if (attempt == 0) "sending ($providerLabel)" else "retrying $providerLabel (attempt ${attempt + 1})"
         try {
             val result = if (tierHandle != null) {
                 val content = modelBackend.generate(tierHandle, message)
-                if (content.isNotBlank()) {
-                    GenerateResult(content = content, finishReason = FinishReason.STOP)
-                } else {
-                    GenerateResult("", finishReason = FinishReason.ERROR)
-                }
+                if (content.isNotBlank()) GenerateResult(content = content, finishReason = FinishReason.STOP)
+                else GenerateResult("", finishReason = FinishReason.ERROR)
             } else {
                 generate(
                     GenerateRequest(
@@ -625,31 +722,21 @@ class ModelManager(
                     )
                 )
             }
-            val content = result.content
-            if (content.isNotBlank() && result.finishReason != FinishReason.ERROR) {
+            if (result.content.isNotBlank() && result.finishReason != FinishReason.ERROR) {
                 _status.value = "ok ($providerLabel)"
-                _lastReply.value = content
+                _lastReply.value = result.content
+            } else if (attempt < MAX_RETRIES) {
+                delay(RETRY_DELAYS_MS.getOrElse(attempt) { RETRY_DELAYS_MS.last() })
+                attemptSend(message, attempt + 1, tierHandle, allowFallback)
             } else {
-                if (attempt < MAX_RETRIES) {
-                    delay(RETRY_DELAYS_MS.getOrElse(attempt) { RETRY_DELAYS_MS.last() })
-                    attemptSend(message, attempt + 1, tierHandle)
-                } else {
-                    _status.value = "$providerLabel reasoning provider unreachable after ${attempt + 1} attempts"
-                    _lastReply.value = if (providerLabel == "cloud") {
-                        "I couldn't reach my configured remote reasoning provider. I'll continue with the local capabilities available to me."
-                    } else MODEL_SERVER_UNREACHABLE_REPLY
-                }
+                fallbackAfterFailure(message, tierHandle, allowFallback)
             }
         } catch (e: Exception) {
             if (attempt < MAX_RETRIES) {
                 delay(RETRY_DELAYS_MS.getOrElse(attempt) { RETRY_DELAYS_MS.last() })
-                attemptSend(message, attempt + 1, tierHandle)
+                attemptSend(message, attempt + 1, tierHandle, allowFallback)
             } else {
-                _status.value =
-                    "$providerLabel reasoning provider unreachable after ${attempt + 1} attempts (${e.message})"
-                _lastReply.value = if (providerLabel == "cloud") {
-                    "I couldn't reach my configured remote reasoning provider. I'll continue with the local capabilities available to me."
-                } else MODEL_SERVER_UNREACHABLE_REPLY
+                fallbackAfterFailure(message, tierHandle, allowFallback)
             }
         }
     }

@@ -54,8 +54,7 @@ interface ModelBackend {
  * what cannot happen yet and why.
  */
 const val MODEL_SERVER_UNREACHABLE_REPLY: String =
-    "My offline model server is unreachable or the resident model is not installed. I am still here; " +
-        "install the resident model in Friday's Model Manager and I can retry."
+    "My local reasoning organ is not available yet. I am still here; I will retry it automatically when the model or inference runtime becomes available."
 
 /**
  * Configuration for a model load. [modelPath] is the on-device model file the
