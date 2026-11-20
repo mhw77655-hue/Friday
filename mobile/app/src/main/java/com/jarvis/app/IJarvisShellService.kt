@@ -13,6 +13,7 @@ interface IJarvisShellService : IInterface {
     fun diagnosticsSnapshot(): String
     fun captureScreenSummary(): String
     fun setDozeWhitelist(enabled: Boolean): String
+    fun launchApp(packageName: String): String
     fun destroy()
 
     abstract class Stub : Binder(), IJarvisShellService {
@@ -48,6 +49,14 @@ interface IJarvisShellService : IInterface {
                     reply?.writeString(result)
                     return true
                 }
+                TRANSACTION_LAUNCH_APP -> {
+                    data.enforceInterface(DESCRIPTOR)
+                    val packageName = data.readString().orEmpty()
+                    val result = launchApp(packageName)
+                    reply?.writeNoException()
+                    reply?.writeString(result)
+                    return true
+                }
                 // Shizuku UserService destruction transaction for a hand-written Binder contract.
                 SHIZUKU_DESTROY_TRANSACTION -> {
                     destroy()
@@ -62,6 +71,7 @@ interface IJarvisShellService : IInterface {
             const val TRANSACTION_DIAGNOSTICS = IBinder.FIRST_CALL_TRANSACTION
             const val TRANSACTION_CAPTURE_SCREEN = IBinder.FIRST_CALL_TRANSACTION + 1
             const val TRANSACTION_DOZE_WHITELIST = IBinder.FIRST_CALL_TRANSACTION + 2
+            const val TRANSACTION_LAUNCH_APP = IBinder.FIRST_CALL_TRANSACTION + 3
             const val SHIZUKU_DESTROY_TRANSACTION = 16777114
 
             @JvmStatic
@@ -119,8 +129,28 @@ interface IJarvisShellService : IInterface {
             }
         }
 
+        override fun launchApp(packageName: String): String {
+            val data = Parcel.obtain()
+            val reply = Parcel.obtain()
+            return try {
+                data.writeInterfaceToken(Stub.DESCRIPTOR)
+                data.writeString(packageName)
+                remote.transact(Stub.TRANSACTION_LAUNCH_APP, data, reply, 0)
+                reply.readException()
+                reply.readString() ?: "status=unverified"
+            } finally {
+                data.recycle()
+                reply.recycle()
+            }
+        }
+
         override fun destroy() {
-            remote.transact(Stub.SHIZUKU_DESTROY_TRANSACTION, Parcel.obtain(), null, IBinder.FLAG_ONEWAY)
+            val data = Parcel.obtain()
+            try {
+                remote.transact(Stub.SHIZUKU_DESTROY_TRANSACTION, data, null, IBinder.FLAG_ONEWAY)
+            } finally {
+                data.recycle()
+            }
         }
     }
 }
