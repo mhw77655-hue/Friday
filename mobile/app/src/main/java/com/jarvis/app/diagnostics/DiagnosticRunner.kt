@@ -75,9 +75,8 @@ class DiagnosticRunner(private val app: Application) {
         }
         if (lastCrash != null) {
             val type = runCatching { lastCrash.getJSONArray("exception_chain").optJSONObject(0)?.optString("type") }.getOrNull()
-            val message = runCatching { lastCrash.getJSONArray("exception_chain").optJSONObject(0)?.optString("message") }.getOrNull()
             findings += finding(DiagnosticSeverity.ERROR, "Previous uncaught crash",
-                "${type ?: "Exception"}: ${message ?: "message unavailable"}",
+                type ?: "Exception type recorded; exception message omitted by privacy policy.",
                 "CrashJournal captured an uncaught exception from the previous process.",
                 "Open the exception frames in the exported report; fix the first Friday-owned frame, then reproduce the same action.")
         } else {
@@ -104,7 +103,7 @@ class DiagnosticRunner(private val app: Application) {
         } catch (error: Throwable) {
             runCatching { file.delete() }
             finding(DiagnosticSeverity.ERROR, "Private storage read/write",
-                "${error.javaClass.simpleName}: ${error.message ?: "no detail"}",
+                "${error.javaClass.simpleName}; exception message omitted by privacy policy.",
                 "Friday cannot complete a private cache write/read cycle.", "Free storage, check filesystem restrictions, and retry.")
         }
     }
@@ -304,18 +303,14 @@ class DiagnosticRunner(private val app: Application) {
         }.getOrDefault(emptyList())
         return JSONArray().apply {
             exits.take(12).forEach { exit ->
-                val trace = runCatching {
-                    exit.traceInputStream?.bufferedReader(Charsets.UTF_8)?.use { it.readText().take(12000) }
-                }.getOrNull()
-                put(JSONObject()
+                    put(JSONObject()
                     .put("timestamp_ms", exit.timestamp)
                     .put("reason_code", exit.reason)
                     .put("status", exit.status)
                     .put("process", exit.processName)
                     .put("importance", exit.importance)
-                    .put("description", exit.description?.take(500) ?: JSONObject.NULL)
-                    .put("trace_available", !trace.isNullOrBlank())
-                    .put("trace_excerpt", trace ?: JSONObject.NULL))
+                    .put("trace_available", exit.traceInputStream != null)
+                    .put("trace_excerpt", JSONObject.NULL))
             }
         }
     }
