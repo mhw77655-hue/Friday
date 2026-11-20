@@ -79,6 +79,18 @@ class FridayRuntimeService : Service() {
                                 JarvisMic.start(runtimeScope)
                                 microphoneOwned = JarvisMic.isRecording.value
                                 FridayRuntimeController.setMicrophoneServiceActive(this@FridayRuntimeService, microphoneOwned)
+                                if (microphoneOwned) {
+                                    var type = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                                        type = type or ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+                                    }
+                                    ServiceCompat.startForeground(
+                                        this@FridayRuntimeService,
+                                        NOTIFICATION_ID,
+                                        buildNotification(true),
+                                        type
+                                    )
+                                }
                             }
                         }
                     }
