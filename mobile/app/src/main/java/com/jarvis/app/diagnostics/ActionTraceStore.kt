@@ -40,7 +40,8 @@ class ActionTraceStore(
         outcome: String,
         durationMs: Long,
         verificationState: String = "not_independently_verified",
-        verificationStage: String = "UNKNOWN"
+        verificationStage: String = "UNKNOWN",
+        failureStage: String? = null
     ): String = synchronized(monitor) {
         withFileLock {
             val root = readRoot()
@@ -61,6 +62,7 @@ class ActionTraceStore(
                 .put("duration_ms", durationMs.coerceAtLeast(0))
                 .put("verification_state", safeVerificationState(verificationState))
                 .put("verification_stage", safeVerificationStage(verificationStage))
+                .put("failure_stage", safeFailureStage(failureStage))
             events.put(event)
 
             val bounded = JSONArray()
@@ -130,7 +132,9 @@ class ActionTraceStore(
                             "#${event.optLong("sequence")} ${event.optString("at_utc")} " +
                                 "action=${event.optString("action")} route=${event.optString("route")} " +
                                 "outcome=${event.optString("outcome")} duration_ms=${event.optLong("duration_ms")} " +
-                                "verification=${event.optString("verification_state")} trace=${event.optString("trace_id")}"
+                                "verification=${event.optString("verification_state")} " +
+                                "verification_stage=${event.optString("verification_stage")} " +
+                                "failure_stage=${event.optString("failure_stage")} trace=${event.optString("trace_id")}"
                         )
                     }
                 }
@@ -249,6 +253,11 @@ class ActionTraceStore(
         else -> "UNKNOWN"
     }
 
+    private fun safeFailureStage(value: String?): String = when (value) {
+        "availability_check", "availability", "execution", "verification" -> value
+        else -> "none"
+    }
+
     companion object {
         const val DEFAULT_MAX_EVENTS = 200
         private const val SCHEMA_VERSION = 1
@@ -312,10 +321,11 @@ object PhoneActionDiagnostics {
         outcome: String,
         durationMs: Long,
         verificationState: String = "not_independently_verified",
-        verificationStage: String = "UNKNOWN"
+        verificationStage: String = "UNKNOWN",
+        failureStage: String? = null
     ) {
         runCatching {
-            store?.record(action, route, outcome, durationMs, verificationState, verificationStage)
+            store?.record(action, route, outcome, durationMs, verificationState, verificationStage, failureStage)
         }
     }
 
