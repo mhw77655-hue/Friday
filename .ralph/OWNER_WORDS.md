@@ -203,3 +203,21 @@ Source: `New Folder chats/Continue_Vision_Summary (1).txt`, owner turn 16. Voice
 > The cameras in my glasses the car how does the road behave if there's an input Friday can reach it
 
 Source: `New Folder chats/Continue_Vision_Summary (1).txt`, owner turn 35. The example establishes universal learning across the owner's actions and any relevant accessible environmental evidence; it is not a request for a dedicated driving subsystem.
+
+
+> I want to talk to her tell her and she just gets more and more of what my vision means letarly i need a system that make me able to just tell her what i want about her to become or she should do it and she just do it  
+> My words are simple but they mean everything underneath is complex with allot of stuff  
+> ...  
+> anything she does wrong is has to be rebuilt by her
+
+Source: `New Folder chats/Claude (22) (9).txt`, owner turn 9. The owner wants to direct Friday in ordinary language, have Friday deepen her understanding of the intended outcome and determine how to apply it, and progressively take responsibility for diagnosing and rebuilding her own shortcomings.
+
+> Yeah you're mostly rightBut about the whole ultimate idea that was never the must now reality it was the when the time comes and Friday is capable then she will apply my vision to the current technology all of my ultimate ideas is just a futuristic projects after years not must be built now because i always get the ultimate version so i could relief it and don't overthink it again i do that so i can think of something else that actually need my effort  
+> ...  
+> i want the first version to be able to actually begin like a human Brian not like idiot chatbot
+
+Source: `New Folder chats/Understanding_Your_Motive.txt`, owner turn 6. The far-future vision is a destination and a place to preserve ideas, not a demand to implement every futuristic capability in the first release. The first seed must nevertheless have enough functional cognitive foundation to begin developing beyond a basic chatbot.
+
+> the key to understand me isn't just from chatting it's from all the sensors all the possible reserves
+
+Source: `New Folder chats/Understanding_Your_Motive.txt`, owner turn 6. Treat words, voice, face, body language, history, context and other legitimately available signals as evidence with uncertainty; no single sensor or signal is automatically truth.
