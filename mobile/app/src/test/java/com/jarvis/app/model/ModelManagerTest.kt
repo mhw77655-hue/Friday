@@ -3,11 +3,14 @@ package com.jarvis.app.model
 import com.jarvis.app.env.ModelProviderType
 import com.jarvis.app.model.adapters.HeuristicAdapter
 import com.jarvis.app.model.config.ProviderConfig
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -40,6 +43,55 @@ class ModelManagerTest {
         // Fresh managers start on the heuristic fallback, never a network provider.
         assertEquals(ModelProviderType.HEURISTIC, m.activeProvider.value.providerType)
         assertTrue(m.activeProvider.value is HeuristicAdapter)
+    }
+
+
+    private class FakeCloudProvider : ModelProvider {
+        override val providerType = ModelProviderType.CLOUD
+        override val config = ProviderConfig(modelId = "remote-test")
+        override suspend fun generate(request: GenerateRequest) =
+            GenerateResult("remote answer", model = "remote-test")
+        override fun stream(request: GenerateRequest): Flow<StreamEvent> =
+            flowOf(StreamEvent.Token("remote answer", "remote answer"), StreamEvent.Done())
+        override suspend fun health() = ProviderHealth(
+            isHealthy = true, latencyMs = 12, modelLoaded = false, currentModel = "remote-test"
+        )
+        override suspend fun load(request: LoadRequest) = LoadResult(true, request.modelId)
+        override suspend fun unload(request: UnloadRequest) = UnloadResult(true, request.modelId)
+        override suspend fun modelInfo() = ModelInfo(
+            id = "remote-test", name = "Remote test", providerType = ModelProviderType.CLOUD,
+            contextWindow = 8192, maxOutputTokens = 1024, supportsStreaming = false,
+            supportsTools = false, supportsVision = false
+        )
+        override suspend fun tokenUsage() = TokenUsage(0, 0, 0)
+    }
+
+    @Test
+    fun `configured cloud provider becomes the live provider without requiring local model weights`() = runBlocking {
+        val cloud = FakeCloudProvider()
+        val m = ModelManager(
+            context = null,
+            scope = CoroutineScope(Dispatchers.Default),
+            cloudProvider = cloud
+        )
+
+        assertTrue(m.availableProviders.value.any { it === cloud })
+        val result = m.setActiveProvider(ModelProviderType.CLOUD)
+
+        assertTrue("configured cloud provider should activate", result.isSuccess)
+        assertSame(cloud, m.activeProvider.value)
+        assertTrue(m.providerHealth.value.isHealthy)
+        // Hosted providers do not load weights into the phone's memory.
+        assertTrue(!m.providerHealth.value.modelLoaded)
+    }
+
+    @Test
+    fun `cloud selection fails honestly when no remote provider is configured`() = runBlocking {
+        val m = manager()
+        val result = m.setActiveProvider(ModelProviderType.CLOUD)
+
+        assertTrue("missing cloud provider must not silently select heuristics", result.isFailure)
+        assertEquals(ModelProviderType.HEURISTIC, m.activeProvider.value.providerType)
     }
 
     @Test
