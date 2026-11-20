@@ -29,6 +29,10 @@ class PhoneCommandInterpreterTest {
         assertEquals(PhoneControlCommand.PreviousTrack, PhoneCommandInterpreter.parse("previous song"))
         assertEquals(PhoneControlCommand.VolumeUp, PhoneCommandInterpreter.parse("increase volume"))
         assertEquals(PhoneControlCommand.VolumeDown, PhoneCommandInterpreter.parse("quieter"))
+        assertEquals(PhoneControlCommand.SetMediaVolume(30), PhoneCommandInterpreter.parse("set media volume to 30 percent"))
+        assertEquals(PhoneControlCommand.SetBrightness(45), PhoneCommandInterpreter.parse("set brightness to 45%"))
+        assertNull(PhoneCommandInterpreter.parse("set brightness to 0 percent"))
+        assertNull(PhoneCommandInterpreter.parse("set media volume to 101 percent"))
         assertEquals(PhoneControlCommand.OpenInternetPanel, PhoneCommandInterpreter.parse("open wifi settings"))
         assertEquals(PhoneControlCommand.OpenInternetPanel, PhoneCommandInterpreter.parse("turn off wifi"))
     }
