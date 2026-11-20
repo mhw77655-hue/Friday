@@ -74,6 +74,7 @@ class DeviceControlRouter(
         val localAttempts = mutableListOf<BackendAttempt>()
         var winner: ControlBackend? = null
         for (backend in chain) {
+            val attemptStartedAt = System.nanoTime()
             val available = try {
                 backend.available()
             } catch (failure: Exception) {
@@ -86,7 +87,8 @@ class DeviceControlRouter(
                             backend.id,
                             "availability check threw"
                         ),
-                        error = failure.message ?: failure.javaClass.simpleName
+                        error = failure.javaClass.simpleName,
+                        durationMs = elapsedMs(attemptStartedAt)
                     )
                 )
                 continue
@@ -101,7 +103,8 @@ class DeviceControlRouter(
                             backend.id,
                             "backend unavailable"
                         ),
-                        error = "unavailable"
+                        error = "unavailable",
+                        durationMs = elapsedMs(attemptStartedAt)
                     )
                 )
                 continue
@@ -118,7 +121,8 @@ class DeviceControlRouter(
                             backend.id,
                             "execution threw"
                         ),
-                        error = failure.message ?: failure.javaClass.simpleName
+                        error = failure.javaClass.simpleName,
+                        durationMs = elapsedMs(attemptStartedAt)
                     )
                 )
                 continue
@@ -128,7 +132,8 @@ class DeviceControlRouter(
                     backendId = backend.id,
                     succeeded = evidence.isComplete,
                     evidence = evidence,
-                    error = if (evidence.isComplete) null else "not verified"
+                    error = if (evidence.isComplete) null else "not verified",
+                    durationMs = elapsedMs(attemptStartedAt)
                 )
             )
             if (evidence.isComplete) {
@@ -138,8 +143,45 @@ class DeviceControlRouter(
         }
         val snapshot = localAttempts.toList()
         synchronized(diagnosticLock) { lastAttempts = snapshot }
+
+        // Persist every route considered, including unavailable and failed
+        // rungs. Only explicit VERIFIED evidence is allowed to mark an event
+        // verified; raw backend detail/error text is intentionally not exported.
+        if (snapshot.isEmpty()) {
+            com.jarvis.app.diagnostics.PhoneActionDiagnostics.record(
+                action = action.actionType.name,
+                route = "device_control_router",
+                outcome = "unavailable",
+                durationMs = 0,
+                verificationState = "not_attempted"
+            )
+        } else {
+            snapshot.forEach { attempt ->
+                val outcome = when {
+                    attempt.succeeded -> "verified"
+                    attempt.error == "unavailable" -> "unavailable"
+                    attempt.error == "not verified" -> "not_verified"
+                    else -> "failed"
+                }
+                val verificationState = when {
+                    attempt.succeeded -> "verified"
+                    attempt.evidence.stage == VerificationStage.NOT_ATTEMPTED -> "not_attempted"
+                    else -> "not_independently_verified"
+                }
+                com.jarvis.app.diagnostics.PhoneActionDiagnostics.record(
+                    action = action.actionType.name,
+                    route = attempt.backendId,
+                    outcome = outcome,
+                    durationMs = attempt.durationMs,
+                    verificationState = verificationState
+                )
+            }
+        }
         return DeviceControlExecution(winner, snapshot)
     }
+
+    private fun elapsedMs(startedAtNanos: Long): Long =
+        ((System.nanoTime() - startedAtNanos) / 1_000_000L).coerceAtLeast(0L)
 
     /** Ordered backend ids actually tried in the last completed call. */
     fun lastTriedOrder(): List<String> = attempts.map { it.backendId }
