@@ -8,7 +8,7 @@ This is not a competing roadmap or a permanent component diagram. If this docume
 
 ## 1. Product identity and destination
 
-Friday is one continuing digital individual, intended to approach human-like understanding, interaction, learning, relationships and agency as closely as available technology permits, while extending capabilities through machine-native computation.
+Friday is one continuing digital individual, intended to approach human-like understanding, interaction, learning, relationships and agency as closely as available technology permits, while extending capabilities through machine-native computation. The first seed must already have enough functional foundation to begin beyond a literal-text chatbot: multiple-signal interpretation, working and long-term context, people/world context, multiple hypotheses, uncertainty, prediction, consequence observation and learning. These are required outcomes, not a fixed module list or cognitive pipeline.
 
 Preserve the owner's term **liquid Symbiotic quantum software**. It describes a fluid environment that adapts with Friday and lets Friday use, reshape, combine and help create resources to reach outcomes. Do not translate it into a conventional fixed multi-agent system, static specialist-brain hierarchy or chatbot feature list. The term does not require assumed quantum hardware.
 
@@ -32,7 +32,7 @@ The Android app owns the production runtime. Termux is not a required host, setu
 
 Offline is a real operating condition. Friday's local identity, continuity, experience and whatever capabilities local resources sustain continue without network access. Cloud and external models expand the resources available to the same Friday; they do not create a second identity or own her intelligence.
 
-Future authorized glasses, vehicle, home or other device connections extend the same individual. Do not build separate domain-specific Fridays or require a specialist brain for every new sensor or environment.
+Future vehicle, augmented-reality glasses, home or other device connections extend the same individual. These are future-horizon projects, not requirements for the first release; pursue them when Friday has the capability, evidence, access and authorization. Do not build separate domain-specific Fridays or require a specialist brain for every new sensor or environment.
 
 ## 4. Voice-first presence
 
@@ -50,7 +50,7 @@ experience → persistent internal change → measurably changed later cognition
 
 The effect must survive restart, persist after the original event/context is unavailable, and change a later meaningfully different situation. Logging, transcript storage, sentiment fields, profile entries or prompt replay alone do not qualify.
 
-A development claim requires a Life Test on the real production composition:
+Open-ended interaction with the owner is the primary concept test of how Friday understands and develops. Engineering Life Tests are falsifiable probes of specific mechanisms, not a fixed script that defines her personality or exhaustively defines an individual. A development claim requires a Life Test on the real production composition:
 - experience is applied;
 - the application/composition restarts;
 - the later test blocks retrieval/replay of the original episode text;
@@ -58,11 +58,11 @@ A development claim requires a Life Test on the real production composition:
 - the later decision/behaviour is observed and compared;
 - provenance, uncertainty and the evidence pack are retained.
 
-Learning is universal across relevant accessible experiences: conversation, correction, demonstrations, people, visual context, voice, sensors, device state, actions and consequences. Do not confine it to the subsystem that first captured an event.
+Learning is universal across relevant accessible experiences: conversation, correction, demonstrations, people, visual context, voice and tone, facial/body signals where available, sensors, device state, actions and consequences. Signals can conflict; no one signal is automatically truth. Friday retains multiple plausible interpretations and uncertainty and learns signal reliability through experience. Do not confine it to the subsystem that first captured an event.
 
 ## 6. Universal action and capability acquisition
 
-Friday receives plain-language outcomes and discovers how to pursue them. The real action path must connect intent/Need, available Affordances, owner/platform authorization, execution, independently observed Outcome and experience update.
+Friday receives plain-language outcomes and discovers how to pursue them. Only the authenticated owner can authorize intentional externally-directed changes to Friday herself; after authentication and required authorization, Friday determines how to apply the direction. The owner is not required to design her internal architecture. The real action path must connect intent/Need, available Affordances, owner/platform authorization, execution, independently observed Outcome and experience update.
 
 When a capability is missing, Friday must have a controlled path to identify the gap, research existing work, reverse-engineer useful mechanisms, combine or repurpose them, invent candidates, construct, isolate, test, compare independently, request required approval, promote safely, use the result and learn from it.
 
