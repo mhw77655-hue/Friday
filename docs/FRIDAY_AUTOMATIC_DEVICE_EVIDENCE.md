@@ -52,3 +52,24 @@ WorkManager may retry delivery when Android permits. The outbox survives process
 7. Revoke the private credential and verify uploads stop while local evidence remains preserved.
 
 This is complete only after the real phone passes the test. Code, green CI or a public snapshot alone is not proof.
+
+
+## Automated physical-device verification
+
+The build workflow has an optional Firebase Test Lab lane. When the repository variable
+`FIREBASE_TEST_LAB_ENABLED=true`, the workflow builds the app and Android instrumentation
+APK from the exact candidate commit, authenticates using the repository secret
+`FIREBASE_SERVICE_ACCOUNT_JSON`, and runs the instrumented voice-substrate test on a
+Google-hosted physical Android device (Pixel 6 / API 34).
+
+Required repository configuration:
+- Variable `FIREBASE_TEST_LAB_ENABLED=true`
+- Variable `FIREBASE_PROJECT_ID=<Firebase project ID>`
+- Secret `FIREBASE_SERVICE_ACCOUNT_JSON=<service-account JSON>`
+- The service account must be permitted to use Firebase Test Lab / Cloud Testing API.
+
+This lane is separate from the disposable emulator tests. If it is not enabled, it is
+skipped and must not be described as physical-device validation. It tests a real
+Android handset in Google's lab; it does not claim to test the owner's exact Realme.
+The phone's own paired evidence channel remains the source for observations from the
+owner's installed FRIDAY instance.

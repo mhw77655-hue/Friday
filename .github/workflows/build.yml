@@ -107,15 +107,22 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Build debug APK
+      - name: Build debug APK and instrumentation test APK
         id: assemble-apk
-        run: ./gradlew :mobile:app:assembleDebug
+        run: ./gradlew :mobile:app:assembleDebug :mobile:app:assembleDebugAndroidTest
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
           name: debug-apk
           path: mobile/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload Android instrumentation APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-android-test-apk
+          path: mobile/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+          if-no-files-found: error
 
       - name: Detect release-signing changes
         id: release_signing_diff
@@ -320,6 +327,71 @@ jobs:
             ${{ runner.temp }}/friday-emulator/
           if-no-files-found: warn
           retention-days: 7
+
+  # Optional real-hardware gate. It is enabled by setting the repository
+  # variable FIREBASE_TEST_LAB_ENABLED=true and secret
+  # FIREBASE_SERVICE_ACCOUNT_JSON plus variable FIREBASE_PROJECT_ID.
+  # This runs the same instrumented :voice process-isolation test on a physical
+  # Android handset hosted by Google, independently of emulator validation.
+  firebase-physical-device:
+    name: Physical Android device lab (Firebase Test Lab)
+    if: ${{ vars.FIREBASE_TEST_LAB_ENABLED == 'true' }}
+    needs: [debug-apk]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout exact tested revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install pinned Android build components
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager --install "platforms;android-36" "build-tools;35.0.0" "ndk;27.3.13750724" "cmake;3.22.1"
+
+      - name: Build matching instrumentation APK
+        run: |
+          chmod +x gradlew
+          ./gradlew :mobile:app:assembleDebug :mobile:app:assembleDebugAndroidTest
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Run instrumented tests on a physical Android device
+        env:
+          FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$FIREBASE_PROJECT_ID" ]]; then
+            echo "::error::FIREBASE_PROJECT_ID repository variable is required when Firebase Test Lab is enabled."
+            exit 1
+          fi
+          gcloud firebase test android run \
+            --type instrumentation \
+            --app mobile/app/build/outputs/apk/debug/app-debug.apk \
+            --test mobile/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk \
+            --device model=oriole,version=34,locale=en,orientation=portrait \
+            --timeout 20m \
+            --project "$FIREBASE_PROJECT_ID" \
+            --results-dir "friday-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
 
   full-source-audit:
     name: Whole-repository source inventory and Kotlin vision audit
