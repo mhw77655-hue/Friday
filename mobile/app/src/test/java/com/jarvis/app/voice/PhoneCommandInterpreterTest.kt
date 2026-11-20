@@ -46,6 +46,15 @@ class PhoneCommandInterpreterTest {
         assertEquals(PhoneControlCommand.OpenInternetPanel, PhoneCommandInterpreter.parse("turn off wifi"))
     }
 
+    @Test fun `parses spoken percent word for absolute device settings`() {
+        assertEquals(PhoneControlCommand.SetMediaVolume(30), PhoneCommandInterpreter.parse("set media volume to 30 percent"))
+        assertEquals(PhoneControlCommand.SetMediaVolume(30), PhoneCommandInterpreter.parse("set the media volume to 30 per cent"))
+        assertEquals(PhoneControlCommand.SetBrightness(45), PhoneCommandInterpreter.parse("set brightness to 45 percent"))
+        assertEquals(PhoneControlCommand.SetBrightness(100), PhoneCommandInterpreter.parse("set brightness to 100%"))
+        assertNull(PhoneCommandInterpreter.parse("set brightness to 0 percent"))
+        assertNull(PhoneCommandInterpreter.parse("set media volume to 101 percent"))
+    }
+
     @Test fun `sensitive screen interactions are explicitly confirmation gated`() {
         assertTrue(PhoneCommandInterpreter.requiresExplicitConfirmation(
             PhoneCommandInterpreter.parse("tap Delete")!!

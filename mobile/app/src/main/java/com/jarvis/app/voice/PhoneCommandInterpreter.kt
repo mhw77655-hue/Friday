@@ -32,10 +32,10 @@ object PhoneCommandInterpreter {
         Regex("^(?:خلي السطوع|اضبط السطوع على|ظبط السطوع على) (\\d{1,3})%?$").matchEntire(text)
             ?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it in 1..100 }
             ?.let { return PhoneControlCommand.SetBrightness(it) }
-        Regex("^set (?:the )?(?:media )?volume to (\\d{1,3})%?$").matchEntire(text)
+        Regex("^set (?:the )?(?:media )?volume to (\\d{1,3})(?:\\s*(?:%|percent|per\\s+cent))?$").matchEntire(text)
             ?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it in 0..100 }
             ?.let { return PhoneControlCommand.SetMediaVolume(it) }
-        Regex("^set (?:the )?brightness to (\\d{1,3})%?$").matchEntire(text)
+        Regex("^set (?:the )?brightness to (\\d{1,3})(?:\\s*(?:%|percent|per\\s+cent))?$").matchEntire(text)
             ?.groupValues?.get(1)?.toIntOrNull()?.takeIf { it in 1..100 }
             ?.let { return PhoneControlCommand.SetBrightness(it) }
         return when (text) {
