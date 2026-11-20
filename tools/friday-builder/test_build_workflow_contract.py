@@ -18,7 +18,7 @@ class BuildWorkflowContractTests(unittest.TestCase):
         ids = self.job_ids()
         self.assertEqual(
             ids,
-            ["debug-apk", "android-emulator", "full-source-audit", "report-failure"],
+            ["debug-apk", "android-emulator", "firebase-physical-device", "full-source-audit", "report-failure"],
         )
         self.assertEqual(len(ids), len(set(ids)))
 
