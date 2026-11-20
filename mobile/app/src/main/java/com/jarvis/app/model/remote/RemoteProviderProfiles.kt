@@ -133,3 +133,72 @@ class RemoteProviderProfiles(context: Context) {
         private const val KEY_PRIMARY_PROFILE = "primary_profile_id"
     }
 }
+
+
+/**
+ * A live binding to the owner's selected remote reasoning provider.
+ * The profile is resolved for each operation so adding/changing a credential
+ * after app startup does not require rebuilding ModelManager or restarting Friday.
+ */
+class PrimaryRemoteModelProvider(
+    private val resolve: () -> ModelProvider?
+) : ModelProvider {
+    override val providerType = ModelProviderType.CLOUD
+    override val config: ProviderConfig? get() = resolve()?.config
+
+    private fun target(): ModelProvider = resolve()
+        ?: throw IllegalStateException("No enabled primary remote reasoning provider is configured")
+
+    override suspend fun generate(request: com.jarvis.app.model.GenerateRequest) =
+        target().generate(request)
+
+    override fun stream(request: com.jarvis.app.model.GenerateRequest): kotlinx.coroutines.flow.Flow<com.jarvis.app.model.StreamEvent> =
+        kotlinx.coroutines.flow.flow {
+            val provider = resolve()
+            if (provider == null) {
+                emit(com.jarvis.app.model.StreamEvent.Error("No enabled primary remote reasoning provider is configured"))
+            } else {
+                provider.stream(request).collect { emit(it) }
+            }
+        }
+
+    override suspend fun health(): com.jarvis.app.model.ProviderHealth =
+        resolve()?.health() ?: com.jarvis.app.model.ProviderHealth(
+            isHealthy = false,
+            latencyMs = -1,
+            modelLoaded = false,
+            currentModel = null,
+            error = "No enabled primary remote reasoning provider is configured"
+        )
+
+    override suspend fun load(request: com.jarvis.app.model.LoadRequest) =
+        resolve()?.load(request) ?: com.jarvis.app.model.LoadResult(
+            false, request.modelId, "No enabled primary remote reasoning provider is configured"
+        )
+
+    override suspend fun unload(request: com.jarvis.app.model.UnloadRequest) =
+        resolve()?.unload(request) ?: com.jarvis.app.model.UnloadResult(
+            false, request.modelId, "No enabled primary remote reasoning provider is configured"
+        )
+
+    override suspend fun modelInfo() =
+        resolve()?.modelInfo() ?: com.jarvis.app.model.ModelInfo(
+            id = "unconfigured-cloud",
+            name = "No remote provider configured",
+            providerType = ModelProviderType.CLOUD,
+            contextWindow = 0,
+            maxOutputTokens = 0,
+            supportsStreaming = false,
+            supportsTools = false,
+            supportsVision = false
+        )
+
+    override suspend fun tokenUsage() =
+        resolve()?.tokenUsage() ?: com.jarvis.app.model.TokenUsage(0, 0, 0)
+
+    override fun requestChat(
+        messages: List<Pair<String, String>>,
+        maxTokens: Int,
+        timeoutMs: Long
+    ): String? = resolve()?.requestChat(messages, maxTokens, timeoutMs)
+}
