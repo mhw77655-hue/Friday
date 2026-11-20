@@ -26,7 +26,9 @@ class FridayVoiceInteractionSessionService : VoiceInteractionSessionService() {
 
 /**
  * Hands the system assistant invocation to Friday's own foreground experience.
- * MainActivity owns the existing mic permission and JarvisMic lifecycle.
+ * MainActivity owns microphone permission; the foreground runtime service
+ * owns any optional background capture, while the conversation recognizer
+ * takes an explicit temporary microphone lease.
  */
 class FridayVoiceInteractionSession(context: Context) : VoiceInteractionSession(context) {
     override fun onShow(args: Bundle?, showFlags: Int) {

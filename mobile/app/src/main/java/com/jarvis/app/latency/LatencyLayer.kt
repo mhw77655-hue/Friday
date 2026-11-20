@@ -172,7 +172,7 @@ object LatencyLayer {
     fun speakFull(text: String) {
         if (text.isBlank()) return
         ensureStarted()
-        SpeechEngine.fullSpeak(text)
+        speakReply(text)
     }
 
     private fun ensureStarted() {
