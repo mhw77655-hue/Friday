@@ -57,10 +57,8 @@ class MainActivity : ComponentActivity() {
             if (com.jarvis.app.runtime.FridayRuntimeController.isEnabled(this)) {
                 com.jarvis.app.runtime.FridayRuntimeController.startWithMicrophone(this)
             }
-        } else {
-            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
-        if (hasMicPermission && intent.getBooleanExtra(
+        if (intent.getBooleanExtra(
                 com.jarvis.app.voice.FridayVoiceInteractionSession.EXTRA_FRIDAY_VOICE_INVOCATION,
                 false
             )
@@ -177,7 +175,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // KWS/Vosk/TTS intentionally NOT released here — they belong to
-        // JarvisEngine for the life of the process, not this Activity.
+        // Friday's voice habitat intentionally remains process-scoped; this
+        // Activity must not tear it down during navigation or configuration changes.
     }
 }
