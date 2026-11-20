@@ -150,7 +150,7 @@ fun RemoteAiProvidersSection() {
                                 endpoint = "https://api.anthropic.com/v1"
                                 profileId = "claude"
                                 label = "Claude"
-                                modelId = "claude-haiku-5-5"
+                                modelId = "claude-sonnet-5"
                             }
                             RemoteProviderProtocol.GEMINI_INTERACTIONS -> {
                                 endpoint = "https://generativelanguage.googleapis.com/v1beta"
