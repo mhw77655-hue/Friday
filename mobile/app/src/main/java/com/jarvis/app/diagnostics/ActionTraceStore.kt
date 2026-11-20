@@ -39,7 +39,8 @@ class ActionTraceStore(
         route: String,
         outcome: String,
         durationMs: Long,
-        verificationState: String = "not_independently_verified"
+        verificationState: String = "not_independently_verified",
+        verificationStage: String = "UNKNOWN"
     ): String = synchronized(monitor) {
         withFileLock {
             val root = readRoot()
@@ -59,6 +60,7 @@ class ActionTraceStore(
                 .put("outcome", safeOutcome(outcome))
                 .put("duration_ms", durationMs.coerceAtLeast(0))
                 .put("verification_state", safeVerificationState(verificationState))
+                .put("verification_stage", safeVerificationStage(verificationStage))
             events.put(event)
 
             val bounded = JSONArray()
@@ -242,6 +244,11 @@ class ActionTraceStore(
         else -> "not_independently_verified"
     }
 
+    private fun safeVerificationStage(value: String): String = when (value) {
+        "NOT_ATTEMPTED", "LAUNCHED", "TARGET_CONFIRMED", "VERIFIED" -> value
+        else -> "UNKNOWN"
+    }
+
     companion object {
         const val DEFAULT_MAX_EVENTS = 200
         private const val SCHEMA_VERSION = 1
@@ -304,10 +311,11 @@ object PhoneActionDiagnostics {
         route: String,
         outcome: String,
         durationMs: Long,
-        verificationState: String = "not_independently_verified"
+        verificationState: String = "not_independently_verified",
+        verificationStage: String = "UNKNOWN"
     ) {
         runCatching {
-            store?.record(action, route, outcome, durationMs, verificationState)
+            store?.record(action, route, outcome, durationMs, verificationState, verificationStage)
         }
     }
 
