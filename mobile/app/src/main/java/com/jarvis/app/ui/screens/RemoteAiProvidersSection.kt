@@ -48,6 +48,7 @@ fun RemoteAiProvidersSection() {
     val council = remember { app.providerCouncil }
     var councilEnabled by remember { mutableStateOf(council.isEnabled()) }
     var configured by remember { mutableStateOf(profiles.all()) }
+    var primaryProviderId by remember { mutableStateOf(profiles.primaryProviderId() ?: configured.firstOrNull { it.enabled }?.id) }
     var profileId by remember { mutableStateOf("openai") }
     var label by remember { mutableStateOf("OpenAI") }
     var endpoint by remember { mutableStateOf("https://api.openai.com/v1") }
@@ -82,7 +83,7 @@ fun RemoteAiProvidersSection() {
             detail = "OPTIONAL"
         )
         Text(
-            "Connect OpenAI, Claude, Gemini or any compatible endpoint. Credentials stay encrypted on this phone. Friday remains the authority; advisers cannot execute phone actions or edit memory.",
+            "Connect OpenAI, Claude, Gemini or any compatible endpoint. Credentials stay encrypted on this phone. Select a primary provider, then activate the Cloud Assisted environment to use it for live conversation. The adviser permission below remains separate.",
             style = JarvisType.Body.copy(color = JarvisColors.TextSecondary)
         )
 
@@ -104,10 +105,17 @@ fun RemoteAiProvidersSection() {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(item.label)
                     Text("${item.protocol.name} · ${item.modelId}")
+                    if (primaryProviderId == item.id) Text("PRIMARY LIVE REASONING PROVIDER", style = JarvisType.Technical.copy(color = JarvisColors.CoreSuccess))
                 }
+                TextButton(onClick = {
+                    profiles.setPrimaryProvider(item.id)
+                    primaryProviderId = item.id
+                    status = "${item.label} selected for live Cloud Assisted conversations."
+                }) { Text("Use for live conversation") }
                 TextButton(onClick = {
                     profiles.remove(item.id)
                     configured = profiles.all()
+                    primaryProviderId = profiles.primaryProviderId() ?: configured.firstOrNull { it.enabled }?.id
                     if (configured.isEmpty()) {
                         councilEnabled = false
                         council.setEnabled(false)
@@ -182,6 +190,7 @@ fun RemoteAiProvidersSection() {
                 )
                 profiles.save(profile, apiKey)
                 configured = profiles.all()
+                primaryProviderId = profiles.primaryProviderId() ?: configured.firstOrNull { it.enabled }?.id
                 apiKey = ""
                 status = "${profile.label} saved. Run a connection test before relying on it."
             }.onFailure { status = "Could not save provider: ${it.message}" }
