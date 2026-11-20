@@ -97,7 +97,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleSharedVideoIntent(intent)
+        handleSharedContentIntent(intent)
         if (intent.getBooleanExtra(
                 com.jarvis.app.voice.FridayVoiceInteractionSession.EXTRA_FRIDAY_VOICE_INVOCATION,
                 false
