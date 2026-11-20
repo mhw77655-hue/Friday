@@ -1,5 +1,14 @@
 # REPO_FACTS.md — durable, verified facts about this repo
 
+# CURRENT GOVERNANCE — 2026-11-20
+
+The sole active product/delivery plan is .ralph/FRIDAY_DELIVERY_PLAN.md. The owner's current written destination is .ralph/VISION.md; curated owner-authored excerpts and provenance are in .ralph/OWNER_WORDS.md; implementation constraints are in docs/FRIDAY_VISION_CONTRACT.md; .ralph/prd.json is the execution ledger derived from the plan. The owner's latest authenticated instruction outranks every file here.
+
+This file is a durable repository-fact notebook, not a vision, architecture or roadmap. Most entries below are dated implementation snapshots. Treat them as historical until re-verified against current main source and production wiring. Do not infer that an old PRD stage, branch, package, model, runtime, test count or device result is still active. Do not use historical facts to override the current vision or delivery plan.
+
+One Friday, one canonical main product line. Voice is the first user-visible priority. Independent objectives progress in parallel where safe. No competing Friday product, long-lived feature branch or alternative vision plan.
+
+
 This file is auto-prepended to every prompt Ralph sends. It exists so known
 facts are never rediscovered the hard way. When you learn something new and
 durable about this repo during a run, add it here — one line, plain fact,
@@ -78,9 +87,7 @@ no narration.
   object=userText)` for DIRECT_REPLY turns. To enable Galaxy Memory in production,
   construct AndroidMemoryGraphStore + BlendedMemoryRetriever in JarvisEngine and
   pass both into CognitiveEngine.
-- Termux/local Android builds are banned — CI (`build-app.yml` via GitHub
-  Actions) is the only supported Android build path, per a prior
-  phone-crash incident. Do not attempt local `assembleDebug` etc. on-device.
+- Termux is not a production runtime or required setup dependency. A prior phone-crash incident established that Android builds must not be run on the phone itself; use the supported CI or a properly provisioned development host. This does not prohibit a host-side Gradle build from the repository root.
 - ralph.sh's banned-pattern auto-reject greps production source at
   `$REPO_DIR/mobile/app/src/main` (the Android module root is `mobile/app/`,
   NOT `app/` — a prior version pointed at non-existent `$REPO_DIR/app/src/main`
@@ -259,11 +266,15 @@ no narration.
 - Classify a rejection by the script's OWN verdict line (`matched test(s), all passed` / `matched tests FAILED` / `no tests matched the filter`), never by a transport marker anywhere in the output: `api_get` prints `curl: (28)`/`(6)` lines even on a fully successful run. `/tmp/ralph_verify_3.txt` and `_4.txt` for HEAD a3a1ea2 both read `could not push main (check auth/network)` with NO verdict line — transport, twice, not code.
 - Full `junit-results` artifact of run 36788191042 (main, HEAD a3a1ea2), `unzip -t`-verified complete before counting: **1309 tests / 0 failures / 0 errors / 0 skipped across 180 XMLs**. To download it by hand, pick the artifact by NAME — the run also has a `debug-apk` artifact (id 11130907900, 27MB) and `artifacts[0]` is NOT necessarily `junit-results`; taking index 0 silently yields zero XMLs and a fake "0 tests" reading.
 
-## 2026-10-04 — VISION-SYNC (Gate "One Friday" story 7): VISION.md is the written record
-- `.ralph/VISION.md` title is now `# FRIDAY - Vision (written record)` and its first paragraph states the precedence rule: **Venon's latest explicit statement outranks the file**; everything else in the repo is subordinate to it. The phrase `source of truth` was deliberately REMOVED from VISION.md (a stored verifyCommand asserts `! grep -q 'source of truth'` there). Do not reintroduce it.
-- The ten Venon passages (H, P2, P3, P4, P6, P7, P8, B1-B3) are each written as ONE unwrapped line on purpose: the story's stored greps (`legacy scaffolding, quarantined`, `Two compositions exist`, `replay of the original episode text blocked`, `seed of the final FRIDAY`) are substrings that hard-wrapping splits across a line break and breaks forever. Never re-wrap them; edit text only with a full-line replacement.
-- Sections 4 and 13 are FROZEN input to `.ralph/audit.py` (it parses exactly those two out of the file at run time; Section 12 is extracted zero times on purpose). Any future VISION.md edit must leave both byte-identical — `.ralph/audit_check.sh` is the offline oracle that proves it (no network, no gradle), and `bash .ralph/vision_audit.sh` regenerating `.ralph/audit/audit_*.md` with only its `Generated <timestamp>` line changed is the strongest evidence an edit was invisible to the tool.
-- Copying a passage out of a prd.json `description`: passages are delimited by `' ` (quote + SPACE, NO period after the closing quote), passages contain apostrophes (`Venon's`), and description order ≠ section order (P4 is followed by PASSAGE P6; only P8 is followed by PASSAGES B1-B3). Anchor each extraction on the NEXT passage label and assert the result contains no `PASSAGE`, ends with `.`, and appears exactly once in the destination — a wrong anchor silently swallows the following passages instead of failing.
+## 2026-11-20 — OWNER VISION REALIGNMENT
+
+- The sole active delivery plan is .ralph/FRIDAY_DELIVERY_PLAN.md. The previous .ralph/FRIDAY_BUILD_PLAN.md is now a superseded pointer, not a roadmap.
+- .ralph/VISION.md retains Section 4 as the liquid-cognition rule and Section 13 as the anti-drift checklist because .ralph/audit.py parses those sections. Any future edits to those interfaces must update the parser and its offline oracle in the same change.
+- Section 12 is a disclosed baseline of earlier implementation deviations; it is not a claim that each item remains current. Re-check live main source and production wiring before reporting status.
+- .ralph/OWNER_WORDS.md now includes additional owner-authored excerpts from the uploaded archive: the liquid Symbiotic quantum software correction, voice-first parallel progress, and universal learning across actions and accessible environmental evidence.
+- .ralph/prd.json is the current execution ledger for the seven objectives in FRIDAY_DELIVERY_PLAN.md. Historical PRDs are archived and are not active queues.
+- Preserve the owner's terminology. Do not redirect project work into a consciousness debate. Do not turn liquid branches into fixed cognitive modules or a prescribed pipeline.
+- All work converges on one main product line. Avoid competing Friday products, long-lived branches and alternate plans.
 
 ## 2026-10-17 — AUDIT-TOOL REJECTED BY ITS OWN TIME-COUPLED verifyCommand, then made time-stable
 - A stored verifyCommand must be TIME-STABLE: the harness re-runs every `passes:true` story's command on EVERY run start (ralph.sh "Independently re-verifying" loop), so a command whose meaning depends on "the newest story diff" auto-rejects as soon as the next production-Kotlin story lands. AUDIT-TOOL's command ran `vision_audit.sh` with no arguments, and the no-arg default audits the newest production-Kotlin commit run BY DESIGN; it passed at close time (newest run = WORKSPACE-CORE/CONTINUITY-LAW) and failed after ONE-2-COMPOSITION landed (`dc8a68f..5613bc5` → 3 named_wire findings, no ClaimKind/ChangeLayer/SLOW). Pin fixture ranges (audit_check.sh does: `a59ac69^..9c92571`) or sweep the whole tree (`--all` = AC1's literal "run cold against the current repo" shape). The repaired AUDIT-TOOL verifyCommand is `vision_audit.sh --all` with byte-identical greps; ONE-1's no-arg command is fine because it greps only `Headline` + stable VISION.md text.
