@@ -68,6 +68,7 @@ class RemoteProviderProfiles(context: Context) {
         val profiles = all().filterNot { it.id == profile.id } + normalized
         prefs.edit().putString(KEY_PROFILES, JSONArray(profiles.map { it.toJson() }).toString()).apply()
         if (apiKey.isNotBlank()) credentials.save(profile.id, apiKey)
+        if (primaryProviderId() == null) prefs.edit().putString(KEY_PRIMARY_PROFILE, profile.id).apply()
     }
 
     @Synchronized
@@ -75,6 +76,27 @@ class RemoteProviderProfiles(context: Context) {
         val remaining = all().filterNot { it.id == id }
         prefs.edit().putString(KEY_PROFILES, JSONArray(remaining.map { it.toJson() }).toString()).apply()
         credentials.clear(id)
+        if (primaryProviderId() == id) {
+            val replacement = remaining.firstOrNull { it.enabled }?.id
+            prefs.edit().apply {
+                if (replacement == null) remove(KEY_PRIMARY_PROFILE) else putString(KEY_PRIMARY_PROFILE, replacement)
+            }.apply()
+        }
+    }
+
+    /** Explicit primary provider used by the live Cloud Assisted environment. */
+    fun primaryProviderId(): String? = prefs.getString(KEY_PRIMARY_PROFILE, null)
+
+    @Synchronized
+    fun setPrimaryProvider(id: String) {
+        require(all().any { it.id == id && it.enabled }) { "Primary provider must be configured and enabled" }
+        prefs.edit().putString(KEY_PRIMARY_PROFILE, id).apply()
+    }
+
+    fun createPrimaryProvider(): ModelProvider? {
+        val entries = createEnabledEntries()
+        val selected = primaryProviderId()
+        return entries.firstOrNull { it.profile.id == selected }?.provider ?: entries.firstOrNull()?.provider
     }
 
     data class Entry(val profile: RemoteProviderProfile, val provider: ModelProvider)
@@ -106,5 +128,8 @@ class RemoteProviderProfiles(context: Context) {
 
     fun configuredIds(): Set<String> = all().map { it.id }.toSet()
 
-    companion object { private const val KEY_PROFILES = "profiles_json" }
+    companion object {
+        private const val KEY_PROFILES = "profiles_json"
+        private const val KEY_PRIMARY_PROFILE = "primary_profile_id"
+    }
 }
