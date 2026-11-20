@@ -46,18 +46,34 @@ class PlatformSpeechRecognizerPort(
 ) : SpeechRecognizerPort {
 
     override fun isRecognitionAvailable(): Boolean =
-        android.speech.SpeechRecognizer.isRecognitionAvailable(context)
+        android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
+            android.speech.SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
 
     override fun recognize(locale: Locale, onResult: (String?) -> Unit) {
         cancel()
-        val sr = if (
-            android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
-            android.speech.SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
+        // Friday is offline-first: never silently stream microphone audio to
+        // a remote recognition service. Generic SpeechRecognizer may upload
+        // audio, so fail closed when an on-device recognizer is unavailable.
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S ||
+            !android.speech.SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
         ) {
-            android.speech.SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
-        } else {
-            android.speech.SpeechRecognizer.createSpeechRecognizer(context)
+            onFailure(
+                com.jarvis.app.failure.FailureReport(
+                    subsystem = "STT_PLATFORM",
+                    operation = "recognize",
+                    severity = com.jarvis.app.failure.FailureSeverity.DEGRADED,
+                    category = com.jarvis.app.failure.FailureCategory.LANGUAGE,
+                    message = "On-device speech recognition is unavailable; remote recognition was not used.",
+                    source = "PlatformSpeechRecognizerPort",
+                    dependency = locale.toLanguageTag(),
+                    recoverability = com.jarvis.app.failure.Recoverability.PERMANENT,
+                    recoveryAction = com.jarvis.app.failure.RecoveryAction.USER_ACTION_REQUIRED
+                )
+            )
+            onResult(null)
+            return
         }
+        val sr = android.speech.SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
         activeRecognizer = sr
         var delivered = false
 
