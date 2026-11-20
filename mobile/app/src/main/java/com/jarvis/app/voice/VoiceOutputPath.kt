@@ -28,10 +28,9 @@ private const val TAG = "VoiceOutputPath"
  * This is where the nervous system actually *speaks*: text is segmented per
  * sentence, each sentence is synthesized by the `:voice` habitat (the
  * isolated process that owns the native models), and the returned WAV is
- * played through [AudioTrack]. The legacy in-process [StreamingTts] remains
- * as the per-sentence fallback — the body still answers even if the habitat
- * is not yet ready — but the voice itself is Jarvis's (Kokoro in the habitat),
- * not the system engine's.
+ * played through [AudioTrack]. If the habitat or neural model is unavailable,
+ * voice output is reported as degraded; generic Android/Google TTS is never
+ * substituted for Friday's selected voice.
  *
  * The habitat and the app share a UID, so the WAV crosses the boundary as a
  * file read from [VoiceOrganismHost.VoiceAudio.audioFile] — no Binder size cap.

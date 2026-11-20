@@ -8,6 +8,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import com.jarvis.app.JarvisEngine
 import com.jarvis.app.diagnostics.CrashJournal
 import com.jarvis.app.diagnostics.DeviceCompatibilitySnapshot
 import org.json.JSONArray
