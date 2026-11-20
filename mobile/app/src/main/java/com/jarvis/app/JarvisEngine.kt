@@ -124,6 +124,30 @@ object JarvisEngine {
     @Volatile private var recoveryController: com.jarvis.app.failure.RecoveryController? = null
     @Volatile private var selfDiagnosis: com.jarvis.app.failure.SelfDiagnosis? = null
 
+    /**
+     * Content-free evidence about the live voice organ. This is deliberately
+     * observable by the diagnostics channel so device verification does not
+     * depend on the owner exporting logs or describing symptoms.
+     */
+    fun voiceEvidenceSnapshot(): JSONObject {
+        val host = voiceOrganismHost
+        val substrate = runCatching { host?.state?.value }.getOrNull()
+        val voiceState = runCatching { host?.voiceState?.value?.name }.getOrNull()
+        val output = voiceOutputPath
+        return JSONObject()
+            .put("host_attached", host != null)
+            .put("habitat_state", substrate?.state?.name ?: "UNAVAILABLE")
+            .put("voice_state", voiceState ?: "UNAVAILABLE")
+            .put("voice_process_alive", substrate?.voicePid?.let { it > 0 } ?: false)
+            .put("voice_pid_present", substrate?.voicePid != null)
+            .put("binder_ping_latency_ms", substrate?.pingLatencyMs ?: -1L)
+            .put("restart_count", substrate?.restartCount ?: 0)
+            .put("last_restart_ms", substrate?.lastRestartMs ?: -1L)
+            .put("output_path_attached", output != null)
+            .put("is_speaking", runCatching { output?.isSpeaking?.value ?: false }.getOrDefault(false))
+            .put("audio_level", runCatching { output?.audioLevel?.value ?: 0f }.getOrDefault(0f))
+    }
+
     // Phase A subsystems — constructed in init() and passed into CognitiveEngine seams.
     @Volatile var graphStore: com.jarvis.app.memory.MemoryGraphStore? = null
         private set

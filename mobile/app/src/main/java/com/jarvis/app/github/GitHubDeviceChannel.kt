@@ -295,6 +295,7 @@ class GitHubDeviceChannel(context: Context) {
             .put("device", device)
             .put("runtime", runtime)
             .put("model", model)
+            .put("voice", JarvisEngine.voiceEvidenceSnapshot())
             .put("crash_record_count", crashRecords.size)
             .put("crash_history_truncated", crashRecords.size > DeviceObserverReport.MAX_RECORDS)
             .put("recent_crashes", DeviceObserverReport.crashSummary(crashRecords))
