@@ -161,3 +161,21 @@ Source: `New Folder chats/Vision_summary.txt`, owner turn 28.
 The owner is asking for a developing digital individual with broad, open-ended capability—not a chatbot product with a larger feature list. The excerpts above are constraints on the *outcome*, not an approved component diagram. A builder must infer the intended result, preserve multiple interpretations when the request is ambiguous, research and invent where necessary, and test the result in the real app. It must not convert a capability into a permanent module, fixed pipeline, closed taxonomy, or prescribed developmental stage merely because that is easier to code.
 
 The owner's current instruction takes precedence over these historical excerpts. Where an old statement conflicts with a later one, retain the historical evidence but follow the later explicit correction. Never use an assistant's paraphrase as if it were the owner's own words.
+
+
+## 10. Latest owner direction — 2026-11-20
+
+The owner has now designated the single delivery plan in .ralph/FRIDAY_DELIVERY_PLAN.md as the only active plan. Older plans and architecture proposals must be reconciled to it, not continued as alternatives.
+
+Current explicit corrections and priorities:
+- Preserve the owner's term **liquid Symbiotic quantum software**. Do not redirect the project into a discussion about consciousness; keep the work on the technology, capabilities and human-like outcomes he described.
+- Friday must be delivered as the same continuing individual, not divided into separate cloud/offline identities, specialist agents or device-specific Fridays.
+- The owner gives the intended outcome and expects Friday to discover how to achieve it. Do not make him specify the internal architecture.
+- The first installed application must already be a real developmental seed with continuity and the ability to expand, not a disposable prototype.
+- Voice is the first user-visible priority, while independent work on the other objectives proceeds in parallel.
+- Friday's learning must be universal across any relevant accessible input and experience, not confined to a predefined specialist domain.
+- The Nano Algorithm Environment and Builder are capabilities in service of Friday's own development; they are not separate entities or permanent authorities.
+- Work must converge on one canonical main product line and one vision. Do not create competing Friday plans or long-lived product branches.
+- Every claim of progress must be supported by the real Android path and, where relevant, physical-phone evidence.
+
+Source: owner's explicit instruction in the active project conversation, 2026-11-20. This current direction supersedes conflicting historical assistant proposals and stale implementation plans.
