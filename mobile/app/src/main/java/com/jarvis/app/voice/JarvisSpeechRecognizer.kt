@@ -148,10 +148,9 @@ class PlatformSpeechRecognizerPort(
     }
 
     private fun finish() {
-        activeRecognizer?.let { sr ->
-            runCatching { sr.stopListening() }
-            sr.destroy()
-        }
+        // onResults/onError is the completion signal. Destroy the one-shot
+        // recognizer here; do not issue another stop command after completion.
+        activeRecognizer?.let { sr -> sr.destroy() }
         activeRecognizer = null
     }
 

@@ -3,6 +3,7 @@ package com.jarvis.app.body
 import android.content.Context
 import android.util.Log
 import com.jarvis.app.JarvisEngine
+import com.jarvis.app.JarvisMic
 import com.jarvis.app.JarvisTts
 import com.jarvis.app.SpeechBridge
 import com.jarvis.app.TtsBridge
@@ -413,7 +414,12 @@ class BodyCoordinator(
         voiceRetryCount.set(0)
         // Pause the optional background AudioRecord owner while SpeechRecognizer
         // owns the microphone; resume it only when this explicit session ends.
-        runCatching { com.jarvis.app.runtime.FridayRuntimeController.pauseMicrophone(context) }
+        if (com.jarvis.app.runtime.FridayRuntimeController.isMicrophoneServiceActive(context)) {
+            // Close the service-owned AudioRecord synchronously before asking
+            // SpeechRecognizer to open the same physical microphone.
+            runCatching { JarvisMic.stop() }
+            runCatching { com.jarvis.app.runtime.FridayRuntimeController.pauseMicrophone(context) }
+        }
         emitEvent(BodyEvent.WakeDetected(1.0f))
         emitEvent(BodyEvent.SpeechStart)
     }
