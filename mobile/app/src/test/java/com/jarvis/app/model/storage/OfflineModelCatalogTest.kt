@@ -10,7 +10,9 @@ class OfflineModelCatalogTest {
         val model = OfflineModelCatalog.resident
         assertEquals("minicpm5-2b-heretic", model.id)
         assertEquals("saidutta69/MiniCPM5-2B-heretic", model.repository)
-        assertEquals("178a9e6", model.revision)
+        assertEquals("92fc4d623bd89e5c1a5dc4cc1130b9bc64cdc71d", model.revision)
+        assertEquals(1_561_318_112L, model.expectedMinimumBytes)
+        assertEquals("54db1ccd73f771e9f13b6cf5a9994fc7e780898d6d2ca6f0e1715641f67697b4", model.sha256)
         assertEquals("MiniCPM5-2B-heretic-Q4_K_M.gguf", model.filename)
         assertEquals("Apache-2.0", model.license)
         assertTrue(model.downloadUrl.startsWith("https://huggingface.co/"))
