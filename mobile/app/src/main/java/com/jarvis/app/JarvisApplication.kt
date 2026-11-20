@@ -16,6 +16,7 @@ class JarvisApplication : Application() {
         // Preserve a sanitized crash signature for the next user-exported report.
         // Install in every process so isolated voice/inference crashes are visible too.
         com.jarvis.app.diagnostics.CrashJournal.install(this)
+        com.jarvis.app.diagnostics.PhoneActionDiagnostics.install(this)
         // Android creates a separate Application instance in every declared
         // process (:voice, :inference, assistant/session). Only the product
         // process owns Friday's cognitive composition root and lifecycle.
