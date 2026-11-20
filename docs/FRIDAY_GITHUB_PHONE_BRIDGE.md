@@ -27,8 +27,9 @@ Friday's Android Settings can connect directly to the public `mhw77655-hue/Frida
 - WorkManager polls the issue when Android permits background work, with a 15-minute periodic interval; foreground manual polling is also available.
 - Only comments authored by the repository owner are considered.
 - Commands must include a unique ID, expiry timestamp, and an allowlisted action.
-- The only supported action is `diagnostics.snapshot`.
-- The phone returns a bounded technical snapshot as a comment: device compatibility, content-free runtime/development aggregates, selected model readiness, and recent crash exception types/stack locations. Exception messages and private memory/conversation content are excluded.
+- The phone publishes one bounded technical snapshot when the channel is connected, then at most every six hours while the owner keeps the channel enabled. WorkManager may defer delivery.
+- The owner or an authorized observer can also request an immediate snapshot with the only supported command, `diagnostics.snapshot`.
+- Reports are comments containing device compatibility, content-free runtime/development aggregates, selected model readiness, and recent crash exception types/stack locations. Exception messages and private memory/conversation content are excluded. Raw logcat and arbitrary files are never uploaded.
 - Stop channel closes the issue and cancels scheduled polling.
 
 ## Setup required after the workflow is merged to main

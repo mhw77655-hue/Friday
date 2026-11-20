@@ -105,7 +105,10 @@ class GitHubDeviceChannel(context: Context) {
             val json = JSONObject(response.body?.string().orEmpty())
             val number = json.getInt("number")
             prefs.edit().putInt(KEY_ISSUE_NUMBER, number).putLong(KEY_LAST_COMMENT_ID, 0L).apply()
-            "${json.optString("html_url", "$ISSUE_URL/$number")}"
+            val firstSnapshot = runCatching {
+                publishAutomaticSnapshot(token, number, force = true)
+            }.getOrDefault(false)
+            "${json.optString("html_url", "$ISSUE_URL/$number")} (initial device evidence ${if (firstSnapshot) "published" else "queued for retry"})"
         }
     }
 
@@ -121,7 +124,8 @@ class GitHubDeviceChannel(context: Context) {
                 }
             }.getOrDefault(false)
         }
-        prefs.edit().remove(KEY_ISSUE_NUMBER).remove(KEY_LAST_COMMENT_ID).remove(KEY_SEEN_COMMAND_IDS).apply()
+        prefs.edit().remove(KEY_ISSUE_NUMBER).remove(KEY_LAST_COMMENT_ID)
+            .remove(KEY_SEEN_COMMAND_IDS).remove(KEY_LAST_AUTO_SNAPSHOT_AT).apply()
         if (remoteClosed) "Phone channel disconnected. Friday will no longer poll GitHub."
         else "Local polling stopped, but GitHub could not close the public issue. Close it manually if needed."
     }
@@ -167,8 +171,14 @@ class GitHubDeviceChannel(context: Context) {
                 .apply()
         }
         prefs.edit().putLong(KEY_LAST_COMMENT_ID, cursor).apply()
-        if (handled == 0) "Phone channel online; no new owner diagnostic commands."
-        else "Phone channel handled $handled read-only diagnostic command(s)."
+        val automaticSnapshotPublished = publishAutomaticSnapshot(token, number)
+        when {
+            handled > 0 && automaticSnapshotPublished ->
+                "Phone channel handled $handled diagnostic command(s) and published its scheduled evidence snapshot."
+            handled > 0 -> "Phone channel handled $handled read-only diagnostic command(s)."
+            automaticSnapshotPublished -> "Phone channel published its scheduled read-only device evidence snapshot."
+            else -> "Phone channel online; no new owner diagnostic commands."
+        }
     }
 
     private fun parseCommand(body: String): DeviceCommand? {
@@ -193,6 +203,38 @@ class GitHubDeviceChannel(context: Context) {
             return "status=rejected; unsupported action; only diagnostics.snapshot is permitted"
         }
         return "status=ok; " + snapshot()
+    }
+
+    /**
+     * Publish one sanitized device snapshot immediately on connection, then
+     * at most every six hours while the owner has explicitly connected this
+     * public observer channel. No raw logcat, conversation or private files.
+     */
+    private fun publishAutomaticSnapshot(token: String, issueNumber: Int, force: Boolean = false): Boolean {
+        val now = System.currentTimeMillis()
+        val last = prefs.getLong(KEY_LAST_AUTO_SNAPSHOT_AT, 0L)
+        if (!force && last > 0L && now - last < AUTOMATIC_SNAPSHOT_INTERVAL_MS) return false
+        val report = snapshot()
+        if (report.length > MAX_AUTOMATIC_SNAPSHOT_CHARS) {
+            throw IOException("Sanitized device evidence exceeded its publication limit.")
+        }
+        val body = JSONObject()
+            .put(
+                "body",
+                "FRIDAY_DEVICE_REPORT v1\n" +
+                    "captured_at_utc: ${Instant.now()}\n" +
+                    report
+            )
+            .toString()
+            .toRequestBody(JSON_MEDIA_TYPE)
+        val request = apiRequest(token, "/issues/$issueNumber/comments", "POST", body)
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                throw IOException("Could not publish automatic device evidence (HTTP ${response.code}).")
+            }
+        }
+        prefs.edit().putLong(KEY_LAST_AUTO_SNAPSHOT_AT, now).apply()
+        return true
     }
 
     private fun postResult(token: String, issueNumber: Int, id: String, result: String) {
@@ -264,6 +306,9 @@ class GitHubDeviceChannel(context: Context) {
         private const val KEY_ISSUE_NUMBER = "issue_number"
         private const val KEY_LAST_COMMENT_ID = "last_comment_id"
         private const val KEY_SEEN_COMMAND_IDS = "seen_command_ids"
+        private const val KEY_LAST_AUTO_SNAPSHOT_AT = "last_auto_snapshot_at"
+        private const val AUTOMATIC_SNAPSHOT_INTERVAL_MS = 6L * 60L * 60L * 1000L
+        private const val MAX_AUTOMATIC_SNAPSHOT_CHARS = 48_000
         private val JSON_MEDIA_TYPE = "application/vnd.github+json; charset=utf-8".toMediaType()
     }
 }

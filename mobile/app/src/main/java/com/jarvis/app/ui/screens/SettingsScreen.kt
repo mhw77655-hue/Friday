@@ -474,7 +474,7 @@ fun SettingsScreen() {
             }
         }
         Text(
-            text = "Friday can keep a phone-initiated connection to this repository using WorkManager. It checks GitHub about every 15 minutes when Android permits background work. The only remote command accepted is diagnostics.snapshot, and only comments written by the repository owner are considered.",
+            text = "Friday can keep a phone-initiated connection to this repository using WorkManager. It checks GitHub about every 15 minutes when Android permits background work, publishes one sanitized device snapshot when connected and then at most every six hours, and answers owner-issued diagnostics.snapshot requests. Only comments written by the repository owner are considered.",
             style = JarvisType.Label,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -539,7 +539,7 @@ fun SettingsScreen() {
                             "model readiness, and crash exception types with stack locations. They exclude " +
                             "exception messages, private memories, prompts, transcripts, conversations, files, " +
                             "location, microphone/camera data and screen contents. The phone only answers " +
-                            "diagnostics.snapshot; this does not give ChatGPT shell access or permission to " +
+                            "diagnostics.snapshot; automatic reports are also published on that schedule. This does not give ChatGPT shell access or permission to " +
                             "change anything on your phone. Continue only if you accept public publication " +
                             "of this technical metadata."
                     )
