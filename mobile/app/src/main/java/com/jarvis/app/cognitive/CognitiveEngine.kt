@@ -427,7 +427,8 @@ class CognitiveEngine(
         // (resident vs ON_DEMAND_REASONING) can ride the snapshot as the
         // gate's MODEL_TIER contribution (CONTINUITY-GATE-ENFORCED-SEAM).
         val admissionOutcome =
-            if (allowModelWake && decision == TurnDecision.DIRECT_REPLY && modelManager != null && cognitiveAdmissionPolicy != null) {
+            if (allowModelWake && decision == TurnDecision.DIRECT_REPLY && modelManager != null && cognitiveAdmissionPolicy != null &&
+                modelManager.activeProvider.value.providerType != com.jarvis.app.env.ModelProviderType.CLOUD) {
                 cognitiveAdmissionPolicy.serveTurn(cognitiveResult.finalState.uncertainty) {
                     modelManager.wake(
                         com.jarvis.app.model.OrganRole.REASONING,
