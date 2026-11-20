@@ -286,7 +286,7 @@ class FridayAccessibilityService : AccessibilityService() {
         // Android launch remains the least-privilege fallback when Shizuku is
         // absent or the shell operation is unsupported on this OEM build.
         val shizukuStartedAt = android.os.SystemClock.elapsedRealtime()
-        val shizukuResult = ScreenBridge.launchApp(match.packageName)
+        val shizukuResult = runCatching { ScreenBridge.launchApp(match.packageName) }.getOrNull()
         com.jarvis.app.diagnostics.PhoneActionDiagnostics.record(
             action = "OpenApp",
             route = "shizuku",
@@ -335,8 +335,12 @@ class FridayAccessibilityService : AccessibilityService() {
         fun execute(command: PhoneControlCommand): PhoneControlResult {
             val startedAt = android.os.SystemClock.elapsedRealtime()
             val service = active.get()
-            val result = service?.perform(command)
-                ?: PhoneControlResult.Unavailable("Enable Friday's accessibility control in Android Settings first.")
+            val result = runCatching {
+                service?.perform(command)
+                    ?: PhoneControlResult.Unavailable("Enable Friday's accessibility control in Android Settings first.")
+            }.getOrElse {
+                PhoneControlResult.Unavailable("Action executor raised ${it.javaClass.simpleName}.")
+            }
             val outcome = when (result) {
                 PhoneControlResult.Success -> "success_reported"
                 is PhoneControlResult.NotFound -> "not_found"
