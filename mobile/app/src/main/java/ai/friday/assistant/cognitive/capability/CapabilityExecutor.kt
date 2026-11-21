@@ -278,14 +278,19 @@ class CapabilityExecutor(
             return failStep(graph, node, request, resolution, result, invocation = null)
         }
         val result = CapabilityActionPort.toExecutionResult(invocation)
-        val evidenceOutcome = when {
-            invocation.refused -> EvidenceOutcome.REFUSED
-            result.success -> EvidenceOutcome.SUCCEEDED
-            else -> EvidenceOutcome.FAILED
-        }
-        val independentlyVerified = if (evidenceOutcome == EvidenceOutcome.SUCCEEDED) {
+        val invocationSucceeded = result.success && !invocation.refused
+        val independentlyVerified = if (invocationSucceeded) {
             runCatching { evidenceVerifier(request, invocation) }.getOrDefault(false)
         } else false
+        // A capability's success flag proves only that it accepted/completed its
+        // invocation. It does not prove the requested postcondition happened.
+        // Missing or failed independent verification must therefore fail the
+        // plan step instead of allowing a false COMPLETED state.
+        val evidenceOutcome = when {
+            invocation.refused -> EvidenceOutcome.REFUSED
+            invocationSucceeded && independentlyVerified -> EvidenceOutcome.SUCCEEDED
+            else -> EvidenceOutcome.FAILED
+        }
         recordEvidence(
             capabilityId = invocation.capabilityId ?: resolvedId ?: "unknown:${request.action}",
             request = request,
@@ -293,7 +298,8 @@ class CapabilityExecutor(
             verified = independentlyVerified,
             detail = when {
                 invocation.refused -> invocation.refusalReason ?: "refused"
-                result.success -> "invocation reported success"
+                invocationSucceeded && independentlyVerified -> "postcondition independently verified"
+                invocationSucceeded -> "postcondition_not_independently_verified"
                 else -> failureText(result)
             }
         )
@@ -314,7 +320,18 @@ class CapabilityExecutor(
             failureIdentity = if (invocation.success || invocation.refused) null else failureIdentityFor(request, result)
         )
 
-        if (result.success) {
+        if (result.success && !independentlyVerified) {
+            val unverified = ExecutionResult.fail(
+                ActionFailure.Error(
+                    "POSTCONDITION_UNVERIFIED",
+                    "Capability invocation reported success, but the requested postcondition was not independently verified.",
+                    recoverable = false
+                )
+            )
+            return failStep(graph, node, request, resolution, unverified, invocation)
+        }
+
+        if (result.success && independentlyVerified) {
             val outcomeText = result.output["outcome"] ?: node.expectedOutcome
             val updated = driver.completePlanStep(node.id, outcomeText) ?: graph
             state = state.copy(
