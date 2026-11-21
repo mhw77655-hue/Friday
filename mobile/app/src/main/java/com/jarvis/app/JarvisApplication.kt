@@ -13,6 +13,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 class JarvisApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        LocalTurnJournal.initialize(this)
         // Preserve a sanitized crash signature for the next user-exported report.
         // Install in every process so isolated voice/inference crashes are visible too.
         com.jarvis.app.diagnostics.CrashJournal.install(this)
