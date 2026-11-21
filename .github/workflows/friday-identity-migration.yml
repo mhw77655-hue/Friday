@@ -87,5 +87,3 @@ jobs:
           git commit -m "chore: complete fresh Friday identity migration"
           git push origin HEAD:main
 
-      - name: Dispatch full mainline build and emulator verification
-        run: gh workflow run build.yml --ref main
