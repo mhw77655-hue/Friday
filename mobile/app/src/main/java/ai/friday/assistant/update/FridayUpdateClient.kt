@@ -95,10 +95,56 @@ class FridayUpdateClient(
                 apk.delete()
                 return@withContext Result.Rejected("Downloaded APK checksum mismatch; staged file was discarded.")
             }
+            val archiveProblem = verifyApkArchive(apk, release)
+            if (archiveProblem != null) {
+                apk.delete()
+                return@withContext Result.Rejected(archiveProblem)
+            }
             Result.Staged(release, apk)
         } catch (error: Exception) {
             Result.Rejected(error.message?.take(240) ?: error.javaClass.simpleName)
         }
+    }
+
+    /**
+     * Verify the downloaded APK's own manifest and signing certificate before
+     * it reaches Android's installer. Metadata alone is not trusted to describe
+     * the bytes that were downloaded.
+     */
+    @Suppress("DEPRECATION")
+    private fun verifyApkArchive(apk: File, release: Release): String? {
+        val flags = PackageManager.GET_SIGNING_CERTIFICATES
+        val info = if (Build.VERSION.SDK_INT >= 33) {
+            appContext.packageManager.getPackageArchiveInfo(
+                apk.absolutePath,
+                PackageManager.PackageInfoFlags.of(flags.toLong())
+            )
+        } else {
+            appContext.packageManager.getPackageArchiveInfo(apk.absolutePath, flags)
+        } ?: return "Downloaded APK is not a readable Android package."
+
+        if (info.packageName != release.packageId) {
+            return "Downloaded APK package identity does not match signed release metadata."
+        }
+        val archiveVersion = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()
+        if (archiveVersion != release.versionCode) {
+            return "Downloaded APK version code does not match signed release metadata."
+        }
+        if (info.versionName != release.versionName) {
+            return "Downloaded APK version name does not match release metadata."
+        }
+        val signers = if (Build.VERSION.SDK_INT >= 28) {
+            info.signingInfo?.apkContentsSigners
+        } else {
+            info.signatures
+        } ?: return "Downloaded APK signing identity is unavailable."
+        val signer = signers.singleOrNull()
+            ?: return "Downloaded APK has an unsupported multiple-signer identity."
+        val fingerprint = sha256(signer.toByteArray()).uppercase()
+        if (fingerprint != release.certificateSha256) {
+            return "Downloaded APK signer does not match the release certificate fingerprint."
+        }
+        return null
     }
 
     private data class InstalledIdentity(val versionCode: Long, val certificateSha256: String)
