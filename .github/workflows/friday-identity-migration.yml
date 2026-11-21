@@ -1,0 +1,91 @@
+name: One-time Friday identity migration
+
+on:
+  push:
+    branches: [ main ]
+
+permissions: {}
+
+concurrency:
+  group: friday-identity-migration
+  cancel-in-progress: false
+
+jobs:
+  migrate-and-verify:
+    if: startsWith(github.event.head_commit.message, 'chore: begin fresh Friday identity migration')
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout canonical main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: true
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Install pinned Android build tools
+        run: |
+          set -euo pipefail
+          SDK_ROOT="$RUNNER_TEMP/android-sdk"
+          mkdir -p "$SDK_ROOT/cmdline-tools"
+          cp -a /usr/local/lib/android/sdk/cmdline-tools/latest "$SDK_ROOT/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --sdk_root="$SDK_ROOT" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" --sdk_root="$SDK_ROOT" --install \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;35.0.0" \
+            "ndk;27.3.13750724" \
+            "cmake;3.22.1"
+
+      - name: Execute complete identity and repository normalization
+        run: |
+          set -euo pipefail
+          chmod +x scripts/perform_friday_identity_migration.sh
+          bash scripts/perform_friday_identity_migration.sh
+          git diff --check
+
+      - name: Verify package identity and source tree
+        run: |
+          set -euo pipefail
+          grep -q 'namespace = "ai.friday.assistant"' mobile/app/build.gradle.kts
+          grep -q 'applicationId = "ai.friday.assistant"' mobile/app/build.gradle.kts
+          test -d mobile/app/src/main/java/ai/friday/assistant
+          test -d mobile/app/src/test/java/ai/friday/assistant
+          ! find mobile/app/src -path '*/com/jarvis/app*' -print -quit | grep -q .
+          ! grep -RIl --include='*.kt' --include='*.java' 'com.jarvis.app' mobile/app/src | grep -q .
+          grep -q 'application_id": "ai.friday.assistant"' .github/workflows/release.yml || grep -q 'ai.friday.assistant' .github/workflows/release.yml
+
+      - name: Build the fresh Friday debug APK
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew :mobile:app:assembleDebug
+
+      - name: Run the complete Friday JVM unit-test suite
+        run: ./gradlew :mobile:app:testDebugUnitTest
+
+      - name: Commit the verified identity migration to main
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: complete fresh Friday identity migration"
+          git push origin HEAD:main
+
+      - name: Dispatch full mainline build and emulator verification
+        run: gh workflow run build.yml --ref main
