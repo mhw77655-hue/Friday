@@ -4,10 +4,10 @@ set -euo pipefail
 SOURCE="mobile/app/src/main/java/ai/friday/assistant/android/RiskGate.kt"
 LOG="$(mktemp)"
 BACKUP="$(mktemp)"
-cp "$SOURCE" "$BACKUP"
+cp -p "$SOURCE" "$BACKUP"
 
 restore_source() {
-  cp "$BACKUP" "$SOURCE"
+  cp -p "$BACKUP" "$SOURCE"
   rm -f "$BACKUP"
 }
 trap restore_source EXIT
