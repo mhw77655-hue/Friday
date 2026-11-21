@@ -10,9 +10,8 @@ The owner's concept is **liquid Symbiotic quantum software**: a fluid environmen
 - [Owner's written vision](.ralph/VISION.md)
 - [Curated owner-authored words and provenance](.ralph/OWNER_WORDS.md)
 - [Implementation contract](docs/FRIDAY_VISION_CONTRACT.md)
-- [Execution ledger](.ralph/prd.json)
 
-Older build plans and PRDs are historical material, not competing roadmaps. The owner’s latest authenticated instruction takes precedence over every repository document.
+Older build plans, PRDs, prompts and assistant-authored plans are historical material, not active instructions. The owner's latest authenticated instruction and the sole delivery plan take precedence.
 
 ## Delivery priorities
 
@@ -26,7 +25,7 @@ All objectives progress in parallel where safely separable. Voice is the first u
 6. Give Friday a safe Builder path for capability acquisition and eventual source-level self-development.
 7. Make recovery, updates, signing and physical-phone delivery reliable.
 
-There is one Friday and one canonical main product line. Do not create competing Friday products, long-lived feature branches or alternative vision plans.
+There is one Friday and one canonical `main` product line. Make authorized changes directly on `main`; do not create feature branches, proposal branches, pull requests or alternative product lines.
 
 The first seed must already have functional foundations for multiple-signal human interaction, context, multiple interpretations, uncertainty, prediction and learning; these are outcomes, not permanent modules. Open-ended owner interaction is the primary concept test, while engineering tests probe specific mechanisms. The far-future vision (such as vehicle, glasses and home integrations) is a destination, not a demand to build every capability in the first release.
 
