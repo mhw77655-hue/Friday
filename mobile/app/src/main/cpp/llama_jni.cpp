@@ -73,58 +73,71 @@ extern "C" {
 // Create
 JNIEXPORT jlong JNICALL
 JNI_CLASS(nativeCreate)(JNIEnv* env, jobject thiz, jobject config) {
-    LlamaModelConfig nativeConfig{};
+    if (!config) return 0;
 
     jclass configClass = env->GetObjectClass(config);
+    if (!configClass) return 0;
+    auto getField = [&](const char* name, const char* signature) -> jfieldID {
+        if (env->ExceptionCheck()) return nullptr;
+        return env->GetFieldID(configClass, name, signature);
+    };
 
-    // Extract config fields
-    jfieldID modelPathField = env->GetFieldID(configClass, "modelPath", "Ljava/lang/String;");
-    jstring modelPathStr = (jstring)env->GetObjectField(config, modelPathField);
+    jfieldID modelPathField = getField("modelPath", "Ljava/lang/String;");
+    jfieldID nCtxField = getField("nCtx", "I");
+    jfieldID nBatchField = getField("nBatch", "I");
+    jfieldID nThreadsField = getField("nThreads", "I");
+    jfieldID nGpuLayersField = getField("nGpuLayers", "I");
+    jfieldID useMmapField = getField("useMmap", "Z");
+    jfieldID useMlockField = getField("useMlock", "Z");
+    jfieldID flashAttnField = getField("flashAttn", "Z");
+    jfieldID seedField = getField("seed", "I");
+    jfieldID tempField = getField("temp", "F");
+    jfieldID topPField = getField("topP", "F");
+    jfieldID topKField = getField("topK", "I");
+    jfieldID repeatPenaltyField = getField("repeatPenalty", "F");
+    jfieldID repeatLastNField = getField("repeatLastN", "I");
+    if (env->ExceptionCheck() || !modelPathField || !nCtxField || !nBatchField ||
+        !nThreadsField || !nGpuLayersField || !useMmapField || !useMlockField ||
+        !flashAttnField || !seedField || !tempField || !topPField || !topKField ||
+        !repeatPenaltyField || !repeatLastNField) {
+        env->DeleteLocalRef(configClass);
+        return 0;
+    }
+
+    jstring modelPathStr = static_cast<jstring>(env->GetObjectField(config, modelPathField));
+    if (!modelPathStr) {
+        env->DeleteLocalRef(configClass);
+        return 0;
+    }
     const char* modelPath = env->GetStringUTFChars(modelPathStr, nullptr);
+    if (!modelPath) {
+        env->DeleteLocalRef(modelPathStr);
+        env->DeleteLocalRef(configClass);
+        return 0;
+    }
+
+    LlamaModelConfig nativeConfig{};
     nativeConfig.model_path = modelPath;
-
-    jfieldID nCtxField = env->GetFieldID(configClass, "nCtx", "I");
     nativeConfig.n_ctx = env->GetIntField(config, nCtxField);
-
-    jfieldID nBatchField = env->GetFieldID(configClass, "nBatch", "I");
     nativeConfig.n_batch = env->GetIntField(config, nBatchField);
-
-    jfieldID nThreadsField = env->GetFieldID(configClass, "nThreads", "I");
     nativeConfig.n_threads = env->GetIntField(config, nThreadsField);
-
-    jfieldID nGpuLayersField = env->GetFieldID(configClass, "nGpuLayers", "I");
     nativeConfig.n_gpu_layers = env->GetIntField(config, nGpuLayersField);
-
-    jfieldID useMmapField = env->GetFieldID(configClass, "useMmap", "Z");
     nativeConfig.use_mmap = env->GetBooleanField(config, useMmapField);
-
-    jfieldID useMlockField = env->GetFieldID(configClass, "useMlock", "Z");
     nativeConfig.use_mlock = env->GetBooleanField(config, useMlockField);
-
-    jfieldID flashAttnField = env->GetFieldID(configClass, "flashAttn", "Z");
     nativeConfig.flash_attn = env->GetBooleanField(config, flashAttnField);
-
-    jfieldID seedField = env->GetFieldID(configClass, "seed", "I");
     nativeConfig.seed = env->GetIntField(config, seedField);
-
-    jfieldID tempField = env->GetFieldID(configClass, "temp", "F");
     nativeConfig.temp = env->GetFloatField(config, tempField);
-
-    jfieldID topPField = env->GetFieldID(configClass, "topP", "F");
     nativeConfig.top_p = env->GetFloatField(config, topPField);
-
-    jfieldID topKField = env->GetFieldID(configClass, "topK", "I");
     nativeConfig.top_k = env->GetIntField(config, topKField);
-
-    jfieldID repeatPenaltyField = env->GetFieldID(configClass, "repeatPenalty", "F");
     nativeConfig.repeat_penalty = env->GetFloatField(config, repeatPenaltyField);
-
-    jfieldID repeatLastNField = env->GetFieldID(configClass, "repeatLastN", "I");
     nativeConfig.repeat_last_n = env->GetIntField(config, repeatLastNField);
 
-    env->ReleaseStringUTFChars(modelPathStr, modelPath);
+    LlamaModel* model = nullptr;
+    if (!env->ExceptionCheck()) model = llama_model_create(&nativeConfig);
 
-    LlamaModel* model = llama_model_create(&nativeConfig);
+    env->ReleaseStringUTFChars(modelPathStr, modelPath);
+    env->DeleteLocalRef(modelPathStr);
+    env->DeleteLocalRef(configClass);
     return reinterpret_cast<jlong>(model);
 }
 
@@ -157,13 +170,15 @@ JNI_CLASS(nativeGetHealth)(JNIEnv* env, jobject thiz, jlong handle) {
         jfieldID valuesField = env->GetStaticFieldID(stateClass, "values", "[Lai/friday/assistant/model/adapters/LocalInferenceEngine$NativeState;");
         if (valuesField) {
             jobjectArray states = (jobjectArray)env->GetStaticObjectField(stateClass, valuesField);
-            if (states && health.state < env->GetArrayLength(states)) {
+            if (states && health.state >= 0 && health.state < env->GetArrayLength(states)) {
                 stateEnum = env->GetObjectArrayElement(states, health.state);
             }
         }
     }
 
+    if (!stateEnum) return nullptr;
     jstring errorMsg = health.error_message ? env->NewStringUTF(health.error_message) : nullptr;
+    if (health.error_message && !errorMsg) return nullptr;
 
     jobject healthObj = env->NewObject(healthClass, constructor,
         stateEnum,
