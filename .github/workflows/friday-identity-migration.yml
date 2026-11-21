@@ -55,7 +55,7 @@ jobs:
       - name: Execute complete identity and repository normalization
         run: |
           set -euo pipefail
-          python3 scripts/perform_friday_identity_migration.sh
+          python3 scripts/perform_friday_identity_migration.py
           git diff --check
 
       - name: Verify package identity and source tree
@@ -78,10 +78,12 @@ jobs:
             exit 1
           fi
           grep -RIl 'Java_ai_friday_assistant' mobile/app/src/main/cpp | grep -q .
-          if grep -RIl 'MANAGE_EXTERNAL_STORAGE' mobile/app/src/main | grep -q .; then
-            echo "::error::Broad external-storage permission remains."
+          if grep -RInE '<uses-permission[^>]*android.permission.MANAGE_EXTERNAL_STORAGE' mobile/app/src/main --include='AndroidManifest.xml'; then
+            echo "::error::Broad external-storage permission is declared in an app manifest."
             exit 1
           fi
+          test ! -e mobile/app/src/main/java/ai/friday/assistant/ObsidianSync.kt
+          grep -q 'android:label="Friday"' mobile/app/src/main/AndroidManifest.xml
           if grep -RIl 'ObsidianSync' mobile/app/src/main/java | grep -q .; then
             echo "::error::Retired Obsidian storage adapter remains."
             exit 1
