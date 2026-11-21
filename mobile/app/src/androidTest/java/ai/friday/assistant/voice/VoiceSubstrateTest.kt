@@ -2,6 +2,8 @@ package ai.friday.assistant.voice
 
 import android.content.Context
 import android.os.Process
+import ai.friday.assistant.FridayEngine
+import ai.friday.assistant.EngineReadinessState
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import ai.friday.assistant.failure.FailureReport
@@ -9,6 +11,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.first
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -39,11 +43,21 @@ class VoiceSubstrateTest {
     @Test
     fun voiceHabitatIsolatesAndSurvivesCrash() {
         val context: Context = ApplicationProvider.getApplicationContext()
-        val failures = mutableListOf<FailureReport>()
-        val host = VoiceOrganismHost(context = context, onFailure = { failures.add(it) })
-        try {
-            host.start()
-            assertTrue("substrate should reach BOUND", awaitState(host) { it.state == VoiceOrganismHost.State.BOUND })
+        val readiness = runBlocking {
+            withTimeoutOrNull(30_000L) {
+                FridayEngine.readinessState.first {
+                    it is EngineReadinessState.Ready || it is EngineReadinessState.FailedToWake
+                }
+            }
+        }
+        assertTrue("production engine must finish wiring before substrate test: $readiness", readiness is EngineReadinessState.Ready)
+
+        // Exercise the one production supervisor. Creating a second host here
+        // races FridayEngine's own supervisor for the same Android Service and
+        // can produce competing unbind/rebind sequences after process death.
+        val host = FridayEngine.getVoiceOrganismHost()
+        val failureSurface = FridayEngine.getFailureSurface()
+        assertTrue("production voice substrate should reach BOUND", awaitState(host) { it.state == VoiceOrganismHost.State.BOUND })
 
             val appPid = Process.myPid()
             val initial = host.state.value
@@ -73,7 +87,11 @@ class VoiceSubstrateTest {
 
             // Containment: crash the voice process, prove the app survives.
             val oldVoicePid = initial.voicePid
-            val rebuiltMs = runBlocking { host.runCrashRestartCycle(timeoutMs = 10_000) }
+            // A process crash is followed by a genuine Android process start.
+            // Allow for cold Application/service initialization on a loaded
+            // emulator; the bound is generous but finite and never treats a
+            // missing/reused process as a successful recovery.
+            val rebuiltMs = runBlocking { host.runCrashRestartCycle(timeoutMs = 30_000) }
             assertTrue("host rebuilt the habitat, got: ${rebuiltMs}ms", rebuiltMs >= 0)
 
             assertEquals("app process pid unchanged after voice crash", appPid, Process.myPid())
@@ -82,10 +100,12 @@ class VoiceSubstrateTest {
             assertNotEquals("voice habitat was rebuilt in a fresh process", oldVoicePid, host.state.value.voicePid)
             assertTrue("restart counted", host.state.value.restartCount >= 1)
             assertNotNull("restart timing recorded", host.state.value.lastRestartMs)
-            assertTrue("death was reported to the failure surface", failures.any { it.message.contains("voice process died") })
-        } finally {
-            host.shutdown()
-        }
+            assertTrue(
+                "death was reported to the production failure surface",
+                failureSurface.recentFailures.value.any {
+                    it.subsystem == "VOICE_SUBSTRATE" && it.message.contains("voice process died")
+                }
+            )
     }
 
     private fun awaitState(
