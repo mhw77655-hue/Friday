@@ -199,6 +199,52 @@ class FailureStoreTest {
     }
 
     @Test
+    fun `concurrent reports persist in the exact failure surface event order`() = runBlocking {
+        val storage = MemoryStorage().apply { appendDelayMs = 1 }
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        try {
+            val store = FailureStore(storage, scope)
+            val surface = FailureSurface(maxRecent = 32)
+            val observed = java.util.Collections.synchronizedList(mutableListOf<String>())
+            store.attach(surface)
+            surface.addFailureListener { observed.add(it.id) }
+
+            val workers = 8
+            val perWorker = 100
+            val pool = java.util.concurrent.Executors.newFixedThreadPool(workers)
+            try {
+                val tasks = (0 until workers).map {
+                    java.util.concurrent.Callable {
+                        repeat(perWorker) {
+                            surface.report(FailureReport(
+                                subsystem = "STRESS",
+                                operation = "concurrent",
+                                severity = FailureSeverity.RECOVERABLE,
+                                category = FailureCategory.UNKNOWN,
+                                message = "same concurrent incident"
+                            ))
+                        }
+                    }
+                }
+                pool.invokeAll(tasks).forEach { it.get(5, java.util.concurrent.TimeUnit.SECONDS) }
+            } finally {
+                pool.shutdownNow()
+            }
+
+            withTimeout(10_000) {
+                while (store.persistedEventCount < workers * perWorker) delay(10)
+            }
+            val persistedOldestFirst = store.loadRecent(workers * perWorker)
+                .asReversed().map { it.id }
+            assertEquals(workers * perWorker, persistedOldestFirst.size)
+            assertEquals(observed.toList(), persistedOldestFirst)
+            assertEquals(0L, store.persistenceQueueOverflowCount)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
     fun `nonpositive load limits return an empty result`() {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         try {

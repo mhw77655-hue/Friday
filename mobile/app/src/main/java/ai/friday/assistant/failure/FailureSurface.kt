@@ -205,7 +205,6 @@ class FailureSurface(
 
         pushRecent(event)
         recomputePublished(aggregateKeyChanged = aggregate.key)
-        notifyFailureListeners(event)
         return event
     }
 
@@ -226,13 +225,6 @@ class FailureSurface(
 
     internal fun removeFailureListener(listener: (FailureEvent) -> Unit) {
         synchronized(lock) { failureListeners.remove(listener) }
-    }
-
-    private fun notifyFailureListeners(event: FailureEvent) {
-        val listeners = synchronized(lock) { failureListeners.toList() }
-        listeners.forEach { listener ->
-            try { listener(event) } catch (_: Throwable) { /* observers cannot break reporting */ }
-        }
     }
 
     /**
@@ -330,6 +322,11 @@ class FailureSurface(
         recentEvents.addFirst(event)
         while (recentEvents.size > maxRecent) recentEvents.removeLast()
         _recentFailures.value = recentEvents.toList()
+        // Enqueue observers under the same lock as the ring append so concurrent
+        // reports reach durable subscribers in exactly the surface's event order.
+        failureListeners.forEach { listener ->
+            try { listener(event) } catch (_: Throwable) { /* observers cannot break reporting */ }
+        }
     }
 
     /** Recompute the derived flows after any aggregate/stat change. */
