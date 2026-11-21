@@ -31,7 +31,7 @@ object OfflineModelCatalog {
         filename = "MiniCPM5-2B-heretic-Q4_K_M.gguf",
         license = "Apache-2.0",
         description = "Primary English resident candidate. GGUF/llama.cpp supported; creator reports 4/100 refusals. NAE admits it only when live resources allow.",
-        expectedMinimumBytes = 1_200L * 1024L * 1024L,
+        expectedMinimumBytes = 1_561_318_112L, // exact size of the pinned GGUF asset
         resident = true,
         sha256 = "54db1ccd73f771e9f13b6cf5a9994fc7e780898d6d2ca6f0e1715641f67697b4"
     )
