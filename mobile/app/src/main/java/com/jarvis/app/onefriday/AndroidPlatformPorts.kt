@@ -1,7 +1,7 @@
 package com.jarvis.app.onefriday
 
 import android.content.Context
-import com.jarvis.app.ObsidianSync
+import com.jarvis.app.LocalTurnJournal
 import com.jarvis.app.companioncore.presence.CompanionCoreHolder
 import com.jarvis.app.failure.FailureSurface
 import com.jarvis.app.cognitive.capability.CapabilityFabric
@@ -20,7 +20,7 @@ import java.util.Calendar
  *
  * Everything android-bound lives on this side of the seam: the process Context,
  * the sqlite graph store, the neural embedder, the real battery/CPU reading, the
- * Companion Core's turn signals, the Obsidian vault sidecar, and the platform
+ * Companion Core's turn signals, the app-private turn journal, and the platform
  * speech engines.
  *
  * Note what is NOT here: any decision about what a turn means. This class is the
@@ -86,7 +86,7 @@ class AndroidPlatformPorts(
      *  attached, platform TTS otherwise. */
     override fun speakFullReply(text: String) = LatencyLayer.speakReplyText(text)
 
-    override fun logTurn(fromJarvis: Boolean, text: String) = ObsidianSync.logTurn(fromJarvis, text)
+    override fun logTurn(fromJarvis: Boolean, text: String) = LocalTurnJournal.logTurn(fromJarvis, text)
 
     override fun warmModel() {
         WarmupEngine.start()
