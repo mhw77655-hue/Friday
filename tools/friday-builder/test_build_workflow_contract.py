@@ -62,7 +62,8 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn("on:\n  push:\n    branches: [ main ]", self.workflow)
         self.assertNotIn("pull_request:", self.workflow)
         self.assertIn("concurrency:", self.workflow)
-        self.assertIn("cancel-in-progress: false", self.workflow)
+        self.assertIn("group: friday-build-${{ github.ref }}", self.workflow)
+        self.assertIn("cancel-in-progress: true", self.workflow)
         self.assertIn("workflow_dispatch:", self.workflow)
 
 
