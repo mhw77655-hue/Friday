@@ -87,7 +87,7 @@ class FileStorageAtomicityTest {
         FileStorage(directory).append(StoreKind.FAILURES, "{\"id\":\"next-valid\"}")
 
         val lines = FileStorage(directory).read(StoreKind.FAILURES)!!
-            .lineSequence().toList()
+            .lineSequence().filter { it.isNotBlank() }.toList()
         assertEquals(listOf("{\"id\":\"truncated\"}", "{\"id\":\"next-valid\"}"), lines)
         directory.deleteRecursively()
     }

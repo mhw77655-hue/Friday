@@ -219,5 +219,9 @@ class RecoveryController(
     fun breakerState(subsystem: String, operation: String): CircuitBreaker.State? =
         entries[keyFor(subsystem, operation)]?.breaker?.state
 
+    /** Cumulative failure observations, exposed for recovery diagnostics and invariant tests. */
+    fun breakerFailureCount(subsystem: String, operation: String): Int? =
+        entries[keyFor(subsystem, operation)]?.breaker?.failureCount
+
     private fun keyFor(subsystem: String, operation: String) = "$subsystem|$operation"
 }

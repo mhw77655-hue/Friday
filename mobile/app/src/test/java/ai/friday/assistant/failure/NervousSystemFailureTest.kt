@@ -383,6 +383,10 @@ class NervousSystemFailureTest {
             }
 
             assertEquals(3, attempts.get())
+            // Initial failure + two failed retries; the third retry succeeds.
+            // This proves each failed retry is fed into the breaker without
+            // tripping the higher configured threshold before the attempt budget.
+            assertEquals(3, rc.breakerFailureCount("STT_VOSK", "decode"))
             assertTrue(s.currentFailures.value.isEmpty())
             assertEquals(CircuitBreaker.State.CLOSED, rc.breakerState("STT_VOSK", "decode"))
         } finally {

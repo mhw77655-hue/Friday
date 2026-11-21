@@ -96,7 +96,7 @@ class PolicyTest {
         assertTrue(cb.probe()) // cooldown elapsed -> HALF_OPEN
         assertTrue(cb.isHalfOpen)
         assertEquals(1, cb.probeAttempts)
-        assertTrue(cb.allowRequest()) // one probe allowed
+        assertFalse(cb.allowRequest()) // probe() already admitted the sole probe; no second request
 
         cb.onSuccess()
         assertTrue(cb.isClosed)
