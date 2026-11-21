@@ -366,7 +366,15 @@ jobs:
           subprocess.run([sys.executable, "-m", "compileall", "-q", ".ralph", "tools/friday-builder"], check=True)
           shell_files = [name for name in paths if name.endswith(".sh")]
           for name in shell_files:
-              subprocess.run(["bash", "-n", name], check=True)
+              first_line = Path(name).read_text(encoding="utf-8", errors="replace").splitlines()[:1]
+              if first_line and "python" in first_line[0].lower():
+                  subprocess.run([
+                      sys.executable, "-c",
+                      "import ast, pathlib, sys; ast.parse(pathlib.Path(sys.argv[1]).read_text(encoding='utf-8'))",
+                      name,
+                  ], check=True)
+              else:
+                  subprocess.run(["bash", "-n", name], check=True)
 
           audit_summaries = []
           for report in sorted(out.glob("audit_*.json")):
