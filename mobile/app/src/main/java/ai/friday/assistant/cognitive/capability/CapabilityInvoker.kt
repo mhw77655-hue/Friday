@@ -54,6 +54,34 @@ class CapabilityInvoker(
     /** Deterministic request id for tracing (same action → same id). */
     fun requestId(request: ActionRequest): String = "${request.planId}|${request.stepId}|${request.action}"
 
+    /**
+     * Ask the registered capability to independently inspect the requested
+     * postcondition after invocation. This is read/observe-only by contract:
+     * implementations must inspect the external target state, not echo the
+     * invocation result. Unknown, replaced, timed-out or unsupported verifiers
+     * fail closed.
+     */
+    suspend fun verifyPostcondition(
+        request: ActionRequest,
+        invocation: CapabilityInvocation
+    ): Boolean {
+        if (!invocation.invoked || !invocation.success || invocation.refused) return false
+        val capabilityId = invocation.capabilityId ?: return false
+        if (invocation.operation != request.action || invocation.stepId != request.stepId) return false
+        val capability = registry.get(capabilityId) ?: return false
+        if (request.action !in capability.descriptor.supportedOperations) return false
+        val result = invocation.result ?: return false
+        return try {
+            withTimeoutOrNull(defaultTimeoutMs) {
+                capability.verifyPostcondition(request, result)
+            } ?: false
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     suspend fun invoke(
         request: ActionRequest,
         granted: Set<CapabilityPermission> = emptySet(),
