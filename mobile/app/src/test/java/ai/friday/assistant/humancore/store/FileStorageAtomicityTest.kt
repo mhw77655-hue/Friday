@@ -78,6 +78,21 @@ class FileStorageAtomicityTest {
     }
 
     @Test
+    fun `append separates a truncated prior record from the next durable record`() {
+        val directory = tempDir()
+        val target = File(directory, "humancore/${StoreKind.FAILURES.fileName}")
+        target.parentFile?.mkdirs()
+        target.writeText("{\"id\":\"truncated\"}") // deliberately no terminating newline
+
+        FileStorage(directory).append(StoreKind.FAILURES, "{\"id\":\"next-valid\"}")
+
+        val lines = FileStorage(directory).read(StoreKind.FAILURES)!!
+            .lineSequence().toList()
+        assertEquals(listOf("{\"id\":\"truncated\"}", "{\"id\":\"next-valid\"}"), lines)
+        directory.deleteRecursively()
+    }
+
+    @Test
     fun `failed atomic replacement preserves the previous target`() {
         val directory = tempDir()
         val targetDirectory = File(directory, "protected-target").apply { mkdirs() }

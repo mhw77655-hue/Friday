@@ -3,6 +3,7 @@ package ai.friday.assistant.humancore.store
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.io.RandomAccessFile
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -68,8 +69,17 @@ class FileStorage(directory: File) : StoragePort {
     override fun append(store: StoreKind, line: String) {
         val file = fileFor(store)
         synchronized(lockFor(file)) {
-            FileOutputStream(file, true).use { out ->
-                out.write((line + "\n").toByteArray(Charsets.UTF_8))
+            RandomAccessFile(file, "rw").use { out ->
+                val length = out.length()
+                if (length > 0L) {
+                    out.seek(length - 1L)
+                    // A process may have died mid-append. Terminate that
+                    // damaged tail before writing the next independent record.
+                    if (out.read() != '\n'.code) out.write('\n'.code)
+                }
+                out.seek(out.length())
+                out.write(line.toByteArray(Charsets.UTF_8))
+                out.write('\n'.code)
                 out.fd.sync()
             }
         }
