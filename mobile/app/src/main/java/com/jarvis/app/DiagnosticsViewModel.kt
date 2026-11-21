@@ -732,7 +732,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 if (shizukuGranted && shizukuBound) DiagnosticLevel.PASS else DiagnosticLevel.WARNING,
                 "Permission granted=$shizukuGranted; privileged UserService bound=$shizukuBound; status=${ScreenBridge.status.value}.",
                 if (!shizukuGranted) "Start Shizuku and grant Friday permission if privileged device capabilities are wanted."
-                else if (!shizukuBound) "Use Connect phone to GitHub / the device capability control to bind Friday's Shizuku UserService."
+                else if (!shizukuBound) "Open Device capabilities in Settings to bind Friday's Shizuku UserService."
                 else null
             )
             val runtimeEnabled = com.jarvis.app.runtime.FridayRuntimeController.isEnabled(context)
@@ -754,15 +754,6 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 if (batteryExempt) "Android reports Friday as exempt from battery optimization." else "Friday is not reported as exempt from Doze battery optimization.",
                 if (!batteryExempt) "Use Android battery settings or the Shizuku Protect Friday action. This cannot prevent force-stop or all OEM task killers." else null
             )
-            val evolutionEnabled = com.jarvis.app.github.FridayEvolutionScheduler.isEnabled(context)
-            val githubConfigured = com.jarvis.app.github.GitHubTokenStore(context).isConfigured()
-            add(
-                "autonomous-evolution", "Autonomous development / self-update",
-                DiagnosticLevel.WARNING,
-                "Scheduler enabled=$evolutionEnabled; GitHub token configured=$githubConfigured. The current worker can submit a hosted coding request and draft PR, but verified auto-promotion, signed APK delivery and phone-side installation/rollback are not implemented.",
-                "This is not yet a self-updating Friday. Complete the verified promotion and phone update loop before marking this capability ready."
-            )
-
             _selfDiagnosticFindings.value = findings
             _selfDiagnosticAt.value = System.currentTimeMillis()
         }
