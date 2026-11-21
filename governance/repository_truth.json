@@ -6,7 +6,7 @@
   "identity": {
     "application_id": "ai.friday.assistant",
     "namespace": "ai.friday.assistant",
-    "status": "owner_authorized_target_not_yet_verified_on_main"
+    "status": "verified_in_main_source_and_ci_build"
   },
   "authority": {
     "default_for_unlisted_sources": "non_authoritative",
