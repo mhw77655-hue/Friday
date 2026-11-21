@@ -42,6 +42,24 @@ class FridayUpdateClient(
         data class Rejected(val reason: String) : Result
     }
 
+    /**
+     * Re-check the staged bytes immediately before installation. Staging and
+     * installation are separate user-visible steps, so the file is not trusted
+     * merely because it passed verification earlier.
+     */
+    fun verifyStagedArtifact(staged: Result.Staged): String? = runCatching {
+        val apk = staged.apk.canonicalFile
+        if (apk.parentFile != stagingDirectory.canonicalFile || !apk.isFile || apk.length() <= 0L) {
+            return "Staged APK is outside Friday's private update directory or is empty."
+        }
+        if (sha256(apk) != staged.release.apkSha256) {
+            return "Staged APK changed after download; checksum verification failed."
+        }
+        verifyApkArchive(apk, staged.release)
+    }.getOrElse {
+        it.message?.take(240) ?: "Staged APK could not be re-verified."
+    }
+
     suspend fun checkAndStage(): Result = withContext(Dispatchers.IO) {
         try {
             val installed = installedIdentity()
