@@ -63,7 +63,11 @@ class ImmuneSystem(
      */
     fun onFailure(report: FailureReport, recoveryFn: (() -> Boolean)? = null): FailureEvent {
         val operationKey = key(report.subsystem, report.operation)
-        report.relatedCapability?.let { relatedCapabilityByOperation[operationKey] = it }
+        if (report.relatedCapability == null) {
+            relatedCapabilityByOperation.remove(operationKey)
+        } else {
+            relatedCapabilityByOperation[operationKey] = report.relatedCapability
+        }
         val event = surface.report(report)
         emit(CognitiveEvent.FailureDetected(event, report.failureCause))
 
