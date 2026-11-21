@@ -59,6 +59,54 @@ class RepositoryTruthTests(unittest.TestCase):
         )
         self.assertEqual(len(errors), 5)
 
+    def test_non_object_policy_root_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "policy.json"
+            path.write_text("[]", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "root must be a JSON object"):
+                MODULE.load_policy(path)
+
+    def test_malformed_nested_policy_shapes_fail_closed_without_crashing(self):
+        malformed_values = [None, [], "", 0, {"unexpected": "shape"}]
+        for field in ("authority", "capability_evidence", "capabilities"):
+            for value in malformed_values:
+                policy = dict(self.policy)
+                policy[field] = value
+                errors = MODULE.verify(policy, root=Path("/definitely/missing"))
+                self.assertTrue(errors, (field, value))
+        for value in malformed_values:
+            policy = dict(self.policy)
+            policy["authority"] = {
+                "default_for_unlisted_sources": "non_authoritative",
+                "precedence": value,
+                "instruction_discovery_globs": ["**/*.md"],
+            }
+            self.assertTrue(MODULE.verify(policy, root=Path("/definitely/missing")))
+
+    def test_malformed_capability_evidence_is_rejected(self):
+        for evidence in (None, [], "", 0):
+            capability = {
+                "id": "demo",
+                "level": "production_wired",
+                "evidence": evidence,
+            }
+            errors = MODULE.validate_capability(capability, self.policy)
+            self.assertTrue(errors)
+            self.assertIn("evidence must be a JSON object", errors[0])
+
+        malformed_policy = dict(self.policy)
+        malformed_policy["capability_evidence"] = {"required_evidence": []}
+        errors = MODULE.validate_capability(
+            {"id": "demo", "level": "production_wired", "evidence": {}},
+            malformed_policy,
+        )
+        self.assertTrue(errors)
+        self.assertIn("required_evidence must be a JSON object", errors[0])
+
+    def test_authority_lookup_fails_closed_on_malformed_registry(self):
+        for policy in (None, [], {}, {"authority": []}, {"authority": {"precedence": [None, "VISION.md"]}}):
+            self.assertFalse(MODULE.is_authoritative(".ralph/VISION.md", policy))
+
     def test_unknown_evidence_level_fails_closed(self):
         errors = MODULE.validate_capability({"id": "demo", "level": "magic"}, self.policy)
         self.assertTrue(errors)
