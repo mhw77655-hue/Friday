@@ -43,19 +43,36 @@ class FridayTts(
     fun start(): Boolean {
         // Enforce one TTS owner per process: if another component has already registered
         // or is initializing the process TTS engine (e.g. VoiceService in :voice), reuse it or stay lazy.
-        val existingEngine = ai.friday.assistant.tts.ProcessTtsHolder.getRawEngine<TextToSpeech>()
+        val holder = ai.friday.assistant.tts.ProcessTtsHolder
+        val existingEngine = holder.getRawEngine<TextToSpeech>()
         if (existingEngine != null) {
-            engine = existingEngine
-            status = if (ai.friday.assistant.tts.ProcessTtsHolder.currentReadiness is ai.friday.assistant.tts.TtsReadinessState.Ready) "ready" else "initializing"
-            attachProgressListener()
-            return true
+            val readiness = holder.currentReadiness
+            if (readiness is ai.friday.assistant.tts.TtsReadinessState.Ready ||
+                readiness is ai.friday.assistant.tts.TtsReadinessState.Initializing
+            ) {
+                engine = existingEngine
+                status = if (readiness is ai.friday.assistant.tts.TtsReadinessState.Ready) "ready" else "initializing"
+                attachProgressListener()
+                return true
+            }
+            // A failed/stopped engine owned by Friday can be replaced. Never
+            // shut down an engine owned by another process component.
+            if (holder.getPrimaryOwnerId() == OWNER_ID) {
+                runCatching { existingEngine.stop() }
+                runCatching { existingEngine.shutdown() }
+                holder.setEngine(OWNER_ID, null)
+                engine = null
+            } else {
+                engine = existingEngine
+                status = "primary TTS owner is not healthy"
+                return false
+            }
         }
 
-        val registered = ai.friday.assistant.tts.ProcessTtsHolder.registerOwner("ai.friday.assistant.FridayTts", null)
+        val registered = holder.registerOwner(OWNER_ID, null)
         if (!registered) {
-            // Another owner is registered in this process; do not bind a duplicate TextToSpeech instance.
-            status = "reusing process tts owner"
-            return true
+            status = "primary TTS owner is unavailable"
+            return false
         }
 
         status = "initializing"
@@ -108,7 +125,7 @@ class FridayTts(
         // we fall back to whatever the system default is.
         val forced = TextToSpeech(appContext, initListener, PREFERRED_ENGINE)
         engine = forced
-        ai.friday.assistant.tts.ProcessTtsHolder.setEngine("ai.friday.assistant.FridayTts", forced)
+        ai.friday.assistant.tts.ProcessTtsHolder.setEngine(OWNER_ID, forced)
         attachProgressListener()
         return true
     }
@@ -281,13 +298,20 @@ class FridayTts(
     }
 
     private companion object {
+        const val OWNER_ID = "ai.friday.assistant.FridayTts"
         const val CACHE_DIR_NAME = "friday_tts_cache"
         const val PRELOAD_ID_PREFIX = "friday-preload-"
     }
 
     fun stop() {
-        engine?.stop()
-        engine?.shutdown()
+        val holder = ai.friday.assistant.tts.ProcessTtsHolder
+        if (holder.getPrimaryOwnerId() == OWNER_ID) {
+            runCatching { engine?.stop() }
+            runCatching { engine?.shutdown() }
+            holder.setEngine(OWNER_ID, null)
+            holder.gate.markNotStarted()
+        }
+        // A secondary client must never shut down the process owner's engine.
         engine = null
         status = "stopped"
     }

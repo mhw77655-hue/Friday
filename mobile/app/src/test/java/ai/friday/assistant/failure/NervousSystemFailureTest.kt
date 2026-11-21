@@ -211,6 +211,9 @@ class NervousSystemFailureTest {
         backoffMs: Long = 5,
         breakerThreshold: Int = 3,
         action: () -> Boolean = { true },
+        verify: () -> Boolean = { true },
+        verificationTimeoutMs: Long = 1_000,
+        verificationPollMs: Long = 5,
         onDisabled: (() -> Unit)? = null
     ) = RecoveryController.RetrySpec(
         subsystem = subsystem,
@@ -219,6 +222,9 @@ class NervousSystemFailureTest {
         backoffMs = backoffMs,
         breakerThreshold = breakerThreshold,
         action = action,
+        verify = verify,
+        verificationTimeoutMs = verificationTimeoutMs,
+        verificationPollMs = verificationPollMs,
         onDisabled = onDisabled
     )
 
@@ -389,6 +395,99 @@ class NervousSystemFailureTest {
             assertEquals(3, rc.breakerFailureCount("STT_VOSK", "decode"))
             assertTrue(s.currentFailures.value.isEmpty())
             assertEquals(CircuitBreaker.State.CLOSED, rc.breakerState("STT_VOSK", "decode"))
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `accepted recovery action is not success until independent health probe passes`() = runBlocking {
+        val s = FailureSurface(nowMs = { 1000 })
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val healthy = java.util.concurrent.atomic.AtomicBoolean(false)
+        try {
+            val rc = RecoveryController(s, scope)
+            rc.register(retrySpec(
+                maxAttempts = 1,
+                backoffMs = 0,
+                breakerThreshold = 5,
+                action = { true },
+                verify = { healthy.get() },
+                verificationTimeoutMs = 40,
+                verificationPollMs = 5
+            ))
+            rc.handle(FailureReport(
+                subsystem = "STT_VOSK", operation = "decode",
+                severity = FailureSeverity.RECOVERABLE, category = FailureCategory.STT,
+                message = "decoder returned empty"
+            ))
+            kotlinx.coroutines.withTimeout(2_000) {
+                while (s.recentRecoveryEvents.value.none { it.result == RecoveryResult.FAILED }) delay(5)
+            }
+
+            assertFalse(s.recentRecoveryEvents.value.any { it.result == RecoveryResult.SUCCESS })
+            assertTrue(s.currentFailures.value.any { it.messageKey == "decoder returned empty" })
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `recovery waits for delayed independent health probe before declaring success`() = runBlocking {
+        val s = FailureSurface(nowMs = { 1000 })
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val healthy = java.util.concurrent.atomic.AtomicBoolean(false)
+        try {
+            val rc = RecoveryController(s, scope)
+            rc.register(retrySpec(
+                maxAttempts = 1,
+                backoffMs = 0,
+                breakerThreshold = 5,
+                action = { true },
+                verify = { healthy.get() },
+                verificationTimeoutMs = 500,
+                verificationPollMs = 5
+            ))
+            scope.launch {
+                delay(40)
+                healthy.set(true)
+            }
+            rc.handle(FailureReport(
+                subsystem = "STT_VOSK", operation = "decode",
+                severity = FailureSeverity.RECOVERABLE, category = FailureCategory.STT,
+                message = "decoder returned empty"
+            ))
+            kotlinx.coroutines.withTimeout(2_000) {
+                while (s.recentRecoveryEvents.value.none { it.result == RecoveryResult.SUCCESS }) delay(5)
+            }
+
+            assertTrue(healthy.get())
+            assertTrue(s.currentFailures.value.isEmpty())
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `permanent failures are surfaced without automatic retries`() = runBlocking {
+        val s = FailureSurface(nowMs = { 1000 })
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val attempts = java.util.concurrent.atomic.AtomicInteger(0)
+        try {
+            val rc = RecoveryController(s, scope)
+            rc.register(retrySpec(action = { attempts.incrementAndGet(); true }))
+            rc.handle(FailureReport(
+                subsystem = "TTS", operation = "init",
+                severity = FailureSeverity.DEGRADED, category = FailureCategory.TTS,
+                message = "language pack missing",
+                recoverability = ai.friday.assistant.failure.Recoverability.PERMANENT,
+                recoveryAction = ai.friday.assistant.failure.RecoveryAction.USER_ACTION_REQUIRED
+            ))
+            delay(50)
+
+            assertEquals(0, attempts.get())
+            assertTrue(s.currentFailures.value.any { it.messageKey == "language pack missing" })
+            assertTrue(s.recentRecoveryEvents.value.isEmpty())
         } finally {
             scope.cancel()
         }

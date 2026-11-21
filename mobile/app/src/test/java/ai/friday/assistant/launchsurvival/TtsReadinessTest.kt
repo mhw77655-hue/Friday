@@ -76,6 +76,14 @@ class TtsReadinessTest {
             ProcessTtsHolder.gate.markInitializing()
         }
 
+        fun stop() {
+            if (ProcessTtsHolder.getPrimaryOwnerId() == ownerId) {
+                ProcessTtsHolder.setEngine(ownerId, null)
+                ProcessTtsHolder.gate.markNotStarted()
+            }
+            engine = null
+        }
+
         fun onInitSuccess() {
             ProcessTtsHolder.gate.markReady()
         }
@@ -213,6 +221,38 @@ class TtsReadinessTest {
         assertEquals("text from client3", engine1.speakCalls[1])
         assertEquals(0, engine2.speakCalls.size)
         assertEquals(0, engine3.speakCalls.size)
+    }
+
+    @Test
+    fun `primary owner can clear a failed engine before reinitializing`() {
+        val client = ManagedFakeTtsClient("primary_client")
+        val first = ConcreteFakeTtsEngine()
+        client.start(first)
+        client.onInitFailed(IllegalStateException("first init failed"))
+
+        client.stop()
+        assertEquals(TtsReadinessState.NotStarted, ProcessTtsHolder.currentReadiness)
+        assertNull(ProcessTtsHolder.getRawEngine<ConcreteFakeTtsEngine>())
+
+        val replacement = ConcreteFakeTtsEngine()
+        client.start(replacement)
+        assertEquals(replacement, ProcessTtsHolder.getRawEngine<ConcreteFakeTtsEngine>())
+        assertEquals(TtsReadinessState.Initializing, ProcessTtsHolder.currentReadiness)
+    }
+
+    @Test
+    fun `secondary client cannot shut down the primary owner's engine`() {
+        val primary = ManagedFakeTtsClient("primary_owner")
+        val secondary = ManagedFakeTtsClient("secondary_client")
+        val engine = ConcreteFakeTtsEngine()
+        primary.start(engine)
+        primary.onInitSuccess()
+        secondary.start(ConcreteFakeTtsEngine())
+
+        secondary.stop()
+
+        assertEquals(engine, ProcessTtsHolder.getRawEngine<ConcreteFakeTtsEngine>())
+        assertEquals(TtsReadinessState.Ready, ProcessTtsHolder.currentReadiness)
     }
 
     @Test

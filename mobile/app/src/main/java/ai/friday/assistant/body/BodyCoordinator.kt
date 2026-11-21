@@ -252,16 +252,30 @@ class BodyCoordinator(
         // output is safe to enable and does actually fire on a real turn.
         tts = FridayTts(context, onStatusChanged = { status -> TtsBridge.updateStatus(status) },
             onFailure = { r -> recoveryController.handle(r) })
-        val ttsStarted = tts?.start() ?: false
-        if (ttsStarted) TtsBridge.attach(tts!!)
-        Log.i(TAG, "TTS: ${if (ttsStarted) "started" else "FAILED"}")
+        // Register before starting: Android may deliver the asynchronous init
+        // callback before start() returns.
         recoveryController.register(
             ai.friday.assistant.failure.RecoveryController.RetrySpec(
                 subsystem = "TTS",
                 operation = "init",
-                action = { tts?.start() ?: false }
+                action = {
+                    val current = tts
+                    if (current == null) false else {
+                        current.stop()
+                        current.start()
+                    }
+                },
+                verify = {
+                    ai.friday.assistant.tts.ProcessTtsHolder.currentReadiness is
+                        ai.friday.assistant.tts.TtsReadinessState.Ready
+                },
+                verificationTimeoutMs = 10_000,
+                verificationPollMs = 100
             )
         )
+        val ttsStarted = tts?.start() ?: false
+        if (ttsStarted) TtsBridge.attach(tts!!)
+        Log.i(TAG, "TTS: ${if (ttsStarted) "started" else "FAILED"}")
 
         // Start mic capture
         startMic()

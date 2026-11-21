@@ -29,7 +29,7 @@ class RecoveryController(
 
     /**
      * How to recover one (subsystem, operation) dependency.
-     * [action] returns true when the subsystem is healthy again.
+     * [action] requests/starts recovery; [verify] independently proves health.
      */
     data class RetrySpec(
         val subsystem: String,
@@ -38,9 +38,21 @@ class RecoveryController(
         val backoffMs: Long = 1_500,
         val breakerThreshold: Int = 3,
         val action: () -> Boolean,
+        /** Independent health oracle; action acceptance alone never means recovered. */
+        val verify: () -> Boolean,
+        val verificationTimeoutMs: Long = 5_000,
+        val verificationPollMs: Long = 100,
         /** Called when the breaker opens (subsystem disabled). */
         val onDisabled: (() -> Unit)? = null
-    )
+    ) {
+        init {
+            require(maxAttempts >= 0) { "maxAttempts cannot be negative" }
+            require(backoffMs >= 0) { "backoffMs cannot be negative" }
+            require(breakerThreshold > 0) { "breakerThreshold must be positive" }
+            require(verificationTimeoutMs in 1..60_000) { "verificationTimeoutMs must be 1..60000" }
+            require(verificationPollMs in 1..verificationTimeoutMs) { "verificationPollMs must be within the verification timeout" }
+        }
+    }
 
     private class Entry(val spec: RetrySpec, val breaker: CircuitBreaker) {
         val attempts = java.util.concurrent.atomic.AtomicInteger(0)
@@ -81,11 +93,14 @@ class RecoveryController(
         val event = surface.report(base)
 
         if (entry == null) return event
+        // Do not retry failures that require an external owner action or are
+        // explicitly permanent. They remain visible but must not be hammered.
+        if (base.recoverability == Recoverability.NONE ||
+            base.recoverability == Recoverability.PERMANENT ||
+            base.recoveryAction == RecoveryAction.USER_ACTION_REQUIRED
+        ) return event
+
         val breaker = entry.breaker
-
-        // Feed the breaker.
-        breaker.onFailure()
-
         when {
             breaker.isOpen && breaker.lastProbeSucceeded == false -> {
                 // Probe failed recently: fully open, stop hammering. Mark the
@@ -108,7 +123,7 @@ class RecoveryController(
                     metadata = base.metadata + ("circuit" to "open")
                 ))
             }
-            else -> scheduleRetry(entry, base)
+            else -> scheduleRetry(entry, base, countFailure = true)
         }
         return event
     }
@@ -126,9 +141,24 @@ class RecoveryController(
             }
     }
 
-    private fun scheduleRetry(entry: Entry, base: FailureReport) {
+    private fun scheduleRetry(entry: Entry, base: FailureReport, countFailure: Boolean) {
         val key = keyFor(base.subsystem, base.operation)
         if (!running.add(key)) return // one recovery in flight per dependency
+
+        // Count a newly observed incident only after winning the in-flight slot;
+        // duplicate callbacks during one recovery must not trip the breaker.
+        if (countFailure) entry.breaker.onFailure()
+        if (entry.breaker.isOpen) {
+            running.remove(key)
+            surface.report(base.copy(
+                severity = FailureSeverity.max(base.severity, FailureSeverity.DEGRADED),
+                recoveryAction = RecoveryAction.DISABLE_COMPONENT,
+                message = "${base.message} — circuit opened after repeated failures",
+                metadata = base.metadata + ("circuit" to "open")
+            ))
+            entry.spec.onDisabled?.invoke()
+            return
+        }
 
         val attempt = entry.attempts.incrementAndGet()
         val spec = entry.spec
@@ -152,7 +182,7 @@ class RecoveryController(
                 if (!isActive) return@launch
                 surface.beginRecovery(base.dedupeKey, specActionOf(spec), "retry $attempt")
                 var attemptFailureMessage = "attempt $attempt failed"
-                val ok = try {
+                val actionAccepted = try {
                     spec.action()
                 } catch (cancelled: CancellationException) {
                     throw cancelled
@@ -162,6 +192,15 @@ class RecoveryController(
                     attemptFailureMessage = "retry $attempt threw: ${error.message ?: error::class.simpleName}"
                     false
                 }
+                val verifiedHealthy = if (actionAccepted) {
+                    awaitIndependentVerification(spec)
+                } else {
+                    false
+                }
+                if (actionAccepted && !verifiedHealthy) {
+                    attemptFailureMessage = "retry $attempt action accepted but independent health verification did not pass within ${spec.verificationTimeoutMs}ms"
+                }
+                val ok = actionAccepted && verifiedHealthy
                 if (ok) {
                     entry.breaker.onSuccess()
                     entry.attempts.set(0)
@@ -206,7 +245,27 @@ class RecoveryController(
             } finally {
                 running.remove(key)
             }
-            nextAttempt?.let { scheduleRetry(entry, it) }
+            nextAttempt?.let { scheduleRetry(entry, it, countFailure = false) }
+        }
+    }
+
+    private suspend fun awaitIndependentVerification(spec: RetrySpec): Boolean {
+        val deadlineNanos = System.nanoTime() +
+            java.util.concurrent.TimeUnit.MILLISECONDS.toNanos(spec.verificationTimeoutMs)
+        while (true) {
+            val healthy = try {
+                spec.verify()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                false
+            }
+            if (healthy) return true
+
+            val remainingNanos = deadlineNanos - System.nanoTime()
+            if (remainingNanos <= 0) return false
+            val remainingMs = java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(remainingNanos).coerceAtLeast(1)
+            delay(minOf(spec.verificationPollMs, remainingMs))
         }
     }
 

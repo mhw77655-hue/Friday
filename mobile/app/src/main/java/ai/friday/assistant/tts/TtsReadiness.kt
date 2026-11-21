@@ -58,6 +58,10 @@ class TtsReadinessGate {
 
     val current: TtsReadinessState get() = _state.value
 
+    fun markNotStarted() {
+        _state.value = TtsReadinessState.NotStarted
+    }
+
     fun markInitializing() {
         _state.value = TtsReadinessState.Initializing
     }
