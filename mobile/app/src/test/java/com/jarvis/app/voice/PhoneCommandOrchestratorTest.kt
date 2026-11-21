@@ -39,6 +39,26 @@ class PhoneCommandOrchestratorTest {
         assertEquals(0, executions)
     }
 
+    @Test fun `configured Jev is bypassed for allowlisted low risk action`() = runBlocking {
+        var executions = 0
+        var jevCalls = 0
+        val tool = FridayPhoneDecisionTool { _, _, _ ->
+            jevCalls++
+            JevActionDecision("reject", 0.99, mapOf("reject" to 0.99))
+        }
+        val router = PhoneCommandOrchestrator(
+            decisionTool = { tool },
+            remoteConfigured = { true },
+            execute = { executions++; PhoneControlResult.Success }
+        )
+
+        val result = router.handle("go home")
+
+        assertTrue(result is PhoneCommandOrchestrator.Outcome.ActionResult)
+        assertEquals(1, executions)
+        assertEquals(0, jevCalls)
+    }
+
     @Test fun `Jev outage does not disable deterministic low risk command`() = runBlocking {
         var executions = 0
         val tool = FridayPhoneDecisionTool { _, _, _ -> null }

@@ -35,6 +35,18 @@ class FridayPhoneDecisionTool(
 
         val requiresLocalConfirmation = PhoneCommandInterpreter.requiresExplicitConfirmation(command)
 
+        // A configured remote judge must never sit in front of ordinary,
+        // allowlisted reversible actions. Decide these locally and immediately;
+        // reserve remote inference for ambiguous or higher-consequence requests.
+        if (!requiresLocalConfirmation && risk == "low") {
+            return Result(
+                Verdict.EXECUTE,
+                Source.FRIDAY_LOCAL_POLICY,
+                1.0,
+                "A recognized, allowlisted low-risk command runs immediately under Friday's local policy."
+            )
+        }
+
         if (!remoteConfigured) {
             return if (!requiresLocalConfirmation && risk == "low") {
                 Result(
