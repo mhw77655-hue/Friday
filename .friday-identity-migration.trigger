@@ -1,1 +1,1 @@
-Retry final Friday package and repository migration after updating the last production turn-pipeline journal callback.
+Retry complete Friday purification after removing the last unused VoiceForge fake from the production composition test; require APK assembly and full JVM unit tests before committing.
