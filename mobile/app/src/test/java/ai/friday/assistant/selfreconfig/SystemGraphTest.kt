@@ -155,7 +155,7 @@ class SystemGraphTest {
             "model.resourceGovernor",
             "model.anchorEngine",
             "model.cognitiveAdmissionPolicy",
-            "model.reasoningTier",
+            "model.inferenceBackend",
             "emotion.fusionLayerTier1",
             "language.egyptianArabicTextHalf",
             "capability.capabilityRegistry",
@@ -305,16 +305,16 @@ class SystemGraphTest {
     }
 
     @Test
-    fun `reasoning tier node is real and reachable through the model authority`() {
+    fun `Android inference backend node is real and reachable through the model authority`() {
         val realOrgans = FridayOrganGraph.build()
 
         // The Android production graph points at its process-isolated backend;
         // it does not claim a particular model is installed or loaded.
-        val node = realOrgans.node("model.reasoningTier")
-        assertNotNull("reasoning tier node must exist", node)
+        val node = realOrgans.node("model.inferenceBackend")
+        assertNotNull("inference backend node must exist", node)
         assertEquals("ai.friday.assistant.model.ProcessIsolatedModelBackend", node!!.qualifiedClassName)
         assertTrue(
-            "reasoning tier must be a REAL organ, not PLANNED",
+            "inference backend must be a REAL organ, not PLANNED",
             node.organType != SystemGraph.OrganType.PLANNED
         )
 
@@ -322,14 +322,14 @@ class SystemGraphTest {
         // ModelManager loading authority -> the tier's real backend.
         val reachability = realOrgans.computeReachability("entry.latencyPipeline")
         assertTrue(
-            "reasoning tier must be reachable from the entry in the production composition",
-            reachability.reachableIds.contains("model.reasoningTier")
+            "inference backend must be reachable from the entry in the production composition",
+            reachability.reachableIds.contains("model.inferenceBackend")
         )
         val deps = realOrgans.edgesFrom("model.modelManager")
         assertTrue(
-            "the single model authority depends on the tier's real backend",
+            "the single model authority depends on the process-isolated inference backend",
             deps.any {
-                it.toId == "model.reasoningTier" && it.kind == SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON
+                it.toId == "model.inferenceBackend" && it.kind == SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON
             }
         )
     }
@@ -677,7 +677,7 @@ class SystemGraphTest {
             "language.egyptianArabicTextHalf",
             "social.personRelationshipModel",
             "social.confidentialityFirewall",
-            "model.reasoningTier"
+            "model.inferenceBackend"
         )
         for (contributor in contributorIds) {
             assertTrue(
