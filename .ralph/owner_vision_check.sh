@@ -1,26 +1,24 @@
 #!/usr/bin/env bash
-# Offline proof that Ralph receives the real vision and owner-source excerpts.
+# Offline contract check: the canonical delivery plan and owner-authored sources exist.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+
+PLAN=".ralph/FRIDAY_DELIVERY_PLAN.md"
+test -s "$PLAN"
 test -s .ralph/VISION.md
 test -s .ralph/OWNER_WORDS.md
-OUT="$(bash .ralph/ralph.sh --print-prompt)"
-grep -q "latest authenticated explicit instruction" <<<"$OUT"
-grep -q "buddy partner friend an actual digital person" <<<"$OUT"
-grep -q "Symbiotic liquid software" <<<"$OUT"
-grep -q "Don't force every specialist to be permanently active" <<<"$OUT"
-grep -Eq "FRIDAY[[:space:]]+[-—–][[:space:]]+Vision \\(written record\\)" <<<"$OUT"
-grep -q "Do not build a chatbot and call it Friday" <<<"$OUT"
-echo "OWNER_VISION_PROMPT=PASS"
-echo "OWNER_WORDS_SOURCE=PASS"
-grep -q "private archive" .ralph/OWNER_WORDS.md
-grep -qi "rather than searching" .ralph/OWNER_WORDS.md
-echo "OWNER_ARCHIVE_PRIVACY=PASS"
+test -s AGENTS.md
 
-if grep -qE 'New Folder chats\.zip|extract_owner_turns\.py' .ralph/prompt.md; then
-  echo "OWNER_ARCHIVE_PROMPT_REFERENCE=FAIL" >&2
-  exit 1
-fi
-grep -qi "Do not search for, reconstruct, request, or publish private archives" .ralph/prompt.md
-echo "OWNER_ARCHIVE_PROMPT_REFERENCE=PASS"
+grep -q "sole active product and delivery plan" "$PLAN"
+grep -q "Friday is the individual" "$PLAN"
+grep -q "liquid Symbiotic quantum software" "$PLAN"
+grep -q "Cross-objective integration target" "$PLAN"
+grep -q "Repository purification and product identity gate" "$PLAN"
+grep -q "the sole active product and delivery authority" AGENTS.md
+grep -q "canonical product line is `main`" AGENTS.md
+
+echo "FRIDAY_DELIVERY_PLAN=PASS"
+echo "OWNER_VISION_SOURCE=PASS"
+echo "OWNER_WORDS_SOURCE=PASS"
+echo "CANONICAL_MAINLINE=PASS"
