@@ -138,7 +138,9 @@ class OfflineModelDownloader(context: Context) {
     /** True only when a complete GGUF file passes the catalog's integrity checks. */
     fun isInstalled(asset: OfflineModelAsset): Boolean {
         val target = installedFile(asset)
-        return target.isFile &&
+        return !asset.sha256.isNullOrBlank() &&
+            asset.sha256.matches(Regex("[0-9a-fA-F]{64}")) &&
+            target.isFile &&
             target.length() >= asset.expectedMinimumBytes &&
             hasGgufHeader(target) &&
             matchesSha256(target, asset.sha256)
@@ -149,6 +151,9 @@ class OfflineModelDownloader(context: Context) {
         StatFs(modelDir.absolutePath).availableBytes
 
     suspend fun download(asset: OfflineModelAsset): File = withContext(Dispatchers.IO) {
+        require(!asset.sha256.isNullOrBlank() && asset.sha256.matches(Regex("[0-9a-fA-F]{64}"))) {
+            "Friday refuses to download model '${asset.id}' without a pinned SHA-256 digest."
+        }
         val target = installedFile(asset)
         if (target.isFile &&
             target.length() >= asset.expectedMinimumBytes &&
@@ -294,7 +299,7 @@ class OfflineModelDownloader(context: Context) {
     }
 
     private fun matchesSha256(file: File, expected: String?): Boolean {
-        if (expected.isNullOrBlank()) return true
+        if (expected.isNullOrBlank() || !expected.matches(Regex("[0-9a-fA-F]{64}"))) return false
         val digest = MessageDigest.getInstance("SHA-256")
         file.inputStream().buffered().use { input ->
             val buffer = ByteArray(1024 * 1024)
