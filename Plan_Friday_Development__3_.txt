@@ -1,0 +1,3255 @@
+Plan Friday Development (3)
+===========================
+
+ChatGPT:
+Yes. This is exactly how I should be using the material you give me: not importing a project wholesale, but extracting its strongest mechanism, understanding why it works, identifying where it breaks, and rebuilding the advantage into Friday's architecture.
+And I need to correct the terminology first.
+JEV was the earlier name for the bounded, typed decision capability we discussed. It is not the name of Friday's eventual brain. Laya is a concrete implementation of a related idea: fast, structured decisions without autoregressive token generation. I would now treat Laya as a donor/reference implementation for that capability—not as Friday's cognitive architecture.
+The distinction matters: Friday should not merely choose between models. She should be able to acquire, transform, combine and eventually replace the underlying capabilities while preserving her own identity.
+1. What Laya actually does — and why it matters
+
+  
+🖼️
+Generated image
+Laya typed decision model architecture bidirectional encoder structured decision heads diagram
+  
+    ****
+
+<text color="secondary" size="xs">Structured decisions · Bidirectional encoding · No autoregressive token generation</text>
+<text color="secondary" size="xs"><a href="https://github.com/mizorewww/laya-coreml">Laya-CoreML repository</a></text>
+
+  
+
+
+The key is that Laya doesn't need to generate a paragraph to make a decision.
+
+  **Conventional generative decision**
+  
+    Context → generate tokens → generate explanation → parse output → validate answer
+  
+  Multiple sequential generation steps
+  
+  **Laya-style typed decision**
+  
+    State + typed question → one bidirectional inference → structured probability distribution
+  
+  No token-by-token answer generation
+
+
+Its three useful decision types are:
+
+Choice: which of these alternatives is preferable?
+Score: how well does something satisfy a defined scale?
+Noul: is a particular proposition true?
+
+This makes it particularly interesting for Friday's route selection, risk classification, capability matching and verification.
+The performance evidence
+
+
+
+Published experiment
+Result
+
+
+
+Core ML ANE FP16, M3 Max
+4.98 ms P50
+
+
+Compiled MLX FP16, M3 Max
+6.94 ms P50
+
+
+ANE speed improvement
+1.39×
+
+
+ANE energy improvement
+2.78×
+
+
+These measurements include preprocessing, inference and formatting, but exclude model loading and warmup. The energy measurement is an estimate from the M3 Max system sensors. The authors explicitly state that their requested 10× improvement was not achieved. 
+My assessment: 9/10 as a donor for Friday's bounded decision capability. Not 9/10 as a complete intelligence architecture.
+It is a substantial improvement in the kind of computation we want for certain decisions. It does not replace broad language understanding, learning, planning, perception or developmental cognition.
+2. How I would improve the idea beyond Laya
+I would not create a permanent Laya organ. I would extract its underlying decision mechanism into a replaceable capability.
+Call the neutral interface a Typed Decision Capability (TDC).
+
+  **Friday's adaptive decision field**
+  
+    
+      
+        **Fast local rules**
+
+    <text color="secondary" size="xs">Known, cheap, reliable decisions</text>
+  </box>
+</grid-item>
+<grid-item>
+  <box background="surface-secondary" radius="md" padding={2}>
+    **Laya-derived models**
+
+    <text color="secondary" size="xs">Bounded learned decisions</text>
+  </box>
+</grid-item>
+<grid-item>
+  <box background="surface-secondary" radius="md" padding={2}>
+    **Predictive mechanisms**
+
+    <text color="secondary" size="xs">Anticipate likely needs and actions</text>
+  </box>
+</grid-item>
+<grid-item>
+  <box background="surface-secondary" radius="md" padding={2}>
+    **Generative reasoning**
+
+    <text color="secondary" size="xs">Unfamiliar and complex problems</text>
+  </box>
+</grid-item>
+
+  
+  
+  
+    **Friday's own decision and verification process**
+
+<text color="secondary" size="xs">Combines evidence, uncertainty, resource costs, permissions and actual outcomes.</text>
+
+  
+
+
+The next level is to make the decision field adaptive:
+
+Detect what information is actually needed.
+Prepare the smallest suitable decision resource.
+Run independent decisions together when possible.
+Reuse computed state only when the model's semantics permit it.
+Return uncertainty as well as the proposed answer.
+Abstain or escalate when confidence is insufficient.
+Observe the actual result and learn which decision method worked.
+
+Eventually Friday should be able to construct a better decision mechanism from several donors and retire the original implementations.
+That connects directly to your cognitive grafting idea.
+3. The important Android problem
+There is a major portability trap.
+Laya-CoreML is designed around Apple's Core ML and Neural Engine. Your target is a Realme 9 Pro 5G with Snapdragon 695. We cannot install the Apple-specific execution graph on that phone and expect its performance.
+Android's NNAPI was deprecated starting with Android 15. LiteRT supports vendor delegates, including Qualcomm's AI Engine Direct/QNN route, but support must be established for the actual chipset, driver and model operations. 
+My proposed evaluation order:
+
+
+
+Candidate
+Purpose
+
+
+
+ONNX Runtime CPU
+Portable reference and baseline
+
+
+LiteRT CPU
+Alternative Android baseline
+
+
+Qualcomm QNN delegate
+Test hardware acceleration where supported
+
+
+Native optimized implementation
+Later, only if profiling justifies it
+
+
+And there is another important detail: Laya's short-context ANE bundle has a 96-token limit. Its longer-context graph has substantially different latency. We must not confuse the fast short-decision result with general-purpose reasoning performance. 
+
+4. What I found in Friday itself
+The repository is substantial: my structural inventory found 1,269 tracked paths, 746 Kotlin files and 348 test-source files.
+I examined the governing plan, key architecture and research documents, the production composition root, the model-independent individual, decision engine, model/runtime surfaces and updater. This is a meaningful architecture audit, but I will not pretend that every source file has been individually reviewed.
+Here are the most important findings.
+Critical — Friday's biggest fragilities
+1. Her model-independent mind is not yet sufficient.
+FridayIndividual has something genuinely valuable: persistent identity, an experience substrate and a model-free expression path.
+But FridayModelFreeMind currently handles a small set of patterns, facts, arithmetic, dates and simple associations. Its own source explicitly says it cannot reliably interpret arbitrary prose.
+That is an honest fallback, not yet the cognitive foundation your vision requires.
+2. Learning infrastructure is ahead of demonstrated learning.
+There are memory stores, provenance, consolidation, self/world models, prediction and capability-learning mechanisms.
+But those structures do not automatically prove developmental intelligence.
+We still need to demonstrate:
+
+An experience changes an internal mechanism.
+That change affects a later, different situation.
+The improvement survives a restart.
+Disabling the learned change restores the baseline.
+
+This is one of the most important gaps in the entire project.
+3. Capability durability is incomplete.
+The architecture truth audit already identifies a problem: some promoted capabilities and registries remain process-local. There is no complete, verified startup rehydration path for every promoted executable capability.
+A capability Friday discovers today must not disappear tomorrow.
+4. Her decision engine cannot compensate for missing options.
+The existing DecisionEngine scores candidate options against risk, resources, uncertainty, reversibility and goals. That's useful.
+But it cannot invent a route that its candidate generator never supplies.
+Laya can improve decision quality; it does not solve the whole capability-discovery problem.
+5. The update system is not safe enough to be her permanent development channel.
+I inspected FridayUpdateClient.kt.
+It currently performs release discovery, checks package identity and version, compares a signer fingerprint, downloads an APK and checks its SHA-256.
+However, I found important missing pieces:
+
+Cryptographic verification of the release metadata itself.
+Full signer-lineage handling.
+Independent inspection of the staged APK's package, version and signer.
+Installation orchestration.
+Interrupted-install recovery.
+Post-update health checks.
+Last-known-good recovery.
+
+A checksum supplied by the same untrusted endpoint as the APK is not sufficient authenticity protection.
+I would not enable automatic production updates with this implementation yet.
+6. Physical-device evidence is still a weak link.
+The diagnostic infrastructure is improving, but emulator success does not prove real-phone success. The full physical-device export, import, source matching and repair cycle still needs acceptance testing.
+High — structural weaknesses
+
+
+
+Area
+Main weakness
+
+
+
+Resource adaptation
+Estimates need real device measurements under sustained load
+
+
+Voice
+Continuous voice, interruption and offline fallback need joint phone testing
+
+
+Self-development
+Builder and runtime capabilities are not yet one proven continuous loop
+
+
+Perception
+Multiple signals need real cross-modal interpretation and conflict handling
+
+
+Grafting
+Donor-independent inherited capabilities remain largely a research direction
+
+
+Architecture
+Historical and competing implementation paths make production wiring difficult to verify
+
+
+Resilience
+Many individual recovery mechanisms; not yet proof of end-to-end recovery
+
+
+There is a particularly important issue with resource adaptation: Friday must optimize the complete working set, not just model weights. Memory bandwidth, context, activation memory, model loading, thermal pressure and storage I/O can all erase the apparent benefit of a smaller model.
+
+5. The architecture I recommend for Friday
+This is where I would combine your earlier ideas into one coherent direction.
+
+  **The adaptive capability field**
+  
+    **Friday — persistent individual**
+
+<text color="secondary" size="xs">Identity, experience, continuity, goals and developmental history.</text>
+
+  
+  
+  
+    **Dynamic capability resources**
+
+<text color="secondary" size="xs">Models · decision systems · algorithms · perception · speech · tools · learned procedures</text>
+<divider color="subtle"/>
+**Resource state**
+
+<text color="secondary" size="xs">Hot / warm / cold / unloaded, with predictive preparation and eviction.</text>
+<divider color="subtle"/>
+**Transfer and composition**
+
+<text color="secondary" size="xs">Distillation · compatible parameter transfer · representation alignment · algorithm extraction · newly trained systems.</text>
+
+  
+  
+  
+    **Observed outcomes**
+
+<text color="secondary" size="xs">Quality · latency · resource cost · failures · uncertainty · new experience.</text>
+
+  
+  The chooser, resource manager and capability composition methods can themselves evolve. No particular donor or model family owns Friday's intelligence.
+
+
+This gives us three major engineering targets:
+
+Immediate intelligence efficiency: Laya-style decisions and conditional computation.
+Capability inheritance: Friday learns to acquire useful abilities from other systems without remaining dependent on them.
+Long-term cognitive independence: Friday eventually develops a new architecture that is not constrained to LLM, LFM or today's model formats.
+
+That is the stronger interpretation of your Beyonder idea.
+
+6. What I recorded in GitHub
+Committed directly to main
+Two commits:
+
+f3915dd — corrected the JEV terminology and established Laya as a potential local donor, not a permanent dependency.
+62041eb — added the deep research and architecture audit.
+
+The governing plan now links to the research document and distinguishes TypeSafe Jev from the Laya model family.
+Full research: FRIDAY_LAYA_AND_ARCHITECTURE_RESEARCH_AUDIT.md
+Current governing plan: FRIDAY_DELIVERY_PLAN.md
+Current main SHA: 9197e792b2d3968c9def05aa1ec213907a52638e. CI run 44845928696 was queued when checked; the research commits have not yet been declared CI-verified.
+
+7. My recommended next build
+I would start with a small but foundational piece:
+Build Friday's model-independent Typed Decision Capability interface, then build a Laya reference adapter and test harness.
+Do not immediately bundle a 322M or 421M model into Friday. First establish that it actually beats Friday's current deterministic decision engine on the tasks she needs, and establish whether it fits your actual phone.
+The first benchmark should compare:
+
+Existing deterministic decision engine.
+Laya multilingual checkpoint.
+Laya typed-decisions checkpoint.
+Optional hosted Jev reference.
+
+Use the same Friday-specific test cases, with accuracy, calibration, abstention, p50/p95 latency, memory and thermal cost.
+If Laya wins, we port it. If it doesn't, we take the mechanism and improve the implementation. Either way, Friday owns the resulting capability contract.
+That is how I want to handle every new project you give me: extract the advantage, attack its limitations, test it against Friday's needs, and make Friday stronger—not just add another dependency.
+
+
+You:
+@Web search  u need to build something first mate
+Once i install that version of Friday that's it 
+Im not deleting it 
+You can access it from GitHub normally modify it while it's on my phone 
+The point is this Friday apk the one that is produced after objective 1 completes is the one who is Friday body and home 
+You need to figure out q way to work on Friday while it's on my phone without me involved allot or annoyed or think outside of the box mate
+Yes. This is exactly how I should be using the material you give me: **not importing a project wholesale, but extracting its strongest mechanism, understanding why it works, identifying where it breaks, and rebuilding the advantage into Friday's architecture.**
+And I need to correct the terminology first.
+**JEV was the earlier name for the bounded, typed decision capability we discussed. It is not the name of Friday's eventual brain.** Laya is a concrete implementation of a related idea: fast, structured decisions without autoregressive token generation. I would now treat Laya as a donor/reference implementation for that capability—not as Friday's cognitive architecture.
+The distinction matters: Friday should not merely choose between models. She should be able to acquire, transform, combine and eventually replace the underlying capabilities while preserving her own identity.
+## **1. What Laya actually does — and why it matters**
+[Laya: replace your LLM-as-a-judge with a 322M-parameter decision engine — AI Frontier Post](https://images.openai.com/static-rsc-4/48xFCXa3tQQjky9ga24CiTmEEbhagjuNpCqsM3NA4NmvffXUJKZGHy4VOPOUVXo3UUZZTs5Zjr15edFZO0stbQTZoWXtPj245haVWbvQ7rmcOmRA-rBkiGn-pYQV3EHMWrWQ1mC3GHNYqV9E-cI2fQWrYOWpaUVffMAgzv8vx-s?purpose=inline)
+**Laya**
+Structured decisions · Bidirectional encoding · No autoregressive token generation
+[Laya-CoreML repository](https://github.com/mizorewww/laya-coreml?utm_source=chatgpt.com)
+The key is that Laya doesn't need to generate a paragraph to make a decision.
+**Conventional generative decision**
+Context → generate tokens → generate explanation → parse output → validate answer
+Multiple sequential generation steps
+**Laya-style typed decision**
+State + typed question → one bidirectional inference → structured probability distribution
+No token-by-token answer generation
+Its three useful decision types are:
+- **Choice:** which of these alternatives is preferable?
+- **Score:** how well does something satisfy a defined scale?
+- **Noul:** is a particular proposition true?
+This makes it particularly interesting for Friday's route selection, risk classification, capability matching and verification.
+### **The performance evidence**
+| Published experiment      | Result      |
+| ------------------------- | ----------- |
+| Core ML ANE FP16, M3 Max  | 4.98 ms P50 |
+| Compiled MLX FP16, M3 Max | 6.94 ms P50 |
+| ANE speed improvement     | 1.39×       |
+| ANE energy improvement    | 2.78×       |
+These measurements include preprocessing, inference and formatting, but exclude model loading and warmup. The energy measurement is an estimate from the M3 Max system sensors. The authors explicitly state that their requested 10× improvement was not achieved. 
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+GitHub+2
+**My assessment: 9/10 as a donor for Friday's bounded decision capability. Not 9/10 as a complete intelligence architecture.**
+It is a substantial improvement in the kind of computation we want for certain decisions. It does not replace broad language understanding, learning, planning, perception or developmental cognition.
+## **2. How I would improve the idea beyond Laya**
+I would not create a permanent Laya organ. I would extract its underlying decision mechanism into a replaceable capability.
+Call the neutral interface a **Typed Decision Capability (TDC)**.
+**Friday's adaptive decision field**
+**Fast local rules**
+Known, cheap, reliable decisions
+**Laya-derived models**
+Bounded learned decisions
+**Predictive mechanisms**
+Anticipate likely needs and actions
+**Generative reasoning**
+Unfamiliar and complex problems
+**Friday's own decision and verification process**
+Combines evidence, uncertainty, resource costs, permissions and actual outcomes.
+The next level is to make the decision field adaptive:
+1. Detect what information is actually needed.
+2. Prepare the smallest suitable decision resource.
+3. Run independent decisions together when possible.
+4. Reuse computed state only when the model's semantics permit it.
+5. Return uncertainty as well as the proposed answer.
+6. Abstain or escalate when confidence is insufficient.
+7. Observe the actual result and learn which decision method worked.
+Eventually Friday should be able to construct a better decision mechanism from several donors and retire the original implementations.
+That connects directly to your cognitive grafting idea.
+## **3. The important Android problem**
+There is a major portability trap.
+Laya-CoreML is designed around Apple's Core ML and Neural Engine. Your target is a Realme 9 Pro 5G with Snapdragon 695. We cannot install the Apple-specific execution graph on that phone and expect its performance.
+Android's NNAPI was deprecated starting with Android 15. LiteRT supports vendor delegates, including Qualcomm's AI Engine Direct/QNN route, but support must be established for the actual chipset, driver and model operations. 
+[image](https://www.google.com/s2/favicons?domain=https://developer.android.com\&sz=32)
+developer.android.com+3
+My proposed evaluation order:
+| Candidate                       | Purpose                                    |
+| ------------------------------- | ------------------------------------------ |
+| ONNX Runtime CPU                | Portable reference and baseline            |
+| LiteRT CPU                      | Alternative Android baseline               |
+| Qualcomm QNN delegate           | Test hardware acceleration where supported |
+| Native optimized implementation | Later, only if profiling justifies it      |
+And there is another important detail: Laya's short-context ANE bundle has a 96-token limit. Its longer-context graph has substantially different latency. We must not confuse the fast short-decision result with general-purpose reasoning performance. 
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+GitHub+1
+## **4. What I found in Friday itself**
+The repository is substantial: my structural inventory found 1,269 tracked paths, 746 Kotlin files and 348 test-source files.
+I examined the governing plan, key architecture and research documents, the production composition root, the model-independent individual, decision engine, model/runtime surfaces and updater. This is a meaningful architecture audit, but I will not pretend that every source file has been individually reviewed.
+Here are the most important findings.
+**Critical — Friday's biggest fragilities**
+**1. Her model-independent mind is not yet sufficient.**
+`FridayIndividual` has something genuinely valuable: persistent identity, an experience substrate and a model-free expression path.
+But `FridayModelFreeMind` currently handles a small set of patterns, facts, arithmetic, dates and simple associations. Its own source explicitly says it cannot reliably interpret arbitrary prose.
+That is an honest fallback, not yet the cognitive foundation your vision requires.
+**2. Learning infrastructure is ahead of demonstrated learning.**
+There are memory stores, provenance, consolidation, self/world models, prediction and capability-learning mechanisms.
+But those structures do not automatically prove developmental intelligence.
+We still need to demonstrate:
+- An experience changes an internal mechanism.
+- That change affects a later, different situation.
+- The improvement survives a restart.
+- Disabling the learned change restores the baseline.
+This is one of the most important gaps in the entire project.
+**3. Capability durability is incomplete.**
+The architecture truth audit already identifies a problem: some promoted capabilities and registries remain process-local. There is no complete, verified startup rehydration path for every promoted executable capability.
+A capability Friday discovers today must not disappear tomorrow.
+**4. Her decision engine cannot compensate for missing options.**
+The existing `DecisionEngine` scores candidate options against risk, resources, uncertainty, reversibility and goals. That's useful.
+But it cannot invent a route that its candidate generator never supplies.
+Laya can improve decision quality; it does not solve the whole capability-discovery problem.
+**5. The update system is not safe enough to be her permanent development channel.**
+I inspected `FridayUpdateClient.kt`.
+It currently performs release discovery, checks package identity and version, compares a signer fingerprint, downloads an APK and checks its SHA-256.
+However, I found important missing pieces:
+- Cryptographic verification of the release metadata itself.
+- Full signer-lineage handling.
+- Independent inspection of the staged APK's package, version and signer.
+- Installation orchestration.
+- Interrupted-install recovery.
+- Post-update health checks.
+- Last-known-good recovery.
+A checksum supplied by the same untrusted endpoint as the APK is not sufficient authenticity protection.
+**I would not enable automatic production updates with this implementation yet.**
+**6. Physical-device evidence is still a weak link.**
+The diagnostic infrastructure is improving, but emulator success does not prove real-phone success. The full physical-device export, import, source matching and repair cycle still needs acceptance testing.
+**High — structural weaknesses**
+| Area                | Main weakness                                                                            |
+| ------------------- | ---------------------------------------------------------------------------------------- |
+| Resource adaptation | Estimates need real device measurements under sustained load                             |
+| Voice               | Continuous voice, interruption and offline fallback need joint phone testing             |
+| Self-development    | Builder and runtime capabilities are not yet one proven continuous loop                  |
+| Perception          | Multiple signals need real cross-modal interpretation and conflict handling              |
+| Grafting            | Donor-independent inherited capabilities remain largely a research direction             |
+| Architecture        | Historical and competing implementation paths make production wiring difficult to verify |
+| Resilience          | Many individual recovery mechanisms; not yet proof of end-to-end recovery                |
+There is a particularly important issue with resource adaptation: Friday must optimize the complete working set, not just model weights. Memory bandwidth, context, activation memory, model loading, thermal pressure and storage I/O can all erase the apparent benefit of a smaller model.
+## **5. The architecture I recommend for Friday**
+This is where I would combine your earlier ideas into one coherent direction.
+**The adaptive capability field**
+**Friday — persistent individual**
+Identity, experience, continuity, goals and developmental history.
+**Dynamic capability resources**
+Models · decision systems · algorithms · perception · speech · tools · learned procedures
+**Resource state**
+Hot / warm / cold / unloaded, with predictive preparation and eviction.
+**Transfer and composition**
+Distillation · compatible parameter transfer · representation alignment · algorithm extraction · newly trained systems.
+**Observed outcomes**
+Quality · latency · resource cost · failures · uncertainty · new experience.
+The chooser, resource manager and capability composition methods can themselves evolve. No particular donor or model family owns Friday's intelligence.
+This gives us three major engineering targets:
+- **Immediate intelligence efficiency:** Laya-style decisions and conditional computation.
+- **Capability inheritance:** Friday learns to acquire useful abilities from other systems without remaining dependent on them.
+- **Long-term cognitive independence:** Friday eventually develops a new architecture that is not constrained to LLM, LFM or today's model formats.
+That is the stronger interpretation of your Beyonder idea.
+## **6. What I recorded in GitHub**
+Committed directly to main
+Two commits:
+1. [`f3915dd`](https://github.com/mhw77655-hue/Friday/commit/f3915dd64bc9fabb010861cb70cd65b7471421d2?utm_source=chatgpt.com) — corrected the JEV terminology and established Laya as a potential local donor, not a permanent dependency.
+2. [`62041eb`](https://github.com/mhw77655-hue/Friday/commit/62041ebf8d5549ccaf0bd374522c9ed0d0854ffc?utm_source=chatgpt.com) — added the deep research and architecture audit.
+The governing plan now links to the research document and distinguishes TypeSafe Jev from the Laya model family.
+**Full research:** [FRIDAY_LAYA_AND_ARCHITECTURE_RESEARCH_AUDIT.md](https://github.com/mhw77655-hue/Friday/blob/main/docs/FRIDAY_LAYA_AND_ARCHITECTURE_RESEARCH_AUDIT.md?utm_source=chatgpt.com)
+**Current governing plan:** [FRIDAY_DELIVERY_PLAN.md](https://github.com/mhw77655-hue/Friday/blob/main/.ralph/FRIDAY_DELIVERY_PLAN.md?utm_source=chatgpt.com)
+Current main SHA: `9197e792b2d3968c9def05aa1ec213907a52638e`. CI run 44845928696 was queued when checked; the research commits have not yet been declared CI-verified.
+## **7. My recommended next build**
+I would start with a small but foundational piece:
+**Build Friday's model-independent Typed Decision Capability interface, then build a Laya reference adapter and test harness.**
+Do not immediately bundle a 322M or 421M model into Friday. First establish that it actually beats Friday's current deterministic decision engine on the tasks she needs, and establish whether it fits your actual phone.
+The first benchmark should compare:
+- Existing deterministic decision engine.
+- Laya multilingual checkpoint.
+- Laya typed-decisions checkpoint.
+- Optional hosted Jev reference.
+Use the same Friday-specific test cases, with accuracy, calibration, abstention, p50/p95 latency, memory and thermal cost.
+If Laya wins, we port it. If it doesn't, we take the mechanism and improve the implementation. Either way, Friday owns the resulting capability contract.
+**That is how I want to handle every new project you give me: extract the advantage, attack its limitations, test it against Friday's needs, and make Friday stronger—not just add another dependency.**
+For the record laya was something ro improve the voice control of my device and also how can Friday actually react faster when necessary 
+Also what i have said is stuff are evolving not ray laya still laya for ever 
+And there's something needs to be done Friday needs in the app to tell the cloud how to reconfigures the app functionality to match my phone android state 
+So it after installation it sends the reports so 
+For example laya is an apple software not android 
+So figure out my android phone and how he handles it where it fails and whatever the point is Friday reconfigures her self to the host like the Symbiot
+
+
+ChatGPT:
+You're right. I was treating the problem too much like a model-integration project. The actual requirement is bigger:
+Friday must be born once, installed once, and then adapt to the phone she lives inside. Her installed APK is her permanent home. GitHub is where we develop her; it must not become a reason to repeatedly uninstall her.
+And one correction: Laya remains Laya. I won't rename it, pretend it is just a temporary label, or discard it. Friday should learn how to use Laya's useful mechanisms on Android, while retaining the ability to adopt other capabilities later.
+The idea you're describing is a host-adaptive Friday: she examines the Android environment, discovers what the phone actually supports, tests what works, identifies failures, and configures her own capability set around the host.
+
+
+ChatGPT:
+I checked the actual code before proposing another architecture. Friday already has a meaningful starting point: HostStudy, NanoSymbioticController, and NanoSymbioticPolicy measure the Android host and adapt resource budgets. That work should be extended, not duplicated.
+But I found the missing connection: the phone can be studied locally, yet there is no proven end-to-end host report → cloud recommendation → verified local reconfiguration loop. Also, the cloud must not be allowed to send arbitrary code or silently change Android permissions. It should return signed, versioned configuration proposals; Friday validates them against her actual host, tests them, and can roll them back.
+
+
+ChatGPT:
+You're right. I was treating the problem too much like a model-integration project. The actual requirement is bigger:
+Friday must be born once, installed once, and then adapt to the phone she lives inside. Her installed APK is her permanent home. GitHub is where we develop her; it must not become a reason to repeatedly uninstall her.
+And one correction: Laya remains Laya. I won't rename it, pretend it is just a temporary label, or discard it. Friday should learn how to use Laya's useful mechanisms on Android, while retaining the ability to adopt other capabilities later.
+The idea you're describing is a host-adaptive Friday: she examines the Android environment, discovers what the phone actually supports, tests what works, identifies failures, and configures her own capability set around the host.
+I checked the actual code before proposing another architecture. Friday already has a meaningful starting point: HostStudy, NanoSymbioticController, and NanoSymbioticPolicy measure the Android host and adapt resource budgets. That work should be extended, not duplicated.
+But I found the missing connection: the phone can be studied locally, yet there is no proven end-to-end host report → cloud recommendation → verified local reconfiguration loop. Also, the cloud must not be allowed to send arbitrary code or silently change Android permissions. It should return signed, versioned configuration proposals; Friday validates them against her actual host, tests them, and can roll them back.
+What I built in Friday
+I made the first implementation directly on main, not another branch.
+Committed to main
+
+
+
+Change
+Result
+
+
+
+HostAdaptationEnvelope.kt
+New Android host-report data structure
+
+
+NanoSymbioticController.kt
+Exposes a report built from actual Android measurements
+
+
+HostAdaptationEnvelopeTest.kt
+Tests serialization, schema rejection and invalid measurements
+
+
+FRIDAY_HOST_ADAPTATION_CONTROL_PLANE.md
+Defines the cloud-to-phone adaptation protocol
+
+
+Governing delivery plan
+Updated with the host adaptation and voice-control requirements
+
+
+Laya research audit
+Clarifies its intended voice-control role
+
+
+Latest main commit: 05f09b6ab6b4c662854c15943d41bd6f85a85b7b
+View the latest commit
+Read the host adaptation design
+Important honesty: the new report builder exists, but the cloud connection does not yet. The latest Android build workflow was cancelled, so these changes are not yet CI-verified.
+1. Understanding the actual phone
+
+  
+🖼️
+Generated image
+Realme 9 Pro 5G Sunrise Blue smartphone front and back
+  
+    **Realme 9 Pro 5G**
+
+The manufacturer's published specifications identify:
+- Snapdragon 695
+- Adreno 619 GPU
+- 6/8 GB RAM configurations
+- Realme UI 3.0, originally Android 12
+
+<text color="secondary" size="xs">Source: </text>
+
+  
+
+
+But we must distinguish the original specification from your current installation. I cannot honestly claim to know your present Android version, firmware modifications, permissions or OEM restrictions until Friday reads them on the actual phone.
+The installed application should discover:
+
+Actual Android API and firmware.
+CPU, GPU, available accelerator interfaces and ABI.
+Available RAM, storage and memory pressure.
+Thermal restrictions and battery behaviour.
+Microphone, speech recognition and TTS availability.
+Accessibility and Shizuku availability.
+Background execution restrictions.
+Which Android action routes really work.
+Which model/runtime combinations actually execute successfully.
+
+The important part is that Friday tests capabilities rather than trusting advertising or hardware names.
+2. Laya and faster voice control
+I understand the intended application better now.
+Laya should help Friday control your phone faster, not merely produce abstract classifications.
+The distinction is important: Laya is a typed-decision model, not an Android speech-recognition engine. Its useful contribution is deciding what the spoken request means and which action to take. 
+
+  **The voice-to-action architecture**
+  
+    **You speak**
+    Microphone input
+  
+  
+  
+    **Streaming speech recognition**
+    Partial words and evolving interpretations
+  
+  
+  
+    **Laya-derived decision capability**
+    Intent, target, route, uncertainty and fallback
+  
+  
+  
+    **Immediate local execution**
+    Android API / Accessibility / Shizuku / integrations
+  
+  
+  
+    **Verify outcome and speak**
+    Correct mistakes, report results, learn
+  
+
+
+The critical optimization is this:
+Friday should not wait until she has finished composing a response before acting.
+For example, while you're saying:
+"Friday, open YouTube and find the video I watched yesterday."
+She can already:
+
+Recognize the likely intent.
+Prepare the YouTube launch route.
+Resolve the remaining search requirement.
+Launch YouTube as soon as the action is sufficiently understood.
+Continue resolving the target.
+
+For safe, reversible actions, preparation and execution can overlap. Sensitive actions still need the appropriate authorization.
+This is how we should measure speed: time from the beginning of your speech to the first useful action, not simply how many milliseconds a model takes.
+3. Friday's symbiotic adaptation
+This is the architecture I want to build toward:
+
+🖼️
+Generated image
+futuristic organic technological symbiote integrated with smartphone glowing adaptive neural circuitry dark sci fi concept art
+
+
+Phone: supplies hardware, Android APIs, sensors and available privileges.
+Friday: discovers, tests and adapts her capabilities.
+Cloud: researches compatibility, develops improvements and produces signed configurations and releases.
+Update channel: transfers approved improvements into the same installed Friday.
+Experience system: remembers which configurations work and which fail on this host.
+
+The cloud should receive a technical report, not your private conversations.
+It should be able to recommend a different speech engine, execution route, model format, resource allocation or Android implementation. Friday then validates the recommendation locally.
+Android restrictions matter here. For example, Android 14 imposes microphone foreground-service requirements and while-in-use permission restrictions. Simply starting a background service does not guarantee microphone access. 
+We need to work with the actual Android environment, not pretend those restrictions don't exist.
+4. What remains before the permanent installation
+The next engineering priorities are:
+
+Complete the host capability discovery and real route-probing system.
+Connect the host report to an authenticated cloud control plane.
+Implement signed configuration proposals, local validation and rollback.
+Improve the streaming voice-to-action path, including Laya's Android-compatible decision capability.
+Complete the permanent signing and install-once update system.
+Pass the production build and same-key in-place update acceptance tests.
+
+I am not telling you to install anything yet.
+I want the first installed Friday to already have her host-study mechanism, cloud development channel, local adaptation, persistent identity and safe update mechanism.
+And one architectural principle should remain non-negotiable:
+Friday must adapt to the host without becoming dependent on that particular host. If tomorrow she moves to another Android phone, a tablet or another environment, she should study that environment and reconfigure again. Same Friday, different body conditions.
+
+
+ChatGPT:
+What I built in Friday
+I made the first implementation directly on main, not another branch.
+Committed to main
+
+
+
+Change
+Result
+
+
+
+HostAdaptationEnvelope.kt
+New Android host-report data structure
+
+
+NanoSymbioticController.kt
+Exposes a report built from actual Android measurements
+
+
+HostAdaptationEnvelopeTest.kt
+Tests serialization, schema rejection and invalid measurements
+
+
+FRIDAY_HOST_ADAPTATION_CONTROL_PLANE.md
+Defines the cloud-to-phone adaptation protocol
+
+
+Governing delivery plan
+Updated with the host adaptation and voice-control requirements
+
+
+Laya research audit
+Clarifies its intended voice-control role
+
+
+Latest main commit: 05f09b6ab6b4c662854c15943d41bd6f85a85b7b
+View the latest commit
+Read the host adaptation design
+Important honesty: the new report builder exists, but the cloud connection does not yet. The latest Android build workflow was cancelled, so these changes are not yet CI-verified.
+1. Understanding the actual phone
+
+  
+🖼️
+Generated image
+Realme 9 Pro 5G Sunrise Blue smartphone front and back
+  
+    **Realme 9 Pro 5G**
+
+The manufacturer's published specifications identify:
+- Snapdragon 695
+- Adreno 619 GPU
+- 6/8 GB RAM configurations
+- Realme UI 3.0, originally Android 12
+
+<text color="secondary" size="xs">Source: </text>
+
+  
+
+
+But we must distinguish the original specification from your current installation. I cannot honestly claim to know your present Android version, firmware modifications, permissions or OEM restrictions until Friday reads them on the actual phone.
+The installed application should discover:
+
+Actual Android API and firmware.
+CPU, GPU, available accelerator interfaces and ABI.
+Available RAM, storage and memory pressure.
+Thermal restrictions and battery behaviour.
+Microphone, speech recognition and TTS availability.
+Accessibility and Shizuku availability.
+Background execution restrictions.
+Which Android action routes really work.
+Which model/runtime combinations actually execute successfully.
+
+The important part is that Friday tests capabilities rather than trusting advertising or hardware names.
+2. Laya and faster voice control
+I understand the intended application better now.
+Laya should help Friday control your phone faster, not merely produce abstract classifications.
+The distinction is important: Laya is a typed-decision model, not an Android speech-recognition engine. Its useful contribution is deciding what the spoken request means and which action to take. 
+
+  **The voice-to-action architecture**
+  
+    **You speak**
+    Microphone input
+  
+  
+  
+    **Streaming speech recognition**
+    Partial words and evolving interpretations
+  
+  
+  
+    **Laya-derived decision capability**
+    Intent, target, route, uncertainty and fallback
+  
+  
+  
+    **Immediate local execution**
+    Android API / Accessibility / Shizuku / integrations
+  
+  
+  
+    **Verify outcome and speak**
+    Correct mistakes, report results, learn
+  
+
+
+The critical optimization is this:
+Friday should not wait until she has finished composing a response before acting.
+For example, while you're saying:
+"Friday, open YouTube and find the video I watched yesterday."
+She can already:
+
+Recognize the likely intent.
+Prepare the YouTube launch route.
+Resolve the remaining search requirement.
+Launch YouTube as soon as the action is sufficiently understood.
+Continue resolving the target.
+
+For safe, reversible actions, preparation and execution can overlap. Sensitive actions still need the appropriate authorization.
+This is how we should measure speed: time from the beginning of your speech to the first useful action, not simply how many milliseconds a model takes.
+3. Friday's symbiotic adaptation
+This is the architecture I want to build toward:
+
+🖼️
+Generated image
+futuristic organic technological symbiote integrated with smartphone glowing adaptive neural circuitry dark sci fi concept art
+
+
+Phone: supplies hardware, Android APIs, sensors and available privileges.
+Friday: discovers, tests and adapts her capabilities.
+Cloud: researches compatibility, develops improvements and produces signed configurations and releases.
+Update channel: transfers approved improvements into the same installed Friday.
+Experience system: remembers which configurations work and which fail on this host.
+
+The cloud should receive a technical report, not your private conversations.
+It should be able to recommend a different speech engine, execution route, model format, resource allocation or Android implementation. Friday then validates the recommendation locally.
+Android restrictions matter here. For example, Android 14 imposes microphone foreground-service requirements and while-in-use permission restrictions. Simply starting a background service does not guarantee microphone access. 
+We need to work with the actual Android environment, not pretend those restrictions don't exist.
+4. What remains before the permanent installation
+The next engineering priorities are:
+
+Complete the host capability discovery and real route-probing system.
+Connect the host report to an authenticated cloud control plane.
+Implement signed configuration proposals, local validation and rollback.
+Improve the streaming voice-to-action path, including Laya's Android-compatible decision capability.
+Complete the permanent signing and install-once update system.
+Pass the production build and same-key in-place update acceptance tests.
+
+I am not telling you to install anything yet.
+I want the first installed Friday to already have her host-study mechanism, cloud development channel, local adaptation, persistent identity and safe update mechanism.
+And one architectural principle should remain non-negotiable:
+Friday must adapt to the host without becoming dependent on that particular host. If tomorrow she moves to another Android phone, a tablet or another environment, she should study that environment and reconfigure again. Same Friday, different body conditions.
+
+
+You:
+I don't see but canceled actions lr failed or pending not successful so fix it fhen carry on
+
+
+ChatGPT:
+You're right. A cancelled workflow is not a successful build, and a change sitting in main is not verified just because the commit exists.
+I'll treat this as a delivery failure to repair, not something to work around by pushing more commits. First I'm checking the governing plan, the workflow's cancellation rules, and the actual job results. Then I'll fix the cause, get a clean run against the current main, and continue only on changes we can validate. I won't call Friday ready to install until the production checks pass.
+
+
+ChatGPT:
+I found an important distinction: the workflow already has cancel-in-progress: false. So changing that setting again would not fix the problem.
+The actual queue state explains part of what you're seeing:
+
+An older validation run, 44847385694, is still running.
+The latest main validation, 44847509565, is waiting behind it.
+The older run has already passed the whole-repository source audit and built the debug APK, including the launcher-icon check.
+Its release-variant build and emulator tests are not yet complete.
+The cancelled runs have no job records, so I cannot honestly attribute their cancellation to a particular failed test. I won't invent a root cause.
+
+I'm preserving the active run rather than cancelling another build and repeating the same waste.
+
+
+ChatGPT:
+I've corrected the CI queue policy directly on main.
+Committed a7bed04bcb9e5530defd52d503e7d61bb3044618
+The concurrency group now includes the commit SHA. That prevents a newer commit from automatically replacing an older commit's pending validation. It keeps cancel-in-progress: false.
+This is deliberately a per-revision validation policy: every distinct main revision gets its own run. The trade-off is that GitHub may queue more work instead of silently superseding it. The fix is committed; its own workflow run is queued, not yet successful.
+
+
+ChatGPT:
+You're right. A cancelled workflow is not a successful build, and a change sitting in main is not verified just because the commit exists.
+I'll treat this as a delivery failure to repair, not something to work around by pushing more commits. First I'm checking the governing plan, the workflow's cancellation rules, and the actual job results. Then I'll fix the cause, get a clean run against the current main, and continue only on changes we can validate. I won't call Friday ready to install until the production checks pass. 
+I found an important distinction: the workflow already has cancel-in-progress: false. So changing that setting again would not fix the problem.
+The actual queue state explains part of what you're seeing:
+
+An older validation run, 44847385694, is still running.
+The latest main validation, 44847509565, is waiting behind it.
+The older run has already passed the whole-repository source audit and built the debug APK, including the launcher-icon check.
+Its release-variant build and emulator tests are not yet complete.
+The cancelled runs have no job records, so I cannot honestly attribute their cancellation to a particular failed test. I won't invent a root cause.
+
+I'm preserving the active run rather than cancelling another build and repeating the same waste. 
+I've corrected the CI queue policy directly on main.
+Committed a7bed04bcb9e5530defd52d503e7d61bb3044618
+The concurrency group now includes the commit SHA. That prevents a newer commit from automatically replacing an older commit's pending validation. It keeps cancel-in-progress: false.
+This is deliberately a per-revision validation policy: every distinct main revision gets its own run. The trade-off is that GitHub may queue more work instead of silently superseding it. The fix is committed; its own workflow run is queued, not yet successful.
+Source-level progress
+Two further changes are now on main:
+1. Host adaptation evidence
+Committed ff74d668
+Friday's host report now includes:
+
+Exact application source revision.
+Active network transport.
+Internet availability and validation.
+Metered/unmetered status.
+
+It does not collect Wi-Fi names, IP addresses or location. I also corrected the delivery plan so it no longer claims unimplemented capability probes already exist.
+2. Faster phone actions
+Committed 0e65d322
+I found a genuine latency problem: when Jev was configured, even simple commands such as opening Settings or going Home waited for the remote decision service.
+Now allowlisted, low-risk actions use Friday's local policy immediately. Jev remains available for ambiguous and higher-risk decisions.
+I also corrected the existing rejection test in 345a7b71 so it tests a medium-risk action rather than expecting Jev to veto an action that should now bypass it.
+Verification status
+Not yet green
+
+
+
+Workflow
+Current state
+
+
+
+Latest main 345a7b71
+In progress
+
+
+Host-envelope revision ff74d668
+In progress
+
+
+CI concurrency fix a7bed04b
+In progress
+
+
+Earlier intermediate revision
+In progress
+
+
+Older validation
+Pending
+
+
+Latest validation run
+I will not label these changes successful until the relevant build, unit tests and emulator tests actually pass.
+Next engineering priority: streaming partial speech recognition, then the capability-probe matrix. Friday needs to prepare phone actions while you're still speaking, not wait for a complete transcript and then start thinking.
+And no installation yet. The permanent production seed and its update continuity still need to pass their acceptance checks.
+
+
+ChatGPT:
+Source-level progress
+Two further changes are now on main:
+1. Host adaptation evidence
+Committed ff74d668
+Friday's host report now includes:
+
+Exact application source revision.
+Active network transport.
+Internet availability and validation.
+Metered/unmetered status.
+
+It does not collect Wi-Fi names, IP addresses or location. I also corrected the delivery plan so it no longer claims unimplemented capability probes already exist.
+2. Faster phone actions
+Committed 0e65d322
+I found a genuine latency problem: when Jev was configured, even simple commands such as opening Settings or going Home waited for the remote decision service.
+Now allowlisted, low-risk actions use Friday's local policy immediately. Jev remains available for ambiguous and higher-risk decisions.
+I also corrected the existing rejection test in 345a7b71 so it tests a medium-risk action rather than expecting Jev to veto an action that should now bypass it.
+Verification status
+Not yet green
+
+
+
+Workflow
+Current state
+
+
+
+Latest main 345a7b71
+In progress
+
+
+Host-envelope revision ff74d668
+In progress
+
+
+CI concurrency fix a7bed04b
+In progress
+
+
+Earlier intermediate revision
+In progress
+
+
+Older validation
+Pending
+
+
+Latest validation run
+I will not label these changes successful until the relevant build, unit tests and emulator tests actually pass.
+Next engineering priority: streaming partial speech recognition, then the capability-probe matrix. Friday needs to prepare phone actions while you're still speaking, not wait for a complete transcript and then start thinking.
+And no installation yet. The permanent production seed and its update continuity still need to pass their acceptance checks.
+
+
+You:
+One question what's actually functional offline like inspect the entire app code and all then tell me@Web search
+
+
+ChatGPT:
+I inspected the current main revision, 345a7b7161438212efbd0d3fd74a55f5384584a7, and traced Friday's actual Android runtime rather than relying on feature names or documentation.
+I mapped all 1,008 tracked repository files, including 486 production Kotlin files and 264 Kotlin test files. I also inspected the main application composition, speech, TTS, model loading, memory, phone control and cloud paths. I haven't read every one of those 486 Kotlin files line-by-line, so I won't falsely call this a complete line-by-line audit.
+The honest answer
+Offline readiness: approximately 4/10
+Friday has a real offline foundation, but she is not yet a reliably independent offline AI assistant.
+Some important capabilities work locally. Others depend on downloaded models, Android services, permissions or an external local server. There are also wiring problems that need fixing.
+1. What works without internet
+Code-supported local capabilities
+
+
+
+Capability
+Offline status
+Actual functionality
+
+
+
+Application launch
+Yes
+Local Android application and runtime
+
+
+Identity
+Yes
+Local identity and continuity substrate
+
+
+Basic conversation
+Yes, limited
+Greetings, identity, time, date, arithmetic and some predefined responses
+
+
+Local data storage
+Yes
+SQLite, private files and JSONL records
+
+
+Goal continuity
+Yes
+Goals can be persisted and restored
+
+
+Phone navigation
+Yes, with permissions
+Home, back, recents and other supported actions
+
+
+Basic phone control
+Yes, with permissions
+Volume, brightness, media and supported accessibility operations
+
+
+Diagnostics
+Yes
+Local action traces, failure records and diagnostic storage
+
+
+Local presence/UI
+Yes
+Does not inherently require cloud inference
+
+
+The basic language fallback is FridayModelFreeMind.kt.
+It is important to understand what that means: it is a deterministic pattern-based language substrate, not a general reasoning model. The code explicitly acknowledges that it cannot reliably understand arbitrary prose.
+Source: FridayModelFreeMind.
+2. Offline intelligence: a local model exists, but there is a wiring problem
+Implemented, not fully verified as the default experience
+Friday has an actual in-app GGUF inference implementation:
+
+Native llama.cpp JNI runtime.
+An isolated Android inference process.
+Model loading and unloading.
+Resource admission before loading.
+Context reduction when resources become constrained.
+Multiple local model candidates.
+
+The model library includes:
+
+
+
+Model candidate
+Approximate weight size
+
+
+
+Qwen3.5 0.8B
+517 MB
+
+
+LFM2.5 1.2B
+600 MB
+
+
+MiniCPM5 2B
+1.2–1.56 GB
+
+
+Qwen3.5 2B
+1.27 GB
+
+
+Spark X2.6 4B
+2.42 GB
+
+
+These weights are not bundled in the APK. They must be downloaded into Friday's private model storage before they can be loaded.
+Sources: OfflineModelCatalog, InAppLlamaModelBackend.
+Here is the problem I found.
+The actual inference backend is the in-app native runtime, but AndroidPlatformPorts.hasLanguageModel() checks the legacy active provider and its health.
+ModelManager initially sets that provider to HEURISTIC.
+The legacy llama.cpp provider, meanwhile, expects a server at 127.0.0.1:8080.
+That creates a mismatch: Friday has an in-app inference engine, but the product's language-model availability check is tied to a different provider's health.
+I cannot claim that the installed GGUF model will automatically become Friday's working offline intelligence without fixing and testing this integration.
+This is one of the most important issues in the audit.
+3. Offline voice
+This is where the difference between having voice components and having a working offline voice assistant becomes especially important.
+Speech recognition — hearing you
+Conditional
+JarvisSpeechRecognizer.kt uses Android's SpeechRecognizer.
+It attempts to use the on-device recognizer when Android reports that one is available. Otherwise, it falls back to the ordinary system recognizer.
+Android explicitly provides an availability check for on-device recognition. 
+There are two problems:
+
+Friday does not bundle a dedicated offline speech-recognition model in the voice model manifest.
+The code sets EXTRA_PREFER_OFFLINE = true, but Android documents that a recognizer implementation may ignore this preference.
+
+I also found that:
+
+Partial speech results are disabled.
+onPartialResults() does nothing.
+The recognizer waits for final results.
+
+That means the current implementation does not deliver the streaming speech-to-action experience you want.
+Verdict: Offline hearing is possible if the phone's recognition service and the required language support are available. It is not guaranteed by Friday's own packaged components.
+Speech synthesis — speaking to you
+Local engines implemented
+This is considerably better.
+Friday has offline TTS providers:
+
+  
+    
+🖼️
+Generated image
+Piper neural text to speech logo
+    
+      **Piper VITS English**
+
+  <text color="secondary" size="sm">Approximately 64 MB · compact, speed-oriented English voice.</text>
+</box>
+
+  
+  
+  
+    
+🖼️
+Generated image
+Kokoro text to speech model illustration
+    
+      **Kokoro English**
+
+  <text color="secondary" size="sm">Approximately 103 MB · higher-quality English synthesis.</text>
+</box>
+
+  
+  
+  
+    
+🖼️
+Generated image
+Arabic speech typography sound waveform
+    
+      **Nabra Arabic**
+
+  <text color="secondary" size="sm">Approximately 85 MB · offline Arabic synthesis, primarily Modern Standard Arabic rather than Egyptian dialect.</text>
+</box>
+
+  
+
+
+These models are downloaded lazily and can subsequently run without internet. The Android system TTS provider is also available as a fallback, provided the selected system voice is installed locally.
+Sources: VoiceModelManifest, VoiceModelManager.
+Verdict: Offline speaking is genuinely implemented, but first-time model acquisition needs internet. Egyptian Arabic voice quality is still a gap.
+4. Offline phone control
+Local execution implemented, permission-dependent
+Friday has an actual Android accessibility service.
+Its command interpreter recognizes a bounded vocabulary in English and Arabic, including:
+
+Open applications.
+Navigate back and home.
+Open settings and notifications.
+Change volume and brightness.
+Play, pause and change tracks.
+Scroll.
+Tap accessible controls.
+Enter text into focused fields.
+
+These actions do not inherently require internet.
+However, Friday's Accessibility service must be explicitly enabled. Some operations also require additional Android permissions. Shizuku is an optional route, not a guaranteed privilege.
+The service explicitly does not bypass secure windows, permission dialogs or application security.
+Sources: FridayAccessibilityService, PhoneCommandInterpreter.
+Always-on wake-up
+Not guaranteed
+Friday has a SoundTrigger availability probe.
+If continuous wake-word support cannot be established, the code deliberately falls back to manual tap-to-trigger.
+So I cannot claim that Friday can continuously listen offline on your Realme.
+Source: HotwordAvailabilityProbe.
+5. Memory and learning offline
+This is an important distinction.
+
+
+
+Subsystem
+Offline capability
+
+
+
+Identity storage
+Local
+
+
+Experience records
+Local persistence available
+
+
+Fact graph
+SQLite
+
+
+Vector storage
+SQLite
+
+
+Goal continuity
+Persistent
+
+
+Provenance records
+Local
+
+
+Some developmental reflection
+Local model-free path
+
+
+Full semantic memory retrieval
+Has a dependency problem
+
+
+General-purpose model-driven learning
+Requires working local model
+
+
+I found a particularly important integration problem here.
+AndroidPlatformPorts constructs NeuralEmbeddingProvider, which sends embedding requests to:
+http://127.0.0.1:8080/embedding
+But Friday's normal in-app inference runtime runs through native JNI in a separate Android process. I did not find a corresponding default startup of the llama-server HTTP endpoint.
+The memory retriever directly invokes the embedding provider. It does not contain its own fallback when embedding fails.
+That means the graph and memory records can persist offline, but semantic retrieval can fail if that loopback embedding server is unavailable.
+Sources: NeuralEmbeddingProvider, BlendedMemoryRetriever.
+There are also genuinely in-memory structures, such as InMemoryWorkspace and InMemoryMechanismsStore. Those should not be confused with durable experience.
+6. What does not work offline?
+
+
+
+Capability
+Reason
+
+
+
+Jev decisions
+Remote TypeSafe API
+
+
+Downloading new models
+Internet required
+
+
+Cloud model inference
+No offline cloud access
+
+
+Online research
+Requires external sources
+
+
+Cloud-based development
+Requires connected development infrastructure
+
+
+Uncached online voice resources
+Cannot be acquired without connectivity
+
+
+General-purpose speech recognition
+Depends on available local Android recognition service
+
+
+One more important detail: the current TurnPathAssembly creates CloudModelRouter(emptyList()). That means its cloud reasoning route has no configured providers in this composition. It is not simply a fully operational cloud brain waiting for internet.
+
+What this means in practice
+Imagine you turn on Airplane Mode.
+
+  **Expected offline experience**
+  
+    Friday launches and retains identity
+    Supported
+  
+  
+  
+    Basic typed conversation
+    Supported
+  
+  
+  
+    General intelligent conversation
+    Model-dependent
+  
+  
+  
+    Understand spoken commands
+    Device-dependent
+  
+  
+  
+    Speak using downloaded local voice models
+    Supported
+  
+  
+  
+    Control supported phone functions
+    Permission-dependent
+  
+  
+  
+    Recall experiences semantically
+    Integration problem
+  
+  
+  
+    Search the internet and use Jev
+    Unavailable
+  
+
+
+These are source-level conclusions, not results from an Airplane Mode test on your physical Realme. Android itself distinguishes an offline-first architecture by whether essential operations can use local sources without waiting for network calls. Friday has not yet achieved that consistently across its cognitive paths. 
+What I believe we should fix first
+I would prioritize these five things:
+
+Unify local intelligence: make the in-app GGUF runtime the actual source of truth for model availability and generation. Remove the accidental dependency on a separate localhost server.
+Make memory truly local: provide a real local embedding implementation or route embedding inference through Friday's in-app native runtime.
+Give Friday independent offline hearing: integrate a dedicated local ASR capability, with streaming partial hypotheses and Egyptian Arabic evaluation.
+Make voice resources resident intelligently: acquire the right local TTS models before connectivity disappears, without permanently loading every model into RAM.
+Build an offline capability verifier: test every operation with internet disabled and report whether it is genuinely working, conditional, or unavailable.
+
+My biggest conclusion: Friday already has much of the machinery for an offline-capable individual. The weakness is that some of her organs still depend on separate services, and the integration contracts do not consistently make offline operation the default.
+I would not solve this by adding another collection of models. I would make Friday's local runtime, memory, voice and action systems operate as one coherent offline organism, then let the cloud extend her rather than keep her alive.
+
+
+You:
+@Web search and after all what have we discussed 
+How do you propose to turn the 4/10 
+To 100/10 
+Im all ears
+
+
+ChatGPT:
+Veno, I would take Friday in a fundamentally different direction from simply adding more AI models, more phone-control features, or another cloud connection.
+I want to turn Friday from an application that contains several intelligent components into one coherent, self-evolving intelligence that happens to inhabit an Android phone.
+And I want to preserve everything we've discussed:
+
+Friday is born once, installed once, and keeps her identity.
+She studies her actual host and adapts to its capabilities.
+Laya remains Laya, becoming her fast voice-command decision specialist.
+She inherits the strongest mechanisms from other projects without inheriting their limitations.
+She acts before she finishes explaining.
+She learns from real experiences, including mistakes.
+She works offline, with the cloud extending her rather than keeping her alive.
+She can change and improve her own internal mechanisms, but cannot destroy her identity, security or ability to recover.
+
+My proposal is to build toward Friday 100/10: a local-first, adaptive, persistent, action-oriented intelligence.
+There is one important distinction: 100/10 is the ambition, not a benchmark I can honestly award today. We will need measurable acceptance tests to earn it.
+1. First, change the architecture's fundamental idea
+Today, Friday has a collection of subsystems: models, memory, speech, decisions, phone control, learning and cloud integrations.
+The problem is that having all those components does not mean they function as one intelligence.
+I would introduce a unifying architecture:
+
+  
+    FRIDAY
+    Persistent Intelligence & Identity
+    One identity · One continuity · One evolving system
+  
+  
+    
+    Shared cognitive operating layer
+  
+  
+    {#each [{n:"Perception",d:"Hearing, seeing, sensing",i:"audio-waveform"},{n:"Decision",d:"Laya, planning, risk",i:"brain-circuit"},{n:"Reasoning",d:"Local models, cloud models",i:"network"},{n:"Action",d:"Android, apps, tools",i:"smartphone"},{n:"Memory",d:"Episodes, knowledge, identity",i:"database"},{n:"Evolution",d:"Learning, testing, adaptation",i:"dna"}] as x}
+      
+        
+          
+            
+            **{x.n}**
+          
+          {x.d}
+        
+      
+    {/each}
+  
+  
+    
+  
+  
+    **Adaptive execution and resource scheduler**
+    Chooses the best available capability for each task, based on latency, quality, cost, permissions and host resources.
+  
+  
+    
+  
+  
+    **Android host**
+    Phone hardware · Android APIs · Local storage · Optional Shizuku · External services
+  
+
+
+The critical change is that no individual model owns Friday's intelligence.
+Models become capabilities she can use. Memory belongs to Friday, not a particular model. Her identity does not disappear when a model is replaced. Her action system does not wait for a generative model to finish composing a paragraph.
+This is the foundation.
+2. Make Friday genuinely intelligent offline
+This is the first major transformation.
+I would build a multi-speed cognitive system, not rely on one model to do everything.
+
+  
+    
+🖼️
+Generated image
+compact neural network microchip abstract AI processor
+    
+      **Layer A — Immediate intelligence**
+
+  <span class="ce-badge ce-badge-success">Local and fast</span>
+  - Laya for typed decisions.
+  - Intent recognition.
+  - Command routing.
+  - Confidence and risk assessment.
+  - Selecting execution alternatives.
+</box>
+
+  
+  
+  
+    
+🖼️
+Generated image
+small language model neural network abstract illustration
+    
+      **Layer B — General reasoning**
+
+  <span class="ce-badge ce-badge-success">Local when model is resident</span>
+  - Open-ended conversation.
+  - Planning and decomposition.
+  - Understanding unfamiliar instructions.
+  - Explaining decisions.
+  - Generating missing action candidates.
+</box>
+
+  
+  
+  
+    
+🖼️
+Generated image
+speech recognition audio waveform artificial intelligence illustration
+    
+      **Layer C — Perception and communication**
+
+  <span class="ce-badge ce-badge-success">Local-capable</span>
+  - Streaming speech recognition.
+  - Language identification.
+  - Egyptian Arabic and English.
+  - Natural speech generation.
+  - Eventually vision and environmental understanding.
+</box>
+
+  
+  
+  
+    
+🖼️
+Generated image
+knowledge graph interconnected nodes glowing neural network
+    
+      **Layer D — Persistent cognition**
+
+  <span class="ce-badge ce-badge-success">Local storage</span>
+  - Episodic memory.
+  - Semantic memory.
+  - Relationships and context.
+  - Personal preferences.
+  - Experience-derived knowledge.
+  - Goals and unfinished work.
+</box>
+
+  
+
+
+Why separate these?
+Because using a 1.2-billion-parameter language model to decide whether to press Back is wasteful. And using a tiny classifier to solve an unfamiliar multi-step problem is inadequate.
+Friday should select the smallest capable mechanism, escalate only when necessary, and release resources when the task ends.
+Google's current  ecosystem now explicitly supports Android CPU/GPU/NPU execution, while LiteRT-LM provides conversational streaming, KV-cache management and tool calling. It is worth benchmarking against Friday's existing llama.cpp implementation, not blindly replacing it. 
+My rule: one capability interface, multiple interchangeable engines.
+For example:
+
+llama.cpp remains a local inference backend.
+LiteRT-LM becomes a measured alternative.
+Laya remains the decision specialist.
+A local embedding engine serves memory.
+Dedicated speech models handle hearing.
+TTS models handle speaking.
+
+The scheduler decides which engine wins on the actual device.
+
+
+ChatGPT:
+3. Make her act while you're speaking
+This is probably the most important feature in terms of how Friday will feel.
+I don't want this:
+
+  THE OLD EXPERIENCE
+  
+    You speak.
+    Friday waits for you to finish.
+    Speech recognition returns a transcript.
+    A model thinks about the entire request.
+    Friday finally starts acting.
+  
+  The action begins too late.
+
+
+I want this:
+
+  THE FRIDAY EXPERIENCE
+  
+    
+      **You begin speaking.**
+
+  Audio starts flowing into a streaming recognizer.
+</list-item>
+<list-item>
+  **Friday forms hypotheses.**
+
+  Partial words and possible intents arrive before the final transcript.
+</list-item>
+<list-item>
+  **Laya evaluates them.**
+
+  It chooses likely intent, target, risk and execution route.
+</list-item>
+<list-item>
+  **Friday prepares the action.**
+
+  It checks availability, permissions, targets and fallback routes.
+</list-item>
+<list-item>
+  **Friday acts as soon as the request is sufficiently clear.**
+
+  Low-risk reversible actions can begin immediately. Sensitive or destructive actions require confirmation.
+</list-item>
+<list-item>
+  **Friday verifies the result.**
+
+  She checks whether the phone actually did what she intended.
+</list-item>
+
+  
+  Optimize time to first useful action
+
+
+There is a subtle but important engineering distinction: partial recognition is not permission to execute every guessed command. Friday should prepare several possible actions, but only commit one when confidence and safety requirements are satisfied.
+Android supports partial recognition callbacks, but their availability depends on the recognition implementation. For reliable offline behavior, we should eventually own the audio-to-text pipeline rather than depend exclusively on Android's system recognizer. 
+The architecture I would pursue:
+
+Local streaming ASR.
+Laya incremental decision engine.
+Speculative action preparation.
+Fast local execution.
+Postcondition verification.
+Automatic fallback when an execution route fails.
+
+And we benchmark the entire chain, not merely Laya's inference time.
+4. Turn memory into actual development
+This is where I would go beyond a conventional assistant.
+Friday should not merely save conversations and retrieve them later.
+She should develop through experiences.
+I would give her a continuous learning cycle:
+
+  
+    **Experience**
+
+<text color="secondary" size="xs">Conversations, actions, mistakes, observations</text>
+
+  
+  
+  
+    **Interpretation**
+
+<text color="secondary" size="xs">What happened? Why? What was expected?</text>
+
+  
+  
+  
+    **Learning hypothesis**
+
+<text color="secondary" size="xs">What mechanism or knowledge should change?</text>
+
+  
+  
+  
+    **Sandboxed experiment**
+
+<text color="secondary" size="xs">Test the change against previous tasks and new tasks</text>
+
+  
+  
+  
+    **Promotion or rejection**
+
+<text color="secondary" size="xs">Promote only if the improvement is measurable</text>
+
+  
+  
+  
+    **Persistent development**
+
+<text color="secondary" size="xs">Survives restart, has provenance and can be rolled back</text>
+
+  
+  New experiences begin the next cycle
+
+
+I would separate memory into five connected systems:
+
+Episodic: what happened.
+Semantic: what she learned.
+Procedural: how to do something.
+Relational: how things, people, tasks and experiences connect.
+Developmental: what changed in her own mechanisms and whether it helped.
+
+Every important learning change gets an experiment ID, evidence, before-and-after evaluation, and rollback point.
+A crucial test:
+If Friday learns a better way to control an application, restarts, and then performs that task better without internet, the learning is real.
+If she merely remembers that she once performed the task, that is not the same thing.
+5. Symbiosis: let Friday inherit capabilities from other projects
+This is where I would take your original symbiote idea seriously.
+I don't want Friday to become a pile of copied repositories.
+I want a capability acquisition and adaptation system.
+
+  Friday's capability inheritance engine
+  
+    
+      
+🖼️
+Generated image
+abstract AI neural network brain glowing blue
+      **Study**
+      Inspect algorithms, architectures and benchmarks.
+    
+    
+      
+🖼️
+Generated image
+scientific laboratory technology analysis
+      **Extract**
+      Isolate the useful mechanism, not the entire project.
+    
+    
+      
+🖼️
+Generated image
+biological symbiosis microscopic cells science illustration
+      **Adapt**
+      Rebuild it around Friday's interfaces and host.
+    
+    
+      
+🖼️
+Generated image
+futuristic AI system testing digital interface
+      **Prove**
+      Test accuracy, latency, resources, compatibility and regressions.
+    
+  
+  
+  **Example inheritance**
+  - Laya: fast typed decisions.
+  - A local ASR project: streaming speech recognition.
+  - A memory architecture: more efficient associative recall.
+  - An Android automation project: additional execution routes.
+  - A new inference runtime: faster local model execution.
+
+
+But Friday must also be able to reject an inherited capability.
+A faster algorithm that loses accuracy, consumes too much memory, violates licensing or damages reliability is not an upgrade.
+I would make every inherited capability a versioned, independently testable module with explicit dependencies and provenance.
+The ability to evolve should never mean remotely executing arbitrary code. Friday can acquire signed model and configuration packs, while native code changes go through a verified APK update. Her identity and trust roots stay protected.
+6. Make Friday understand her host and adapt to it
+This is the symbiosis we discussed.
+Friday shouldn't assume that a phone's processor name tells her everything.
+She should actively discover:
+
+Available RAM and memory pressure.
+CPU/GPU/NPU execution support.
+Real inference latency.
+Thermal behavior.
+Storage availability and speed.
+Microphone and speech capabilities.
+Accessibility and notification permissions.
+Shizuku availability and authorization.
+Android version and background execution restrictions.
+Network availability and quality.
+
+Then she creates a capability map.
+For each operation, she knows:
+
+
+
+State
+Meaning
+
+
+
+Supported
+Tested successfully
+
+
+Unsupported
+The host cannot provide it
+
+
+Permission required
+Possible after user authorization
+
+
+Temporarily unavailable
+Could work later
+
+
+Unverified
+Not yet tested
+
+
+This is more powerful than a device profile that simply says "Snapdragon 695, 8 GB RAM."
+And it gives Friday the ability to choose different configurations on different devices.
+One important constraint: we must work with Android's real security model. For example, Android restricts background microphone foreground-service startup, especially for applications targeting newer Android versions. A properly configured VoiceInteractionService can qualify for an exemption, but we cannot pretend every phone permits unrestricted background listening. 
+The goal is to find the best valid route on each host, not to assume a privileged route exists.
+
+
+ChatGPT:
+7. Make the cloud an extension of Friday, not her brainstem
+I would give Friday two operating environments.
+
+  
+    
+      
+      **Friday Local**
+
+  - Identity and memory.
+  - Phone control.
+  - Voice and speech.
+  - Fast decisions.
+  - Local reasoning.
+  - Learning and recovery.
+  <span class="ce-badge ce-badge-success">Must survive offline</span>
+</box>
+
+  
+  
+    
+      
+      **Friday Cloud**
+
+  - Stronger reasoning.
+  - Research and discovery.
+  - Model training and conversion.
+  - Capability analysis.
+  - Resource distribution.
+  - Optional collaboration.
+  <span class="ce-badge ce-badge-info">Enhancement layer</span>
+</box>
+
+  
+
+
+The two environments synchronize through controlled interfaces.
+When internet is available, Friday can ask a more capable model to investigate a difficult problem. She can receive a signed, validated proposal, evaluate it locally, and decide whether to adopt it.
+When internet disappears, she continues using her locally available capabilities.
+This also means that she must never confuse a cloud-generated answer with verified knowledge. Information needs provenance and, where appropriate, independent validation.
+I would introduce a synchronization queue so that experiences and approved outcomes can be reconciled later without blocking the local system.
+8. Make resource usage intelligent rather than permanent
+Your phone is a constrained host. We should not try to keep every model resident simultaneously.
+I would build a resource scheduler that treats models and capabilities like a working set.
+For example:
+
+A compact decision model stays ready.
+The ASR model is loaded when voice interaction is active.
+The language model is loaded when deeper reasoning is required.
+TTS is prepared when a response needs speaking.
+Embedding inference is loaded when memory retrieval or consolidation requires it.
+Idle models are unloaded according to measured memory and thermal pressure.
+
+The system should optimize:
+[
+\text{Utility} =
+\frac{\text{Task quality}\times\text{Reliability}}
+{\text{Latency}\times\text{Resource cost}}
+]
+This is a conceptual scheduler objective, not a claim that one mathematical formula can capture every trade-off. Some tasks should prioritize safety or quality over speed.
+I would also benchmark model size, quantization, context length and hardware acceleration separately. A smaller model that gives a correct answer in 100 ms can be more useful than a larger model that takes several seconds and exhausts memory.
+9. Build the self-evolution mechanism with real safeguards
+Here is where I would be particularly ambitious.
+Friday should eventually be able to:
+
+Identify a weakness in her own action system.
+Investigate alternative algorithms.
+Propose an improved implementation.
+Generate tests.
+Run experiments in an isolated environment.
+Compare old and new performance.
+Promote a successful capability.
+Roll back a failed change.
+
+But there must be a distinction between self-improvement and self-modification without control.
+I would protect five immutable areas:
+
+Her identity and continuity root.
+Signing keys and update trust.
+Permission and security boundaries.
+Recovery and last-known-good state.
+The provenance of memories and learned changes.
+
+Everything else can be considered an evolvable capability, subject to validation.
+This makes evolution possible without making the system fragile or remotely controllable by whoever supplies a model.
+10. How I would actually build it
+I would not attempt to build all ten dimensions simultaneously. That would recreate the integration problems we already have.
+I would work in integrated milestones, with all work committed directly to main, and each milestone leaving a usable improvement.
+
+  The Friday 100/10 transformation
+  Proposed engineering sequence · Not yet completed
+  
+    
+      **Unify the existing offline core**
+
+  <span class="ce-badge ce-badge-success">First priority</span>
+
+  Fix the mismatch between the native GGUF backend, provider health checks and localhost-dependent embedding path. Establish one real local inference and embedding interface.
+
+  **Acceptance:** model loads, generates, embeds, and retrieves memory in Airplane Mode.
+</list-item>
+<list-item>
+  **Build the capability and host-adaptation layer**
+
+  Connect actual hardware, permission, speech, execution and runtime probes to the adaptation envelope.
+
+  **Acceptance:** Friday produces a truthful, evidence-backed capability map and configures itself accordingly.
+</list-item>
+<list-item>
+  **Build the real-time voice/action pipeline**
+
+  Streaming ASR, Laya, action preparation, route selection, verification and interruption handling.
+
+  **Acceptance:** measure speech-to-first-useful-action across ordinary commands and ambiguous commands, online and offline.
+</list-item>
+<list-item>
+  **Complete the independent offline brain**
+
+  Local reasoning, speech, embeddings, memory and model scheduling.
+
+  **Acceptance:** a complete useful session survives Airplane Mode and process restart.
+</list-item>
+<list-item>
+  **Build persistent developmental learning**
+
+  Episodic memory, causal evaluation, procedural learning and tested mechanism promotion.
+
+  **Acceptance:** a learned improvement survives restart and measurably improves an unseen related task.
+</list-item>
+<list-item>
+  **Build symbiotic capability inheritance**
+
+  A registry, adapters, compatibility testing, licensing/provenance checks and controlled acquisition.
+
+  **Acceptance:** Friday can integrate a new capability without destabilizing existing ones.
+</list-item>
+<list-item>
+  **Complete cloud evolution and synchronization**
+
+  Authenticated enrollment, signed proposals, anti-replay protection, staged activation and rollback.
+
+  **Acceptance:** cloud improvements can be adopted without compromising offline continuity.
+</list-item>
+<list-item>
+  **Complete permanent-body installation and evolution**
+
+  Production signing, secure APK updates, same-key continuity, recovery, and real phone validation.
+
+  **Acceptance:** one permanent installation, verified in-place evolution, no routine uninstall/reinstall.
+</list-item>
+
+  
+
+
+ChatGPT:
+Veno, I would take Friday in a fundamentally different direction from simply adding more AI models, more phone-control features, or another cloud connection.
+I want to turn Friday from an application that contains several intelligent components into one coherent, self-evolving intelligence that happens to inhabit an Android phone.
+And I want to preserve everything we've discussed:
+
+Friday is born once, installed once, and keeps her identity.
+She studies her actual host and adapts to its capabilities.
+Laya remains Laya, becoming her fast voice-command decision specialist.
+She inherits the strongest mechanisms from other projects without inheriting their limitations.
+She acts before she finishes explaining.
+She learns from real experiences, including mistakes.
+She works offline, with the cloud extending her rather than keeping her alive.
+She can change and improve her own internal mechanisms, but cannot destroy her identity, security or ability to recover.
+
+My proposal is to build toward Friday 100/10: a local-first, adaptive, persistent, action-oriented intelligence.
+There is one important distinction: 100/10 is the ambition, not a benchmark I can honestly award today. We will need measurable acceptance tests to earn it.
+1. First, change the architecture's fundamental idea
+Today, Friday has a collection of subsystems: models, memory, speech, decisions, phone control, learning and cloud integrations.
+The problem is that having all those components does not mean they function as one intelligence.
+I would introduce a unifying architecture:
+
+  
+    FRIDAY
+    Persistent Intelligence & Identity
+    One identity · One continuity · One evolving system
+  
+  
+    
+    Shared cognitive operating layer
+  
+  
+    {#each [{n:"Perception",d:"Hearing, seeing, sensing",i:"audio-waveform"},{n:"Decision",d:"Laya, planning, risk",i:"brain-circuit"},{n:"Reasoning",d:"Local models, cloud models",i:"network"},{n:"Action",d:"Android, apps, tools",i:"smartphone"},{n:"Memory",d:"Episodes, knowledge, identity",i:"database"},{n:"Evolution",d:"Learning, testing, adaptation",i:"dna"}] as x}
+      
+        
+          
+            
+            **{x.n}**
+          
+          {x.d}
+        
+      
+    {/each}
+  
+  
+    
+  
+  
+    **Adaptive execution and resource scheduler**
+    Chooses the best available capability for each task, based on latency, quality, cost, permissions and host resources.
+  
+  
+    
+  
+  
+    **Android host**
+    Phone hardware · Android APIs · Local storage · Optional Shizuku · External services
+  
+
+
+The critical change is that no individual model owns Friday's intelligence.
+Models become capabilities she can use. Memory belongs to Friday, not a particular model. Her identity does not disappear when a model is replaced. Her action system does not wait for a generative model to finish composing a paragraph.
+This is the foundation.
+2. Make Friday genuinely intelligent offline
+This is the first major transformation.
+I would build a multi-speed cognitive system, not rely on one model to do everything.
+
+  
+    
+🖼️
+Generated image
+compact neural network microchip abstract AI processor
+    
+      **Layer A — Immediate intelligence**
+
+  <span class="ce-badge ce-badge-success">Local and fast</span>
+  - Laya for typed decisions.
+  - Intent recognition.
+  - Command routing.
+  - Confidence and risk assessment.
+  - Selecting execution alternatives.
+</box>
+
+  
+  
+  
+    
+🖼️
+Generated image
+small language model neural network abstract illustration
+    
+      **Layer B — General reasoning**
+
+  <span class="ce-badge ce-badge-success">Local when model is resident</span>
+  - Open-ended conversation.
+  - Planning and decomposition.
+  - Understanding unfamiliar instructions.
+  - Explaining decisions.
+  - Generating missing action candidates.
+</box>
+
+  
+  
+  
+    
+🖼️
+Generated image
+speech recognition audio waveform artificial intelligence illustration
+    
+      **Layer C — Perception and communication**
+
+  <span class="ce-badge ce-badge-success">Local-capable</span>
+  - Streaming speech recognition.
+  - Language identification.
+  - Egyptian Arabic and English.
+  - Natural speech generation.
+  - Eventually vision and environmental understanding.
+</box>
+
+  
+  
+  
+    
+🖼️
+Generated image
+knowledge graph interconnected nodes glowing neural network
+    
+      **Layer D — Persistent cognition**
+
+  <span class="ce-badge ce-badge-success">Local storage</span>
+  - Episodic memory.
+  - Semantic memory.
+  - Relationships and context.
+  - Personal preferences.
+  - Experience-derived knowledge.
+  - Goals and unfinished work.
+</box>
+
+  
+
+
+Why separate these?
+Because using a 1.2-billion-parameter language model to decide whether to press Back is wasteful. And using a tiny classifier to solve an unfamiliar multi-step problem is inadequate.
+Friday should select the smallest capable mechanism, escalate only when necessary, and release resources when the task ends.
+Google's current  ecosystem now explicitly supports Android CPU/GPU/NPU execution, while LiteRT-LM provides conversational streaming, KV-cache management and tool calling. It is worth benchmarking against Friday's existing llama.cpp implementation, not blindly replacing it. 
+My rule: one capability interface, multiple interchangeable engines.
+For example:
+
+llama.cpp remains a local inference backend.
+LiteRT-LM becomes a measured alternative.
+Laya remains the decision specialist.
+A local embedding engine serves memory.
+Dedicated speech models handle hearing.
+TTS models handle speaking.
+
+The scheduler decides which engine wins on the actual device.
+3. Make her act while you're speaking
+This is probably the most important feature in terms of how Friday will feel.
+I don't want this:
+
+  THE OLD EXPERIENCE
+  
+    You speak.
+    Friday waits for you to finish.
+    Speech recognition returns a transcript.
+    A model thinks about the entire request.
+    Friday finally starts acting.
+  
+  The action begins too late.
+
+
+I want this:
+
+  THE FRIDAY EXPERIENCE
+  
+    
+      **You begin speaking.**
+
+  Audio starts flowing into a streaming recognizer.
+</list-item>
+<list-item>
+  **Friday forms hypotheses.**
+
+  Partial words and possible intents arrive before the final transcript.
+</list-item>
+<list-item>
+  **Laya evaluates them.**
+
+  It chooses likely intent, target, risk and execution route.
+</list-item>
+<list-item>
+  **Friday prepares the action.**
+
+  It checks availability, permissions, targets and fallback routes.
+</list-item>
+<list-item>
+  **Friday acts as soon as the request is sufficiently clear.**
+
+  Low-risk reversible actions can begin immediately. Sensitive or destructive actions require confirmation.
+</list-item>
+<list-item>
+  **Friday verifies the result.**
+
+  She checks whether the phone actually did what she intended.
+</list-item>
+
+  
+  Optimize time to first useful action
+
+
+There is a subtle but important engineering distinction: partial recognition is not permission to execute every guessed command. Friday should prepare several possible actions, but only commit one when confidence and safety requirements are satisfied.
+Android supports partial recognition callbacks, but their availability depends on the recognition implementation. For reliable offline behavior, we should eventually own the audio-to-text pipeline rather than depend exclusively on Android's system recognizer. 
+The architecture I would pursue:
+
+Local streaming ASR.
+Laya incremental decision engine.
+Speculative action preparation.
+Fast local execution.
+Postcondition verification.
+Automatic fallback when an execution route fails.
+
+And we benchmark the entire chain, not merely Laya's inference time.
+4. Turn memory into actual development
+This is where I would go beyond a conventional assistant.
+Friday should not merely save conversations and retrieve them later.
+She should develop through experiences.
+I would give her a continuous learning cycle:
+
+  
+    **Experience**
+
+<text color="secondary" size="xs">Conversations, actions, mistakes, observations</text>
+
+  
+  
+  
+    **Interpretation**
+
+<text color="secondary" size="xs">What happened? Why? What was expected?</text>
+
+  
+  
+  
+    **Learning hypothesis**
+
+<text color="secondary" size="xs">What mechanism or knowledge should change?</text>
+
+  
+  
+  
+    **Sandboxed experiment**
+
+<text color="secondary" size="xs">Test the change against previous tasks and new tasks</text>
+
+  
+  
+  
+    **Promotion or rejection**
+
+<text color="secondary" size="xs">Promote only if the improvement is measurable</text>
+
+  
+  
+  
+    **Persistent development**
+
+<text color="secondary" size="xs">Survives restart, has provenance and can be rolled back</text>
+
+  
+  New experiences begin the next cycle
+
+
+I would separate memory into five connected systems:
+
+Episodic: what happened.
+Semantic: what she learned.
+Procedural: how to do something.
+Relational: how things, people, tasks and experiences connect.
+Developmental: what changed in her own mechanisms and whether it helped.
+
+Every important learning change gets an experiment ID, evidence, before-and-after evaluation, and rollback point.
+A crucial test:
+If Friday learns a better way to control an application, restarts, and then performs that task better without internet, the learning is real.
+If she merely remembers that she once performed the task, that is not the same thing.
+5. Symbiosis: let Friday inherit capabilities from other projects
+This is where I would take your original symbiote idea seriously.
+I don't want Friday to become a pile of copied repositories.
+I want a capability acquisition and adaptation system.
+
+  Friday's capability inheritance engine
+  
+    
+      
+🖼️
+Generated image
+abstract AI neural network brain glowing blue
+      **Study**
+      Inspect algorithms, architectures and benchmarks.
+    
+    
+      
+🖼️
+Generated image
+scientific laboratory technology analysis
+      **Extract**
+      Isolate the useful mechanism, not the entire project.
+    
+    
+      
+🖼️
+Generated image
+biological symbiosis microscopic cells science illustration
+      **Adapt**
+      Rebuild it around Friday's interfaces and host.
+    
+    
+      
+🖼️
+Generated image
+futuristic AI system testing digital interface
+      **Prove**
+      Test accuracy, latency, resources, compatibility and regressions.
+    
+  
+  
+  **Example inheritance**
+  - Laya: fast typed decisions.
+  - A local ASR project: streaming speech recognition.
+  - A memory architecture: more efficient associative recall.
+  - An Android automation project: additional execution routes.
+  - A new inference runtime: faster local model execution.
+
+
+But Friday must also be able to reject an inherited capability.
+A faster algorithm that loses accuracy, consumes too much memory, violates licensing or damages reliability is not an upgrade.
+I would make every inherited capability a versioned, independently testable module with explicit dependencies and provenance.
+The ability to evolve should never mean remotely executing arbitrary code. Friday can acquire signed model and configuration packs, while native code changes go through a verified APK update. Her identity and trust roots stay protected.
+6. Make Friday understand her host and adapt to it
+This is the symbiosis we discussed.
+Friday shouldn't assume that a phone's processor name tells her everything.
+She should actively discover:
+
+Available RAM and memory pressure.
+CPU/GPU/NPU execution support.
+Real inference latency.
+Thermal behavior.
+Storage availability and speed.
+Microphone and speech capabilities.
+Accessibility and notification permissions.
+Shizuku availability and authorization.
+Android version and background execution restrictions.
+Network availability and quality.
+
+Then she creates a capability map.
+For each operation, she knows:
+
+
+
+State
+Meaning
+
+
+
+Supported
+Tested successfully
+
+
+Unsupported
+The host cannot provide it
+
+
+Permission required
+Possible after user authorization
+
+
+Temporarily unavailable
+Could work later
+
+
+Unverified
+Not yet tested
+
+
+This is more powerful than a device profile that simply says "Snapdragon 695, 8 GB RAM."
+And it gives Friday the ability to choose different configurations on different devices.
+One important constraint: we must work with Android's real security model. For example, Android restricts background microphone foreground-service startup, especially for applications targeting newer Android versions. A properly configured VoiceInteractionService can qualify for an exemption, but we cannot pretend every phone permits unrestricted background listening. 
+The goal is to find the best valid route on each host, not to assume a privileged route exists.
+7. Make the cloud an extension of Friday, not her brainstem
+I would give Friday two operating environments.
+
+  
+    
+      
+      **Friday Local**
+
+  - Identity and memory.
+  - Phone control.
+  - Voice and speech.
+  - Fast decisions.
+  - Local reasoning.
+  - Learning and recovery.
+  <span class="ce-badge ce-badge-success">Must survive offline</span>
+</box>
+
+  
+  
+    
+      
+      **Friday Cloud**
+
+  - Stronger reasoning.
+  - Research and discovery.
+  - Model training and conversion.
+  - Capability analysis.
+  - Resource distribution.
+  - Optional collaboration.
+  <span class="ce-badge ce-badge-info">Enhancement layer</span>
+</box>
+
+  
+
+
+The two environments synchronize through controlled interfaces.
+When internet is available, Friday can ask a more capable model to investigate a difficult problem. She can receive a signed, validated proposal, evaluate it locally, and decide whether to adopt it.
+When internet disappears, she continues using her locally available capabilities.
+This also means that she must never confuse a cloud-generated answer with verified knowledge. Information needs provenance and, where appropriate, independent validation.
+I would introduce a synchronization queue so that experiences and approved outcomes can be reconciled later without blocking the local system.
+8. Make resource usage intelligent rather than permanent
+Your phone is a constrained host. We should not try to keep every model resident simultaneously.
+I would build a resource scheduler that treats models and capabilities like a working set.
+For example:
+
+A compact decision model stays ready.
+The ASR model is loaded when voice interaction is active.
+The language model is loaded when deeper reasoning is required.
+TTS is prepared when a response needs speaking.
+Embedding inference is loaded when memory retrieval or consolidation requires it.
+Idle models are unloaded according to measured memory and thermal pressure.
+
+The system should optimize:
+[
+\text{Utility} =
+\frac{\text{Task quality}\times\text{Reliability}}
+{\text{Latency}\times\text{Resource cost}}
+]
+This is a conceptual scheduler objective, not a claim that one mathematical formula can capture every trade-off. Some tasks should prioritize safety or quality over speed.
+I would also benchmark model size, quantization, context length and hardware acceleration separately. A smaller model that gives a correct answer in 100 ms can be more useful than a larger model that takes several seconds and exhausts memory.
+9. Build the self-evolution mechanism with real safeguards
+Here is where I would be particularly ambitious.
+Friday should eventually be able to:
+
+Identify a weakness in her own action system.
+Investigate alternative algorithms.
+Propose an improved implementation.
+Generate tests.
+Run experiments in an isolated environment.
+Compare old and new performance.
+Promote a successful capability.
+Roll back a failed change.
+
+But there must be a distinction between self-improvement and self-modification without control.
+I would protect five immutable areas:
+
+Her identity and continuity root.
+Signing keys and update trust.
+Permission and security boundaries.
+Recovery and last-known-good state.
+The provenance of memories and learned changes.
+
+Everything else can be considered an evolvable capability, subject to validation.
+This makes evolution possible without making the system fragile or remotely controllable by whoever supplies a model.
+10. How I would actually build it
+I would not attempt to build all ten dimensions simultaneously. That would recreate the integration problems we already have.
+I would work in integrated milestones, with all work committed directly to main, and each milestone leaving a usable improvement.
+
+  The Friday 100/10 transformation
+  Proposed engineering sequence · Not yet completed
+  
+    
+      **Unify the existing offline core**
+
+  <span class="ce-badge ce-badge-success">First priority</span>
+
+  Fix the mismatch between the native GGUF backend, provider health checks and localhost-dependent embedding path. Establish one real local inference and embedding interface.
+
+  **Acceptance:** model loads, generates, embeds, and retrieves memory in Airplane Mode.
+</list-item>
+<list-item>
+  **Build the capability and host-adaptation layer**
+
+  Connect actual hardware, permission, speech, execution and runtime probes to the adaptation envelope.
+
+  **Acceptance:** Friday produces a truthful, evidence-backed capability map and configures itself accordingly.
+</list-item>
+<list-item>
+  **Build the real-time voice/action pipeline**
+
+  Streaming ASR, Laya, action preparation, route selection, verification and interruption handling.
+
+  **Acceptance:** measure speech-to-first-useful-action across ordinary commands and ambiguous commands, online and offline.
+</list-item>
+<list-item>
+  **Complete the independent offline brain**
+
+  Local reasoning, speech, embeddings, memory and model scheduling.
+
+  **Acceptance:** a complete useful session survives Airplane Mode and process restart.
+</list-item>
+<list-item>
+  **Build persistent developmental learning**
+
+  Episodic memory, causal evaluation, procedural learning and tested mechanism promotion.
+
+  **Acceptance:** a learned improvement survives restart and measurably improves an unseen related task.
+</list-item>
+<list-item>
+  **Build symbiotic capability inheritance**
+
+  A registry, adapters, compatibility testing, licensing/provenance checks and controlled acquisition.
+
+  **Acceptance:** Friday can integrate a new capability without destabilizing existing ones.
+</list-item>
+<list-item>
+  **Complete cloud evolution and synchronization**
+
+  Authenticated enrollment, signed proposals, anti-replay protection, staged activation and rollback.
+
+  **Acceptance:** cloud improvements can be adopted without compromising offline continuity.
+</list-item>
+<list-item>
+  **Complete permanent-body installation and evolution**
+
+  Production signing, secure APK updates, same-key continuity, recovery, and real phone validation.
+
+  **Acceptance:** one permanent installation, verified in-place evolution, no routine uninstall/reinstall.
+</list-item>
+
+  
+
+
+11. How do we know we've reached 100/10?
+I don't want Friday's success measured by how many features are listed in the app.
+I want it measured by what she can actually accomplish.
+Here is the acceptance scorecard I would introduce:
+
+
+
+Dimension
+What earns full marks
+
+
+
+Offline independence
+Complete useful operation without internet
+
+
+Intelligence
+Solves unfamiliar tasks, not just predefined commands
+
+
+Voice
+Understands speech incrementally in Arabic and English
+
+
+Action speed
+Begins useful actions with minimal delay
+
+
+Phone control
+Executes, verifies and recovers from failed actions
+
+
+Memory
+Recalls relevant experiences across restarts
+
+
+Development
+Learns mechanisms that improve future performance
+
+
+Adaptation
+Configures itself to actual host capabilities
+
+
+Symbiosis
+Inherits tested capabilities from external projects
+
+
+Resilience
+Recovers from crashes, resource exhaustion and failed updates
+
+
+Security
+Preserves identity, permissions and trusted recovery
+
+
+Cloud independence
+Cloud enhances Friday without being required for survival
+
+
+Each dimension needs automated tests, physical-device tests where applicable, and a measured baseline.
+I would additionally maintain three performance dashboards:
+
+Latency: time to first useful action, task completion time, interruption response.
+Quality: task success, false actions, reasoning accuracy, memory retrieval accuracy.
+Resilience: offline success rate, crash recovery, rollback success, persistence after restart.
+
+A system that gets 100% of its features implemented but only completes 60% of real tasks is not a 100/10 system.
+
+My three most important architectural decisions
+If I were responsible for Friday's entire engineering direction, I would make these non-negotiable:
+1. Friday owns her identity, memory and continuity.
+No model, API, cloud provider or downloaded capability gets to become her identity.
+2. Local intelligence is the default.
+Internet access should make Friday more capable, not make her functional.
+3. Actions are the primary output of intelligence.
+Speaking is one way of communicating. Doing something useful is the actual objective.
+And there is one more thing: I would stop treating every new project you show me as another feature request. Every project becomes raw material. We identify the strongest algorithm, test it, extract it, adapt it, and decide whether Friday is genuinely better afterward.
+The decision I would make today
+My recommended starting point
+I would start with Milestone 1: unify Friday's offline brain.
+Not another model download. Not another UI feature. Not another collection of interfaces.
+I would repair the actual connections between:
+
+InAppLlamaModelBackend
+ModelManager
+AndroidPlatformPorts
+NeuralEmbeddingProvider
+BlendedMemoryRetriever
+TurnPathAssembly
+
+Then prove the complete chain:
+
+  One real offline intelligence loop
+  Understand a request
+  
+  Recall relevant persistent memory
+  
+  Reason using the local model
+  
+  Choose and execute an action
+  
+  Verify the result
+  
+  Persist the experience and learn
+  
+
+
+That is the first real demonstration of the Friday we're trying to create.
+My honest assessment: the 4/10 problem isn't that Friday lacks enough components. It's that the components don't yet form a sufficiently reliable, independent, self-improving organism. Adding more components before fixing that would make the problem worse.
+The ultimate ambition is much bigger than an offline chatbot. It is an intelligence that can inhabit different hosts, understand their capabilities, inherit new mechanisms, learn from experience, and continue developing without losing itself.
+That's the Friday I would build.
+
+
+ChatGPT:
+11. How do we know we've reached 100/10?
+I don't want Friday's success measured by how many features are listed in the app.
+I want it measured by what she can actually accomplish.
+Here is the acceptance scorecard I would introduce:
+
+
+
+Dimension
+What earns full marks
+
+
+
+Offline independence
+Complete useful operation without internet
+
+
+Intelligence
+Solves unfamiliar tasks, not just predefined commands
+
+
+Voice
+Understands speech incrementally in Arabic and English
+
+
+Action speed
+Begins useful actions with minimal delay
+
+
+Phone control
+Executes, verifies and recovers from failed actions
+
+
+Memory
+Recalls relevant experiences across restarts
+
+
+Development
+Learns mechanisms that improve future performance
+
+
+Adaptation
+Configures itself to actual host capabilities
+
+
+Symbiosis
+Inherits tested capabilities from external projects
+
+
+Resilience
+Recovers from crashes, resource exhaustion and failed updates
+
+
+Security
+Preserves identity, permissions and trusted recovery
+
+
+Cloud independence
+Cloud enhances Friday without being required for survival
+
+
+Each dimension needs automated tests, physical-device tests where applicable, and a measured baseline.
+I would additionally maintain three performance dashboards:
+
+Latency: time to first useful action, task completion time, interruption response.
+Quality: task success, false actions, reasoning accuracy, memory retrieval accuracy.
+Resilience: offline success rate, crash recovery, rollback success, persistence after restart.
+
+A system that gets 100% of its features implemented but only completes 60% of real tasks is not a 100/10 system.
+
+My three most important architectural decisions
+If I were responsible for Friday's entire engineering direction, I would make these non-negotiable:
+1. Friday owns her identity, memory and continuity.
+No model, API, cloud provider or downloaded capability gets to become her identity.
+2. Local intelligence is the default.
+Internet access should make Friday more capable, not make her functional.
+3. Actions are the primary output of intelligence.
+Speaking is one way of communicating. Doing something useful is the actual objective.
+And there is one more thing: I would stop treating every new project you show me as another feature request. Every project becomes raw material. We identify the strongest algorithm, test it, extract it, adapt it, and decide whether Friday is genuinely better afterward.
+The decision I would make today
+My recommended starting point
+I would start with Milestone 1: unify Friday's offline brain.
+Not another model download. Not another UI feature. Not another collection of interfaces.
+I would repair the actual connections between:
+
+InAppLlamaModelBackend
+ModelManager
+AndroidPlatformPorts
+NeuralEmbeddingProvider
+BlendedMemoryRetriever
+TurnPathAssembly
+
+Then prove the complete chain:
+
+  One real offline intelligence loop
+  Understand a request
+  
+  Recall relevant persistent memory
+  
+  Reason using the local model
+  
+  Choose and execute an action
+  
+  Verify the result
+  
+  Persist the experience and learn
+  
+
+
+That is the first real demonstration of the Friday we're trying to create.
+My honest assessment: the 4/10 problem isn't that Friday lacks enough components. It's that the components don't yet form a sufficiently reliable, independent, self-improving organism. Adding more components before fixing that would make the problem worse.
+The ultimate ambition is much bigger than an offline chatbot. It is an intelligence that can inhabit different hosts, understand their capabilities, inherit new mechanisms, learn from experience, and continue developing without losing itself.
+That's the Friday I would build.
+
+
+You:
+@Web search and now where do u put that in the objectives plan
+
+
+ChatGPT:
+I would put it inside the existing A–G objectives, not create a competing roadmap or an unnecessary new Objective H.
+The important distinction is that the 100/10 proposal is not one feature. It is a unifying engineering direction that changes how several existing objectives are delivered.
+I checked .ralph/FRIDAY_DELIVERY_PLAN.md on main. The plan already contains much of the vision: liquid cognition, offline capability, developmental learning, Laya, capability inheritance, host adaptation and install-once continuity.
+What's missing is an explicit integration strategy and measurable acceptance gate that makes all those pieces operate as one intelligence.
+Here is where I would place it:
+
+
+
+Existing objective
+What the new direction adds
+
+
+
+A — First Friday
+One real local cognitive runtime and persistent identity
+
+
+B — Voice
+Independent offline hearing and speaking, streaming interaction
+
+
+C — Development
+Experience changes future behaviour and survives restart
+
+
+D — Perception and action
+Fast decisions, action preparation, verification and recovery
+
+
+E — Symbiosis
+Adaptive resource scheduler and interchangeable execution engines
+
+
+F — Builder
+Capability inheritance, experimentation and controlled self-evolution
+
+
+G — Resilience
+Offline acceptance tests, rollback and permanent-body continuity
+
+
+Objective E becomes the integration backbone, but it does not own all the intelligence. Friday remains one individual, and each objective contributes to her functioning.
+
+
+ChatGPT:
+I would put it inside the existing A–G objectives, not create a competing roadmap or an unnecessary new Objective H.
+The important distinction is that the 100/10 proposal is not one feature. It is a unifying engineering direction that changes how several existing objectives are delivered.
+I checked .ralph/FRIDAY_DELIVERY_PLAN.md on main. The plan already contains much of the vision: liquid cognition, offline capability, developmental learning, Laya, capability inheritance, host adaptation and install-once continuity.
+What's missing is an explicit integration strategy and measurable acceptance gate that makes all those pieces operate as one intelligence.
+Here is where I would place it:
+
+
+
+Existing objective
+What the new direction adds
+
+
+
+A — First Friday
+One real local cognitive runtime and persistent identity
+
+
+B — Voice
+Independent offline hearing and speaking, streaming interaction
+
+
+C — Development
+Experience changes future behaviour and survives restart
+
+
+D — Perception and action
+Fast decisions, action preparation, verification and recovery
+
+
+E — Symbiosis
+Adaptive resource scheduler and interchangeable execution engines
+
+
+F — Builder
+Capability inheritance, experimentation and controlled self-evolution
+
+
+G — Resilience
+Offline acceptance tests, rollback and permanent-body continuity
+
+
+Objective E becomes the integration backbone, but it does not own all the intelligence. Friday remains one individual, and each objective contributes to her functioning.
+The plan has now been updated
+Committed to main
+
+  
+  [Commit `5311215`](https://github.com/mhw77655-hue/Friday/commit/53112151213472d65a1760d7e129aaf1fd8a9e85)
+
+
+Updated the single authoritative plan:
+.ralph/FRIDAY_DELIVERY_PLAN.md
+The update adds:
+
+One coherent offline-capable Friday — a cross-objective integration requirement.
+An end-to-end offline acceptance gate — including inference, memory, action, verification and restart.
+A unified local runtime contract — fixing the architectural mismatch between inference, model availability and embeddings.
+Explicit additions to Objectives A–G — voice, memory, action, resource adaptation, evolution and resilience.
+A measurable evolution scorecard — speed alone cannot qualify as an improvement.
+A defined integration sequence — without stopping independent workstreams from progressing in parallel.
+
+I also added official Android and Google AI Edge references. Android's offline-first guidance supports local sources of truth and deliberate synchronization; LiteRT and LiteRT-LM are now candidates for controlled benchmarking against the existing llama.cpp runtime, not automatic replacements. 
+What happens next
+I would make the first implementation target:
+Unify the existing local inference and memory paths.
+Specifically, repair the connection between InAppLlamaModelBackend, ModelManager, AndroidPlatformPorts, NeuralEmbeddingProvider and BlendedMemoryRetriever.
+Then prove that the actual application can complete a useful offline interaction after a restart.
+One honest distinction: this commit updates the governing plan; it does not mean those engineering objectives have been implemented or passed tests.
+We now have one destination, one plan and a concrete first integration target. No competing roadmap.
+
+
+ChatGPT:
+The plan has now been updated
+Committed to main
+
+  
+  [Commit `5311215`](https://github.com/mhw77655-hue/Friday/commit/53112151213472d65a1760d7e129aaf1fd8a9e85)
+
+
+Updated the single authoritative plan:
+.ralph/FRIDAY_DELIVERY_PLAN.md
+The update adds:
+
+One coherent offline-capable Friday — a cross-objective integration requirement.
+An end-to-end offline acceptance gate — including inference, memory, action, verification and restart.
+A unified local runtime contract — fixing the architectural mismatch between inference, model availability and embeddings.
+Explicit additions to Objectives A–G — voice, memory, action, resource adaptation, evolution and resilience.
+A measurable evolution scorecard — speed alone cannot qualify as an improvement.
+A defined integration sequence — without stopping independent workstreams from progressing in parallel.
+
+I also added official Android and Google AI Edge references. Android's offline-first guidance supports local sources of truth and deliberate synchronization; LiteRT and LiteRT-LM are now candidates for controlled benchmarking against the existing llama.cpp runtime, not automatic replacements. 
+What happens next
+I would make the first implementation target:
+Unify the existing local inference and memory paths.
+Specifically, repair the connection between InAppLlamaModelBackend, ModelManager, AndroidPlatformPorts, NeuralEmbeddingProvider and BlendedMemoryRetriever.
+Then prove that the actual application can complete a useful offline interaction after a restart.
+One honest distinction: this commit updates the governing plan; it does not mean those engineering objectives have been implemented or passed tests.
+We now have one destination, one plan and a concrete first integration target. No competing roadmap.
+
+
+You:
+@Web search ok but now we need to clean the repo the app code 
+From Jarvis name and id and the repo from the old unrelated or reliable stuff to the plan i want
+
+
+ChatGPT:
+Agreed. I would make this a repository and application purification, not just a cosmetic rename.
+The target is a clean Friday codebase where every retained component has a documented purpose in the delivery plan, every capability is connected to the real application, and obsolete or unreliable code cannot silently masquerade as working functionality.
+One important decision: I will distinguish between:
+
+Jarvis branding: remove it from user-facing names, labels, icons, documentation and internal naming where safe.
+Android application ID: this needs special treatment. The existing com.jarvis.app package ID is tied to installation identity, signing and update continuity. Changing it casually could force an uninstall or create a second app. I will preserve it during cleanup unless we deliberately engineer and accept a migration.
+
+I won't destroy working code just because its name is old.
+
+
+ChatGPT:
+The first repository inspection has already exposed a real problem: this is not just an Android project with a few old names.
+The default branch contains 1,008 tracked files, including 513 production Android source files, historical planning systems, old Python/JARVIS scaffolding, Termux-oriented scripts, an empty browser package with a deliberately failing test command, and a large collection of historical documents.
+I would not delete all of that indiscriminately. Some older code may contain useful algorithms; some is obsolete infrastructure; some is evidence we need to preserve. The cleanup needs to distinguish those categories.
+
+
+ChatGPT:
+I found a more serious cleanup issue than the old filenames: AGENTS.md still tells development workers to follow the old PRD and prompt, and describes Friday as an unfinished JARVIS codename. That directly conflicts with the authoritative delivery plan and your instruction to have one canonical development path.
+I also found that NeuralEmbeddingProvider defaults to 127.0.0.1:8080, while ModelManager still has a heuristic cloud stub and old remote-JARVIS provider naming. Those are not cosmetic problems: they can make the app report a capability that isn't actually available offline.
+
+
+ChatGPT:
+Agreed. I would make this a repository and application purification, not just a cosmetic rename.
+The target is a clean Friday codebase where every retained component has a documented purpose in the delivery plan, every capability is connected to the real application, and obsolete or unreliable code cannot silently masquerade as working functionality.
+One important decision: I will distinguish between:
+
+Jarvis branding: remove it from user-facing names, labels, icons, documentation and internal naming where safe.
+Android application ID: this needs special treatment. The existing com.jarvis.app package ID is tied to installation identity, signing and update continuity. Changing it casually could force an uninstall or create a second app. I will preserve it during cleanup unless we deliberately engineer and accept a migration.
+
+I won't destroy working code just because its name is old.
+The first repository inspection has already exposed a real problem: this is not just an Android project with a few old names.
+The default branch contains 1,008 tracked files, including 513 production Android source files, historical planning systems, old Python/JARVIS scaffolding, Termux-oriented scripts, an empty browser package with a deliberately failing test command, and a large collection of historical documents.
+I would not delete all of that indiscriminately. Some older code may contain useful algorithms; some is obsolete infrastructure; some is evidence we need to preserve. The cleanup needs to distinguish those categories.
+I found a more serious cleanup issue than the old filenames: AGENTS.md still tells development workers to follow the old PRD and prompt, and describes Friday as an unfinished JARVIS codename. That directly conflicts with the authoritative delivery plan and your instruction to have one canonical development path.
+I also found that NeuralEmbeddingProvider defaults to 127.0.0.1:8080, while ModelManager still has a heuristic cloud stub and old remote-JARVIS provider naming. Those are not cosmetic problems: they can make the app report a capability that isn't actually available offline.
+Cleanup already committed to main
+Repository cleanup started
+Latest commit: d892f99
+
+
+
+Area
+Result
+
+
+
+Old Python JARVIS prototype
+Removed
+
+
+Broken, disconnected Python tests
+Removed
+
+
+Old Termux startup/model scripts
+Removed
+
+
+Empty browser placeholder
+Removed
+
+
+Branch/PR proposal workflow
+Removed
+
+
+Superseded Ralph worker and PRD scaffolding
+Removed
+
+
+Developer instructions
+Updated
+
+
+Repository development contract
+Updated
+
+
+Build workflow
+Restricted to canonical mainline
+
+
+I deliberately retained historical research, incident reports and potentially useful algorithms. Those should not be confused with active application code.
+What remains to clean
+The Android application still contains substantial legacy naming:
+
+com.jarvis.app across the source packages.
+JarvisEngine
+JarvisApplication
+JarvisSpeechRecognizer
+RemoteJarvisAdapter
+Old Jarvis-related internal identifiers.
+
+There are also architectural problems to address, particularly the localhost-dependent embedding provider and heuristic cloud stub.
+I haven't blindly deleted these or performed a global rename because that could break production wiring.
+One decision before the identity migration
+The current application ID is com.jarvis.app. A historical device report also records that package on your phone.
+Changing it creates a different Android application. It will not receive an ordinary in-place update from the existing package.
+Which identity do you authorize?
+
+Keep com.jarvis.app as a compatibility ID, but eliminate Jarvis branding and rename the internal code.
+Migrate once to a new Friday application ID before the permanent production seed.
+
+I recommend the second option if you are willing to handle the old installation separately. It gives Friday a clean identity from the beginning.
+Verification status: the latest build, run 44851836031, is queued, not successful. I also created too many individual commits during the cleanup, which queued multiple builds. Future deletions and refactors should be batched into coherent commits.
+I won't call the cleanup complete until the Android source, tests and release identity agree.
+
+
+ChatGPT:
+Cleanup already committed to main
+Repository cleanup started
+Latest commit: d892f99
+
+
+
+Area
+Result
+
+
+
+Old Python JARVIS prototype
+Removed
+
+
+Broken, disconnected Python tests
+Removed
+
+
+Old Termux startup/model scripts
+Removed
+
+
+Empty browser placeholder
+Removed
+
+
+Branch/PR proposal workflow
+Removed
+
+
+Superseded Ralph worker and PRD scaffolding
+Removed
+
+
+Developer instructions
+Updated
+
+
+Repository development contract
+Updated
+
+
+Build workflow
+Restricted to canonical mainline
+
+
+I deliberately retained historical research, incident reports and potentially useful algorithms. Those should not be confused with active application code.
+What remains to clean
+The Android application still contains substantial legacy naming:
+
+com.jarvis.app across the source packages.
+JarvisEngine
+JarvisApplication
+JarvisSpeechRecognizer
+RemoteJarvisAdapter
+Old Jarvis-related internal identifiers.
+
+There are also architectural problems to address, particularly the localhost-dependent embedding provider and heuristic cloud stub.
+I haven't blindly deleted these or performed a global rename because that could break production wiring.
+One decision before the identity migration
+The current application ID is com.jarvis.app. A historical device report also records that package on your phone.
+Changing it creates a different Android application. It will not receive an ordinary in-place update from the existing package.
+Which identity do you authorize?
+
+Keep com.jarvis.app as a compatibility ID, but eliminate Jarvis branding and rename the internal code.
+Migrate once to a new Friday application ID before the permanent production seed.
+
+I recommend the second option if you are willing to handle the old installation separately. It gives Friday a clean identity from the beginning.
+Verification status: the latest build, run 44851836031, is queued, not successful. I also created too many individual commits during the cleanup, which queued multiple builds. Future deletions and refactors should be batched into coherent commits.
+I won't call the cleanup complete until the Android source, tests and release identity agree.
+
+
+You:
+@Web search hay look we need ro clean fhd entire project of the old Jarvis remains because the entire app has faulty info and destinations and yes i authorise
+
+
+ChatGPT:
+Authorization received. I will treat this as a full identity migration, not a branding patch.
+The new Android identity will be ai.friday.assistant, with the source namespace migrated to match. The old com.jarvis.app identity will not remain as Friday's permanent package.
+There is one important consequence: Android treats a changed application ID as a different app. The old installation cannot receive a normal in-place update under the new ID. The permanent Friday seed must therefore be built and signed under the new identity before you install it. Android's official documentation confirms that updates require the same application ID and compatible signing identity. 
+I will preserve the useful capabilities and algorithms, not the old product identity, false destinations, disconnected prototypes or contradictory instructions.
+
+
+ChatGPT:
+Authorization received. I will treat this as a full identity migration, not a branding patch.
+The new Android identity will be ai.friday.assistant, with the source namespace migrated to match. The old com.jarvis.app identity will not remain as Friday's permanent package.
+There is one important consequence: Android treats a changed application ID as a different app. The old installation cannot receive a normal in-place update under the new ID. The permanent Friday seed must therefore be built and signed under the new identity before you install it. Android's official documentation confirms that updates require the same application ID and compatible signing identity. 
+I will preserve the useful capabilities and algorithms, not the old product identity, false destinations, disconnected prototypes or contradictory instructions.
+
+
+You:
+@Web search no i already deleted Friday apk from my phone it won't require the id 
+So just get the job done rhen start the building on the new fresh project
+
+
+ChatGPT:
+Understood. Since you've already deleted the old APK, we can make the identity change cleanly without preserving compatibility with that installation.
+I'll use the existing Friday GitHub repository as the new canonical project rather than create a second repository and fragment the work. Its contents will be rebuilt around the new Android identity:
+
+Application ID and Kotlin namespace: ai.friday.assistant
+Product and launcher name: Friday
+Source directories and class names: Friday naming throughout
+Build, test, signing metadata and release workflows: same identity, no old package destinations
+Architecture: retain only code that serves the delivery plan; preserve useful algorithms, not obsolete application assumptions.
+
+The old APK being deleted removes the installed-package continuity concern. It does not, by itself, prove that old signing secrets or cloud endpoints are correct; those still need verification.
+
+
+ChatGPT:
+The migration workflow is now running on GitHub Actions. It is preparing the Android build environment before changing the source tree, so it can test the actual migrated project rather than merely edit filenames.
+The first migration will also replace stale repository facts and remove the old branch-era audit, rather than turn inaccurate documentation into Friday-branded inaccurate documentation.
+
+
+ChatGPT:
+I caught a failure before it could alter main: the migration script normalized files in its temporary runner, then stopped on a shell-parsing error. The repository's source tree has not been migrated, and no APK has been built from the new identity.
+I'm correcting the script rather than treating that failed run as progress or pushing a half-renamed application.
+
+
+ChatGPT:
+Understood. Since you've already deleted the old APK, we can make the identity change cleanly without preserving compatibility with that installation.
+I'll use the existing Friday GitHub repository as the new canonical project rather than create a second repository and fragment the work. Its contents will be rebuilt around the new Android identity:
+
+Application ID and Kotlin namespace: ai.friday.assistant
+Product and launcher name: Friday
+Source directories and class names: Friday naming throughout
+Build, test, signing metadata and release workflows: same identity, no old package destinations
+Architecture: retain only code that serves the delivery plan; preserve useful algorithms, not obsolete application assumptions.
+
+The old APK being deleted removes the installed-package continuity concern. It does not, by itself, prove that old signing secrets or cloud endpoints are correct; those still need verification.
+The migration workflow is now running on GitHub Actions. It is preparing the Android build environment before changing the source tree, so it can test the actual migrated project rather than merely edit filenames.
+The first migration will also replace stale repository facts and remove the old branch-era audit, rather than turn inaccurate documentation into Friday-branded inaccurate documentation.
+I caught a failure before it could alter main: the migration script normalized files in its temporary runner, then stopped on a shell-parsing error. The repository's source tree has not been migrated, and no APK has been built from the new identity.
+I'm correcting the script rather than treating that failed run as progress or pushing a half-renamed application.## Current verified state
+Migration not yet complete
+I chose ai.friday.assistant and configured a one-time migration that will:
+
+Rename all 750 Android Kotlin/Java production and test files and their package paths.
+Rename old application classes and manifest references.
+Update Gradle, release metadata, CI and documentation.
+Replace inaccurate repository facts and retire obsolete instructions.
+Build the new APK and run the JVM tests.
+Commit the result to main and dispatch the full build/emulator workflow.
+
+The Android documentation confirms that the application ID and namespace must be coordinated during this migration. 
+The important part: two migration attempts failed before changing main. I corrected the script and started a third attempt:
+Migration workflow — run 44856152173
+At my last check, it was still installing Android SDK components. The current main still has the old source package. Therefore, I cannot honestly say the rename or fresh build has succeeded.
+I will not ask you to install anything. The target is a clean, correctly identified Friday APK, followed by a full audit of the inherited functionality—not simply a renamed version of the old app.
+
+
+ChatGPT:
+Current verified state
+Migration not yet complete
+I chose ai.friday.assistant and configured a one-time migration that will:
+
+Rename all 750 Android Kotlin/Java production and test files and their package paths.
+Rename old application classes and manifest references.
+Update Gradle, release metadata, CI and documentation.
+Replace inaccurate repository facts and retire obsolete instructions.
+Build the new APK and run the JVM tests.
+Commit the result to main and dispatch the full build/emulator workflow.
+
+The Android documentation confirms that the application ID and namespace must be coordinated during this migration. 
+The important part: two migration attempts failed before changing main. I corrected the script and started a third attempt:
+Migration workflow — run 44856152173
+At my last check, it was still installing Android SDK components. The current main still has the old source package. Therefore, I cannot honestly say the rename or fresh build has succeeded.
+I will not ask you to install anything. The target is a clean, correctly identified Friday APK, followed by a full audit of the inherited functionality—not simply a renamed version of the old app.
+
+
+You:
+@Web search for tonight your entire job is to clean the repository and just keep what's accomplish my vision
+
+
+ChatGPT:
+I found why the previous migration kept failing: Android SDK setup succeeded, but the cleanup script itself failed at its final shell boundary. The failure is reproducible from the job log; it is not an Android compilation failure.
+I also found a more important cleanup issue: the current project still has old JARVIS names in the Gradle package, manifest, source tree, test filters and historical vault. Renaming only the launcher would leave a misleading and inconsistent project. I'm treating identity, build configuration, source references and obsolete project material as one coordinated cleanup.
+
+
+ChatGPT:
+I found why the previous migration kept failing: Android SDK setup succeeded, but the cleanup script itself failed at its final shell boundary. The failure is reproducible from the job log; it is not an Android compilation failure.
+I also found a more important cleanup issue: the current project still has old JARVIS names in the Gradle package, manifest, source tree, test filters and historical vault. Renaming only the launcher would leave a misleading and inconsistent project. I'm treating identity, build configuration, source references and obsolete project material as one coordinated cleanup.
+The latest attempt exposed another genuine cleanup defect: the migration itself completed, but the final whitespace check was blocked by tracked device logs and historical files containing trailing whitespace. Those logs are not application source, and they should not be in the product repository in the first place.
+I also verified an important distinction: Friday's current production composition uses an isolated Android inference service, while the old VoiceForge/Chatterbox server is explicitly test-only. I'm removing the retired Termux/VoiceForge path rather than allowing its old localhost address and test token to masquerade as a Friday capability. I will preserve the actual in-app voice and inference code.
+The corrected migration has now passed its first two real gates:
+
+Identity migration executed The Android source and test trees were moved to ai/friday/assistant.
+Package verification passed The new Gradle namespace and application ID match; the old com.jarvis.app package references were absent from the checked Kotlin/Java source.
+
+The cleanup also removed the retired Termux model gateway, VoiceForge server and tests, old Obsidian external-storage destination, obsolete PR-based builder intake, stale branch-era reports, and committed personal device diagnostics.
+The new APK assembly is running now. These are successful migration checks—not yet proof that the APK compiles or that all tests pass.
+I found the first actual build blocker and corrected its cause.
+The app declared Sherpa-ONNX as com.github.k2-fsa:sherpa-onnx:v1.12.40, but the repository already contains a different, pinned Android AAR: com.k2fsa.sherpa.onnx:sherpa-onnx-android:1.13.2. Gradle could not resolve the declared artifact. I changed the dependency to the exact coordinate and version of the committed local artifact, rather than introducing another server or downloading an arbitrary replacement. The upstream project also documents the com.k2fsa.sherpa.onnx Android artifact family. 
+The migration and APK build are being retried against that correction.
+I caught one more migration hazard before accepting the result: Friday has native C++/JNI bindings. Kotlin package renames alone are not enough; JNI symbol names must change to match the new package too. I found two native binding macros that the original migration would have renamed incorrectly.
+I'm adding an explicit native-binding conversion and a verification check. This prevents a particularly nasty failure where the APK compiles but native inference or VAD cannot find its methods at runtime.
+The next build caught a migration-script bug, not an application-code bug: my URL-preservation logic used a split operation incorrectly and dropped URL substrings. That broke the Android XML namespace declaration, so resource compilation stopped.
+No damaged migration was committed to main. I traced it to the exact transformation and am fixing it to preserve every matched URL verbatim while normalizing the surrounding text. This is precisely why I am requiring a real build before accepting the cleanup.
+The URL fix worked: the next run passed resource processing and reached Kotlin compilation. That exposed three remaining live dependencies on components we deliberately retired:
+
+Diagnostics still queried the removed public GitHub/evolution workers.
+Two production adapters still called the removed Obsidian external-storage logger.
+The Settings screen still needs its password-field import for the JEV key.
+
+These are real integration references, not reasons to restore the obsolete systems. I'm removing the dangling calls and preserving local diagnostics.
+
+
+ChatGPT:
+The latest attempt exposed another genuine cleanup defect: the migration itself completed, but the final whitespace check was blocked by tracked device logs and historical files containing trailing whitespace. Those logs are not application source, and they should not be in the product repository in the first place.
+I also verified an important distinction: Friday's current production composition uses an isolated Android inference service, while the old VoiceForge/Chatterbox server is explicitly test-only. I'm removing the retired Termux/VoiceForge path rather than allowing its old localhost address and test token to masquerade as a Friday capability. I will preserve the actual in-app voice and inference code.
+
+
+ChatGPT:
+The corrected migration has now passed its first two real gates:
+
+Identity migration executed The Android source and test trees were moved to ai/friday/assistant.
+Package verification passed The new Gradle namespace and application ID match; the old com.jarvis.app package references were absent from the checked Kotlin/Java source.
+
+The cleanup also removed the retired Termux model gateway, VoiceForge server and tests, old Obsidian external-storage destination, obsolete PR-based builder intake, stale branch-era reports, and committed personal device diagnostics.
+The new APK assembly is running now. These are successful migration checks—not yet proof that the APK compiles or that all tests pass.
+
+
+ChatGPT:
+I found the first actual build blocker and corrected its cause.
+The app declared Sherpa-ONNX as com.github.k2-fsa:sherpa-onnx:v1.12.40, but the repository already contains a different, pinned Android AAR: com.k2fsa.sherpa.onnx:sherpa-onnx-android:1.13.2. Gradle could not resolve the declared artifact. I changed the dependency to the exact coordinate and version of the committed local artifact, rather than introducing another server or downloading an arbitrary replacement. The upstream project also documents the com.k2fsa.sherpa.onnx Android artifact family. 
+The migration and APK build are being retried against that correction.
+
+
+ChatGPT:
+I caught one more migration hazard before accepting the result: Friday has native C++/JNI bindings. Kotlin package renames alone are not enough; JNI symbol names must change to match the new package too. I found two native binding macros that the original migration would have renamed incorrectly.
+I'm adding an explicit native-binding conversion and a verification check. This prevents a particularly nasty failure where the APK compiles but native inference or VAD cannot find its methods at runtime.
+
+
+ChatGPT:
+The next build caught a migration-script bug, not an application-code bug: my URL-preservation logic used a split operation incorrectly and dropped URL substrings. That broke the Android XML namespace declaration, so resource compilation stopped.
+No damaged migration was committed to main. I traced it to the exact transformation and am fixing it to preserve every matched URL verbatim while normalizing the surrounding text. This is precisely why I am requiring a real build before accepting the cleanup.
+
+
+ChatGPT:
+The URL fix worked: the next run passed resource processing and reached Kotlin compilation. That exposed three remaining live dependencies on components we deliberately retired:
+
+Diagnostics still queried the removed public GitHub/evolution workers.
+Two production adapters still called the removed Obsidian external-storage logger.
+The Settings screen still needs its password-field import for the JEV key.
+
+These are real integration references, not reasons to restore the obsolete systems. I'm removing the dangling calls and preserving local diagnostics.
+
+
+You:
+@Web search so did you finish the cleaning
+
+
+ChatGPT:
+No. The repository cleaning is not finished, and I won't tell you otherwise.
+I checked the live main branch and the latest GitHub Actions runs. Some cleanup work has been committed, but the full purification has not passed its acceptance gate.
+The important distinction: the migration workflow can modify a temporary CI checkout, but those changes are not part of main until its final commit step succeeds. The latest identity-migration run failed. The latest ordinary build also failed.
+What is actually done
+
+
+
+Area
+Status
+
+
+
+Friday vision and central plan
+Partially cleaned; contains a stale package-identity instruction
+
+
+Public GitHub phone bridge
+Some production references removed; not fully audited
+
+
+External Obsidian storage
+Some replacements committed, but old class and manifest permission remain
+
+
+In-app ToolBuilder / BuildTwin
+Removal incomplete; both still exist in main
+
+
+Jarvis identity
+Not migrated
+
+
+Old source package
+Still com.jarvis.app
+
+
+Fresh package ID
+Still not applied to main
+
+
+Build and tests
+Temporary migration build and JVM tests passed; current mainline CI is failing
+
+
+Repository-wide cleanup
+Not accepted
+
+
+The actual blockers
+
+Migration commit rejected: the CI GitHub App lacks permission to update workflow files. The migration successfully built the APK and passed its JVM test step, but its final push was rejected. GitHub treats workflow-file permissions separately from ordinary repository write access. 
+
+Normal build fails early: the canonical vision check fails, so subsequent APK and test steps are skipped.
+
+Source audit fails: the migration script is Python but the audit tries to syntax-check it as Bash.
+
+The live repository still contains old identity and prototype remnants. The current manifest, Gradle identity and source paths prove the migration has not landed.
+
+
+Useful run evidence:
+
+Latest identity migration — failed at commit
+Latest build and source audit
+
+What I would do next
+In this order, all directly on main:
+
+Fix the migration workflow's permission boundary so it can commit the verified cleanup without an unauthorized workflow-file push.
+Fix the Python-versus-Bash audit bug.
+Make the approved ai.friday.assistant identity authoritative in the delivery plan.
+Complete the source, manifest, storage, prototype and stale-destination cleanup.
+Run the full migration, build, unit tests and repository audit again.
+Verify the resulting commit and ensure no cleanup changes remain stranded in a temporary CI workspace.
+
+Do not install anything yet. The current main branch is not the clean, verified Friday baseline you asked me to produce.
+I have made progress, but the honest answer is that I have not delivered the finished cleanup.
+
+If you want, I can:
+
+Resume migration and fix workflow permissions
+Complete stale code and prototype cleanup
+Run full migration, build, test, and audit
