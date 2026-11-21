@@ -19,6 +19,13 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import android.Manifest
+import android.content.pm.PackageManager
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -45,6 +52,16 @@ fun ConversationScreen() {
     if (bodyCoordinator == null) {
         ai.friday.assistant.ui.WakingSurface(bodySlot.readiness)
         return
+    }
+    val context = LocalContext.current
+    val microphonePermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            bodyCoordinator.toggleListening()
+        } else {
+            Toast.makeText(context, "Microphone access was not granted. Typed chat remains available.", Toast.LENGTH_LONG).show()
+        }
     }
     val turns by conversationViewModel.turns.collectAsStateWithLifecycle()
     var input by remember { mutableStateOf("") }
@@ -140,7 +157,17 @@ private fun InputRow(value: String, onValueChange: (String) -> Unit, onSend: () 
             Text(text = "SEND", style = FridayType.Label)
         }
         TextButton(
-            onClick = { bodyCoordinator.toggleListening() },
+            onClick = {
+                if (ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.RECORD_AUDIO
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) {
+                    bodyCoordinator.toggleListening()
+                } else {
+                    microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                }
+            },
             enabled = true
         ) {
             Text(text = "MIC", style = FridayType.Label)
