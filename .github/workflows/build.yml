@@ -183,6 +183,8 @@ jobs:
       - name: Generate JaCoCo unit-test coverage report
         if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
         run: ./gradlew :mobile:app:createDebugUnitTestCoverageReport
+        # A successful task without its HTML report is incomplete evidence.
+        # (The next step below performs the hard check.)
 
       - name: Upload unit-test coverage
         if: always()

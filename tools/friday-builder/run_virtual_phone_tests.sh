@@ -56,6 +56,11 @@ fi
 
 python3 tools/friday-builder/apply_device_state_capsule.py .github/android-emulator/default-state-capsule.json
 ./gradlew :mobile:app:createDebugAndroidTestCoverageReport
+COVERAGE_REPORT="mobile/app/build/reports/coverage/androidTest/debug/connected/index.html"
+if [[ ! -s "$COVERAGE_REPORT" ]]; then
+  echo "ANDROID_COVERAGE_MISSING: instrumentation completed without a non-empty JaCoCo report." >&2
+  exit 27
+fi
 
 # The instrumentation runner may clean up the target package after its test
 # session. Restore the exact APK under test before attempting a real launch;
