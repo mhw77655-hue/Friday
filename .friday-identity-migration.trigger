@@ -1,1 +1,1 @@
-Retry complete Friday purification after removing the last unused VoiceForge fake from the production composition test; require APK assembly and full JVM unit tests before committing.
+Retry Friday purification after correcting wake-phrase ambiguity and aligning Jev decision tests with the local low-risk fast path.
