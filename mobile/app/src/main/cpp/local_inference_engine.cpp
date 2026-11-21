@@ -294,7 +294,7 @@ bool llama_model_wait_ready(LlamaModel* model, int timeout_ms) {
         LOGE("Prewarm timeout after %d ms", timeout_ms);
         return false;
     }
-    return model->state == LLAMA_STATE_READY;
+    return model->state == LLAMA_STATE_READY || model->state == LLAMA_STATE_IDLE;
 }
 
 const char* llama_model_generate(
@@ -360,7 +360,7 @@ const char* llama_model_generate(
     int max_gen = std::min(gc->max_tokens, n_ctx - n_tokens - 4);
     if (max_gen <= 0) {
         set_error_under_lock(model, "Prompt too long for context window");
-        set_state_locked(model, LLAMA_STATE_IDLE);
+        set_state_under_lock(model, LLAMA_STATE_IDLE);
         return nullptr;
     }
 
@@ -376,7 +376,7 @@ const char* llama_model_generate(
     llama_sampler* sampler = llama_sampler_chain_init(sampler_params);
     if (!sampler) {
         set_error_under_lock(model, "Failed to create sampler chain");
-        set_state_locked(model, LLAMA_STATE_IDLE);
+        set_state_under_lock(model, LLAMA_STATE_IDLE);
         return nullptr;
     }
     if (top_k > 0) llama_sampler_chain_add(sampler, llama_sampler_init_top_k(top_k));
@@ -412,7 +412,7 @@ const char* llama_model_generate(
     if (llama_decode(model->ctx, batch) != 0) {
         set_error_under_lock(model, "Failed to process prompt");
         llama_sampler_free(sampler);
-        set_state_locked(model, LLAMA_STATE_IDLE);
+        set_state_under_lock(model, LLAMA_STATE_IDLE);
         return nullptr;
     }
 
@@ -506,7 +506,7 @@ const char* llama_model_generate(
         token_cb("", -1, true, user_data);
     }
 
-    set_state_locked(model, LLAMA_STATE_IDLE);
+    set_state_under_lock(model, LLAMA_STATE_IDLE);
 
     // Return generated text (caller must free)
     char* result = strdup(generated_text.c_str());
