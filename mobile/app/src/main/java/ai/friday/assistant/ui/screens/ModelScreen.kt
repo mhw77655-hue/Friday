@@ -448,7 +448,7 @@ private fun OfflineModelLibrary() {
                 "Model weights are installed inside Friday's private app storage. They are not included in the APK.",
                 style = FridayType.Technical.copy(fontSize = 11.sp, color = FridayColors.TextSecondary)
             )
-            val installedAssets = remember(downloadState) {
+            val installedAssets = remember(downloadState.modelId, downloadState.complete) {
             OfflineModelCatalog.all.filter { asset -> downloader.isInstalled(asset) }
         }
         val noModelsInstalled = installedAssets.isEmpty()
@@ -483,7 +483,7 @@ private fun OfflineModelLibrary() {
             )
         }
         OfflineModelCatalog.all.forEach { asset ->
-                val installed = remember(downloadState, asset.id) {
+                val installed = remember(downloadState.modelId, downloadState.complete, asset.id) {
                     downloader.isInstalled(asset)
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
