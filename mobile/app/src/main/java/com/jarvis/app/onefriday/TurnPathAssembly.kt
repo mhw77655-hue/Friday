@@ -473,7 +473,7 @@ class TurnPathAssembly private constructor(
                 scheduleDelayed = { ms, block -> ports.runLater(ms, block) },
                 ackSpeak = { text -> ports.speakFastAck(text) },
                 fullSpeak = { text -> ports.speakFullReply(text) },
-                logObsidian = { fromJarvis, text -> ports.logTurn(fromJarvis, text) },
+                logTurn = { fromFriday, text -> ports.logTurn(fromFriday, text) },
                 warmPrime = { ports.warmModel() },
                 reactorSubmitted = { ports.onUserSubmitted() },
                 reactorFastPathAck = { ports.onFastPathAck() },
