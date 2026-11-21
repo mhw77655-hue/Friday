@@ -220,6 +220,27 @@ class ImmuneSystemTest {
         assertTrue(events.any { it is CognitiveEvent.DegradedModeExited })
     }
 
+    @Test
+    fun `recovery restores only the capability linked to the recovered subsystem`() {
+        val sys = system()
+        val sttReport = timeoutReport(subsystem = "STT", operation = "transcribe")
+            .copy(relatedCapability = "stt")
+        val ttsReport = timeoutReport(subsystem = "TTS", operation = "speak")
+            .copy(relatedCapability = "tts")
+
+        sys.onFailure(sttReport) { false }
+        sys.onFailure(ttsReport) { false }
+        assertEquals(DegradationLevel.OFFLINE, sys.degradation.levelOf("stt"))
+        assertEquals(DegradationLevel.OFFLINE, sys.degradation.levelOf("tts"))
+
+        // Recover TTS while STT remains broken. A global/first-entry reset
+        // would accidentally restore STT and leave the healthy TTS degraded.
+        sys.onSuccess("TTS", "speak")
+
+        assertEquals(DegradationLevel.OFFLINE, sys.degradation.levelOf("stt"))
+        assertEquals(DegradationLevel.FULL, sys.degradation.levelOf("tts"))
+    }
+
     // ────────────────────────────────────────────── resource & environment
 
     @Test

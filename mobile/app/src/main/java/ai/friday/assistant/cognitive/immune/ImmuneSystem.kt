@@ -48,6 +48,7 @@ class ImmuneSystem(
 
     private val breakers = ConcurrentHashMap<String, CircuitBreaker>()
     private val recoveryAttempts = ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>()
+    private val relatedCapabilityByOperation = ConcurrentHashMap<String, String>()
 
     fun breaker(subsystem: String, operation: String): CircuitBreaker =
         breakers.computeIfAbsent(key(subsystem, operation)) { breakerFactory(it) }
@@ -61,6 +62,8 @@ class ImmuneSystem(
      *   failure is contained + remembered.
      */
     fun onFailure(report: FailureReport, recoveryFn: (() -> Boolean)? = null): FailureEvent {
+        val operationKey = key(report.subsystem, report.operation)
+        report.relatedCapability?.let { relatedCapabilityByOperation[operationKey] = it }
         val event = surface.report(report)
         emit(CognitiveEvent.FailureDetected(event, report.failureCause))
 
@@ -119,7 +122,7 @@ class ImmuneSystem(
             // this reset, one exhausted incident permanently disables future
             // bounded recovery attempts for this subsystem/operation.
             recoveryAttempts[operationKey]?.set(0)
-            markHealthy(subsystem, operation, RecoveryAction.RETRY)
+            markHealthy(subsystem, relatedCapabilityByOperation[operationKey])
             ProbeOutcome.RECOVERED
         } else {
             cb.onProbeFailure()
@@ -131,8 +134,9 @@ class ImmuneSystem(
     /** Healthy signal: close the breaker, restore containment, exit degradation. */
     fun onSuccess(subsystem: String, operation: String) {
         breaker(subsystem, operation).onSuccess()
-        recoveryAttempts[key(subsystem, operation)]?.set(0)
-        markHealthy(subsystem, operation, RecoveryAction.RETRY)
+        val operationKey = key(subsystem, operation)
+        recoveryAttempts[operationKey]?.set(0)
+        markHealthy(subsystem, relatedCapabilityByOperation[operationKey])
     }
 
     /** Diagnose the current condition (deeper questions from the surface). */
@@ -184,7 +188,7 @@ class ImmuneSystem(
                 cb.onSuccess()
                 attempts.set(0)
                 emit(CognitiveEvent.RecoverySucceeded(report.subsystem, report.operation, "attempt ${attempts.get()}"))
-                markHealthy(report.subsystem, report.operation, report.recoveryAction)
+                markHealthy(report.subsystem, report.relatedCapability)
                 remember(report, report.recoveryAction, RecoveryResult.SUCCESS)
                 return
             }
@@ -206,12 +210,14 @@ class ImmuneSystem(
         remember(report, report.recoveryAction, RecoveryResult.FAILED)
     }
 
-    private fun markHealthy(subsystem: String, operation: String, action: RecoveryAction) {
+    private fun markHealthy(subsystem: String, relatedCapability: String?) {
         containment.setStatus(subsystem, ContainmentStatus.HEALTHY)?.let { (old, new) ->
             if (old != ContainmentStatus.HEALTHY) emit(CognitiveEvent.ContainmentStarted(subsystem, new, emptyList()))
         }
-        // find the related capability to exit degradation (best-effort from containment)
-        degradation.all().keys.firstOrNull { degradation.levelOf(it) != DegradationLevel.FULL }?.let { cap ->
+        // Recovery may only restore the capability that this subsystem's
+        // failure actually degraded. Clearing the first degraded entry can
+        // silently re-enable a different, still-broken capability.
+        relatedCapability?.let { cap ->
             degradation.exit(cap)?.let { (old, _) ->
                 emit(CognitiveEvent.DegradedModeExited(cap, old))
             }
