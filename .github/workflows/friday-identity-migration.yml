@@ -94,3 +94,8 @@ jobs:
           git commit -m "chore: complete fresh Friday identity migration"
           git push origin HEAD:main
 
+      - name: Dispatch full mainline validation after migration commit
+        run: |
+          set -euo pipefail
+          gh workflow run build.yml --ref main --repo "$GITHUB_REPOSITORY"
+
