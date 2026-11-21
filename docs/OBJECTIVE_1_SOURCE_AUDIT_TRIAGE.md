@@ -43,7 +43,38 @@ This map is intentionally conservative and lexical. A file marked unmapped may s
 
 JaCoCo unit and Android instrumentation coverage collection has since been configured in CI. No coverage percentage is claimed until a successful run produces non-empty reports tied to the exact commit. Native C/C++ and Python require their own coverage evidence; Kotlin JaCoCo does not cover them.
 
-## 4. Required triage policy
+## 4. First coverage baselines
+
+These are separate test lanes from separate commits. **Do not add their percentages together**; the reports have not been merged into one same-commit execution-data set.
+
+| Test lane | Evidence | Line coverage | Branch coverage |
+|---|---|---:|---:|
+| JVM unit tests | [run 44933833042](https://github.com/mhw77655-hue/Friday/actions/runs/44933833042), commit `28bbf984` | 50% | 34% |
+| Android instrumentation | [run 44932395624](https://github.com/mhw77655-hue/Friday/actions/runs/44932395624), commit `e4bd8a67` | 21.20% | 8.35% |
+| Python tools and `.ralph` | [run 44933833042](https://github.com/mhw77655-hue/Friday/actions/runs/44933833042), commit `28bbf984` | 28% combined Coverage.py metric | branch-aware, exact XML artifact upload was fixed in a later commit |
+
+The Python run measured 1,149 statements and 518 branch opportunities; 802 statements were missed and 44 branches were partially covered. `.ralph/audit.py` alone measured 21%, so its major command-line and report-generation paths need dedicated tests. The first Python coverage upload used a literal shell variable in the artifact path and therefore produced no artifact; the report was still printed in CI logs. The upload path has been corrected to use the runner's expression syntax and must be reverified.
+
+### Critical-class coverage snapshot
+
+Unit and Android figures below are kept separate because they are from different commits and different execution environments.
+
+| Critical class | JVM unit line / branch | Android instrumentation line / branch |
+|---|---:|---:|
+| `RiskGate` | 100% / 100% | 0% / 0% |
+| `ImmuneSystem` | 95.1% / 79% | 10.6% / 0% |
+| `CapabilityExecutor` | 89.8% / 60% | 0% / 0% |
+| `CapabilityInvoker` | 90.8% / 65% | 7.1% / 0% |
+| `RecoveryController` | 68.7% / 32% | 0% / 0% |
+| `VoiceOrganismHost` | 0% / 0% | 55.0% / 35.4% |
+| `FridayEngine` | 0% / 0% | 64.2% / 24.5% |
+| `FridayUpdateClient` | 0% / 0% | 23.5% / 12% |
+| `BootstrapManager` | 0% / 0% | 23.8% / 0% |
+
+These figures identify where the next tests must go. In particular, `RecoveryController` has low branch coverage, and update/bootstrap paths have little exercised behaviour. The voice process restart is covered by the emulator journey but still has substantial untested branches. No minimum threshold is being invented before the baseline is understood.
+
+
+## 5. Required triage policy
 
 Do not mass-rewrite these findings to reduce a counter. For each signal:
 1. inspect the exact source and its actual production entry path;
@@ -58,7 +89,7 @@ Examples:
 - A memory limit can protect the device. It should become resource-aware where the host has meaningful alternatives, not disappear.
 - A specialized resolver can be a valid implementation; it becomes a limitation when Friday cannot select another strategy or implementation for a different task.
 
-## 5. Open validation work
+## 6. Open validation work
 
 - Collect and inspect the newly configured JVM and Android line/branch coverage reports.
 - Triage the 269 heuristic signals by subsystem and record justified invariants versus confirmed architectural constraints.
