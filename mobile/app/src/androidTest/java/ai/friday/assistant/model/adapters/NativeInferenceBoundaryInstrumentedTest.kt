@@ -10,7 +10,7 @@ import org.junit.runner.RunWith
 class NativeInferenceBoundaryInstrumentedTest {
 
     @Test
-    fun `native entry points fail closed for null handles`() {
+    fun native_entry_points_fail_closed_for_null_handles() {
         LocalInferenceEngine.loadNative()
 
         assertEquals(-1, LocalInferenceEngine.nativeGetState(0L))
@@ -27,7 +27,7 @@ class NativeInferenceBoundaryInstrumentedTest {
     }
 
     @Test
-    fun `invalid model configuration is rejected before loading a model file`() {
+    fun invalid_model_configuration_is_rejected_before_loading_a_model_file() {
         LocalInferenceEngine.loadNative()
 
         val handle = LocalInferenceEngine.nativeCreate(
