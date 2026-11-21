@@ -1,1 +1,4 @@
-Retry Friday purification after correcting wake-phrase ambiguity and aligning Jev decision tests with the local low-risk fast path.
+owner-authorized Friday identity migration
+run_id=friday-identity-migration-2026-11-21
+target=ai.friday.assistant
+branch=main
