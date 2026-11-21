@@ -177,7 +177,9 @@ class FailureStoreTest {
             withTimeout(3_000) {
                 while (storage.appendAttempts.get() < 3) delay(10)
             }
-            storage.failuresRemaining = 0
+            synchronized(storage.lines) {
+                storage.failuresRemaining = 0
+            }
             val second = surface.report(FailureReport(
                 subsystem = "TEST",
                 operation = "retry",
