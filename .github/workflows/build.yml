@@ -26,8 +26,9 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: friday-build-v3-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}-${{ github.sha }}
-  cancel-in-progress: false
+  # Keep only the newest main verification alive; older commits are superseded.
+  group: friday-build-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions: {}
 
