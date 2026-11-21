@@ -153,6 +153,35 @@ class ImmuneSystemTest {
         assertTrue(events.any { it is CognitiveEvent.CircuitHalfOpened })
     }
 
+    @Test
+    fun `successful recovery probe resets the budget for a later incident`() {
+        var now = 0L
+        val sys = system(
+            policy = BackoffPolicy(maxAttempts = 1, baseDelayMs = 0, jitterMs = 0),
+            now = { now }
+        )
+        var recoveryCalls = 0
+
+        // First incident exhausts its one-attempt budget. A second observation
+        // opens the circuit, so no further recovery is attempted while open.
+        sys.onFailure(timeoutReport()) { recoveryCalls++; false }
+        sys.onFailure(timeoutReport()) { recoveryCalls++; false }
+        assertEquals(1, recoveryCalls)
+        assertTrue(sys.breaker("STT", "transcribe").isOpen)
+
+        // A successful half-open probe proves health and must clear the old
+        // incident's attempt budget, not just close the circuit.
+        now = 60_000
+        assertEquals(ProbeOutcome.RECOVERED, sys.probe("STT", "transcribe") { true })
+        assertTrue(sys.breaker("STT", "transcribe").isClosed)
+
+        // A genuinely new incident gets its own bounded recovery opportunity.
+        var laterRecoveryCalls = 0
+        sys.onFailure(timeoutReport()) { laterRecoveryCalls++; true }
+        assertEquals(1, laterRecoveryCalls)
+        assertTrue(events.any { it is CognitiveEvent.RecoverySucceeded })
+    }
+
     // ────────────────────────────────────────────── containment & propagation
 
     @Test

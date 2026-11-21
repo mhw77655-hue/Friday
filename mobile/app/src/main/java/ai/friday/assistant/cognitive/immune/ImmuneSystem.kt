@@ -104,6 +104,7 @@ class ImmuneSystem(
      * probe was permitted and, if so, its outcome.
      */
     fun probe(subsystem: String, operation: String, recoveryFn: () -> Boolean): ProbeOutcome {
+        val operationKey = key(subsystem, operation)
         val cb = breaker(subsystem, operation)
         if (!cb.probe()) return ProbeOutcome.DENIED
         emit(CognitiveEvent.CircuitHalfOpened(key(subsystem, operation)))
@@ -114,6 +115,10 @@ class ImmuneSystem(
         }
         return if (ok) {
             cb.onSuccess()
+            // A verified recovery starts a fresh incident budget. Without
+            // this reset, one exhausted incident permanently disables future
+            // bounded recovery attempts for this subsystem/operation.
+            recoveryAttempts[operationKey]?.set(0)
             markHealthy(subsystem, operation, RecoveryAction.RETRY)
             ProbeOutcome.RECOVERED
         } else {
@@ -126,6 +131,7 @@ class ImmuneSystem(
     /** Healthy signal: close the breaker, restore containment, exit degradation. */
     fun onSuccess(subsystem: String, operation: String) {
         breaker(subsystem, operation).onSuccess()
+        recoveryAttempts[key(subsystem, operation)]?.set(0)
         markHealthy(subsystem, operation, RecoveryAction.RETRY)
     }
 
@@ -176,6 +182,7 @@ class ImmuneSystem(
             }
             if (ok) {
                 cb.onSuccess()
+                attempts.set(0)
                 emit(CognitiveEvent.RecoverySucceeded(report.subsystem, report.operation, "attempt ${attempts.get()}"))
                 markHealthy(report.subsystem, report.operation, report.recoveryAction)
                 remember(report, report.recoveryAction, RecoveryResult.SUCCESS)
