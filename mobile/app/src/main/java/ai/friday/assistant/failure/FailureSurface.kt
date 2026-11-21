@@ -207,7 +207,9 @@ class FailureSurface(
             val newStatus = when (result) {
                 RecoveryResult.SUCCESS -> FailureStatus.RECOVERED
                 RecoveryResult.FAILED -> FailureStatus.OPEN
-                else -> existing.status
+                RecoveryResult.NOT_ATTEMPTED -> if (existing.status == FailureStatus.RECOVERING) FailureStatus.OPEN else existing.status
+                RecoveryResult.PENDING -> FailureStatus.RECOVERING
+                RecoveryResult.SUPERSEDED -> existing.status
             }
             val updated = existing.copy(
                 status = newStatus,

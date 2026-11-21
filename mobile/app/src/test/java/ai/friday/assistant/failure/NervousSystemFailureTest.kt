@@ -6,6 +6,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -213,6 +215,66 @@ class NervousSystemFailureTest {
         assertTrue(disabled.get())
         // The dependency surfaced as degraded, and the capability is flagged.
         assertTrue(s.currentFailures.value.any { it.currentSeverity.rank >= FailureSeverity.DEGRADED.rank })
+    }
+
+    @Test
+    fun `throwing retry stays on the original failure aggregate`() = runBlocking {
+        val s = FailureSurface(nowMs = { 1000 })
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        try {
+            val rc = RecoveryController(s, scope)
+            rc.register(retrySpec(
+                maxAttempts = 1,
+                backoffMs = 0,
+                action = { throw IllegalStateException("injected retry crash") }
+            ))
+            rc.handle(FailureReport(
+                subsystem = "STT_VOSK", operation = "decode",
+                severity = FailureSeverity.RECOVERABLE, category = FailureCategory.STT,
+                message = "decoder returned empty"
+            ))
+            kotlinx.coroutines.withTimeout(2_000) {
+                while (s.recentRecoveryEvents.value.none { it.result == RecoveryResult.FAILED }) delay(10)
+            }
+
+            assertTrue(s.currentFailures.value.any {
+                it.subsystem == "STT_VOSK" && it.messageKey == "decoder returned empty"
+            })
+            assertFalse(s.currentFailures.value.any { it.messageKey.contains("retry 1 threw") })
+            assertTrue(s.recentRecoveryEvents.value.any {
+                it.result == RecoveryResult.FAILED && it.message.contains("injected retry crash")
+            })
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `cancelled retry returns aggregate to open instead of leaving it recovering`() = runBlocking {
+        val s = FailureSurface(nowMs = { 1000 })
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        try {
+            val rc = RecoveryController(s, scope)
+            rc.register(retrySpec(
+                maxAttempts = 1,
+                backoffMs = 0,
+                action = { throw CancellationException("injected retry cancellation") }
+            ))
+            rc.handle(FailureReport(
+                subsystem = "STT_VOSK", operation = "decode",
+                severity = FailureSeverity.RECOVERABLE, category = FailureCategory.STT,
+                message = "decoder returned empty"
+            ))
+            kotlinx.coroutines.withTimeout(2_000) {
+                while (s.recentRecoveryEvents.value.none { it.result == RecoveryResult.NOT_ATTEMPTED }) delay(10)
+            }
+
+            val aggregate = s.currentFailures.value.first { it.messageKey == "decoder returned empty" }
+            assertEquals(FailureStatus.OPEN, aggregate.status)
+            assertEquals(RecoveryResult.NOT_ATTEMPTED, aggregate.lastRecoveryResult)
+        } finally {
+            scope.cancel()
+        }
     }
 
     // ─────────────────────────────────────────────────────────────── FailureStore

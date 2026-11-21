@@ -150,16 +150,15 @@ class RecoveryController(
                 delay(spec.backoffMs * attempt) // linear backoff
                 if (!isActive) return@launch
                 surface.beginRecovery(base.dedupeKey, specActionOf(spec), "retry $attempt")
+                var attemptFailureMessage = "attempt $attempt failed"
                 val ok = try {
                     spec.action()
-                } catch (t: CancellationException) {
-                    throw t
-                } catch (t: Throwable) {
-                    surface.report(base.copy(
-                        attempt = attempt,
-                        cause = t.message,
-                        message = "${base.message} — retry $attempt threw"
-                    ))
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (error: Exception) {
+                    // Keep the retry failure on the original aggregate. A new
+                    // message/key here creates a second orphaned alarm.
+                    attemptFailureMessage = "retry $attempt threw: ${error.message ?: error::class.simpleName}"
                     false
                 }
                 if (ok) {
@@ -171,11 +170,19 @@ class RecoveryController(
                     )
                 } else {
                     entry.breaker.onProbeFailure()
-                    surface.recover(base.dedupeKey, RecoveryResult.FAILED, "attempt $attempt failed", specActionOf(spec))
+                    surface.recover(base.dedupeKey, RecoveryResult.FAILED, attemptFailureMessage, specActionOf(spec), base.correlationId)
                     running.remove(key)
                     // Re-enter handle to count another failure / schedule next.
                     handle(base.copy(attempt = attempt + 1, cause = null))
                 }
+            } catch (cancelled: CancellationException) {
+                // Cancellation is not a recovery failure, but it must not
+                // leave the shared failure surface stuck in RECOVERING.
+                surface.recover(
+                    base.dedupeKey, RecoveryResult.NOT_ATTEMPTED,
+                    "retry $attempt cancelled", specActionOf(spec), base.correlationId
+                )
+                throw cancelled
             } finally {
                 running.remove(key)
             }
