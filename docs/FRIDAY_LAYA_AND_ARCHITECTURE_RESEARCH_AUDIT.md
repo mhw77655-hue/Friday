@@ -215,3 +215,16 @@ For each token, event or requested outcome, Friday should spend computation only
 - Friday source documents: `FRIDAY_ARCHITECTURE_TRUTH_AUDIT.md`, `FRIDAY_SEED_DESIGN_HYPOTHESIS.md`, `QUALITY_PRESERVING_COMPUTE.md`, `FRIDAY_SELF_EVOLUTION_AND_DEVICE_BRIDGE.md`, `REALME_9_PRO_5G_DEVICE_PROFILE.md`, `JEV_PHONE_CONTROL.md`, and `.ralph/FRIDAY_DELIVERY_PLAN.md`.
 
 All third-party performance and accuracy values above are attributed to the relevant project's own published measurements. They are not independent replications on Friday's handset.
+
+
+## Voice-control role in Friday (owner clarification, 2026-11-21)
+
+Friday's intended use of Laya is to improve how quickly and reliably she controls the phone after a spoken request. This is a downstream command-understanding and decision capability, not a replacement for speech recognition or text-to-speech. Laya's typed outputs can be evaluated for:
+- classifying partial/final speech hypotheses into candidate phone intents
+- resolving target/action ambiguity and selecting among available Android execution routes
+- scoring confidence/risk and deciding whether to execute, ask, or abstain
+- selecting a fallback when the first route is unavailable or fails
+
+The voice path must not wait for a full natural-language answer from a generative model. Partial ASR hypotheses can prepare candidate intents and routes while the user is still speaking; a bounded Laya decision can select among validated candidates, while the local executor starts authorized low-risk actions as soon as the interpretation is stable enough. Irreversible or sensitive actions retain confirmation requirements. ASR, Laya-style decision inference, route discovery, action execution and TTS are separate measured stages; optimize first-useful-action latency, not just model inference milliseconds.
+
+The public laya-coreml project describes itself as a typed-decision runtime for Apple Silicon/Core ML, not an Android speech recognizer. Its short-decision performance claims are M3 Max/Core ML measurements and do not transfer to Snapdragon Android. Friday should preserve Laya's decision mechanism and evaluate an Android-compatible port/runtime against local deterministic baselines. A working Android speech path must independently use a supported speech engine and report actual recognition capability. See the [Laya repository](https://github.com/mizorewww/laya-coreml) and its [usage documentation](https://github.com/mizorewww/laya-coreml/blob/main/docs/USAGE.md).
