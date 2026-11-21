@@ -52,6 +52,25 @@ class NanoSymbioticController(
     )
     val plan: StateFlow<SymbioticPlan> = mutablePlan.asStateFlow()
 
+    /**
+     * Produces the exact privacy-bounded host report for Friday's future cloud
+     * adaptation handshake. This is an exportable payload, not an upload:
+     * no cloud endpoint is configured or contacted by this method.
+     */
+    fun hostAdaptationEnvelope(): HostAdaptationEnvelope {
+        val raw = readHost()
+        val currentPlan = policy.plan(applyLearnedHostReserve(raw))
+        return HostAdaptationEnvelope(
+            schemaVersion = HostAdaptationEnvelope.CURRENT_SCHEMA_VERSION,
+            host = fingerprint,
+            resources = raw,
+            plan = currentPlan,
+            hostStudySamples = hostStudy.snapshot().sampleCount,
+            processPssMb = android.os.Debug.getPss().toLong().coerceAtLeast(0L) / 1024L,
+            generatedAtEpochMs = System.currentTimeMillis()
+        )
+    }
+
     /** Read-only view of what NAE has learned about this exact host profile. */
     fun hostStudySnapshot(): HostStudyRecord = hostStudy.snapshot()
 
