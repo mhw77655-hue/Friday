@@ -1,8 +1,11 @@
 package ai.friday.assistant.update
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.StatFs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -62,6 +65,9 @@ class FridayUpdateClient(
 
     suspend fun checkAndStage(): Result = withContext(Dispatchers.IO) {
         try {
+            if (!isOnUnmeteredNetwork()) {
+                return@withContext Result.Rejected("Friday update download is waiting for an unmetered network.")
+            }
             val installed = installedIdentity()
             val latest = getJson("https://api.github.com/repos/$repository/releases/latest")
             val assets = latest.getJSONArray("assets")
@@ -208,6 +214,14 @@ class FridayUpdateClient(
         return InstalledIdentity(version, sha256(signer.toByteArray()).uppercase())
     }
 
+    private fun isOnUnmeteredNetwork(): Boolean {
+        val connectivity = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val active = connectivity.activeNetwork ?: return false
+        val capabilities = connectivity.getNetworkCapabilities(active) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+    }
+
     private fun getJson(url: String): JSONObject {
         val request = Request.Builder().url(url).header("Accept", "application/vnd.github+json").build()
         http.newCall(request).execute().use { response ->
@@ -221,7 +235,14 @@ class FridayUpdateClient(
         http.newCall(request).execute().use { response ->
             if (!response.isSuccessful) error("APK download returned HTTP ${response.code}.")
             val body = response.body ?: error("APK download had no response body.")
-            if (body.contentLength() > MAX_APK_BYTES) error("APK exceeds the configured size limit.")
+            val contentLength = body.contentLength()
+            if (contentLength > MAX_APK_BYTES) error("APK exceeds the configured size limit.")
+            val requiredBytes = (if (contentLength > 0L) contentLength else MAX_APK_BYTES) +
+                MIN_FREE_SPACE_RESERVE_BYTES
+            val availableBytes = StatFs(stagingDirectory.absolutePath).availableBytes
+            if (availableBytes < requiredBytes) {
+                error("Not enough free storage to safely stage the Friday update.")
+            }
             destination.outputStream().buffered().use { output ->
                 body.byteStream().use { input -> input.copyTo(output) }
             }
@@ -256,6 +277,7 @@ class FridayUpdateClient(
         private const val METADATA_ASSET = "friday-release-metadata.json"
         private const val APK_ASSET = "friday.apk"
         private const val MAX_APK_BYTES = 1_500L * 1024L * 1024L
+        private const val MIN_FREE_SPACE_RESERVE_BYTES = 128L * 1024L * 1024L
 
         private fun defaultHttpClient(): OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
