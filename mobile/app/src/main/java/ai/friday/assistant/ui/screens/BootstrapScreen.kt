@@ -44,6 +44,7 @@ fun BootstrapScreen(
     val state by bootstrapManager.bootstrapState.collectAsStateWithLifecycle()
     val currentStep by bootstrapManager.currentStep.collectAsStateWithLifecycle()
     val progress by bootstrapManager.progress.collectAsStateWithLifecycle()
+    val notices by bootstrapManager.notices.collectAsStateWithLifecycle()
 
     Column(
         modifier = Modifier
@@ -107,6 +108,17 @@ fun BootstrapScreen(
                     text = "Tap to continue",
                     style = FridayType.Body.copy(color = FridayColors.TextSecondary)
                 )
+                if (notices.isNotEmpty()) {
+                    androidx.compose.foundation.layout.Spacer(modifier = Modifier.size(12.dp))
+                    notices.forEach { notice ->
+                        Text(
+                            text = notice,
+                            style = FridayType.Technical.copy(color = FridayColors.TextSecondary),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                    }
+                }
                 androidx.compose.foundation.layout.Spacer(modifier = Modifier.size(24.dp))
                 Button(onClick = onComplete) {
                     Text("Continue")
