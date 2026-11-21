@@ -435,6 +435,14 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         val report = JSONObject()
         report.put("report_schema", "friday-device-report-v2")
         report.put("generated_at_utc", java.time.Instant.now().toString())
+        report.put("host_adaptation_snapshot", runCatching {
+            com.jarvis.app.env.AndroidHostSnapshot.capture(app, BuildConfig.SOURCE_REVISION).toJson()
+        }.getOrElse { error ->
+            JSONObject()
+                .put("capture_status", "failed")
+                .put("error_type", error.javaClass.simpleName)
+                .put("schema_version", com.jarvis.app.env.AndroidHostSnapshot.SCHEMA_VERSION)
+        })
         report.put("app", JSONObject()
             .put("application_id", app.packageName)
             .put("version_name", runCatching {
