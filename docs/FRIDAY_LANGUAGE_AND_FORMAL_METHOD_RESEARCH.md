@@ -83,12 +83,20 @@ Scores are project-specific fit estimates out of 10, not general language rankin
 
 The evolution system should treat language choice as a per-capability engineering decision. A proposed rewrite must include baseline behaviour, tests, benchmarks, license/provenance, FFI contract, resource profile and rollback.
 
-### 6. Capability portability and isolation
+### 6. Capability contracts, metadata and portability
+
+**CUE** is a constraint-based data/schema language that combines data and validation rules. It is a strong candidate for validating capability manifests, model catalogue entries, signed release metadata, compatibility declarations and resource/policy constraints in CI. It can detect contradictions and invalid configurations before they reach the phone. It should validate declarative data, not become a new runtime dependency inside Friday.
+
+**Protocol Buffers** provides a language-neutral schema and generated bindings for Kotlin/Java, C++, Rust, Python and Go. It is a good candidate for stable typed IPC/service contracts once Friday actually has multiple language implementations exchanging structured data. Use explicit field-number/version evolution rules; generated serialization does not itself establish authorization, semantic correctness or backward-compatible business behaviour.
+
+**FlatBuffers** supports direct access to serialized data without an unpacking step and has bindings across the likely language portfolio. It may help high-volume or latency-sensitive data exchange, but it adds generated-code/build complexity. Prefer Protobuf or simpler local interfaces until profiling demonstrates that parse/allocation overhead is a real bottleneck.
+
+### 7. Capability portability and isolation
 **WebAssembly** is a safe, portable low-level code format with a sandboxed execution model. **WIT** defines typed component interfaces; it does not implement the component and does not provide the host's authorization policy by itself. A production plugin system would still need a runtime, capability-based host calls, memory/CPU/fuel limits, filesystem/network mediation, signature/provenance checks, revocation and rollback.
 
 This could eventually let Friday combine capabilities implemented in Rust, C/C++, Go, Python-compiled-to-Wasm or other supported toolchains behind one contract. Do not build this until the current capability contract and security boundary are real.
 
-### 7. Cloud, collaboration and external services
+### 8. Cloud, collaboration and external services
 **Kotlin** can remain the initial server/client integration language if the service topology is small. **Go** is a strong candidate for a small, independently deployable concurrent network service, but adds another deployment and operational stack. **TypeScript** is suitable for a web control/diagnostic console if needed. **Elixir/Erlang** becomes interesting for a large, long-lived distributed service needing process isolation and supervision; this is not a reason to add it to the Android application.
 
 ## Why Lean 4 is worth introducing now
@@ -160,7 +168,7 @@ If those questions do not have evidence-backed answers, keep the language in res
 - MiniZinc: https://www.minizinc.org/
 - SWI-Prolog: https://www.swi-prolog.org/pldoc/doc_for?object=manual
 - TypeScript handbook: https://www.typescriptlang.org/docs/handbook/
-- WebAssembly core specification: https://www.w3.org/TR/wasm-core/
+- CUE documentation: https://cuelang.org/docs/\n- Protocol Buffers overview: https://protobuf.dev/overview/\n- FlatBuffers documentation: https://flatbuffers.dev/index.html\n- WebAssembly core specification: https://www.w3.org/TR/wasm-core/
 - WebAssembly WIT overview: https://component-model.bytecodealliance.org/design/wit.html
 - Go documentation: https://go.dev/doc/
 - Swift: https://www.swift.org/about/
