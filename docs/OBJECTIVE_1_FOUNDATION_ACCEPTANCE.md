@@ -3,17 +3,17 @@
 **Recorded:** 2026-11-21  
 **Scope:** repository and Android foundation only  
 **Canonical branch:** `main`  
-**Baseline verification:** `c63f5ef4aded86fdfeb3606b6901c944eeb8cba8`
+**Latest technical verification:** `a2685bd761f346da28426fdf022465f83dfbf124`
 
-## Decision
+## Verification status
 
-The repository-foundation portion of Objective 1 is accepted at the baseline above, subject to the final CI run for the commit that adds this record. This is not acceptance of the complete Friday product, the first production installation, or Objective A's physical-device and install-once gates.
+The repository-foundation technical gates listed in this record have passed on the latest verified `main` commit below. This is an evidence update, not the owner's declaration that Objective 1 is complete. The owner has reserved a final stage to be specified before making that declaration. This is also not acceptance of the complete Friday product, the first production installation, or Objective A's physical-device and install-once gates.
 
 ## Evidence
 
-- **Android build:** the `build` workflow completed successfully on the baseline commit. Debug APK assembly, release-variant smoke assembly with a disposable CI key, launcher-icon packaging check, and JVM unit tests all passed.
-- **Instrumented Android lane:** the disposable Android emulator job completed successfully. It built the app and instrumentation APKs, booted the virtual device, and ran the repository's virtual-phone harness.
-- **Repository audit:** whole-repository source inventory and Kotlin vision audit completed successfully.
+- **Android build:** the `build` workflow completed successfully on the latest verified commit. Debug APK assembly, release-variant smoke assembly with a disposable CI key, launcher-icon packaging check, and JVM unit tests all passed.
+- **Instrumented Android lane:** the disposable Android emulator job completed successfully on the latest verified commit. It built the app and instrumentation APKs, booted the virtual device, and ran the repository's virtual-phone harness.
+- **Repository audit:** whole-repository source inventory and Kotlin vision audit completed successfully on the latest verified commit.
 - **Build artifacts:** the workflow published `debug-apk`, `junit-results`, `friday-virtual-phone-evidence`, and `friday-whole-repository-source-audit`. The debug APK artifact is a CI/debug artifact, not a production release.
 - **Formal contracts:** Lean 4 formal workflow passed at `278b714c01d6bc1d1f27500abdbc7323fa0513a6`. The formal workspace, formal workflow, and delivery plan were unchanged between that commit and the baseline; the proof result therefore applies to the same formal inputs.
 - **Identity:** Gradle namespace and application ID are `ai.friday.assistant`; the manifest application label is `Friday`. The current app module and manifest agree.
@@ -41,6 +41,8 @@ These gates require the owner's signing material and physical device. They canno
 
 ## Evidence links
 
-- [Successful build and all three validation jobs](https://github.com/mhw77655-hue/Friday/actions/runs/44922993601)
+- [Latest successful build and all three validation jobs (`a2685bd`)](https://github.com/mhw77655-hue/Friday/actions/runs/44925158880)
+- [Earlier successful baseline build (`c63f5ef`)](https://github.com/mhw77655-hue/Friday/actions/runs/44922993601)
 - [Lean formal contracts and axiom audit](https://github.com/mhw77655-hue/Friday/actions/runs/44914858181)
-- [Verified baseline commit](https://github.com/mhw77655-hue/Friday/commit/c63f5ef4aded86fdfeb3606b6901c944eeb8cba8)
+- [Latest technically verified commit](https://github.com/mhw77655-hue/Friday/commit/a2685bd761f346da28426fdf022465f83dfbf124)
+- [Original baseline commit](https://github.com/mhw77655-hue/Friday/commit/c63f5ef4aded86fdfeb3606b6901c944eeb8cba8)
