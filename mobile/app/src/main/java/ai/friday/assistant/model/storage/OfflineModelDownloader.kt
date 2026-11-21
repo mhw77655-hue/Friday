@@ -135,6 +135,19 @@ class OfflineModelDownloader(context: Context) {
 
     fun installedFile(asset: OfflineModelAsset): File = File(modelDir, asset.filename)
 
+    /** True only when a complete GGUF file passes the catalog's integrity checks. */
+    fun isInstalled(asset: OfflineModelAsset): Boolean {
+        val target = installedFile(asset)
+        return target.isFile &&
+            target.length() >= asset.expectedMinimumBytes &&
+            hasGgufHeader(target) &&
+            matchesSha256(target, asset.sha256)
+    }
+
+    /** Available bytes in Friday's private model vault filesystem. */
+    fun availableStorageBytes(): Long =
+        StatFs(modelDir.absolutePath).availableBytes
+
     suspend fun download(asset: OfflineModelAsset): File = withContext(Dispatchers.IO) {
         val target = installedFile(asset)
         if (target.isFile &&
