@@ -59,7 +59,7 @@ class BuildWorkflowContractTests(unittest.TestCase):
 
 
     def test_only_canonical_main_pushes_trigger_automatic_builds(self):
-        self.assertIn("on:\\n  push:\\n    branches: [ main ]", self.workflow)
+        self.assertIn("on:\n  push:\n    branches: [ main ]", self.workflow)
         self.assertNotIn("pull_request:", self.workflow)
         self.assertIn("concurrency:", self.workflow)
         self.assertIn("cancel-in-progress: false", self.workflow)
