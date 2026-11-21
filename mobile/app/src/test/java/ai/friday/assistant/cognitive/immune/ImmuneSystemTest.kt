@@ -21,6 +21,10 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 class ImmuneSystemTest {
 
@@ -119,6 +123,56 @@ class ImmuneSystemTest {
     }
 
     // ────────────────────────────────────────────── circuit breaker
+
+    @Test
+    fun `concurrent duplicate incidents cannot overlap recovery or exceed the shared budget`() {
+        val sys = ImmuneSystem(
+            surface = FailureSurface(),
+            backoffPolicy = BackoffPolicy(maxAttempts = 3, baseDelayMs = 0, jitterMs = 0),
+            breakerFactory = { key -> CircuitBreaker(name = key, openMs = 30_000) }
+        )
+        val workers = 16
+        val ready = CountDownLatch(workers)
+        val start = CountDownLatch(1)
+        val enteredRecovery = CountDownLatch(1)
+        val releaseRecovery = CountDownLatch(1)
+        val active = AtomicInteger(0)
+        val maximumActive = AtomicInteger(0)
+        val recoveryCalls = AtomicInteger(0)
+        val pool = Executors.newFixedThreadPool(workers)
+        try {
+            val tasks = (0 until workers).map { index ->
+                java.util.concurrent.Callable {
+                    ready.countDown()
+                    check(start.await(2, TimeUnit.SECONDS))
+                    sys.onFailure(timeoutReport().copy(message = "concurrent incident $index")) {
+                        val nowActive = active.incrementAndGet()
+                        maximumActive.updateAndGet { old -> maxOf(old, nowActive) }
+                        val call = recoveryCalls.incrementAndGet()
+                        try {
+                            if (call == 1) {
+                                enteredRecovery.countDown()
+                                check(releaseRecovery.await(2, TimeUnit.SECONDS))
+                            }
+                            false
+                        } finally {
+                            active.decrementAndGet()
+                        }
+                    }
+                }
+            }
+            pool.submit { check(ready.await(2, TimeUnit.SECONDS)); start.countDown() }
+            pool.invokeAll(tasks).forEach { it.get(5, TimeUnit.SECONDS) }
+            releaseRecovery.countDown()
+
+            assertEquals(3, recoveryCalls.get())
+            assertEquals(1, maximumActive.get())
+            assertEquals(0, active.get())
+        } finally {
+            releaseRecovery.countDown()
+            pool.shutdownNow()
+        }
+    }
 
     @Test
     fun `circuit opens and stops hammering a broken subsystem`() {

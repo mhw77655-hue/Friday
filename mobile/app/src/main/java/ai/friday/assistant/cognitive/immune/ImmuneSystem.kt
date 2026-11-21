@@ -47,6 +47,8 @@ class ImmuneSystem(
 ) {
 
     private val breakers = ConcurrentHashMap<String, CircuitBreaker>()
+    // Prevent concurrent recovery actions for the same subsystem/operation.
+    private val recoveryLocks = ConcurrentHashMap<String, java.util.concurrent.locks.ReentrantLock>()
     private val recoveryAttempts = ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>()
     private val relatedCapabilityByOperation = ConcurrentHashMap<String, String>()
 
@@ -195,55 +197,68 @@ class ImmuneSystem(
         cause: FailureCause
     ) {
         val key = key(report.subsystem, report.operation)
-        val attempts = recoveryAttempts.computeIfAbsent(key) { java.util.concurrent.atomic.AtomicInteger(0) }
-        val maxAttempts = backoffPolicy.maxAttempts
+        val recoveryLock = recoveryLocks.computeIfAbsent(key) {
+            java.util.concurrent.locks.ReentrantLock()
+        }
+        // A concurrent duplicate incident is still recorded and contained by
+        // onFailure, but it must not start a second recovery action while the
+        // first one is running. Arbitrary recovery actions may have side effects.
+        if (!recoveryLock.tryLock()) {
+            remember(report, report.recoveryAction, RecoveryResult.NOT_ATTEMPTED)
+            return
+        }
+        try {
+            val attempts = recoveryAttempts.computeIfAbsent(key) { java.util.concurrent.atomic.AtomicInteger(0) }
+            val maxAttempts = backoffPolicy.maxAttempts
 
-        while (attempts.get() < maxAttempts) {
-            attempts.incrementAndGet()
-            val attemptNumber = attempts.get()
-            surface.beginRecovery(
-                report.dedupeKey, report.recoveryAction, "attempt $attemptNumber"
-            )
-            emit(CognitiveEvent.RecoveryStarted(report.subsystem, report.operation, "attempt $attemptNumber"))
-            val ok = try {
-                recoveryFn()
-            } catch (e: Exception) {
-                false
-            }
-            if (ok) {
-                cb.onSuccess()
-                attempts.set(0)
+            while (attempts.get() < maxAttempts) {
+                val attemptNumber = attempts.incrementAndGet()
+                surface.beginRecovery(
+                    report.dedupeKey, report.recoveryAction, "attempt $attemptNumber"
+                )
+                emit(CognitiveEvent.RecoveryStarted(report.subsystem, report.operation, "attempt $attemptNumber"))
+                val ok = try {
+                    recoveryFn()
+                } catch (e: Exception) {
+                    false
+                }
+                if (ok) {
+                    cb.onSuccess()
+                    attempts.set(0)
+                    surface.recover(
+                        report.dedupeKey, RecoveryResult.SUCCESS,
+                        "recovered on attempt $attemptNumber",
+                        report.recoveryAction, report.correlationId
+                    )
+                    emit(CognitiveEvent.RecoverySucceeded(report.subsystem, report.operation, "attempt $attemptNumber"))
+                    markHealthy(report.subsystem, report.relatedCapability)
+                    remember(report, report.recoveryAction, RecoveryResult.SUCCESS)
+                    return
+                }
                 surface.recover(
-                    report.dedupeKey, RecoveryResult.SUCCESS,
-                    "recovered on attempt $attemptNumber",
+                    report.dedupeKey, RecoveryResult.FAILED,
+                    "attempt $attemptNumber failed",
                     report.recoveryAction, report.correlationId
                 )
-                emit(CognitiveEvent.RecoverySucceeded(report.subsystem, report.operation, "attempt $attemptNumber"))
-                markHealthy(report.subsystem, report.relatedCapability)
-                remember(report, report.recoveryAction, RecoveryResult.SUCCESS)
-                return
+                emit(CognitiveEvent.RecoveryFailed(report.subsystem, report.operation, "attempt $attemptNumber"))
+                if (attempts.get() < maxAttempts) {
+                    // Pacing is provided by the policy value; the host may route it
+                    // through the async RecoveryController. Zero in tests.
+                    Thread.sleep(backoffPolicy.backoffDelayMs(attempts.get()))
+                }
             }
-            surface.recover(
-                report.dedupeKey, RecoveryResult.FAILED,
-                "attempt $attemptNumber failed",
-                report.recoveryAction, report.correlationId
-            )
-            emit(CognitiveEvent.RecoveryFailed(report.subsystem, report.operation, "attempt $attemptNumber"))
-            if (attempts.get() < maxAttempts) {
-                // Pacing is provided by the policy value; the host may route it
-                // through the async RecoveryController. Zero in tests.
-                Thread.sleep(backoffPolicy.backoffDelayMs(attempts.get()))
+            // Recovery budget exhausted.
+            cb.onFailure()
+            report.relatedCapability?.let { cap ->
+                degradation.enter(cap, DegradationLevel.OFFLINE)?.let { (_, lvl) ->
+                    emit(CognitiveEvent.DegradedModeEntered(cap, lvl))
+                }
             }
+            emit(CognitiveEvent.CapabilityUnavailable(report.relatedCapability ?: report.subsystem, report.message))
+            remember(report, report.recoveryAction, RecoveryResult.FAILED)
+        } finally {
+            recoveryLock.unlock()
         }
-        // Recovery budget exhausted.
-        cb.onFailure()
-        report.relatedCapability?.let { cap ->
-            degradation.enter(cap, DegradationLevel.OFFLINE)?.let { (_, lvl) ->
-                emit(CognitiveEvent.DegradedModeEntered(cap, lvl))
-            }
-        }
-        emit(CognitiveEvent.CapabilityUnavailable(report.relatedCapability ?: report.subsystem, report.message))
-        remember(report, report.recoveryAction, RecoveryResult.FAILED)
     }
 
     private fun markHealthy(subsystem: String, relatedCapability: String?) {
