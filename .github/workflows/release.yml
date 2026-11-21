@@ -189,7 +189,7 @@ jobs:
           version_code, version_name, commit, certificate, apk_sha = sys.argv[1:]
           print(json.dumps({
               "schema_version": 1,
-              "application_id": "com.jarvis.app",
+              "application_id": "ai.friday.assistant",
               "version_code": int(version_code),
               "version_name": version_name,
               "commit_sha": commit,
