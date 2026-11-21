@@ -25,12 +25,15 @@ object OfflineModelCatalog {
         id = "minicpm5-2b-heretic",
         displayName = "MiniCPM5 2B Heretic · Q4_K_M",
         repository = "saidutta69/MiniCPM5-2B-heretic",
-        revision = "178a9e6",
+        // Pin the exact commit that introduced this GGUF file. The prior
+        // 178a9e6 revision predates the Q4_K_M asset and returned 404.
+        revision = "92fc4d623bd89e5c1a5dc4cc1130b9bc64cdc71d",
         filename = "MiniCPM5-2B-heretic-Q4_K_M.gguf",
         license = "Apache-2.0",
         description = "Primary English resident candidate. GGUF/llama.cpp supported; creator reports 4/100 refusals. NAE admits it only when live resources allow.",
         expectedMinimumBytes = 1_200L * 1024L * 1024L,
-        resident = true
+        resident = true,
+        sha256 = "54db1ccd73f771e9f13b6cf5a9994fc7e780898d6d2ca6f0e1715641f67697b4"
     )
 
     // Low-memory fallback retained for resource-constrained phones.
