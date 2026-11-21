@@ -97,7 +97,7 @@ class FailureStore(
                 if (retryBacklog.size < MAX_RETRY_BACKLOG) {
                     retryBacklog.addLast(event)
                 } else {
-                    retryBacklogOverflowCount.incrementAndGet()
+                    retryBacklogOverflowCounter.incrementAndGet()
                 }
             }
         }

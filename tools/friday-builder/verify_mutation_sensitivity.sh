@@ -161,8 +161,8 @@ from pathlib import Path
 import sys
 path = Path(sys.argv[1])
 text = path.read_text(encoding="utf-8")
-needle = """                    fileStorage.append(StoreKind.FAILURES, toJson(event).toString())
-                    markSeen(event.id)"""
+needle = """                fileStorage.append(StoreKind.FAILURES, toJson(event).toString())
+                markSeen(event.id)"""
 mutant = """                    markSeen(event.id)
                     fileStorage.append(StoreKind.FAILURES, toJson(event).toString())"""
 if text.count(needle) != 1:
