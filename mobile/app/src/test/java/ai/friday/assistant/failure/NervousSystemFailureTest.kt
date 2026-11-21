@@ -17,6 +17,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 /**
  * Nervous-system failure surface: dedup, classification, turn correlation,
@@ -70,6 +72,32 @@ class NervousSystemFailureTest {
         assertEquals(1000L, agg.firstSeen)
         assertTrue(agg.isActive)
         assertEquals(3L, s.totalFailureCount)
+    }
+
+    @Test
+    fun `concurrent failure reports preserve aggregate counts and bounded recent history`() {
+        val workers = 8
+        val perWorker = 250
+        val surface = FailureSurface(nowMs = { 1_000L }, maxRecent = 128)
+        val pool = Executors.newFixedThreadPool(workers)
+        try {
+            val tasks = (0 until workers).map {
+                java.util.concurrent.Callable {
+                    repeat(perWorker) {
+                        report(surface, message = "same concurrent failure")
+                    }
+                }
+            }
+            pool.invokeAll(tasks).forEach { it.get(10, TimeUnit.SECONDS) }
+
+            assertEquals((workers * perWorker).toLong(), surface.totalFailureCount)
+            assertEquals(1, surface.currentFailures.value.size)
+            assertEquals(workers * perWorker, surface.currentFailures.value.single().occurrenceCount)
+            assertEquals(128, surface.recentFailures.value.size)
+            assertEquals(workers * perWorker, surface.subsystemHealth.value["STT_VOSK"]!!.totalFailures)
+        } finally {
+            pool.shutdownNow()
+        }
     }
 
     @Test

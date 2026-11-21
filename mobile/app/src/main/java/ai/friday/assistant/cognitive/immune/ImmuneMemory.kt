@@ -23,18 +23,33 @@ data class ImmuneMemoryHit(
 /** In-memory failure memory contract. (Long-term MemoryStore promotion is a
  *  future seam; this stays self-contained and deterministic.) */
 class ImmuneMemory(
-    private val nowMs: () -> Long = { System.currentTimeMillis() }
+    private val nowMs: () -> Long = { System.currentTimeMillis() },
+    private val maxEntries: Int = DEFAULT_MAX_ENTRIES,
+    private val maxLedgerEntries: Int = DEFAULT_MAX_LEDGER_ENTRIES
 ) {
-    private class Entry(
+    init {
+        require(maxEntries > 0) { "maxEntries must be positive" }
+        require(maxLedgerEntries > 0) { "maxLedgerEntries must be positive" }
+    }
+
+    private data class Entry(
         val signature: FailureSignature,
-        val attempts: MutableList<RecoveryAction> = mutableListOf(),
+        var lastAttempted: RecoveryAction = RecoveryAction.NONE,
         var successfulRecovery: RecoveryAction? = null,
         var count: Int = 0,
         var lastSeen: Long = 0L
     )
 
-    private val entries = mutableMapOf<String, Entry>()
-    private val ledger = mutableListOf<RecoveryOutcomeRecord>()
+    /*
+     * This is a bounded in-memory working set, not the durable source of truth.
+     * Durable incident/recovery history is owned by FailureStore. Keep all
+     * operations under one monitor so concurrent subsystem failures cannot
+     * corrupt counts, LRU ordering, or the evidence ring.
+     */
+    private val lock = Any()
+    private val entries = LinkedHashMap<String, Entry>()
+    private val ledger = java.util.ArrayDeque<RecoveryOutcomeRecord>()
+    private var recordSequence = 0L
 
     /** Record one recovery observation keyed by signature. */
     fun record(
@@ -42,44 +57,67 @@ class ImmuneMemory(
         attemptedAction: RecoveryAction,
         result: RecoveryResult,
         metadata: Map<String, String> = emptyMap()
-    ) {
-        val entry = entries.getOrPut(signature.key) { Entry(signature) }
+    ) = synchronized(lock) {
+        var entry = entries[signature.key]
+        if (entry == null) {
+            if (entries.size >= maxEntries) {
+                val eldestKey = entries.entries.iterator().next().key
+                entries.remove(eldestKey)
+            }
+            entry = Entry(signature)
+            entries[signature.key] = entry
+        } else {
+            // Refresh insertion order: recently observed signatures survive.
+            entries.remove(signature.key)
+            entries[signature.key] = entry
+        }
+
         entry.count++
         entry.lastSeen = nowMs()
-        entry.attempts.add(attemptedAction)
+        entry.lastAttempted = attemptedAction
         if (result == RecoveryResult.SUCCESS) entry.successfulRecovery = attemptedAction
 
-        ledger.add(
+        recordSequence++
+        ledger.addLast(
             RecoveryOutcomeRecord(
-                id = "rec_${signature.key.hashCode()}_${entry.count}",
+                id = "rec_$recordSequence",
                 signature = signature,
                 timestamp = entry.lastSeen,
                 failedOperation = signature.operation,
                 attemptedAction = attemptedAction,
                 result = result,
                 succeeded = result == RecoveryResult.SUCCESS,
-                metadata = metadata
+                metadata = metadata.toMap()
             )
         )
+        while (ledger.size > maxLedgerEntries) ledger.removeFirst()
     }
 
-    /** Recognize a previous failure by signature. Null when never seen. */
-    fun resembles(signature: FailureSignature): ImmuneMemoryHit? {
-        val entry = entries[signature.key] ?: return null
-        return ImmuneMemoryHit(
+    /** Recognize a previous failure by signature. Null when never seen/evicted. */
+    fun resembles(signature: FailureSignature): ImmuneMemoryHit? = synchronized(lock) {
+        val entry = entries[signature.key] ?: return@synchronized null
+        // Reads also refresh the working-set recency.
+        entries.remove(signature.key)
+        entries[signature.key] = entry
+        ImmuneMemoryHit(
             signature = entry.signature,
             previousFailures = entry.count,
-            attemptedRecovery = entry.attempts.lastOrNull() ?: RecoveryAction.NONE,
+            attemptedRecovery = entry.lastAttempted,
             successfulRecovery = entry.successfulRecovery,
             confidence = (0.5f + 0.1f * entry.count).coerceAtMost(0.95f),
             lastSeen = entry.lastSeen
         )
     }
 
-    /** The full evidence ledger (later becomes research/evolution data). */
-    fun evidenceLedger(): List<RecoveryOutcomeRecord> = ledger.toList()
+    /** Snapshot of the bounded evidence ring, oldest first. */
+    fun evidenceLedger(): List<RecoveryOutcomeRecord> = synchronized(lock) { ledger.toList() }
 
-    fun size(): Int = entries.size
+    fun size(): Int = synchronized(lock) { entries.size }
+
+    companion object {
+        const val DEFAULT_MAX_ENTRIES = 512
+        const val DEFAULT_MAX_LEDGER_ENTRIES = 2_048
+    }
 }
 
 /**
