@@ -21,10 +21,6 @@ import com.jarvis.app.model.ModelTier
 import com.jarvis.app.model.OrganRole
 import com.jarvis.app.model.OrganWakeRequest
 import com.jarvis.app.model.ResourceSnapshot
-import com.jarvis.app.voice.VoiceForgeHealth
-import com.jarvis.app.voice.VoiceForgeSynthesisRequest
-import com.jarvis.app.voice.VoiceForgeSynthesisResponse
-import com.jarvis.app.voice.VoiceForgeSynthesizer
 import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -41,21 +37,11 @@ import org.junit.Test
  * the real production classes.
  *
  * Only genuinely host-bound leaves are faked (a directory, an in-memory graph,
- * a fake model backend, a silent speech synthesizer). Every organ, seam and
+ * and a fake model backend). Every organ, seam and
  * wiring under test is the production class used by the Android app. The
  * optional JVM harness is test-only.
  */
 class TurnPathAssemblyTest {
-
-    private class SilentSpeech : VoiceForgeSynthesizer {
-        override suspend fun synthesize(
-            request: VoiceForgeSynthesisRequest
-        ): VoiceForgeSynthesisResponse =
-            throw UnsupportedOperationException("test-only server speech is not exercised")
-
-        override suspend fun health(): VoiceForgeHealth =
-            throw UnsupportedOperationException("test-only server health is not exercised")
-    }
 
     private class NoMemories : MemoryStorePort {
         override fun queryMemories(query: String, limit: Int): List<MemoryItem> = emptyList()
