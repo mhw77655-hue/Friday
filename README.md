@@ -32,3 +32,7 @@
 ## Historical material
 
 The `vault/` directory is a non-authoritative archive of earlier Jarvis/Friday research and reports. It is retained for provenance and possible algorithm extraction only; it does not describe the live application or override the active delivery plan. See [vault archive rules](vault/RESEARCH_CORPUS_RULES.md).
+
+## Language and formal assurance
+
+The language allocation and evidence-based assessment are documented in [Friday language and formal-method research](docs/FRIDAY_LANGUAGE_AND_FORMAL_METHOD_RESEARCH.md). The sole delivery plan incorporates the adopted policy. Lean 4 formal contracts live in `formal/lean`; they prove abstract properties only and do not replace Android implementation conformance or physical-device evidence.
