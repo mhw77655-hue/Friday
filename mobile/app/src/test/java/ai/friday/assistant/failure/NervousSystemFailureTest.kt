@@ -323,6 +323,43 @@ class NervousSystemFailureTest {
     }
 
     @Test
+    fun `retry failures trip circuit at threshold and stop further attempts`() = runBlocking {
+        val s = FailureSurface(nowMs = { 1000 })
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val attempts = AtomicInteger(0)
+        val disabled = AtomicBoolean(false)
+        try {
+            val rc = RecoveryController(s, scope)
+            rc.register(retrySpec(
+                maxAttempts = 5,
+                breakerThreshold = 2,
+                backoffMs = 0,
+                action = {
+                    attempts.incrementAndGet()
+                    false
+                },
+                onDisabled = { disabled.set(true) }
+            ))
+            rc.handle(FailureReport(
+                subsystem = "STT_VOSK", operation = "decode",
+                severity = FailureSeverity.RECOVERABLE, category = FailureCategory.STT,
+                message = "decoder returned empty"
+            ))
+
+            kotlinx.coroutines.withTimeout(2_000) {
+                while (rc.breakerState("STT_VOSK", "decode") != CircuitBreaker.State.OPEN || !disabled.get()) {
+                    delay(10)
+                }
+            }
+
+            assertEquals(1, attempts.get())
+            assertTrue(rc.isCircuitOpen("STT_VOSK", "decode"))
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
     fun `retry controller honors configured attempt budget before breaker threshold`() = runBlocking {
         val s = FailureSurface(nowMs = { 1000 })
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
