@@ -241,22 +241,6 @@ class JvmCompositionHarness(
         )
     }
     val resolvedBackend: ModelBackend = backendOverride ?: OllamaModelBackend(ollamaAdapter)
-    // BUILD-TWIN-ARM64-VERIFICATION: the real ARM64 verification twin gate,
-    // constructed on this host's composition exactly like the other real model
-    // subsystems. The voiceforge health probe is a real HTTP GET to /health on
-    // the configured host (the device itself when voiceforge_server.py runs
-    // locally); any GGUF step command runs via LocalTwinCommandRunner. The
-    // verifier decides whether a hardware-sensitive build artifact is
-    // authorized to be copied to the phone (healthy:true + exit-0 only).
-    val buildTwinVerifier = com.jarvis.app.buildtwin.BuildTwinVerifier(
-        spec = com.jarvis.app.buildtwin.BuildTwinSpec(
-            host = "127.0.0.1",
-            healthPort = 8765
-        ),
-        probe = com.jarvis.app.buildtwin.HttpTwinHealthProbe(),
-        runner = com.jarvis.app.buildtwin.LocalTwinCommandRunner()
-    )
-
     /** The one turn path. */
     private val assembly: TurnPathAssembly = TurnPathAssembly.assemble(
         JvmPlatformPorts(
