@@ -315,6 +315,7 @@ jobs:
           name: friday-virtual-phone-evidence
           path: |
             mobile/app/build/reports/androidTests/
+            mobile/app/build/reports/coverage/
             mobile/app/build/outputs/androidTest-results/
             mobile/app/build/test-results/
             ${{ runner.temp }}/friday-emulator/
