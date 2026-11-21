@@ -22,6 +22,7 @@ on:
       - tools/friday-builder/test_repository_truth.py
       - docs/FRIDAY_SELF_GOVERNANCE_AND_REPOSITORY_TRUTH.md
       - docs/OBJECTIVE_1_FOUNDATION_ACCEPTANCE.md
+      - docs/OBJECTIVE_1_ADVERSARIAL_VALIDATION_PLAN.md
       - AGENTS.md
       - .github/workflows/build.yml
   workflow_dispatch:
