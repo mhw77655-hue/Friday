@@ -255,7 +255,7 @@ class FailureStoreTest {
     @Test
     fun `queue and retry backlog overflow are explicit and all accepted events drain`() = runBlocking {
         val total = 2_000
-        val storage = MemoryStorage().apply { appendDelayMs = 1 }
+        val storage = MemoryStorage().apply { appendDelayMs = 5 }
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         try {
             val store = FailureStore(storage, scope, onStorageFailure = { _, _ -> })
