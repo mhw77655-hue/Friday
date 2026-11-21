@@ -78,7 +78,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: friday-python-coverage
-          path: "$RUNNER_TEMP/friday-python-coverage.xml"
+          path: ${{ runner.temp }}/friday-python-coverage.xml
           if-no-files-found: warn
           retention-days: 14
 
