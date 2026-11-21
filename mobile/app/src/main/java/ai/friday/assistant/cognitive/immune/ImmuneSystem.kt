@@ -79,7 +79,13 @@ class ImmuneSystem(
         // ── contain (isolate the subsystem; degrade only its dependents)
         val dependents = dependencyGraph.affectedDependents(report.subsystem)
         val isolated = containment.setStatus(report.subsystem, ContainmentStatus.ISOLATED)
-        dependents.forEach { containment.setStatus(it, ContainmentStatus.DEGRADED) }
+        dependents.forEach { dependent ->
+            // A dependency fault may degrade a healthy dependent, but must not
+            // overwrite an independent failure that already isolated it.
+            if (containment.statusOf(dependent) == ContainmentStatus.HEALTHY) {
+                containment.setStatus(dependent, ContainmentStatus.DEGRADED)
+            }
+        }
         if (isolated != null) {
             emit(CognitiveEvent.ContainmentStarted(report.subsystem, ContainmentStatus.ISOLATED, dependents))
         }
@@ -218,6 +224,7 @@ class ImmuneSystem(
         containment.setStatus(subsystem, ContainmentStatus.HEALTHY)?.let { (old, new) ->
             if (old != ContainmentStatus.HEALTHY) emit(CognitiveEvent.ContainmentStarted(subsystem, new, emptyList()))
         }
+        restoreHealthyDependents(subsystem)
         // Recovery may only restore the capability that this subsystem's
         // failure actually degraded. Clearing the first degraded entry can
         // silently re-enable a different, still-broken capability.
@@ -226,6 +233,34 @@ class ImmuneSystem(
                 emit(CognitiveEvent.DegradedModeExited(cap, old))
             }
         }
+    }
+
+    /**
+     * Re-evaluate transitive dependents after a dependency recovers. Restore a
+     * dependent only when every declared dependency is healthy and the
+     * dependent itself was merely DEGRADED (not independently ISOLATED).
+     * Iterate to a fixed point so deeper dependents recover in dependency order.
+     */
+    private fun restoreHealthyDependents(recoveredSubsystem: String) {
+        val affected = dependencyGraph.affectedDependents(recoveredSubsystem)
+        var changed: Boolean
+        do {
+            changed = false
+            affected.forEach { dependent ->
+                if (containment.statusOf(dependent) != ContainmentStatus.DEGRADED) {
+                    return@forEach
+                }
+                val dependencies = dependencyGraph.dependenciesOf(dependent)
+                if (dependencies.isNotEmpty() && dependencies.all {
+                        containment.statusOf(it) == ContainmentStatus.HEALTHY
+                    }) {
+                    containment.setStatus(dependent, ContainmentStatus.HEALTHY)?.let { (_, new) ->
+                        emit(CognitiveEvent.ContainmentStarted(dependent, new, emptyList()))
+                        changed = true
+                    }
+                }
+            }
+        } while (changed)
     }
 
     private fun remember(report: FailureReport, action: RecoveryAction, result: RecoveryResult) {

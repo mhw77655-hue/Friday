@@ -241,6 +241,44 @@ class ImmuneSystemTest {
         assertEquals(DegradationLevel.FULL, sys.degradation.levelOf("tts"))
     }
 
+    @Test
+    fun `dependency recovery restores transitive dependents only when all dependencies are healthy`() {
+        val sys = system()
+        sys.dependencyGraph.addRequirements("BRAIN", "MEMORY", "MODEL")
+        sys.dependencyGraph.addRequirement("UI", "BRAIN")
+
+        sys.onFailure(timeoutReport("MEMORY", "read").copy(relatedCapability = "memory")) { false }
+        sys.onFailure(timeoutReport("MODEL", "load").copy(relatedCapability = "model")) { false }
+        assertEquals(ContainmentStatus.DEGRADED, sys.containment.statusOf("BRAIN"))
+        assertEquals(ContainmentStatus.DEGRADED, sys.containment.statusOf("UI"))
+
+        // One dependency recovers; the second still blocks the full chain.
+        sys.onSuccess("MEMORY", "read")
+        assertEquals(ContainmentStatus.HEALTHY, sys.containment.statusOf("MEMORY"))
+        assertEquals(ContainmentStatus.DEGRADED, sys.containment.statusOf("BRAIN"))
+        assertEquals(ContainmentStatus.DEGRADED, sys.containment.statusOf("UI"))
+
+        // Once the last dependency recovers, BRAIN and then UI recover.
+        sys.onSuccess("MODEL", "load")
+        assertEquals(ContainmentStatus.HEALTHY, sys.containment.statusOf("BRAIN"))
+        assertEquals(ContainmentStatus.HEALTHY, sys.containment.statusOf("UI"))
+    }
+
+    @Test
+    fun `dependency failure cannot downgrade an independently isolated dependent`() {
+        val sys = system()
+        sys.dependencyGraph.addRequirement("BRAIN", "MEMORY")
+
+        sys.onFailure(timeoutReport("BRAIN", "reason").copy(relatedCapability = "brain")) { false }
+        assertEquals(ContainmentStatus.ISOLATED, sys.containment.statusOf("BRAIN"))
+
+        sys.onFailure(timeoutReport("MEMORY", "read").copy(relatedCapability = "memory")) { false }
+        assertEquals(ContainmentStatus.ISOLATED, sys.containment.statusOf("BRAIN"))
+
+        sys.onSuccess("MEMORY", "read")
+        assertEquals(ContainmentStatus.ISOLATED, sys.containment.statusOf("BRAIN"))
+    }
+
     // ────────────────────────────────────────────── resource & environment
 
     @Test
