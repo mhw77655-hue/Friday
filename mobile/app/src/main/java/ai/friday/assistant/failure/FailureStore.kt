@@ -40,10 +40,12 @@ class FailureStore(
     private val persistedCount = AtomicLong(0)
     private val queueOverflowCount = AtomicLong(0)
     private val persistenceFailureCounter = AtomicLong(0)
+    private val retryBacklogOverflowCounter = AtomicLong(0)
 
     val persistedEventCount: Long get() = persistedCount.get()
     val persistenceQueueOverflowCount: Long get() = queueOverflowCount.get()
     val persistenceFailureCount: Long get() = persistenceFailureCounter.get()
+    val persistenceRetryBacklogOverflowCount: Long get() = retryBacklogOverflowCounter.get()
 
     init {
         require(maxPersistedIdsInMemory > 0) { "maxPersistedIdsInMemory must be positive" }
@@ -75,14 +77,36 @@ class FailureStore(
 
         val queue = Channel<FailureEvent>(capacity = MAX_PENDING_EVENTS)
         val pendingIds = ConcurrentHashMap.newKeySet<String>()
-        val listener: (FailureEvent) -> Unit = { event ->
-            if (event.severity.rank >= persistMinSeverity.rank &&
-                !hasSeen(event.id) && pendingIds.add(event.id)
-            ) {
-                if (queue.trySend(event).isFailure) {
-                    pendingIds.remove(event.id)
-                    queueOverflowCount.incrementAndGet()
+        val retryLock = Any()
+        val retryBacklog = ArrayDeque<FailureEvent>()
+
+        fun enqueue(event: FailureEvent): Boolean {
+            if (event.severity.rank < persistMinSeverity.rank || hasSeen(event.id)) return true
+            if (!pendingIds.add(event.id)) return true
+            if (queue.trySend(event).isSuccess) return true
+            pendingIds.remove(event.id)
+            queueOverflowCount.incrementAndGet()
+            return false
+        }
+
+        fun defer(event: FailureEvent) {
+            if (retryBacklog.none { it.id == event.id }) {
+                if (retryBacklog.size < MAX_RETRY_BACKLOG) {
+                    retryBacklog.addLast(event)
+                } else {
+                    retryBacklogOverflowCount.incrementAndGet()
                 }
+            }
+        }
+
+        val listener: (FailureEvent) -> Unit = { event ->
+            synchronized(retryLock) {
+                // Give previously failed appends priority over new incidents.
+                while (retryBacklog.isNotEmpty()) {
+                    val oldest = retryBacklog.first()
+                    if (enqueue(oldest)) retryBacklog.removeFirst() else break
+                }
+                if (!enqueue(event)) defer(event)
             }
         }
 
@@ -90,7 +114,13 @@ class FailureStore(
         val worker = scope.launch {
             for (event in queue) {
                 try {
-                    persist(event)
+                    val persisted = persist(event)
+                    if (!persisted) {
+                        // Release the in-flight marker before placing the event
+                        // back in the retry backlog for the next arrival.
+                        pendingIds.remove(event.id)
+                        synchronized(retryLock) { defer(event) }
+                    }
                 } finally {
                     pendingIds.remove(event.id)
                 }
@@ -108,14 +138,14 @@ class FailureStore(
         }
     }
 
-    private suspend fun persist(event: FailureEvent) = withContext(Dispatchers.IO) {
+    private suspend fun persist(event: FailureEvent): Boolean = withContext(Dispatchers.IO) {
         var attempt = 0
         while (attempt < MAX_APPEND_ATTEMPTS) {
             try {
                 fileStorage.append(StoreKind.FAILURES, toJson(event).toString())
                 markSeen(event.id)
                 persistedCount.incrementAndGet()
-                return@withContext
+                return@withContext true
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
@@ -132,6 +162,7 @@ class FailureStore(
                 }
             }
         }
+        false
     }
 
     /** Load the most recent persisted failures (newest first). Best-effort. */
@@ -214,6 +245,7 @@ class FailureStore(
 
     companion object {
         const val MAX_PENDING_EVENTS = 1_024
+        const val MAX_RETRY_BACKLOG = 256
         const val MAX_APPEND_ATTEMPTS = 3
         const val RETRY_BASE_DELAY_MS = 100L
     }

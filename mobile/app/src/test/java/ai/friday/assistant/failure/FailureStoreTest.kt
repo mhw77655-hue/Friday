@@ -98,6 +98,51 @@ class FailureStoreTest {
     }
 
     @Test
+    fun `exhausted append remains eligible after a later persistence snapshot`() = runBlocking {
+        val storage = MemoryStorage().apply { failuresRemaining = 3 }
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        try {
+            val store = FailureStore(storage, scope)
+            val surface = FailureSurface()
+            store.attach(surface)
+            val first = surface.report(FailureReport(
+                subsystem = "STORAGE",
+                operation = "append",
+                severity = FailureSeverity.RECOVERABLE,
+                category = FailureCategory.UNKNOWN,
+                message = "first incident"
+            ))
+
+            withTimeout(3_000) {
+                while (store.persistenceFailureCount < 1) delay(10)
+            }
+            assertTrue(store.loadRecent().none { it.id == first.id })
+
+            // A later incident is the next retry opportunity. The previously
+            // exhausted event must be retried before the new event is appended.
+            storage.failuresRemaining = 0
+            val second = surface.report(FailureReport(
+                subsystem = "STORAGE",
+                operation = "append",
+                severity = FailureSeverity.RECOVERABLE,
+                category = FailureCategory.UNKNOWN,
+                message = "second incident"
+            ))
+
+            withTimeout(3_000) {
+                while (store.persistedEventCount < 2) delay(10)
+            }
+            val loaded = store.loadRecent(10)
+            assertTrue(loaded.any { it.id == first.id })
+            assertTrue(loaded.any { it.id == second.id })
+            assertEquals(2, storage.lines.size)
+            assertEquals(first.id, loaded.last().id)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
     fun `slow persistence retains every event beyond the bounded diagnostic ring`() = runBlocking {
         val storage = MemoryStorage().apply { appendDelayMs = 2 }
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
