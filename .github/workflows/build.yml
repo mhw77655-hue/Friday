@@ -2,12 +2,8 @@ name: build
 
 on:
   push:
-    # Branch candidates are validated by pull_request (or explicit
-    # workflow_dispatch for the trusted publisher); only main needs push CI.
-    # This avoids duplicate push + PR builds for every candidate commit.
+    # Friday uses one canonical mainline; no feature-branch/PR build lane.
     branches: [ main ]
-  pull_request:
-    branches: [ main, 'audit/**' ]
   schedule:
     - cron: '17 2 * * *'
   workflow_dispatch:
@@ -19,9 +15,7 @@ concurrency:
 permissions: {}
 
 jobs:
-  # Run the same build/test gate for every PR, including audit and proposal
-  # branches. Draft PRs still need real validation; skipping their only job
-  # makes the check appear neutral without testing the candidate.
+  # Validate the canonical main commit; never treat a skipped check as success.
   debug-apk:
     permissions:
       contents: read
