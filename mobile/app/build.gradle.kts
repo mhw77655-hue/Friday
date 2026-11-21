@@ -165,7 +165,7 @@ dependencies {
     implementation("dev.rikka.shizuku:provider:13.1.5")
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("com.k2fsa.sherpa.onnx:sherpa-onnx-android:1.13.2")
+    implementation(files(rootProject.file("local-repo/com/k2fsa/sherpa/onnx/sherpa-onnx-android/1.13.2/sherpa-onnx-android-1.13.2.aar")))
 
     // Voice model lifecycle (R2): tar.bz2 extraction for model archives
     // downloaded from the sherpa-onnx GitHub release (no Android built-in for bzip2).
