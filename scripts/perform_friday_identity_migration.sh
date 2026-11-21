@@ -1,52 +1,52 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT"
-
-[[ "$(git branch --show-current)" == "main" ]] || { echo "Refusing migration outside main" >&2; exit 20; }
-[[ "$(git remote get-url origin)" == *"mhw77655-hue/Friday"* ]] || { echo "Unexpected repository remote" >&2; exit 21; }
-grep -q 'applicationId = "com.jarvis.app"' mobile/app/build.gradle.kts
-grep -q 'namespace = "com.jarvis.app"' mobile/app/build.gradle.kts
-
-python3 - <<'PY'
+#!/usr/bin/env python3
 from pathlib import Path
 import re
 import subprocess
 
-def git(*args):
-    subprocess.run(["git", *args], check=True)
+ROOT = Path(__file__).resolve().parents[1]
 
-# Move the complete production, JVM-test and instrumentation-test package trees.
-for source in (
+def git(*args):
+    return subprocess.run(["git", *args], cwd=ROOT, check=True, text=True)
+
+branch = subprocess.check_output(["git", "branch", "--show-current"], cwd=ROOT, text=True).strip()
+remote = subprocess.check_output(["git", "remote", "get-url", "origin"], cwd=ROOT, text=True).strip()
+if branch != "main" or "mhw77655-hue/Friday" not in remote:
+    raise SystemExit("Refusing migration: expected canonical main checkout.")
+gradle = ROOT / "mobile/app/build.gradle.kts"
+gradle_text = gradle.read_text()
+if 'applicationId = "com.jarvis.app"' not in gradle_text or 'namespace = "com.jarvis.app"' not in gradle_text:
+    raise SystemExit("Unexpected existing application identity; refusing blind migration.")
+
+# Move production, JVM-test and instrumentation-test package roots as Git renames.
+for relative in (
     "mobile/app/src/main/java/com/jarvis/app",
     "mobile/app/src/test/java/com/jarvis/app",
     "mobile/app/src/androidTest/java/com/jarvis/app",
 ):
-    src = Path(source)
-    if src.exists():
-        destination = Path(str(src).replace("com/jarvis/app", "ai/friday/assistant"))
-        if destination.exists():
-            raise SystemExit(f"Refusing package destination collision: {destination}")
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        git("mv", str(src), str(destination))
+    source = ROOT / relative
+    if source.exists():
+        target = ROOT / relative.replace("com/jarvis/app", "ai/friday/assistant")
+        if target.exists():
+            raise SystemExit(f"Package migration collision: {target}")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        git("mv", relative, str(target.relative_to(ROOT)))
 
-# Rename old product-named files. Do not rename or rewrite URLs: they may be valid donor endpoints.
-tracked = subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0")
+# Rename Jarvis-named tracked files, without rewriting external URLs.
+tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode().split("\\0")
 for raw in tracked:
     if not raw:
         continue
-    path = Path(raw)
+    path = ROOT / raw
     if not path.exists():
         continue
-    new_name = re.sub("jarvis", "Friday", path.name, flags=re.IGNORECASE)
-    if new_name != path.name:
-        target = path.with_name(new_name)
+    renamed = re.sub("jarvis", "Friday", path.name, flags=re.IGNORECASE)
+    if renamed != path.name:
+        target = path.with_name(renamed)
         if target.exists():
-            raise SystemExit(f"Refusing filename collision: {path} -> {target}")
-        git("mv", str(path), str(target))
+            raise SystemExit(f"Filename collision: {path} -> {target}")
+        git("mv", raw, str(target.relative_to(ROOT)))
 
-url = re.compile(r"https?://\S+")
+url_pattern = re.compile(r"https?://[^\\s\"'<>]+")
 replacements = (
     ("com.jarvis.app", "ai.friday.assistant"),
     ("com/jarvis/app", "ai/friday/assistant"),
@@ -54,44 +54,39 @@ replacements = (
     ("Jarvis", "Friday"),
     ("jarvis", "friday"),
 )
-def normalize(segment):
+def normalize(text):
     for old, new in replacements:
-        segment = segment.replace(old, new)
-    return segment
+        text = text.replace(old, new)
+    return text
 
-tracked = subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0")
+tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode().split("\\0")
 changed = 0
 for raw in tracked:
     if not raw:
         continue
-    path = Path(raw)
+    path = ROOT / raw
     if not path.is_file():
         continue
     try:
-        source = path.read_bytes().decode("utf-8")
+        original = path.read_bytes().decode("utf-8")
     except UnicodeDecodeError:
         continue
-    parts = url.split(source)
-    updated = "".join(part if url.fullmatch(part) else normalize(part) for part in parts)
-    if updated != source:
+    chunks = url_pattern.split(original)
+    updated = "".join(chunk if url_pattern.fullmatch(chunk) else normalize(chunk) for chunk in chunks)
+    if updated != original:
         path.write_text(updated, encoding="utf-8")
         changed += 1
-print(f"Friday identity normalized in {changed} text files; external URLs preserved.")
 
-# Set the new canonical package identity and initial seed version.
-gradle = Path("mobile/app/build.gradle.kts")
-s = gradle.read_text()
-s = s.replace('namespace = "ai.friday.assistant"', 'namespace = "ai.friday.assistant"')
-s = s.replace('applicationId = "ai.friday.assistant"', 'applicationId = "ai.friday.assistant"')
+# Canonical seed identity. The old installed APK was explicitly deleted by the owner.
+gradle = ROOT / "mobile/app/build.gradle.kts"
+s = gradle.read_text().replace('namespace = "com.jarvis.app"', 'namespace = "ai.friday.assistant"')
+s = s.replace('applicationId = "com.jarvis.app"', 'applicationId = "ai.friday.assistant"')
 s = s.replace('"0.2-phase2"', '"1.0.0-seed"')
 gradle.write_text(s)
+manifest = ROOT / "mobile/app/src/main/AndroidManifest.xml"
+manifest.write_text(manifest.read_text().replace('android:label="FRIDAY"', 'android:label="Friday"'))
 
-manifest = Path("mobile/app/src/main/AndroidManifest.xml")
-s = manifest.read_text().replace('android:label="FRIDAY"', 'android:label="Friday"')
-manifest.write_text(s)
-
-# Keep only current, accurate repository facts.
-Path("REPO_FACTS.md").write_text("""# Friday repository facts
+facts = """# Friday repository facts
 
 - Product: Friday, one continuing Android-hosted individual.
 - Canonical repository: mhw77655-hue/Friday.
@@ -107,42 +102,23 @@ Path("REPO_FACTS.md").write_text("""# Friday repository facts
 - Live Ollama tests are opt-in diagnostics; a localhost model server is not a production dependency or proof of offline operation.
 - CI artifacts and temporary signing keys are not the permanent production signing identity.
 - Do not infer current phone firmware, installed state, permissions or physical-device success from source code or emulator tests.
-- Keep implementation, tests, release metadata, workflows and documentation aligned with the delivery plan.
-""")
-
-Path(".ralph/REPO_FACTS.md").write_text("""# Friday repository facts
-
-The sole active product and delivery authority is .ralph/FRIDAY_DELIVERY_PLAN.md.
-Owner-authored intent is in .ralph/VISION.md and .ralph/OWNER_WORDS.md.
-The canonical product line is main; do not create competing branches or roadmaps.
-
-Android module: mobile/app
-Application ID: ai.friday.assistant
-Namespace and Kotlin base package: ai.friday.assistant
-
-From repository root:
-- ./gradlew :mobile:app:assembleDebug
-- ./gradlew :mobile:app:testDebugUnitTest
-
-A unit-test pass is not APK assembly, emulator instrumentation, physical-device validation, or release acceptance. Live Ollama tests are opt-in diagnostics and do not establish the shipped offline path. No localhost service is a production prerequisite unless explicitly documented, configured and verified as an optional capability.
-
-Re-check current main source and production composition before making capability claims. Historical audits, vault documents and test doubles are evidence only, not current product truth.
-""")
-
-Path("AGENTS.md").write_text("""# Friday repository instructions
+"""
+(ROOT / "REPO_FACTS.md").write_text(facts)
+(ROOT / ".ralph/REPO_FACTS.md").write_text(facts)
+(ROOT / "AGENTS.md").write_text("""# Friday repository instructions
 
 ## Authority
 - .ralph/FRIDAY_DELIVERY_PLAN.md is the sole active delivery plan.
 - .ralph/VISION.md and .ralph/OWNER_WORDS.md preserve owner intent.
-- Friday is the product identity. The Android application ID and Kotlin namespace are ai.friday.assistant.
+- Product identity: Friday; application ID and Kotlin namespace: ai.friday.assistant.
 - Historical audits and archive material are not active implementation instructions.
 
 ## Git and project structure
-- Make authorized changes directly on main. Do not create feature branches, proposal branches or competing product lines.
+- Make authorized changes directly on main. Do not create feature branches or competing product lines.
 - The production host is the Android application in mobile/app.
 - Keep development, build, compiler and repository credentials outside the installed APK.
 - Preserve useful algorithms and validated behavior; retire disconnected prototypes, stale destinations and false capability claims.
-- Keep source paths, package declarations, manifest component names, Gradle identifiers, tests and release metadata aligned with ai.friday.assistant.
+- Keep source paths, package declarations, manifest components, Gradle identifiers, tests and release metadata aligned with ai.friday.assistant.
 
 ## Verification
 - Distinguish source edits, compilation, unit tests, APK assembly, emulator instrumentation, CI verification and physical-device verification.
@@ -156,52 +132,45 @@ Path("AGENTS.md").write_text("""# Friday repository instructions
 - Local durable state is the source of truth for offline continuity; cloud is optional expansion.
 - Optimize verified task outcomes and time to first useful action.
 - Preserve Laya as a distinct decision capability, not ASR or TTS.
-- Protect owner authorization, permissions, signing trust, provenance, rollback and recovery.
+- Protect owner authorization, permissions, signing trust, provenance, isolation, recovery and rollback.
 """)
 
-# Remove the obsolete branch-era audit; it conflicts with the single-mainline workflow.
-if Path(".ralph/REPO_UNIFICATION_AUDIT.md").exists():
-    git("rm", "-f", ".ralph/REPO_UNIFICATION_AUDIT.md")
-
-# Remove the disconnected Python-builder CI test; keep Android build and test gates.
-build = Path(".github/workflows/build.yml")
-s = build.read_text()
-s = s.replace("      - name: Verify Ralph receives the owner's vision and direct words\n",
-              "      - name: Verify Friday delivery authority and owner vision\n")
-start = s.find("      - name: Set up Python for Friday builder contract tests\n")
-end = s.find("      - name: Set up Go for workflow lint\n")
-if start >= 0 and end > start:
-    s = s[:start] + s[end:]
-s = s.replace("on:\n  workflow_dispatch:\n", "on:\n  push:\n    branches: [ main ]\n  workflow_dispatch:\n")
-s = s.replace("label='FRIDAY'", "label='Friday'")
-build.write_text(s)
-
-# Record the authorized fresh identity and the work still required after the rename.
-plan = Path(".ralph/FRIDAY_DELIVERY_PLAN.md")
+plan = ROOT / ".ralph/FRIDAY_DELIVERY_PLAN.md"
 s = plan.read_text()
+s = s.replace(
+    "**Package/application ID is a protected migration decision, not a text replacement.** The existing Android `applicationId` is `com.jarvis.app`, and a historical device report records that package on the owner's phone. Changing it creates a different Android package and can break in-place update continuity and access to existing app data. Do not change it until the owner explicitly approves a migration strategy and the team proves the current installed state, signing identity, data transfer/continuity, and rollback. Until that gate is met, remove Jarvis from visible branding and safe internal class names while retaining the installed package ID as a compatibility identifier. If the owner chooses a new ID before the permanent seed, treat that as a deliberate one-time identity migration—not an ordinary cleanup.",
+    "**Package/application ID migration — owner decision resolved (2026-11-21).** The owner explicitly authorized a fresh application identity and confirmed the old APK was already deleted. The canonical seed ID is `ai.friday.assistant`; no compatibility with `com.jarvis.app` is required. This is a one-time pre-seed migration, not an in-place update. The first install remains gated on production signing, secure update metadata, same-key upgrade continuity for subsequent releases, and all Objective A/G acceptance evidence."
+)
 if "Fresh Friday identity baseline" not in s:
     marker = "# FRIDAY"
+    if marker not in s:
+        raise SystemExit("Canonical delivery-plan title not found.")
     section = """
 
 ## Fresh Friday identity baseline (2026-11-21)
 
-The owner confirmed the previous Friday APK had already been deleted and explicitly authorized a clean application identity. The canonical Android application ID, Gradle namespace and Kotlin base package are ai.friday.assistant. All source/test package trees, manifest component references, build filters, signing metadata, release metadata, repository instructions and active product references must use this identity. The prior package identifier is not a compatibility target. Historical donor research remains non-authoritative evidence and must never define live app destinations, endpoints or product truth.
+The owner explicitly authorized a clean application identity and confirmed the previous APK had already been deleted. The canonical Android application ID, Gradle namespace and Kotlin base package are ai.friday.assistant. All source/test package trees, manifest component references, build filters, signing metadata, release metadata, repository instructions and active product references must use this identity. The previous application ID is not a compatibility target. Historical donor research remains non-authoritative evidence and must never define live app destinations, endpoints or product truth.
 
-The first clean Friday build must compile and pass unit tests, produce a correctly identified APK, pass emulator instrumentation and then undergo separate physical-phone acceptance. A clean rename is not proof that the inherited architecture is correct: the next engineering pass must audit and reconnect the real production composition, offline inference/memory, voice/action routes, model and embedding destinations, permissions and update path before the permanent seed is approved.
+A clean rename is not proof that inherited architecture is correct. After migration, audit and reconnect the actual production composition, offline inference and memory, voice/action routes, model and embedding destinations, permissions and update path before the permanent seed is approved.
 """
-    if marker not in s:
-        raise SystemExit("Could not find delivery plan title")
     s = s.replace(marker, marker + section, 1)
-    plan.write_text(s)
+plan.write_text(s)
 
-# The migration is one-shot. Remove its own trigger, script and workflow from the final tree.
-for path in (
+# Retire the old one-off repository-unification audit; the delivery plan is authoritative.
+obsolete = ROOT / ".ralph/REPO_UNIFICATION_AUDIT.md"
+if obsolete.exists():
+    git("rm", "-f", str(obsolete.relative_to(ROOT)))
+
+# Remove the temporary one-shot migration machinery from the resulting commit.
+for relative in (
     "scripts/perform_friday_identity_migration.sh",
     ".github/workflows/friday-identity-migration.yml",
     ".friday-identity-migration.trigger",
 ):
-    if Path(path).exists():
-        git("rm", "-f", path)
-subprocess.run(["git", "diff", "--check"], check=True)
+    path = ROOT / relative
+    if path.exists():
+        git("rm", "-f", relative)
+
+git("diff", "--check")
+print(f"Friday identity normalized in {changed} text files; external URLs preserved.")
 print("FRIDAY_IDENTITY_MIGRATION_PREPARED")
-PY
