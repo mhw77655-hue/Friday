@@ -1,6 +1,8 @@
 name: build
 
 on:
+  push:
+    branches: [ main ]
   workflow_dispatch:
 
 concurrency:
@@ -26,15 +28,15 @@ jobs:
       # mobile/app/build.gradle.kts (compileOptions source/targetCompatibility =
       # VERSION_17, kotlin compilerOptions jvmTarget = JVM_17) and the root
       # build.gradle.kts (AGP 8.10.0, which requires JDK 17).
-      - name: Verify Ralph receives the owner's vision and direct words
+      - name: Verify Friday's canonical vision and repository authority
         run: bash .ralph/owner_vision_check.sh
 
-      - name: Set up Python for Friday builder contract tests
+      - name: Set up Python for Android harness contract tests
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Test Friday repository-builder safety contracts
+      - name: Test Android harness and build contracts
         run: python3 -m unittest discover -s tools/friday-builder -p 'test_*.py' -v
 
       - name: Set up Go for workflow lint
@@ -103,7 +105,7 @@ jobs:
           set -euo pipefail
           BADGING="$RUNNER_TEMP/friday-apk-badging.txt"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging mobile/app/build/outputs/apk/debug/app-debug.apk | tee "$BADGING"
-          if ! grep -Eq "^application: label='FRIDAY' icon='[^']+'" "$BADGING"; then
+          if ! grep -Eq "^application: label='Friday' icon='[^']+'" "$BADGING"; then
             echo "::error::The built Friday APK has no resolvable launcher icon."
             exit 1
           fi
