@@ -100,26 +100,26 @@ class FridayPhoneDecisionToolTest {
         assertEquals(FridayPhoneDecisionTool.Source.FRIDAY_LOCAL_POLICY, result.source)
     }
 
-    @Test fun `Jev rejection is preserved`() = runBlocking {
+    @Test fun `Jev rejection is preserved for a consequential action`() = runBlocking {
         val tool = FridayPhoneDecisionTool { _, _, _ ->
             JevActionDecision("reject", 0.99, mapOf("reject" to 0.99))
         }
         val result = tool.judge(
-            utterance = "open settings",
-            command = PhoneCommandInterpreter.parse("open settings")!!,
+            utterance = "tap Settings",
+            command = PhoneCommandInterpreter.parse("tap Settings")!!,
             remoteConfigured = true
         )
         assertEquals(FridayPhoneDecisionTool.Verdict.REJECT, result.verdict)
         assertEquals(FridayPhoneDecisionTool.Source.TYPESAFE_JEV, result.source)
     }
 
-    @Test fun `uncertain Jev decision requires confirmation`() = runBlocking {
+    @Test fun `uncertain Jev decision requires confirmation for a consequential action`() = runBlocking {
         val tool = FridayPhoneDecisionTool { _, _, _ ->
             JevActionDecision("execute", 0.65, mapOf("execute" to 0.65, "confirm" to 0.35))
         }
         val result = tool.judge(
-            utterance = "open settings",
-            command = PhoneCommandInterpreter.parse("open settings")!!,
+            utterance = "tap Settings",
+            command = PhoneCommandInterpreter.parse("tap Settings")!!,
             remoteConfigured = true
         )
         assertEquals(FridayPhoneDecisionTool.Verdict.CONFIRM, result.verdict)
