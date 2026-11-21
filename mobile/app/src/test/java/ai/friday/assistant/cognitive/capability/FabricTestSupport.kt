@@ -11,13 +11,19 @@ import ai.friday.assistant.failure.FailureSurface
 /** A controllable fake capability — never touches a real tool. */
 class FakeCapability(
     override val descriptor: CapabilityDescriptor,
-    private var behavior: suspend (ActionRequest) -> ExecutionResult = { ExecutionResult.ok() }
+    private var behavior: suspend (ActionRequest) -> ExecutionResult = { ExecutionResult.ok() },
+    private val verifier: suspend (ActionRequest, ExecutionResult) -> Boolean = { _, _ -> true }
 ) : Capability {
     var calls = 0
     override suspend fun invoke(request: ActionRequest): ExecutionResult {
         calls++
         return behavior(request)
     }
+
+    override suspend fun verifyPostcondition(
+        request: ActionRequest,
+        result: ExecutionResult
+    ): Boolean = verifier(request, result)
 
     fun failWith(result: ExecutionResult) {
         behavior = { result }
