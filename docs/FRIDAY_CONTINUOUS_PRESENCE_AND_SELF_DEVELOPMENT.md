@@ -67,8 +67,8 @@ The old in-app ToolBuilder and localhost BuildTwin prototype have been removed f
 
 - Generate and package the source/architecture index from the real Android source tree.
 - Turn self-study findings into a prioritized, deduplicated development queue.
-- Let Friday invoke ToolBuilder on safe, bounded tool gaps under a development budget.
-- Expand ToolBuilder beyond the five current declarative behavior types.
+- Connect the local development-request outbox to a private, authenticated repository worker with explicit owner authorization.
+- Let repository workers evaluate safe, bounded capability gaps; never execute generated source inside the Android app.
 - Add local typed-decision calibration and held-out evaluations.
 - Integrate signed build, provenance, install approval and rollback for Android-native improvements.
 - Validate voice control and self-study behavior on the actual Realme 9 Pro 5G, including process death, Doze, thermal load and battery use.
