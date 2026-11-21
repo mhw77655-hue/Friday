@@ -201,6 +201,7 @@ targets = {
     "ImmuneSystemTest": ("*ImmuneSystemTest.xml", ["successful recovery probe resets the budget"]),
     "CircuitBreakerTest": ("*CircuitBreakerTest.xml", ["only one concurrent half open probe is admitted"]),
     "NervousSystemFailureTest": ("*NervousSystemFailureTest.xml", [
+        "retry failures trip circuit at threshold and stop further attempts",
         "retry controller honors configured attempt budget before breaker threshold",
         "aggregate cap never discards active failures when all entries are active",
     ]),
