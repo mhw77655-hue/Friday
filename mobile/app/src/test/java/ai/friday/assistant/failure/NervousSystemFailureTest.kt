@@ -104,11 +104,13 @@ class NervousSystemFailureTest {
     @Test
     fun `aggregate history evicts resolved incidents before active incidents`() {
         val surface = FailureSurface(nowMs = { 1_000L }, maxAggregates = 2)
-        val first = report(surface, message = "resolved one")
-        surface.recover(first.dedupeKey, RecoveryResult.SUCCESS, "fixed", RecoveryAction.RETRY)
-        val second = report(surface, message = "still active")
-        val third = report(surface, message = "resolved two")
-        surface.recover(third.dedupeKey, RecoveryResult.SUCCESS, "fixed", RecoveryAction.RETRY)
+        report(surface, message = "resolved one")
+        val firstKey = surface.currentFailures.value.single().key
+        surface.recover(firstKey, RecoveryResult.SUCCESS, "fixed", RecoveryAction.RETRY)
+        report(surface, message = "still active")
+        report(surface, message = "resolved two")
+        val thirdKey = surface.currentFailures.value.single { it.messageKey == "resolved two" }.key
+        surface.recover(thirdKey, RecoveryResult.SUCCESS, "fixed", RecoveryAction.RETRY)
 
         // A new incident evicts the oldest resolved history, not the active one.
         report(surface, message = "new incident")
