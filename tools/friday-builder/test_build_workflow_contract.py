@@ -54,7 +54,7 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn("x86_64 software emulation is too slow and unreliable", self.workflow)
         self.assertIn("-memory 3072 -cores 2", self.workflow)
 
-    def test_workflow_dispatch_is_available_for_trusted_publisher(self):
+    def test_manual_workflow_dispatch_is_available_for_recovery(self):
         self.assertIn("workflow_dispatch:", self.workflow)
 
 
