@@ -74,32 +74,33 @@ if [[ "$status" -eq 0 ]]; then
   exit 1
 fi
 
-# A compiler/configuration failure is not a killed mutant. Require both
-# independent test classes to contain assertion failures in their JUnit XML.
+# A compiler/configuration failure is not a killed mutant. Require the exact
+# regression test for each deliberately introduced defect to fail in JUnit XML.
 python3 - <<'PY'
 from pathlib import Path
-import sys
 import xml.etree.ElementTree as ET
 root = Path("mobile/app/build/test-results/testDebugUnitTest")
-patterns = {
-    "RiskGateTest": "*RiskGateTest.xml",
-    "CapabilityExecutorTest": "*CapabilityExecutorTest.xml",
-    "ImmuneSystemTest": "*ImmuneSystemTest.xml",
+targets = {
+    "RiskGateTest": ("*RiskGateTest.xml", "high risk gate rejects every authorization combination"),
+    "CapabilityExecutorTest": ("*CapabilityExecutorTest.xml", "invocation success without independent postcondition verification"),
+    "ImmuneSystemTest": ("*ImmuneSystemTest.xml", "successful recovery probe resets the budget"),
 }
-for name, pattern in patterns.items():
+for suite_name, (pattern, expected_test) in targets.items():
     files = list(root.glob(pattern))
     if not files:
-        raise SystemExit(f"MUTATION_INVALID: no JUnit report for {name}; this is not evidence the mutant was killed.")
-    failures = 0
-    tests = 0
+        raise SystemExit(f"MUTATION_INVALID: no JUnit report for {suite_name}; this is not evidence the mutant was killed.")
+    matched = []
     for file in files:
         suite = ET.parse(file).getroot()
-        failures += int(suite.attrib.get("failures", "0"))
-        failures += int(suite.attrib.get("errors", "0"))
-        tests += int(suite.attrib.get("tests", "0"))
-    if tests == 0 or failures == 0:
-        raise SystemExit(f"MUTATION_SURVIVED: {name} had {tests} tests and {failures} failures.")
-    print(f"MUTATION_KILLED: {name}: {tests} tests, {failures} assertion/error failures.")
+        for case in suite.findall(".//testcase"):
+            if expected_test.lower() in case.attrib.get("name", "").lower():
+                failed = case.find("failure") is not None or case.find("error") is not None
+                matched.append((case.attrib.get("name", ""), failed))
+    if not matched:
+        raise SystemExit(f"MUTATION_INVALID: expected regression test '{expected_test}' was not present in {suite_name} report.")
+    if not any(failed for _, failed in matched):
+        raise SystemExit(f"MUTATION_SURVIVED: {suite_name} did not fail its targeted regression test: {matched}")
+    print(f"MUTATION_KILLED: {suite_name}: {matched}")
 PY
 
 restore_sources
