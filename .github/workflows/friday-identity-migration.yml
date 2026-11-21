@@ -55,8 +55,7 @@ jobs:
       - name: Execute complete identity and repository normalization
         run: |
           set -euo pipefail
-          chmod +x scripts/perform_friday_identity_migration.sh
-          bash scripts/perform_friday_identity_migration.sh
+          python3 scripts/perform_friday_identity_migration.sh
           git diff --check
 
       - name: Verify package identity and source tree
