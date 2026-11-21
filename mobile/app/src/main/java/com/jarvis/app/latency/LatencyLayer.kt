@@ -1,7 +1,7 @@
 package com.jarvis.app.latency
 
 import android.content.Context
-import com.jarvis.app.ObsidianSync
+import com.jarvis.app.LocalTurnJournal
 import com.jarvis.app.companioncore.engine.BridgePhase
 import com.jarvis.app.companioncore.engine.BridgeStatusClassifier
 import com.jarvis.app.companioncore.presence.CompanionCoreHolder
@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicLong
  * model, and adds the user turn. Nothing here blocks.
  *
  * **Slow path** (runs on a dedicated single-thread executor): the existing
- * context, blocking Obsidian vault write, and `CognitiveEngine.process` /
+ * context, bounded app-private turn journal write, and `CognitiveEngine.process` /
  * `ModelManager.send` run off the UI thread. The deep answer is completed by
  * Friday's reply-delivery boundary and speech output.
  *
@@ -177,7 +177,7 @@ object LatencyLayer {
                 scheduleDelayed = { ms, block -> scope.launch { delay(ms); block() } },
                 ackSpeak = { AckSpeech.fastSpeak(it) },
                 fullSpeak = { speakReply(it) },
-                logObsidian = { fromJarvis, text -> ObsidianSync.logTurn(fromJarvis, text) },
+                logTurn = { fromFriday, text -> LocalTurnJournal.logTurn(fromFriday, text) },
                 warmPrime = { WarmupEngine.start(); WarmupEngine.prime() },
                 reactorSubmitted = { CompanionCoreHolder.instance()?.integration?.onUserSubmitted() },
                 reactorFastPathAck = { CompanionCoreHolder.instance()?.integration?.onFastPathAck() },
@@ -248,7 +248,7 @@ object LatencyLayer {
 
 /**
  * The latency pipeline itself — pure-JVM testable. Every effect (speech,
- * reactor, bridge, Obsidian, context and reply delivery) are injected, so the phase ladder,
+ * reactor, bridge, local journal, context and reply delivery) are injected, so the phase ladder,
  * burst correlation, and fallback behavior are unit-testable without Android.
  *
  * Threading: [onUserInput]'s fast path runs on the caller thread; the slow
@@ -327,7 +327,7 @@ class LatencyPipeline(
             ackSpeak(AckSpeech.pick(ackOverride))
         }
 
-        // Slow path — Friday-owned turn context, Obsidian write and cognitive send.
+        // Slow path — Friday-owned turn context, app-private journal write and cognitive send.
         dispatch {
             runCatching { experienceObserver(text) }
             logObsidian(false, text)
