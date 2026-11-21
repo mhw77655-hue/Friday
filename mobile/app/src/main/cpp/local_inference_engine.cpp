@@ -21,6 +21,7 @@
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
+#include <cmath>
 #include <android/log.h>
 
 #define LOG_TAG "LocalInferenceEngine"
@@ -34,6 +35,7 @@
 struct LlamaModel {
     llama_model* model = nullptr;
     llama_context* ctx = nullptr;
+    std::string model_path;
     LlamaModelConfig config;
     LlamaState state = LLAMA_STATE_DORMANT;
     std::mutex mutex;
@@ -198,13 +200,22 @@ static void prewarm_thread_func(LlamaModel* model) {
 extern "C" {
 
 LlamaModel* llama_model_create(const LlamaModelConfig* config) {
-    if (!config || !config->model_path) {
-        LOGE("Invalid config or model path");
+    if (!config || !config->model_path || config->model_path[0] == '\0' ||
+        config->n_ctx <= 0 || config->n_batch <= 0 || config->n_threads <= 0 ||
+        config->n_gpu_layers < 0 || !std::isfinite(config->temp) || config->temp < 0.0f ||
+        !std::isfinite(config->top_p) || config->top_p <= 0.0f || config->top_p > 1.0f ||
+        config->top_k < 0 || !std::isfinite(config->repeat_penalty) ||
+        config->repeat_penalty <= 0.0f || config->repeat_last_n < 0) {
+        LOGE("Invalid model configuration");
         return nullptr;
     }
 
     auto* model = new LlamaModel();
+    model->model_path = config->model_path;
     model->config = *config;
+    // JNI string storage is released when nativeCreate returns. Keep an owned
+    // copy for the entire model lifetime instead of retaining that pointer.
+    model->config.model_path = model->model_path.c_str();
 
     // llama.cpp backend is process-global. Reference-count it so destroying
     // one model cannot tear down another model that is still using the backend.
@@ -214,6 +225,8 @@ LlamaModel* llama_model_create(const LlamaModelConfig* config) {
     // Model load params
     llama_model_params model_params = llama_model_default_params();
     model_params.n_gpu_layers = config->n_gpu_layers;
+    model_params.use_mmap = config->use_mmap;
+    model_params.use_mlock = config->use_mlock;
     model_params.vocab_only = false;
     model_params.progress_callback = nullptr;
     model_params.progress_callback_user_data = nullptr;
@@ -286,7 +299,7 @@ bool llama_model_prewarm(LlamaModel* model, LlamaProgressCallback progress_cb, v
 }
 
 bool llama_model_wait_ready(LlamaModel* model, int timeout_ms) {
-    if (!model) return false;
+    if (!model || timeout_ms < 0) return false;
 
     std::unique_lock<std::mutex> lock(model->mutex);
     auto timeout = std::chrono::milliseconds(timeout_ms);
@@ -345,6 +358,14 @@ const char* llama_model_generate(
     default_config.stream = false;
 
     const LlamaGenerationConfig* gc = gen_config ? gen_config : &default_config;
+    if (gc->max_tokens <= 0 || !std::isfinite(gc->temperature) || gc->temperature < 0.0f ||
+        !std::isfinite(gc->top_p) || gc->top_p <= 0.0f || gc->top_p > 1.0f ||
+        gc->top_k < 0 || !std::isfinite(gc->repeat_penalty) || gc->repeat_penalty <= 0.0f ||
+        gc->stop_sequence_count < 0 || (gc->stop_sequence_count > 0 && !gc->stop_sequences)) {
+        set_error_under_lock(model, "Invalid generation configuration");
+        set_state_under_lock(model, LLAMA_STATE_IDLE);
+        return nullptr;
+    }
 
     // Tokenize prompt
     const llama_vocab* vocab = llama_model_get_vocab(model->model);
@@ -406,7 +427,8 @@ const char* llama_model_generate(
     std::vector<std::string> stop_strings;
     if (gc->stop_sequences && gc->stop_sequence_count > 0) {
         for (int i = 0; i < gc->stop_sequence_count; i++) {
-            stop_strings.emplace_back(gc->stop_sequences[i]);
+            const char* stop = gc->stop_sequences[i];
+            if (stop && stop[0] != '\0') stop_strings.emplace_back(stop);
         }
     }
     stop_strings.emplace_back("</s>");
@@ -497,7 +519,9 @@ const char* llama_model_generate(
     model->metrics.total_tokens = model->prompt_tokens + model->completion_tokens;
 
     auto gen_time = elapsed_ms(model->generation_start);
-    model->metrics.tokens_per_sec = model->completion_tokens / (gen_time / 1000.0f);
+    model->metrics.tokens_per_sec = gen_time > 0
+        ? model->completion_tokens / (gen_time / 1000.0f)
+        : 0.0f;
     model->metrics.current_ram_bytes = process_peak_rss_bytes();
     if (model->metrics.current_ram_bytes > model->metrics.peak_ram_bytes) {
         model->metrics.peak_ram_bytes = model->metrics.current_ram_bytes;
