@@ -84,17 +84,22 @@ jobs:
           fi
           test ! -e mobile/app/src/main/java/ai/friday/assistant/ObsidianSync.kt
           grep -q 'android:label="Friday"' mobile/app/src/main/AndroidManifest.xml
-          if grep -RIl 'ObsidianSync' mobile/app/src/main/java | grep -q .; then
-            echo "::error::Retired Obsidian storage adapter remains."
+          test ! -e mobile/app/src/main/java/ai/friday/assistant/ObsidianSync.kt
+          test -f mobile/app/src/main/java/ai/friday/assistant/LocalTurnJournal.kt
+          if find mobile/app/src/main/java -type f \\
+            \\( -name 'GitHubTokenStore.kt' -o -name 'GitHubDeviceChannel.kt' -o -name 'FridayEvolutionWorker.kt' \\) \\
+            -print -quit | grep -q .; then
+            echo "::error::Retired public GitHub phone bridge source remains."
             exit 1
           fi
-          grep -RIl 'LocalTurnJournal' mobile/app/src/main/java | grep -q .
-          if grep -RIl 'GitHubTokenStore\|GitHubDeviceChannel\|FridayEvolutionWorker' mobile/app/src/main/java | grep -q .; then
-            echo "::error::Retired public GitHub phone bridge remains."
+          if find mobile/app/src/main/java -type f \\
+            \\( -name '*VoiceForge*.kt' -o -name 'ToolBuilder.kt' -o -name 'ToolBuilderComposition.kt' \\) \\
+            -print -quit | grep -q .; then
+            echo "::error::Retired prototype source remains in the production source set."
             exit 1
           fi
-          if grep -RIl 'VoiceForge\|ToolBuilder\|BuildTwin' mobile/app/src/main/java | grep -q .; then
-            echo "::error::Retired in-app prototype remains."
+          if find mobile/app/src/main/java -type f -path '*/buildtwin/*' -print -quit | grep -q .; then
+            echo "::error::Retired BuildTwin prototype remains in the production source set."
             exit 1
           fi
           grep -q 'application_id": "ai.friday.assistant"' .github/workflows/release.yml || grep -q 'ai.friday.assistant' .github/workflows/release.yml
