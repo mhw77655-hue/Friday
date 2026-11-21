@@ -105,8 +105,8 @@ class FridayPhoneDecisionToolTest {
             JevActionDecision("reject", 0.99, mapOf("reject" to 0.99))
         }
         val result = tool.judge(
-            utterance = "open settings",
-            command = PhoneCommandInterpreter.parse("open settings")!!,
+            utterance = "tap Continue",
+            command = PhoneCommandInterpreter.parse("tap Continue")!!,
             remoteConfigured = true
         )
         assertEquals(FridayPhoneDecisionTool.Verdict.REJECT, result.verdict)
@@ -118,10 +118,42 @@ class FridayPhoneDecisionToolTest {
             JevActionDecision("execute", 0.65, mapOf("execute" to 0.65, "confirm" to 0.35))
         }
         val result = tool.judge(
-            utterance = "open settings",
-            command = PhoneCommandInterpreter.parse("open settings")!!,
+            utterance = "tap Continue",
+            command = PhoneCommandInterpreter.parse("tap Continue")!!,
             remoteConfigured = true
         )
         assertEquals(FridayPhoneDecisionTool.Verdict.CONFIRM, result.verdict)
+    }
+
+    @Test fun `low risk local bypass is scoped to low risk commands`() = runBlocking {
+        var lowRiskJevCalls = 0
+        var mediumRiskJevCalls = 0
+        val lowRiskTool = FridayPhoneDecisionTool { _, _, _ ->
+            lowRiskJevCalls++
+            JevActionDecision("reject", 0.99, mapOf("reject" to 0.99))
+        }
+        val mediumRiskTool = FridayPhoneDecisionTool { _, _, risk ->
+            mediumRiskJevCalls++
+            assertEquals("medium", risk)
+            JevActionDecision("reject", 0.99, mapOf("reject" to 0.99))
+        }
+
+        val lowRisk = lowRiskTool.judge(
+            utterance = "go home",
+            command = PhoneCommandInterpreter.parse("go home")!!,
+            remoteConfigured = true
+        )
+        val mediumRisk = mediumRiskTool.judge(
+            utterance = "tap Continue",
+            command = PhoneCommandInterpreter.parse("tap Continue")!!,
+            remoteConfigured = true
+        )
+
+        assertEquals(FridayPhoneDecisionTool.Verdict.EXECUTE, lowRisk.verdict)
+        assertEquals(FridayPhoneDecisionTool.Source.FRIDAY_LOCAL_POLICY, lowRisk.source)
+        assertEquals(0, lowRiskJevCalls)
+        assertEquals(FridayPhoneDecisionTool.Verdict.REJECT, mediumRisk.verdict)
+        assertEquals(FridayPhoneDecisionTool.Source.TYPESAFE_JEV, mediumRisk.source)
+        assertEquals(1, mediumRiskJevCalls)
     }
 }
