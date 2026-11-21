@@ -85,7 +85,9 @@ s = s.replace('applicationId = "com.jarvis.app"', 'applicationId = "ai.friday.as
 s = s.replace('"0.2-phase2"', '"1.0.0-seed"')
 gradle.write_text(s)
 manifest = ROOT / "mobile/app/src/main/AndroidManifest.xml"
-manifest.write_text(manifest.read_text().replace('android:label="FRIDAY"', 'android:label="Friday"'))
+manifest_text = manifest.read_text().replace('android:label="FRIDAY"', 'android:label="Friday"')
+manifest_text = manifest_text.replace('    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />\\n', '')
+manifest.write_text(manifest_text)
 
 facts = """# Friday repository facts
 
@@ -159,6 +161,15 @@ A clean rename is not proof that inherited architecture is correct. After migrat
     s = s.replace(marker, marker + section, 1)
 plan.write_text(s)
 
+archive_review = ROOT / "docs/FRIDAY_SOURCE_ARCHIVE_REVIEW.md"
+if archive_review.exists():
+    review = archive_review.read_text()
+    review = review.replace(
+        "**Status:** extracted and inspected on `audit/friday-device-report-repair`; this is a review record, not a replacement for Venon's vision.",
+        "**Status:** historical source review; branch names and implementation findings are archival evidence only, not active repository instructions."
+    )
+    archive_review.write_text(review)
+
 # Purge retired, disconnected prototypes and stale personal device exports.
 def remove_path(relative):
     target = ROOT / relative
@@ -196,6 +207,7 @@ for relative in (
     "docs/FRIDAY_ARCHITECTURE_TRUTH_AUDIT.md",
     "docs/FRIDAY_TRUSTED_PUBLISHER_SETUP.md",
     "mobile/app/src/main/assets/voiceforge/PROVENANCE.md",
+    "mobile/app/src/main/java/ai/friday/assistant/ObsidianSync.kt",
     "tools/friday-builder/run_proposal.sh",
     "tools/friday-builder/development-request.schema.json",
     "tools/friday-builder/validate_patch_paths.py",
