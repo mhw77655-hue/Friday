@@ -27,8 +27,14 @@ import java.util.concurrent.atomic.AtomicLong
 class FailureSurface(
     private val nowMs: () -> Long = { System.currentTimeMillis() },
     private val maxRecent: Int = 128,
-    private val maxCorrelationsPerAggregate: Int = 8
+    private val maxCorrelationsPerAggregate: Int = 8,
+    private val maxAggregates: Int = 512
 ) {
+    init {
+        require(maxRecent > 0) { "maxRecent must be positive" }
+        require(maxCorrelationsPerAggregate > 0) { "maxCorrelationsPerAggregate must be positive" }
+        require(maxAggregates > 0) { "maxAggregates must be positive" }
+    }
 
     /** Soft turn correlation: the coordinator stamps this at each new turn.
      *  Capture sites that don't know the turn inherit it. */
@@ -145,6 +151,16 @@ class FailureSurface(
         val aggregate = synchronized(lock) {
             val key = report.dedupeKey
             val existing = aggregates[key]
+            if (existing == null) {
+                // Retain active incidents even under pressure. Evict only the
+                // oldest resolved aggregate; if every entry is active, allow
+                // the map to exceed its soft cap rather than hide a live fault.
+                while (aggregates.size >= maxAggregates) {
+                    val resolvedKey = aggregates.entries.firstOrNull { !it.value.isActive }?.key
+                        ?: break
+                    aggregates.remove(resolvedKey)
+                }
+            }
             val updated = if (existing != null) {
                 existing.copy(
                     latestEventId = event.id,
@@ -178,6 +194,9 @@ class FailureSurface(
                     lastUserMessage = userMessage
                 )
             }
+            // Refresh insertion order so later eviction prefers older
+            // resolved history, not a recently re-opened incident.
+            aggregates.remove(key)
             aggregates[key] = updated
             updateStatsFor(event, report.subsystem, statUp = { it.activeFailures++ ; it.totalFailures++ })
             updated

@@ -101,6 +101,31 @@ class NervousSystemFailureTest {
     }
 
     @Test
+    fun `aggregate history evicts resolved incidents before active incidents`() {
+        val surface = FailureSurface(nowMs = { 1_000L }, maxAggregates = 2)
+        val first = report(surface, message = "resolved one")
+        surface.recover(first.dedupeKey, RecoveryResult.SUCCESS, "fixed", RecoveryAction.RETRY)
+        val second = report(surface, message = "still active")
+        val third = report(surface, message = "resolved two")
+        surface.recover(third.dedupeKey, RecoveryResult.SUCCESS, "fixed", RecoveryAction.RETRY)
+
+        // A new incident evicts the oldest resolved history, not the active one.
+        report(surface, message = "new incident")
+        assertTrue(surface.currentFailures.value.any { it.messageKey == "still active" })
+        assertTrue(surface.currentFailures.value.any { it.messageKey == "new incident" })
+        assertFalse(surface.currentFailures.value.any { it.messageKey == "resolved one" })
+        assertEquals(2, surface.currentFailures.value.size)
+    }
+
+    @Test
+    fun `aggregate cap never discards active failures when all entries are active`() {
+        val surface = FailureSurface(nowMs = { 1_000L }, maxAggregates = 1)
+        report(surface, message = "active one")
+        report(surface, message = "active two")
+        assertEquals(2, surface.currentFailures.value.size)
+    }
+
+    @Test
     fun `worst severity escalates and never regresses`() {
         val s = FailureSurface(nowMs = { 1000 })
         assertEquals(FailureSeverity.INFO, s.worstSeverity.value)
