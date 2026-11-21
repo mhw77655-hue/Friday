@@ -53,7 +53,7 @@ The intended development loop is:
 
 `experience → observe a real limitation → preserve bounded evidence → create a durable development request → repository reconstruction → isolated source change → independent CI and evaluation → authorized release → device validation → learn from the outcome`
 
-The current production composition no longer constructs ToolBuilder or connects self-study to a builder. The old ToolBuilder implementation remains in the Android source tree as legacy code and must be removed or relocated into the repository-side development environment before the architecture is considered clean. It is not an approved runtime capability.
+The old in-app ToolBuilder and localhost BuildTwin prototype have been removed from the Android runtime. Source-level construction belongs exclusively to the connected repository development environment. Friday's local self-study and durable development-request outbox are still not connected to a private authenticated repository endpoint; do not claim autonomous source edits or remote repair until that integration is built and independently verified.
 
 ## Resource and scheduling rules
 
