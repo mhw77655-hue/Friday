@@ -110,8 +110,43 @@ class CapabilityExecutorTest {
     private fun executor(fabric: CapabilityFabric, strategy: DecompositionStrategy): Triple<CapabilityExecutor, FakeDriver, GoalPlanner> {
         val planner = GoalPlanner(strategy)
         val driver = FakeDriver(planner, graphOf(strategy))
-        val exec = CapabilityExecutor(fabric, driver, goalPlanner = planner)
+        val exec = CapabilityExecutor(
+            fabric,
+            driver,
+            goalPlanner = planner,
+            // Fake capabilities in this helper model an independently observed
+            // postcondition; dedicated tests exercise the unverified default.
+            evidenceVerifier = { _, invocation -> invocation.success }
+        )
         return Triple(exec, driver, planner)
+    }
+
+    @Test
+    fun `invocation success without independent postcondition verification cannot complete a step`() = runBlocking {
+        val fabric = CapabilityFabric(testImmune(), emit = {})
+        fabric.register(FakeCapability(descriptor("A", operation = "compute_a")))
+        val planner = GoalPlanner(FullStrategy)
+        val driver = FakeDriver(planner, graphOf(FullStrategy))
+        val exec = CapabilityExecutor(
+            fabric,
+            driver,
+            goalPlanner = planner,
+            maxReplans = 0
+            // Intentionally omit evidenceVerifier: the secure default is false.
+        )
+
+        val summary = exec.run()
+
+        assertEquals(ExecutionStatus.FAILED, summary.status)
+        assertEquals(0, summary.stepsCompleted)
+        assertEquals(1, summary.stepsFailed)
+        assertFalse(driver.graph.nodes.first { it.id == "sg1:s1" }.isCompleted)
+        assertTrue(summary.steps.first().result.failure is ActionFailure.Error)
+        assertEquals(
+            "POSTCONDITION_UNVERIFIED",
+            (summary.steps.first().result.failure as ActionFailure.Error).code
+        )
+        assertFalse(driver.events.any { it is CognitiveEvent.StepCompleted })
     }
 
     // -- SUCCESS PATH --------------------------------------------------------
