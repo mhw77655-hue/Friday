@@ -68,7 +68,10 @@ class FileStorage(directory: File) : StoragePort {
     override fun append(store: StoreKind, line: String) {
         val file = fileFor(store)
         synchronized(lockFor(file)) {
-            file.appendText(line + "\n")
+            FileOutputStream(file, true).use { out ->
+                out.write((line + "\n").toByteArray(Charsets.UTF_8))
+                out.fd.sync()
+            }
         }
     }
 
@@ -94,7 +97,10 @@ class FileStorage(directory: File) : StoragePort {
     fun append(file: File, line: String) {
         file.parentFile?.mkdirs()
         synchronized(lockFor(file)) {
-            file.appendText(line)
+            FileOutputStream(file, true).use { out ->
+                out.write(line.toByteArray(Charsets.UTF_8))
+                out.fd.sync()
+            }
         }
     }
 

@@ -47,6 +47,37 @@ class FileStorageAtomicityTest {
     }
 
     @Test
+    fun `concurrent appenders preserve every complete line`() {
+        val directory = tempDir()
+        val start = CountDownLatch(1)
+        val done = CountDownLatch(32)
+        val failures = ConcurrentLinkedQueue<Throwable>()
+        val expected = (0 until 32).map { "failure-$it:" + "y".repeat(2_000) }
+
+        expected.forEach { line ->
+            Thread {
+                try {
+                    start.await()
+                    FileStorage(directory).append(StoreKind.FAILURES, line)
+                } catch (failure: Throwable) {
+                    failures.add(failure)
+                } finally {
+                    done.countDown()
+                }
+            }.start()
+        }
+
+        start.countDown()
+        assertTrue("all appenders should finish", done.await(15, TimeUnit.SECONDS))
+        assertTrue("no appender should fail: $failures", failures.isEmpty())
+        val actual = FileStorage(directory).read(StoreKind.FAILURES)!!
+            .lineSequence().filter { it.isNotBlank() }.toList()
+        assertEquals(expected.toSet(), actual.toSet())
+        assertEquals(expected.size, actual.size)
+        directory.deleteRecursively()
+    }
+
+    @Test
     fun `failed atomic replacement preserves the previous target`() {
         val directory = tempDir()
         val targetDirectory = File(directory, "protected-target").apply { mkdirs() }

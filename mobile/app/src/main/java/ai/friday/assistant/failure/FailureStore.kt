@@ -1,14 +1,16 @@
 package ai.friday.assistant.failure
 
-import ai.friday.assistant.humancore.store.FileStorage
+import ai.friday.assistant.humancore.store.StoragePort
 import ai.friday.assistant.humancore.store.StoreKind
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
-import java.util.concurrent.ConcurrentHashMap
+import java.util.LinkedHashMap
 
 /**
  * Failure memory — persists meaningful failures/recovery evidence to the
@@ -21,48 +23,74 @@ import java.util.concurrent.ConcurrentHashMap
  * [loadRecent]).
  */
 class FailureStore(
-    private val fileStorage: FileStorage,
+    private val fileStorage: StoragePort,
     private val scope: CoroutineScope,
     private val persistMinSeverity: FailureSeverity = FailureSeverity.RECOVERABLE,
     private val maxPersistedIdsInMemory: Int = 512
 ) {
 
-    /** Dedup across restarts: ids already written this session (bounded). */
-    private val seenIds = ConcurrentHashMap.newKeySet<String>()
+    /** Session-local LRU of ids successfully appended (bounded). */
+    private val seenIds = LinkedHashMap<String, Unit>()
+    private val seenLock = Any()
+
+    init {
+        require(maxPersistedIdsInMemory > 0) { "maxPersistedIdsInMemory must be positive" }
+    }
+
+    private fun hasSeen(id: String): Boolean = synchronized(seenLock) {
+        seenIds.containsKey(id)
+    }
+
+    private fun markSeen(id: String) = synchronized(seenLock) {
+        seenIds[id] = Unit
+        while (seenIds.size > maxPersistedIdsInMemory) {
+            val oldest = seenIds.entries.iterator()
+            if (!oldest.hasNext()) break
+            oldest.next()
+            oldest.remove()
+        }
+    }
 
     /** Attach to a live surface and persist every new meaningful event. */
     fun attach(surface: FailureSurface) {
         scope.launch {
-            surface.recentFailures.collectLatest { events ->
-                // Newest first; only events not seen before, above threshold.
+            // collect, not collectLatest: cancelling an in-flight append when a
+            // new snapshot arrives can lose events after their ids are marked.
+            surface.recentFailures.collect { events ->
                 val fresh = events.filter { ev ->
-                    ev.severity.rank >= persistMinSeverity.rank && seenIds.add(ev.id)
+                    ev.severity.rank >= persistMinSeverity.rank && !hasSeen(ev.id)
                 }.asReversed() // oldest → newest for append order
-                if (fresh.isEmpty()) return@collectLatest
-                persist(fresh)
-                trimSeen()
+                if (fresh.isNotEmpty()) persist(fresh)
             }
         }
     }
 
-    private suspend fun persist(events: List<FailureEvent>) {
-        withContext(Dispatchers.IO) {
-            try {
-                for (e in events) {
-                    fileStorage.append(StoreKind.FAILURES, toJson(e).toString())
+    private suspend fun persist(events: List<FailureEvent>) = withContext(Dispatchers.IO) {
+        for (event in events) {
+            var attempt = 0
+            var persisted = false
+            while (attempt < 3 && !persisted) {
+                try {
+                    fileStorage.append(StoreKind.FAILURES, toJson(event).toString())
+                    markSeen(event.id)
+                    persisted = true
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    attempt++
+                    if (attempt < 3) {
+                        delay(100L shl (attempt - 1))
+                    } else {
+                        android.util.Log.w("FailureStore", "persist failed after $attempt attempts", failure)
+                    }
                 }
-            } catch (t: Throwable) {
-                // Failure persistence must never take the body down. The
-                // in-memory surface is the source of truth; disk is best-effort.
-                // Deliberately logging-only here: re-reporting a storage failure
-                // of the storage layer would recurse.
-                android.util.Log.w("FailureStore", "persist failed", t)
             }
         }
     }
 
     /** Load the most recent persisted failures (newest first). Best-effort. */
     fun loadRecent(limit: Int = 50): List<FailureEvent> {
+        if (limit <= 0) return emptyList()
         return try {
             val content = fileStorage.read(StoreKind.FAILURES)
                 ?: return emptyList()
@@ -76,20 +104,6 @@ class FailureStore(
         } catch (t: Throwable) {
             android.util.Log.w("FailureStore", "load failed", t)
             emptyList()
-        }
-    }
-
-    private fun trimSeen() {
-        if (seenIds.size <= maxPersistedIdsInMemory) return
-        // Drop oldest ids — bounded memory.
-        val toDrop = seenIds.size - maxPersistedIdsInMemory
-        seenIds.iterator().also { itt ->
-            var dropped = 0
-            while (itt.hasNext() && dropped < toDrop) {
-                itt.next()
-                itt.remove()
-                dropped++
-            }
         }
     }
 
