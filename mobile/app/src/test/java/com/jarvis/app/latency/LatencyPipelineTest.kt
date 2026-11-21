@@ -31,7 +31,7 @@ class LatencyPipelineTest {
             scheduleDelayed = { ms, block -> scheduled += ms to block },
             ackSpeak = { spoken += it },
             fullSpeak = { fullSpoken += it },
-            logObsidian = { fromJarvis, text -> logged += fromJarvis to text },
+            logTurn = { fromJarvis, text -> logged += fromJarvis to text },
             warmPrime = {},
             reactorSubmitted = { submitted++ },
             reactorFastPathAck = { fastAck++ },
@@ -66,7 +66,7 @@ class LatencyPipelineTest {
         assertEquals(1, r.spoken.size)
         assertTrue(r.spoken.single().isNotBlank())
         assertEquals(listOf("hello"), r.sent)
-        // User turn is on screen immediately; Obsidian write is off-thread.
+        // User turn is on screen immediately; app-private journal write is off-thread.
         assertEquals(listOf(Turn(fromJarvis = false, text = "hello")), p.turns.value)
         assertEquals(listOf(false to "hello"), r.logged)
     }
