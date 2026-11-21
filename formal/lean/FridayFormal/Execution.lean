@@ -52,7 +52,7 @@ theorem transition_completed_has_evidence
     (hStep : Transition before after)
     (hCompleted : after.phase = Phase.completed) :
     after.postconditionObserved = true ∧ after.independentCheckPassed = true := by
-  cases hStep <;> simp_all [Transition]
+  cases hStep <;> simp_all
 
 inductive Reachable (start : TaskState) : TaskState → Prop where
   | refl : Reachable start start
@@ -79,6 +79,6 @@ theorem execution_cannot_skip_verification
     (hStep : Transition s t)
     (hCompleted : t.phase = Phase.completed) :
     False := by
-  cases hStep <;> simp_all [Transition]
+  cases hStep <;> simp_all
 
 end FridayFormal
