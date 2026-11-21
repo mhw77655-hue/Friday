@@ -161,9 +161,13 @@ class ImmuneSystemTest {
                     }
                 }
             }
-            pool.submit { check(ready.await(2, TimeUnit.SECONDS)); start.countDown() }
-            pool.invokeAll(tasks).forEach { it.get(5, TimeUnit.SECONDS) }
+            val futures = tasks.map { pool.submit(it) }
+            assertTrue(ready.await(2, TimeUnit.SECONDS))
+            start.countDown()
+            assertTrue(enteredRecovery.await(2, TimeUnit.SECONDS))
+            Thread.sleep(50)
             releaseRecovery.countDown()
+            futures.forEach { it.get(5, TimeUnit.SECONDS) }
 
             assertEquals(3, recoveryCalls.get())
             assertEquals(1, maximumActive.get())
