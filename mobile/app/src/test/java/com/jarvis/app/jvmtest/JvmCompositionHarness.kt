@@ -62,17 +62,12 @@ import java.util.concurrent.Executors
  * The model backend is real [OllamaModelBackend] unless [backendOverride] is
  * supplied (tests inject the in-memory FakeModelBackend).
  *
- * VOICE-FORGE-EGYPTIAN-KAREN-TTS: the spoken-reply VoiceForge backend is real
- * [com.jarvis.app.voice.VoiceForgeAdapter] unless [voiceForgeSynthesizerOverride]
- * is supplied (tests swap ONLY the final HTTP hop with a recording fake — every
- * other object on the drive path is the real production class).
  */
 class JvmCompositionHarness(
     private val port: Int = 8081,
     private val ollamaHost: String = "127.0.0.1:8080",
     private val modelId: String = "jarvis-resident:latest",
     private val backendOverride: ModelBackend? = null,
-    private val voiceForgeSynthesizerOverride: com.jarvis.app.voice.VoiceForgeSynthesizer? = null,
     // CONTINUITY-LAW (Gate 3c): the durable local data directory is a constructor
     // param and is PUBLIC, because the durable change log under
     // <dataDir>/identity/change_log.jsonl has to be pointable at a real directory
@@ -235,8 +230,7 @@ class JvmCompositionHarness(
     private val failureSurface = FailureSurface()
 
     // ── What this host has ──────────────────────────────────────────────────
-    // The JVM-safe stores, the real local-model backend, and the real speech
-    // synthesizer (only the final HTTP hop is swappable, by tests).
+    // The JVM-safe stores and a deterministic test-host model backend.
     private val embeddingProvider: EmbeddingProvider = DeterministicEmbedding(dimension = 256)
     val graphStore: MemoryGraphStore = graphStoreOverride ?: InMemoryGraph()
     val registry: CapabilityRegistry = CapabilityRegistry()
@@ -247,19 +241,6 @@ class JvmCompositionHarness(
         )
     }
     val resolvedBackend: ModelBackend = backendOverride ?: OllamaModelBackend(ollamaAdapter)
-    private val voiceForgeSynthesizer: com.jarvis.app.voice.VoiceForgeSynthesizer =
-        voiceForgeSynthesizerOverride ?: com.jarvis.app.voice.VoiceForgeAdapter(null).also {
-            it.configure(
-                com.jarvis.app.voice.VoiceForgeConfig(
-                    authToken = com.jarvis.app.voice.VoiceForgeConfig.DEFAULT_AUTH_TOKEN
-                )
-            )
-        }
-    val voiceForgeBackend = com.jarvis.app.voice.VoiceForgeBackend(
-        synthesizer = voiceForgeSynthesizer,
-        audioPromptPath = com.jarvis.app.voice.VoiceForgeConfig.DEFAULT_ASSET_PATH
-    )
-
     // BUILD-TWIN-ARM64-VERIFICATION: the real ARM64 verification twin gate,
     // constructed on this host's composition exactly like the other real model
     // subsystems. The voiceforge health probe is a real HTTP GET to /health on
