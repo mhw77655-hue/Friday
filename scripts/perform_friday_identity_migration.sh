@@ -144,10 +144,14 @@ facts = """# Friday repository facts
 
 plan = ROOT / ".ralph/FRIDAY_DELIVERY_PLAN.md"
 s = plan.read_text()
-s = s.replace(
-    "**Package/application ID is a protected migration decision, not a text replacement.** The existing Android `applicationId` is `com.jarvis.app`, and a historical device report records that package on the owner's phone. Changing it creates a different Android package and can break in-place update continuity and access to existing app data. Do not change it until the owner explicitly approves a migration strategy and the team proves the current installed state, signing identity, data transfer/continuity, and rollback. Until that gate is met, remove Jarvis from visible branding and safe internal class names while retaining the installed package ID as a compatibility identifier. If the owner chooses a new ID before the permanent seed, treat that as a deliberate one-time identity migration—not an ordinary cleanup.",
-    "**Package/application ID migration — owner decision resolved (2026-11-21).** The owner explicitly authorized a fresh application identity and confirmed the old APK was already deleted. The canonical seed ID is `ai.friday.assistant`; no compatibility with `com.jarvis.app` is required. This is a one-time pre-seed migration, not an in-place update. The first install remains gated on production signing, secure update metadata, same-key upgrade continuity for subsequent releases, and all Objective A/G acceptance evidence."
-)
+identity_start = s.find("**Package/application ID is a protected migration decision")
+identity_end = s.find("\n\n**Cleanup acceptance:**", identity_start)
+identity_replacement = "**Package/application ID migration — owner decision resolved (2026-11-21).** The owner explicitly authorized a fresh application identity and confirmed the old APK was already deleted. The canonical seed ID is \`ai.friday.assistant\`; no compatibility with the former package is required. This is a one-time pre-seed migration, not an in-place update. The first install remains gated on production signing, secure update metadata, same-key upgrade continuity for subsequent releases, and all Objective A/G acceptance evidence."
+if identity_start >= 0 and identity_end > identity_start:
+    s = s[:identity_start] + identity_replacement + s[identity_end:]
+elif "Package/application ID migration — owner decision resolved" not in s:
+    raise SystemExit("Could not resolve the package identity gate in the delivery plan.")
+
 if "Fresh Friday identity baseline" not in s:
     marker = "# FRIDAY"
     if marker not in s:
