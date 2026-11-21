@@ -5,7 +5,7 @@ OUT="${1:-friday-release.p12}"
 ALIAS="friday-release"
 
 if ! command -v keytool >/dev/null 2>&1; then
-  echo "keytool is required. Install a JDK (Termux: pkg install openjdk-17)." >&2
+  echo "keytool is required. Install a JDK 17 or newer." >&2
   exit 2
 fi
 if [[ -e "$OUT" ]]; then
