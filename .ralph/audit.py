@@ -1108,18 +1108,22 @@ def module_literal_sets(lines):
         if not m:
             i += 1
             continue
-        buf, depth, j = lines[i], 0, i
+        # Start with an empty buffer: seeding it with lines[i] and then
+        # appending lines[i] again duplicated the assignment header inside the
+        # literal body, falsely treating RECIPES / OTHER as literal members.
+        buf, depth, j = "", 0, i
         while j < len(lines):
+            buf += ("\n" if buf else "") + lines[j]
             for ch in lines[j]:
                 if ch in "[{":
                     depth += 1
                 elif ch in "]}":
                     depth -= 1
-            buf += "\n" + lines[j]
             j += 1
             if depth <= 0:
                 break
-        body = buf[buf.index("[") if "[" in buf else buf.index("{"):]
+        opening = min(pos for pos in (buf.find("["), buf.find("{")) if pos >= 0)
+        body = buf[opening + 1:]
         members = []
         for tok in re.split(r"[,\n]", body):
             tok = tok.strip().strip('"\'')
