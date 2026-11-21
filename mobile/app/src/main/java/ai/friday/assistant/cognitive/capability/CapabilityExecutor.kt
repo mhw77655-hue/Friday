@@ -54,7 +54,8 @@ class CapabilityExecutor(
     private val evidenceLedger: CapabilityEvidenceLedger? = null,
     private val evidenceSessionId: String = java.util.UUID.randomUUID().toString(),
     /** Independent postcondition check; an invocation's own success flag is not verification. */
-    private val evidenceVerifier: (ActionRequest, CapabilityInvocation) -> Boolean = { _, _ -> false }
+    private val evidenceVerifier: suspend (ActionRequest, CapabilityInvocation) -> Boolean =
+        { request, invocation -> fabric.invoker.verifyPostcondition(request, invocation) }
 ) {
 
     var state: ExecutionState = ExecutionState()
@@ -280,7 +281,13 @@ class CapabilityExecutor(
         val result = CapabilityActionPort.toExecutionResult(invocation)
         val invocationSucceeded = result.success && !invocation.refused
         val independentlyVerified = if (invocationSucceeded) {
-            runCatching { evidenceVerifier(request, invocation) }.getOrDefault(false)
+            try {
+                evidenceVerifier(request, invocation)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                false
+            }
         } else false
         // A capability's success flag proves only that it accepted/completed its
         // invocation. It does not prove the requested postcondition happened.
