@@ -18,7 +18,7 @@ SPEC.loader.exec_module(AUDIT)
 
 class VisionAuditCoreTests(unittest.TestCase):
     def test_vision_slices_only_the_requested_section(self):
-        raw = "## 4. Rule\\nliquid rule\\n## 12. Disclosures\\nknown issue\\n## 13. Checklist\\nquestion?"
+        raw = "## 4. Rule\nliquid rule\n## 12. Disclosures\nknown issue\n## 13. Checklist\nquestion?"
         self.assertEqual("liquid rule", AUDIT.Vision._slice(raw, "4"))
         self.assertEqual("question?", AUDIT.Vision._slice(raw, "13"))
 
@@ -46,9 +46,9 @@ class VisionAuditCoreTests(unittest.TestCase):
             "Does this describe a representation as if it were what the underlying thing is?",
         ]
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False) as fh:
-            fh.write("## 4. Rule\\nThe mechanism remains open.\\n## 13. Checklist\\n")
-            fh.write("\\n".join("- " + q for q in questions))
-            fh.write("\\n")
+            fh.write("## 4. Rule\nThe mechanism remains open.\n## 13. Checklist\n")
+            fh.write("\n".join("- " + q for q in questions))
+            fh.write("\n")
             path = fh.name
         try:
             vision = AUDIT.Vision(path)
@@ -68,8 +68,8 @@ class VisionAuditCoreTests(unittest.TestCase):
         self.assertEqual([], AUDIT.enum_members(source, "Missing"))
 
     def test_function_body_returns_only_the_requested_braced_function(self):
-        source = "fun before() = 1\\nfun target() {\\n  if (true) { return 2 }\\n}\\nfun after() = 3"
-        self.assertEqual("fun target() {\\n  if (true) { return 2 }\\n}", AUDIT.function_body(source, "target", 2))
+        source = "fun before() = 1\nfun target() {\n  if (true) { return 2 }\n}\nfun after() = 3"
+        self.assertEqual("fun target() {\n  if (true) { return 2 }\n}", AUDIT.function_body(source, "target", 2))
         self.assertEqual("", AUDIT.function_body(source, "target", 0))
         self.assertEqual("", AUDIT.function_body(source, "target", 99))
 
@@ -100,7 +100,7 @@ class VisionAuditCoreTests(unittest.TestCase):
         self.assertEqual(["MAX_RETRIES", "WINDOW_MS"], [v[0] for v in values])
 
     def test_constructor_parameter_lines_do_not_capture_function_parameters(self):
-        source = "class Engine(\\n    val input: Input,\\n    val output: Output\\n) {\\n    fun verify(\\n        baseline: ReplayResult,\\n        current: ReplayResult\\n    ) = true\\n}"
+        source = "class Engine(\n    val input: Input,\n    val output: Output\n) {\n    fun verify(\n        baseline: ReplayResult,\n        current: ReplayResult\n    ) = true\n}"
         cf = SimpleNamespace(text=source, added={1: "class Engine("})
         self.assertEqual({1, 2, 3, 4}, AUDIT.type_param_lines(cf))
 
@@ -122,7 +122,7 @@ class VisionAuditCoreTests(unittest.TestCase):
 
     def test_repo_index_finds_class_interface_and_object(self):
         with tempfile.TemporaryDirectory() as root:
-            Path(root, "Types.kt").write_text("class Engine\\ninterface Port\\nobject Registry\\n", encoding="utf-8")
+            Path(root, "Types.kt").write_text("class Engine\ninterface Port\nobject Registry\n", encoding="utf-8")
             repo = AUDIT.Repo(scan_from=root)
             self.assertEqual("class", repo.declared_type("Engine")[0])
             self.assertEqual("interface", repo.declared_type("Port")[0])
@@ -132,7 +132,7 @@ class VisionAuditCoreTests(unittest.TestCase):
 
     def test_diff_from_paths_marks_every_line_as_added(self):
         with tempfile.NamedTemporaryFile("w", encoding="utf-8", suffix=".kt", dir=ROOT, delete=False) as fh:
-            fh.write("class NewEngine\\nfun run() = true\\n")
+            fh.write("class NewEngine\nfun run() = true\n")
             absolute = Path(fh.name)
         try:
             relative = absolute.relative_to(ROOT).as_posix()

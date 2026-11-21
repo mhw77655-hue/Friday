@@ -96,19 +96,19 @@ class AndroidSystemReadinessTests(unittest.TestCase):
         from types import SimpleNamespace
         from unittest.mock import patch
 
-        with patch("wait_for_android_system.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="ready\\n", stderr="")):
+        with patch("wait_for_android_system.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="ready\n", stderr="")):
             self.assertEqual("ready", run_adb("shell", "getprop"))
         with patch("wait_for_android_system.subprocess.run", return_value=SimpleNamespace(returncode=1, stdout="out", stderr="err")):
-            self.assertEqual("out\\nerr", run_adb("shell", "broken"))
+            self.assertEqual("out\nerr", run_adb("shell", "broken"))
 
     def test_probe_state_queries_each_readiness_dependency(self):
         from wait_for_android_system import probe_state
         from unittest.mock import patch
 
-        with patch("wait_for_android_system.run_adb", side_effect=["1", "package:android", "0", "private mounted\\nemulated mounted"]) as run:
+        with patch("wait_for_android_system.run_adb", side_effect=["1", "package:android", "0", "private mounted\nemulated mounted"]) as run:
             state = probe_state()
         self.assertEqual("1", state["boot_completed"])
-        self.assertEqual("private mounted\\nemulated mounted", state["storage_volumes"])
+        self.assertEqual("private mounted\nemulated mounted", state["storage_volumes"])
         self.assertEqual(4, run.call_count)
 
 
