@@ -102,6 +102,15 @@ class FailureStore(
             }
         }
 
+        fun drainRetryBacklog() {
+            synchronized(retryLock) {
+                while (retryBacklog.isNotEmpty()) {
+                    val oldest = retryBacklog.first()
+                    if (enqueue(oldest)) retryBacklog.removeFirst() else break
+                }
+            }
+        }
+
         val listener: (FailureEvent) -> Unit = { event ->
             synchronized(retryLock) {
                 // Give previously failed appends priority over new incidents.
@@ -123,6 +132,10 @@ class FailureStore(
                         // back in the retry backlog for the next arrival.
                         pendingIds.remove(event.id)
                         synchronized(retryLock) { defer(event) }
+                    } else {
+                        // Keep draining previously overflowed incidents even
+                        // when no new FailureSurface event arrives.
+                        drainRetryBacklog()
                     }
                 } finally {
                     pendingIds.remove(event.id)

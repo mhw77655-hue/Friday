@@ -253,6 +253,42 @@ class FailureStoreTest {
     }
 
     @Test
+    fun `queue and retry backlog overflow are explicit and all accepted events drain`() = runBlocking {
+        val total = 2_000
+        val storage = MemoryStorage().apply { appendDelayMs = 1 }
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        try {
+            val store = FailureStore(storage, scope, onStorageFailure = { _, _ -> })
+            val surface = FailureSurface(maxRecent = 16)
+            store.attach(surface)
+            repeat(total) { index ->
+                surface.report(FailureReport(
+                    subsystem = "OVERLOAD",
+                    operation = "burst",
+                    severity = FailureSeverity.RECOVERABLE,
+                    category = FailureCategory.UNKNOWN,
+                    message = "overflow-$index"
+                ))
+            }
+
+            withTimeout(20_000) {
+                while (store.persistedEventCount + store.persistenceRetryBacklogOverflowCount < total) {
+                    delay(10)
+                }
+            }
+            assertTrue(store.persistenceQueueOverflowCount > 0)
+            assertTrue(store.persistenceRetryBacklogOverflowCount > 0)
+            assertEquals(
+                total.toLong(),
+                store.persistedEventCount + store.persistenceRetryBacklogOverflowCount
+            )
+            assertEquals(store.persistedEventCount.toInt(), storage.lines.size)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
     fun `nonpositive load limits return an empty result`() {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         try {
