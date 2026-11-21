@@ -353,7 +353,7 @@ class NervousSystemFailureTest {
             }
 
             assertEquals(1, attempts.get())
-            assertTrue(rc.isCircuitOpen("STT_VOSK", "decode"))
+            assertEquals(CircuitBreaker.State.OPEN, rc.breakerState("STT_VOSK", "decode"))
         } finally {
             scope.cancel()
         }
