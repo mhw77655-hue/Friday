@@ -6,6 +6,8 @@
 #include <jni.h>
 #include <string>
 #include <vector>
+#include <cstring>
+#include <cstdlib>
 #include <cstdint>
 #include <limits>
 #include <android/log.h>
