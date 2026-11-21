@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -61,8 +62,11 @@ class NativeLifecycleContractTests(unittest.TestCase):
         self.assertIn("return model->state == LLAMA_STATE_READY || model->state == LLAMA_STATE_IDLE", wait)
 
     def test_inference_text_uses_standard_utf8_not_jni_modified_utf8(self):
-        self.assertNotIn("env->GetStringUTFChars", self.jni)
-        self.assertNotIn("env->ReleaseStringUTFChars", self.jni)
+        # API names may legitimately appear in explanatory comments. Reject
+        # actual JNI call expressions, not documentation text.
+        code = re.sub(r"/\\*.*?\\*/|//[^\\n]*", "", self.jni, flags=re.DOTALL)
+        self.assertIsNone(re.search(r"\\bGetStringUTFChars\\s*\\(", code))
+        self.assertIsNone(re.search(r"\\bReleaseStringUTFChars\\s*\\(", code))
         self.assertIn("jstring_to_utf8(env, prompt)", self.jni)
         self.assertIn('utf8_to_jstring(env, token ? token : "")', self.jni)
         self.assertIn("jstring jResult = utf8_to_jstring(env, result)", self.jni)
