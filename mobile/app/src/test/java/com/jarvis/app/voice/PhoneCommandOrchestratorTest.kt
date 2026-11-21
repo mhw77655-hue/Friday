@@ -238,7 +238,7 @@ class PhoneCommandOrchestratorTest {
             execute = { executions++; PhoneControlResult.Success }
         )
 
-        val result = router.handle("go home")
+        val result = router.handle("tap Continue")
 
         assertTrue(result is PhoneCommandOrchestrator.Outcome.Rejected)
         assertEquals(0, executions)
