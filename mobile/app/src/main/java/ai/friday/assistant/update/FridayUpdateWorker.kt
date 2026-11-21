@@ -26,6 +26,7 @@ class FridayUpdateWorker(
     override suspend fun doWork(): Result {
         val state = FridayUpdateStateStore(applicationContext)
         return try {
+            var retry = false
             when (val result = FridayUpdateClient(applicationContext).checkAndStage()) {
                 is FridayUpdateClient.Result.UpToDate -> {
                     state.clearStaged()
@@ -37,12 +38,13 @@ class FridayUpdateWorker(
                     notifyUpdateReady(result.release.versionName)
                 }
                 is FridayUpdateClient.Result.Rejected -> {
-                    // A missing release or offline endpoint is not a fatal app
-                    // condition. Record it and let the next periodic check retry.
                     state.recordStatus("Update check deferred: ${result.reason}")
+                    // No published release yet is an ordinary state. Transport,
+                    // server and integrity errors retry with WorkManager backoff.
+                    retry = !result.reason.contains("HTTP 404")
                 }
             }
-            Result.success()
+            if (retry) Result.retry() else Result.success()
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (error: Exception) {
