@@ -66,6 +66,22 @@ jobs:
       - name: Test Android harness and build contracts
         run: python3 -m unittest discover -s tools/friday-builder -p 'test_*.py' -v
 
+      - name: Measure Python line and branch coverage
+        run: |
+          python3 -m pip install coverage==7.6.12
+          python3 -m coverage run --branch --source=.ralph,tools/friday-builder -m unittest discover -s tools/friday-builder -p 'test_*.py' -v
+          python3 -m coverage xml -o "$RUNNER_TEMP/friday-python-coverage.xml" --omit='*/test_*.py'
+          python3 -m coverage report --omit='*/test_*.py' -m
+
+      - name: Upload Python coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-python-coverage
+          path: "$RUNNER_TEMP/friday-python-coverage.xml"
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Verify repository authority and capability evidence policy
         run: python3 scripts/verify_repository_truth.py
 
