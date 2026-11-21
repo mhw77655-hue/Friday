@@ -153,8 +153,10 @@ facts = """# Friday repository facts
 plan = ROOT / ".ralph/FRIDAY_DELIVERY_PLAN.md"
 s = plan.read_text()
 identity_start = s.find("**Package/application ID is a protected migration decision")
+if identity_start < 0:
+    identity_start = s.find("**Package/application ID decision — owner authorization recorded")
 identity_end = s.find("\n\n**Cleanup acceptance:**", identity_start)
-identity_replacement = "**Package/application ID migration — owner decision resolved (2026-11-21).** The owner explicitly authorized a fresh application identity and confirmed the old APK was already deleted. The canonical seed ID is `ai.friday.assistant`; no compatibility with the former package is required. This is a one-time pre-seed migration, not an in-place update. The first install remains gated on production signing, secure update metadata, same-key upgrade continuity for subsequent releases, and all Objective A/G acceptance evidence."
+identity_replacement = "**Package/application ID migration — owner decision resolved (2026-11-21).** The owner explicitly authorized the fresh application identity and confirmed the old APK was already deleted. The canonical seed ID is `ai.friday.assistant`; no compatibility with the former package is required. This is a one-time pre-seed migration, not an in-place update. The first install remains gated on production signing, secure update metadata, same-key upgrade continuity for subsequent releases, and all Objective A/G acceptance evidence."
 if identity_start >= 0 and identity_end > identity_start:
     s = s[:identity_start] + identity_replacement + s[identity_end:]
 elif "Package/application ID migration — owner decision resolved" not in s:
