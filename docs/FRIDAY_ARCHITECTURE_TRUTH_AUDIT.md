@@ -1,7 +1,9 @@
-# Friday architecture truth audit
+# Friday architecture truth audit — historical snapshot
 
-**Date:** 2026-11-15  
-**Scope:** Production Android branch `audit/friday-offline-runtime`
+> **Historical, non-authoritative snapshot (2026-11-15).** This audit describes the then-current branch `audit/friday-offline-runtime`, not the current `main` production composition. It contains superseded implementation names and observations (including `JarvisEngine`). Do not use it as a current wiring map or product truth. The active authority is `.ralph/FRIDAY_DELIVERY_PLAN.md`; verify current code and CI before relying on any finding below.
+
+**Original date:** 2026-11-15  
+**Original scope:** Production Android branch `audit/friday-offline-runtime`
 
 This document separates executable behavior from architecture labels and isolated tests. A class existing in the repository is not proof that the production composition uses it. A successful JVM test is not proof of device behavior.
 
