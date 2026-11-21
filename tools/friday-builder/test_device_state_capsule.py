@@ -33,14 +33,14 @@ class DeviceStateCapsuleTests(unittest.TestCase):
         self.assertEqual(
             MODULE.secure_component_setting(
                 "enabled_accessibility_services",
-                "com.jarvis.app/com.jarvis.app.voice.FridayAccessibilityService",
+                "ai.friday.assistant/ai.friday.assistant.voice.FridayAccessibilityService",
                 False,
             ),
             ("settings", "delete", "secure", "enabled_accessibility_services"),
         )
 
     def test_enabled_accessibility_writes_only_the_allowlisted_component(self):
-        component = "com.jarvis.app/com.jarvis.app.voice.FridayAccessibilityService"
+        component = "ai.friday.assistant/ai.friday.assistant.voice.FridayAccessibilityService"
         self.assertEqual(
             MODULE.secure_component_setting("enabled_accessibility_services", component, True),
             ("settings", "put", "secure", "enabled_accessibility_services", component),
@@ -50,7 +50,7 @@ class DeviceStateCapsuleTests(unittest.TestCase):
         self.assertEqual(
             MODULE.secure_component_setting(
                 "enabled_notification_listeners",
-                "com.jarvis.app/com.jarvis.app.JarvisNotificationListener",
+                "ai.friday.assistant/ai.friday.assistant.FridayNotificationListener",
                 False,
             ),
             ("settings", "delete", "secure", "enabled_notification_listeners"),

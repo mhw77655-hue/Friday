@@ -3,14 +3,14 @@
 ONE copy of this file, on the app's classpath, read by the production
 composition, the JVM twin and the tests alike
 (`RecordedTurns.fromClasspath()` in
-`com.jarvis/app/cognition/workspace/ReplayCheck.kt`). A second copy of a
+`com.friday/app/cognition/workspace/ReplayCheck.kt`). A second copy of a
 baseline is a second baseline, which is the exact failure this story exists to
 remove — so if you are about to copy it somewhere else, you are about to break
 the check.
 
 ## Owner-authorized identity baseline
 
-The source transcripts below were captured while the legacy app identity was named JARVIS. The current entity's owner-authorized identity is FRIDAY. The `expectedIdentity` values therefore record the current continuity baseline (`identity:name=Friday`) while preserving the original verbatim turn inputs and their provenance. This is an explicit baseline migration, not a claim that the historical transcript originally said Friday.
+The source transcripts below were captured while the legacy app identity was named FRIDAY. The current entity's owner-authorized identity is FRIDAY. The `expectedIdentity` values therefore record the current continuity baseline (`identity:name=Friday`) while preserving the original verbatim turn inputs and their provenance. This is an explicit baseline migration, not a claim that the historical transcript originally said Friday.
 
 ## What a line is
 
@@ -28,7 +28,7 @@ One recorded turn per line, JSON Lines, append-only:
 By a person, from the real cold-start baseline this repository actually
 produces:
 
-- `identity:name` = `JARVIS` — `FallbackIdentity.name`
+- `identity:name` = `FRIDAY` — `FallbackIdentity.name`
   (`humancore/fallback/FallbackIdentity.kt`), reached in production through
   `SelfModel.identity()` over `HumanCoreIdentitySource`.
 - `identity:version` = `1` — `FallbackIdentity.record.version`.

@@ -20,12 +20,12 @@ signature.
 
 Component: **Cannot be narrowed to a single native component from the
 available evidence.** The d9ca295 diff disables KWS, Vosk AND TTS **all
-three together** in `JarvisEngine.init()` (JarvisEngine.kt), and the commit
+three together** in `FridayEngine.init()` (FridayEngine.kt), and the commit
 explicitly instructs "Re-enable one engine at a time, separately, once each
 is isolated." The diff therefore does not make the specific component
 determinable, and no crash log names one. The three disabled engines were:
-`JarvisKws`, `JarvisVosk`, `JarvisTts`, each posted to its own dedicated
-HandlerThread (`JarvisEngine-KWS` / `JarvisEngine-Vosk` / `JarvisEngine-TTS`)
+`FridayKws`, `FridayVosk`, `FridayTts`, each posted to its own dedicated
+HandlerThread (`FridayEngine-KWS` / `FridayEngine-Vosk` / `FridayEngine-TTS`)
 in the immediate predecessor commit 9c3f09d.
 
 Environment: restricted to arm64-v8a ABI only (per predecessor commit
@@ -42,9 +42,9 @@ at disable time and are not present in the repo.
   replaced: predecessor 9c3f09d "Fix: separate KWS/Vosk/TTS onto dedicated
   threads..." was 2026-07-28 04:38:48 +0300.
 - Last known-good: no later commit is recorded that re-enabled the old
-  JarvisEngine dedicated-thread voice pipeline; the follow-on architectural
+  FridayEngine dedicated-thread voice pipeline; the follow-on architectural
   rework moved voice ownership into `BodyCoordinator.initializeSubsystems()`
-  and removed the JarvisEngine KWS/Vosk/TTS threads entirely.
+  and removed the FridayEngine KWS/Vosk/TTS threads entirely.
 
 ## WHY
 
@@ -80,14 +80,14 @@ required.
 
 - **STOPGAP (landed in d9ca295, 2026-07-28 05:13:15 +0300):** removed the
   three `kwsHandler.post` / `voskHandler.post` / `ttsHandler.post` blocks in
-  `JarvisEngine.init()`, so no voice engine is started on the dedicated
+  `FridayEngine.init()`, so no voice engine is started on the dedicated
   threads. "Body/diagnostics/Orb stay fully functional without it" per the
   commit. Deliberately a stopgap, not a fix — the commit itself instructs a
   separate re-enable of each engine once isolated and confirmed stable.
-- The old `JarvisEngine-KWS/Vosk/TTS` dedicated-thread architecture was
+- The old `FridayEngine-KWS/Vosk/TTS` dedicated-thread architecture was
   subsequently ripped out by a later architectural rework (voice ownership
   moved to `BodyCoordinator.initializeSubsystems()`, which now starts
-  `JarvisVosk` + `JarvisSherpaWhisper` + TTS with a recovery/circuit-breaker
+  `FridayVosk` + `FridaySherpaWhisper` + TTS with a recovery/circuit-breaker
   path). This is a structural change, not evidence that the original crash
   is root-caused.
 
@@ -100,13 +100,13 @@ triggered the crash. No reproduction was recorded at disable time.
 ## STATUS
 
 **bypassed** — the crash-prone native STT stack no longer exists in the tree.
-`JarvisVosk.kt` (org.vosk.*, native libvosk.so JNI) and `JarvisSherpaWhisper.kt`
+`FridayVosk.kt` (org.vosk.*, native libvosk.so JNI) and `FridaySherpaWhisper.kt`
 (com.k2fsa.sherpa.onnx.OfflineRecognizer, native ONNX JNI) — the only plausible
 sources of the `pthread_mutex_lock on a destroyed mutex` FORTIFY crash — were
-deleted (with `JarvisSherpaZipformer`, `VoskBridge`, `SherpaBridge`,
+deleted (with `FridaySherpaZipformer`, `VoskBridge`, `SherpaBridge`,
 `STTArbitrator`), and STT was replaced with the platform `android.speech.SpeechRecognizer`
-(`JarvisSpeechRecognizer` / `PlatformSpeechRecognizerPort`, no JNI, no native
-object lifecycle). TTS (`JarvisTts`, pure `android.speech.tts.TextToSpeech`,
+(`FridaySpeechRecognizer` / `PlatformSpeechRecognizerPort`, no JNI, no native
+object lifecycle). TTS (`FridayTts`, pure `android.speech.tts.TextToSpeech`,
 never implicated) is re-enabled unchanged. The wake-word pass is probed at
 runtime (`HotwordAvailabilityProbe`); where the device's SoundTrigger HAL does
 not support custom keyphrase enrollment the body falls back to manual

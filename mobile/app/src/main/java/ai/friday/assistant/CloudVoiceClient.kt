@@ -1,0 +1,6 @@
+package ai.friday.assistant
+
+object CloudVoiceClient {
+    suspend fun transcribe(samples: ShortArray): String? = null
+    suspend fun speak(text: String): ByteArray? = null
+}

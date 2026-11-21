@@ -885,7 +885,7 @@ def introduced_names(diff, repo):
     """Names this story INTRODUCED, with where and how they were declared.
 
     A name that already existed is not a finding: the pre-existing
-    `JarvisEngine.kt` and `CognitiveEngine.kt` both end in an ownership word,
+    `FridayEngine.kt` and `CognitiveEngine.kt` both end in an ownership word,
     and a story that merely edits them does not introduce the claim. So a
     candidate counts only when the file is new, or when the name is absent from
     the file's own content at the base commit.

@@ -135,21 +135,21 @@ def apply_capsule(data: dict[str, Any]) -> None:
             continue
         if state not in {"granted", "denied"}:
             raise ValueError(f"{key} must be granted, denied or not_applicable in an executable capsule")
-        adb("pm", "grant" if state == "granted" else "revoke", "com.jarvis.app", permission)
+        adb("pm", "grant" if state == "granted" else "revoke", "ai.friday.assistant", permission)
 
     all_files = data["permissions"]["all_files_access"]
     if all_files in {"granted", "denied"}:
-        adb("appops", "set", "com.jarvis.app", "MANAGE_EXTERNAL_STORAGE", "allow" if all_files == "granted" else "deny")
+        adb("appops", "set", "ai.friday.assistant", "MANAGE_EXTERNAL_STORAGE", "allow" if all_files == "granted" else "deny")
 
     accessibility = data["permissions"]["accessibility"] == "granted"
-    accessibility_component = "com.jarvis.app/com.jarvis.app.voice.FridayAccessibilityService"
+    accessibility_component = "ai.friday.assistant/ai.friday.assistant.voice.FridayAccessibilityService"
     adb(*secure_component_setting(
         "enabled_accessibility_services", accessibility_component, accessibility
     ))
     adb("settings", "put", "secure", "accessibility_enabled", "1" if accessibility else "0")
 
     listener = data["permissions"]["notification_listener"] == "granted"
-    listener_component = "com.jarvis.app/com.jarvis.app.JarvisNotificationListener"
+    listener_component = "ai.friday.assistant/ai.friday.assistant.FridayNotificationListener"
     adb(*secure_component_setting(
         "enabled_notification_listeners", listener_component, listener
     ))

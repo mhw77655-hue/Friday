@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(jarvis_native LANGUAGES C CXX)
+project(friday_native LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -33,12 +33,12 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(llama_cpp)
 
 find_library(log_lib log REQUIRED)
-add_library(jarvis_llama_jni SHARED
+add_library(friday_llama_jni SHARED
     llama_jni.cpp
     local_inference_engine.cpp
     tokenizer_wrapper.cpp
 )
-target_link_libraries(jarvis_llama_jni PRIVATE
+target_link_libraries(friday_llama_jni PRIVATE
     llama
     ggml
     ggml-cpu
@@ -46,13 +46,13 @@ target_link_libraries(jarvis_llama_jni PRIVATE
     ${log_lib}
     android
 )
-target_include_directories(jarvis_llama_jni PRIVATE
+target_include_directories(friday_llama_jni PRIVATE
     ${llama_cpp_SOURCE_DIR}/include
     ${llama_cpp_SOURCE_DIR}/ggml/include
     ${llama_cpp_SOURCE_DIR}/ggml/src
     ${CMAKE_SOURCE_DIR}
 )
-target_compile_options(jarvis_llama_jni PRIVATE -fvisibility=hidden)
+target_compile_options(friday_llama_jni PRIVATE -fvisibility=hidden)
 
 # Silero JNI is optional; only compile it when a matching ONNX Runtime library
 # is supplied for this ABI. Speech providers remain independently usable.
@@ -61,16 +61,16 @@ find_library(onnxruntime_lib onnxruntime
     NO_DEFAULT_PATH
 )
 if(onnxruntime_lib)
-    add_library(jarvis_silero_vad SHARED
+    add_library(friday_silero_vad SHARED
         silero_vad/silero_vad_jni.cpp
         silero_vad/silero_vad_engine.cpp
     )
-    target_link_libraries(jarvis_silero_vad PRIVATE ${onnxruntime_lib} ${log_lib} android)
-    target_include_directories(jarvis_silero_vad PRIVATE
+    target_link_libraries(friday_silero_vad PRIVATE ${onnxruntime_lib} ${log_lib} android)
+    target_include_directories(friday_silero_vad PRIVATE
         ${CMAKE_SOURCE_DIR}
         ${CMAKE_SOURCE_DIR}/silero_vad
     )
-    target_compile_options(jarvis_silero_vad PRIVATE -fvisibility=hidden)
+    target_compile_options(friday_silero_vad PRIVATE -fvisibility=hidden)
 endif()
 
 install(FILES ${CMAKE_SOURCE_DIR}/llama_jni.h DESTINATION include)

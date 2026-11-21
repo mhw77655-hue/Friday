@@ -14,7 +14,7 @@
 // ------------------------------------------------------------------
 // JNI Helper macros
 // ------------------------------------------------------------------
-#define JNI_CLASS(name) Java_com_jarvis_app_model_adapters_LocalInferenceEngine_##name
+#define JNI_CLASS(name) Java_ai_friday_assistant_model_adapters_LocalInferenceEngine_##name
 
 // ------------------------------------------------------------------
 // Native handle management
@@ -106,17 +106,17 @@ JNI_CLASS(nativeGetHealth)(JNIEnv* env, jobject thiz, jlong handle) {
 
     LlamaHealth health = llama_model_get_health(model);
 
-    jclass healthClass = env->FindClass("com/jarvis/app/model/adapters/LocalInferenceEngine$NativeHealth");
+    jclass healthClass = env->FindClass("ai/friday/assistant/model/adapters/LocalInferenceEngine$NativeHealth");
     if (!healthClass) return nullptr;
 
-    jmethodID constructor = env->GetMethodID(healthClass, "<init>", "(Lcom/jarvis/app/model/adapters/LocalInferenceEngine$NativeState;ZZLjava/lang/String;JJJFJJJJF)V");
+    jmethodID constructor = env->GetMethodID(healthClass, "<init>", "(Lai/friday/assistant/model/adapters/LocalInferenceEngine$NativeState;ZZLjava/lang/String;JJJFJJJJF)V");
     if (!constructor) return nullptr;
 
     // Map state
-    jclass stateClass = env->FindClass("com/jarvis/app/model/adapters/LocalInferenceEngine$NativeState");
+    jclass stateClass = env->FindClass("ai/friday/assistant/model/adapters/LocalInferenceEngine$NativeState");
     jobject stateEnum = nullptr;
     if (stateClass) {
-        jfieldID valuesField = env->GetStaticFieldID(stateClass, "values", "[Lcom/jarvis/app/model/adapters/LocalInferenceEngine$NativeState;");
+        jfieldID valuesField = env->GetStaticFieldID(stateClass, "values", "[Lai/friday/assistant/model/adapters/LocalInferenceEngine$NativeState;");
         if (valuesField) {
             jobjectArray states = (jobjectArray)env->GetStaticObjectField(stateClass, valuesField);
             if (states && health.state < env->GetArrayLength(states)) {
@@ -317,7 +317,7 @@ JNI_CLASS(nativeDecode)(JNIEnv* env, jobject thiz, jlong handle, jintArray token
 // Version
 JNIEXPORT jstring JNICALL
 JNI_CLASS(nativeVersion)(JNIEnv* env, jobject thiz) {
-    return env->NewStringUTF(jarvis_llama_version());
+    return env->NewStringUTF(friday_llama_version());
 }
 
 JNIEXPORT jstring JNICALL

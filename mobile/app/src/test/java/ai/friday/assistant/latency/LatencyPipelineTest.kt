@@ -1,0 +1,339 @@
+package ai.friday.assistant.latency
+
+import ai.friday.assistant.ui.viewmodel.Turn
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+/**
+ * Latency-layer pipeline — pure JVM, every effect injected so the phase
+ * ladder, burst correlation, and fallback behavior are deterministic:
+ * dispatch runs inline, timers are captured instead of fired, and the clock
+ * is fixed at 0.
+ */
+class LatencyPipelineTest {
+
+    private class Recorder {
+        val spoken = mutableListOf<String>()
+        val fullSpoken = mutableListOf<String>()
+        val sent = mutableListOf<String>()
+        val logged = mutableListOf<Pair<Boolean, String>>()
+        val scheduled = mutableListOf<Pair<Long, () -> Unit>>()
+        var submitted = 0
+        var fastAck = 0
+        var firstSegment = 0
+        var utteranceDone = 0
+        var deliveryCount = 0
+        var status = "ok (local)"
+
+        fun pipeline(): LatencyPipeline = LatencyPipeline(
+            dispatch = { it() },
+            scheduleDelayed = { ms, block -> scheduled += ms to block },
+            ackSpeak = { spoken += it },
+            fullSpeak = { fullSpoken += it },
+            logTurn = { fromFriday, text -> logged += fromFriday to text },
+            warmPrime = {},
+            reactorSubmitted = { submitted++ },
+            reactorFastPathAck = { fastAck++ },
+            reactorFirstSegment = { firstSegment++ },
+            reactorUtteranceDone = { utteranceDone++ },
+            bridgeSend = { sent += it },
+            bridgeStatus = { status },
+            sessionContext = { null },
+            replyDelivery = { reply ->
+                deliveryCount++
+                reply.trim()
+            },
+            nowMs = { 0L }
+        )
+    }
+
+    // ----------------------------------------------------------- fast path
+
+    @Test
+    fun `input runs the fast path then the slow path`() {
+        val r = Recorder()
+        val p = r.pipeline()
+
+        p.onUserInput("hello")
+
+        // Slow path ran inline, so the phase settles on THINKING.
+        assertEquals(LatencyLayer.Phase.THINKING, p.phase.value)
+        // Fast-path seams fired exactly once each.
+        assertEquals(1, r.submitted)
+        assertEquals(1, r.fastAck)
+        // One short spoken ack (non-blank), and the brain got the text.
+        assertEquals(1, r.spoken.size)
+        assertTrue(r.spoken.single().isNotBlank())
+        assertEquals(listOf("hello"), r.sent)
+        // User turn is on screen immediately; app-private journal write is off-thread.
+        assertEquals(listOf(Turn(fromFriday = false, text = "hello")), p.turns.value)
+        assertEquals(listOf(false to "hello"), r.logged)
+    }
+
+    @Test
+    fun `burst sends only ack once within the ack gap`() {
+        val r = Recorder()
+        val p = r.pipeline()
+
+        p.onUserInput("first")
+        p.onUserInput("second")
+
+        assertEquals(1, r.spoken.size) // fixed clock: second ack is inside the gap
+        assertEquals(listOf("first", "second"), r.sent)
+    }
+
+    // ------------------------------------------------------------ completion
+
+    @Test
+    fun `reply completes the exchange end to end`() {
+        val r = Recorder()
+        val p = r.pipeline()
+
+        p.onUserInput("hello")
+        p.onReplyReady("hi there")
+
+        assertEquals(LatencyLayer.Phase.IDLE, p.phase.value)
+        assertEquals(listOf("hi there"), r.fullSpoken)
+        assertEquals(1, r.firstSegment)
+        assertEquals(1, r.utteranceDone)
+        assertEquals(1, r.deliveryCount)
+        assertEquals(
+            listOf(Turn(fromFriday = true, text = "hi there", verified = true)),
+            p.turns.value.filter { it.fromFriday }
+        )
+        assertTrue(r.logged.contains(true to "hi there"))
+    }
+
+    @Test
+    fun `reply delivery boundary normalizes the reply before recording and speech`() {
+        val r = Recorder()
+        val p = r.pipeline()
+
+        p.onUserInput("hello")
+        p.onReplyReady("  hello from Friday  ")
+
+        assertEquals(listOf("hello from Friday"), r.fullSpoken)
+        assertEquals(
+            listOf(Turn(fromFriday = true, text = "hello from Friday", verified = true)),
+            p.turns.value.filter { it.fromFriday }
+        )
+        assertEquals(1, r.deliveryCount)
+    }
+
+    @Test
+    fun `reply without a pending user exchange is discarded as stale`() {
+        val r = Recorder()
+        val p = r.pipeline()
+
+        p.onReplyReady("late reply from an earlier turn")
+
+        assertTrue(r.fullSpoken.isEmpty())
+        assertTrue(p.turns.value.isEmpty())
+        assertEquals(0, r.firstSegment)
+        assertEquals(0, r.utteranceDone)
+        assertEquals(0, r.deliveryCount)
+    }
+
+    @Test
+    fun `burst keeps reply-source correlation (queue head is the source)`() {
+        val r = Recorder()
+        val p = r.pipeline()
+
+        p.onUserInput("first")
+        p.onUserInput("second")
+        p.onReplyReady("reply-1")
+        p.onReplyReady("reply-2")
+
+        assertEquals(
+            listOf("reply-1", "reply-2"),
+            p.turns.value.filter { it.fromFriday }.map { it.text }
+        )
+        assertEquals(2, r.deliveryCount)
+    }
+
+    @Test
+    fun noModelProviderUsesFridayLocalIndividualImmediately() {
+        val spoken = mutableListOf<String>()
+        val sentToModel = mutableListOf<String>()
+        val observed = mutableListOf<String>()
+        val outcomes = mutableListOf<Pair<String, String>>()
+        val p = LatencyPipeline(
+            dispatch = { it() },
+            scheduleDelayed = { _, _ -> },
+            fullSpeak = { spoken += it },
+            bridgeSend = { sentToModel += it },
+            modelFreeReply = { "Friday's local reply to: $it" },
+            modelAvailable = { false },
+            experienceObserver = { observed += it },
+            outcomeObserver = { input, output -> outcomes += input to output }
+        )
+
+        p.onUserInput("hello without a model")
+
+        assertEquals(listOf("hello without a model"), observed)
+        assertTrue(sentToModel.isEmpty())
+        assertEquals(
+            listOf("Friday's local reply to: hello without a model"),
+            p.turns.value.filter { it.fromFriday }.map { it.text }
+        )
+        assertEquals(listOf("Friday's local reply to: hello without a model"), spoken)
+        assertEquals(
+            listOf("hello without a model" to "Friday's local reply to: hello without a model"),
+            outcomes
+        )
+        assertEquals(LatencyLayer.Phase.IDLE, p.phase.value)
+    }
+
+    // ------------------------------------------------------ fallback ladder
+
+    @Test
+    fun `slow reasoning escalates to thinking-long, visually only`() {
+        val r = Recorder()
+        val p = r.pipeline()
+
+        p.onUserInput("slow")
+        assertEquals(LatencyLayer.Phase.THINKING, p.phase.value)
+
+        val slowTimer = r.scheduled.first { it.first == LatencyPipeline.SLOW_THRESHOLD_MS }
+        slowTimer.second()
+
+        assertEquals(LatencyLayer.Phase.THINKING_LONG, p.phase.value)
+        assertTrue(r.fullSpoken.isEmpty()) // no spoken nudge by default
+    }
+
+    @Test
+    fun `escalation does not fire after the reply landed`() {
+        val r = Recorder()
+        val p = r.pipeline()
+
+        p.onUserInput("q")
+        p.onReplyReady("a")
+        r.scheduled.forEach { (_, block) -> block() }
+
+        assertEquals(LatencyLayer.Phase.IDLE, p.phase.value)
+    }
+
+    @Test
+    fun `confirmed error emits one soft turn and drains pending exchanges`() {
+        val r = Recorder()
+        val p = r.pipeline()
+
+        p.onUserInput("a")
+        p.onUserInput("b")
+        p.onBridgeStatus("local brain unreachable after 3 attempts")
+
+        assertEquals(LatencyLayer.Phase.IDLE, p.phase.value)
+        assertEquals(
+            listOf(LatencyPipeline.SOFT_ERROR_TEXT),
+            p.turns.value.filter { it.fromFriday }.map { it.text }
+        )
+
+        // A second error status for the same exchange never double-emits.
+        p.onBridgeStatus("local brain unreachable after 3 attempts")
+        assertEquals(1, p.turns.value.filter { it.fromFriday }.size)
+    }
+
+    @Test
+    fun `confirmed model failure falls back to Friday's independent local expression`() {
+        val spoken = mutableListOf<String>()
+        val experience = mutableListOf<String>()
+        val outcomes = mutableListOf<Pair<String, String>>()
+        val p = LatencyPipeline(
+            dispatch = { it() },
+            scheduleDelayed = { _, _ -> },
+            fullSpeak = { spoken += it },
+            bridgeSend = {},
+            bridgeStatus = { "local brain unreachable after 3 attempts" },
+            modelFreeReply = { input -> "Friday received locally: $input" },
+            experienceObserver = { experience += it },
+            outcomeObserver = { input, output -> outcomes += input to output }
+        )
+
+        p.onUserInput("a new experience")
+        p.onBridgeStatus("local brain unreachable after 3 attempts")
+
+        assertEquals(listOf("a new experience"), experience)
+        assertEquals(
+            listOf("Friday received locally: a new experience"),
+            p.turns.value.filter { it.fromFriday }.map { it.text }
+        )
+        assertEquals(listOf("Friday received locally: a new experience"), spoken)
+        assertEquals(LatencyLayer.Phase.IDLE, p.phase.value)
+        assertEquals(
+            listOf("a new experience" to "Friday received locally: a new experience"),
+            outcomes
+        )
+    }
+
+    @Test
+    fun `observed model reply becomes a local experience outcome`() {
+        val outcomes = mutableListOf<Pair<String, String>>()
+        val p = LatencyPipeline(
+            dispatch = { it() },
+            scheduleDelayed = { _, _ -> },
+            bridgeSend = {},
+            bridgeStatus = { "ok (local)" },
+            outcomeObserver = { input, output -> outcomes += input to output }
+        )
+
+        p.onUserInput("the unfamiliar lever")
+        p.onReplyReady("it opens the panel")
+
+        assertEquals(listOf("the unfamiliar lever" to "it opens the panel"), outcomes)
+    }
+
+    @Test
+    fun `timeout uses local expression when no model reply ever arrives`() {
+        val spoken = mutableListOf<String>()
+        val scheduled = mutableListOf<Pair<Long, () -> Unit>>()
+        val outcomes = mutableListOf<Pair<String, String>>()
+        val p = LatencyPipeline(
+            dispatch = { it() },
+            scheduleDelayed = { ms, block -> scheduled += ms to block },
+            fullSpeak = { spoken += it },
+            bridgeSend = {},
+            bridgeStatus = { "idle" },
+            modelFreeReply = { "Local response to: $it" },
+            outcomeObserver = { input, output -> outcomes += input to output }
+        )
+
+        p.onUserInput("survive without a model")
+        scheduled.first { it.first == LatencyPipeline.RESPONSE_TIMEOUT_MS }.second()
+
+        assertEquals(listOf("Local response to: survive without a model"), spoken)
+        assertEquals(
+            listOf("Local response to: survive without a model"),
+            p.turns.value.filter { it.fromFriday }.map { it.text }
+        )
+        assertEquals(
+            listOf("survive without a model" to "Local response to: survive without a model"),
+            outcomes
+        )
+        assertEquals(LatencyLayer.Phase.IDLE, p.phase.value)
+    }
+
+    // ------------------------------------------------------------- ack only
+
+    @Test
+    fun `ack-only records both turns, speaks, and never calls the brain`() {
+        val r = Recorder()
+        val p = r.pipeline()
+
+        p.ackOnly("check the screen", "Let me check the screen.")
+
+        assertEquals(
+            listOf(
+                Turn(fromFriday = false, text = "check the screen"),
+                Turn(fromFriday = true, text = "Let me check the screen.", verified = false)
+            ),
+            p.turns.value
+        )
+        assertEquals(listOf("Let me check the screen."), r.spoken)
+        assertEquals(emptyList<String>(), r.sent)
+        assertTrue(r.deliveryCount == 0)
+
+        r.scheduled.first { it.first == LatencyPipeline.ACK_ONLY_IDLE_MS }.second()
+        assertEquals(LatencyLayer.Phase.IDLE, p.phase.value)
+    }
+}

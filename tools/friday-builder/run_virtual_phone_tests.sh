@@ -28,7 +28,7 @@ capture_boot_diagnostics() {
   } > "$EVIDENCE_DIR/boot-readiness-diagnostics.txt"
 }
 
-trap 'adb logcat -d -t 16000 > "$EVIDENCE_DIR/logcat.txt" 2>/dev/null || true; adb shell dumpsys activity services > "$EVIDENCE_DIR/services.txt" 2>/dev/null || true; adb shell dumpsys package com.jarvis.app > "$EVIDENCE_DIR/package.txt" 2>/dev/null || true' EXIT
+trap 'adb logcat -d -t 16000 > "$EVIDENCE_DIR/logcat.txt" 2>/dev/null || true; adb shell dumpsys activity services > "$EVIDENCE_DIR/services.txt" 2>/dev/null || true; adb shell dumpsys package ai.friday.assistant > "$EVIDENCE_DIR/package.txt" 2>/dev/null || true' EXIT
 
 # Package enumeration may succeed before SettingsProvider is registered.
 # PackageInstaller queries Settings during session creation, so the helper polls
@@ -72,24 +72,24 @@ fi
 # app data and runtime grants along with the package.
 python3 tools/friday-builder/apply_device_state_capsule.py .github/android-emulator/default-state-capsule.json
 
-if ! adb shell pm path com.jarvis.app | grep -q '^package:'; then
-  echo "ANDROID_PACKAGE_MISSING: com.jarvis.app is not installed after restoration." >&2
+if ! adb shell pm path ai.friday.assistant | grep -q '^package:'; then
+  echo "ANDROID_PACKAGE_MISSING: ai.friday.assistant is not installed after restoration." >&2
   exit 23
 fi
-if ! timeout 30s adb shell am start -W -n com.jarvis.app/.MainActivity; then
+if ! timeout 30s adb shell am start -W -n ai.friday.assistant/.MainActivity; then
   echo "ANDROID_LAUNCH_FAILED: Friday's launcher activity did not start." >&2
   exit 24
 fi
 sleep 8
 adb shell dumpsys activity activities > "$EVIDENCE_DIR/activity-stack.txt"
 adb shell dumpsys activity top > "$EVIDENCE_DIR/activity-top.txt"
-if ! grep -Fq 'com.jarvis.app/.MainActivity' "$EVIDENCE_DIR/activity-stack.txt" && \
-   ! grep -Fq 'com.jarvis.app/com.jarvis.app.MainActivity' "$EVIDENCE_DIR/activity-stack.txt"; then
+if ! grep -Fq 'ai.friday.assistant/.MainActivity' "$EVIDENCE_DIR/activity-stack.txt" && \
+   ! grep -Fq 'ai.friday.assistant/ai.friday.assistant.MainActivity' "$EVIDENCE_DIR/activity-stack.txt"; then
   echo "ANDROID_LAUNCH_COMPONENT_MISSING: Friday's MainActivity is not present in the live task stack." >&2
   cat "$EVIDENCE_DIR/activity-stack.txt" >&2
   exit 25
 fi
-if ! adb shell pidof com.jarvis.app >/dev/null 2>&1; then
+if ! adb shell pidof ai.friday.assistant >/dev/null 2>&1; then
   echo "ANDROID_APP_PROCESS_MISSING: Friday's application process is not running after launch." >&2
   exit 26
 fi

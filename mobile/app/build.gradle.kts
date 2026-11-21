@@ -4,7 +4,7 @@ import org.gradle.api.tasks.testing.Test
 import java.util.Properties
 import java.io.FileInputStream
 
-// BUG FIX (JV-TOKEN-01): JarvisBrainBridge.kt had the live HF Space bearer
+// BUG FIX (JV-TOKEN-01): FridayBrainBridge.kt had the live HF Space bearer
 // token hardcoded as a plaintext string literal, committed to git/GitHub.
 // The Genesis roadmap doc claimed this was already fixed to read from
 // BuildConfig.HF_TOKEN/local.properties — it wasn't; no BuildConfig/
@@ -18,7 +18,7 @@ if (localPropertiesFile.exists()) {
 }
 
 val fridayVersionCode = providers.gradleProperty("fridayVersionCode").orNull?.toIntOrNull() ?: 1
-val fridayVersionName = providers.gradleProperty("fridayVersionName").orNull ?: "0.2-phase2"
+val fridayVersionName = providers.gradleProperty("fridayVersionName").orNull ?: "1.0.0-seed"
 val fridaySourceRevision = System.getenv("GITHUB_SHA")?.takeIf { it.matches(Regex("[0-9a-fA-F]{40}")) }
     ?: providers.gradleProperty("sourceRevision").orNull ?: "unknown"
 
@@ -34,12 +34,12 @@ plugins {
 }
 
     android {
-    namespace = "com.jarvis.app"
+    namespace = "ai.friday.assistant"
     compileSdk = 36
     ndkVersion = "27.3.13750724"
 
     defaultConfig {
-        applicationId = "com.jarvis.app"
+        applicationId = "ai.friday.assistant"
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
         }
@@ -130,8 +130,8 @@ plugins {
     testOptions {
         unitTests {
             all {
-                it.filter.excludeTestsMatching("com.jarvis.app.latency.OllamaModelBackendLiveWiringTest")
-                it.filter.excludeTestsMatching("com.jarvis.app.model.OllamaModelBackendTest")
+                it.filter.excludeTestsMatching("ai.friday.assistant.latency.OllamaModelBackendLiveWiringTest")
+                it.filter.excludeTestsMatching("ai.friday.assistant.model.OllamaModelBackendTest")
             }
         }
     }
@@ -223,8 +223,8 @@ val verifyLiveOllama = tasks.register<Test>("verifyLiveOllama") {
     testClassesDirs = files(testOut)
     classpath = files(mainOut, testOut, runtimeCp)
     filter {
-        includeTestsMatching("com.jarvis.app.latency.OllamaModelBackendLiveWiringTest")
-        includeTestsMatching("com.jarvis.app.model.OllamaModelBackendTest")
+        includeTestsMatching("ai.friday.assistant.latency.OllamaModelBackendLiveWiringTest")
+        includeTestsMatching("ai.friday.assistant.model.OllamaModelBackendTest")
         isFailOnNoMatchingTests = true
     }
 }

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(jarvis_silero_vad LANGUAGES C CXX)
+project(friday_silero_vad LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -21,29 +21,29 @@ endif()
 # ------------------------------------------------------------------
 # Silero VAD JNI wrapper
 # ------------------------------------------------------------------
-add_library(jarvis_silero_vad SHARED
+add_library(friday_silero_vad SHARED
     silero_vad_jni.cpp
     silero_vad_engine.cpp
 )
 
-target_link_libraries(jarvis_silero_vad
+target_link_libraries(friday_silero_vad
     PRIVATE
         ${onnxruntime_lib}
         ${log_lib}
         android
 )
 
-target_include_directories(jarvis_silero_vad
+target_include_directories(friday_silero_vad
     PRIVATE
         ${CMAKE_SOURCE_DIR}
         ${CMAKE_SOURCE_DIR}/../../jniLibs/${ANDROID_ABI}/include
 )
 
 if(ANDROID)
-    target_compile_options(jarvis_silero_vad PRIVATE
+    target_compile_options(friday_silero_vad PRIVATE
         -fvisibility=hidden
         -DORT_API_VERSION=1.16
     )
     find_library(log_lib log)
-    target_link_libraries(jarvis_silero_vad ${log_lib})
+    target_link_libraries(friday_silero_vad ${log_lib})
 endif()

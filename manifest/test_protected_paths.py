@@ -19,7 +19,7 @@ def test_out_of_manifest_write_is_denied_and_logged():
         forbidden = os.path.join(repo_base, "some_random_unlisted_dir", "evil.kt")
         Path(os.path.dirname(forbidden)).mkdir(parents=True, exist_ok=True)
 
-        result = pp.check_path(forbidden, "write", repo="jarvis", repo_base=repo_base)
+        result = pp.check_path(forbidden, "write", repo="friday", repo_base=repo_base)
 
         assert result.allowed is False
         assert not os.path.exists(forbidden)
@@ -38,7 +38,7 @@ def test_protected_path_write_requires_approval():
         Path(manifest_dir).mkdir(parents=True, exist_ok=True)
         target = os.path.join(manifest_dir, "workspace_manifest.yaml")
 
-        result = pp.check_path(target, "write", repo="jarvis", repo_base=repo_base)
+        result = pp.check_path(target, "write", repo="friday", repo_base=repo_base)
 
         assert result.allowed is False
         assert "Tier 2" in result.reason
@@ -52,7 +52,7 @@ def test_manifest_root_write_is_allowed():
         Path(allowed_dir).mkdir(parents=True, exist_ok=True)
         target = os.path.join(allowed_dir, "NewFile.kt")
 
-        result = pp.check_path(target, "write", repo="jarvis", repo_base=repo_base)
+        result = pp.check_path(target, "write", repo="friday", repo_base=repo_base)
 
         assert result.allowed is True
         print("PASS -- in-manifest write allowed:", result.path)

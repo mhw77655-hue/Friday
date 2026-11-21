@@ -1,7 +1,7 @@
 RATIONALE: GoalPlanner.replan retains the failed node; derivePlanStatus ignores failures covered by the active replan; CapabilityExecutor and ExecutionEngine terminal branches treat all-recovered-remaining-as-completed; CapabilityExecutor.failStep refreshes alternativeAvailable after replan; sibling test expectations align with the reconciled contract.
 
 ```patch
-FILE: mobile/app/src/main/java/com/jarvis/app/cognitive/planning/GoalPlanner.kt
+FILE: mobile/app/src/main/java/ai/friday/assistant/cognitive/planning/GoalPlanner.kt
 FIND:
         // Keep completed + unrelated nodes; drop the failed node; reset the
         // downstream chain to pending and point its first link at the
@@ -20,7 +20,7 @@ REPLACE:
 ```
 
 ```patch
-FILE: mobile/app/src/main/java/com/jarvis/app/cognitive/planning/GoalPlanner.kt
+FILE: mobile/app/src/main/java/ai/friday/assistant/cognitive/planning/GoalPlanner.kt
 FIND:
         graph.isComplete -> PlanStatus.COMPLETED
         graph.nodes.any { it.isFailed } -> PlanStatus.FAILED
@@ -32,7 +32,7 @@ REPLACE:
 ```
 
 ```patch
-FILE: mobile/app/src/main/java/com/jarvis/app/cognitive/execution/ExecutionEngine.kt
+FILE: mobile/app/src/main/java/ai/friday/assistant/cognitive/execution/ExecutionEngine.kt
 FIND:
             // no actionable step remains — honour the plan's derived state
             val blockedIds = graph.blockedNodeIds
@@ -54,7 +54,7 @@ REPLACE:
 ```
 
 ```patch
-FILE: mobile/app/src/main/java/com/jarvis/app/cognitive/capability/CapabilityExecutor.kt
+FILE: mobile/app/src/main/java/ai/friday/assistant/cognitive/capability/CapabilityExecutor.kt
 FIND:
             val blocked = graph.blockedNodeIds
             val (terminalStatus, cause) = when {
@@ -74,7 +74,7 @@ REPLACE:
 ```
 
 ```patch
-FILE: mobile/app/src/main/java/com/jarvis/app/cognitive/capability/CapabilityExecutor.kt
+FILE: mobile/app/src/main/java/ai/friday/assistant/cognitive/capability/CapabilityExecutor.kt
 FIND:
             val replanned = driver.replanPlan(node.id, cause) ?: failed
             val finalOutcome = outcome.copy(
@@ -100,7 +100,7 @@ REPLACE:
 ```
 
 ```patch
-FILE: mobile/app/src/test/java/com/jarvis/app/cognitive/capability/CapabilityExecutorTest.kt
+FILE: mobile/app/src/test/java/ai/friday/assistant/cognitive/capability/CapabilityExecutorTest.kt
 FIND:
         assertEquals(4, summary.stepsCompleted) // a, alt(replace b), c; a counted once
 REPLACE:
@@ -108,7 +108,7 @@ REPLACE:
 ```
 
 ```patch
-FILE: mobile/app/src/test/java/com/jarvis/app/cognitive/capability/CapabilityExecutorTest.kt
+FILE: mobile/app/src/test/java/ai/friday/assistant/cognitive/capability/CapabilityExecutorTest.kt
 FIND:
     private class FakeDriver(private val planner: GoalPlanner, initialGraph: PlanGraph) : PlanDriver {
         var graph: PlanGraph = initialGraph
@@ -163,7 +163,7 @@ REPLACE:
 ```
 
 ```patch
-FILE: mobile/app/src/test/java/com/jarvis/app/cognitive/capability/CapabilityExecutorTest.kt
+FILE: mobile/app/src/test/java/ai/friday/assistant/cognitive/capability/CapabilityExecutorTest.kt
 FIND:
         val planner = GoalPlanner(FullStrategy)
         val driver = FakeDriver(planner, graphOf(FullStrategy))
@@ -181,7 +181,7 @@ REPLACE:
 ```
 
 ```patch
-FILE: mobile/app/src/test/java/com/jarvis/app/cognitive/planning/GoalPlannerTest.kt
+FILE: mobile/app/src/test/java/ai/friday/assistant/cognitive/planning/GoalPlannerTest.kt
 FIND:
         // failed node replaced by the alt path
         assertFalse(replanned.nodes.any { it.id == "sg2:s1" })
@@ -193,7 +193,7 @@ REPLACE:
 ```
 
 ```patch
-FILE: mobile/app/src/test/java/com/jarvis/app/cognitive/planning/CognitivePlanningIntegrationTest.kt
+FILE: mobile/app/src/test/java/ai/friday/assistant/cognitive/planning/CognitivePlanningIntegrationTest.kt
 FIND:
         assertTrue(graph.nodes.any { it.id == "sg1:s1" && it.isCompleted })
         assertTrue(graph.nodes.any { it.id == "sg2:s1_r0" })

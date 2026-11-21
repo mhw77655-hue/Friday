@@ -1,0 +1,567 @@
+package ai.friday.assistant.onefriday
+
+import ai.friday.assistant.anchor.AnchorEngine
+import ai.friday.assistant.body.MemoryStorePort
+import ai.friday.assistant.capability.CapabilityRegistry
+import ai.friday.assistant.capability.DeterministicCapabilityRouter
+import ai.friday.assistant.cloud.CloudModelRouter
+import ai.friday.assistant.cognition.workspace.ContinuityLaw
+import ai.friday.assistant.cognition.workspace.CoreIdentity
+import ai.friday.assistant.cognition.workspace.FileChangeLog
+import ai.friday.assistant.cognition.workspace.InMemoryWorkspace
+import ai.friday.assistant.cognition.workspace.RecordedTurns
+import ai.friday.assistant.cognition.workspace.ReplayCheck
+import ai.friday.assistant.cognition.workspace.Workspace
+import ai.friday.assistant.cognitive.CognitiveEngine
+import ai.friday.assistant.cognitive.seed.FridayIndividual
+import ai.friday.assistant.cognitive.capability.CapabilityFabric
+import ai.friday.assistant.cognitive.immune.ImmuneSystem
+import ai.friday.assistant.continuity.ContinuityGate
+import ai.friday.assistant.emotion.FusionLayerTier1
+import ai.friday.assistant.env.ModelSource
+import ai.friday.assistant.failure.FailureCategory
+import ai.friday.assistant.failure.FailureReport
+import ai.friday.assistant.failure.FailureSeverity
+import ai.friday.assistant.failure.FailureSurface
+import ai.friday.assistant.failure.Recoverability
+import ai.friday.assistant.failure.RecoveryAction
+import ai.friday.assistant.identity.IdentityContext
+import ai.friday.assistant.identity.MentalStateHypothesis
+import ai.friday.assistant.identity.PersonaTuner
+import ai.friday.assistant.identity.PrdStageHistorySource
+import ai.friday.assistant.identity.SelfModel
+import ai.friday.assistant.identity.UserMentalStateEstimator
+import ai.friday.assistant.identity.UserProfile
+import ai.friday.assistant.identity.WorldModelService
+import ai.friday.assistant.language.EgyptianArabicDialectDetector
+import ai.friday.assistant.latency.LatencyPipeline
+import ai.friday.assistant.memory.BlendedMemoryRetriever
+import ai.friday.assistant.memory.EmbeddingProvider
+import ai.friday.assistant.memory.MemoryGraphStore
+import ai.friday.assistant.memory.MemoryImportanceScorer
+import ai.friday.assistant.memory.SignalSplitScorer
+import ai.friday.assistant.prediction.ExpectationStateEngine
+import ai.friday.assistant.prediction.JsonFileExpectationStore
+import ai.friday.assistant.model.CognitiveAdmissionPolicy
+import ai.friday.assistant.model.ModelBackend
+import ai.friday.assistant.model.ModelManager
+import ai.friday.assistant.model.OllamaModelBackend
+import ai.friday.assistant.model.ResourceGovernor
+import ai.friday.assistant.model.adapters.OllamaAdapter
+import ai.friday.assistant.model.config.ProviderConfig
+import ai.friday.assistant.resolution.CapabilityMemoryIndex
+import ai.friday.assistant.resolution.FuzzyCommandResolver
+import ai.friday.assistant.social.ConfidentialityFirewall
+import ai.friday.assistant.social.PersonRelationshipModel
+import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.collect
+
+/**
+ * ONE-2-COMPOSITION: the ONE composition root for the turn path.
+ *
+ * A plain-JVM harness exists only in test sources to exercise this same root
+ * with deterministic doubles. It is not a product host and is never packaged
+ * in Friday. Android is the only production host.
+ *
+ * This class builds the turn path ONCE. Everything that decides a cognitive
+ * outcome is decided here for Friday's Android production runtime:
+ *
+ *   storage dir / device reading / clock / speech sinks / stores -> [PlatformPorts]
+ *   claim workspace, memory, identity, emotion, social, continuity,
+ *   capability, model authority, cognitive engine, entry pipeline -> here
+ *
+ * [PlatformPorts] is an adapter, not a second decision maker: it can say where
+ * a file goes and what the battery is doing, never how a turn is understood.
+ * There is no `if (android)` branch anywhere below.
+ *
+ * It is wiring and nothing else. It holds no cognitive logic, settles no
+ * meaning, and owns no outcome — VISION.md Section 13's checks on fixed
+ * pipelines and permanent cognitive ownership.
+ *
+ * Not an ORGAN (no cognitive role, per Section 4). A composition root is the
+ * order of construction. Desktop tests may assemble this same root with test
+ * doubles, but AndroidPlatformPorts is the only production adapter.
+ */
+class TurnPathAssembly private constructor(
+    /** The claim store every migrated organ publishes into and reads from. */
+    val workspace: Workspace,
+    val failureSurface: FailureSurface,
+    val graphStore: MemoryGraphStore,
+    val embeddingProvider: EmbeddingProvider,
+    val retriever: BlendedMemoryRetriever,
+    val signalScorer: SignalSplitScorer,
+    val worldModel: WorldModelService,
+    val userProfile: UserProfile,
+    val mentalStateEstimator: UserMentalStateEstimator,
+    val emotionFusion: FusionLayerTier1,
+    val selfModel: SelfModel,
+    val personaTuner: PersonaTuner,
+    val identityContext: IdentityContext,
+    val personRelationshipModel: PersonRelationshipModel,
+    val confidentialityFirewall: ConfidentialityFirewall,
+    val capabilityRegistry: CapabilityRegistry,
+    val capabilityFabric: CapabilityFabric,
+    val capabilityEvidenceLedger: ai.friday.assistant.cognitive.capability.CapabilityEvidenceLedger,
+    val capabilityRouter: DeterministicCapabilityRouter,
+    val fuzzyCommandResolver: FuzzyCommandResolver,
+    val capabilityMemoryIndex: CapabilityMemoryIndex,
+    val cloudModelRouter: CloudModelRouter,
+    val dialectDetector: EgyptianArabicDialectDetector,
+    val continuityGate: ContinuityGate,
+    val changeLog: FileChangeLog,
+    val continuityLaw: ContinuityLaw,
+    val replayCheck: ReplayCheck?,
+    val memoryStore: MemoryStorePort,
+    val backend: ModelBackend,
+    val resourceGovernor: ResourceGovernor,
+    val modelManager: ModelManager,
+    val cognitiveAdmissionPolicy: CognitiveAdmissionPolicy,
+    val anchorEngine: AnchorEngine,
+    val engine: CognitiveEngine,
+    /** Persistent app-local individual identity and model-free seed. */
+    val individual: FridayIndividual,
+    /** Friday's turn entry point, wired from the shared cognitive engine and platform ports. */
+    val pipeline: LatencyPipeline,
+    /** The adapter this Friday was built from. */
+    val ports: PlatformPorts
+) {
+
+    /**
+     * Stable, open-key fingerprint of the cognitive composition this root owns.
+     * Platform-supplied leaves are intentionally excluded: their concrete
+     * implementations are recorded separately by [platformFingerprint].
+     *
+     * Life Tests persist this map in evidence packs so a model or host change
+     * cannot silently make two scenarios exercise different compositions.
+     */
+    val componentFingerprint: Map<String, String> = linkedMapOf(
+        "workspace" to workspace.javaClass.name,
+        "retriever" to retriever.javaClass.name,
+        "signalScorer" to signalScorer.javaClass.name,
+        "worldModel" to worldModel.javaClass.name,
+        "userProfile" to userProfile.javaClass.name,
+        "mentalStateEstimator" to mentalStateEstimator.javaClass.name,
+        "emotionFusion" to emotionFusion.javaClass.name,
+        "selfModel" to selfModel.javaClass.name,
+        "personaTuner" to personaTuner.javaClass.name,
+        "identityContext" to identityContext.javaClass.name,
+        "personRelationshipModel" to personRelationshipModel.javaClass.name,
+        "confidentialityFirewall" to confidentialityFirewall.javaClass.name,
+        "capabilityFabric" to capabilityFabric.javaClass.name,
+        "capabilityRouter" to capabilityRouter.javaClass.name,
+        "fuzzyCommandResolver" to fuzzyCommandResolver.javaClass.name,
+        "capabilityMemoryIndex" to capabilityMemoryIndex.javaClass.name,
+        "cloudModelRouter" to cloudModelRouter.javaClass.name,
+        "dialectDetector" to dialectDetector.javaClass.name,
+        "continuityGate" to continuityGate.javaClass.name,
+        "changeLog" to changeLog.javaClass.name,
+        "continuityLaw" to continuityLaw.javaClass.name,
+        "replayCheck" to (replayCheck?.javaClass?.name ?: "absent"),
+        "resourceGovernor" to resourceGovernor.javaClass.name,
+        "modelManager" to modelManager.javaClass.name,
+        "cognitiveAdmissionPolicy" to cognitiveAdmissionPolicy.javaClass.name,
+        "anchorEngine" to anchorEngine.javaClass.name,
+        "engine" to engine.javaClass.name,
+        "individual" to individual.javaClass.name,
+        "pipeline" to pipeline.javaClass.name,
+    )
+
+    /** Concrete host-provided leaves, kept separate from root-owned cognition. */
+    val platformFingerprint: Map<String, String> = linkedMapOf(
+        "ports" to ports.javaClass.name,
+        "failureSurface" to failureSurface.javaClass.name,
+        "graphStore" to graphStore.javaClass.name,
+        "embeddingProvider" to embeddingProvider.javaClass.name,
+        "memoryStore" to memoryStore.javaClass.name,
+        "backend" to backend.javaClass.name,
+        "capabilityRegistry" to capabilityRegistry.javaClass.name
+    )
+
+    companion object {
+
+        /** The local model endpoint configured by the Android app today. */
+        const val OLLAMA_HOST: String = "127.0.0.1:8080"
+
+        /** The resident model configured by the Android app today. */
+        const val RESIDENT_MODEL: String = "friday-resident:latest"
+
+        /**
+         * Build the whole turn path for [ports].
+         *
+         * There is exactly ONE ModelManager, ONE ResourceGovernor and ONE
+         * LatencyPipeline per Friday. The Android app obtains all three from
+         * this root; test fixtures may assemble it without becoming product hosts.
+         */
+        fun assemble(ports: PlatformPorts): TurnPathAssembly {
+            val stores = ports.stores()
+
+            // ── Memory substrate: real store, real scorer, real retrieval ──────
+            val graphStore = stores.graphStore()
+            val embeddingProvider = stores.embeddingProvider()
+            val retriever = BlendedMemoryRetriever(
+                graphStore,
+                embeddingProvider,
+                MemoryImportanceScorer(embeddingProvider = embeddingProvider, nowMs = { ports.nowMs() }),
+                nowMs = { ports.nowMs() }
+            )
+            val signalScorer = SignalSplitScorer(embeddingProvider)
+            val capabilityMemoryIndex = CapabilityMemoryIndex(graphStore)
+
+            // ── The shared claim store: one instance, handed to every organ ────
+            val workspace = InMemoryWorkspace()
+
+            // ── Friday's model-independent seed ─────────────────────────────────
+            // This local experience substrate belongs to the app, not to any
+            // model backend. It remains available when all optional models are
+            // absent and persists under app-private storage across restarts.
+            val individual = FridayIndividual(
+                directory = ports.storageDir.resolve("friday"),
+                nowMs = { ports.nowMs() }
+            )
+            val modelFreeMind = individual.expression
+
+            // ── Identity: self, user, world, persona ──────────────────────────
+            val worldModel = WorldModelService(graphStore, retriever, nowMs = { ports.nowMs() })
+            val userProfile = UserProfile(worldModel)
+            val personaTuner = PersonaTuner(worldModel)
+            val stageHistory = PrdStageHistorySource(
+                listOf(ports.storageDir.resolve("ralph/prd.json").absolutePath)
+            )
+            // The SelfModel reads live goals from the ONE CognitiveEngine once
+            // the engine is assembled. The reference avoids a second goal store.
+            val cognitiveEngineReference = AtomicReference<CognitiveEngine?>()
+            val selfModel = SelfModel(
+                identitySource = object : ai.friday.assistant.identity.IdentitySource {
+                    override fun persistentId(): String = individual.identity.id
+                    override fun name(): String = individual.identity.name
+                    override fun version(): Int = 1
+                    override fun pronouns(): String = "she/her"
+                },
+                capabilityRegistry = stores.capabilityRegistry(),
+                stageHistory = stageHistory,
+                goalSource = ai.friday.assistant.identity.GoalSource {
+                    val state = cognitiveEngineReference.get()?.cognitiveState?.value
+                    buildList {
+                        state?.currentGoal?.let { goal ->
+                            if (goal.status !in setOf(
+                                    ai.friday.assistant.cognitive.GoalStatus.COMPLETED,
+                                    ai.friday.assistant.cognitive.GoalStatus.FAILED,
+                                    ai.friday.assistant.cognitive.GoalStatus.SKIPPED,
+                                    ai.friday.assistant.cognitive.GoalStatus.CANCELLED,
+                                    ai.friday.assistant.cognitive.GoalStatus.ABANDONED
+                                )
+                            ) add(goal.description)
+                        }
+                        state?.activeSubgoals
+                            ?.filter { it.status !in setOf(
+                                ai.friday.assistant.cognitive.SubgoalStatus.COMPLETED,
+                                ai.friday.assistant.cognitive.SubgoalStatus.FAILED,
+                                ai.friday.assistant.cognitive.SubgoalStatus.SKIPPED,
+                                ai.friday.assistant.cognitive.SubgoalStatus.CANCELLED
+                            ) }
+                            ?.forEach { add(it.description) }
+                    }
+                },
+                experienceStats = {
+                    val recent = individual.experience.recentExperiences(1).lastOrNull()
+                    ai.friday.assistant.identity.ExperienceContinuityStats(
+                        experienceCount = individual.experience.experienceCount(),
+                        associationCount = individual.experience.associationCount(),
+                        latestExperienceAtMs = recent?.timestampMs
+                    )
+                }
+            )
+
+            // ── Emotion: the Tier-1 reader feeds the ONE estimator seam ────────
+            // One estimator and one hypothesis per turn in the Android runtime. The emotion
+            // reading rides the existing identity path instead of opening a
+            // second one.
+            val emotionFusion = FusionLayerTier1()
+            val mentalStateEstimator = UserMentalStateEstimator(
+                hypothesisProvider = { text ->
+                    MentalStateHypothesis.fromEmotion(emotionFusion.estimate(text))
+                },
+                workspace = workspace
+            )
+
+            // ── Social: per-person relationship, then the confidentiality firewall ──
+            val personRelationshipModel = PersonRelationshipModel(graphStore, worldModel)
+            val confidentialityFirewall = ConfidentialityFirewall(graphStore, worldModel)
+            val identityContext = IdentityContext(
+                worldModel = worldModel,
+                userProfile = userProfile,
+                mentalStateEstimator = mentalStateEstimator,
+                selfModel = selfModel,
+                personaTuner = personaTuner,
+                personRelationshipModel = personRelationshipModel,
+                confidentialityFirewall = confidentialityFirewall
+            )
+
+            // ── Capability fabric, routing, and fuzzy command resolution ───────
+            val failureSurface = ports.failureSurface()
+            val capabilityFabric = CapabilityFabric(ImmuneSystem(surface = failureSurface))
+            ports.registerCapabilities(capabilityFabric)
+            val capabilityEvidenceLedger = ai.friday.assistant.cognitive.capability.CapabilityEvidenceLedger(
+                ports.storageDir.resolve("friday"),
+                nowMs = { ports.nowMs() }
+            )
+            val capabilityRouter = DeterministicCapabilityRouter(stores.capabilityRegistry())
+            val fuzzyCommandResolver = FuzzyCommandResolver(
+                retriever,
+                capabilityRouter,
+                stores.capabilityRegistry()
+            )
+
+            // Network and cloud are resources AROUND this Friday, never a
+            // different Friday: an empty provider list is an honest "none
+            // configured today", not a separate route to a cognitive outcome.
+            val cloudModelRouter = CloudModelRouter(emptyList())
+
+            // ── The single model loading authority ────────────────────────────
+            // The admission decision reads the host's LIVE resource reading on
+            // every wake; nothing here can report a device as healthy by
+            // default, because there is no default — the host answers.
+            val backend = stores.modelBackend()
+            val resourceGovernor = ResourceGovernor(snapshotProvider = { ports.resourceSnapshot() })
+            // ModelManager's own `context` is unused by every adapter it builds
+            // (they derive their base URL from the configured model source at
+            // configure time) and it is nullable for exactly this reason; every
+            // real call funnels through the single [backend] above.
+            val modelManager = ModelManager(
+                context = null,
+                scope = ports.modelScope(),
+                backend = backend,
+                resourceGovernor = resourceGovernor,
+                adapterLoadGate = stores.adapterManifest(),
+                // The tier cooldown is a HALF-LIFE, so it reads the host's clock —
+                // one injected time source, never a second wall clock reached
+                // around the back of the composition root.
+                clock = { ports.nowMs() },
+                // LAUNCH-OLLAMA-DOWN: an absent model server is a typed gap that
+                // is announced once per down-episode on the ONE failure surface,
+                // and the recovery is recorded when the server answers again.
+                failureSurface = failureSurface,
+                workloadOutcomeRecorder = { organ, succeeded, latencyMs, peakMemoryMb ->
+                    ports.recordWorkloadOutcome(organ, succeeded, latencyMs, peakMemoryMb)
+                }
+            )
+            val cognitiveAdmissionPolicy = CognitiveAdmissionPolicy()
+            val anchorEngine = AnchorEngine(modelManager, cognitiveAdmissionPolicy)
+
+            // ── Continuity: the change gate, and a replay check only if real ───
+            val changeLog = FileChangeLog(ports.storageDir.resolve("identity/change_log.jsonl"))
+            // The SLOW layer's rate limit is an ELAPSED-TIME rule, so it reads the
+            // host's clock. On both production hosts that clock IS
+            // System.currentTimeMillis, so this changes no byte of real behaviour —
+            // what it changes is that the rule can no longer be reasoned about
+            // against a clock the host does not control.
+            val continuityLaw = ContinuityLaw(
+                workspace = workspace,
+                changeLog = changeLog,
+                now = { ports.nowMs() }
+            )
+            // Null, not an empty fixture: a build that packaged no recorded turns
+            // has nothing to replay, and a check that passes because it compared
+            // nothing is worse than no check at all.
+            val replayCheck = RecordedTurns.fromClasspath()?.let { fixture ->
+                val identity = selfModel.identity()
+                ReplayCheck(
+                    workspace = workspace,
+                    changeLog = changeLog,
+                    coreIdentity = CoreIdentity(
+                        name = identity.name,
+                        version = identity.version,
+                        userNodeName = WorldModelService.USER_NODE_NAME,
+                        persistentId = identity.persistentId
+                    ),
+                    fixture = fixture
+                )
+            }
+
+            // ── The generation seam's typed continuity registry ────────────────
+            val dialectDetector = EgyptianArabicDialectDetector()
+            val continuityGate = ContinuityGate(
+                dialectDetector = dialectDetector,
+                personRelationshipModel = personRelationshipModel,
+                confidentialityFirewall = confidentialityFirewall,
+                blendedRetriever = retriever,
+                mentalStateEstimator = mentalStateEstimator,
+                nowMs = { ports.nowMs() }
+            )
+
+            // ── Predictive state: compact JEPA-inspired successor learning ───────
+            val expectationEngine = ExpectationStateEngine(
+                JsonFileExpectationStore(ports.storageDir.resolve("cognition/expectation_state.json")),
+                clock = { ports.nowMs() }
+            )
+
+            // ── The cognitive engine: the one route a turn takes ───────────────
+            val memoryStore = stores.memoryStore()
+            val engine = CognitiveEngine(
+                scope = ports.modelScope(),
+                memoryStore = memoryStore,
+                modelManager = modelManager,
+                cognitiveAdmissionPolicy = cognitiveAdmissionPolicy,
+                blendedRetriever = retriever,
+                graphStore = graphStore,
+                identityContext = identityContext,
+                continuityGate = continuityGate,
+                capabilityFabric = capabilityFabric,
+                capabilityEvidenceLedger = capabilityEvidenceLedger,
+                dialectDetector = dialectDetector,
+                turnTraceStore = stores.turnTraceStore(),
+                threadTracker = stores.threadTracker(),
+                provenanceLedger = stores.provenanceLedger(),
+                memoryForgetter = ports.memoryForgetter(),
+                signalScorer = signalScorer,
+                workspace = workspace,
+                expectationEngine = expectationEngine,
+                nowMs = { ports.nowMs() }
+            )
+            cognitiveEngineReference.set(engine)
+
+            // Restore Friday's active intent against her stable individual ID.
+            // Plans are deliberately rebuilt after restart against live capabilities.
+            val goalContinuityStore = ai.friday.assistant.cognitive.seed.IndividualGoalContinuityStore(
+                ports.storageDir.resolve("friday"),
+                nowMs = { ports.nowMs() }
+            )
+            val goalContinuityLoad = goalContinuityStore.load(individual.identity.id)
+            var persistGoalContinuity = true
+            when (goalContinuityLoad) {
+                ai.friday.assistant.cognitive.seed.GoalContinuityLoad.Empty -> Unit
+                is ai.friday.assistant.cognitive.seed.GoalContinuityLoad.Restored -> {
+                    val restored = goalContinuityLoad.continuity
+                    engine.restoreGoalContinuity(restored.goal, restored.subgoals)
+                }
+                ai.friday.assistant.cognitive.seed.GoalContinuityLoad.IdentityMismatch -> {
+                    persistGoalContinuity = false
+                    android.util.Log.w(
+                        "FridayContinuity",
+                        "Preserving goal history because it belongs to a different individual identity."
+                    )
+                }
+                is ai.friday.assistant.cognitive.seed.GoalContinuityLoad.Corrupt -> {
+                    persistGoalContinuity = false
+                    android.util.Log.e(
+                        "FridayContinuity",
+                        "Preserving unreadable goal history: ${goalContinuityLoad.reason}"
+                    )
+                }
+            }
+            if (persistGoalContinuity) {
+                // Persist synchronously before a goal transition becomes visible
+                // to the rest of Friday. A background StateFlow collector could
+                // lose the final update if Android kills the process immediately
+                // after the in-memory state change.
+                engine.installGoalContinuityWriter { currentGoal, currentSubgoals ->
+                    goalContinuityStore.save(
+                        individual.identity.id,
+                        currentGoal,
+                        currentSubgoals
+                    )
+                }
+            }
+
+            // ── The entry point ────────────────────────────────────────────────
+            // Friday's single cognitive engine produces the reply. This layer
+            // only schedules the turn, transports the input/output, and records
+            // its trace; no legacy fixed-pass authority surrounds her reasoning.
+            val pipeline = LatencyPipeline(
+                dispatch = { block -> ports.runTurnWork(block) },
+                scheduleDelayed = { ms, block -> ports.runLater(ms, block) },
+                ackSpeak = { text -> ports.speakFastAck(text) },
+                fullSpeak = { text -> ports.speakFullReply(text) },
+                logTurn = { fromFriday, text -> ports.logTurn(fromFriday, text) },
+                warmPrime = { ports.warmModel() },
+                reactorSubmitted = { ports.onUserSubmitted() },
+                reactorFastPathAck = { ports.onFastPathAck() },
+                reactorFirstSegment = { ports.onFirstSegmentReady() },
+                reactorUtteranceDone = { ports.onUtteranceCompleted() },
+                bridgeSend = { text ->
+                    try {
+                        modelManager.send(text)
+                    } catch (t: Throwable) {
+                        if (t is kotlinx.coroutines.CancellationException) throw t
+                        ports.reportFailure(
+                            FailureReport(
+                                subsystem = "MODEL",
+                                operation = "send",
+                                severity = FailureSeverity.ERROR,
+                                category = FailureCategory.MODEL,
+                                message = "Model send threw while generating a reply",
+                                source = "TurnPathAssembly",
+                                cause = t.message,
+                                recoverability = Recoverability.RETRYABLE,
+                                recoveryAction = RecoveryAction.RETRY_WITH_BACKOFF
+                            )
+                        )
+                    }
+                },
+                bridgeStatus = { modelManager.status.value },
+                sessionContext = { ports.sessionContext() },
+                nowMs = { ports.nowMs() },
+                cognitiveEngine = engine,
+                modelFreeReply = modelFreeMind::respond,
+                modelAvailable = { ports.hasLanguageModel(modelManager) },
+                experienceObserver = modelFreeMind::observe,
+                outcomeObserver = modelFreeMind::observeOutcome
+            )
+
+            return TurnPathAssembly(
+                workspace = workspace,
+                failureSurface = failureSurface,
+                graphStore = graphStore,
+                embeddingProvider = embeddingProvider,
+                retriever = retriever,
+                signalScorer = signalScorer,
+                worldModel = worldModel,
+                userProfile = userProfile,
+                mentalStateEstimator = mentalStateEstimator,
+                emotionFusion = emotionFusion,
+                selfModel = selfModel,
+                personaTuner = personaTuner,
+                identityContext = identityContext,
+                personRelationshipModel = personRelationshipModel,
+                confidentialityFirewall = confidentialityFirewall,
+                capabilityRegistry = stores.capabilityRegistry(),
+                capabilityFabric = capabilityFabric,
+                capabilityEvidenceLedger = capabilityEvidenceLedger,
+                capabilityRouter = capabilityRouter,
+                fuzzyCommandResolver = fuzzyCommandResolver,
+                capabilityMemoryIndex = capabilityMemoryIndex,
+                cloudModelRouter = cloudModelRouter,
+                dialectDetector = dialectDetector,
+                continuityGate = continuityGate,
+                changeLog = changeLog,
+                continuityLaw = continuityLaw,
+                replayCheck = replayCheck,
+                memoryStore = memoryStore,
+                backend = backend,
+                resourceGovernor = resourceGovernor,
+                modelManager = modelManager,
+                cognitiveAdmissionPolicy = cognitiveAdmissionPolicy,
+                anchorEngine = anchorEngine,
+                engine = engine,
+                individual = individual,
+                pipeline = pipeline,
+                ports = ports
+            )
+        }
+
+        /**
+         * Legacy local-model adapter retained for explicit tests/tools. The
+         * Android production path uses ProcessIsolatedModelBackend instead.
+         */
+        fun localModelBackend(
+            host: String = OLLAMA_HOST,
+            model: String = RESIDENT_MODEL
+        ): ModelBackend {
+            val adapter = OllamaAdapter(null).apply {
+                configure(ModelSource.Local(host), ProviderConfig(modelId = model))
+            }
+            return OllamaModelBackend(adapter)
+        }
+    }
+}

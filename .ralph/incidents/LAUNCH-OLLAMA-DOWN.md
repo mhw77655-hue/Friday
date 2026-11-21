@@ -8,7 +8,7 @@ the `:voice` process died too. The throw was:
 ```
 java.io.IOException: Ollama server unreachable at 127.0.0.1:8080 ...
 cannot load resident
-    at com.jarvis.app.model.OllamaModelBackend.loadModel(OllamaModelBackend.kt:53)
+    at ai.friday.assistant.model.OllamaModelBackend.loadModel(OllamaModelBackend.kt:53)
 ```
 
 The same two crashes reproduced in the 2026-10-22 and 2026-10-23 launch logs.
@@ -16,16 +16,16 @@ No user turn was needed: the failure happened during boot warming.
 
 ## WHERE
 
-- `com.jarvis.app.model.OllamaModelBackend.loadModel` threw an `IOException`
+- `ai.friday.assistant.model.OllamaModelBackend.loadModel` threw an `IOException`
   when `GET /api/tags` could not connect.
-- `com.jarvis.app.anchor.AnchorEngine.anchor` propagated it out of
+- `ai.friday.assistant.anchor.AnchorEngine.anchor` propagated it out of
   `ModelManager.request(RESIDENT)`.
-- `com.jarvis.app.JarvisEngine.init` launched that call in
-  `CoroutineScope(Dispatchers.Main)` (JarvisEngine.kt:489), a scope with no
+- `ai.friday.assistant.FridayEngine.init` launched that call in
+  `CoroutineScope(Dispatchers.Main)` (FridayEngine.kt:489), a scope with no
   `SupervisorJob` and no `CoroutineExceptionHandler`. The uncaught exception
   cancelled the engine scope and killed the process.
 
-`:voice` runs the same `JarvisApplication.onCreate -> JarvisEngine.init`, so it
+`:voice` runs the same `FridayApplication.onCreate -> FridayEngine.init`, so it
 died on the same path. The two processes are a known duplication recorded for
 ONE-2-COMPOSITION; it is out of scope here.
 
@@ -59,7 +59,7 @@ absent dependency threw out of the load path instead of becoming data.
   the manager does not cache it, and generation answers in plain words.
 - Engine scopes come from one containment factory (`EngineContainment`) with a
   `SupervisorJob` and a handler that records into the `FailureSurface`. A
-  tripwire test fails if a raw `CoroutineScope(` appears in `JarvisEngine.kt`.
+  tripwire test fails if a raw `CoroutineScope(` appears in `FridayEngine.kt`.
 - The red tests drive the REAL `OllamaModelBackend`/`ModelManager`/`AnchorEngine`
   against a port where nothing listens, and the same objects recover when the
   server appears — no rebuilt copy, no private scope.

@@ -593,7 +593,7 @@ int llama_tokenizer_count(LlamaTokenizer* tokenizer, const char* text) {
 // ------------------------------------------------------------------
 // Utility functions
 // ------------------------------------------------------------------
-const char* jarvis_llama_version() {
+const char* friday_llama_version() {
     static std::string version = "llama.cpp b12248";
     return version.c_str();
 }

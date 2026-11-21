@@ -1,3 +1,16 @@
+# Friday repository facts
 
-## Verification scope limit — MANDATORY in every report/note
-`bash ./gradlew testDebugUnitTest` confirms the code compiles and unit tests pass. It does NOT confirm the app assembles into a real APK, installs, or runs on a real device. Local `assembleDebug`/`assembleRelease` are banned (2026-08-20 phone-crash incident) and no CI push currently runs (GitHub not set up on this device). Every story's `notes` field and every ralph run report MUST state this scope limit explicitly. Never write or imply "app works" / "fully verified" / "complete" from unit-test success alone — say "unit-tested, real-app assembly unverified" instead.
+- Product: Friday, one continuing Android-hosted individual.
+- Canonical repository: mhw77655-hue/Friday.
+- Canonical development branch: main.
+- Android module: mobile/app.
+- Android application ID: ai.friday.assistant.
+- Android namespace and Kotlin base package: ai.friday.assistant.
+- Sole active delivery authority: .ralph/FRIDAY_DELIVERY_PLAN.md.
+- Owner vision: .ralph/VISION.md and .ralph/OWNER_WORDS.md.
+- Build: ./gradlew :mobile:app:assembleDebug.
+- Unit tests: ./gradlew :mobile:app:testDebugUnitTest.
+- Emulator/instrumentation and physical-device evidence are separate from JVM unit-test evidence.
+- Live Ollama tests are opt-in diagnostics; a localhost model server is not a production dependency or proof of offline operation.
+- CI artifacts and temporary signing keys are not the permanent production signing identity.
+- Do not infer current phone firmware, installed state, permissions or physical-device success from source code or emulator tests.

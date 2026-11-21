@@ -2,8 +2,8 @@
  * JNI Header for LocalInferenceEngine
  * Provides Android-native GGUF inference via llama.cpp
  */
-#ifndef JARVIS_LLAMA_JNI_H
-#define JARVIS_LLAMA_JNI_H
+#ifndef FRIDAY_LLAMA_JNI_H
+#define FRIDAY_LLAMA_JNI_H
 
 #include <jni.h>
 #include <stdint.h>
@@ -204,7 +204,7 @@ int llama_tokenizer_count(LlamaTokenizer* tokenizer, const char* text);
 /**
  * Get llama.cpp version string.
  */
-const char* jarvis_llama_version();
+const char* friday_llama_version();
 
 /**
  * Get system info (CPU features, etc).
@@ -221,4 +221,4 @@ const char* llama_benchmark(LlamaModel* model, int n_threads, int n_prompt, int 
 }
 #endif
 
-#endif // JARVIS_LLAMA_JNI_H
+#endif // FRIDAY_LLAMA_JNI_H

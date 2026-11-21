@@ -2,13 +2,13 @@
 
 ## WHAT
 
-FATAL IllegalStateException "JarvisEngine.init() must run first" from JarvisEngine.getBodyCoordinator (JarvisEngine.kt:683) called by HomeScreen.kt:55 during cold launch composition (observed in raw log 20261024-235308-JARVIS, first launch, 1.1s after process start; 10-22 and 10-23 logs showed the same).
+FATAL IllegalStateException "FridayEngine.init() must run first" from FridayEngine.getBodyCoordinator (FridayEngine.kt:683) called by HomeScreen.kt:55 during cold launch composition (observed in raw log 20261024-235308-FRIDAY, first launch, 1.1s after process start; 10-22 and 10-23 logs showed the same).
 
 ## WHERE
 
-- `com.jarvis.app.JarvisEngine.init` sets initialized = true synchronously, then posts async wiring to a HandlerThread.
-- `com.jarvis.app.JarvisEngine.getBodyCoordinator` throws `checkNotNull` if called before handler thread finishes.
-- `com.jarvis.app.ui.screens.HomeScreen.kt:55`, `ConversationScreen.kt:47`, and other UI screens asked for engine properties immediately upon Compose rendering on main thread.
+- `ai.friday.assistant.FridayEngine.init` sets initialized = true synchronously, then posts async wiring to a HandlerThread.
+- `ai.friday.assistant.FridayEngine.getBodyCoordinator` throws `checkNotNull` if called before handler thread finishes.
+- `ai.friday.assistant.ui.screens.HomeScreen.kt:55`, `ConversationScreen.kt:47`, and other UI screens asked for engine properties immediately upon Compose rendering on main thread.
 
 ## WHEN
 
@@ -24,7 +24,7 @@ Accessors used `checkNotNull(...)` throwing `IllegalStateException`, which crash
 ## MITIGATION
 
 - PERMANENT-FIX: Introduced `EngineReadinessState` (NotStarted, Waking, Ready, FailedToWake).
-- PERMANENT-FIX: Made UI accessors route through `com.jarvis.app.ui.EngineAccess` returning typed `EngineSlot<T>` answers that never throw.
+- PERMANENT-FIX: Made UI accessors route through `ai.friday.assistant.ui.EngineAccess` returning typed `EngineSlot<T>` answers that never throw.
 - PERMANENT-FIX: Navigation host and screens display a plain `WakingSurface` during waking/failed states instead of crashing.
 - PERMANENT-FIX: Handled wiring failures by reporting to `FailureSurface` and updating state to `FailedToWake`, never throwing uncaught.
 

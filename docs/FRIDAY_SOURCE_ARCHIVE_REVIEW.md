@@ -1,6 +1,6 @@
 # Friday source archive review
 
-**Status:** extracted and inspected on `audit/friday-device-report-repair`; this is a review record, not a replacement for Venon's vision.
+**Status:** historical source review; branch names and implementation findings are archival evidence only, not active repository instructions.
 
 ## Archive extraction
 

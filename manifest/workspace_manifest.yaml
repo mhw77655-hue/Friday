@@ -1,5 +1,5 @@
-# JARVIS OS — Workspace Manifest
-# Blueprint Section 4: every path JARVIS may touch must appear here before
+# FRIDAY OS — Workspace Manifest
+# Blueprint Section 4: every path FRIDAY may touch must appear here before
 # it can be read or written. Anything unlisted is structurally inaccessible.
 # This file is itself Tier 2 protected.
 
@@ -7,8 +7,8 @@ manifest_version: 1
 updated: "2026-07-25"
 
 repos:
-  jarvis:
-    remote: "github.com/mhw77655-hue/JARVIS"
+  friday:
+    remote: "github.com/mhw77655-hue/FRIDAY"
     roots:
       - path: "mobile/app/"
         note: "Android working body — Kotlin/Compose. Empty until Phase 2."

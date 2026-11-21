@@ -3,47 +3,47 @@
 ## WHAT
 
 Two fatal crashes within 5 seconds of launch on the Realme phone (debug APK,
-2026-10-16 23:20, Ollama at 127.0.0.1:8080 registering `jarvis-resident:latest`
-and `jarvis-reasoning:latest`):
+2026-10-16 23:20, Ollama at 127.0.0.1:8080 registering `friday-resident:latest`
+and `friday-reasoning:latest`):
 
 **CRASH A — main process, 1.7 s after launch.** An uncaught exception on a
 `Dispatchers.IO` worker killed the whole app:
 
 ```
-java.lang.IllegalArgumentException: No enum constant com.jarvis.app.body.LanguageRouter.Language.EN
+java.lang.IllegalArgumentException: No enum constant ai.friday.assistant.body.LanguageRouter.Language.EN
     at java.lang.Enum.valueOf(Enum.java:238)
-    at com.jarvis.app.body.LanguageRouter$Language.valueOf(LanguageRouter.kt)
-    at com.jarvis.app.body.StreamingTts.synthesizeSegment(StreamingTts.kt:285)
+    at ai.friday.assistant.body.LanguageRouter$Language.valueOf(LanguageRouter.kt)
+    at ai.friday.assistant.body.StreamingTts.synthesizeSegment(StreamingTts.kt:285)
 ```
 
 **CRASH B — `:voice` process, 5 s after launch.**
 
 ```
 java.lang.IllegalArgumentException: Ollama server does not register model 'resident';
-registered models: jarvis-reasoning:latest,jarvis-resident:latest
-    at com.jarvis.app.model.OllamaModelBackend.loadModel(OllamaModelBackend.kt:58)
+registered models: friday-reasoning:latest,friday-resident:latest
+    at ai.friday.assistant.model.OllamaModelBackend.loadModel(OllamaModelBackend.kt:58)
 ```
 
 Non-fatal but observed: `BodyCoordinator`, `PresenceMonitor` and a "Model warmed"
 log ran in BOTH processes (main pid 4039 and `:voice` pid 4175). `ObsidianSync
-logTurn` failed ENOENT for `/storage/emulated/0/JarvisSync/vault/JARVIS/2026-10-16.md`.
+logTurn` failed ENOENT for `/storage/emulated/0/FridaySync/vault/FRIDAY/2026-10-16.md`.
 
 ## WHERE
 
 Two subsystems, one class of defect — an outside value pushed through a closed
 assumption:
 
-- **Speech path.** `com.jarvis.app.body.StreamingTts.synthesizeSegment` (line 285
+- **Speech path.** `ai.friday.assistant.body.StreamingTts.synthesizeSegment` (line 285
   before the fix). The `TtsSegment.language` field carries the raw 2-letter code
   `"en"` (set in `speak()` from `LanguageSegment.language.code`), but the code
   called `LanguageRouter.Language.valueOf(segment.language.uppercase())`, and the
   enum constants are `ENGLISH` / `EGYPTIAN_ARABIC`. `valueOf("EN")` always throws.
-- **Model load path.** `com.jarvis.app.model.OllamaModelBackend.loadModel`. The
+- **Model load path.** `ai.friday.assistant.model.OllamaModelBackend.loadModel`. The
   requested id was the literal `"resident"`, produced by
   `ModelManager.defaultModelId(ModelTier.RESIDENT)`'s fallback when the active
   provider's `ProviderConfig` carries no `modelId`. The old
   `require(modelId in registered)` threw when the server registered
-  `jarvis-resident:latest` instead.
+  `friday-resident:latest` instead.
 
 Environment: arm64-v8a debug APK on a Realme phone; Android API 26+; local Ollama
 server at 127.0.0.1:8080. Backend `OllamaModelBackend` over `OllamaAdapter`.
@@ -54,7 +54,7 @@ server at 127.0.0.1:8080. Backend `OllamaModelBackend` over `OllamaAdapter`.
   processes, within 5 s of launch.
 - Last known-good: none recorded for this build; the crashes were present at
   every launch of it.
-- Reproducing tests added under `com.jarvis.app.launchsurvival` on 2026-10-18.
+- Reproducing tests added under `ai.friday.assistant.launchsurvival` on 2026-10-18.
 
 ## WHY
 
@@ -69,7 +69,7 @@ originate outside the code that consumes them.**
   escaped into a process kill.
 - CRASH B: the tier's default id `"resident"` was *assumed* rather than
   *resolved against what the server actually registers*
-  (`jarvis-resident:latest`). `require(modelId in registered)` is a hard throw,
+  (`friday-resident:latest`). `require(modelId in registered)` is a hard throw,
   and it fired inside the model-load path that the `:voice` process reaches at
   boot.
 
@@ -99,14 +99,14 @@ crash of 2026-07-28 (that stack no longer exists in the tree).
 
 ## REPRODUCTION
 
-Automated, in `mobile/app/src/test/java/com/jarvis/app/launchsurvival/`:
+Automated, in `mobile/app/src/test/java/ai/friday/assistant/launchsurvival/`:
 
 - `LanguageTagResolutionTest` — resolves `EN`, `en`, `en-US`, `ar-EG`, `""`,
   `xx-YY` and hostile tags; all must end with a voice choice; unknown tags must be
   recorded and route to the default.
 - `ResidentTierLoadTest` — drives `ModelManager.request(RESIDENT)` over a
   `FakeOllama` answering `/api/tags` exactly as the phone's server did; the
-  resident tier must resolve to `jarvis-resident:latest`.
+  resident tier must resolve to `friday-resident:latest`.
 - `TypedTurnGenerationTest` — books the resident handle, sends one typed turn,
   and asserts the fake server's `/api/chat` answered with generated text.
 - `FailingOrganContainmentTest` — a throwing synthesis loop is contained and
@@ -120,6 +120,6 @@ requires the installed APK and the local Ollama registration.
 
 **fixed** — permanent fixes landed (LanguageTagResolver + synthesis-loop
 containment + registry-aware model name resolution), with reproducing tests in
-`com.jarvis.app.launchsurvival`. The status would move to "regression watch" if a
+`ai.friday.assistant.launchsurvival`. The status would move to "regression watch" if a
 future build reintroduces `valueOf` on an outside tag or a hard `require` on an
 assumed model name.
