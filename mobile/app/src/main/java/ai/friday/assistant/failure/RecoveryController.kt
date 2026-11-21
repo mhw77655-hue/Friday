@@ -169,11 +169,27 @@ class RecoveryController(
                         "recovered on attempt $attempt", specActionOf(spec), base.correlationId
                     )
                 } else {
-                    entry.breaker.onProbeFailure()
-                    surface.recover(base.dedupeKey, RecoveryResult.FAILED, attemptFailureMessage, specActionOf(spec), base.correlationId)
+                    // A failed retry is an ordinary failed attempt while the
+                    // breaker is CLOSED. Do not label it a failed HALF_OPEN
+                    // probe: that would open the circuit after the first retry
+                    // and silently defeat RetrySpec.maxAttempts.
+                    entry.breaker.onFailure()
+                    surface.recover(
+                        base.dedupeKey, RecoveryResult.FAILED,
+                        attemptFailureMessage, specActionOf(spec), base.correlationId
+                    )
                     running.remove(key)
-                    // Re-enter handle to count another failure / schedule next.
-                    handle(base.copy(attempt = attempt + 1, cause = null))
+                    if (entry.breaker.isOpen) {
+                        surface.report(base.copy(
+                            severity = FailureSeverity.max(base.severity, FailureSeverity.DEGRADED),
+                            recoveryAction = RecoveryAction.DISABLE_COMPONENT,
+                            message = "${base.message} — circuit opened after repeated retry failures",
+                            metadata = base.metadata + ("circuit" to "open")
+                        ))
+                        spec.onDisabled?.invoke()
+                    } else {
+                        scheduleRetry(entry, base.copy(attempt = attempt + 1))
+                    }
                 }
             } catch (cancelled: CancellationException) {
                 // Cancellation is not a recovery failure, but it must not

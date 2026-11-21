@@ -55,7 +55,7 @@ class CircuitBreaker(
 
     /** Record a failure; opens the breaker when the windowed threshold is crossed. */
     fun onFailure() = synchronized(lock) {
-        failureCount = (failureCount + 1).coerceAtLeast(0)
+        if (failureCount < Int.MAX_VALUE) failureCount++
         val now = nowMs()
         when (state) {
             State.HALF_OPEN -> {

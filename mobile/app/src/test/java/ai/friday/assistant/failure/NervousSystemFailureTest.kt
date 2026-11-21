@@ -181,6 +181,7 @@ class NervousSystemFailureTest {
         subsystem: String = "STT_VOSK",
         maxAttempts: Int = 1,
         backoffMs: Long = 5,
+        breakerThreshold: Int = 3,
         action: () -> Boolean = { true },
         onDisabled: (() -> Unit)? = null
     ) = RecoveryController.RetrySpec(
@@ -188,6 +189,7 @@ class NervousSystemFailureTest {
         operation = "decode",
         maxAttempts = maxAttempts,
         backoffMs = backoffMs,
+        breakerThreshold = breakerThreshold,
         action = action,
         onDisabled = onDisabled
     )
@@ -243,6 +245,37 @@ class NervousSystemFailureTest {
         assertTrue(disabled.get())
         // The dependency surfaced as degraded, and the capability is flagged.
         assertTrue(s.currentFailures.value.any { it.currentSeverity.rank >= FailureSeverity.DEGRADED.rank })
+    }
+
+    @Test
+    fun `retry controller honors configured attempt budget before breaker threshold`() = runBlocking {
+        val s = FailureSurface(nowMs = { 1000 })
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val attempts = java.util.concurrent.atomic.AtomicInteger(0)
+        try {
+            val rc = RecoveryController(s, scope)
+            rc.register(retrySpec(
+                maxAttempts = 3,
+                breakerThreshold = 5,
+                backoffMs = 0,
+                action = { attempts.incrementAndGet() >= 3 }
+            ))
+            rc.handle(FailureReport(
+                subsystem = "STT_VOSK", operation = "decode",
+                severity = FailureSeverity.RECOVERABLE, category = FailureCategory.STT,
+                message = "decoder returned empty"
+            ))
+
+            kotlinx.coroutines.withTimeout(2_000) {
+                while (s.recentRecoveryEvents.value.none { it.result == RecoveryResult.SUCCESS }) delay(10)
+            }
+
+            assertEquals(3, attempts.get())
+            assertTrue(s.currentFailures.value.isEmpty())
+            assertEquals(CircuitBreaker.State.CLOSED, rc.breakerState("STT_VOSK", "decode"))
+        } finally {
+            scope.cancel()
+        }
     }
 
     @Test
