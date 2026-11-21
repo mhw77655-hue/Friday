@@ -39,11 +39,11 @@ class FailureStore(
 
     private val persistedCount = AtomicLong(0)
     private val queueOverflowCount = AtomicLong(0)
-    private val persistenceFailureCount = AtomicLong(0)
+    private val persistenceFailureCounter = AtomicLong(0)
 
     val persistedEventCount: Long get() = persistedCount.get()
     val persistenceQueueOverflowCount: Long get() = queueOverflowCount.get()
-    val persistenceFailureCount: Long get() = persistenceFailureCount.get()
+    val persistenceFailureCount: Long get() = persistenceFailureCounter.get()
 
     init {
         require(maxPersistedIdsInMemory > 0) { "maxPersistedIdsInMemory must be positive" }
@@ -123,7 +123,7 @@ class FailureStore(
                 if (attempt < MAX_APPEND_ATTEMPTS) {
                     delay(RETRY_BASE_DELAY_MS shl (attempt - 1))
                 } else {
-                    persistenceFailureCount.incrementAndGet()
+                    persistenceFailureCounter.incrementAndGet()
                     android.util.Log.w(
                         "FailureStore",
                         "persist failed after $attempt attempts for ${event.subsystem}/${event.operation}",
