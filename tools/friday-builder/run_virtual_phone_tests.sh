@@ -55,7 +55,7 @@ if ! python3 tools/friday-builder/install_apk_with_retry.py \
 fi
 
 python3 tools/friday-builder/apply_device_state_capsule.py .github/android-emulator/default-state-capsule.json
-./gradlew :mobile:app:connectedDebugAndroidTest
+./gradlew :mobile:app:createDebugAndroidTestCoverageReport
 
 # The instrumentation runner may clean up the target package after its test
 # session. Restore the exact APK under test before attempting a real launch;

@@ -180,6 +180,19 @@ jobs:
         if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
         run: ./gradlew :mobile:app:testDebugUnitTest
 
+      - name: Generate JaCoCo unit-test coverage report
+        if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
+        run: ./gradlew :mobile:app:createDebugUnitTestCoverageReport
+
+      - name: Upload unit-test coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-unit-test-coverage
+          path: mobile/app/build/reports/coverage/test/debug/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Upload JUnit results
         if: always()
         uses: actions/upload-artifact@v4

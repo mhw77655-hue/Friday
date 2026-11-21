@@ -80,6 +80,12 @@ plugins {
     }
 
     buildTypes {
+        getByName("debug") {
+            // Objective 1 adversarial campaign: collect JaCoCo coverage for
+            // both JVM unit tests and real Android instrumentation journeys.
+            enableUnitTestCoverage = true
+            enableAndroidTestCoverage = true
+        }
         getByName("release") {
             isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("fridayRelease")
