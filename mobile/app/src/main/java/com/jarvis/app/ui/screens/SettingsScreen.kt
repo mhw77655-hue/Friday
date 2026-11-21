@@ -46,6 +46,9 @@ import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.Dispatchers
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.jarvis.app.ui.components.StateChip
@@ -137,11 +140,31 @@ fun SettingsScreen() {
     var keepFridayAlive by remember(resumeSignal) {
         mutableStateOf(com.jarvis.app.runtime.FridayRuntimeController.isEnabled(context))
     }
+    var runtimeServiceRunning by remember(resumeSignal) {
+        mutableStateOf(com.jarvis.app.runtime.FridayRuntimeController.isServiceRunning(context))
+    }
+    var runtimeMicrophoneActive by remember(resumeSignal) {
+        mutableStateOf(com.jarvis.app.runtime.FridayRuntimeController.isMicrophoneServiceActive(context))
+    }
     val batteryOptimizationIgnored = remember(resumeSignal) {
         com.jarvis.app.runtime.FridayRuntimeController.batteryOptimizationIgnored(context)
     }
     val runtimeStartFailure = remember(resumeSignal) {
         com.jarvis.app.runtime.FridayRuntimeController.lastStartFailure(context)
+    }
+    fun refreshRuntimeStatus(expectedRunning: Boolean) {
+        githubScope.launch {
+            repeat(20) {
+                val snapshot = withContext(Dispatchers.IO) {
+                    com.jarvis.app.runtime.FridayRuntimeController.isServiceRunning(context) to
+                        com.jarvis.app.runtime.FridayRuntimeController.isMicrophoneServiceActive(context)
+                }
+                runtimeServiceRunning = snapshot.first
+                runtimeMicrophoneActive = snapshot.second
+                if (snapshot.first == expectedRunning) return@launch
+                delay(250L)
+            }
+        }
     }
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -149,6 +172,7 @@ fun SettingsScreen() {
         if (granted) {
             keepFridayAlive = true
             com.jarvis.app.runtime.FridayRuntimeController.enable(context)
+            refreshRuntimeStatus(expectedRunning = true)
         } else {
             keepFridayAlive = false
         }
@@ -511,7 +535,22 @@ fun SettingsScreen() {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Keep Friday alive", style = JarvisType.Body)
                 Text(
-                    if (keepFridayAlive) "Persistent runtime enabled" else "Runtime starts only while the app is active",
+                    if (keepFridayAlive) "Setting: persistent runtime enabled" else "Setting: runtime starts only while the app is active",
+                    style = JarvisType.Technical
+                )
+                Text(
+                    text = when {
+                        runtimeServiceRunning && keepFridayAlive && runtimeMicrophoneActive ->
+                            "Live status: foreground service confirmed running · microphone owned by Friday."
+                        runtimeServiceRunning && keepFridayAlive ->
+                            "Live status: foreground service confirmed running · microphone inactive."
+                        runtimeServiceRunning ->
+                            "Live status: service is still shutting down after the stop request."
+                        keepFridayAlive ->
+                            "Live status: service is not running; startup may be pending or Android may have blocked it."
+                        else ->
+                            "Live status: foreground service stopped."
+                    },
                     style = JarvisType.Technical
                 )
             }
@@ -526,10 +565,12 @@ fun SettingsScreen() {
                         } else {
                             keepFridayAlive = true
                             com.jarvis.app.runtime.FridayRuntimeController.enable(context)
+                            refreshRuntimeStatus(expectedRunning = true)
                         }
                     } else {
                         keepFridayAlive = false
                         com.jarvis.app.runtime.FridayRuntimeController.disable(context)
+                        refreshRuntimeStatus(expectedRunning = false)
                     }
                 },
                 colors = SwitchDefaults.colors(checkedTrackColor = JarvisColors.CoreIdle)
