@@ -20,6 +20,12 @@ class CircuitBreaker(
 ) {
     enum class State { CLOSED, OPEN, HALF_OPEN }
 
+    init {
+        require(failureThreshold > 0) { "failureThreshold must be positive" }
+        require(openMs >= 0) { "openMs must not be negative" }
+        require(windowMs >= 0) { "windowMs must not be negative" }
+    }
+
     private val lock = Any()
     private val recentFailureTimes = ArrayDeque<Long>()
 
@@ -49,14 +55,27 @@ class CircuitBreaker(
 
     /** Record a failure; opens the breaker when the windowed threshold is crossed. */
     fun onFailure() = synchronized(lock) {
-        failureCount++
+        failureCount = (failureCount + 1).coerceAtLeast(0)
         val now = nowMs()
+        when (state) {
+            State.HALF_OPEN -> {
+                // Any failed request during the single probe window re-opens
+                // the circuit. A caller cannot leave a failed probe half-open.
+                state = State.OPEN
+                openedAt = now
+                lastProbeSucceeded = false
+                trippedCount++
+                return@synchronized
+            }
+            State.OPEN -> return@synchronized
+            State.CLOSED -> Unit
+        }
         recentFailureTimes.addLast(now)
-        // Drop failures older than the sliding window.
+        // Drop failures older than the sliding window. The deque is bounded by
+        // failureThreshold because the circuit opens as soon as it is reached.
         while (recentFailureTimes.isNotEmpty() && now - recentFailureTimes.first() > windowMs) {
             recentFailureTimes.removeFirst()
         }
-        if (state == State.HALF_OPEN || state == State.OPEN) return@synchronized
         if (recentFailureTimes.size >= failureThreshold) {
             state = State.OPEN
             openedAt = now
@@ -68,18 +87,20 @@ class CircuitBreaker(
      * Whether a request is allowed through now. When OPEN and the cooldown has
      * elapsed, transition to HALF_OPEN and allow exactly one probe.
      */
-    fun allowRequest(): Boolean {
-        if (state == State.CLOSED) return true
-        if (state == State.OPEN) {
-            val now = nowMs()
-            if (now - openedAt >= openMs) {
-                state = State.HALF_OPEN
-                return true // one probe
+    fun allowRequest(): Boolean = synchronized(lock) {
+        when (state) {
+            State.CLOSED -> true
+            State.OPEN -> {
+                if (nowMs() - openedAt >= openMs) {
+                    state = State.HALF_OPEN
+                    probeAttempts++
+                    true
+                } else false
             }
-            return false
+            // HALF_OPEN represents the one in-flight probe. Do not admit
+            // another request until that probe closes or re-opens the circuit.
+            State.HALF_OPEN -> false
         }
-        // HALF_OPEN: allow the probe.
-        return true
     }
 
     /** A success (probe or request) closes the breaker. */
@@ -91,6 +112,9 @@ class CircuitBreaker(
 
     /** A failed probe re-opens the breaker, restarting the cooldown. */
     fun onProbeFailure() = synchronized(lock) {
+        // Ignore duplicate/stale probe callbacks; only the current half-open
+        // probe may decide the breaker outcome.
+        if (state != State.HALF_OPEN) return@synchronized
         state = State.OPEN
         openedAt = nowMs()
         lastProbeSucceeded = false
@@ -114,10 +138,9 @@ class CircuitBreaker(
                     false
                 }
             }
-            State.HALF_OPEN -> {
-                probeAttempts++
-                true
-            }
+            // The first caller owns the half-open probe. Duplicate or
+            // concurrent callers must wait for its result.
+            State.HALF_OPEN -> false
         }
     }
 
