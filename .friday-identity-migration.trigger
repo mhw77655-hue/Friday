@@ -1,1 +1,1 @@
-Retry complete Friday purification with corrected URL-preserving text normalization and the vendored Sherpa AAR dependency.
+Retry final Friday identity migration after replacing Obsidian external storage with a bounded app-private journal and removing the remaining retired-bridge references.
