@@ -1,12 +1,9 @@
 package ai.friday.assistant.voice
 
-import android.content.Context
 import android.os.Process
 import ai.friday.assistant.FridayEngine
 import ai.friday.assistant.EngineReadinessState
-import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import ai.friday.assistant.failure.FailureReport
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
@@ -42,7 +39,6 @@ class VoiceSubstrateTest {
     // JVM tests but break instrumentation dexing.
     @Test
     fun voiceHabitatIsolatesAndSurvivesCrash() {
-        val context: Context = ApplicationProvider.getApplicationContext()
         val readiness = runBlocking {
             withTimeoutOrNull(30_000L) {
                 FridayEngine.readinessState.first {
