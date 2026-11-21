@@ -1,7 +1,6 @@
 package ai.friday.assistant.model.storage
 
 import ai.friday.assistant.FridayEngine
-import ai.friday.assistant.cognitive.capability.OrganRole
 import android.content.Context
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -53,6 +52,9 @@ class ResidentModelBootstrapWorker(
                 task = "first-run-resident-model",
                 modelId = "friday-resident:latest"
             )
+            check(manager.isTierLoaded(ModelTier.RESIDENT)) {
+                "The local inference backend did not load the resident model."
+            }
 
             Result.success(
                 workDataOf(
