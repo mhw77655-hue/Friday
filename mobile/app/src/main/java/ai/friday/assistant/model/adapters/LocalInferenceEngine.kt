@@ -306,53 +306,67 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
             stream = true
         )
 
-        if (nativeHandle == 0L) {
-            emit(StreamEvent.Error("Model not loaded"))
-            emit(StreamEvent.Done(null))
-            return@flow
-        }
-
         kotlinx.coroutines.coroutineScope {
             var accumulated = ""
             var usage: TokenUsage? = null
+            var finalCallbackSeen = false
             val channel = Channel<StreamEvent>(Channel.UNLIMITED)
 
             val genJob = launch {
-                nativeGenerate(nativeHandle, prompt, genConfig, object : TokenCallback {
-                    override fun onToken(token: String, tokenId: Int, isFinal: Boolean) {
-                        if (isFinal) {
-                            val health = nativeGetHealth(nativeHandle)
-                            usage = TokenUsage(
-                                health.promptTokens.toInt(),
-                                health.completionTokens.toInt(),
-                                health.totalTokens.toInt()
-                            )
-                            channel.trySend(StreamEvent.Done(usage))
-                        } else {
-                            accumulated += token
-                            channel.trySend(StreamEvent.Token(token, accumulated))
-                        }
+                val lock = nativeLock.readLock()
+                lock.lock()
+                try {
+                    val handle = nativeHandle
+                    if (handle == 0L) {
+                        channel.trySend(StreamEvent.Error("Model not loaded"))
+                        channel.trySend(StreamEvent.Done(null))
+                        return@launch
                     }
-                })
 
-                // Generation finished without an explicit final callback
-                if (usage == null) {
-                    val health = nativeGetHealth(nativeHandle)
+                    nativeGenerate(handle, prompt, genConfig, object : TokenCallback {
+                        override fun onToken(token: String, tokenId: Int, isFinal: Boolean) {
+                            if (isFinal) {
+                                // Do not call nativeGetHealth from inside the JNI
+                                // callback: native generation owns the model mutex.
+                                finalCallbackSeen = true
+                            } else {
+                                accumulated += token
+                                channel.trySend(StreamEvent.Token(token, accumulated))
+                            }
+                        }
+                    })
+
+                    // Read health only after nativeGenerate has released its
+                    // model lock. Some JNI runtimes invoke the final callback
+                    // before returning from the native call.
+                    val health = nativeGetHealth(handle)
                     usage = TokenUsage(
                         health.promptTokens.toInt(),
                         health.completionTokens.toInt(),
                         health.totalTokens.toInt()
                     )
+                    if (!finalCallbackSeen && usage == null) {
+                        channel.trySend(StreamEvent.Error("Native generation ended without a result"))
+                    }
                     channel.trySend(StreamEvent.Done(usage))
+                } finally {
+                    lock.unlock()
+                    channel.close()
                 }
-                channel.close()
             }
 
-            // Drain the channel into the flow
-            for (event in channel) {
-                emit(event)
+            try {
+                for (event in channel) emit(event)
+                genJob.join()
+            } finally {
+                if (genJob.isActive) {
+                    // Cancellation is allowed alongside the generator's read
+                    // lock and tells native code to leave its token loop.
+                    withNativeRead { nativeCancel(it) }
+                    genJob.cancel()
+                    genJob.join()
+                }
             }
-            genJob.join()
         }
     }.flowOn(Dispatchers.IO)
 
