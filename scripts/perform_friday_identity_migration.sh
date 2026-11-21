@@ -157,6 +157,14 @@ EOF
 # Remove the obsolete branch-era audit; the current delivery plan and current audits replace it.
 git rm -f .ralph/REPO_UNIFICATION_AUDIT.md 2>/dev/null || true
 
+# Give the installed product a consistent user-facing identity.
+python3 - <<'PY'
+from pathlib import Path
+p = Path("mobile/app/src/main/AndroidManifest.xml")
+s = p.read_text().replace('android:label="FRIDAY"', 'android:label="Friday"')
+p.write_text(s)
+PY
+
 # Remove the disconnected Python-builder check from CI; keep the Android build and real test gates.
 python3 - <<'PY'
 from pathlib import Path
