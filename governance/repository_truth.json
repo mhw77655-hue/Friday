@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "product": "Friday",
+  "canonical_repository": "mhw77655-hue/Friday",
+  "canonical_branch": "main",
+  "identity": {
+    "application_id": "ai.friday.assistant",
+    "namespace": "ai.friday.assistant",
+    "status": "owner_authorized_target_not_yet_verified_on_main"
+  },
+  "authority": {
+    "default_for_unlisted_sources": "non_authoritative",
+    "precedence": [
+      {"path": ".ralph/VISION.md", "role": "owner_vision"},
+      {"path": ".ralph/OWNER_WORDS.md", "role": "curated_owner_source"},
+      {"path": ".ralph/FRIDAY_DELIVERY_PLAN.md", "role": "sole_delivery_authority"},
+      {"path": "AGENTS.md", "role": "subordinate_repository_execution_index"}
+    ],
+    "rule": "A file's existence, age, filename, commit count, or confident wording never grants authority. Conflicts are resolved by this registry and the precedence above. Historical plans, audits, proposals, generated notes, code comments and model output are evidence or context, never active product authority unless explicitly promoted here.",
+    "instruction_discovery_globs": [
+      "**/AGENTS.md",
+      "**/INSTRUCTIONS.md",
+      "**/PLAN*.md",
+      "**/*PLAN*.md",
+      "**/ROADMAP*.md",
+      "**/*ROADMAP*.md",
+      "**/VISION*.md",
+      "**/*VISION*.md",
+      "**/ARCHITECTURE*.md",
+      "**/*ARCHITECTURE*.md"
+    ]
+  },
+  "capability_evidence": {
+    "manifest_policy": "claims_only",
+    "rule": "A capability declaration, class, test double, dependency, documentation statement or successful isolated test is not proof that the production app can perform the capability.",
+    "levels": [
+      "idea",
+      "declared",
+      "source_present",
+      "production_wired",
+      "integration_tested",
+      "device_verified",
+      "released"
+    ],
+    "required_evidence": {
+      "production_wired": ["production_composition"],
+      "integration_tested": ["production_composition", "integration_test"],
+      "device_verified": ["production_composition", "device_test", "device_identity", "observed_postcondition"],
+      "released": ["production_composition", "integration_test", "device_test", "release_artifact", "artifact_digest", "signing_identity"]
+    },
+    "forbidden_inference": [
+      "test_only_source_implies_production",
+      "manifest_boolean_implies_runtime",
+      "dependency_present_implies_capability",
+      "intent_sent_implies_action_succeeded",
+      "emulator_result_implies_physical_device_result",
+      "temporary_ci_build_implies_main_commit",
+      "build_success_implies_release"
+    ]
+  },
+  "self_modification": {
+    "mode": "transactional_candidate_first",
+    "stages": [
+      "observe_and_capture_baseline",
+      "classify_source_authority_and_provenance",
+      "formulate_change_hypothesis",
+      "create_isolated_candidate",
+      "run_static_and_contract_checks",
+      "build_and_run_relevant_tests",
+      "independent_verification",
+      "obtain_required_owner_or_platform_approval",
+      "commit_against_current_main_head",
+      "verify_commit_and_post_commit_ci",
+      "observe_runtime_outcome",
+      "promote_or_rollback"
+    ],
+    "rules": [
+      "Never edit the live working tree as the first experiment.",
+      "Never allow a generated candidate or its authoring agent to be its sole verifier.",
+      "Never promote a capability based on its own claims.",
+      "Never overwrite owner vision, authorization, signing trust, provenance, continuity or recovery controls.",
+      "Re-read the current main head immediately before commit; rebase or reconstruct on the new head and retry boundedly. Never force-push.",
+      "If evidence is incomplete or contradictory, quarantine the candidate and preserve the last known-good state.",
+      "A successful local or temporary CI run is not a mainline commit."
+    ]
+  },
+  "protected_domains": [
+    "owner_identity_and_authentication",
+    "owner_authorization",
+    "application_signing_and_update_trust",
+    "identity_and_continuity_storage",
+    "provenance_and_artifact_integrity",
+    "recovery_and_rollback",
+    "capability_permission_boundaries"
+  ]
+}
