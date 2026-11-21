@@ -124,7 +124,12 @@ class CapabilityExecutorTest {
     @Test
     fun `invocation success without independent postcondition verification cannot complete a step`() = runBlocking {
         val fabric = CapabilityFabric(testImmune(), emit = {})
-        fabric.register(FakeCapability(descriptor("A", operation = "compute_a")))
+        fabric.register(
+            FakeCapability(
+                descriptor("A", operation = "compute_a"),
+                verifier = { _, _ -> false }
+            )
+        )
         val planner = GoalPlanner(FullStrategy)
         val driver = FakeDriver(planner, graphOf(FullStrategy))
         val exec = CapabilityExecutor(
@@ -132,7 +137,7 @@ class CapabilityExecutorTest {
             driver,
             goalPlanner = planner,
             maxReplans = 0
-            // Intentionally omit evidenceVerifier: the secure default is false.
+            // The capability deliberately cannot independently verify its result.
         )
 
         val summary = exec.run()
@@ -614,7 +619,7 @@ class CapabilityExecutorTest {
         assertTrue(evidence.any {
             it.capabilityId == "unresolved:compute_a" && it.outcome == EvidenceOutcome.BLOCKED
         })
-        assertTrue(evidence.any { it.capabilityId == "C" && it.outcome == EvidenceOutcome.SUCCEEDED && !it.verified })
+        assertTrue(evidence.any { it.capabilityId == "C" && it.outcome == EvidenceOutcome.SUCCEEDED && it.verified })
         directory.deleteRecursively()
         Unit
     }
