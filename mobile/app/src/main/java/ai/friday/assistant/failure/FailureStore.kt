@@ -31,7 +31,10 @@ class FailureStore(
     private val fileStorage: StoragePort,
     private val scope: CoroutineScope,
     private val persistMinSeverity: FailureSeverity = FailureSeverity.RECOVERABLE,
-    private val maxPersistedIdsInMemory: Int = 512
+    private val maxPersistedIdsInMemory: Int = 512,
+    private val onStorageFailure: (String, Throwable) -> Unit = { message, failure ->
+        android.util.Log.w("FailureStore", message, failure)
+    }
 ) {
     private val seenIds = LinkedHashMap<String, Unit>()
     private val seenLock = Any()

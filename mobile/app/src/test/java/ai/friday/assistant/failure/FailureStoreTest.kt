@@ -102,7 +102,7 @@ class FailureStoreTest {
         val storage = MemoryStorage().apply { failuresRemaining = 3 }
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         try {
-            val store = FailureStore(storage, scope)
+            val store = FailureStore(storage, scope, onStorageFailure = { _, _ -> })
             val surface = FailureSurface()
             store.attach(surface)
             val first = surface.report(FailureReport(
