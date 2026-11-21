@@ -8,6 +8,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import kotlinx.coroutines.CancellationException
+import java.io.IOException
 
 /**
  * First-run resident model acquisition.
@@ -33,7 +34,10 @@ class ResidentModelBootstrapWorker(
                 requestedContextTokens = RESIDENT_CONTEXT_TOKENS
             )
             if (!admission.allowed) {
-                return Result.failure(workDataOf("reason" to admission.reason))
+                // Resource pressure is temporary. Keep acquisition queued
+                // with WorkManager backoff rather than abandoning first run.
+                setProgress(workDataOf("reason" to admission.reason))
+                return Result.retry()
             }
 
             val downloader = OfflineModelDownloader(applicationContext)
@@ -67,6 +71,11 @@ class ResidentModelBootstrapWorker(
             )
         } catch (cancelled: CancellationException) {
             throw cancelled
+        } catch (transient: IOException) {
+            // Interrupted Wi-Fi transfers preserve their validated partial
+            // file and resume on the next WorkManager attempt.
+            setProgress(workDataOf("reason" to (transient.message ?: "temporary model download I/O failure")))
+            Result.retry()
         } catch (error: Exception) {
             Result.failure(workDataOf("reason" to (error.message ?: error.javaClass.simpleName)))
         }
