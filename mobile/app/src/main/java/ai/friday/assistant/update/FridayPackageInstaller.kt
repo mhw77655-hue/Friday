@@ -76,6 +76,7 @@ class FridayPackageInstaller(context: Context) {
                     FridayPackageInstallStatusActivity::class.java
                 ).apply {
                     action = ACTION_INSTALL_STATUS
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                     putExtra(EXTRA_SESSION_ID, sessionId)
                 }
                 val statusPendingIntent = PendingIntent.getActivity(
