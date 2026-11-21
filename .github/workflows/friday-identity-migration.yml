@@ -67,6 +67,8 @@ jobs:
           test -d mobile/app/src/test/java/ai/friday/assistant
           ! find mobile/app/src -path '*/com/jarvis/app*' -print -quit | grep -q .
           ! grep -RIl --include='*.kt' --include='*.java' 'com.jarvis.app' mobile/app/src | grep -q .
+          ! grep -RIl 'Java_com_jarvis_app' mobile/app/src/main/cpp | grep -q .
+          grep -RIl 'Java_ai_friday_assistant' mobile/app/src/main/cpp | grep -q .
           grep -q 'application_id": "ai.friday.assistant"' .github/workflows/release.yml || grep -q 'ai.friday.assistant' .github/workflows/release.yml
 
       - name: Build the fresh Friday debug APK
