@@ -3,6 +3,22 @@ name: build
 on:
   push:
     branches: [ main ]
+    paths:
+      - mobile/app/**
+      - build.gradle.kts
+      - settings.gradle.kts
+      - gradle/**
+      - gradle.properties
+      - jniLibs/**
+      - local-repo/**
+      - tools/friday-builder/**
+      - .ralph/audit.py
+      - .ralph/owner_vision_check.sh
+      - .ralph/FRIDAY_DELIVERY_PLAN.md
+      - .ralph/VISION.md
+      - .ralph/OWNER_WORDS.md
+      - AGENTS.md
+      - .github/workflows/build.yml
   workflow_dispatch:
 
 concurrency:
