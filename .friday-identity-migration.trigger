@@ -1,1 +1,1 @@
-Run the Python-only migration transaction and validate Android package identity.
+Run Friday identity migration after correcting NUL-delimited tracked-file enumeration.
