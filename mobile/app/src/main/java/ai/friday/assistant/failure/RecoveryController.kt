@@ -146,6 +146,7 @@ class RecoveryController(
         }
 
         scope.launch(Dispatchers.Default) {
+            var nextAttempt: FailureReport? = null
             try {
                 delay(spec.backoffMs * attempt) // linear backoff
                 if (!isActive) return@launch
@@ -178,7 +179,6 @@ class RecoveryController(
                         base.dedupeKey, RecoveryResult.FAILED,
                         attemptFailureMessage, specActionOf(spec), base.correlationId
                     )
-                    running.remove(key)
                     if (entry.breaker.isOpen) {
                         surface.report(base.copy(
                             severity = FailureSeverity.max(base.severity, FailureSeverity.DEGRADED),
@@ -188,7 +188,11 @@ class RecoveryController(
                         ))
                         spec.onDisabled?.invoke()
                     } else {
-                        scheduleRetry(entry, base.copy(attempt = attempt + 1))
+                        // Defer scheduling until after this coroutine releases
+                        // its running marker. Removing it early lets another
+                        // caller schedule work whose marker this coroutine's
+                        // finally block could then accidentally remove.
+                        nextAttempt = base.copy(attempt = attempt + 1)
                     }
                 }
             } catch (cancelled: CancellationException) {
@@ -202,6 +206,7 @@ class RecoveryController(
             } finally {
                 running.remove(key)
             }
+            nextAttempt?.let { scheduleRetry(entry, it) }
         }
     }
 

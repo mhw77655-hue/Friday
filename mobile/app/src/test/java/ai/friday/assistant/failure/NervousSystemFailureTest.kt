@@ -17,6 +17,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
@@ -270,6 +271,53 @@ class NervousSystemFailureTest {
         assertTrue(disabled.get())
         // The dependency surfaced as degraded, and the capability is flagged.
         assertTrue(s.currentFailures.value.any { it.currentSeverity.rank >= FailureSeverity.DEGRADED.rank })
+    }
+
+    @Test
+    fun `concurrent duplicate failures never overlap recovery actions`() = runBlocking {
+        val s = FailureSurface(nowMs = { 1000 })
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val active = AtomicInteger(0)
+        val maximumActive = AtomicInteger(0)
+        val executions = AtomicInteger(0)
+        val pool = Executors.newFixedThreadPool(16)
+        try {
+            val rc = RecoveryController(s, scope)
+            rc.register(retrySpec(
+                maxAttempts = 3,
+                breakerThreshold = 1_000,
+                backoffMs = 0,
+                action = {
+                    val current = active.incrementAndGet()
+                    maximumActive.updateAndGet { previous -> maxOf(previous, current) }
+                    try {
+                        Thread.sleep(3)
+                        executions.incrementAndGet()
+                        false
+                    } finally {
+                        active.decrementAndGet()
+                    }
+                }
+            ))
+            val base = FailureReport(
+                subsystem = "STT_VOSK", operation = "decode",
+                severity = FailureSeverity.RECOVERABLE, category = FailureCategory.STT,
+                message = "decoder returned empty"
+            )
+            val tasks = (0 until 64).map {
+                java.util.concurrent.Callable { rc.handle(base) }
+            }
+            pool.invokeAll(tasks).forEach { it.get(5, TimeUnit.SECONDS) }
+
+            kotlinx.coroutines.withTimeout(3_000) {
+                while (s.recentRecoveryEvents.value.count { it.result == RecoveryResult.FAILED } < 3) delay(10)
+            }
+            assertEquals(3, executions.get())
+            assertEquals(1, maximumActive.get())
+        } finally {
+            pool.shutdownNow()
+            scope.cancel()
+        }
     }
 
     @Test
