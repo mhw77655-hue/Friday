@@ -1,1 +1,1 @@
-Retry with corrected canonical plan title.
+Run the Python-only migration transaction and validate Android package identity.
