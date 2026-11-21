@@ -264,7 +264,7 @@ class LatencyPipeline(
     },
     private val ackSpeak: (String) -> Unit = {},
     private val fullSpeak: (String) -> Unit = {},
-    private val logObsidian: (Boolean, String) -> Unit = { _, _ -> },
+    private val logTurn: (Boolean, String) -> Unit = { _, _ -> },
     private val warmPrime: () -> Unit = {},
     private val reactorSubmitted: () -> Unit = {},
     private val reactorFastPathAck: () -> Unit = {},
@@ -330,7 +330,7 @@ class LatencyPipeline(
         // Slow path — Friday-owned turn context, app-private journal write and cognitive send.
         dispatch {
             runCatching { experienceObserver(text) }
-            logObsidian(false, text)
+            logTurn(false, text)
             if (_phase.value == LatencyLayer.Phase.ACKNOWLEDGING) {
                 _phase.value = LatencyLayer.Phase.THINKING
             }
@@ -367,7 +367,7 @@ class LatencyPipeline(
                 val settledText = localReply
                     ?: "I'm here, but my local expression capability is not available right now."
                 appendTurn(Turn(fromJarvis = true, text = settledText, verified = false))
-                logObsidian(true, settledText)
+                logTurn(true, settledText)
                 reactorFirstSegment()
                 _phase.value = LatencyLayer.Phase.REPLYING
                 if (localReply != null) fullSpeak(localReply)
@@ -428,7 +428,7 @@ class LatencyPipeline(
                         "No answer was generated. Check whether a model is selected, downloaded and loaded, then try again."
                     )
                 appendTurn(Turn(fromJarvis = true, text = settledText, verified = false))
-                logObsidian(true, if (localReply != null) settledText else "Model response timed out; no generated answer was received.")
+                logTurn(true, if (localReply != null) settledText else "Model response timed out; no generated answer was received.")
                 if (localReply != null) {
                     _phase.value = LatencyLayer.Phase.REPLYING
                     fullSpeak(localReply)
@@ -459,8 +459,8 @@ class LatencyPipeline(
         ackSpeak(ackPhrase)
 
         dispatch {
-            logObsidian(false, commandText)
-            logObsidian(true, ackPhrase)
+            logTurn(false, commandText)
+            logTurn(true, ackPhrase)
         }
         scheduleDelayed(ACK_ONLY_IDLE_MS) {
             if (exchangeCounter.get() == id && _phase.value == LatencyLayer.Phase.ACKNOWLEDGING) {
@@ -492,7 +492,7 @@ class LatencyPipeline(
             val verified = bridgeStatus() == "ok (local)"
 
             appendTurn(Turn(fromJarvis = true, text = outbound, verified = verified))
-            logObsidian(true, outbound)
+            logTurn(true, outbound)
 
             fullSpeak(outbound)
             reactorUtteranceDone()
@@ -543,7 +543,7 @@ class LatencyPipeline(
             _phase.value = LatencyLayer.Phase.IDLE
             if (unresolved.isEmpty()) {
                 appendTurn(Turn(fromJarvis = true, text = SOFT_ERROR_TEXT, verified = false))
-                logObsidian(true, SOFT_ERROR_TEXT)
+                logTurn(true, SOFT_ERROR_TEXT)
             } else {
                 val localReplies = unresolved.mapNotNull { (_, input) ->
                     runCatching { modelFreeReply?.invoke(input) }.getOrNull()
@@ -554,11 +554,11 @@ class LatencyPipeline(
                     // One bridge outage is one failure event, even when a burst
                     // left several requests queued against the same dead bridge.
                     appendTurn(Turn(fromJarvis = true, text = SOFT_ERROR_TEXT, verified = false))
-                    logObsidian(true, SOFT_ERROR_TEXT)
+                    logTurn(true, SOFT_ERROR_TEXT)
                 } else {
                     localReplies.forEach { localReply ->
                         appendTurn(Turn(fromJarvis = true, text = localReply, verified = false))
-                        logObsidian(true, localReply)
+                        logTurn(true, localReply)
                         _phase.value = LatencyLayer.Phase.REPLYING
                         fullSpeak(localReply)
                     }
