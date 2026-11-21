@@ -84,17 +84,12 @@ jobs:
           fi
           test ! -e mobile/app/src/main/java/ai/friday/assistant/ObsidianSync.kt
           grep -q 'android:label="Friday"' mobile/app/src/main/AndroidManifest.xml
-          test ! -e mobile/app/src/main/java/ai/friday/assistant/ObsidianSync.kt
           test -f mobile/app/src/main/java/ai/friday/assistant/LocalTurnJournal.kt
-          if find mobile/app/src/main/java -type f \\
-            \\( -name 'GitHubTokenStore.kt' -o -name 'GitHubDeviceChannel.kt' -o -name 'FridayEvolutionWorker.kt' \\) \\
-            -print -quit | grep -q .; then
+          if find mobile/app/src/main/java -type f \( -name 'GitHubTokenStore.kt' -o -name 'GitHubDeviceChannel.kt' -o -name 'FridayEvolutionWorker.kt' \) -print -quit | grep -q .; then
             echo "::error::Retired public GitHub phone bridge source remains."
             exit 1
           fi
-          if find mobile/app/src/main/java -type f \\
-            \\( -name '*VoiceForge*.kt' -o -name 'ToolBuilder.kt' -o -name 'ToolBuilderComposition.kt' \\) \\
-            -print -quit | grep -q .; then
+          if find mobile/app/src/main/java -type f \( -name '*VoiceForge*.kt' -o -name 'ToolBuilder.kt' -o -name 'ToolBuilderComposition.kt' \) -print -quit | grep -q .; then
             echo "::error::Retired prototype source remains in the production source set."
             exit 1
           fi
