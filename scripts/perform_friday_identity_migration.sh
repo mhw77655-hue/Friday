@@ -46,7 +46,7 @@ for raw in tracked:
             raise SystemExit(f"Filename collision: {path} -> {target}")
         git("mv", raw, str(target.relative_to(ROOT)))
 
-url_pattern = re.compile(r"https?://[^\\s\"'<>]+")
+url_pattern = re.compile(r"https?://[^\s\"'<>]+")
 replacements = (
     ("com.jarvis.app", "ai.friday.assistant"),
     ("com/jarvis/app", "ai/friday/assistant"),
@@ -74,7 +74,8 @@ for raw in tracked:
     chunks = url_pattern.split(original)
     updated = "".join(chunk if url_pattern.fullmatch(chunk) else normalize(chunk) for chunk in chunks)
     if updated != original:
-        path.write_text(updated, encoding="utf-8")
+        updated = "\n".join(line.rstrip(" \t") for line in updated.splitlines())
+        path.write_text(updated + ("\n" if original.endswith("\n") else ""), encoding="utf-8")
         changed += 1
 
 # Canonical seed identity. The old installed APK was explicitly deleted by the owner.
@@ -111,6 +112,8 @@ facts = """# Friday repository facts
 - .ralph/FRIDAY_DELIVERY_PLAN.md is the sole active delivery plan.
 - .ralph/VISION.md and .ralph/OWNER_WORDS.md preserve owner intent.
 - Product identity: Friday; application ID and Kotlin namespace: ai.friday.assistant.
+- The sole active product and delivery authority is .ralph/FRIDAY_DELIVERY_PLAN.md.
+- The canonical product line is `main`.
 - Historical audits and archive material are not active implementation instructions.
 
 ## Git and project structure
@@ -155,6 +158,65 @@ A clean rename is not proof that inherited architecture is correct. After migrat
 """
     s = s.replace(marker, marker + section, 1)
 plan.write_text(s)
+
+# Purge retired, disconnected prototypes and stale personal device exports.
+def remove_path(relative):
+    target = ROOT / relative
+    if not target.exists():
+        return
+    if target.is_dir():
+        git("rm", "-r", "-f", relative)
+    else:
+        git("rm", "-f", relative)
+
+for relative in (
+    "vault",
+    "runtime",
+    "voiceforge",
+    "release",
+    "audit",
+    "development-requests",
+    ".ralph/audit",
+    ".ralph/archive",
+    ".ralph/buildtwin",
+):
+    remove_path(relative)
+
+for relative in (
+    "20261120-004345-device.log",
+    "friday-device-report.json",
+    "Design_Friday_Resilience.txt",
+    ".ralph/FULL_SYSTEM_AUDIT_20260902.md",
+    ".ralph/SYMBOL_FACTS.md",
+    ".ralph/repo_scan_20260831_115031.md",
+    ".ralph/audit_check.sh",
+    ".ralph/ci_verify.sh",
+    ".ralph/symbol_facts_check.sh",
+    "docs/FRIDAY_BUILD_PROGRESS.md",
+    "docs/FRIDAY_ARCHITECTURE_TRUTH_AUDIT.md",
+    "docs/FRIDAY_TRUSTED_PUBLISHER_SETUP.md",
+    "mobile/app/src/main/assets/voiceforge/PROVENANCE.md",
+    "tools/friday-builder/run_proposal.sh",
+    "tools/friday-builder/development-request.schema.json",
+    "tools/friday-builder/validate_patch_paths.py",
+    "tools/friday-builder/validate_request.py",
+    "tools/friday-builder/test_publisher_workflow.py",
+    "tools/friday-builder/test_run_proposal.py",
+    "tools/friday-builder/test_validate_patch_paths.py",
+    "tools/friday-builder/test_validate_request.py",
+):
+    remove_path(relative)
+
+# VoiceForge was a retired test-only Chatterbox/Termux experiment, not Friday's
+# production voice. Remove its tests rather than letting them imply otherwise.
+voice_tests = ROOT / "mobile/app/src/test/java/ai/friday/assistant/voice"
+if voice_tests.exists():
+    for candidate in voice_tests.glob("VoiceForge*.kt"):
+        remove_path(str(candidate.relative_to(ROOT)))
+
+assets_voice = ROOT / "mobile/app/src/main/assets/voiceforge"
+if assets_voice.exists() and not any(assets_voice.iterdir()):
+    assets_voice.rmdir()
 
 # Retire the old one-off repository-unification audit; the delivery plan is authoritative.
 obsolete = ROOT / ".ralph/REPO_UNIFICATION_AUDIT.md"
