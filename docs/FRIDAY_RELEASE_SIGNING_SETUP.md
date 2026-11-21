@@ -30,13 +30,11 @@ The coding worker never receives these secrets. A separate release workflow runs
 
 No debug APK is ever promoted as a production release.
 
-## Important first-install migration constraint
+## First install identity
 
-Android only accepts an in-place APK update when the package identity and signing certificate match. Shizuku does not bypass Android's signature check.
+The owner confirmed the previous APK was deleted and authorized a fresh package identity. The first permanent-signed Friday APK is therefore a clean install using `ai.friday.assistant`; there is no old-package data continuity requirement. Do not install a debug APK as the seed.
 
-If the app currently installed on the phone was installed from a GitHub Actions debug build signed by an ephemeral runner key, the matching private key is not available. In that case the first permanent-release install cannot update that debug installation in place. Friday must first export and verify its identity/memory backup, then the owner must perform a one-time migration to the permanent-signed APK. We cannot honestly promise zero reinstall for this initial signature transition.
-
-After the permanent-signed build is installed, future same-key updates can use an authorized Shizuku `pm install -r` route without uninstalling Friday or intentionally clearing app-private data.
+After the permanent-signed seed is installed, every update must keep the same application ID and signing certificate. Android's package installer enforces signer compatibility; Shizuku does not bypass that check.
 
 ## Install-once update channel
 
