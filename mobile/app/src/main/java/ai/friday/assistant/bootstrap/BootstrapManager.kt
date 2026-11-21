@@ -2,6 +2,7 @@ package ai.friday.assistant.bootstrap
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import ai.friday.assistant.FridayEngine
 import ai.friday.assistant.env.EnvironmentProfile
 import ai.friday.assistant.humancore.HumanCore
