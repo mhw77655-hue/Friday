@@ -60,6 +60,12 @@ class NativeLifecycleContractTests(unittest.TestCase):
         self.assertIn("LLAMA_STATE_READY || model->state == LLAMA_STATE_IDLE", wait)
         self.assertIn("return model->state == LLAMA_STATE_READY || model->state == LLAMA_STATE_IDLE", wait)
 
+    def test_inference_text_uses_standard_utf8_not_jni_modified_utf8(self):
+        self.assertNotIn("GetStringUTFChars", self.jni)
+        self.assertIn("jstring_to_utf8(env, prompt)", self.jni)
+        self.assertIn('utf8_to_jstring(env, token ? token : "")', self.jni)
+        self.assertIn("jstring jResult = utf8_to_jstring(env, result)", self.jni)
+
     def test_native_health_uses_enum_values_method_and_exact_constructor_signature(self):
         self.assertIn('GetStaticMethodID(', self.jni)
         self.assertIn('"values", "()[Lai/friday/assistant/model/adapters/LocalInferenceEngine$NativeState;"', self.jni)

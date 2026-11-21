@@ -520,7 +520,7 @@ JNI_CLASS(nativeDecode)(JNIEnv* env, jobject thiz, jlong handle, jintArray token
     env->ReleaseIntArrayElements(tokens, tokenData, JNI_ABORT);
 
     if (result) {
-        jstring jResult = env->NewStringUTF(result);
+        jstring jResult = utf8_to_jstring(env, result);
         free((void*)result);
         return jResult;
     }
