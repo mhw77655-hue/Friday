@@ -202,7 +202,6 @@ for path in (
 ):
     if Path(path).exists():
         git("rm", "-f", path)
+subprocess.run(["git", "diff", "--check"], check=True)
+print("FRIDAY_IDENTITY_MIGRATION_PREPARED")
 PY
-
-git diff --check
-echo "FRIDAY_IDENTITY_MIGRATION_PREPARED"
