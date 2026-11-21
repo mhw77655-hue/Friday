@@ -16,6 +16,16 @@ interface Capability {
     /** Execute one action. Must encode failure in the returned [ExecutionResult]
      *  rather than throwing (a throw is treated as a non-recoverable failure). */
     suspend fun invoke(request: ActionRequest): ExecutionResult
+
+    /**
+     * Independently inspect the external postcondition after a successful
+     * invocation. Implementations must observe the target state rather than
+     * echoing [ExecutionResult.success]. The secure default is unsupported.
+     */
+    suspend fun verifyPostcondition(
+        request: ActionRequest,
+        result: ExecutionResult
+    ): Boolean = false
 }
 
 /**
