@@ -51,6 +51,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import ai.friday.assistant.update.FridayPackageInstaller
 import ai.friday.assistant.update.FridayUpdateClient
+import ai.friday.assistant.update.FridayUpdateStateStore
 import ai.friday.assistant.ui.theme.FridayColors
 import ai.friday.assistant.ui.theme.FridayType
 
@@ -73,8 +74,9 @@ fun SettingsScreen() {
     var jevApiKey by remember { mutableStateOf("") }
     var jevConfigured by remember { mutableStateOf(ai.friday.assistant.voice.JevApiKeyStore(context).read() != null) }
     val scope = rememberCoroutineScope()
-    var updateStatus by remember { mutableStateOf("No update check has been run.") }
-    var stagedUpdate by remember { mutableStateOf<FridayUpdateClient.Result.Staged?>(null) }
+    val updateStateStore = remember { FridayUpdateStateStore(context) }
+    var updateStatus by remember { mutableStateOf(updateStateStore.lastStatus()) }
+    var stagedUpdate by remember { mutableStateOf(updateStateStore.loadStaged()) }
     val updateInstallPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
@@ -101,7 +103,11 @@ fun SettingsScreen() {
     }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) resumeSignal++
+            if (event == Lifecycle.Event.ON_RESUME) {
+                resumeSignal++
+                updateStatus = updateStateStore.lastStatus()
+                stagedUpdate = updateStateStore.loadStaged()
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -170,14 +176,21 @@ fun SettingsScreen() {
                         FridayUpdateClient(context).checkAndStage()
                     }
                     when (result) {
-                        is FridayUpdateClient.Result.UpToDate ->
+                        is FridayUpdateClient.Result.UpToDate -> {
+                            updateStateStore.clearStaged()
                             updateStatus = "Friday is up to date (version code ${result.installedVersionCode})."
+                            updateStateStore.recordStatus(updateStatus)
+                        }
                         is FridayUpdateClient.Result.Staged -> {
                             stagedUpdate = result
+                            updateStateStore.saveStaged(result)
                             updateStatus = "Verified Friday ${result.release.versionName} is staged and ready for Android installation."
+                            updateStateStore.recordStatus(updateStatus)
                         }
-                        is FridayUpdateClient.Result.Rejected ->
+                        is FridayUpdateClient.Result.Rejected -> {
                             updateStatus = "Update not installed: ${result.reason}"
+                            updateStateStore.recordStatus(updateStatus)
+                        }
                     }
                 }
             },
@@ -187,14 +200,18 @@ fun SettingsScreen() {
             Button(
                 onClick = {
                     when (val result = FridayPackageInstaller(context).install(stagedUpdate!!)) {
-                        is FridayPackageInstaller.Result.Submitted ->
+                        is FridayPackageInstaller.Result.Submitted -> {
                             updateStatus = "Update submitted to Android PackageInstaller (session ${result.sessionId}). Waiting for Android's result."
+                            updateStateStore.recordStatus(updateStatus)
+                        }
                         is FridayPackageInstaller.Result.PermissionRequired -> {
                             updateStatus = "Allow Friday as an install source in Android settings, then return and tap Install again."
                             updateInstallPermissionLauncher.launch(result.settingsIntent)
                         }
-                        is FridayPackageInstaller.Result.Rejected ->
+                        is FridayPackageInstaller.Result.Rejected -> {
                             updateStatus = "Android installation was not started: ${result.reason}"
+                            updateStateStore.recordStatus(updateStatus)
+                        }
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
