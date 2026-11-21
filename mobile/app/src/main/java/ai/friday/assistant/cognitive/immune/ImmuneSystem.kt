@@ -132,10 +132,18 @@ class ImmuneSystem(
             // this reset, one exhausted incident permanently disables future
             // bounded recovery attempts for this subsystem/operation.
             recoveryAttempts[operationKey]?.set(0)
+            recoverSurfaceForOperation(
+                subsystem, operation, RecoveryResult.SUCCESS,
+                "recovered by health probe", RecoveryAction.RETRY
+            )
             markHealthy(subsystem, relatedCapabilityByOperation[operationKey])
             ProbeOutcome.RECOVERED
         } else {
             cb.onProbeFailure()
+            recoverSurfaceForOperation(
+                subsystem, operation, RecoveryResult.FAILED,
+                "health probe failed", RecoveryAction.RETRY
+            )
             emit(CognitiveEvent.CircuitOpened(key(subsystem, operation), cb.failureCount))
             ProbeOutcome.FAILED
         }
@@ -146,6 +154,10 @@ class ImmuneSystem(
         breaker(subsystem, operation).onSuccess()
         val operationKey = key(subsystem, operation)
         recoveryAttempts[operationKey]?.set(0)
+        recoverSurfaceForOperation(
+            subsystem, operation, RecoveryResult.SUCCESS,
+            "healthy signal received", RecoveryAction.RETRY
+        )
         markHealthy(subsystem, relatedCapabilityByOperation[operationKey])
     }
 
@@ -188,7 +200,11 @@ class ImmuneSystem(
 
         while (attempts.get() < maxAttempts) {
             attempts.incrementAndGet()
-            emit(CognitiveEvent.RecoveryStarted(report.subsystem, report.operation, "attempt ${attempts.get()}"))
+            val attemptNumber = attempts.get()
+            surface.beginRecovery(
+                report.dedupeKey, report.recoveryAction, "attempt $attemptNumber"
+            )
+            emit(CognitiveEvent.RecoveryStarted(report.subsystem, report.operation, "attempt $attemptNumber"))
             val ok = try {
                 recoveryFn()
             } catch (e: Exception) {
@@ -197,12 +213,22 @@ class ImmuneSystem(
             if (ok) {
                 cb.onSuccess()
                 attempts.set(0)
-                emit(CognitiveEvent.RecoverySucceeded(report.subsystem, report.operation, "attempt ${attempts.get()}"))
+                surface.recover(
+                    report.dedupeKey, RecoveryResult.SUCCESS,
+                    "recovered on attempt $attemptNumber",
+                    report.recoveryAction, report.correlationId
+                )
+                emit(CognitiveEvent.RecoverySucceeded(report.subsystem, report.operation, "attempt $attemptNumber"))
                 markHealthy(report.subsystem, report.relatedCapability)
                 remember(report, report.recoveryAction, RecoveryResult.SUCCESS)
                 return
             }
-            emit(CognitiveEvent.RecoveryFailed(report.subsystem, report.operation, "attempt ${attempts.get()}"))
+            surface.recover(
+                report.dedupeKey, RecoveryResult.FAILED,
+                "attempt $attemptNumber failed",
+                report.recoveryAction, report.correlationId
+            )
+            emit(CognitiveEvent.RecoveryFailed(report.subsystem, report.operation, "attempt $attemptNumber"))
             if (attempts.get() < maxAttempts) {
                 // Pacing is provided by the policy value; the host may route it
                 // through the async RecoveryController. Zero in tests.
@@ -233,6 +259,24 @@ class ImmuneSystem(
                 emit(CognitiveEvent.DegradedModeExited(cap, old))
             }
         }
+    }
+
+    /**
+     * Close every active failure aggregate for one recovered operation. The
+     * failure history remains intact; only its current status changes.
+     */
+    private fun recoverSurfaceForOperation(
+        subsystem: String,
+        operation: String,
+        result: RecoveryResult,
+        message: String,
+        action: RecoveryAction
+    ) {
+        surface.currentFailures.value
+            .filter { it.subsystem == subsystem && it.operation == operation }
+            .forEach { aggregate ->
+                surface.recover(aggregate.key, result, message, action)
+            }
     }
 
     /**

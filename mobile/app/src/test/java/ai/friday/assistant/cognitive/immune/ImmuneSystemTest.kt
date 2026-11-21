@@ -79,6 +79,8 @@ class ImmuneSystemTest {
         assertTrue(events.any { it is CognitiveEvent.RecoverySucceeded })
         assertTrue(events.any { it is CognitiveEvent.DegradedModeEntered })
         assertTrue(recovered)
+        assertTrue(sys.surface.currentFailures.value.none { it.subsystem == "STT" && it.operation == "transcribe" })
+        assertTrue(sys.surface.recentRecoveryEvents.value.any { it.result == ai.friday.assistant.failure.RecoveryResult.SUCCESS })
         // containment restored
         assertEquals(ContainmentStatus.HEALTHY, sys.containment.statusOf("STT"))
         // remembered with a successful recovery
@@ -110,6 +112,7 @@ class ImmuneSystemTest {
         assertEquals(3, events.filterIsInstance<CognitiveEvent.RecoveryFailed>().size)
         assertTrue(events.any { it is CognitiveEvent.CapabilityUnavailable })
         assertFalse(events.any { it is CognitiveEvent.RecoverySucceeded })
+        assertTrue(sys.surface.currentFailures.value.any { it.subsystem == "STT" && it.operation == "transcribe" })
         // recorded as failed in memory
         val hit = sys.memory.resembles(ai.friday.assistant.failure.failureSignatureOf(timeoutReport()))!!
         assertTrue(hit.previousFailures == 1)
@@ -150,6 +153,7 @@ class ImmuneSystemTest {
         val outcome = sys.probe("STT", "transcribe") { true }
         assertEquals(ProbeOutcome.RECOVERED, outcome)
         assertTrue(sys.breaker("STT", "transcribe").isClosed)
+        assertTrue(sys.surface.currentFailures.value.none { it.subsystem == "STT" && it.operation == "transcribe" })
         assertTrue(events.any { it is CognitiveEvent.CircuitHalfOpened })
     }
 
@@ -239,6 +243,25 @@ class ImmuneSystemTest {
 
         assertEquals(DegradationLevel.OFFLINE, sys.degradation.levelOf("stt"))
         assertEquals(DegradationLevel.FULL, sys.degradation.levelOf("tts"))
+    }
+
+    @Test
+    fun `healthy signal closes every active failure aggregate for the operation`() {
+        val sys = system()
+        sys.onFailure(timeoutReport().copy(message = "transcription timed out"))
+        sys.onFailure(timeoutReport().copy(message = "provider disconnected"))
+        assertEquals(2, sys.surface.currentFailures.value.count {
+            it.subsystem == "STT" && it.operation == "transcribe"
+        })
+
+        sys.onSuccess("STT", "transcribe")
+
+        assertTrue(sys.surface.currentFailures.value.none {
+            it.subsystem == "STT" && it.operation == "transcribe"
+        })
+        assertTrue(sys.surface.recentRecoveryEvents.value.any {
+            it.subsystem == "STT" && it.result == ai.friday.assistant.failure.RecoveryResult.SUCCESS
+        })
     }
 
     @Test
