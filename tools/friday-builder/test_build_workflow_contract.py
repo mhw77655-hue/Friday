@@ -58,12 +58,12 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn("workflow_dispatch:", self.workflow)
 
 
-    def test_only_canonical_main_pushes_trigger_automatic_builds(self):
+    def test_main_builds_are_not_cancelled_by_followup_commits(self):
         self.assertIn("on:\n  push:\n    branches: [ main ]", self.workflow)
         self.assertNotIn("pull_request:", self.workflow)
         self.assertIn("concurrency:", self.workflow)
         self.assertIn("group: friday-build-${{ github.ref }}", self.workflow)
-        self.assertIn("cancel-in-progress: true", self.workflow)
+        self.assertIn("cancel-in-progress: false", self.workflow)
         self.assertIn("workflow_dispatch:", self.workflow)
 
 
