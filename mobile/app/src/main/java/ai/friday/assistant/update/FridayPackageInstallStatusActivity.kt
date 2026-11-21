@@ -55,6 +55,8 @@ class FridayPackageInstallStatusActivity : Activity() {
                 }
             }
             PackageInstaller.STATUS_SUCCESS -> {
+                FridayUpdateStateStore(this).clearStaged()
+                FridayUpdateStateStore(this).recordStatus("Android accepted the Friday update. The new app process will verify continuity on next launch.")
                 Toast.makeText(this, "Friday update installed. Restarting Friday…", Toast.LENGTH_LONG).show()
                 finish()
             }
@@ -62,11 +64,9 @@ class FridayPackageInstallStatusActivity : Activity() {
                 val detail = statusIntent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
                     ?.take(160)
                     .orEmpty()
-                Toast.makeText(
-                    this,
-                    if (detail.isBlank()) "Android rejected the Friday update." else "Friday update failed: $detail",
-                    Toast.LENGTH_LONG
-                ).show()
+                val message = if (detail.isBlank()) "Android rejected the Friday update." else "Friday update failed: $detail"
+                FridayUpdateStateStore(this).recordStatus(message)
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
                 finish()
             }
         }
