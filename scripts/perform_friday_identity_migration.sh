@@ -32,7 +32,7 @@ for relative in (
         git("mv", relative, str(target.relative_to(ROOT)))
 
 # Rename Jarvis-named tracked files, without rewriting external URLs.
-tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode().split("\\0")
+tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode().split("\0")
 for raw in tracked:
     if not raw:
         continue
@@ -59,7 +59,7 @@ def normalize(text):
         text = text.replace(old, new)
     return text
 
-tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode().split("\\0")
+tracked = subprocess.check_output(["git", "ls-files", "-z"], cwd=ROOT).decode().split("\0")
 changed = 0
 for raw in tracked:
     if not raw:
