@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import re
+import shutil
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -202,6 +203,48 @@ if archive_review.exists():
         "**Status:** historical source review; branch names and implementation findings are archival evidence only, not active repository instructions."
     )
     archive_review.write_text(review)
+
+# Preserve potentially useful donor mechanisms outside the Android source set.
+# They remain research evidence, not production code or active instructions.
+archive_root = ROOT / "research" / "legacy-prototypes"
+archive_groups = {
+    "toolbuilder": (
+        "mobile/app/src/main/java/ai/friday/assistant/builder/ToolBuilder.kt",
+        "mobile/app/src/main/java/ai/friday/assistant/builder/ToolBuilderComposition.kt",
+        "mobile/app/src/test/java/ai/friday/assistant/builder/ToolBuilderTest.kt",
+        "mobile/app/src/test/java/ai/friday/assistant/builder/ToolBuilderResearchWiringTest.kt",
+    ),
+    "buildtwin": (
+        "mobile/app/src/main/java/ai/friday/assistant/buildtwin/BuildTwinSpec.kt",
+        "mobile/app/src/main/java/ai/friday/assistant/buildtwin/BuildTwinVerifier.kt",
+        "mobile/app/src/main/java/ai/friday/assistant/buildtwin/HttpTwinHealthProbe.kt",
+        "mobile/app/src/main/java/ai/friday/assistant/buildtwin/IncidentReportWriter.kt",
+        "mobile/app/src/main/java/ai/friday/assistant/buildtwin/LocalTwinCommandRunner.kt",
+        "mobile/app/src/test/java/ai/friday/assistant/buildtwin/BuildTwinVerifierTest.kt",
+    ),
+}
+for group, sources in archive_groups.items():
+    destination = archive_root / group
+    for relative in sources:
+        source = ROOT / relative
+        if source.is_file():
+            target = destination / source.name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if target.exists():
+                raise SystemExit(f"Refusing to overwrite archived research: {target}")
+            shutil.copy2(source, target)
+
+archive_readme = archive_root / "README.md"
+archive_readme.parent.mkdir(parents=True, exist_ok=True)
+archive_readme.write_text("""# Legacy prototype research archive
+
+This directory preserves selected source and tests from disconnected Android prototypes before their removal from the production source set.
+
+- toolbuilder/: gap-to-capability construction, sandbox/evolution orchestration and its original JVM architecture tests. It is not currently proven reachable from Friday's production composition root. Reuse the useful mechanisms only after adapting them to the canonical Need/Affordance/Resource/Outcome contracts and adding production-wiring evidence.
+- buildtwin/: an older remote ARM64/VoiceForge verification twin experiment. Its SSH, shell, HTTP and Termux/server assumptions are not Friday production dependencies. Reuse only generic validation or resource-measurement ideas after replacing those assumptions.
+
+These files are historical donor material. They are not compiled, packaged, authoritative instructions, or proof that the archived capabilities work in the current app. Their original dependencies and claims require fresh review before reuse.
+""", encoding="utf-8")
 
 # Purge retired, disconnected prototypes and stale personal device exports.
 def remove_path(relative):
