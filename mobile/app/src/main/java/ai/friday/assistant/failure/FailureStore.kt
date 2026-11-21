@@ -154,11 +154,13 @@ class FailureStore(
                     delay(RETRY_BASE_DELAY_MS shl (attempt - 1))
                 } else {
                     persistenceFailureCounter.incrementAndGet()
-                    android.util.Log.w(
-                        "FailureStore",
-                        "persist failed after $attempt attempts for ${event.subsystem}/${event.operation}",
-                        failure
-                    )
+                    runCatching {
+                        android.util.Log.w(
+                            "FailureStore",
+                            "persist failed after $attempt attempts for ${event.subsystem}/${event.operation}",
+                            failure
+                        )
+                    }
                 }
             }
         }
@@ -178,7 +180,7 @@ class FailureStore(
                 .takeLast(limit)
                 .asReversed()
         } catch (failure: Exception) {
-            android.util.Log.w("FailureStore", "load failed", failure)
+            runCatching { android.util.Log.w("FailureStore", "load failed", failure) }
             emptyList()
         }
     }

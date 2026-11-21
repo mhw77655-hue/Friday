@@ -117,10 +117,11 @@ class FailureStoreTest {
                 while (store.persistenceFailureCount < 1) delay(10)
             }
             assertTrue(store.loadRecent().none { it.id == first.id })
+            delay(25) // allow the failed worker to move the event into its bounded retry backlog
 
             // A later incident is the next retry opportunity. The previously
             // exhausted event must be retried before the new event is appended.
-            storage.failuresRemaining = 0
+            synchronized(storage.lines) { storage.failuresRemaining = 0 }
             val second = surface.report(FailureReport(
                 subsystem = "STORAGE",
                 operation = "append",
@@ -136,7 +137,9 @@ class FailureStoreTest {
             assertTrue(loaded.any { it.id == first.id })
             assertTrue(loaded.any { it.id == second.id })
             assertEquals(2, storage.lines.size)
+            assertEquals(5, storage.appendAttempts.get())
             assertEquals(first.id, loaded.last().id)
+            assertEquals(0L, store.persistenceRetryBacklogOverflowCount)
         } finally {
             scope.cancel()
         }
@@ -198,46 +201,6 @@ class FailureStoreTest {
             delay(100)
             assertEquals(1, storage.lines.size)
             assertEquals(1L, store.persistedEventCount)
-        } finally {
-            scope.cancel()
-        }
-    }
-
-    @Test
-    fun `exhausted append remains eligible after a later persistence snapshot`() = runBlocking {
-        val storage = MemoryStorage().apply { failuresRemaining = 3 }
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-        try {
-            val store = FailureStore(storage, scope)
-            val surface = FailureSurface()
-            store.attach(surface)
-            val first = surface.report(FailureReport(
-                subsystem = "TEST",
-                operation = "retry",
-                severity = FailureSeverity.RECOVERABLE,
-                category = FailureCategory.UNKNOWN,
-                message = "first append unavailable"
-            ))
-
-            withTimeout(3_000) {
-                while (storage.appendAttempts.get() < 3) delay(10)
-            }
-            synchronized(storage.lines) {
-                storage.failuresRemaining = 0
-            }
-            val second = surface.report(FailureReport(
-                subsystem = "TEST",
-                operation = "retry",
-                severity = FailureSeverity.RECOVERABLE,
-                category = FailureCategory.UNKNOWN,
-                message = "storage returned"
-            ))
-
-            withTimeout(3_000) {
-                while (store.loadRecent(10).none { it.id == first.id } ||
-                    store.loadRecent(10).none { it.id == second.id }) delay(10)
-            }
-            assertEquals(2, store.loadRecent(10).size)
         } finally {
             scope.cancel()
         }
