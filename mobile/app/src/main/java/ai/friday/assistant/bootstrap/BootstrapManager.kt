@@ -2,8 +2,6 @@ package ai.friday.assistant.bootstrap
 
 import android.content.Context
 import android.content.pm.PackageManager
-import android.os.Build
-import android.os.Environment
 import ai.friday.assistant.FridayEngine
 import ai.friday.assistant.env.EnvironmentProfile
 import ai.friday.assistant.humancore.HumanCore
@@ -39,9 +37,20 @@ class BootstrapManager(
     private val _progress = MutableStateFlow(0f)
     val progress = _progress.asStateFlow()
 
+    // Non-critical setup gaps are visible to the UI but never prevent Friday
+    // from opening. Permissions and optional services are requested only when
+    // the owner invokes a capability that actually needs them.
+    private val _notices = MutableStateFlow<List<String>>(emptyList())
+    val notices = _notices.asStateFlow()
+
+    private fun addNotice(message: String) {
+        _notices.value = (_notices.value + message).distinct()
+    }
+
     /** Run the bootstrap sequence */
     suspend fun runBootstrap(): BootstrapResult {
         _bootstrapState.value = BootstrapState.IN_PROGRESS
+        _notices.value = emptyList()
 
         val steps = listOf(
             BootstrapStep.CHECK_PERMISSIONS,
@@ -80,53 +89,49 @@ class BootstrapManager(
     }
 
     private suspend fun checkPermissions(): Result<Unit> = withContext(Dispatchers.IO) {
-        val required = mutableListOf<String>()
-
-        // Microphone
-        if (context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            required.add(android.Manifest.permission.RECORD_AUDIO)
-        }
-
-        // Storage (API 30+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            if (!Environment.isExternalStorageManager()) {
-                required.add("MANAGE_EXTERNAL_STORAGE")
+        // Microphone, camera, notifications and special settings access are
+        // feature-scoped permissions. Friday's typed-first foundation must not
+        // demand them at installation or block startup when they are denied.
+        val missing = buildList {
+            if (context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                add("Microphone access is not granted; voice features remain unavailable until requested and approved.")
             }
-        } else {
-            if (context.checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-                required.add(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            if (context.checkSelfPermission(android.Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                add("Camera access is not granted; camera features remain unavailable until requested and approved.")
             }
-        }
-
-        // Notification permission (API 33+)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                required.add(android.Manifest.permission.POST_NOTIFICATIONS)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+            ) {
+                add("Notification access is not granted; background status notifications may be limited.")
             }
         }
-
-        if (required.isNotEmpty()) {
-            // Signal UI to request permissions
-            Result.failure(BootstrapException.PermissionsRequired(required))
-        } else {
-            Result.success(Unit)
-        }
+        missing.forEach(::addNotice)
+        // Friday uses app-private storage. MANAGE_EXTERNAL_STORAGE and legacy
+        // WRITE_EXTERNAL_STORAGE are not bootstrap prerequisites.
+        Result.success(Unit)
     }
 
     private suspend fun checkShizuku(): Result<Unit> = withContext(Dispatchers.IO) {
-        // Check if Shizuku is running and we have permission
-        // This is a best-effort check - the app will work without Shizuku but with reduced capabilities
+        // Shizuku is an optional escalation route, never a startup dependency.
+        // The capability that needs it must check binder + owner authorization
+        // at invocation time and offer a supported fallback when possible.
+        addNotice("Shizuku is optional and will be checked when a capability needs it.")
         Result.success(Unit)
     }
 
     private suspend fun checkLlamaServer(): Result<Unit> = withContext(Dispatchers.IO) {
-        // Try to reach llama-server
-        val health = modelManager.health()
+        // No pre-existing localhost/Ollama/llama-server process is assumed.
+        // A missing model/runtime is a degraded capability state, not a reason
+        // to prevent Friday's identity, UI, memory or bootstrap from starting.
+        val health = runCatching { modelManager.health() }
+            .getOrElse {
+                addNotice("Local inference is not ready yet: ${it.message ?: "runtime unavailable"}.")
+                return@withContext Result.success(Unit)
+            }
         if (!health.isHealthy) {
-            Result.failure(BootstrapException.LlamaServerUnreachable(health.error))
-        } else {
-            Result.success(Unit)
+            addNotice("Local inference is not ready yet: ${health.error ?: "no resident model/runtime available"}.")
         }
+        Result.success(Unit)
     }
 
     private suspend fun loadIdentity(): Result<Unit> = withContext(Dispatchers.IO) {
@@ -186,9 +191,9 @@ sealed interface BootstrapState {
 }
 
 enum class BootstrapStep {
-    CHECK_PERMISSIONS("Checking permissions"),
-    CHECK_SHIZUKU("Checking Shizuku"),
-    CHECK_LLAMA_SERVER("Checking llama-server"),
+    CHECK_PERMISSIONS("Checking optional permissions"),
+    CHECK_SHIZUKU("Discovering optional Shizuku access"),
+    CHECK_LLAMA_SERVER("Checking local inference readiness"),
     LOAD_IDENTITY("Loading identity"),
     SELECT_ENVIRONMENT("Selecting environment"),
     INITIALIZE_COMPONENTS("Initializing components"),
