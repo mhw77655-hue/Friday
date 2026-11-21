@@ -291,6 +291,25 @@ class NervousSystemFailureTest {
     }
 
     @Test
+    fun `diagnosis retains recurrence and recovery evidence after aggregate closes`() {
+        val s = FailureSurface(nowMs = { 1000 })
+        val first = report(s, message = "decoder returned empty")
+        val key = s.currentFailures.value.single().key
+        s.recover(key, RecoveryResult.SUCCESS, "recovered", RecoveryAction.RETRY)
+        val second = report(s, message = "decoder returned empty")
+        s.recover(key, RecoveryResult.SUCCESS, "recovered again", RecoveryAction.RETRY)
+
+        val diagnosis = SelfDiagnosis(s).detailedDiagnosis(second)
+
+        assertEquals(2, diagnosis.frequency)
+        assertTrue(diagnosis.recurring)
+        assertEquals(2, diagnosis.recoveryAttempts)
+        assertTrue(diagnosis.recoveryEverSucceeded)
+        assertTrue(s.currentFailures.value.isEmpty())
+        assertEquals(first.subsystem, second.subsystem)
+    }
+
+    @Test
     fun `diagnosis marks an isolated failure`() {
         val s = FailureSurface(nowMs = { 1000 })
         s.currentTurnId = "TURN-10"

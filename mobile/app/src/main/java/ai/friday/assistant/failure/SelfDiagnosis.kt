@@ -148,13 +148,26 @@ class SelfDiagnosis(private val surface: FailureSurface) {
     ): DetailedDiagnosis {
         val snapshot = surface.snapshot()
         val aggregate = snapshot.currentFailures.firstOrNull {
+            it.subsystem == event.subsystem &&
+                it.operation == event.operation &&
+                it.messageKey == event.message.trim()
+        }
+        // Diagnosis must survive successful recovery. Active aggregates are
+        // authoritative while open; the bounded event/recovery trails preserve
+        // recurrence and recovery evidence after an aggregate closes.
+        val historicalOccurrences = snapshot.recentFailures.count {
+            it.subsystem == event.subsystem &&
+                it.operation == event.operation &&
+                it.message.trim() == event.message.trim()
+        }
+        val matchingRecoveryEvents = snapshot.recentRecoveryEvents.filter {
             it.subsystem == event.subsystem && it.operation == event.operation
         }
-
-        val frequency = aggregate?.occurrenceCount ?: 1
+        val frequency = maxOf(aggregate?.occurrenceCount ?: 0, historicalOccurrences).coerceAtLeast(1)
         val recurring = frequency > 1
-        val recoveryAttempts = aggregate?.recoveryAttempts ?: 0
-        val recoveryEverSucceeded = aggregate?.let { it.recoverySuccesses > 0 } ?: false
+        val recoveryAttempts = maxOf(aggregate?.recoveryAttempts ?: 0, matchingRecoveryEvents.size)
+        val recoveryEverSucceeded = (aggregate?.recoverySuccesses ?: 0) > 0 ||
+            matchingRecoveryEvents.any { it.result == RecoveryResult.SUCCESS }
 
         val resourceCauses = setOf(
             FailureCause.RESOURCE_EXHAUSTION, FailureCause.MEMORY_PRESSURE,
