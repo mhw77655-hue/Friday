@@ -75,11 +75,8 @@ fun SettingsScreen() {
     val shizukuStatus by com.jarvis.app.ScreenBridge.status.collectAsState()
     var shizukuSnapshot by remember { mutableStateOf("") }
 
-    // Bumped on ON_RESUME so the storage-permission row re-checks after
-    // the user comes back from the system "All files access" screen --
-    // isExternalStorageManager() is a plain call, not observable state,
-    // so without this the row would show the stale pre-grant value
-    // until some unrelated recomposition happened to occur.
+    // Bumped on ON_RESUME so runtime status and local diagnostic counts
+    // refresh when the owner returns to Settings from Android system panels.
     var resumeSignal by remember { mutableIntStateOf(0) }
     var actionTraceCount by remember(resumeSignal) { mutableIntStateOf(com.jarvis.app.diagnostics.PhoneActionDiagnostics.eventCount()) }
     val lifecycleOwner = LocalLifecycleOwner.current
