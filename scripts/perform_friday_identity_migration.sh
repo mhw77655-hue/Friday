@@ -39,6 +39,8 @@ for raw in tracked:
     path = ROOT / raw
     if not path.exists():
         continue
+    if raw.startswith(".github/workflows/"):
+        continue
     renamed = re.sub("jarvis", "Friday", path.name, flags=re.IGNORECASE)
     if renamed != path.name:
         target = path.with_name(renamed)
@@ -67,7 +69,7 @@ for raw in tracked:
     if not raw:
         continue
     path = ROOT / raw
-    if not path.is_file():
+    if not path.is_file() or raw.startswith(".github/workflows/"):
         continue
     try:
         original = path.read_bytes().decode("utf-8")
@@ -193,14 +195,12 @@ def remove_path(relative):
         git("rm", "-f", relative)
 
 for relative in (
-    "vault",
     "runtime",
     "voiceforge",
     "release",
     "audit",
     "development-requests",
     ".ralph/audit",
-    ".ralph/archive",
     ".ralph/buildtwin",
 ):
     remove_path(relative)
@@ -208,7 +208,6 @@ for relative in (
 for relative in (
     "20261120-004345-device.log",
     "friday-device-report.json",
-    "Design_Friday_Resilience.txt",
     ".ralph/FULL_SYSTEM_AUDIT_20260902.md",
     ".ralph/SYMBOL_FACTS.md",
     ".ralph/repo_scan_20260831_115031.md",
@@ -216,7 +215,6 @@ for relative in (
     ".ralph/ci_verify.sh",
     ".ralph/symbol_facts_check.sh",
     "docs/FRIDAY_BUILD_PROGRESS.md",
-    "docs/FRIDAY_ARCHITECTURE_TRUTH_AUDIT.md",
     "docs/FRIDAY_TRUSTED_PUBLISHER_SETUP.md",
     "mobile/app/src/main/assets/voiceforge/PROVENANCE.md",
     "mobile/app/src/main/java/ai/friday/assistant/ObsidianSync.kt",
@@ -276,7 +274,6 @@ if obsolete.exists():
 # Remove the temporary one-shot migration machinery from the resulting commit.
 for relative in (
     "scripts/perform_friday_identity_migration.sh",
-    ".github/workflows/friday-identity-migration.yml",
     ".friday-identity-migration.trigger",
 ):
     path = ROOT / relative
