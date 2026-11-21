@@ -637,6 +637,7 @@ object FridayEngine {
             // boot (honest: the active provider becomes whatever the profile
             // selects; health is reported, never faked).
             scope.launch { environmentManager.initialize() }
+            scheduleResidentModelBootstrap(appContext)
             readinessGate.markReady()
             } catch (t: Throwable) {
                 readinessGate.markFailed(t)
@@ -949,6 +950,35 @@ object FridayEngine {
     ): ai.friday.assistant.anchor.AnchorServeOutcome {
         val engine = checkNotNull(anchorEngine) { "FridayEngine.init() must run first" }
         return engine.serve(uncertainty)
+    }
+
+    /**
+     * Acquire the first resident model in the background without spending
+     * metered mobile data or blocking Friday's first launch. The worker checks
+     * live memory/storage, verifies the pinned model digest, and loads through
+     * the same process-isolated backend used by normal turns.
+     */
+    private fun scheduleResidentModelBootstrap(context: Context) {
+        val constraints = androidx.work.Constraints.Builder()
+            .setRequiredNetworkType(androidx.work.NetworkType.UNMETERED)
+            .setRequiresBatteryNotLow(true)
+            .setRequiresStorageNotLow(true)
+            .build()
+        val request = androidx.work.OneTimeWorkRequestBuilder<
+            ai.friday.assistant.model.storage.ResidentModelBootstrapWorker
+        >()
+            .setConstraints(constraints)
+            .setBackoffCriteria(
+                androidx.work.BackoffPolicy.EXPONENTIAL,
+                30,
+                java.util.concurrent.TimeUnit.MINUTES
+            )
+            .build()
+        androidx.work.WorkManager.getInstance(context).enqueueUniqueWork(
+            ai.friday.assistant.model.storage.ResidentModelBootstrapWorker.UNIQUE_WORK_NAME,
+            androidx.work.ExistingWorkPolicy.KEEP,
+            request
+        )
     }
 
     private const val OLLAMA_LOCAL_PATH_8080 = "127.0.0.1:8080"
