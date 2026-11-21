@@ -27,9 +27,9 @@ data class CapabilityManifest(
     fun has(name: String): Boolean = capabilities[name] == true
 
     fun describeSelf(): String {
-        val known = capabilities.filterValues { it }.keys.joinToString(", ")
-        val missing = capabilities.filterValues { !it }.keys.joinToString(", ")
-        return "Stage $stage. Can: $known. Cannot yet: $missing."
+        val wired = capabilities.filterValues { it }.keys.sorted().joinToString(", ")
+        val notVerified = capabilities.filterValues { !it }.keys.sorted().joinToString(", ")
+        return "Stage $stage. Source-wired (not proof of runtime/device availability): $wired. Not currently verified as available: $notVerified. Model installation, provider configuration, permissions, host support and physical-device acceptance must be checked independently."
     }
 }
 
