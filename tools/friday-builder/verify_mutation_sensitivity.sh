@@ -33,16 +33,25 @@ if text.count(needle) != 1:
 path.write_text(text.replace(needle, mutant, 1), encoding="utf-8")
 PY
 
-# Mutant 2: let an invocation's success flag bypass independent postcondition verification.
+# Mutant 2: replace the independent verifier with the invocation's own
+# success flag. This bypasses both the failure and completion guards together.
 python3 - "$EXECUTOR_SOURCE" <<'PY'
 from pathlib import Path
 import sys
 path = Path(sys.argv[1])
 text = path.read_text(encoding="utf-8")
-needle = "if (result.success && independentlyVerified) {"
-mutant = "if (result.success) {"
+needle = """val independentlyVerified = if (invocationSucceeded) {
+            try {
+                evidenceVerifier(request, invocation)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                false
+            }
+        } else false"""
+mutant = "val independentlyVerified = invocationSucceeded"
 if text.count(needle) != 1:
-    raise SystemExit("Expected exactly one independently-verified completion gate; refusing ambiguous mutation.")
+    raise SystemExit("Expected exactly one independent evidence-verifier block; refusing ambiguous mutation.")
 path.write_text(text.replace(needle, mutant, 1), encoding="utf-8")
 PY
 
