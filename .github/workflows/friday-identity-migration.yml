@@ -65,15 +65,36 @@ jobs:
           grep -q 'applicationId = "ai.friday.assistant"' mobile/app/build.gradle.kts
           test -d mobile/app/src/main/java/ai/friday/assistant
           test -d mobile/app/src/test/java/ai/friday/assistant
-          ! find mobile/app/src -path '*/com/jarvis/app*' -print -quit | grep -q .
-          ! grep -RIl --include='*.kt' --include='*.java' 'com.jarvis.app' mobile/app/src | grep -q .
-          ! grep -RIl 'Java_com_jarvis_app' mobile/app/src/main/cpp | grep -q .
+          if find mobile/app/src -path '*/com/jarvis/app*' -print -quit | grep -q .; then
+            echo "::error::Old Jarvis source package path remains."
+            exit 1
+          fi
+          if grep -RIl --include='*.kt' --include='*.java' 'com.jarvis.app' mobile/app/src | grep -q .; then
+            echo "::error::Old Jarvis package declaration remains."
+            exit 1
+          fi
+          if grep -RIl 'Java_com_jarvis_app' mobile/app/src/main/cpp | grep -q .; then
+            echo "::error::Old JNI symbols remain."
+            exit 1
+          fi
           grep -RIl 'Java_ai_friday_assistant' mobile/app/src/main/cpp | grep -q .
-          ! grep -RIl 'MANAGE_EXTERNAL_STORAGE' mobile/app/src/main | grep -q .
-          ! grep -RIl 'ObsidianSync' mobile/app/src/main/java | grep -q .
+          if grep -RIl 'MANAGE_EXTERNAL_STORAGE' mobile/app/src/main | grep -q .; then
+            echo "::error::Broad external-storage permission remains."
+            exit 1
+          fi
+          if grep -RIl 'ObsidianSync' mobile/app/src/main/java | grep -q .; then
+            echo "::error::Retired Obsidian storage adapter remains."
+            exit 1
+          fi
           grep -RIl 'LocalTurnJournal' mobile/app/src/main/java | grep -q .
-          ! grep -RIl 'GitHubTokenStore\|GitHubDeviceChannel\|FridayEvolutionWorker' mobile/app/src/main/java | grep -q .
-          ! grep -RIl 'VoiceForge\|ToolBuilder\|BuildTwin' mobile/app/src/main/java | grep -q .
+          if grep -RIl 'GitHubTokenStore\|GitHubDeviceChannel\|FridayEvolutionWorker' mobile/app/src/main/java | grep -q .; then
+            echo "::error::Retired public GitHub phone bridge remains."
+            exit 1
+          fi
+          if grep -RIl 'VoiceForge\|ToolBuilder\|BuildTwin' mobile/app/src/main/java | grep -q .; then
+            echo "::error::Retired in-app prototype remains."
+            exit 1
+          fi
           grep -q 'application_id": "ai.friday.assistant"' .github/workflows/release.yml || grep -q 'ai.friday.assistant' .github/workflows/release.yml
 
       - name: Build the fresh Friday debug APK
