@@ -225,8 +225,15 @@ LlamaModel* llama_model_create(const LlamaModelConfig* config) {
     // Model load params
     llama_model_params model_params = llama_model_default_params();
     model_params.n_gpu_layers = config->n_gpu_layers;
-    model_params.use_mmap = config->use_mmap;
-    model_params.use_mlock = config->use_mlock;
+    if (config->use_mmap && config->use_mlock) {
+        model_params.load_mode = LLAMA_LOAD_MODE_MMAP_MLOCK;
+    } else if (config->use_mlock) {
+        model_params.load_mode = LLAMA_LOAD_MODE_MLOCK;
+    } else if (config->use_mmap) {
+        model_params.load_mode = LLAMA_LOAD_MODE_MMAP;
+    } else {
+        model_params.load_mode = LLAMA_LOAD_MODE_NONE;
+    }
     model_params.vocab_only = false;
     model_params.progress_callback = nullptr;
     model_params.progress_callback_user_data = nullptr;
