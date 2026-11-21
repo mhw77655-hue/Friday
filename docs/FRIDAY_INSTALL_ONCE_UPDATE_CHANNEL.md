@@ -2,14 +2,15 @@
 
 **Purpose:** the first production-signed Friday APK is the continuing Android body. Normal development must not require uninstalling Friday, clearing app data, manually finding CI artifacts, or replacing her identity.
 
-## Release identity is a one-time decision
+## Release identity is locked before the first install
 
-- Package ID: com.jarvis.app.
+- Package ID: ai.friday.assistant.
+- The owner explicitly authorized the clean identity and confirmed the previous APK was deleted. No compatibility with the former package is required.
 - Production APKs use one permanent owner-controlled signing key and monotonically increasing version codes.
 - The private signing key is never committed to GitHub, shipped in the APK, or exposed to source-editing workers.
 - CI's disposable debug/release smoke keys are validation-only. They are never install candidates for the owner's permanent phone.
 - Before first install, verify the production certificate fingerprint, back up the key offline, and prove an in-place update from one production-signed APK to a second APK with preserved app-private data.
-- If an ephemeral-key build is already installed, do not pretend a permanent-key APK can update it. A one-time migration is needed; export and verify Friday's continuity data before that migration.
+- The first installation is a clean install of the permanent-signed Friday seed. After that first install, every update must retain this package ID and the same permanent signing identity.
 
 ## Two evolution lanes, one Friday
 
