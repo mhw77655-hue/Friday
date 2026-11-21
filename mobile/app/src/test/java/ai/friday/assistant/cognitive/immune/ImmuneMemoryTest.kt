@@ -63,13 +63,13 @@ class ImmuneMemoryTest {
         assertNull(memory.resembles(second))
         assertNotNull(memory.resembles(first))
         assertNotNull(memory.resembles(third))
-        assertEquals(3, memory.evidenceLedger().size())
+        assertEquals(3, memory.evidenceLedger().size)
 
         memory.record(third, RecoveryAction.RETRY, RecoveryResult.FAILED)
         memory.record(third, RecoveryAction.RETRY, RecoveryResult.FAILED)
-        assertEquals(3, memory.evidenceLedger().size())
+        assertEquals(3, memory.evidenceLedger().size)
         assertEquals(3, memory.resembles(third)!!.previousFailures)
-        assertEquals(3, memory.evidenceLedger().size())
+        assertEquals(3, memory.evidenceLedger().size)
     }
 
     @Test
@@ -90,7 +90,7 @@ class ImmuneMemoryTest {
 
             assertEquals(workers * perWorker, memory.resembles(sig)!!.previousFailures)
             assertEquals(1, memory.size())
-            assertEquals(257, memory.evidenceLedger().size())
+            assertEquals(257, memory.evidenceLedger().size)
             assertEquals(257, memory.evidenceLedger().map { it.id }.toSet().size)
         } finally {
             pool.shutdownNow()
