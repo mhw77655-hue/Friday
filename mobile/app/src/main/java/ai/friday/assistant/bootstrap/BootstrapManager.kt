@@ -219,7 +219,7 @@ class BootstrapManager(
 
 data class BootstrapModelHealth(
     val isHealthy: Boolean,
-    val currentModel: String,
+    val currentModel: String?,
     val error: String?
 )
 
