@@ -80,7 +80,7 @@ static void set_state_locked(LlamaModel* model, LlamaState new_state) {
     set_state_under_lock(model, new_state);
 }
 
-static void set_error_under_lock(LlamaModel* model, const char* fmt, va_list args) {
+static void set_error_under_lock_v(LlamaModel* model, const char* fmt, va_list args) {
     char buffer[1024];
     vsnprintf(buffer, sizeof(buffer), fmt, args);
     model->last_error = buffer;
@@ -89,11 +89,18 @@ static void set_error_under_lock(LlamaModel* model, const char* fmt, va_list arg
     LOGE("Error: %s", buffer);
 }
 
+static void set_error_under_lock(LlamaModel* model, const char* fmt, ...) {
+    va_list args;
+    va_start(args, fmt);
+    set_error_under_lock_v(model, fmt, args);
+    va_end(args);
+}
+
 static void set_error_locked(LlamaModel* model, const char* fmt, ...) {
     std::lock_guard<std::mutex> lock(model->mutex);
     va_list args;
     va_start(args, fmt);
-    set_error_under_lock(model, fmt, args);
+    set_error_under_lock_v(model, fmt, args);
     va_end(args);
 }
 
@@ -104,7 +111,8 @@ static void acquire_llama_backend() {
     std::lock_guard<std::mutex> lock(g_backend_mutex);
     if (g_backend_users == 0) llama_backend_init();
     ++g_backend_users;
-    llama_log_set(llama_log_callback, nullptr);
+    // Keep llama.cpp's default logger; this translation unit owns no global
+    // callback whose lifetime could outlive the model.
 }
 
 static void release_llama_backend() {
@@ -191,7 +199,7 @@ static void prewarm_thread_func(LlamaModel* model) {
     }
     model->prewarm_done = true;
     LOGI("Model prewarmed in %lld ms, RAM: %.2f MB",
-         load_time_ms, peak_ram_bytes / (1024.0 * 1024.0));
+         static_cast<long long>(load_time_ms), peak_ram_bytes / (1024.0 * 1024.0));
 }
 
 // ------------------------------------------------------------------
