@@ -10,7 +10,7 @@
 - The canonical product line is `main`. Commit authorized work directly to `main`; do not create feature branches or competing product lines.
 - Keep one Android application as the production host. Termux, Python utilities, browser experiments and desktop/server prototypes are not production dependencies unless the delivery plan explicitly adopts and verifies them.
 - Before deleting or replacing code, establish whether the real Android production composition, tests, build, workflows or release process reference it. Preserve useful algorithms and historical evidence; remove dead scaffolding only after dependency checks.
-- Never perform a blind global rename of the Android package/application ID. Package identity, signing lineage, installed data and update continuity must be treated as one migration problem.
+- The owner explicitly authorized the one-time pre-seed migration from com.jarvis.app to ai.friday.assistant after deleting the previous APK. Complete it before the permanent seed; keep signing lineage, update continuity and data migration requirements for all later releases.
 
 ## Evidence and verification
 - Distinguish implemented, wired, runnable, tested, CI-verified, emulator-verified and physical-device-verified.
