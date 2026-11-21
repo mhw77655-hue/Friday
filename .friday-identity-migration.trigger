@@ -1,1 +1,1 @@
-Retry final Friday identity migration after replacing Obsidian external storage with a bounded app-private journal and removing the remaining retired-bridge references.
+Retry final Friday package and repository migration after updating the last production turn-pipeline journal callback.
