@@ -31,10 +31,13 @@ class NativeLifecycleContractTests(unittest.TestCase):
         destroy = self.cpp.split("void llama_model_destroy(", 1)[1].split(
             "// Tokenizer implementation", 1
         )[0]
-        self.assertIn("set_state_under_lock", generate)
-        self.assertIn("set_error_under_lock", generate)
-        self.assertNotIn("set_state_locked", generate)
-        self.assertNotIn("set_error_locked", generate)
+        locked_generate = generate.split(
+            "std::lock_guard<std::mutex> lock(model->mutex);", 1
+        )[1]
+        self.assertIn("set_state_under_lock", locked_generate)
+        self.assertIn("set_error_under_lock", locked_generate)
+        self.assertNotIn("set_state_locked", locked_generate)
+        self.assertNotIn("set_error_locked", locked_generate)
         self.assertIn("set_state_under_lock", suspend)
         self.assertIn("set_state_under_lock", destroy)
 
