@@ -9,6 +9,10 @@ on:
       - .ralph/FRIDAY_DELIVERY_PLAN.md
   workflow_dispatch:
 
+concurrency:
+  group: friday-formal-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions: {}
 
 jobs:
