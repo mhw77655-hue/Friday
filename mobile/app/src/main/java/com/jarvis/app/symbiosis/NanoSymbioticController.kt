@@ -3,6 +3,8 @@ package com.jarvis.app.symbiosis
 import android.app.ActivityManager
 import android.content.Context
 import android.os.Build
+import android.net.ConnectivityManager
+import com.jarvis.app.BuildConfig
 import com.jarvis.app.model.AndroidResourceSnapshot
 import com.jarvis.app.model.ResourceSnapshot
 import kotlinx.coroutines.CoroutineScope
@@ -67,7 +69,9 @@ class NanoSymbioticController(
             plan = currentPlan,
             hostStudySamples = hostStudy.snapshot().sampleCount,
             processPssMb = android.os.Debug.getPss().toLong().coerceAtLeast(0L) / 1024L,
-            generatedAtEpochMs = System.currentTimeMillis()
+            generatedAtEpochMs = System.currentTimeMillis(),
+            sourceRevision = BuildConfig.SOURCE_REVISION,
+            network = readNetwork()
         )
     }
 
@@ -191,6 +195,31 @@ class NanoSymbioticController(
             availableMemoryMb = (host.availableMemoryMb -
                 hostStudy.snapshot().additionalMemoryReserveMb).coerceAtLeast(0L)
         )
+
+    private fun readNetwork(): HostNetworkState {
+        val manager = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val active = manager.activeNetwork
+        val capabilities = active?.let(manager::getNetworkCapabilities)
+        val transport = when {
+            capabilities == null -> "none"
+            capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
+            capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_CELLULAR) -> "cellular"
+            capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_ETHERNET) -> "ethernet"
+            capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_BLUETOOTH) -> "bluetooth"
+            capabilities.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) -> "vpn"
+            else -> "other"
+        }
+        return HostNetworkState(
+            activeTransport = transport,
+            internetCapability = capabilities?.hasCapability(
+                android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET
+            ) == true,
+            validated = capabilities?.hasCapability(
+                android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED
+            ) == true,
+            metered = if (active == null) null else manager.isActiveNetworkMetered
+        )
+    }
 
     private fun readHost(): HostResourceState {
         val storageLocation = if (storageDir.isDirectory) storageDir else appContext.filesDir

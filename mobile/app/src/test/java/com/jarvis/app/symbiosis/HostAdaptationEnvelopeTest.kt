@@ -37,11 +37,16 @@ class HostAdaptationEnvelopeTest {
             ),
             hostStudySamples = 12,
             processPssMb = 184,
-            generatedAtEpochMs = 1_800_000_000_000
+            generatedAtEpochMs = 1_800_000_000_000,
+            sourceRevision = "test-revision",
+            network = HostNetworkState("wifi", true, true, false)
         )
 
         val json = envelope.toJson()
         assertEquals(1, json.getInt("schema_version"))
+        assertEquals("test-revision", json.getString("source_revision"))
+        assertEquals("wifi", json.getJSONObject("network").getString("active_transport"))
+        assertTrue(json.getJSONObject("network").getBoolean("validated"))
         assertEquals("Example", json.getJSONObject("host").getString("manufacturer"))
         assertEquals("arm64-v8a", json.getJSONObject("host").getString("primary_abi"))
         assertEquals(2400, json.getJSONObject("resources").getInt("available_memory_mb"))
@@ -57,11 +62,11 @@ class HostAdaptationEnvelopeTest {
         val plan = NanoSymbioticPolicy().plan(HostResourceState(2048, 10.0, 0, 90, false))
         val unsupported = runCatching {
             HostAdaptationEnvelope(99, fingerprint, HostResourceState(2048, 10.0, 0, 90, false),
-                plan, 1, 100, 1_800_000_000_000)
+                plan, 1, 100, 1_800_000_000_000, "test-revision", HostNetworkState("none", false, false, null))
         }
         val negativePss = runCatching {
             HostAdaptationEnvelope(1, fingerprint, HostResourceState(2048, 10.0, 0, 90, false),
-                plan, 1, -1, 1_800_000_000_000)
+                plan, 1, -1, 1_800_000_000_000, "test-revision", HostNetworkState("none", false, false, null))
         }
         assertTrue(unsupported.isFailure)
         assertTrue(negativePss.isFailure)

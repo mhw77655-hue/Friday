@@ -34,14 +34,14 @@ GitHub remains the canonical source/build system. The installed app polls only s
 Implemented on main:
 - NanoSymbioticController reads live Android resource state, hardware identity and ABI, tracks persistent host/workload observations, and drives a local resource policy.
 - HostStudy and LiquidSymbiosisEngine retain bounded aggregate observations and adapt local resource strategy.
-- HostAdaptationEnvelope now creates a schema-versioned JSON payload containing the technical host fingerprint, current resource snapshot, local plan and process PSS. It deliberately excludes user content and unique hardware serials.
+- HostAdaptationEnvelope now creates a schema-versioned JSON payload containing the technical host fingerprint, current resource snapshot, local plan, process PSS, build source revision and aggregate active-network facts (transport, Internet capability, validation and metered state). It deliberately excludes user content, SSID/BSSID, IP addresses and unique hardware serials.
 - Unit tests cover payload fields, schema rejection and negative measurement rejection.
 
 Not yet implemented or proven:
 - A configured authenticated private cloud endpoint and device enrollment.
 - Signed response verification, anti-replay, expiry and host-binding.
 - Declarative proposal parser, staging/activation/rollback and outcome reporting.
-- A full capability probe matrix for actual voice engines, QNN/NNAPI/CPU backends, Shizuku and OEM background restrictions.
+- A full capability probe matrix for actual voice engines, QNN/NNAPI/CPU backends, Shizuku, Android permission grants, accessibility/notification access and OEM background restrictions. The current envelope does not yet report these.
 - Physical-phone report upload and end-to-end adaptation acceptance.
 
 The current envelope is a payload builder only. It does not upload data or apply cloud changes. Do not claim Friday has completed cloud self-reconfiguration until all missing steps are implemented and tested on the target phone.

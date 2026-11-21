@@ -14,7 +14,9 @@ data class HostAdaptationEnvelope(
     val plan: SymbioticPlan,
     val hostStudySamples: Long,
     val processPssMb: Long,
-    val generatedAtEpochMs: Long
+    val generatedAtEpochMs: Long,
+    val sourceRevision: String,
+    val network: HostNetworkState
 ) {
     init {
         require(schemaVersion == CURRENT_SCHEMA_VERSION)
@@ -22,12 +24,14 @@ data class HostAdaptationEnvelope(
         require(hostStudySamples >= 0L)
         require(processPssMb >= 0L)
         require(generatedAtEpochMs > 0L)
+        require(sourceRevision.isNotBlank())
     }
 
     /** Stable JSON wire representation; fields are explicit and schema-versioned. */
     fun toJson(): JSONObject = JSONObject()
         .put("schema_version", schemaVersion)
         .put("generated_at_epoch_ms", generatedAtEpochMs)
+        .put("source_revision", sourceRevision)
         .put("host", JSONObject()
             .put("manufacturer", host.manufacturer)
             .put("model", host.model)
@@ -47,6 +51,11 @@ data class HostAdaptationEnvelope(
             .put("charging", resources.isCharging)
             .put("available_storage_mb", resources.availableStorageMb)
             .put("process_pss_mb", processPssMb))
+        .put("network", JSONObject()
+            .put("active_transport", network.activeTransport)
+            .put("internet_capability", network.internetCapability)
+            .put("validated", network.validated)
+            .put("metered", network.metered))
         .put("local_adaptation", JSONObject()
             .put("mode", plan.mode.name)
             .put("context_token_budget", plan.contextTokenBudget)
@@ -60,6 +69,14 @@ data class HostAdaptationEnvelope(
         const val CURRENT_SCHEMA_VERSION = 1
     }
 }
+
+/** Aggregate network facts only; no SSID, BSSID, IP or location is collected. */
+data class HostNetworkState(
+    val activeTransport: String,
+    val internetCapability: Boolean,
+    val validated: Boolean,
+    val metered: Boolean?
+)
 
 /**
  * A cloud response is a proposal, not executable authority. The eventual
