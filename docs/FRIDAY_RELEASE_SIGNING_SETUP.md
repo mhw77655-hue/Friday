@@ -4,7 +4,7 @@ The production APK must always use one permanent signing certificate. CI debug A
 
 ## One-time key creation
 
-On a trusted computer or in Termux with a JDK installed:
+On a trusted computer with JDK 17 or newer:
 
 ```sh
 bash tools/friday-builder/generate_release_keystore.sh
