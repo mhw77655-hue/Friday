@@ -36,6 +36,8 @@ class FridayPackageInstaller(context: Context) {
         if (apk.parentFile != expectedDirectory || !apk.isFile || apk.length() <= 0L) {
             return Result.Rejected("Only a non-empty APK in Friday's private verified staging directory can be installed.")
         }
+        val integrityProblem = FridayUpdateClient(appContext).verifyStagedArtifact(staged)
+        if (integrityProblem != null) return Result.Rejected(integrityProblem)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
             !appContext.packageManager.canRequestPackageInstalls()
         ) {
@@ -80,7 +82,8 @@ class FridayPackageInstaller(context: Context) {
                     appContext,
                     sessionId,
                     statusIntent,
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+                    PendingIntent.FLAG_UPDATE_CURRENT or
+                        (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0)
                 )
                 session.commit(statusPendingIntent.intentSender)
             }
