@@ -70,6 +70,8 @@ jobs:
           ! grep -RIl 'Java_com_jarvis_app' mobile/app/src/main/cpp | grep -q .
           grep -RIl 'Java_ai_friday_assistant' mobile/app/src/main/cpp | grep -q .
           ! grep -RIl 'MANAGE_EXTERNAL_STORAGE' mobile/app/src/main | grep -q .
+          ! grep -RIl 'ObsidianSync' mobile/app/src/main/java | grep -q .
+          grep -RIl 'LocalTurnJournal' mobile/app/src/main/java | grep -q .
           ! grep -RIl 'GitHubTokenStore\|GitHubDeviceChannel\|FridayEvolutionWorker' mobile/app/src/main/java | grep -q .
           ! grep -RIl 'VoiceForge\|ToolBuilder\|BuildTwin' mobile/app/src/main/java | grep -q .
           grep -q 'application_id": "ai.friday.assistant"' .github/workflows/release.yml || grep -q 'ai.friday.assistant' .github/workflows/release.yml
