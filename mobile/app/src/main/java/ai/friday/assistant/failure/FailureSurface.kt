@@ -98,6 +98,7 @@ class FailureSurface(
     private val aggregates = LinkedHashMap<String, FailureAggregate>()
     private val recentEvents = ArrayDeque<FailureEvent>()
     private val recentRecovery = ArrayDeque<RecoveryEvent>()
+    private val failureListeners = LinkedHashSet<(FailureEvent) -> Unit>()
     private val subsystemStats = HashMap<String, MutableSubsystemStat>()
     private val subsystemToCapability = HashMap<String, String>() // subsystem → degraded capability key
     private val idCounter = AtomicLong(nowMs())
@@ -204,7 +205,34 @@ class FailureSurface(
 
         pushRecent(event)
         recomputePublished(aggregateKeyChanged = aggregate.key)
+        notifyFailureListeners(event)
         return event
+    }
+
+    /**
+     * Register a non-blocking event listener and replay the bounded recent
+     * history while holding the same lock used to append events. This closes
+     * the subscribe/backfill race; listeners must enqueue quickly and never do
+     * disk I/O on the reporting thread.
+     */
+    internal fun addFailureListener(listener: (FailureEvent) -> Unit) {
+        synchronized(lock) {
+            failureListeners.add(listener)
+            recentEvents.toList().asReversed().forEach { event ->
+                try { listener(event) } catch (_: Throwable) { /* observers cannot break reporting */ }
+            }
+        }
+    }
+
+    internal fun removeFailureListener(listener: (FailureEvent) -> Unit) {
+        synchronized(lock) { failureListeners.remove(listener) }
+    }
+
+    private fun notifyFailureListeners(event: FailureEvent) {
+        val listeners = synchronized(lock) { failureListeners.toList() }
+        listeners.forEach { listener ->
+            try { listener(event) } catch (_: Throwable) { /* observers cannot break reporting */ }
+        }
     }
 
     /**
