@@ -74,7 +74,13 @@ for raw in tracked:
     except UnicodeDecodeError:
         continue
     chunks = url_pattern.split(original)
-    updated = "".join(chunk if url_pattern.fullmatch(chunk) else normalize(chunk) for chunk in chunks)
+    urls = url_pattern.findall(original)
+    pieces = []
+    for index, chunk in enumerate(chunks):
+        pieces.append(normalize(chunk))
+        if index < len(urls):
+            pieces.append(urls[index])
+    updated = "".join(pieces)
     if updated != original:
         updated = "\n".join(line.rstrip(" \t") for line in updated.splitlines())
         path.write_text(updated + ("\n" if original.endswith("\n") else ""), encoding="utf-8")
