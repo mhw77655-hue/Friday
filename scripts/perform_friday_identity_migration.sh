@@ -48,6 +48,8 @@ for raw in tracked:
 
 url_pattern = re.compile(r"https?://[^\s\"'<>]+")
 replacements = (
+    ("Java_com_jarvis_app", "Java_ai_friday_assistant"),
+    ("com_jarvis_app", "ai_friday_assistant"),
     ("com.jarvis.app", "ai.friday.assistant"),
     ("com/jarvis/app", "ai/friday/assistant"),
     ("JARVIS", "FRIDAY"),
