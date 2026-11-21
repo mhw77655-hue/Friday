@@ -49,6 +49,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import ai.friday.assistant.update.FridayPackageInstaller
+import ai.friday.assistant.update.FridayUpdateClient
 import ai.friday.assistant.ui.theme.FridayColors
 import ai.friday.assistant.ui.theme.FridayType
 
@@ -71,6 +73,19 @@ fun SettingsScreen() {
     var jevApiKey by remember { mutableStateOf("") }
     var jevConfigured by remember { mutableStateOf(ai.friday.assistant.voice.JevApiKeyStore(context).read() != null) }
     val scope = rememberCoroutineScope()
+    var updateStatus by remember { mutableStateOf("No update check has been run.") }
+    var stagedUpdate by remember { mutableStateOf<FridayUpdateClient.Result.Staged?>(null) }
+    val updateInstallPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        updateStatus = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            context.packageManager.canRequestPackageInstalls()
+        ) {
+            "Android now allows Friday to request installs. Tap Install verified update."
+        } else {
+            "Android did not grant this install source. Friday remains unchanged."
+        }
+    }
     val shizukuAvailable by ai.friday.assistant.ShizukuBridge.isAvailable.collectAsState()
     val shizukuGranted by ai.friday.assistant.ShizukuBridge.isGranted.collectAsState()
     val shizukuStatus by ai.friday.assistant.ScreenBridge.status.collectAsState()
@@ -140,6 +155,53 @@ fun SettingsScreen() {
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
+        SectionLabel("FRIDAY UPDATES")
+        Text(
+            text = "Check the official Friday release channel. Friday verifies package identity, version, APK digest and signing certificate before Android receives an update. Android may still require your approval.",
+            style = FridayType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Button(
+            onClick = {
+                scope.launch {
+                    updateStatus = "Checking the official Friday release channel…"
+                    stagedUpdate = null
+                    val result = withContext(Dispatchers.IO) {
+                        FridayUpdateClient(context).checkAndStage()
+                    }
+                    when (result) {
+                        is FridayUpdateClient.Result.UpToDate ->
+                            updateStatus = "Friday is up to date (version code ${result.installedVersionCode})."
+                        is FridayUpdateClient.Result.Staged -> {
+                            stagedUpdate = result
+                            updateStatus = "Verified Friday ${result.release.versionName} is staged and ready for Android installation."
+                        }
+                        is FridayUpdateClient.Result.Rejected ->
+                            updateStatus = "Update not installed: ${result.reason}"
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Check for Friday updates") }
+        if (stagedUpdate != null) {
+            Button(
+                onClick = {
+                    when (val result = FridayPackageInstaller(context).install(stagedUpdate!!)) {
+                        is FridayPackageInstaller.Result.Submitted ->
+                            updateStatus = "Update submitted to Android PackageInstaller (session ${result.sessionId}). Waiting for Android's result."
+                        is FridayPackageInstaller.Result.PermissionRequired -> {
+                            updateStatus = "Allow Friday as an install source in Android settings, then return and tap Install again."
+                            updateInstallPermissionLauncher.launch(result.settingsIntent)
+                        }
+                        is FridayPackageInstaller.Result.Rejected ->
+                            updateStatus = "Android installation was not started: ${result.reason}"
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) { Text("Install verified update") }
+        }
+        Text(text = updateStatus, style = FridayType.Technical, modifier = Modifier.padding(bottom = 16.dp))
+
         SectionLabel("PERSONALITY")
         Text(
             text = "This changes how FRIDAY answers, not what he knows.",
