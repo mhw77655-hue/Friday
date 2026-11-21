@@ -52,10 +52,11 @@ class MainActivity : ComponentActivity() {
             } else {
                 FridayMic.start(lifecycleScope)
             }
-        } else {
-            micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
-        if (hasMicPermission && intent.getBooleanExtra(
+        // Objective A is typed-first. Do not request microphone permission just
+        // because Friday was installed or opened; only an explicit voice entry
+        // point or the owner's MIC action may request it.
+        if (intent.getBooleanExtra(
                 ai.friday.assistant.voice.FridayVoiceInteractionSession.EXTRA_FRIDAY_VOICE_INVOCATION,
                 false
             )
