@@ -51,9 +51,9 @@ These are separate test lanes from separate commits. **Do not add their percenta
 |---|---|---:|---:|
 | JVM unit tests | [run 44933833042](https://github.com/mhw77655-hue/Friday/actions/runs/44933833042), commit `28bbf984` | 50% | 34% |
 | Android instrumentation | [run 44932395624](https://github.com/mhw77655-hue/Friday/actions/runs/44932395624), commit `e4bd8a67` | 21.20% | 8.35% |
-| Python tools and `.ralph` | [run 44933833042](https://github.com/mhw77655-hue/Friday/actions/runs/44933833042), commit `28bbf984` | 28% combined Coverage.py metric | branch-aware, exact XML artifact upload was fixed in a later commit |
+| Python tools and `.ralph` | [run 44934604951](https://github.com/mhw77655-hue/Friday/actions/runs/44934604951), commit `a5cf95c7` | 30.2% | 22.39% |
 
-The Python run measured 1,149 statements and 518 branch opportunities; 802 statements were missed and 44 branches were partially covered. `.ralph/audit.py` alone measured 21%, so its major command-line and report-generation paths need dedicated tests. The first Python coverage upload used a literal shell variable in the artifact path and therefore produced no artifact; the report was still printed in CI logs. The upload path has been corrected to use the runner's expression syntax and must be reverified.
+The Python run measured 1,149 executable lines (347 covered, 802 missed) and 518 branch opportunities (116 covered). `.ralph/audit.py` alone measured 24.04% line and 13.42% branch coverage, so its major command-line and report-generation paths need dedicated tests. The first Python coverage upload used a literal shell variable in the artifact path and produced no artifact; the upload path was corrected and verified by the Python coverage artifact in run 44934604951.
 
 ### Critical-class coverage snapshot
 
