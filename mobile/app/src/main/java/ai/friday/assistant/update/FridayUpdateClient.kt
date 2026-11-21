@@ -107,6 +107,13 @@ class FridayUpdateClient(
 
             stagingDirectory.mkdirs()
             val apk = File(stagingDirectory, "friday-${release.versionCode}.apk")
+            if (apk.isFile) {
+                val existing = Result.Staged(release, apk)
+                if (verifyStagedArtifact(existing) == null) {
+                    return@withContext existing
+                }
+                apk.delete()
+            }
             download(apkLink, apk)
             val actualHash = sha256(apk)
             if (actualHash != release.apkSha256) {
