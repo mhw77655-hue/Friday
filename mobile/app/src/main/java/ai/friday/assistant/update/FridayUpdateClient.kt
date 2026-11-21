@@ -231,25 +231,48 @@ class FridayUpdateClient(
     }
 
     private fun download(url: String, destination: File) {
-        val request = Request.Builder().url(url).build()
-        http.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) error("APK download returned HTTP ${response.code}.")
-            val body = response.body ?: error("APK download had no response body.")
-            val contentLength = body.contentLength()
-            if (contentLength > MAX_APK_BYTES) error("APK exceeds the configured size limit.")
-            val requiredBytes = (if (contentLength > 0L) contentLength else MAX_APK_BYTES) +
-                MIN_FREE_SPACE_RESERVE_BYTES
-            val availableBytes = StatFs(stagingDirectory.absolutePath).availableBytes
-            if (availableBytes < requiredBytes) {
-                error("Not enough free storage to safely stage the Friday update.")
+        val partial = File(destination.parentFile, destination.name + ".part")
+        partial.delete()
+        try {
+            val request = Request.Builder().url(url).build()
+            http.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) error("APK download returned HTTP ${response.code}.")
+                val body = response.body ?: error("APK download had no response body.")
+                val contentLength = body.contentLength()
+                if (contentLength > MAX_APK_BYTES) error("APK exceeds the configured size limit.")
+                val requiredBytes = (if (contentLength > 0L) contentLength else MAX_APK_BYTES) +
+                    MIN_FREE_SPACE_RESERVE_BYTES
+                val availableBytes = StatFs(stagingDirectory.absolutePath).availableBytes
+                if (availableBytes < requiredBytes) {
+                    error("Not enough free storage to safely stage the Friday update.")
+                }
+
+                var totalBytes = 0L
+                partial.outputStream().buffered().use { output ->
+                    body.byteStream().use { input ->
+                        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            totalBytes += count
+                            if (totalBytes > MAX_APK_BYTES) {
+                                error("APK exceeded the configured streaming size limit.")
+                            }
+                            output.write(buffer, 0, count)
+                        }
+                    }
+                }
+                if (totalBytes == 0L || (contentLength > 0L && totalBytes != contentLength)) {
+                    error("Downloaded APK ended before its declared content length.")
+                }
             }
-            destination.outputStream().buffered().use { output ->
-                body.byteStream().use { input -> input.copyTo(output) }
+            if (!partial.isFile || !partial.renameTo(destination)) {
+                error("Verified APK could not be atomically moved into Friday's staging directory.")
             }
-            if (!destination.isFile || destination.length() == 0L || destination.length() > MAX_APK_BYTES) {
-                destination.delete()
-                error("Downloaded APK has an invalid size.")
-            }
+        } catch (error: Exception) {
+            partial.delete()
+            destination.delete()
+            throw error
         }
     }
 
