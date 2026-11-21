@@ -38,8 +38,12 @@ If the app currently installed on the phone was installed from a GitHub Actions 
 
 After the permanent-signed build is installed, future same-key updates can use an authorized Shizuku `pm install -r` route without uninstalling Friday or intentionally clearing app-private data.
 
-## Update client still required
+## Install-once update channel
 
-This PR establishes the permanent release build/publishing side, not the Android updater. Friday still needs a client that fetches the latest release, verifies metadata and APK SHA-256, verifies the APK signer against the installed certificate, checks monotonic versionCode and package ID, preserves a known-good recovery copy, requests installation through explicitly authorized Shizuku, and verifies healthy startup after replacement. If Shizuku is unavailable, it must offer Android's user-confirmed installer flow.
+The production signing workflow is only one half of the deployment system. The first phone install must be the permanent-key release, never the debug artifact or disposable CI smoke build. Before that install, prove a same-key in-place update and continuity preservation on the emulator.
+
+The update-channel design and acceptance gates are documented in [FRIDAY_INSTALL_ONCE_UPDATE_CHANNEL.md](FRIDAY_INSTALL_ONCE_UPDATE_CHANNEL.md). Friday's updater should prefer eligible Android PackageInstaller self-update, then a previously owner-authorized Shizuku shell route where available, and finally the normal Android confirmation flow. Shizuku is optional, not a guaranteed silent-install mechanism. Android may still return STATUS_PENDING_USER_ACTION; the client must handle it.
+
+The first implementation stage now being built is release discovery and integrity-checked APK staging. Installation orchestration, owner-visible update controls, post-update health verification and rollback remain separate required work; do not treat staging as a complete updater.
 
 The GitHub repository token is separate from the release signing key.
