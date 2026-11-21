@@ -158,6 +158,21 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
         }
     }
 
+    // Cancellation must be able to run while generation holds a read lock,
+    // even when unload is queued for the write lock. tryLock never waits behind
+    // that writer; if the writer already owns the lock, the handle is no longer
+    // available for cancellation and the active generation has already left.
+    private fun cancelNativeIfAlive() {
+        val lock = nativeLock.readLock()
+        if (!lock.tryLock()) return
+        try {
+            val handle = nativeHandle
+            if (handle != 0L) nativeCancel(handle)
+        } finally {
+            lock.unlock()
+        }
+    }
+
     init {
         LocalInferenceEngine.loadNative()
     }
@@ -366,7 +381,7 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
                 if (genJob.isActive) {
                     // Cancellation is allowed alongside the generator's read
                     // lock and tells native code to leave its token loop.
-                    withNativeRead { nativeCancel(it) }
+                    cancelNativeIfAlive()
                     genJob.cancel()
                     genJob.join()
                 }
@@ -466,7 +481,7 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
 
     /** Cancel generation; read lock permits this alongside an active generation. */
     fun cancel() {
-        withNativeRead { nativeCancel(it) }
+        cancelNativeIfAlive()
     }
 
     /** Suspend model (keep weights, release context) */
