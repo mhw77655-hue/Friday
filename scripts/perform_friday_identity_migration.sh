@@ -39,7 +39,7 @@ for raw in tracked:
     path = ROOT / raw
     if not path.exists():
         continue
-    if raw.startswith(".github/workflows/"):
+    if raw.startswith((".github/workflows/", "vault/", ".ralph/archive/")):
         continue
     renamed = re.sub("jarvis", "Friday", path.name, flags=re.IGNORECASE)
     if renamed != path.name:
@@ -69,7 +69,7 @@ for raw in tracked:
     if not raw:
         continue
     path = ROOT / raw
-    if not path.is_file() or raw.startswith(".github/workflows/"):
+    if not path.is_file() or raw.startswith((".github/workflows/", "vault/", ".ralph/archive/")):
         continue
     try:
         original = path.read_bytes().decode("utf-8")
