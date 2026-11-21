@@ -83,9 +83,8 @@ class IntentInference(
             return ExplicitIntent(IntentState.UNKNOWN, 0.0f, "", emptyList())
         }
 
-        // Direct address patterns. Friday is the owner's chosen assistant
-        // identity; Jarvis remains accepted only as a legacy wake phrase.
-        val addressedPrefix = listOf("hey friday", "friday", "hey jarvis", "jarvis")
+        // Friday is the sole product identity and direct-address wake phrase.
+        val addressedPrefix = listOf("hey friday", "friday")
             .firstOrNull { prefix ->
                 lower == prefix || lower.startsWith("$prefix ") ||
                     lower.startsWith("$prefix,") || lower.startsWith("$prefix:")
@@ -381,7 +380,6 @@ class IntentInference(
         val textLower = text.lowercase()
         var patternCount = 0
         if (textLower.endsWith("?")) patternCount++
-        if (textLower.startsWith("jarvis") || textLower.startsWith("hey jarvis")) patternCount++
         if (textLower.contains("teach") || textLower.contains("learn")) patternCount++
         if (textLower.contains("no") || textLower.contains("correction")) patternCount++
 
