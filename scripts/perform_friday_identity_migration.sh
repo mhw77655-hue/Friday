@@ -112,7 +112,7 @@ facts = """# Friday repository facts
 - .ralph/FRIDAY_DELIVERY_PLAN.md is the sole active delivery plan.
 - .ralph/VISION.md and .ralph/OWNER_WORDS.md preserve owner intent.
 - Product identity: Friday; application ID and Kotlin namespace: ai.friday.assistant.
-- The sole active product and delivery authority is .ralph/FRIDAY_DELIVERY_PLAN.md.
+- the sole active product and delivery authority is .ralph/FRIDAY_DELIVERY_PLAN.md.
 - The canonical product line is `main`.
 - Historical audits and archive material are not active implementation instructions.
 
