@@ -100,6 +100,23 @@ class FridayPhoneDecisionToolTest {
         assertEquals(FridayPhoneDecisionTool.Source.FRIDAY_LOCAL_POLICY, result.source)
     }
 
+    @Test fun `configured Jev is consulted for allowlisted low risk action`() = runBlocking {
+        var remoteCalled = false
+        val tool = FridayPhoneDecisionTool { _, _, risk ->
+            remoteCalled = true
+            assertEquals("low", risk)
+            JevActionDecision("execute", 0.99, mapOf("execute" to 0.99))
+        }
+        val result = tool.judge(
+            utterance = "go home",
+            command = PhoneCommandInterpreter.parse("go home")!!,
+            remoteConfigured = true
+        )
+        assertTrue("Jev must evaluate a configured low-risk action", remoteCalled)
+        assertEquals(FridayPhoneDecisionTool.Verdict.EXECUTE, result.verdict)
+        assertEquals(FridayPhoneDecisionTool.Source.TYPESAFE_JEV, result.source)
+    }
+
     @Test fun `Jev rejection is preserved`() = runBlocking {
         val tool = FridayPhoneDecisionTool { _, _, _ ->
             JevActionDecision("reject", 0.99, mapOf("reject" to 0.99))
