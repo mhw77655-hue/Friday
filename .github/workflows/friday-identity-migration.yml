@@ -3,6 +3,8 @@ name: One-time Friday identity migration
 on:
   push:
     branches: [ main ]
+    paths:
+      - .friday-identity-migration.trigger
 
 permissions: {}
 
@@ -12,7 +14,6 @@ concurrency:
 
 jobs:
   migrate-and-verify:
-    if: startsWith(github.event.head_commit.message, 'chore: begin fresh Friday identity migration')
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
