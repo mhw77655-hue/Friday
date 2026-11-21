@@ -5,6 +5,7 @@
 #include "llama_jni.h"
 #include <jni.h>
 #include <string>
+#include <vector>
 #include <android/log.h>
 
 #define LOG_TAG "LocalInferenceEngineJNI"
@@ -25,6 +26,43 @@ static inline LlamaModel* getModel(jlong handle) {
 
 static inline LlamaTokenizer* getTokenizer(jlong handle) {
     return reinterpret_cast<LlamaTokenizer*>(handle);
+}
+
+// JNI callbacks are invoked synchronously on the thread that called
+// nativeGenerate. The callback must not re-enter model APIs while generation
+// holds the model mutex; Kotlin reads health only after nativeGenerate returns.
+struct JavaTokenCallbackContext {
+    JNIEnv* env = nullptr;
+    jobject callback = nullptr; // global reference, owned by nativeGenerate
+    jmethodID on_token = nullptr;
+    LlamaModel* model = nullptr;
+    bool failed = false;
+};
+
+static void java_token_callback(const char* token, int token_id, bool is_final, void* user_data) {
+    auto* context = static_cast<JavaTokenCallbackContext*>(user_data);
+    if (!context || context->failed || !context->env || !context->callback || !context->on_token) return;
+
+    JNIEnv* env = context->env;
+    jstring token_text = env->NewStringUTF(token ? token : "");
+    if (!token_text) {
+        context->failed = true;
+        llama_model_cancel(context->model);
+        return;
+    }
+
+    env->CallVoidMethod(
+        context->callback,
+        context->on_token,
+        token_text,
+        static_cast<jint>(token_id),
+        static_cast<jboolean>(is_final ? JNI_TRUE : JNI_FALSE)
+    );
+    env->DeleteLocalRef(token_text);
+    if (env->ExceptionCheck()) {
+        context->failed = true;
+        llama_model_cancel(context->model);
+    }
 }
 
 // ------------------------------------------------------------------
@@ -168,11 +206,11 @@ JNI_CLASS(nativeWaitReady)(JNIEnv* env, jobject thiz, jlong handle, jint timeout
 JNIEXPORT jstring JNICALL
 JNI_CLASS(nativeGenerate)(JNIEnv* env, jobject thiz, jlong handle, jstring prompt, jobject genConfig, jobject callback) {
     LlamaModel* model = getModel(handle);
-    if (!model) return nullptr;
+    if (!model || !prompt) return nullptr;
 
     const char* promptStr = env->GetStringUTFChars(prompt, nullptr);
+    if (!promptStr) return nullptr;
 
-    // Parse generation config
     LlamaGenerationConfig nativeConfig{};
     nativeConfig.max_tokens = 512;
     nativeConfig.temperature = 0.7f;
@@ -183,55 +221,105 @@ JNI_CLASS(nativeGenerate)(JNIEnv* env, jobject thiz, jlong handle, jstring promp
     nativeConfig.stop_sequence_count = 0;
     nativeConfig.stream = false;
 
+    std::vector<std::string> stopStrings;
+    std::vector<const char*> stopPointers;
     if (genConfig) {
         jclass configClass = env->GetObjectClass(genConfig);
+        if (!configClass) {
+            env->ReleaseStringUTFChars(prompt, promptStr);
+            return nullptr;
+        }
 
         jfieldID maxTokensField = env->GetFieldID(configClass, "maxTokens", "I");
-        nativeConfig.max_tokens = env->GetIntField(genConfig, maxTokensField);
-
         jfieldID tempField = env->GetFieldID(configClass, "temperature", "F");
-        nativeConfig.temperature = env->GetFloatField(genConfig, tempField);
-
         jfieldID topPField = env->GetFieldID(configClass, "topP", "F");
-        nativeConfig.top_p = env->GetFloatField(genConfig, topPField);
-
         jfieldID topKField = env->GetFieldID(configClass, "topK", "I");
-        nativeConfig.top_k = env->GetIntField(genConfig, topKField);
-
         jfieldID repeatPenaltyField = env->GetFieldID(configClass, "repeatPenalty", "F");
-        nativeConfig.repeat_penalty = env->GetFloatField(genConfig, repeatPenaltyField);
-
         jfieldID streamField = env->GetFieldID(configClass, "stream", "Z");
+        jfieldID stopSeqField = env->GetFieldID(configClass, "stopSequences", "[Ljava/lang/String;");
+        if (env->ExceptionCheck() || !maxTokensField || !tempField || !topPField ||
+            !topKField || !repeatPenaltyField || !streamField || !stopSeqField) {
+            env->DeleteLocalRef(configClass);
+            env->ReleaseStringUTFChars(prompt, promptStr);
+            return nullptr;
+        }
+
+        nativeConfig.max_tokens = env->GetIntField(genConfig, maxTokensField);
+        nativeConfig.temperature = env->GetFloatField(genConfig, tempField);
+        nativeConfig.top_p = env->GetFloatField(genConfig, topPField);
+        nativeConfig.top_k = env->GetIntField(genConfig, topKField);
+        nativeConfig.repeat_penalty = env->GetFloatField(genConfig, repeatPenaltyField);
         nativeConfig.stream = env->GetBooleanField(genConfig, streamField);
 
-        // Stop sequences
-        jfieldID stopSeqField = env->GetFieldID(configClass, "stopSequences", "[Ljava/lang/String;");
-        jobjectArray stopSeqArray = (jobjectArray)env->GetObjectField(genConfig, stopSeqField);
-        if (stopSeqArray) {
-            int count = env->GetArrayLength(stopSeqArray);
-            nativeConfig.stop_sequence_count = count;
-            if (count > 0) {
-                // Note: We can't easily pass stop sequences to native without storing them
-                // For now, we'll use a static buffer approach
-            }
+        jobjectArray stopSeqArray = static_cast<jobjectArray>(env->GetObjectField(genConfig, stopSeqField));
+        if (env->ExceptionCheck()) {
+            env->DeleteLocalRef(configClass);
+            env->ReleaseStringUTFChars(prompt, promptStr);
+            return nullptr;
         }
+        if (stopSeqArray) {
+            const jsize count = env->GetArrayLength(stopSeqArray);
+            stopStrings.reserve(static_cast<size_t>(count));
+            for (jsize i = 0; i < count; ++i) {
+                jstring stop = static_cast<jstring>(env->GetObjectArrayElement(stopSeqArray, i));
+                if (!stop) continue;
+                const char* stopChars = env->GetStringUTFChars(stop, nullptr);
+                if (!stopChars) {
+                    env->DeleteLocalRef(stop);
+                    env->DeleteLocalRef(stopSeqArray);
+                    env->DeleteLocalRef(configClass);
+                    env->ReleaseStringUTFChars(prompt, promptStr);
+                    return nullptr;
+                }
+                stopStrings.emplace_back(stopChars);
+                env->ReleaseStringUTFChars(stop, stopChars);
+                env->DeleteLocalRef(stop);
+            }
+            env->DeleteLocalRef(stopSeqArray);
+        }
+        env->DeleteLocalRef(configClass);
+        stopPointers.reserve(stopStrings.size());
+        for (const auto& stop : stopStrings) stopPointers.push_back(stop.c_str());
+        nativeConfig.stop_sequences = stopPointers.empty() ? nullptr : stopPointers.data();
+        nativeConfig.stop_sequence_count = static_cast<int>(stopPointers.size());
     }
 
-    // For streaming callback, we'd need to store the callback and use JNI to call back
-    // For now, we'll implement non-streaming version
+    JavaTokenCallbackContext callbackContext{};
     LlamaTokenCallback tokenCb = nullptr;
-    void* userData = nullptr;
+    if (callback && nativeConfig.stream) {
+        jclass callbackClass = env->GetObjectClass(callback);
+        if (!callbackClass) {
+            env->ReleaseStringUTFChars(prompt, promptStr);
+            return nullptr;
+        }
+        callbackContext.env = env;
+        callbackContext.callback = env->NewGlobalRef(callback);
+        callbackContext.on_token = env->GetMethodID(callbackClass, "onToken", "(Ljava/lang/String;IZ)V");
+        callbackContext.model = model;
+        env->DeleteLocalRef(callbackClass);
+        if (env->ExceptionCheck() || !callbackContext.callback || !callbackContext.on_token) {
+            if (callbackContext.callback) env->DeleteGlobalRef(callbackContext.callback);
+            env->ReleaseStringUTFChars(prompt, promptStr);
+            return nullptr;
+        }
+        tokenCb = java_token_callback;
+    }
 
-    const char* result = llama_model_generate(model, promptStr, &nativeConfig, tokenCb, userData);
-
+    const char* result = llama_model_generate(model, promptStr, &nativeConfig, tokenCb, &callbackContext);
     env->ReleaseStringUTFChars(prompt, promptStr);
+    if (callbackContext.callback) env->DeleteGlobalRef(callbackContext.callback);
+
+    // Do not make further JNI calls while a Java callback exception is pending.
+    if (env->ExceptionCheck()) {
+        if (result) free((void*)result);
+        return nullptr;
+    }
 
     if (result) {
         jstring jResult = env->NewStringUTF(result);
-        free((void*)result);  // Native strdup
+        free((void*)result);
         return jResult;
     }
-
     return nullptr;
 }
 

@@ -323,7 +323,7 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
                         return@launch
                     }
 
-                    nativeGenerate(handle, prompt, genConfig, object : TokenCallback {
+                    val generated = nativeGenerate(handle, prompt, genConfig, object : TokenCallback {
                         override fun onToken(token: String, tokenId: Int, isFinal: Boolean) {
                             if (isFinal) {
                                 // Do not call nativeGetHealth from inside the JNI
@@ -336,17 +336,21 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
                         }
                     })
 
+                    if (generated == null) {
+                        channel.trySend(StreamEvent.Error("Native generation failed"))
+                        channel.trySend(StreamEvent.Done(null))
+                        return@launch
+                    }
                     // Read health only after nativeGenerate has released its
-                    // model lock. Some JNI runtimes invoke the final callback
-                    // before returning from the native call.
+                    // model lock. The final callback is emitted before return.
                     val health = nativeGetHealth(handle)
                     usage = TokenUsage(
                         health.promptTokens.toInt(),
                         health.completionTokens.toInt(),
                         health.totalTokens.toInt()
                     )
-                    if (!finalCallbackSeen && usage == null) {
-                        channel.trySend(StreamEvent.Error("Native generation ended without a result"))
+                    if (!finalCallbackSeen) {
+                        channel.trySend(StreamEvent.Error("Native stream ended without its final callback"))
                     }
                     channel.trySend(StreamEvent.Done(usage))
                 } finally {
