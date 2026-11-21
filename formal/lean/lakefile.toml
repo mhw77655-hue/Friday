@@ -1,4 +1,4 @@
-name = "friday-formal"
+name = "fridayFormal"
 version = "0.1.0"
 
 [[lean_lib]]
