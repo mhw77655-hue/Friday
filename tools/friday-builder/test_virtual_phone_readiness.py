@@ -60,5 +60,57 @@ class AndroidSystemReadinessTests(unittest.TestCase):
                 )
 
 
+
+    def test_wait_for_system_returns_immediately_when_probe_is_ready(self):
+        from wait_for_android_system import wait_for_system
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as directory:
+            evidence = Path(directory) / "evidence.txt"
+            calls = []
+            state = self.state()
+            self.assertTrue(wait_for_system(10, 1, evidence, probe=lambda: calls.append(1) or state, sleep=lambda _: None))
+            self.assertEqual([1], calls)
+            self.assertFalse(evidence.exists())
+
+    def test_wait_for_system_persists_last_state_and_diagnostics_on_timeout(self):
+        from wait_for_android_system import wait_for_system
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            evidence = Path(directory) / "evidence.txt"
+            clock = iter([0.0, 2.0])
+            state = self.state(boot_completed="0")
+            with patch("wait_for_android_system.time.monotonic", side_effect=lambda: next(clock)), \\
+                 patch("wait_for_android_system.collect_diagnostics", return_value="diagnostic-tail"):
+                self.assertFalse(wait_for_system(1, 1, evidence, probe=lambda: state, sleep=lambda _: None))
+            content = evidence.read_text(encoding="utf-8")
+            self.assertIn("boot_completed", content)
+            self.assertIn("diagnostic-tail", content)
+
+    def test_run_adb_returns_output_and_combines_failure_diagnostics(self):
+        from wait_for_android_system import run_adb
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        with patch("wait_for_android_system.subprocess.run", return_value=SimpleNamespace(returncode=0, stdout="ready\\n", stderr="")):
+            self.assertEqual("ready", run_adb("shell", "getprop"))
+        with patch("wait_for_android_system.subprocess.run", return_value=SimpleNamespace(returncode=1, stdout="out", stderr="err")):
+            self.assertEqual("out\\nerr", run_adb("shell", "broken"))
+
+    def test_probe_state_queries_each_readiness_dependency(self):
+        from wait_for_android_system import probe_state
+        from unittest.mock import patch
+
+        with patch("wait_for_android_system.run_adb", side_effect=["1", "package:android", "0", "private mounted\\nemulated mounted"]) as run:
+            state = probe_state()
+        self.assertEqual("1", state["boot_completed"])
+        self.assertEqual("private mounted\\nemulated mounted", state["storage_volumes"])
+        self.assertEqual(4, run.call_count)
+
+
 if __name__ == "__main__":
     unittest.main()
