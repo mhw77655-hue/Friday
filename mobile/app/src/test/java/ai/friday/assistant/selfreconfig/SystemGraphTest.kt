@@ -308,12 +308,11 @@ class SystemGraphTest {
     fun `reasoning tier node is real and reachable through the model authority`() {
         val realOrgans = FridayOrganGraph.build()
 
-        // REASONING-TIER-MODEL-GROUND-TRUTH-AND-WIRE AC5: the ON_DEMAND_REASONING
-        // tier is POPULATED and served by the real backend — not a PLANNED
-        // placeholder node.
+        // The Android production graph points at its process-isolated backend;
+        // it does not claim a particular model is installed or loaded.
         val node = realOrgans.node("model.reasoningTier")
         assertNotNull("reasoning tier node must exist", node)
-        assertEquals("ai.friday.assistant.model.OllamaModelBackend", node!!.qualifiedClassName)
+        assertEquals("ai.friday.assistant.model.ProcessIsolatedModelBackend", node!!.qualifiedClassName)
         assertTrue(
             "reasoning tier must be a REAL organ, not PLANNED",
             node.organType != SystemGraph.OrganType.PLANNED
@@ -336,40 +335,17 @@ class SystemGraphTest {
     }
 
     @Test
-    fun `voice forge backend is a real organ owning the spoken output path`() {
+    fun `retired prototype organs are not advertised as production`() {
         val realOrgans = FridayOrganGraph.build()
 
-        // VOICE-FORGE-EGYPTIAN-KAREN-TTS AC5: the spoken-reply VoiceForge
-        // backend is a REAL organ (MODEL), constructed at the SAME composition
-        // point as the model backends — not a PLANNED placeholder node.
-        val node = realOrgans.node("voice.voiceForge")
-        assertNotNull("voice.voiceForge node must exist", node)
-        assertEquals("ai.friday.assistant.voice.VoiceForgeBackend", node!!.qualifiedClassName)
-        assertTrue(
-            "voice forge must be a REAL organ, not PLANNED",
-            node.organType != SystemGraph.OrganType.PLANNED
-        )
-
-        // The entry's spoken-output organ (entry.latencyPipeline owns fullSpeak)
-        // DEPENDS_ON the backend, so it is reachable from the entry.
-        val reachability = realOrgans.computeReachability("entry.latencyPipeline")
-        assertTrue(
-            "voice forge must be reachable from the entry in the production composition",
-            reachability.reachableIds.contains("voice.voiceForge")
-        )
-        val entryDeps = realOrgans.edgesFrom("entry.latencyPipeline")
-        assertTrue(
-            "the spoken-output entry depends on the voice forge backend",
-            entryDeps.any {
-                it.toId == "voice.voiceForge" && it.kind == SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON
-            }
-        )
-
-        // Construction-site ground truth (AC2) is captured on the node.
-        assertTrue(
-            "voice forge node carries the ground-truth construction-site description",
-            node.description.contains("FridayEngine.kt:175-189") && node.description.contains("FridayEngine.init")
-        )
+        assertEquals(null, realOrgans.node("voice.voiceForge"))
+        assertEquals(null, realOrgans.node("infra.buildVerificationTwin"))
+        assertFalse(realOrgans.allNodes().any {
+            it.qualifiedClassName == "ai.friday.assistant.voice.VoiceForgeBackend"
+        })
+        assertFalse(realOrgans.allNodes().any {
+            it.qualifiedClassName == "ai.friday.assistant.buildtwin.BuildTwinVerifier"
+        })
     }
 
     @Test
@@ -558,54 +534,7 @@ class SystemGraphTest {
         )
     }
 
-    @Test
-    fun `build verification twin is a real organ gating artifact promotion`() {
-        val realOrgans = FridayOrganGraph.build()
 
-        // BUILD-TWIN-ARM64-VERIFICATION AC5: the verification twin is a REAL
-        // INFRA node pointing at the real BuildTwinVerifier class — not a
-        // PLANNED placeholder.
-        val node = realOrgans.node("infra.buildVerificationTwin")
-        assertNotNull("infra.buildVerificationTwin node must exist", node)
-        assertEquals("ai.friday.assistant.buildtwin.BuildTwinVerifier", node!!.qualifiedClassName)
-        assertTrue(
-            "verification twin must be a REAL INFRA organ, not PLANNED",
-            node.organType != SystemGraph.OrganType.PLANNED
-        )
-        assertEquals(SystemGraph.OrganType.INFRA, node.organType)
-
-        // The organs that own device-artifact promotion are GATED by it: the
-        // VoiceForge spoken-output organ and the reasoning-tier model organ.
-        val voiceDeps = realOrgans.edgesFrom("voice.voiceForge")
-        assertTrue(
-            "voice forge (artifact promotion owner) must be GATED by the verification twin",
-            voiceDeps.any {
-                it.toId == "infra.buildVerificationTwin" &&
-                    it.kind == SystemGraph.DependencyEdge.EdgeKind.GATES
-            }
-        )
-        val tierDeps = realOrgans.edgesFrom("model.reasoningTier")
-        assertTrue(
-            "reasoning tier (model artifact promotion owner) must be GATED by the verification twin",
-            tierDeps.any {
-                it.toId == "infra.buildVerificationTwin" &&
-                    it.kind == SystemGraph.DependencyEdge.EdgeKind.GATES
-            }
-        )
-
-        // Gated from the entry via the entry -> voiceForge -> twin path, so it
-        // is genuinely reachable in the production composition.
-        val reachability = realOrgans.computeReachability("entry.latencyPipeline")
-        assertTrue(
-            "verification twin must be reachable from the entry in the production composition",
-            reachability.reachableIds.contains("infra.buildVerificationTwin")
-        )
-        assertTrue(
-            "verification twin node carries the ground-truth provisioning/architecture description",
-            node.description.contains(".ralph/buildtwin/provision.sh") &&
-                node.description.contains("external build-verification tooling")
-        )
-    }
 
     @Test
     fun `emotion fusion layer tier 1 is a real organ feeding the mental state estimator`() {
