@@ -85,7 +85,7 @@ class VisionAuditCoreTests(unittest.TestCase):
             }
         }"""
         found, where = AUDIT.outcome_members(body, ["FIRST", "SECOND", "THIRD", "UNUSED"])
-        self.assertEqual({"FIRST", "SECOND"}, found)
+        self.assertEqual({"FIRST", "SECOND", "THIRD"}, found)
         self.assertIn("return Mode.FIRST", where["FIRST"])
         self.assertIn("0 -> SECOND", where["SECOND"])
 
