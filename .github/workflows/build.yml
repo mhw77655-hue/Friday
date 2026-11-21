@@ -145,6 +145,14 @@ jobs:
           name: debug-apk
           path: mobile/app/build/outputs/apk/debug/app-debug.apk
 
+      # Mutation probe: prove the exhaustive authorization truth-table tests
+      # detect a deliberately weakened HIGH-risk biometric gate. The script
+      # restores the source before the full test suite and uses only this
+      # disposable CI checkout.
+      - name: Prove authorization tests kill a deliberate mutant
+        if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
+        run: bash tools/friday-builder/verify_mutation_sensitivity.sh
+
       # Exercise the production release variant on every complete CI run.
       # This disposable CI key proves packaging/signing mechanics only; it is
       # never published and is never confused with the permanent owner key.
@@ -173,14 +181,6 @@ jobs:
               -PfridayAbiFilters=arm64-v8a
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose \
             mobile/app/build/outputs/apk/release/app-release.apk
-
-      # Mutation probe: prove the exhaustive authorization truth-table tests
-      # detect a deliberately weakened HIGH-risk biometric gate. The script
-      # restores the source before the full test suite and uses only this
-      # disposable CI checkout.
-      - name: Prove authorization tests kill a deliberate mutant
-        if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
-        run: bash tools/friday-builder/verify_mutation_sensitivity.sh
 
       # Run tests even when APK assembly fails. A failed packaging step must
       # not erase independent evidence about source/test health.
