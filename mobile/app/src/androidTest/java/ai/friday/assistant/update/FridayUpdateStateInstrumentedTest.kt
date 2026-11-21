@@ -1,0 +1,74 @@
+package ai.friday.assistant.update
+
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+import org.junit.runner.RunWith
+import java.io.File
+
+@RunWith(AndroidJUnit4::class)
+class FridayUpdateStateInstrumentedTest {
+    @Test
+    fun verifiedStagedUpdateSurvivesStateStoreRecreation() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = FridayUpdateStateStore(context)
+        store.clearStaged()
+        val staging = File(context.noBackupFilesDir, "friday-update-staging").apply { mkdirs() }
+        val apk = File(staging, "instrumented-update.apk").apply { writeBytes(byteArrayOf(1, 2, 3, 4)) }
+        val release = FridayUpdateClient.Release(
+            packageId = context.packageName,
+            versionCode = 42L,
+            versionName = "1.0.42",
+            sourceCommit = "a".repeat(40),
+            certificateSha256 = "B".repeat(64),
+            apkSha256 = "c".repeat(64),
+            apkUrl = "https://example.invalid/friday.apk"
+        )
+
+        try {
+            store.saveStaged(FridayUpdateClient.Result.Staged(release, apk))
+            val restored = FridayUpdateStateStore(context).loadStaged()
+            assertNotNull("Staged update metadata must survive store recreation.", restored)
+            assertEquals(42L, restored!!.release.versionCode)
+            assertEquals("1.0.42", restored.release.versionName)
+            assertEquals(apk.canonicalPath, restored.apk.canonicalPath)
+        } finally {
+            store.clearStaged()
+        }
+        assertFalse("Clearing staged state also removes the staged APK.", apk.exists())
+    }
+
+    @Test
+    fun installerRejectsApkOutsidePrivateStagingDirectory() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val outside = File(context.cacheDir, "untrusted-friday.apk").apply {
+            writeBytes(byteArrayOf(9, 8, 7, 6))
+        }
+        val staged = FridayUpdateClient.Result.Staged(
+            FridayUpdateClient.Release(
+                packageId = context.packageName,
+                versionCode = 43L,
+                versionName = "1.0.43",
+                sourceCommit = "b".repeat(40),
+                certificateSha256 = "C".repeat(64),
+                apkSha256 = "d".repeat(64),
+                apkUrl = "https://example.invalid/friday.apk"
+            ),
+            outside
+        )
+        try {
+            val result = FridayPackageInstaller(context).install(staged)
+            assertTrue(
+                "Only Friday's private staged artifact may reach PackageInstaller.",
+                result is FridayPackageInstaller.Result.Rejected
+            )
+        } finally {
+            outside.delete()
+        }
+    }
+}
