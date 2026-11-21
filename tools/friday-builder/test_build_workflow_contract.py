@@ -37,7 +37,7 @@ class BuildWorkflowContractTests(unittest.TestCase):
         debug = self.workflow.split("  debug-apk:", 1)[1].split("  android-emulator:", 1)[0]
         self.assertEqual(debug.count("Verify Friday launcher icon is packaged"), 1)
         self.assertIn('"$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging mobile/app/build/outputs/apk/debug/app-debug.apk', debug)
-        self.assertIn("application: label='FRIDAY' icon='[^']+'", debug)
+        self.assertIn("application: label='Friday' icon='[^']+'", debug)
         manifest = (ROOT / "mobile" / "app" / "src" / "main" / "AndroidManifest.xml").read_text(encoding="utf-8")
         self.assertIn('android:icon="@mipmap/ic_launcher"', manifest)
 
@@ -58,13 +58,12 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn("workflow_dispatch:", self.workflow)
 
 
-    def test_candidate_branches_do_not_run_duplicate_push_and_pull_request_builds(self):
-        push = self.workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
-        self.assertIn("branches: [ main ]", push)
-        self.assertNotIn("audit/**", push)
-        self.assertNotIn("friday-proposals/**", push)
+    def test_only_canonical_main_pushes_trigger_automatic_builds(self):
+        self.assertIn("on:\\n  push:\\n    branches: [ main ]", self.workflow)
+        self.assertNotIn("pull_request:", self.workflow)
         self.assertIn("concurrency:", self.workflow)
-        self.assertIn("github.event_name", self.workflow)
+        self.assertIn("cancel-in-progress: false", self.workflow)
+        self.assertIn("workflow_dispatch:", self.workflow)
 
 
 if __name__ == "__main__":
