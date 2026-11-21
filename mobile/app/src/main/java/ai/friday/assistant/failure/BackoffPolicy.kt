@@ -36,24 +36,42 @@ data class BackoffPolicy(
     private val random: Random = Random.Default
 ) {
     init {
-        require(maxAttempts >= 1)
-        require(baseDelayMs >= 0)
-        require(factor > 1.0)
-        require(jitterMs >= 0)
+        require(maxAttempts >= 1) { "maxAttempts must be at least one" }
+        require(baseDelayMs >= 0) { "baseDelayMs must not be negative" }
+        require(factor.isFinite() && factor > 1.0) { "factor must be finite and greater than one" }
+        require(maxDelayMs >= 0) { "maxDelayMs must not be negative" }
+        require(jitterMs >= 0) { "jitterMs must not be negative" }
     }
 
     /** Deterministic (jitter-free) delay for attempt [attempt] (1-based). */
     fun backoffDelayMs(attempt: Int): Long {
-        val base = baseDelayMs * Math.pow(factor, (attempt - 1).toDouble())
-        val capped = min(base.toLong(), maxDelayMs)
+        require(attempt >= 1) { "attempt is one-based and must be positive" }
+        if (maxDelayMs == 0L || baseDelayMs == 0L) return 0L
+
+        val scaled = baseDelayMs.toDouble() * Math.pow(factor, (attempt - 1).toDouble())
+        val capped = when {
+            !scaled.isFinite() || scaled >= maxDelayMs.toDouble() -> maxDelayMs
+            else -> scaled.toLong().coerceIn(0L, maxDelayMs)
+        }
         if (jitterMs <= 0) return capped
+
         val half = jitterMs / 2
         val jitter = random.nextLong(-half, half + 1)
-        return min(capped + jitter, maxDelayMs).coerceAtLeast(0L)
+        // Saturating addition avoids signed overflow turning a large positive
+        // delay negative (or vice versa) under adversarial configuration.
+        val adjusted = when {
+            jitter > 0 && capped > Long.MAX_VALUE - jitter -> Long.MAX_VALUE
+            jitter < 0 && capped < -jitter -> 0L
+            else -> capped + jitter
+        }
+        return adjusted.coerceIn(0L, maxDelayMs)
     }
 
     /** Whether another attempt is allowed after [attemptsSoFar] attempts. */
-    fun canRetry(attemptsSoFar: Int): Boolean = attemptsSoFar < maxAttempts
+    fun canRetry(attemptsSoFar: Int): Boolean {
+        require(attemptsSoFar >= 0) { "attemptsSoFar must not be negative" }
+        return attemptsSoFar < maxAttempts
+    }
 
     /** Whether [failureCause] is eligible for retry at all. */
     fun isRetryable(failureCause: FailureCause?): Boolean =
