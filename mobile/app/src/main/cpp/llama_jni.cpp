@@ -6,6 +6,8 @@
 #include <jni.h>
 #include <string>
 #include <vector>
+#include <cstdint>
+#include <limits>
 #include <android/log.h>
 
 #define LOG_TAG "LocalInferenceEngineJNI"
@@ -28,6 +30,102 @@ static inline LlamaTokenizer* getTokenizer(jlong handle) {
     return reinterpret_cast<LlamaTokenizer*>(handle);
 }
 
+// JNI's GetStringUTFChars/NewStringUTF use Modified UTF-8, while llama.cpp
+// consumes and returns standard UTF-8. Convert explicitly so supplementary
+// Unicode (emoji, historic scripts) is not corrupted at the native boundary.
+static void append_utf8(std::string& out, uint32_t cp) {
+    if (cp <= 0x7F) {
+        out.push_back(static_cast<char>(cp));
+    } else if (cp <= 0x7FF) {
+        out.push_back(static_cast<char>(0xC0 | (cp >> 6)));
+        out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+    } else if (cp <= 0xFFFF) {
+        out.push_back(static_cast<char>(0xE0 | (cp >> 12)));
+        out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+        out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+    } else {
+        out.push_back(static_cast<char>(0xF0 | (cp >> 18)));
+        out.push_back(static_cast<char>(0x80 | ((cp >> 12) & 0x3F)));
+        out.push_back(static_cast<char>(0x80 | ((cp >> 6) & 0x3F)));
+        out.push_back(static_cast<char>(0x80 | (cp & 0x3F)));
+    }
+}
+
+static std::string jstring_to_utf8(JNIEnv* env, jstring value) {
+    std::string out;
+    if (!env || !value) return out;
+    const jsize length = env->GetStringLength(value);
+    const jchar* chars = env->GetStringChars(value, nullptr);
+    if (!chars) return out;
+    out.reserve(static_cast<size_t>(length) * 3);
+    for (jsize i = 0; i < length; ++i) {
+        uint32_t cp = chars[i];
+        if (cp >= 0xD800 && cp <= 0xDBFF && i + 1 < length) {
+            const uint32_t low = chars[i + 1];
+            if (low >= 0xDC00 && low <= 0xDFFF) {
+                cp = 0x10000 + ((cp - 0xD800) << 10) + (low - 0xDC00);
+                ++i;
+            } else {
+                cp = 0xFFFD;
+            }
+        } else if (cp >= 0xD800 && cp <= 0xDFFF) {
+            cp = 0xFFFD;
+        }
+        append_utf8(out, cp);
+    }
+    env->ReleaseStringChars(value, chars);
+    return out;
+}
+
+static jstring utf8_to_jstring(JNIEnv* env, const char* bytes) {
+    if (!env || !bytes) return nullptr;
+    const auto* data = reinterpret_cast<const unsigned char*>(bytes);
+    const size_t length = std::strlen(bytes);
+    std::vector<jchar> utf16;
+    utf16.reserve(length);
+    for (size_t i = 0; i < length;) {
+        uint32_t cp = 0xFFFD;
+        size_t consumed = 1;
+        const unsigned char first = data[i];
+        if (first <= 0x7F) {
+            cp = first;
+        } else if (first >= 0xC2 && first <= 0xDF && i + 1 < length &&
+                   (data[i + 1] & 0xC0) == 0x80) {
+            cp = ((first & 0x1F) << 6) | (data[i + 1] & 0x3F);
+            consumed = 2;
+        } else if (first >= 0xE0 && first <= 0xEF && i + 2 < length &&
+                   (data[i + 1] & 0xC0) == 0x80 && (data[i + 2] & 0xC0) == 0x80) {
+            const uint32_t candidate = ((first & 0x0F) << 12) |
+                ((data[i + 1] & 0x3F) << 6) | (data[i + 2] & 0x3F);
+            if (candidate >= 0x800 && !(candidate >= 0xD800 && candidate <= 0xDFFF)) {
+                cp = candidate;
+                consumed = 3;
+            }
+        } else if (first >= 0xF0 && first <= 0xF4 && i + 3 < length &&
+                   (data[i + 1] & 0xC0) == 0x80 &&
+                   (data[i + 2] & 0xC0) == 0x80 &&
+                   (data[i + 3] & 0xC0) == 0x80) {
+            const uint32_t candidate = ((first & 0x07) << 18) |
+                ((data[i + 1] & 0x3F) << 12) |
+                ((data[i + 2] & 0x3F) << 6) | (data[i + 3] & 0x3F);
+            if (candidate >= 0x10000 && candidate <= 0x10FFFF) {
+                cp = candidate;
+                consumed = 4;
+            }
+        }
+        i += consumed;
+        if (cp <= 0xFFFF) {
+            utf16.push_back(static_cast<jchar>(cp));
+        } else {
+            cp -= 0x10000;
+            utf16.push_back(static_cast<jchar>(0xD800 + (cp >> 10)));
+            utf16.push_back(static_cast<jchar>(0xDC00 + (cp & 0x3FF)));
+        }
+    }
+    if (utf16.size() > static_cast<size_t>(std::numeric_limits<jsize>::max())) return nullptr;
+    return env->NewString(utf16.data(), static_cast<jsize>(utf16.size()));
+}
+
 // JNI callbacks are invoked synchronously on the thread that called
 // nativeGenerate. The callback must not re-enter model APIs while generation
 // holds the model mutex; Kotlin reads health only after nativeGenerate returns.
@@ -44,7 +142,7 @@ static void java_token_callback(const char* token, int token_id, bool is_final, 
     if (!context || context->failed || !context->env || !context->callback || !context->on_token) return;
 
     JNIEnv* env = context->env;
-    jstring token_text = env->NewStringUTF(token ? token : "");
+    jstring token_text = utf8_to_jstring(env, token ? token : "");
     if (!token_text) {
         context->failed = true;
         llama_model_cancel(context->model);
@@ -109,15 +207,15 @@ JNI_CLASS(nativeCreate)(JNIEnv* env, jobject thiz, jobject config) {
         env->DeleteLocalRef(configClass);
         return 0;
     }
-    const char* modelPath = env->GetStringUTFChars(modelPathStr, nullptr);
-    if (!modelPath) {
+    const std::string modelPath = jstring_to_utf8(env, modelPathStr);
+    if (env->ExceptionCheck()) {
         env->DeleteLocalRef(modelPathStr);
         env->DeleteLocalRef(configClass);
         return 0;
     }
 
     LlamaModelConfig nativeConfig{};
-    nativeConfig.model_path = modelPath;
+    nativeConfig.model_path = modelPath.c_str();
     nativeConfig.n_ctx = env->GetIntField(config, nCtxField);
     nativeConfig.n_batch = env->GetIntField(config, nBatchField);
     nativeConfig.n_threads = env->GetIntField(config, nThreadsField);
@@ -135,7 +233,6 @@ JNI_CLASS(nativeCreate)(JNIEnv* env, jobject thiz, jobject config) {
     LlamaModel* model = nullptr;
     if (!env->ExceptionCheck()) model = llama_model_create(&nativeConfig);
 
-    env->ReleaseStringUTFChars(modelPathStr, modelPath);
     env->DeleteLocalRef(modelPathStr);
     env->DeleteLocalRef(configClass);
     return reinterpret_cast<jlong>(model);
@@ -180,7 +277,7 @@ JNI_CLASS(nativeGetHealth)(JNIEnv* env, jobject thiz, jlong handle) {
     }
 
     if (!stateEnum) return nullptr;
-    jstring errorMsg = health.error_message ? env->NewStringUTF(health.error_message) : nullptr;
+    jstring errorMsg = health.error_message ? utf8_to_jstring(env, health.error_message) : nullptr;
     if (health.error_message && !errorMsg) return nullptr;
 
     jobject healthObj = env->NewObject(healthClass, constructor,
@@ -226,8 +323,8 @@ JNI_CLASS(nativeGenerate)(JNIEnv* env, jobject thiz, jlong handle, jstring promp
     LlamaModel* model = getModel(handle);
     if (!model || !prompt) return nullptr;
 
-    const char* promptStr = env->GetStringUTFChars(prompt, nullptr);
-    if (!promptStr) return nullptr;
+    const std::string promptStr = jstring_to_utf8(env, prompt);
+    if (env->ExceptionCheck()) return nullptr;
 
     LlamaGenerationConfig nativeConfig{};
     nativeConfig.max_tokens = 512;
@@ -244,7 +341,7 @@ JNI_CLASS(nativeGenerate)(JNIEnv* env, jobject thiz, jlong handle, jstring promp
     if (genConfig) {
         jclass configClass = env->GetObjectClass(genConfig);
         if (!configClass) {
-            env->ReleaseStringUTFChars(prompt, promptStr);
+            
             return nullptr;
         }
 
@@ -258,7 +355,7 @@ JNI_CLASS(nativeGenerate)(JNIEnv* env, jobject thiz, jlong handle, jstring promp
         if (env->ExceptionCheck() || !maxTokensField || !tempField || !topPField ||
             !topKField || !repeatPenaltyField || !streamField || !stopSeqField) {
             env->DeleteLocalRef(configClass);
-            env->ReleaseStringUTFChars(prompt, promptStr);
+            
             return nullptr;
         }
 
@@ -272,7 +369,7 @@ JNI_CLASS(nativeGenerate)(JNIEnv* env, jobject thiz, jlong handle, jstring promp
         jobjectArray stopSeqArray = static_cast<jobjectArray>(env->GetObjectField(genConfig, stopSeqField));
         if (env->ExceptionCheck()) {
             env->DeleteLocalRef(configClass);
-            env->ReleaseStringUTFChars(prompt, promptStr);
+            
             return nullptr;
         }
         if (stopSeqArray) {
@@ -281,17 +378,14 @@ JNI_CLASS(nativeGenerate)(JNIEnv* env, jobject thiz, jlong handle, jstring promp
             for (jsize i = 0; i < count; ++i) {
                 jstring stop = static_cast<jstring>(env->GetObjectArrayElement(stopSeqArray, i));
                 if (!stop) continue;
-                const char* stopChars = env->GetStringUTFChars(stop, nullptr);
-                if (!stopChars) {
-                    env->DeleteLocalRef(stop);
+                const std::string stopText = jstring_to_utf8(env, stop);
+                env->DeleteLocalRef(stop);
+                if (env->ExceptionCheck()) {
                     env->DeleteLocalRef(stopSeqArray);
                     env->DeleteLocalRef(configClass);
-                    env->ReleaseStringUTFChars(prompt, promptStr);
                     return nullptr;
                 }
-                stopStrings.emplace_back(stopChars);
-                env->ReleaseStringUTFChars(stop, stopChars);
-                env->DeleteLocalRef(stop);
+                if (!stopText.empty()) stopStrings.emplace_back(stopText);
             }
             env->DeleteLocalRef(stopSeqArray);
         }
@@ -307,7 +401,7 @@ JNI_CLASS(nativeGenerate)(JNIEnv* env, jobject thiz, jlong handle, jstring promp
     if (callback && nativeConfig.stream) {
         jclass callbackClass = env->GetObjectClass(callback);
         if (!callbackClass) {
-            env->ReleaseStringUTFChars(prompt, promptStr);
+            
             return nullptr;
         }
         callbackContext.env = env;
@@ -317,14 +411,14 @@ JNI_CLASS(nativeGenerate)(JNIEnv* env, jobject thiz, jlong handle, jstring promp
         env->DeleteLocalRef(callbackClass);
         if (env->ExceptionCheck() || !callbackContext.callback || !callbackContext.on_token) {
             if (callbackContext.callback) env->DeleteGlobalRef(callbackContext.callback);
-            env->ReleaseStringUTFChars(prompt, promptStr);
+            
             return nullptr;
         }
         tokenCb = java_token_callback;
     }
 
-    const char* result = llama_model_generate(model, promptStr, &nativeConfig, tokenCb, &callbackContext);
-    env->ReleaseStringUTFChars(prompt, promptStr);
+    const char* result = llama_model_generate(model, promptStr.c_str(), &nativeConfig, tokenCb, &callbackContext);
+    
     if (callbackContext.callback) env->DeleteGlobalRef(callbackContext.callback);
 
     // Do not make further JNI calls while a Java callback exception is pending.
@@ -334,7 +428,7 @@ JNI_CLASS(nativeGenerate)(JNIEnv* env, jobject thiz, jlong handle, jstring promp
     }
 
     if (result) {
-        jstring jResult = env->NewStringUTF(result);
+        jstring jResult = utf8_to_jstring(env, result);
         free((void*)result);
         return jResult;
     }
@@ -381,16 +475,12 @@ JNI_CLASS(nativeTokenCount)(JNIEnv* env, jobject thiz, jlong handle, jstring tex
     LlamaModel* model = getModel(handle);
     if (!model || !text) return -1;
 
-    const char* textStr = env->GetStringUTFChars(text, nullptr);
-    if (!textStr) return -1;
+    const std::string textStr = jstring_to_utf8(env, text);
+    if (env->ExceptionCheck()) return -1;
     LlamaTokenizer* tokenizer = llama_tokenizer_get(model);
-    if (!tokenizer) {
-        env->ReleaseStringUTFChars(text, textStr);
-        return -1;
-    }
-    const int count = llama_tokenizer_count(tokenizer, textStr);
+    if (!tokenizer) return -1;
+    const int count = llama_tokenizer_count(tokenizer, textStr.c_str());
     llama_tokenizer_destroy(tokenizer);
-    env->ReleaseStringUTFChars(text, textStr);
     return count;
 }
 
@@ -400,19 +490,15 @@ JNI_CLASS(nativeEncode)(JNIEnv* env, jobject thiz, jlong handle, jstring text, j
     LlamaModel* model = getModel(handle);
     if (!model || !text || !output) return -1;
 
-    const char* textStr = env->GetStringUTFChars(text, nullptr);
-    if (!textStr) return -1;
+    const std::string textStr = jstring_to_utf8(env, text);
+    if (env->ExceptionCheck()) return -1;
     jint* outData = env->GetIntArrayElements(output, nullptr);
-    if (!outData) {
-        env->ReleaseStringUTFChars(text, textStr);
-        return -1;
-    }
+    if (!outData) return -1;
     LlamaTokenizer* tokenizer = llama_tokenizer_get(model);
     const int count = tokenizer
-        ? llama_tokenizer_encode(tokenizer, textStr, reinterpret_cast<int32_t*>(outData), env->GetArrayLength(output))
+        ? llama_tokenizer_encode(tokenizer, textStr.c_str(), reinterpret_cast<int32_t*>(outData), env->GetArrayLength(output))
         : -1;
     if (tokenizer) llama_tokenizer_destroy(tokenizer);
-    env->ReleaseStringUTFChars(text, textStr);
     env->ReleaseIntArrayElements(output, outData, count >= 0 ? 0 : JNI_ABORT);
     return count;
 }
