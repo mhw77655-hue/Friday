@@ -48,6 +48,11 @@ class NativeLifecycleContractTests(unittest.TestCase):
         self.assertIn("release_llama_backend()", self.cpp)
         self.assertIn("g_backend_users", self.cpp)
 
+    def test_native_model_load_uses_the_pinned_llama_cpp_api(self):
+        self.assertIn("model_params.load_mode = LLAMA_LOAD_MODE_MMAP_MLOCK", self.cpp)
+        self.assertNotIn("model_params.use_mmap", self.cpp)
+        self.assertNotIn("model_params.use_mlock", self.cpp)
+
     def test_ready_wait_accepts_repeated_generation_from_idle(self):
         wait = self.cpp.split("bool llama_model_wait_ready(", 1)[1].split(
             "const char* llama_model_generate(", 1
