@@ -113,7 +113,11 @@ class FridayUpdateClient(
      */
     @Suppress("DEPRECATION")
     private fun verifyApkArchive(apk: File, release: Release): String? {
-        val flags = PackageManager.GET_SIGNING_CERTIFICATES
+        val flags = if (Build.VERSION.SDK_INT >= 28) {
+            PackageManager.GET_SIGNING_CERTIFICATES
+        } else {
+            PackageManager.GET_SIGNATURES
+        }
         val info = if (Build.VERSION.SDK_INT >= 33) {
             appContext.packageManager.getPackageArchiveInfo(
                 apk.absolutePath,
@@ -151,15 +155,20 @@ class FridayUpdateClient(
 
     @Suppress("DEPRECATION")
     private fun installedIdentity(): InstalledIdentity {
+        val signingFlags = if (Build.VERSION.SDK_INT >= 28) {
+            PackageManager.GET_SIGNING_CERTIFICATES
+        } else {
+            PackageManager.GET_SIGNATURES
+        }
         val info = if (Build.VERSION.SDK_INT >= 33) {
             appContext.packageManager.getPackageInfo(
                 appContext.packageName,
-                PackageManager.PackageInfoFlags.of(PackageManager.GET_SIGNING_CERTIFICATES.toLong())
+                PackageManager.PackageInfoFlags.of(signingFlags.toLong())
             )
         } else {
             appContext.packageManager.getPackageInfo(
                 appContext.packageName,
-                PackageManager.GET_SIGNING_CERTIFICATES
+                signingFlags
             )
         }
         val version = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()
