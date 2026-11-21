@@ -476,54 +476,15 @@ object FridayOrganGraph {
             qualifiedClassName = "ai.friday.assistant.model.CognitiveAdmissionPolicy",
             description = "The cognitive runtime gateway: per-turn FEP admission gate shared by CognitiveEngine and AnchorEngine (FridayEngine.init, ANCHOR-ENGINE-FOUNDATION)"
         ))
-        // REASONING-TIER-MODEL-GROUND-TRUTH-AND-WIRE: the ON_DEMAND_REASONING
-        // tier is REAL and populated — ModelManager.wake(OrganRole.REASONING)
-        // loads the distinct friday-reasoning:latest model through the single
-        // OllamaModelBackend (FridayEngine.init), and tier-served DIRECT_REPLY
-        // generation routes ModelManager.send() through that handle so the
-        // reasoning model answers high-doubt turns (ModelManager.defaultModelId,
-        // turn-serve booking; not a PLANNED placeholder).
+        // Android production uses a process-isolated model backend. The backend
+        // can route to configured local/remote providers, but a backend node is
+        // not evidence that a model is installed, loaded, or currently healthy.
         g.registerNode(SystemGraph.SystemNode(
             id = "model.reasoningTier",
-            name = "ReasoningTier (ON_DEMAND_REASONING)",
+            name = "ProcessIsolatedModelBackend",
             organType = SystemGraph.OrganType.MODEL,
-            qualifiedClassName = "ai.friday.assistant.model.OllamaModelBackend",
-            description = "The single real backend behind the populated ON_DEMAND_REASONING tier: its wake loads friday-reasoning:latest (ModelManager.defaultModelId) and tier-served generations route /api/chat to that modelId via GenerateRequest.modelId (REASONING-TIER-MODEL-GROUND-TRUTH-AND-WIRE)"
-        ))
-        // VOICE-FORGE-EGYPTIAN-KAREN-TTS: the spoken-reply VoiceForge backend is
-        // a REAL Android organ — VoiceForgeBackend (MODEL, not PLANNED) constructed in
-        // FridayEngine.init alongside the other model backends (AC2). The reply-path organ that
-        // owns spoken output (entry.latencyPipeline.fullSpeak) DEPENDS_ON it.
-        g.registerNode(SystemGraph.SystemNode(
-            id = "voice.voiceForge",
-            name = "VoiceForgeBackend",
-            organType = SystemGraph.OrganType.MODEL,
-            qualifiedClassName = "ai.friday.assistant.voice.VoiceForgeBackend",
-            description = "VOICE-FORGE-EGYPTIAN-KAREN-TTS (2026-09-12): the on-device spoken-reply speech backend " +
-                "(Chatterbox Multilingual runtime + Egyptian fine-tune via VoiceForgeAdapter over voiceforge/voiceforge_server.py). " +
-                "Constructed in FridayEngine.init at the same composition point as the model backends (FridayEngine.kt:175-189, " +
-                "backend at :185) — AC2. The live reply sink " +
-                "(FridayEngine.kt:591) routes full replies through it; platform TTS is only the AC3(c) failure fallback."
-        ))
-        // BUILD-TWIN-ARM64-VERIFICATION: the infra verification twin is a REAL
-        // organ (INFRA, not PLANNED). BuildTwinVerifier (ai.friday.assistant.buildtwin)
-        // gates every hardware-sensitive native artifact (VoiceForge/Chatterbox
-        // GGUF, model quantization) on an ARM64 CPU-only 6-8GB twin BEFORE the
-        // artifact may be copied to the phone. The organs that own device
-        // artifact promotion (voice.voiceForge, model.reasoningTier) are GATED
-        // by it — a twin-verified incident log entry is the standing precondition
-        // (REPO_FACTS.md BUILD-TWIN-ARM64-VERIFICATION standing rule).
-        g.registerNode(SystemGraph.SystemNode(
-            id = "infra.buildVerificationTwin",
-            name = "BuildTwinVerifier",
-            organType = SystemGraph.OrganType.INFRA,
-            qualifiedClassName = "ai.friday.assistant.buildtwin.BuildTwinVerifier",
-            description = "BUILD-TWIN-ARM64-VERIFICATION (2026-09-13): the ARM64-native CPU-only " +
-                "6-8GB verification twin gate (BuildTwinVerifier + HttpTwinHealthProbe + " +
-                "LocalTwinCommandRunner + IncidentReportWriter, used by external build-verification tooling " +
-                "composition root) that authorizes copying hardware-sensitive artifacts to the phone " +
-                "only on twin-healthy:true + GGUF-step-exit-0; provisioned on demand via " +
-                ".ralph/buildtwin/provision.sh + teardown.sh."
+            qualifiedClassName = "ai.friday.assistant.model.ProcessIsolatedModelBackend",
+            description = "Android production inference backend hosted in the :inference process. Provider configuration, model presence, successful load, and runtime health are separate evidence states; none is inferred from this graph node."
         ))
         g.registerNode(SystemGraph.SystemNode(
             id = "planned.fabricator",
@@ -679,16 +640,6 @@ object FridayOrganGraph {
 
         g.addEdge("model.modelManager", "model.resourceGovernor", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("model.modelManager", "model.reasoningTier", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
-        // VOICE-FORGE-EGYPTIAN-KAREN-TTS (AC5): the pipeline owns spoken output
-        // (fullSpeak -> speakReply), and the live reply sink renders it through
-        // the VoiceForge backend end-to-end — so the entry DEPENDS_ON the organ.
-        g.addEdge("entry.latencyPipeline", "voice.voiceForge", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
-        // BUILD-TWIN-ARM64-VERIFICATION: the organs that own device-artifact
-        // promotion are GATED by the verification twin — promotion is authorized
-        // only after a twin-verified incident log entry. VoiceForge owns the
-        // spoken-output artifact; the reasoning tier owns the imported model.
-        g.addEdge("voice.voiceForge", "infra.buildVerificationTwin", SystemGraph.DependencyEdge.EdgeKind.GATES)
-        g.addEdge("model.reasoningTier", "infra.buildVerificationTwin", SystemGraph.DependencyEdge.EdgeKind.GATES)
         g.addEdge("capability.capabilityRouter", "capability.capabilityRegistry", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("resolution.fuzzyCommandResolver", "memory.blendedRetriever", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
         g.addEdge("resolution.fuzzyCommandResolver", "capability.capabilityRouter", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
