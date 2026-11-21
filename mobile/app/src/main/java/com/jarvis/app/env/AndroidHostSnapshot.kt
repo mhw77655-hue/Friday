@@ -28,6 +28,11 @@ data class AndroidHostSnapshot(
     val manufacturer: String,
     val model: String,
     val device: String,
+    val socModel: String,
+    val board: String,
+    val cpuCoreCount: Int,
+    val appMemoryClassMb: Int,
+    val lowMemory: Boolean,
     val androidRelease: String,
     val apiLevel: Int,
     val securityPatch: String?,
@@ -56,6 +61,11 @@ data class AndroidHostSnapshot(
             .put("manufacturer", manufacturer)
             .put("model", model)
             .put("device", device)
+            .put("soc_model", socModel)
+            .put("board", board)
+            .put("cpu_core_count", cpuCoreCount)
+            .put("app_memory_class_mb", appMemoryClassMb)
+            .put("low_memory", lowMemory)
             .put("android_release", androidRelease)
             .put("api_level", apiLevel)
             .put("security_patch", securityPatch ?: JSONObject.NULL)
@@ -131,6 +141,11 @@ data class AndroidHostSnapshot(
                 manufacturer = Build.MANUFACTURER.take(48),
                 model = Build.MODEL.take(64),
                 device = Build.DEVICE.take(64),
+                socModel = if (Build.VERSION.SDK_INT >= 31) Build.SOC_MODEL.orEmpty().take(64) else "unavailable",
+                board = Build.BOARD.take(64),
+                cpuCoreCount = Runtime.getRuntime().availableProcessors(),
+                appMemoryClassMb = activity.memoryClass,
+                lowMemory = memory.lowMemory,
                 androidRelease = Build.VERSION.RELEASE.orEmpty().take(24),
                 apiLevel = Build.VERSION.SDK_INT,
                 securityPatch = if (Build.VERSION.SDK_INT >= 23) Build.VERSION.SECURITY_PATCH else null,
