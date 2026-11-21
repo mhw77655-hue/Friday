@@ -17,6 +17,10 @@ on:
       - .ralph/FRIDAY_DELIVERY_PLAN.md
       - .ralph/VISION.md
       - .ralph/OWNER_WORDS.md
+      - governance/**
+      - scripts/verify_repository_truth.py
+      - tools/friday-builder/test_repository_truth.py
+      - docs/FRIDAY_SELF_GOVERNANCE_AND_REPOSITORY_TRUTH.md
       - AGENTS.md
       - .github/workflows/build.yml
   workflow_dispatch:
@@ -54,6 +58,9 @@ jobs:
 
       - name: Test Android harness and build contracts
         run: python3 -m unittest discover -s tools/friday-builder -p 'test_*.py' -v
+
+      - name: Verify repository authority and capability evidence policy
+        run: python3 scripts/verify_repository_truth.py
 
       - name: Set up Go for workflow lint
         uses: actions/setup-go@v5
@@ -366,7 +373,7 @@ jobs:
           subprocess.run([sys.executable, "-m", "compileall", "-q", ".ralph", "tools/friday-builder"], check=True)
           shell_files = [name for name in paths if name.endswith(".sh")]
           for name in shell_files:
-              first_line = Path(name).read_text(encoding="utf-8", errors="replace").splitlines()[:1]
+              first_line = pathlib.Path(name).read_text(encoding="utf-8", errors="replace").splitlines()[:1]
               if first_line and "python" in first_line[0].lower():
                   subprocess.run([
                       sys.executable, "-c",
