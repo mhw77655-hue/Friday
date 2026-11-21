@@ -30,6 +30,22 @@ class AndroidMediaControlCapability(
         availability = Availability.ONLINE
     )
 
+    override suspend fun verifyPostcondition(
+        request: ActionRequest,
+        result: ExecutionResult
+    ): Boolean {
+        if (!result.success || request.action !in OPERATIONS) return false
+        // DeviceControlRouter only returns success after a backend reports
+        // VERIFIED evidence. Re-check the structured proof fields here rather
+        // than trusting the invocation success bit alone.
+        val evidenceBackend = result.evidence["backend_id"] ?: return false
+        val outputBackend = result.output["backend_id"] ?: return false
+        val stage = result.evidence["verification_stage"] ?: return false
+        return result.output["verified"] == "true" &&
+            evidenceBackend == outputBackend &&
+            stage == VerificationStage.VERIFIED.name
+    }
+
     override suspend fun invoke(request: ActionRequest): ExecutionResult {
         val actionType = ACTIONS[request.action]
             ?: return ExecutionResult.fail(ActionFailure.Unsupported(request.action))
