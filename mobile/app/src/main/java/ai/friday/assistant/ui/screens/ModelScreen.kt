@@ -471,14 +471,14 @@ private fun OfflineModelLibrary() {
                         style = FridayType.Technical
                     )
                     Text(
-                        "Storage available to Friday: ${downloader.availableStorageBytes() / (1024L * 1024L)} MB. Downloads are stored privately, can resume after interruption, and are checked before installation.",
+                        "Storage available to Friday: ${downloader.availableStorageBytes() / (1024L * 1024L)} MB. Downloads are stored privately and can resume after interruption; Friday checks the GGUF header and size, plus SHA-256 where the catalog pins one.",
                         style = FridayType.Technical.copy(fontSize = 11.sp, color = FridayColors.TextSecondary)
                     )
                 }
             }
         } else {
             Text(
-                "${installedAssets.size} of ${OfflineModelCatalog.all.size} catalog models installed and integrity-checked.",
+                "${installedAssets.size} of ${OfflineModelCatalog.all.size} catalog models installed and GGUF-validated.",
                 style = FridayType.Technical.copy(fontSize = 11.sp, color = FridayColors.CoreSuccess)
             )
         }
