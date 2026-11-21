@@ -86,7 +86,7 @@ s = s.replace('"0.2-phase2"', '"1.0.0-seed"')
 gradle.write_text(s)
 manifest = ROOT / "mobile/app/src/main/AndroidManifest.xml"
 manifest_text = manifest.read_text().replace('android:label="FRIDAY"', 'android:label="Friday"')
-manifest_text = manifest_text.replace('    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />\\n', '')
+manifest_text = manifest_text.replace('    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />\n', '')
 manifest.write_text(manifest_text)
 
 facts = """# Friday repository facts
