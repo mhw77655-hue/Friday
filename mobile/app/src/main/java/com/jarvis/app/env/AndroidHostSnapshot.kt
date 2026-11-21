@@ -91,6 +91,10 @@ data class AndroidHostSnapshot(
     companion object {
         const val SCHEMA_VERSION = 1
 
+        @Suppress("DEPRECATION")
+        private fun packageInfoVersionCode(info: android.content.pm.PackageInfo): Long =
+            if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()
+
         fun capture(context: Context, sourceRevision: String): AndroidHostSnapshot {
             val app = context.applicationContext
             val activity = app.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
@@ -102,7 +106,7 @@ data class AndroidHostSnapshot(
             val connectivity = app.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
             val caps = connectivity.getNetworkCapabilities(connectivity.activeNetwork)
             val packageInfo = app.packageManager.getPackageInfo(app.packageName, 0)
-            val versionCode = if (Build.VERSION.SDK_INT >= 28) packageInfo.longVersionCode else @Suppress("DEPRECATION") packageInfo.versionCode.toLong()
+            val versionCode = packageInfoVersionCode(packageInfo)
             val accessibilityServices = runCatching {
                 Settings.Secure.getString(app.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
                     .orEmpty().split(':').any { it.substringBefore('/').equals(app.packageName, ignoreCase = true) }
