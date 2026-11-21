@@ -220,6 +220,7 @@ for relative in (
     "docs/FRIDAY_TRUSTED_PUBLISHER_SETUP.md",
     "mobile/app/src/main/assets/voiceforge/PROVENANCE.md",
     "mobile/app/src/main/java/ai/friday/assistant/ObsidianSync.kt",
+    "mobile/app/src/main/assets/voiceforge/PROVENANCE.md",
     "mobile/app/src/main/java/ai/friday/assistant/diagnostics/CrashRepairBridge.kt",
     "mobile/app/src/main/java/ai/friday/assistant/builder/ToolBuilder.kt",
     "mobile/app/src/main/java/ai/friday/assistant/builder/ToolBuilderComposition.kt",
