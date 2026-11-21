@@ -3,16 +3,20 @@ set -euo pipefail
 
 RISK_SOURCE="mobile/app/src/main/java/ai/friday/assistant/android/RiskGate.kt"
 EXECUTOR_SOURCE="mobile/app/src/main/java/ai/friday/assistant/cognitive/capability/CapabilityExecutor.kt"
+IMMUNE_SOURCE="mobile/app/src/main/java/ai/friday/assistant/cognitive/immune/ImmuneSystem.kt"
 LOG="$(mktemp)"
 RISK_BACKUP="$(mktemp)"
 EXECUTOR_BACKUP="$(mktemp)"
+IMMUNE_BACKUP="$(mktemp)"
 cp -p "$RISK_SOURCE" "$RISK_BACKUP"
 cp -p "$EXECUTOR_SOURCE" "$EXECUTOR_BACKUP"
+cp -p "$IMMUNE_SOURCE" "$IMMUNE_BACKUP"
 
 restore_sources() {
   cp -p "$RISK_BACKUP" "$RISK_SOURCE"
   cp -p "$EXECUTOR_BACKUP" "$EXECUTOR_SOURCE"
-  rm -f "$RISK_BACKUP" "$EXECUTOR_BACKUP"
+  cp -p "$IMMUNE_BACKUP" "$IMMUNE_SOURCE"
+  rm -f "$RISK_BACKUP" "$EXECUTOR_BACKUP" "$IMMUNE_BACKUP"
 }
 trap restore_sources EXIT
 
@@ -42,10 +46,24 @@ if text.count(needle) != 1:
 path.write_text(text.replace(needle, mutant, 1), encoding="utf-8")
 PY
 
+# Mutant 3: keep the exhausted attempt counter after a successful circuit probe.
+python3 - "$IMMUNE_SOURCE" <<'PY'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+text = path.read_text(encoding="utf-8")
+needle = "            recoveryAttempts[operationKey]?.set(0)"
+mutant = "            // MUTANT: stale attempt budget is not reset after recovery."
+if text.count(needle) != 1:
+    raise SystemExit("Expected exactly one probe recovery-budget reset; refusing ambiguous mutation.")
+path.write_text(text.replace(needle, mutant, 1), encoding="utf-8")
+PY
+
 set +e
 ./gradlew :mobile:app:testDebugUnitTest \
   --tests ai.friday.assistant.android.RiskGateTest \
   --tests ai.friday.assistant.cognitive.capability.CapabilityExecutorTest \
+  --tests ai.friday.assistant.cognitive.immune.ImmuneSystemTest \
   --no-build-cache --rerun-tasks >"$LOG" 2>&1
 status=$?
 set -e
@@ -66,6 +84,7 @@ root = Path("mobile/app/build/test-results/testDebugUnitTest")
 patterns = {
     "RiskGateTest": "*RiskGateTest.xml",
     "CapabilityExecutorTest": "*CapabilityExecutorTest.xml",
+    "ImmuneSystemTest": "*ImmuneSystemTest.xml",
 }
 for name, pattern in patterns.items():
     files = list(root.glob(pattern))
@@ -92,6 +111,7 @@ rm -f "$LOG"
 ./gradlew :mobile:app:testDebugUnitTest \
   --tests ai.friday.assistant.android.RiskGateTest \
   --tests ai.friday.assistant.cognitive.capability.CapabilityExecutorTest \
+  --tests ai.friday.assistant.cognitive.immune.ImmuneSystemTest \
   --no-build-cache --rerun-tasks
 
-echo "MUTATION_RESTORED: unmodified authorization and postcondition-verification suites pass."
+echo "MUTATION_RESTORED: unmodified authorization, postcondition-verification and immune-recovery suites pass."
