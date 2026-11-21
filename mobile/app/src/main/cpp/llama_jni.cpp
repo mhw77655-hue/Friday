@@ -273,10 +273,17 @@ JNI_CLASS(nativeDestroy)(JNIEnv* env, jobject thiz, jlong handle) {
 JNIEXPORT jint JNICALL
 JNI_CLASS(nativeTokenCount)(JNIEnv* env, jobject thiz, jlong handle, jstring text) {
     LlamaModel* model = getModel(handle);
-    if (!model) return 0;
+    if (!model || !text) return -1;
 
     const char* textStr = env->GetStringUTFChars(text, nullptr);
-    int count = llama_tokenizer_count(llama_tokenizer_get(model), textStr);
+    if (!textStr) return -1;
+    LlamaTokenizer* tokenizer = llama_tokenizer_get(model);
+    if (!tokenizer) {
+        env->ReleaseStringUTFChars(text, textStr);
+        return -1;
+    }
+    const int count = llama_tokenizer_count(tokenizer, textStr);
+    llama_tokenizer_destroy(tokenizer);
     env->ReleaseStringUTFChars(text, textStr);
     return count;
 }
@@ -285,13 +292,22 @@ JNI_CLASS(nativeTokenCount)(JNIEnv* env, jobject thiz, jlong handle, jstring tex
 JNIEXPORT jint JNICALL
 JNI_CLASS(nativeEncode)(JNIEnv* env, jobject thiz, jlong handle, jstring text, jintArray output) {
     LlamaModel* model = getModel(handle);
-    if (!model) return -1;
+    if (!model || !text || !output) return -1;
 
     const char* textStr = env->GetStringUTFChars(text, nullptr);
+    if (!textStr) return -1;
     jint* outData = env->GetIntArrayElements(output, nullptr);
-    int count = llama_tokenizer_encode(llama_tokenizer_get(model), textStr, reinterpret_cast<int32_t*>(outData), env->GetArrayLength(output));
+    if (!outData) {
+        env->ReleaseStringUTFChars(text, textStr);
+        return -1;
+    }
+    LlamaTokenizer* tokenizer = llama_tokenizer_get(model);
+    const int count = tokenizer
+        ? llama_tokenizer_encode(tokenizer, textStr, reinterpret_cast<int32_t*>(outData), env->GetArrayLength(output))
+        : -1;
+    if (tokenizer) llama_tokenizer_destroy(tokenizer);
     env->ReleaseStringUTFChars(text, textStr);
-    env->ReleaseIntArrayElements(output, outData, 0);
+    env->ReleaseIntArrayElements(output, outData, count >= 0 ? 0 : JNI_ABORT);
     return count;
 }
 
@@ -299,11 +315,16 @@ JNI_CLASS(nativeEncode)(JNIEnv* env, jobject thiz, jlong handle, jstring text, j
 JNIEXPORT jstring JNICALL
 JNI_CLASS(nativeDecode)(JNIEnv* env, jobject thiz, jlong handle, jintArray tokens) {
     LlamaModel* model = getModel(handle);
-    if (!model) return nullptr;
+    if (!model || !tokens) return nullptr;
 
     jint* tokenData = env->GetIntArrayElements(tokens, nullptr);
-    int count = env->GetArrayLength(tokens);
-    const char* result = llama_tokenizer_decode(llama_tokenizer_get(model), reinterpret_cast<const int32_t*>(tokenData), count);
+    if (!tokenData) return nullptr;
+    const int count = env->GetArrayLength(tokens);
+    LlamaTokenizer* tokenizer = llama_tokenizer_get(model);
+    const char* result = tokenizer
+        ? llama_tokenizer_decode(tokenizer, reinterpret_cast<const int32_t*>(tokenData), count)
+        : nullptr;
+    if (tokenizer) llama_tokenizer_destroy(tokenizer);
     env->ReleaseIntArrayElements(tokens, tokenData, JNI_ABORT);
 
     if (result) {

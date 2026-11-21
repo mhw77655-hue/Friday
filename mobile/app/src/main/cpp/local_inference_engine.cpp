@@ -255,7 +255,11 @@ LlamaHealth llama_model_get_health(LlamaModel* model) {
     health.state = model->state;
     health.model_loaded = (model->model != nullptr);
     health.context_ready = (model->ctx != nullptr);
-    health.error_message = model->last_error.empty() ? nullptr : model->last_error.c_str();
+    // The health object outlives this lock. Snapshot the error on the
+    // calling thread rather than returning a pointer into mutable model state.
+    static thread_local std::string error_snapshot;
+    error_snapshot = model->last_error;
+    health.error_message = error_snapshot.empty() ? nullptr : error_snapshot.c_str();
     health.last_activity_ms = now_ms();
     health.metrics = model->metrics;
     return health;
@@ -598,6 +602,10 @@ LlamaTokenizer* llama_tokenizer_get(LlamaModel* model) {
     tokenizer->model = model->model;
     tokenizer->vocab = llama_model_get_vocab(model->model);
     return tokenizer;
+}
+
+void llama_tokenizer_destroy(LlamaTokenizer* tokenizer) {
+    delete tokenizer;
 }
 
 int llama_tokenizer_encode(LlamaTokenizer* tokenizer, const char* text, int32_t* output, int max_tokens) {

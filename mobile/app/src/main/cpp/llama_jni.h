@@ -180,6 +180,9 @@ void llama_model_destroy(LlamaModel* model);
  */
 LlamaTokenizer* llama_tokenizer_get(LlamaModel* model);
 
+/** Release a tokenizer handle returned by llama_tokenizer_get. */
+void llama_tokenizer_destroy(LlamaTokenizer* tokenizer);
+
 /**
  * Encode text to token IDs.
  * Returns number of tokens written, or -1 on error.
