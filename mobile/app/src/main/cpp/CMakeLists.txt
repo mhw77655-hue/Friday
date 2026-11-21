@@ -33,10 +33,12 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(llama_cpp)
 
 find_library(log_lib log REQUIRED)
+# The runtime uses llama.cpp's model-native vocabulary/tokenizer APIs.
+# The former tokenizer_wrapper.cpp was an unimplemented byte-level placeholder
+# and is intentionally excluded rather than shipped as a misleading fallback.
 add_library(friday_llama_jni SHARED
     llama_jni.cpp
     local_inference_engine.cpp
-    tokenizer_wrapper.cpp
 )
 target_link_libraries(friday_llama_jni PRIVATE
     llama
