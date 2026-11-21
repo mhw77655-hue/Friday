@@ -1,0 +1,30 @@
+name: Friday formal contracts
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - formal/**
+      - .github/workflows/formal.yml
+      - .ralph/FRIDAY_DELIVERY_PLAN.md
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  lean-formal:
+    name: Lean 4 formal contract build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Build and check Friday formal contracts
+        uses: leanprover/lean-action@v1
+        with:
+          use-mathlib-cache: false
