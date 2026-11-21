@@ -232,3 +232,11 @@ The source material particularly reinforces: Friday is a buddy/partner/friend ra
 - [rust-anything](https://github.com/erkamyaman/rust-anything) — record/replay differential checking, incremental migration and performance gating; its recorded corpus cannot prove unobserved behaviours.
 
 The GTA VI/RAGE passage is treated only as a high-level analogy for streaming, job scheduling and adaptive fidelity. Public information does not establish the internal RAGE implementation described in the transcript, so no specific GTA VI architecture is asserted here.
+
+## Retired public GitHub bridge and stale host integrations (2026-11-21)
+
+The former phone-side GitHub integration was removed from the Android product. It depended on a public GitHub Issues command channel, public device snapshots, workflow-dispatch requests, draft-PR publishing, and automatic public crash uploads. That design conflicts with the owner's single-mainline requirement and exposes technical telemetry in a public repository. It is not an active capability and must not be reintroduced as the production development bridge.
+
+The durable local development-request outbox may remain as an offline queue, but it has no public delivery worker. Future repository development must use a private authenticated endpoint or a directly connected repository worker with explicit owner authorization, minimal technical evidence, signed provenance, sequential writes to main, independent CI, and rollback. No public issue, PR, workflow input, or public log may carry device telemetry.
+
+The obsolete all-files-access/Obsidian path and its MANAGE_EXTERNAL_STORAGE permission were removed. Friday's durable memory and diagnostics belong in app-private storage; user-selected exports use Android's supported document/share interfaces. No external-storage permission is justified merely to write a local journal.
