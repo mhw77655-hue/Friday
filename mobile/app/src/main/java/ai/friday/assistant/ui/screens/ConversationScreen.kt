@@ -88,7 +88,17 @@ fun ConversationScreen() {
             value = input,
             onValueChange = { input = it },
             onSend = { sendCurrentInput() },
-            bodyCoordinator = bodyCoordinator
+            onMicClick = {
+                if (ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.RECORD_AUDIO
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) {
+                    bodyCoordinator.toggleListening()
+                } else {
+                    microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                }
+            }
         )
     }
 }
@@ -133,7 +143,7 @@ private fun TurnRow(turn: Turn) {
 }
 
 @Composable
-private fun InputRow(value: String, onValueChange: (String) -> Unit, onSend: () -> Unit, bodyCoordinator: BodyCoordinator) {
+private fun InputRow(value: String, onValueChange: (String) -> Unit, onSend: () -> Unit, onMicClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -156,20 +166,7 @@ private fun InputRow(value: String, onValueChange: (String) -> Unit, onSend: () 
         TextButton(onClick = onSend, enabled = value.isNotBlank()) {
             Text(text = "SEND", style = FridayType.Label)
         }
-        TextButton(
-            onClick = {
-                if (ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.RECORD_AUDIO
-                    ) == PackageManager.PERMISSION_GRANTED
-                ) {
-                    bodyCoordinator.toggleListening()
-                } else {
-                    microphonePermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                }
-            },
-            enabled = true
-        ) {
+        TextButton(onClick = onMicClick, enabled = true) {
             Text(text = "MIC", style = FridayType.Label)
         }
     }
