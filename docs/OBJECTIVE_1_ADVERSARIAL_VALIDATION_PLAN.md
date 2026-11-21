@@ -1,7 +1,8 @@
 # Objective 1 — adversarial foundation validation
 
 **Status:** owner-defined final validation stage; not yet executed  
-**Target baseline:** `fbf59f519451fba49e1121a6801fa6ab77dceb40`  
+**Initial adversarial baseline:** `95f4f150f495d39212da0e54591da2724b005fbe`  
+**Current validation head:** freeze from `main` only after the recovery regression CI passes  
 **Purpose:** attempt to falsify the Objective 1 foundation before the owner declares it complete.
 
 ## 1. Mission and honesty boundary
@@ -96,6 +97,37 @@ Probe path traversal, archive extraction, signature and digest verification, rep
 ### K. Soak, performance and resource stress
 Run repeated and long-duration scenarios for memory growth, thread leaks, queue growth, battery/resource policy, startup, latency distribution, storage growth and recovery. Report p50/p95/p99, maxima, failure counts and environment. Emulator performance is diagnostic only; real-device performance requires physical hardware.
 
+
+### L. Self-healing and recovery-system attacks
+
+Treat recovery as a first-class subsystem, not as a retry helper. Friday's intended immune-system cycle is detect → diagnose → contain → select recovery → execute → independently verify → restore/resume → learn. The recovery system itself must be attacked.
+
+For each recoverable component, define:
+- health signals and a steady-state contract;
+- failure classification and confidence (observed fact vs hypothesis);
+- containment boundary and protected state;
+- allowed recovery actions, retry budget, backoff and circuit-breaker policy;
+- independent health probe and post-recovery invariant checks;
+- task/state resumption semantics and idempotency rules;
+- user-facing state, progress and ETA confidence (never invent an ETA);
+- escalation conditions when repair is unsafe, irreversible or outside granted authority.
+
+Attack cases:
+- kill a supervised secondary process and verify the primary identity process survives;
+- kill the primary process and verify durable work/state survives a later Android-managed restart where the OS permits it;
+- kill the recovery worker while recovery is in progress;
+- cause repeated crashes until the restart budget is exhausted, then verify the circuit opens and no infinite restart storm occurs;
+- deliver duplicate and reordered death callbacks and verify one recovery transaction is performed;
+- make the health probe lie, time out or return stale evidence; Friday must not mark the component healthy;
+- corrupt or remove the recovery recipe, checkpoint, journal or last-known-good metadata;
+- fail midway through state restoration and verify rollback or an explicit degraded state;
+- exhaust memory/storage or revoke permissions during recovery;
+- make the proposed replacement implementation fail its own verification;
+- restart while a task is partially executed and verify no duplicate irreversible effect occurs;
+- verify recovery notifications distinguish detecting, diagnosing, recovering, verifying, recovered and needs-owner states.
+
+The current Objective 1 scope proves bounded containment/restart and truthful reporting for existing recovery paths. It does **not** authorize unrestricted on-device source rewriting. Future code repair must be staged as a candidate, built/tested in isolation, security-reviewed, signed through the trusted update chain, health-checked after installation and rolled back on failure. Nano/host-adaptation algorithms may inform resource-aware scheduling and recovery budgets, but must not override owner authorization or the protected continuity floor.
+
 ## 4. Test oracles and severity
 
 Every scenario needs:
@@ -147,6 +179,7 @@ This stage is an adversarial evidence campaign. It cannot guarantee the absence 
 - The current build workflow runs JVM unit tests, one disposable emulator lane and a whole-source audit; that is not full mutation/fuzz/concurrency/soak coverage.
 - Two live-Ollama test classes are explicitly excluded from the default unit-test task and require a separately configured live backend; they must be classified as optional integration evidence, not silently included in the default pass.
 - The current emulator lane is not a physical-device performance or compatibility guarantee.
+- A first adversarial emulator run exposed `VoiceSubstrateTest` racing a second test-created `VoiceOrganismHost` against the production `FridayEngine` supervisor. The test has been changed to exercise the single production supervisor, wait for engine readiness, and allow a bounded cold restart. This is a suspected test-isolation defect until the new emulator run confirms the result.
 - The Lean model is abstract and does not automatically prove Kotlin/C++ implementation refinement.
 - The repository inventory counts source files, not executable line/branch coverage.
 
