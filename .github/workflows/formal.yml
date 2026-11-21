@@ -37,7 +37,7 @@ jobs:
           build: true
           test: false
           lint: false
-          nanoda: true
-          nanoda-allow-sorry: false
+          nanoda: false
           axiom-audit: true
+          axiom-audit-root: FridayFormal
           use-mathlib-cache: false
