@@ -80,6 +80,8 @@ def verify(policy: dict[str, Any], root: Path = ROOT) -> list[str]:
     if not isinstance(precedence, list):
         errors.append("Authority precedence must be a JSON list")
         precedence = []
+    elif not precedence:
+        errors.append("Authority precedence must contain at least one source")
     paths = []
     valid_entries = []
     for index, entry in enumerate(precedence):
