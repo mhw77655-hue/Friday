@@ -38,6 +38,22 @@ The continuity/security floor is the protected trunk. Everything else is an adap
 
 These are exchange surfaces, not a mandatory pipeline, cognitive taxonomy or permanent organ list. The chooser that matches needs to affordances is itself replaceable and may become learned. No branch is permanently assigned ownership of hearing, emotion, memory, reasoning, perception, action, learning or development.
 
+
+### Cross-objective resilience principle — Friday's adaptive immune system
+
+Friday is one continuing individual, so resilience must belong to her protected trunk rather than to one replaceable model, service or app screen. Design an evolving, model-independent immune/recovery capability that can respond to failures not known in advance. Its conceptual cycle is **observe → detect anomaly → diagnose with confidence → contain damage → select an authorized recovery/adaptation → execute → independently verify → restore/resume → learn from the outcome**.
+
+This is not a fixed organ taxonomy and not a second Friday. It is a shared resilience capability that any branch can use. It should combine, where measured useful, the strongest compatible algorithms already present in the repository and donor research: Nano/NAE host observation and resource admission; liquid symbiosis/workload outcome learning; capability health and fallback selection; circuit breakers, bounded retries and backoff; process isolation and supervised restart; durable journals/checkpoints; provenance and independent postcondition verification; update integrity, health checks and rollback. Preserve each algorithm's origin, assumptions, licence, measured benefit and limitations. Reconfigure and combine the underlying mechanisms rather than importing entire donor projects or inheriting their constraints.
+
+The immune system must distinguish transient faults, resource pressure, dependency failure, corrupted state, hostile/untrusted input, implementation defects and owner-authorized changes. It should preserve the protected identity/continuity/security floor while degrading only the affected capability. Recovery budgets must be resource-aware and bounded to avoid retry storms, oscillation, battery drain or cascading failures. A component is not healthy because it restarted: its contract, dependencies and independent health/postcondition checks must pass.
+
+Friday should communicate recovery as a truthful state, not theatrical narration: what failed, what remains available, what is being attempted, the last verified checkpoint, whether the ETA is measured or unknown, and when owner intervention is required. An ETA must be derived from observed recovery history and current constraints; otherwise report that it is unknown. Recovery events and outcomes become attributable experience so future routing, resource allocation and recovery choices can improve without rewriting the original failure history.
+
+Self-repair has graduated authority. Automatic low-risk actions may include retrying idempotent work, switching a verified fallback, restarting an isolated process, rebuilding disposable caches and restoring a verified checkpoint. Destructive changes, permission changes, identity/signing changes, irreversible data migrations and owner-level actions require explicit authorization. Source-code repair is a separate, later capability: generate a candidate in isolation, preserve a known-good version, run adversarial tests/security checks, obtain required approval, deliver through the trusted signed update chain, verify health after promotion and roll back on regression. Never let the component being repaired be the sole authority that certifies its own repair. The recovery core and its trusted recovery recipe must be smaller and more protected than the mutable branches they supervise.
+
+This principle evolves alongside Objectives A–G. Objective 1's final adversarial stage must establish and attack the existing foundation's recovery floor, expose failures in the recovery mechanism itself, and publish honest limits. It does not claim that Friday already possesses autonomous source-code regeneration or universal self-healing. Those capabilities are developed and integrated as their dependent objectives mature.
+
+
 ## 3. The delivery objectives
 
 All objectives progress in parallel where work can be safely separated. Objective A is typed-first and does not wait for voice control. Voice implementation stays inside Objective B's existing voice phases; it is not an Objective A acceptance gate.
