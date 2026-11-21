@@ -24,6 +24,7 @@ fi
 mkdir -p "$(dirname "$OUT")"
 chmod 700 "$(dirname "$OUT")"
 
+created_new=0
 if [[ -e "$OUT" ]]; then
   read -rp "Keystore already exists at $OUT. Reuse this exact identity? [y/N] " reuse
   [[ "$reuse" == "y" || "$reuse" == "Y" ]] || exit 4
@@ -48,11 +49,14 @@ else
     -validity 10000 \
     -dname "CN=Friday Release, OU=Friday, O=Friday, L=Unknown, ST=Unknown, C=EG"
   chmod 600 "$OUT"
+  created_new=1
   unset confirmation
 fi
 
-read -rsp "Enter the keystore password to verify and configure GitHub: " FRIDAY_STORE_PASSWORD
-echo
+if [[ "$created_new" == "0" ]]; then
+  read -rsp "Enter the existing keystore password to verify and configure GitHub: " FRIDAY_STORE_PASSWORD
+  echo
+fi
 export FRIDAY_STORE_PASSWORD
 keytool -list -keystore "$OUT" -storetype PKCS12 \
   -storepass:env FRIDAY_STORE_PASSWORD -alias "$ALIAS" >/dev/null
