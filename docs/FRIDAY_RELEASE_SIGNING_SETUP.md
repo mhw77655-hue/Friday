@@ -14,29 +14,7 @@ Run it on a trusted computer with JDK 17+ and GitHub CLI authenticated as a repo
 
 The helper refuses to overwrite an existing key. Keep two encrypted offline backups of the generated `friday-release.p12` and its password before treating setup as complete.
 
-## One-time key creation
-
-On a trusted computer with JDK 17 or newer:
-
-```sh
-bash tools/friday-builder/generate_release_keystore.sh
-```
-
-The script creates `friday-release.p12`, asks for a strong password, and prints the base64 keystore, alias and SHA-256 certificate fingerprint.
-
-Keep the keystore and password in two secure offline backups. Never commit the keystore or paste it into a public issue/chat. Losing this key means Android will reject future updates signed by a replacement key.
-
-## One-time GitHub configuration
-
-Open [Friday repository Actions secrets](https://github.com/mhw77655-hue/Friday/settings/secrets/actions) and add all five repository secrets:
-
-| Secret | Value |
-|---|---|
-| `FRIDAY_RELEASE_KEYSTORE_BASE64` | Base64 value printed by the generator |
-| `FRIDAY_RELEASE_STORE_PASSWORD` | Password entered during generation |
-| `FRIDAY_RELEASE_KEY_ALIAS` | `friday-release` |
-| `FRIDAY_RELEASE_KEY_PASSWORD` | Same password for this PKCS12 keystore |
-| `FRIDAY_RELEASE_CERT_SHA256` | Certificate fingerprint printed by the generator |
+## Release workflow
 
 The coding worker never receives these secrets. A separate release workflow runs only after the exact `main` commit passes the complete `build` workflow. It builds a release APK, verifies the signing certificate against the pinned fingerprint, and publishes the APK, SHA-256 checksum and metadata as GitHub Release assets.
 
@@ -54,6 +32,6 @@ The production signing workflow is only one half of the deployment system. The f
 
 The update-channel design and acceptance gates are documented in [FRIDAY_INSTALL_ONCE_UPDATE_CHANNEL.md](FRIDAY_INSTALL_ONCE_UPDATE_CHANNEL.md). Friday's updater should prefer eligible Android PackageInstaller self-update, then a previously owner-authorized Shizuku shell route where available, and finally the normal Android confirmation flow. Shizuku is optional, not a guaranteed silent-install mechanism. Android may still return STATUS_PENDING_USER_ACTION; the client must handle it.
 
-The first implementation stage now being built is release discovery and integrity-checked APK staging. Installation orchestration, owner-visible update controls, post-update health verification and rollback remain separate required work; do not treat staging as a complete updater.
+The updater now schedules background discovery and APK staging on unmetered connectivity, exposes review/install controls in Settings, re-verifies the staged APK immediately before creating a PackageInstaller session, and handles Android's pending-user-action callback. This path still needs an end-to-end same-key upgrade test, post-update continuity health checks and last-known-good rollback before it is accepted as production-complete.
 
 The GitHub repository token is separate from the release signing key.
