@@ -1,1 +1,1 @@
-Run the owner-authorized one-time migration.
+Retry after fixing the migration shell parser.
