@@ -160,19 +160,22 @@ JNI_CLASS(nativeGetHealth)(JNIEnv* env, jobject thiz, jlong handle) {
     jclass healthClass = env->FindClass("ai/friday/assistant/model/adapters/LocalInferenceEngine$NativeHealth");
     if (!healthClass) return nullptr;
 
-    jmethodID constructor = env->GetMethodID(healthClass, "<init>", "(Lai/friday/assistant/model/adapters/LocalInferenceEngine$NativeState;ZZLjava/lang/String;JJJFJJJJF)V");
+    jmethodID constructor = env->GetMethodID(healthClass, "<init>", "(Lai/friday/assistant/model/adapters/LocalInferenceEngine$NativeState;ZZLjava/lang/String;JJJFJJJJJF)V");
     if (!constructor) return nullptr;
 
     // Map state
     jclass stateClass = env->FindClass("ai/friday/assistant/model/adapters/LocalInferenceEngine$NativeState");
     jobject stateEnum = nullptr;
     if (stateClass) {
-        jfieldID valuesField = env->GetStaticFieldID(stateClass, "values", "[Lai/friday/assistant/model/adapters/LocalInferenceEngine$NativeState;");
-        if (valuesField) {
-            jobjectArray states = (jobjectArray)env->GetStaticObjectField(stateClass, valuesField);
+        jmethodID valuesMethod = env->GetStaticMethodID(
+            stateClass, "values", "()[Lai/friday/assistant/model/adapters/LocalInferenceEngine$NativeState;"
+        );
+        if (valuesMethod) {
+            jobjectArray states = static_cast<jobjectArray>(env->CallStaticObjectMethod(stateClass, valuesMethod));
             if (states && health.state >= 0 && health.state < env->GetArrayLength(states)) {
                 stateEnum = env->GetObjectArrayElement(states, health.state);
             }
+            if (states) env->DeleteLocalRef(states);
         }
     }
 

@@ -60,6 +60,12 @@ class NativeLifecycleContractTests(unittest.TestCase):
         self.assertIn("LLAMA_STATE_READY || model->state == LLAMA_STATE_IDLE", wait)
         self.assertIn("return model->state == LLAMA_STATE_READY || model->state == LLAMA_STATE_IDLE", wait)
 
+    def test_native_health_uses_enum_values_method_and_exact_constructor_signature(self):
+        self.assertIn('GetStaticMethodID(', self.jni)
+        self.assertIn('"values", "()[Lai/friday/assistant/model/adapters/LocalInferenceEngine$NativeState;"', self.jni)
+        self.assertIn('JJJFJJJJJF)V', self.jni)
+        self.assertNotIn('GetStaticFieldID(stateClass, "values"', self.jni)
+
     def test_jni_streaming_callback_is_connected_and_handle_is_guarded(self):
         self.assertIn('GetMethodID(callbackClass, "onToken", "(Ljava/lang/String;IZ)V")', self.jni)
         self.assertIn("tokenCb = java_token_callback", self.jni)
