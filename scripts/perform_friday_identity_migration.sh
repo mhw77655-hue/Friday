@@ -200,6 +200,6 @@ p.write_text(s)
 PY
 
 # Remove this one-time migration machinery from the final repository snapshot.
-git rm -f scripts/perform_friday_identity_migration.sh .github/workflows/friday-identity-migration.yml 2>/dev/null || true
+git rm -f scripts/perform_friday_identity_migration.sh .github/workflows/friday-identity-migration.yml .friday-identity-migration.trigger 2>/dev/null || true
 
 echo "FRIDAY_IDENTITY_MIGRATION_PREPARED"
