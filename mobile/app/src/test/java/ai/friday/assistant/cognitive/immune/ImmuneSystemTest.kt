@@ -129,7 +129,7 @@ class ImmuneSystemTest {
         val sys = ImmuneSystem(
             surface = FailureSurface(),
             backoffPolicy = BackoffPolicy(maxAttempts = 3, baseDelayMs = 0, jitterMs = 0),
-            breakerFactory = { key -> CircuitBreaker(name = key, openMs = 30_000) }
+            breakerFactory = { key -> CircuitBreaker(name = key, failureThreshold = workers + 1, openMs = 30_000) }
         )
         val workers = 16
         val ready = CountDownLatch(workers)
