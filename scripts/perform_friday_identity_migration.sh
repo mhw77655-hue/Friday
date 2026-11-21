@@ -180,12 +180,12 @@ build.write_text(s)
 plan = Path(".ralph/FRIDAY_DELIVERY_PLAN.md")
 s = plan.read_text()
 if "Fresh Friday identity baseline" not in s:
-    marker = "# Friday"
+    marker = "# FRIDAY"
     section = """
 
 ## Fresh Friday identity baseline (2026-11-21)
 
-The owner confirmed the previous Friday APK had already been deleted and explicitly authorized a clean application identity. The canonical Android application ID, Gradle namespace and Kotlin base package are ai.friday.assistant. All source/test package trees, manifest component references, build filters, signing metadata, release metadata, repository instructions and active product references must use this identity. The prior com.jarvis.app package is not a compatibility target. Historical donor research remains non-authoritative evidence and must never define live app destinations, endpoints or product truth.
+The owner confirmed the previous Friday APK had already been deleted and explicitly authorized a clean application identity. The canonical Android application ID, Gradle namespace and Kotlin base package are ai.friday.assistant. All source/test package trees, manifest component references, build filters, signing metadata, release metadata, repository instructions and active product references must use this identity. The prior package identifier is not a compatibility target. Historical donor research remains non-authoritative evidence and must never define live app destinations, endpoints or product truth.
 
 The first clean Friday build must compile and pass unit tests, produce a correctly identified APK, pass emulator instrumentation and then undergo separate physical-phone acceptance. A clean rename is not proof that the inherited architecture is correct: the next engineering pass must audit and reconnect the real production composition, offline inference/memory, voice/action routes, model and embedding destinations, permissions and update path before the permanent seed is approved.
 """
