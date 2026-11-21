@@ -129,8 +129,14 @@ class BootstrapManager(
                 addNotice("Local inference is not ready yet: ${it.message ?: "runtime unavailable"}.")
                 return@withContext Result.success(Unit)
             }
-        if (!health.isHealthy) {
-            addNotice("Local inference is not ready yet: ${health.error ?: "no resident model/runtime available"}.")
+        if (!health.isHealthy || health.currentModel == "heuristic-fallback") {
+            addNotice(
+                if (health.currentModel == "heuristic-fallback") {
+                    "No local language model is installed yet; Friday is using the limited offline fallback."
+                } else {
+                    "Local inference is not ready yet: ${health.error ?: "no resident model/runtime available"}."
+                }
+            )
         }
         Result.success(Unit)
     }
