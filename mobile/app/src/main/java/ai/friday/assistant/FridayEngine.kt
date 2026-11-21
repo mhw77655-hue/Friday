@@ -638,6 +638,7 @@ object FridayEngine {
             // selects; health is reported, never faked).
             scope.launch { environmentManager.initialize() }
             scheduleResidentModelBootstrap(appContext)
+            scheduleFridayUpdateDiscovery(appContext)
             readinessGate.markReady()
             } catch (t: Throwable) {
                 readinessGate.markFailed(t)
@@ -978,6 +979,50 @@ object FridayEngine {
             ai.friday.assistant.model.storage.ResidentModelBootstrapWorker.UNIQUE_WORK_NAME,
             androidx.work.ExistingWorkPolicy.KEEP,
             request
+        )
+    }
+
+    /**
+     * Friday checks for signed body updates in the background. The download
+     * waits for an unmetered network, adequate battery and storage; installation
+     * remains an explicit Android PackageInstaller handoff.
+     */
+    private fun scheduleFridayUpdateDiscovery(context: Context) {
+        val constraints = androidx.work.Constraints.Builder()
+            .setRequiredNetworkType(androidx.work.NetworkType.UNMETERED)
+            .setRequiresBatteryNotLow(true)
+            .setRequiresStorageNotLow(true)
+            .build()
+        val manager = androidx.work.WorkManager.getInstance(context)
+        val initial = androidx.work.OneTimeWorkRequestBuilder<
+            ai.friday.assistant.update.FridayUpdateWorker
+        >()
+            .setConstraints(constraints)
+            .setBackoffCriteria(
+                androidx.work.BackoffPolicy.EXPONENTIAL,
+                30,
+                java.util.concurrent.TimeUnit.MINUTES
+            )
+            .build()
+        manager.enqueueUniqueWork(
+            ai.friday.assistant.update.FridayUpdateWorker.UNIQUE_INITIAL_WORK,
+            androidx.work.ExistingWorkPolicy.KEEP,
+            initial
+        )
+        val periodic = androidx.work.PeriodicWorkRequestBuilder<
+            ai.friday.assistant.update.FridayUpdateWorker
+        >(24, java.util.concurrent.TimeUnit.HOURS)
+            .setConstraints(constraints)
+            .setBackoffCriteria(
+                androidx.work.BackoffPolicy.EXPONENTIAL,
+                30,
+                java.util.concurrent.TimeUnit.MINUTES
+            )
+            .build()
+        manager.enqueueUniquePeriodicWork(
+            ai.friday.assistant.update.FridayUpdateWorker.UNIQUE_PERIODIC_WORK,
+            androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+            periodic
         )
     }
 
