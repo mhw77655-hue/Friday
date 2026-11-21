@@ -113,7 +113,24 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "chore: complete fresh Friday identity migration"
-          git push origin HEAD:main
+
+          # main may advance while the long build/test transaction is running.
+          # Reconcile against the latest main; never force-push or overwrite it.
+          for attempt in 1 2 3; do
+            git fetch origin main
+            if ! git rebase origin/main; then
+              git rebase --abort || true
+              echo "::error::Migration conflicts with newer main; candidate remains uncommitted."
+              exit 1
+            fi
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "main advanced during push attempt $attempt; retrying after fetch/rebase"
+            sleep 2
+          done
+          echo "::error::Could not commit migration after three bounded mainline retries."
+          exit 1
 
       - name: Dispatch full mainline validation after migration commit
         run: |
