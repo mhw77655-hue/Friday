@@ -40,7 +40,7 @@ These are exchange surfaces, not a mandatory pipeline, cognitive taxonomy or per
 
 ## 3. The delivery objectives
 
-All objectives begin immediately and progress in parallel where work can be safely separated. Voice is the first user-visible priority, but it does not block the other tracks.
+All objectives progress in parallel where work can be safely separated. Objective A is typed-first and does not wait for voice control. Voice implementation stays inside Objective B's existing voice phases; it is not an Objective A acceptance gate.
 
 ### Cross-objective integration target — One coherent, offline-capable Friday
 
