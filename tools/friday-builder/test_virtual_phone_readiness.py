@@ -84,7 +84,7 @@ class AndroidSystemReadinessTests(unittest.TestCase):
             evidence = Path(directory) / "evidence.txt"
             clock = iter([0.0, 2.0])
             state = self.state(boot_completed="0")
-            with patch("wait_for_android_system.time.monotonic", side_effect=lambda: next(clock)), \\
+            with patch("wait_for_android_system.time.monotonic", side_effect=lambda: next(clock)), \
                  patch("wait_for_android_system.collect_diagnostics", return_value="diagnostic-tail"):
                 self.assertFalse(wait_for_system(1, 1, evidence, probe=lambda: state, sleep=lambda _: None))
             content = evidence.read_text(encoding="utf-8")
