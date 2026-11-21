@@ -2,6 +2,19 @@
 
 **Purpose:** the first production-signed Friday APK is the continuing Android body. Normal development must not require uninstalling Friday, clearing app data, manually finding CI artifacts, or replacing her identity.
 
+## Implementation status — 2026-11-21
+
+The repository now contains the first working update path:
+- One-time and daily WorkManager release discovery, constrained to unmetered connectivity, adequate battery and storage.
+- Background download and verification from the official GitHub Releases endpoint.
+- Package ID, monotonic version, APK SHA-256 and signing-certificate checks.
+- Durable local state for the staged APK so Settings can recover it after process restart.
+- A Settings screen to review the staged version and request installation.
+- A second digest/package/version/signer verification immediately before creating an Android PackageInstaller session.
+- A status Activity that handles Android's pending-user-action confirmation and reports the platform result.
+
+This implementation has not yet passed an end-to-end same-key upgrade test. First-launch continuity health checks and last-known-good rollback are not implemented as complete production guarantees. The permanent signing secrets are currently absent, so no production release has been published. Do not describe the update channel as fully accepted until those gates pass.
+
 ## Release identity is locked before the first install
 
 - Package ID: ai.friday.assistant.
