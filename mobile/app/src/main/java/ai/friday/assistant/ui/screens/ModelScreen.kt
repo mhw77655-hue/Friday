@@ -448,10 +448,43 @@ private fun OfflineModelLibrary() {
                 "Model weights are installed inside Friday's private app storage. They are not included in the APK.",
                 style = FridayType.Technical.copy(fontSize = 11.sp, color = FridayColors.TextSecondary)
             )
-            OfflineModelCatalog.all.forEach { asset ->
+            val installedAssets = remember(downloadState) {
+            OfflineModelCatalog.all.filter { asset -> downloader.isInstalled(asset) }
+        }
+        val noModelsInstalled = installedAssets.isEmpty()
+        if (noModelsInstalled) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = FridayColors.SurfaceBase),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        "NO OFFLINE MODEL INSTALLED",
+                        style = FridayType.Label,
+                        color = FridayColors.CoreWarning
+                    )
+                    Text(
+                        "Friday currently has no local language-model weights. The APK does not contain a model. Download one below before expecting offline LLM responses.",
+                        style = FridayType.Technical
+                    )
+                    Text(
+                        "Storage available to Friday: ${downloader.availableStorageBytes() / (1024L * 1024L)} MB. Downloads are stored privately, can resume after interruption, and are checked before installation.",
+                        style = FridayType.Technical.copy(fontSize = 11.sp, color = FridayColors.TextSecondary)
+                    )
+                }
+            }
+        } else {
+            Text(
+                "${installedAssets.size} of ${OfflineModelCatalog.all.size} catalog models installed and integrity-checked.",
+                style = FridayType.Technical.copy(fontSize = 11.sp, color = FridayColors.CoreSuccess)
+            )
+        }
+        OfflineModelCatalog.all.forEach { asset ->
                 val installed = remember(downloadState, asset.id) {
-                    val file = downloader.installedFile(asset)
-                    file.isFile && file.length() >= asset.expectedMinimumBytes
+                    downloader.isInstalled(asset)
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(asset.displayName, style = FridayType.Body.copy(fontWeight = FontWeight.SemiBold))
@@ -460,6 +493,10 @@ private fun OfflineModelLibrary() {
                         style = FridayType.Technical.copy(fontSize = 10.sp, color = FridayColors.TextSecondary)
                     )
                     Text(asset.description, style = FridayType.Technical.copy(fontSize = 11.sp))
+                    Text(
+                        "Minimum download size: ${asset.expectedMinimumBytes / (1024L * 1024L)} MB",
+                        style = FridayType.Technical.copy(fontSize = 10.sp, color = FridayColors.TextSecondary)
+                    )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
