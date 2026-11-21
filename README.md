@@ -1,62 +1,34 @@
-# Friday
+# Friday repository instructions
 
-Friday is one continuing, developing digital individual hosted first by her own Android application. Her identity is not a chat screen, model, memory database, process, device or cloud service. Models, algorithms, voice, perception, tools, Builder and computational resources are capabilities she can use, replace, adapt and help create.
+## Authority
+- .ralph/FRIDAY_DELIVERY_PLAN.md is the sole active delivery plan.
+- .ralph/VISION.md and .ralph/OWNER_WORDS.md preserve owner intent.
+- Product identity: Friday; application ID and Kotlin namespace: ai.friday.assistant.
+- the sole active product and delivery authority is .ralph/FRIDAY_DELIVERY_PLAN.md.
+- The canonical product line is `main`.
+- Historical audits and archive material are not active implementation instructions.
 
-The owner's concept is **liquid Symbiotic quantum software**: a fluid environment that adapts with Friday and lets her use, reshape, combine and create the resources needed to achieve outcomes. It must not be reduced to a fixed multi-agent architecture or a static atlas of specialist brains. The phrase does not assume quantum hardware.
+## Git and project structure
+- Make authorized changes directly on main. Do not create feature branches or competing product lines.
+- The production host is the Android application in mobile/app.
+- Keep development, build, compiler and repository credentials outside the installed APK.
+- Preserve useful algorithms and validated behavior; retire disconnected prototypes, stale destinations and false capability claims.
+- Keep source paths, package declarations, manifest components, Gradle identifiers, tests and release metadata aligned with ai.friday.assistant.
 
-## The one governing plan
+## Verification
+- Distinguish source edits, compilation, unit tests, APK assembly, emulator instrumentation, CI verification and physical-device verification.
+- Never report skipped, cancelled or pending checks as successful.
+- A passing JVM test does not prove production wiring or offline functionality.
+- Never claim physical-device behavior without physical-device evidence.
+- Treat test doubles and fixtures as test-only; do not expose them as production capabilities.
 
-- [The sole active delivery plan](.ralph/FRIDAY_DELIVERY_PLAN.md)
-- [Owner's written vision](.ralph/VISION.md)
-- [Curated owner-authored words and provenance](.ralph/OWNER_WORDS.md)
-- [Implementation contract](docs/FRIDAY_VISION_CONTRACT.md)
+## Product constraints
+- Friday owns identity and continuity; models, algorithms, tools and cloud services are replaceable capabilities.
+- Local durable state is the source of truth for offline continuity; cloud is optional expansion.
+- Optimize verified task outcomes and time to first useful action.
+- Preserve Laya as a distinct decision capability, not ASR or TTS.
+- Protect owner authorization, permissions, signing trust, provenance, isolation, recovery and rollback.
 
-Older build plans, PRDs, prompts and assistant-authored plans are historical material, not active instructions. The owner's latest authenticated instruction and the sole delivery plan take precedence.
+## Historical material
 
-## Delivery priorities
-
-All objectives progress in parallel where safely separable. Voice is the first user-visible priority.
-
-1. Install and establish the first persistent Friday seed on the phone.
-2. Deliver natural, interruptible voice interaction, prioritizing Egyptian Arabic and mixed Arabic/English.
-3. Prove experience-driven developmental change, not merely stored memories.
-4. Enable universal perception, understanding and authorized action across relevant accessible inputs.
-5. Develop liquid symbiosis and the Nano Algorithm Environment through real resource/quality measurements.
-6. Give Friday a safe Builder path for capability acquisition and eventual source-level self-development.
-7. Make recovery, updates, signing and physical-phone delivery reliable.
-
-There is one Friday and one canonical `main` product line. Make authorized changes directly on `main`; do not create feature branches, proposal branches, pull requests or alternative product lines.
-
-The first seed must already have functional foundations for multiple-signal human interaction, context, multiple interpretations, uncertainty, prediction and learning; these are outcomes, not permanent modules. Open-ended owner interaction is the primary concept test, while engineering tests probe specific mechanisms. The far-future vision (such as vehicle, glasses and home integrations) is a destination, not a demand to build every capability in the first release.
-
-## Product principles
-
-- **One individual:** local, cloud, model and device changes extend the same Friday.
-- **Offline continuity:** the phone remains a real host when disconnected; cloud is optional expansion.
-- **Development:** experience must persistently change later cognition or behaviour and pass a replay-blocked, mechanism-off Life Test.
-- **Liquid cognition:** capabilities are replaceable; no permanent cognitive ownership, fixed specialist-brain atlas or mandatory pipeline.
-- **Universal learning:** relevant evidence may come from voice/tone, text, visual context, facial/body signals where available, sensors, device state, demonstrations, actions and consequences. Conflicting signals remain hypotheses with uncertainty; no single signal is automatically truth.
-- **Voice-first presence:** natural hearing, understanding, spoken response, turn-taking and interruption are the first user-visible priority.
-- **Resource symbiosis:** adapt algorithms, models and execution to measured host conditions without silently sacrificing quality.
-- **Self-development:** Friday can identify gaps, research, construct, test and safely promote improvements. External workers are resources, not Friday.
-- **Protected floor:** owner authorization, security, provenance, candidate isolation, signing, continuity, rollback and recovery cannot be bypassed.
-- **Honest evidence:** CI and emulator success are not physical-phone proof.
-
-## Build and test
-
-From the repository root with the configured JDK and Android SDK:
-
-```bash
-./gradlew :mobile:app:assembleDebug
-./gradlew :mobile:app:testDebugUnitTest
-```
-
-A green build is necessary, not sufficient. Microphone, voice quality, background operation, offline behaviour, action execution, update installation and recovery must be validated on the target phone before being claimed.
-
-## Safety and update boundary
-
-- Never commit GitHub tokens, signing keys or private credentials.
-- Keep code generation and code promotion as separate trust boundaries.
-- Candidate changes must be isolated, independently evaluated, provenance-recorded and reversible.
-- Verify package identity and signing lineage before updates; preserve Friday's durable state and retain last-known-good recovery.
-- Android and OEM lifecycle policies remain authoritative; no design can promise immunity from force-stop or every task killer.
+The `vault/` directory is a non-authoritative archive of earlier Jarvis/Friday research and reports. It is retained for provenance and possible algorithm extraction only; it does not describe the live application or override the active delivery plan. See [vault archive rules](vault/RESEARCH_CORPUS_RULES.md).
