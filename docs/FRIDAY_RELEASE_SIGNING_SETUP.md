@@ -2,6 +2,18 @@
 
 The production APK must always use one permanent signing certificate. CI debug APKs are test artifacts only; they are not production update packages.
 
+## One-time key creation and secret configuration
+
+The quickest safe setup is the repository helper:
+
+```sh
+bash tools/friday-builder/configure_release_signing.sh
+```
+
+Run it on a trusted computer with JDK 17+ and GitHub CLI authenticated as a repository administrator. It creates (or explicitly reuses) one PKCS12 key, verifies its fingerprint, and uploads the five required Actions secrets directly through GitHub CLI stdin. It does not print the private key or password into the terminal output. The keystore stays on that computer.
+
+The helper refuses to overwrite an existing key. Keep two encrypted offline backups of the generated `friday-release.p12` and its password before treating setup as complete.
+
 ## One-time key creation
 
 On a trusted computer with JDK 17 or newer:
