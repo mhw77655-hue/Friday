@@ -158,8 +158,7 @@ class FailureStore(
                 } else {
                     persistenceFailureCounter.incrementAndGet()
                     runCatching {
-                        android.util.Log.w(
-                            "FailureStore",
+                        onStorageFailure(
                             "persist failed after $attempt attempts for ${event.subsystem}/${event.operation}",
                             failure
                         )
@@ -183,7 +182,7 @@ class FailureStore(
                 .takeLast(limit)
                 .asReversed()
         } catch (failure: Exception) {
-            runCatching { android.util.Log.w("FailureStore", "load failed", failure) }
+            runCatching { onStorageFailure("load failed", failure) }
             emptyList()
         }
     }
