@@ -17,7 +17,7 @@ class NativeInferenceBoundaryInstrumentedTest {
         assertNull(LocalInferenceEngine.nativeGetHealth(0L))
         assertNull(
             LocalInferenceEngine.nativeGenerate(
-                0L, "prompt", LocalInferenceEngine.NativeGenConfig(), null
+                0L, "prompt", LocalInferenceEngine.Companion.NativeGenConfig(), null
             )
         )
         assertEquals(-1, LocalInferenceEngine.nativeTokenCount(0L, "prompt"))
@@ -31,7 +31,7 @@ class NativeInferenceBoundaryInstrumentedTest {
         LocalInferenceEngine.loadNative()
 
         val handle = LocalInferenceEngine.nativeCreate(
-            LocalInferenceEngine.NativeConfig(modelPath = "", nCtx = 0)
+            LocalInferenceEngine.Companion.NativeConfig(modelPath = "", nCtx = 0)
         )
         assertEquals(0L, handle)
     }
