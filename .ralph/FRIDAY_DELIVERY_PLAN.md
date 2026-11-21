@@ -62,6 +62,51 @@ The target is not "everything runs offline at any cost." Each capability has exp
 
 **Cleanup acceptance:** no active developer instruction points to a superseded PRD or codename; no production component depends on Termux, an externally pre-started localhost server, or a dead prototype; every retained app subsystem has an identified production entry path or an explicit test/research-only classification; every deletion has a reference/dependency check; the app builds and its relevant tests pass; and the package/signing/update identity remains coherent.
 
+## 3A. Language and formal-method architecture
+
+The language strategy is deliberately heterogeneous but bounded. A language is adopted only when it provides a measurable capability, safety property, portability benefit or development advantage that justifies its runtime, toolchain, FFI, maintenance and supply-chain costs. Do not rewrite working code merely to increase language diversity.
+
+### Production and research allocation
+
+- **Kotlin — Android product and orchestration.** Remains the primary application language for UI, Android APIs, permissions, lifecycle, capability orchestration, local storage integration, IPC and the installed runtime. Preserve native Android integration and avoid introducing a second application runtime without measured benefit.
+- **C++ — native performance substrate.** Retain for llama.cpp integration, inference kernels, audio/VAD and other profiled low-latency/native workloads. Keep JNI boundaries narrow, versioned and testable. Do not rewrite existing native code solely for fashion.
+- **Rust — selective safety-critical native components.** Evaluate for new parsers, untrusted artifact handling, sandbox hosts, capability runtimes and memory-sensitive services where ownership and type guarantees materially reduce risk. Port existing C++ only after behaviour-preserving baselines and device benchmarks demonstrate a benefit. Rust is not a blanket replacement for C++ or Kotlin.
+- **Python — research and development plane.** Use for model/data preparation, experiments, evaluation harnesses, algorithm research, corpus processing, build tooling and offline analysis. Do not make the installed Android product depend on a Python interpreter for essential operation.
+- **SQL/SQLite — durable local data plane.** Use transactional local persistence for identity, experience, provenance, task journals and synchronization state. Evaluate FTS5 for lexical retrieval and retain vector/graph retrieval where measurements justify it. SQL is a query language and storage contract, not a substitute for a memory model or embedding system.
+- **Lean 4 — machine-checked formal specifications.** Establish a small formal workspace for critical invariants: action completion requires observed postconditions and independent verification; authorization precedes privileged effects; update promotion requires verified identity/integrity/compatibility; continuity and rollback state transitions preserve protected invariants. Keep proofs independent of Android runtime and do not claim they verify Kotlin/C++ automatically. Add refinement links, generated test vectors and runtime conformance tests from formal models.
+- **TLA+ — temporal/concurrency modelling.** Model-check task execution, retries, cancellation, IPC lifecycle, update transactions, concurrent resource allocation and recovery protocols where interleavings matter. Use it to discover counterexamples before implementing protocols; it complements rather than duplicates Lean proofs.
+- **Alloy — bounded structural exploration.** Use selectively to explore capability/permission graphs, trust relationships, ownership, dependency cycles and update compatibility. It is a design-analysis tool, not a production runtime.
+- **MiniZinc — constrained optimization research.** Evaluate for resource scheduling, model residency, deadline/energy/storage allocation and task/capability assignment. Compare solver output with a Kotlin heuristic on the same measured scenarios before any runtime adoption.
+- **Prolog — symbolic reasoning experiments.** Evaluate for relational inference, rule composition, constraint logic and explainable symbolic planning. Keep it experimental until it beats a native implementation on representative tasks and resource budgets.
+- **TypeScript — optional web/control plane.** Use only if a real browser-based development/diagnostic console is needed. It is not required in the Android app. Treat its type system as static checking, not runtime validation.
+- **WebAssembly plus WIT — future portable capability boundary.** Investigate after the capability ABI, permissions, resource quotas, host-call mediation and artifact provenance are stable. WIT describes component interfaces; it does not sandbox by itself. A Wasm runtime and explicit host policy are required.
+- **Go — optional independent services.** Use only if an independently deployable network service has a clear operational need. Do not create a Go service merely to add another language.
+- **Swift — future Apple host.** Consider if an iOS/macOS body becomes an actual product target; keep Friday's identity and portable contracts independent of platform UI.
+- **Julia — numerical research only.** Use for specialized scientific/numerical prototypes if its ecosystem materially helps. Do not ship a Julia runtime in the Android seed.
+- **Java — interoperability only.** Maintain where Android libraries or existing code require it; Kotlin remains the primary Android source language.
+- **Elixir/Erlang — future distributed reliability option.** Reconsider only if Friday needs a large, long-lived distributed service with fault-isolated processes; it is not a current phone-side requirement.
+
+### Formal assurance stack
+
+Use complementary methods rather than expecting one tool to prove everything:
+1. Kotlin/C++ type systems, static analysis, unit/property/fuzz/instrumentation tests and runtime evidence for implementation behaviour.
+2. Lean for mathematical invariants and proofs over explicitly modelled state and transition systems.
+3. TLA+ for temporal properties and concurrency interleavings.
+4. Alloy for bounded structural counterexample search.
+5. Device tests and independent postcondition checks to establish that the shipped implementation actually conforms.
+
+A proof about an abstract model is not proof that the Android implementation refines that model. Every formal property promoted to a product guarantee needs a documented implementation mapping, conformance tests, and device/runtime evidence where relevant. No `sorry`, unchecked axiom, placeholder theorem, test double or model-only proof may be reported as production verification.
+
+### Cross-language capability contract
+
+All language boundaries use explicit, versioned, typed data contracts with bounded inputs/outputs, cancellation, deadlines, resource budgets, permission requirements, error semantics, provenance and observable postconditions. Prefer stable IPC or generated schema bindings over ad-hoc JNI calls. Keep the hot path in-process/native only where measurements justify it. Do not allow a plugin or foreign runtime to bypass Friday's owner authorization, capability policy, audit or rollback controls.
+
+### Adoption gate
+
+Before adding a language/runtime to production, record: the exact problem; baseline implementation; expected measurable improvement; binary/runtime size; memory and startup overhead; device ABI/platform coverage; FFI/IPC complexity; dependency and license review; security boundary; tests and rollback plan. Prototype in an isolated workstream, benchmark against the existing implementation, and reject it if the net benefit is not demonstrated.
+
+The initial implementation is intentionally small: retain Kotlin/C++, use Python for development tooling, introduce Lean 4 formal contracts and a dedicated CI check, and document TLA+ as the next modelling tool for concurrent execution/update protocols. Other candidates remain research options, not immediate dependencies.
+
 ### Objective A — Install and establish the first Friday
 
 Deliver one coherent Android application with a proper app identity, icon and usable interface; persistent identity and state; a local runtime; reliable launch and recovery; and an integrated interaction path. Friday must remain the same individual across process death, model replacement, updates and connectivity changes. The Android app is the production host. Termux is not a required runtime.
