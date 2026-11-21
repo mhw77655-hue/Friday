@@ -480,7 +480,7 @@ object FridayOrganGraph {
         // can route to configured local/remote providers, but a backend node is
         // not evidence that a model is installed, loaded, or currently healthy.
         g.registerNode(SystemGraph.SystemNode(
-            id = "model.reasoningTier",
+            id = "model.inferenceBackend",
             name = "ProcessIsolatedModelBackend",
             organType = SystemGraph.OrganType.MODEL,
             qualifiedClassName = "ai.friday.assistant.model.ProcessIsolatedModelBackend",
@@ -639,7 +639,7 @@ object FridayOrganGraph {
         g.addEdge("social.confidentialityFirewall", "memory.graphStore", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
 
         g.addEdge("model.modelManager", "model.resourceGovernor", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
-        g.addEdge("model.modelManager", "model.reasoningTier", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        g.addEdge("model.modelManager", "model.inferenceBackend", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("capability.capabilityRouter", "capability.capabilityRegistry", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("resolution.fuzzyCommandResolver", "memory.blendedRetriever", SystemGraph.DependencyEdge.EdgeKind.READS_FROM)
         g.addEdge("resolution.fuzzyCommandResolver", "capability.capabilityRouter", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
@@ -703,7 +703,7 @@ object FridayOrganGraph {
         g.addEdge("social.personRelationshipModel", "continuity.continuityGate", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("social.confidentialityFirewall", "continuity.continuityGate", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
         g.addEdge("memory.blendedRetriever", "continuity.continuityGate", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
-        g.addEdge("model.reasoningTier", "continuity.continuityGate", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
+        g.addEdge("model.inferenceBackend", "continuity.continuityGate", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
 
         // FRIDAY-OWNED DECISION TOOL: TypeSafe Jev is an optional provider behind
         // a native Friday contract; the local policy remains available offline.
