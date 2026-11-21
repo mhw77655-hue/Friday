@@ -73,4 +73,74 @@ class RiskGateTest {
             ) is RiskGate.GateOutcome.Allowed
         )
     }
+
+    @Test
+    fun `high risk gate rejects every authorization combination missing either required factor`() {
+        for (biometric in listOf(false, true)) {
+            for (confirmation in listOf(false, true)) {
+                for (authorization in listOf(false, true)) {
+                    val outcome = gate.admit(
+                        action(RiskTier.HIGH),
+                        RiskGate.Authorization(
+                            biometricVerified = biometric,
+                            confirmationProvided = confirmation,
+                            authorizationGranted = authorization
+                        )
+                    )
+                    assertEquals(
+                        "HIGH must require biometric AND confirmation; biometric=$biometric confirmation=$confirmation authorization=$authorization",
+                        biometric && confirmation,
+                        outcome is RiskGate.GateOutcome.Allowed
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `self modification gate rejects every combination except all three factors`() {
+        for (biometric in listOf(false, true)) {
+            for (confirmation in listOf(false, true)) {
+                for (authorization in listOf(false, true)) {
+                    val outcome = gate.admit(
+                        action(RiskTier.SELF_MODIFICATION),
+                        RiskGate.Authorization(
+                            biometricVerified = biometric,
+                            confirmationProvided = confirmation,
+                            authorizationGranted = authorization
+                        )
+                    )
+                    assertEquals(
+                        "SELF_MODIFICATION must require all three factors; biometric=$biometric confirmation=$confirmation authorization=$authorization",
+                        biometric && confirmation && authorization,
+                        outcome is RiskGate.GateOutcome.Allowed
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `medium risk gate depends only on explicit confirmation across all other factor combinations`() {
+        for (biometric in listOf(false, true)) {
+            for (confirmation in listOf(false, true)) {
+                for (authorization in listOf(false, true)) {
+                    val outcome = gate.admit(
+                        action(RiskTier.MEDIUM),
+                        RiskGate.Authorization(
+                            biometricVerified = biometric,
+                            confirmationProvided = confirmation,
+                            authorizationGranted = authorization
+                        )
+                    )
+                    assertEquals(
+                        "MEDIUM must require confirmation and must not be altered by unrelated factors",
+                        confirmation,
+                        outcome is RiskGate.GateOutcome.Allowed
+                    )
+                }
+            }
+        }
+    }
+
 }
