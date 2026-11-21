@@ -1,11 +1,6 @@
 name: build
 
 on:
-  push:
-    # Friday uses one canonical mainline; no feature-branch/PR build lane.
-    branches: [ main ]
-  schedule:
-    - cron: '17 2 * * *'
   workflow_dispatch:
 
 concurrency:
