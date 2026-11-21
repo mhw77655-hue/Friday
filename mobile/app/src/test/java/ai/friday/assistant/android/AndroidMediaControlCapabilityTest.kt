@@ -34,6 +34,23 @@ class AndroidMediaControlCapabilityTest {
         }
 
     @Test
+    fun `postcondition verifier accepts only explicit verified backend evidence`() =
+        kotlinx.coroutines.runBlocking {
+            val request = ActionRequest("goal-1", "step-verify", "media.play")
+            val capability = AndroidMediaControlCapability(
+                { DeviceControlRouter(listOf(Backend())) },
+                { RiskGate() }
+            )
+            val result = capability.invoke(request)
+
+            assertTrue(capability.verifyPostcondition(request, result))
+            val downgradedEvidence = result.copy(
+                evidence = result.evidence + ("verification_stage" to VerificationStage.LAUNCHED.name)
+            )
+            assertFalse(capability.verifyPostcondition(request, downgradedEvidence))
+        }
+
+    @Test
     fun `missing Android router is reported as unavailable rather than success`() =
         kotlinx.coroutines.runBlocking {
             val capability = AndroidMediaControlCapability({ null }, { RiskGate() })
