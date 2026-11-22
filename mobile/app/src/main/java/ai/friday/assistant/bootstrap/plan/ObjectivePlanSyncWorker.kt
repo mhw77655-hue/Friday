@@ -16,6 +16,8 @@ import org.json.JSONObject
 import java.io.File
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Fetches Friday's single canonical delivery plan directly from the repository.
@@ -27,7 +29,7 @@ class ObjectivePlanSyncWorker(
     params: WorkerParameters
 ) : CoroutineWorker(appContext, params) {
 
-    override suspend fun doWork(): Result = try {
+    override suspend fun doWork(): Result = withContext(Dispatchers.IO) { try {
         val request = Request.Builder()
             .url(CANONICAL_PLAN_URL)
             .header("Accept", "text/plain")
@@ -70,7 +72,7 @@ class ObjectivePlanSyncWorker(
         Result.retry()
     } catch (_: Exception) {
         Result.failure()
-    }
+    } }
 
     private fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")
         .digest(value.toByteArray(Charsets.UTF_8))
