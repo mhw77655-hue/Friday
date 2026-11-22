@@ -43,7 +43,7 @@ Friday uses the official CLI clients rather than scraping provider websites, ext
 
 | Worker | Login route | Non-interactive request |
 | --- | --- | --- |
-| OpenAI Codex | Sign in with ChatGPT using the official Codex CLI OAuth flow | `codex exec --json --sandbox read-only -` |
+| OpenAI Codex | Sign in with ChatGPT using the official Codex CLI OAuth flow | `codex exec --json --sandbox read-only --ephemeral -` |
 | Claude Code | Sign in with a Claude account using the official CLI login flow | `claude -p --output-format json --tools ''` |
 
 Codex reads the prompt from standard input and emits JSONL events. Claude Code print mode reads piped input and can emit JSON. Friday normalizes both into one response envelope.
