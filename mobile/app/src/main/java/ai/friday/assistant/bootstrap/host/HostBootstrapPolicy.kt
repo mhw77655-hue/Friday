@@ -87,3 +87,25 @@ object HostBootstrapPolicy {
         )
     }
 }
+
+
+enum class ShizukuPrivilege { ROOT, ADB_SHELL, UNKNOWN, NOT_RUNNING }
+
+data class ShizukuCapabilityState(
+    val managerInstalled: Boolean,
+    val binderReachable: Boolean,
+    val fridayAuthorized: Boolean,
+    val serverUid: Int?
+) {
+    val privilege: ShizukuPrivilege
+        get() = when {
+            !binderReachable -> ShizukuPrivilege.NOT_RUNNING
+            serverUid == 0 -> ShizukuPrivilege.ROOT
+            serverUid == 2000 -> ShizukuPrivilege.ADB_SHELL
+            else -> ShizukuPrivilege.UNKNOWN
+        }
+
+    val usableByFriday: Boolean
+        get() = managerInstalled && binderReachable && fridayAuthorized &&
+            privilege in setOf(ShizukuPrivilege.ROOT, ShizukuPrivilege.ADB_SHELL)
+}
