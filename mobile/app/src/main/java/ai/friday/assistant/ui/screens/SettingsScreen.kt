@@ -609,9 +609,9 @@ fun SettingsScreen() {
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
-        SectionLabel("SUBSCRIPTION AI WORKFORCE")
+        SectionLabel("MULTI-ENVIRONMENT AI WORKFORCE")
         Text(
-            text = "Friday reaches existing AI subscriptions through their official command-line clients in Termux. OpenAI Codex supports ChatGPT-account sign-in; Claude Code supports Claude-account sign-in. Friday does not ask for provider API keys or extract provider credentials. Normal account limits and provider usage rules still apply.",
+            text = "Friday separates AI providers from execution environments. She selects the first healthy registered environment for a compatible official CLI worker; Termux is the first concrete adapter, while app-managed and Linux/proot adapters can be registered independently. OpenAI Codex supports ChatGPT-account sign-in; Claude Code supports Claude-account sign-in. Friday does not ask for provider API keys or extract provider credentials. Normal account limits and provider usage rules still apply.", 
             style = FridayType.Label,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -620,7 +620,7 @@ fun SettingsScreen() {
         } else {
             aiWorkerStatuses.forEach { status ->
                 Text(
-                    text = status.id.displayName + " · " + status.state.name + "\n" + status.detail,
+                    text = status.id.displayName + " · " + status.state.name + " · " + (status.environment?.name ?: "no environment") + "\n" + status.detail,
                     style = FridayType.Technical,
                     modifier = Modifier.padding(vertical = 4.dp)
                 )
@@ -645,10 +645,10 @@ fun SettingsScreen() {
                     if (launch != null) context.startActivity(launch)
                     else aiWorkerTestReport = "Termux is not installed."
                 }
-            ) { Text("Open Termux") }
+            ) { Text("Open Termux environment") }
         }
         Text(
-            text = "One-time bridge setup: grant Friday the Run commands in Termux permission in Android App info. In Termux, enable allow-external-apps=true in ~/.termux/termux.properties and reload Termux settings. Friday cannot bypass this security gate.",
+            text = "Friday selects the first healthy registered execution environment. If Termux is selected, grant Friday the Run commands in Termux permission and enable allow-external-apps=true in ~/.termux/termux.properties. Other registered environments can use their own isolated permissions and runtime. Friday cannot bypass an environment security gate.",
             style = FridayType.Label,
             modifier = Modifier.padding(vertical = 8.dp)
         )
@@ -678,7 +678,7 @@ fun SettingsScreen() {
                     aiWorkerTestReport = results.fold(
                         onSuccess = { responses ->
                             if (responses.isEmpty()) {
-                                "No installed AI CLI workers were found. The approved Codex and/or Claude CLI runtime is required."
+                                "No compatible AI CLI worker was found in the registered execution environments."
                             } else {
                                 responses.entries.joinToString("\n\n") { (id, result) ->
                                     val body = result.fold(
