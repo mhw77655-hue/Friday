@@ -8,7 +8,7 @@ class AiCliProtocolTest {
     @Test
     fun `Codex worker uses ChatGPT-authenticated CLI with read-only sandbox and stdin prompt`() {
         val command = AiCliProtocol.command(AiCliWorkerId.OPENAI_CODEX)
-        assertEquals("exec codex exec --json --sandbox read-only -", command)
+        assertEquals("exec codex exec --json --sandbox read-only --ephemeral -", command)
         assertFalse(command.contains("API_KEY"))
     }
 
