@@ -64,3 +64,37 @@ class HostBootstrapPolicyTest {
         assertEquals(HostOperatingMode.PROTECTIVE, config.mode)
     }
 }
+
+
+class ShizukuCapabilityStateTest {
+    @Test fun `manager installation alone is not a usable Shizuku route`() {
+        val state = ShizukuCapabilityState(
+            managerInstalled = true,
+            binderReachable = false,
+            fridayAuthorized = false,
+            serverUid = null
+        )
+        assertEquals(ShizukuPrivilege.NOT_RUNNING, state.privilege)
+        assertFalse(state.usableByFriday)
+    }
+
+    @Test fun `authorized ADB shell is distinguished from root`() {
+        val adb = ShizukuCapabilityState(true, true, true, 2000)
+        val root = ShizukuCapabilityState(true, true, true, 0)
+        assertEquals(ShizukuPrivilege.ADB_SHELL, adb.privilege)
+        assertEquals(ShizukuPrivilege.ROOT, root.privilege)
+        assertTrue(adb.usableByFriday)
+        assertTrue(root.usableByFriday)
+    }
+
+    @Test fun `unapproved app cannot use a running Shizuku server`() {
+        val state = ShizukuCapabilityState(true, true, false, 2000)
+        assertFalse(state.usableByFriday)
+    }
+
+    @Test fun `unknown server uid is not treated as an elevated capability`() {
+        val state = ShizukuCapabilityState(true, true, true, 10000)
+        assertEquals(ShizukuPrivilege.UNKNOWN, state.privilege)
+        assertFalse(state.usableByFriday)
+    }
+}
