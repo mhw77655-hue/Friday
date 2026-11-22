@@ -103,20 +103,44 @@ class ObjectiveExecutionLedgerStore(context: Context) {
         val objectives = ledger.getJSONArray("objectives")
         val tasks = ledger.optJSONArray("tasks") ?: JSONArray()
         val activeTaskHashes = mutableSetOf<String>()
+        val activeObjectiveHashes = mutableSetOf<String>()
+        val phaseById = (0 until phases.length()).associate { index ->
+            val phase = phases.getJSONObject(index)
+            phase.getInt("id") to phase
+        }
+        val objectiveById = (0 until objectives.length()).associate { index ->
+            val objective = objectives.getJSONObject(index)
+            objective.getString("id") to objective
+        }
         for (index in 0 until tasks.length()) {
-            val existingTask = tasks.getJSONObject(index)
-            if (existingTask.optString("status") in TERMINAL_TASK_STATES) continue
-            val phaseId = existingTask.optInt("phase_id", -1)
-            val currentPhase = (0 until phases.length()).map { phases.getJSONObject(it) }
-                .firstOrNull { it.optInt("id", -2) == phaseId }
-            val currentHash = currentPhase?.optString("content_sha256").orEmpty()
-            if (currentHash.isNotBlank() &&
-                existingTask.optString("phase_content_sha256") != currentHash
-            ) {
-                existingTask.put("status", "STALE_PLAN_CHANGED")
-                    .put("updated_at_epoch_ms", System.currentTimeMillis())
-            } else if (currentHash.isNotBlank()) {
-                activeTaskHashes += "$phaseId:$currentHash"
+            val task = tasks.getJSONObject(index)
+            if (task.optString("status") in TERMINAL_TASK_STATES) continue
+            val objectiveId = task.optString("objective_id")
+            val phaseId = task.optInt("phase_id", -1)
+            if (phaseId >= 0) {
+                val phase = phaseById[phaseId]
+                val currentHash = phase?.optString("content_sha256").orEmpty()
+                when {
+                    phase == null || phase.optString("status") == "ACCEPTED" ->
+                        task.put("status", "CANCELLED")
+                            .put("updated_at_epoch_ms", System.currentTimeMillis())
+                    task.optString("phase_content_sha256") != currentHash ->
+                        task.put("status", "STALE_PLAN_CHANGED")
+                            .put("updated_at_epoch_ms", System.currentTimeMillis())
+                    else -> activeTaskHashes += "$phaseId:$currentHash"
+                }
+            } else {
+                val objective = objectiveById[objectiveId]
+                val currentHash = objective?.optString("content_sha256").orEmpty()
+                when {
+                    objective == null || objective.optString("status") == "ACCEPTED" ->
+                        task.put("status", "CANCELLED")
+                            .put("updated_at_epoch_ms", System.currentTimeMillis())
+                    task.optString("scope_content_sha256") != currentHash ->
+                        task.put("status", "STALE_PLAN_CHANGED")
+                            .put("updated_at_epoch_ms", System.currentTimeMillis())
+                    else -> activeObjectiveHashes += "$objectiveId:$currentHash"
+                }
             }
         }
         for (index in 0 until phases.length()) {
@@ -153,13 +177,7 @@ class ObjectiveExecutionLedgerStore(context: Context) {
             val objectiveId = objective.getString("id")
             if (objectiveId == "A" || objective.optString("status") == "ACCEPTED") continue
             val hash = objective.getString("content_sha256")
-            val active = (0 until tasks.length()).any { taskIndex ->
-                val task = tasks.getJSONObject(taskIndex)
-                task.optString("status") !in TERMINAL_TASK_STATES &&
-                    task.optString("objective_id") == objectiveId &&
-                    task.optString("scope_content_sha256") == hash
-            }
-            if (active) continue
+            if ("$objectiveId:$hash" in activeObjectiveHashes) continue
             tasks.put(JSONObject()
                 .put("task_id", "objective-$objectiveId-assess-\${hash.take(8)}")
                 .put("objective_id", objectiveId)
