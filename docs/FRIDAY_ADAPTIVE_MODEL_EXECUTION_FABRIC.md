@@ -225,7 +225,126 @@ Use the ALEM evaluation: Accuracy/quality, Latency, Energy and Memory. Add stora
 - NAE protects the phone and can pause inference; it must not evict identity, memory writes, action verification or recovery control.
 - Every optimization is retained only if whole-system measurements show a benefit without unacceptable quality or reliability loss.
 
-## 8. Research references
+## 8. Neural Cell Fabric: residency-free cognitive execution
+
+This is the proposed phone-first invention direction. It is a design hypothesis to prototype, not a claim that RAM can be abolished or that arbitrary model layers are interchangeable.
+
+### 8.1 Change the unit of execution
+
+Conventional model managers treat a model as the unit: select model -> load model -> run model -> unload model. Friday should instead treat a **bounded cognitive operation** as the unit of execution.
+
+Build a small, always-resident **Neural Fabric Microkernel (NFM)** that owns:
+- a task/operation scheduler and typed tensor/latent buffer allocator;
+- a persistent canonical-state interface (identity, memory references, goals and task checkpoints);
+- a hard memory governor and thermal/battery governor;
+- a parameter-page broker and activation-page broker;
+- a compatibility registry for operators, tensor layouts, quantization and latent-space contracts;
+- cancellation, checkpoint, preemption, fault isolation and telemetry.
+
+The microkernel is not a language model and does not contain a giant brain. It schedules short-lived computation over model components kept mostly cold in private storage. It is the only permanently resident inference control plane; neural weights are admitted in bounded pages/windows.
+
+### 8.2 Neural Cell representation
+
+Convert eligible model assets into immutable **Neural Cells**. A cell is the smallest independently schedulable unit that can be executed without violating its source model's mathematics and metadata. Depending on architecture, a cell may be:
+- one MoE expert plus its router contract;
+- a group of adjacent transformer layers with required norms/attention/MLP weights;
+- an encoder/decoder block;
+- a vision/audio stem or task head;
+- a LoRA/adapter delta attached to a compatible base;
+- a small standalone specialist network;
+- a quantized matrix/tensor tile where the runtime supports tiled execution.
+
+Every cell carries a signed manifest: source model and revision, exact tensor names/shapes/layouts, required predecessor/successor state, tokenizer or modality contract, precision, quantization scales, operator/kernel dependencies, memory bound, scratch/activation bound, expected latency and quality tests. Cells are never detached from the graph assumptions that make them valid.
+
+**Important:** a transformer layer from Model A is not generally a drop-in replacement for a layer from Model B. Hidden dimensions, normalization, attention geometry, positional encoding, tokenizer, training distribution and residual conventions may differ. Friday may mix raw cells only when their graph contracts are compatible and the composite path has been trained/validated. Otherwise, use an explicit learned adapter/bridge or call the models as separate specialists through a shared typed latent/message contract. Do not splice arbitrary weights.
+
+### 8.3 Three-level residency: cold vault, warm shelf, hot window
+
+- **Cold vault (flash):** all verified model assets and cells reside as immutable, content-addressed files. Nothing is mapped into an inference runtime merely because it exists on disk.
+- **Warm shelf (OS page cache / bounded shared buffers):** frequently useful parameter pages and reusable compiled kernels may remain cached when Android permits. Friday treats this as reclaimable and never assumes it is resident.
+- **Hot window (strict RAM budget):** only the cells, working activations, KV pages and scratch buffers required for the current micro-operation are admitted. The window is bounded by a measured safe budget with a reserve for Android, the foreground app, voice capture and Friday's critical services.
+
+Use double/triple-buffered asynchronous I/O where supported: while cell N computes, stage the predicted next cell into a separate bounded buffer. On a miss, the scheduler chooses among wait, use a qualified smaller path, recompute from canonical state, or defer; it never exceeds the hard memory cap to preserve latency.
+
+### 8.4 Cross-model Neural Cell Exchange
+
+Create a **Shared Cognitive Representation Bus (SCRB)**. It is a typed, versioned interchange format for results between different models and algorithms—not a claim that their hidden states are naturally identical.
+
+A message contains modality/task type, representation schema/version, dimensions, normalization, semantic contract, provenance, uncertainty, timestamps and source model/cell IDs. Different specialists communicate through this bus. Where hidden-state transfer is desired, train and evaluate explicit projection bridges using paired representations and task-level distillation. Validate for semantic preservation, calibration and distribution shift.
+
+This enables one vision encoder, another model's language reasoner, a specialist emotion/social classifier, a retrieval encoder and deterministic algorithms to cooperate without forcing all their raw layers into one network. Each specialist is invoked only for its operation. Results and evidence are returned to Friday's executive system.
+
+### 8.5 Neural Cell compiler and scheduler
+
+For each task, compile an operation graph, not a model choice:
+1. Resolve task outcome, required modalities and minimum quality/safety.
+2. Select compatible cells/operators from the local registry.
+3. Prune unnecessary branches; reuse cached representations only when provenance and freshness permit.
+4. Estimate each operation's peak live memory, page bytes, I/O latency, compute time, thermal cost and confidence.
+5. Schedule a memory-safe sequence; overlap storage reads with independent compute.
+6. Keep activation lifetimes short; release/reuse buffers as soon as dependency edges permit.
+7. Checkpoint only canonical state and compact operation outputs, not entire model sessions.
+8. Preempt at safe graph boundaries when voice, device action, foreground UI or Android memory pressure needs priority.
+9. Refine the result with optional specialist cells only while budget remains.
+
+The scheduler minimizes peak live memory first subject to quality and deadline constraints, then optimizes energy and latency. This is a graph-liveness and resource-constrained scheduling problem, not just an LRU cache.
+
+### 8.6 RAM isolation and protection
+
+Do not promise "zero RAM". Every active neural operation needs weights, activations and scratch space in some memory tier. The achievable objective is a hard, predictable upper bound on Friday's incremental resident memory and no uncontrolled allocation spikes.
+
+Implement:
+- one global inference memory arbiter across every model/runtime; no model may independently allocate an unbounded arena;
+- per-operation reservations and admission before execution;
+- separate critical reserve for identity, memory journal, action verification, voice buffers and recovery;
+- bounded KV/activation pools with explicit ownership and lifetime;
+- memory-mapped read-only weights only where the runtime/OS path is proven safe; page cache is opportunistic, not guaranteed;
+- pressure callbacks and Android trim handling; stop prefetch, shrink caches, checkpoint, pause or cancel before the OS kills the process;
+- native allocation accounting and leak detection; process isolation for untrusted/unstable native backends;
+- thermal/battery-aware duty cycling and concurrency limits;
+- no simultaneous full residency of multiple heavyweight models by default.
+
+The "insulation" is architectural isolation: heavyweight neural work cannot consume the memory reserved for Friday's identity, continuity, voice/action control or recovery. If pressure rises, inference depth degrades first; the individual state and control plane survive.
+
+### 8.7 Learning which cells are worth keeping warm
+
+Use a private **Cell Utility Learner**. For each cell, estimate reuse probability and the cost of a miss from actual task history, not a static popularity list. Consider recency, task/goal context, time-of-day only if justified, storage read latency, size, load cost, accuracy contribution and thermal impact. Predict likely next cells from the current operation graph and prefetch only if the predicted benefit exceeds I/O, energy and memory opportunity cost.
+
+The learner must be bounded and explainable: cap training state, avoid sensitive-content leakage into telemetry, decay stale patterns, and compare predicted versus actual hits. It cannot override the hard memory budget.
+
+### 8.8 How this addresses "several models without running them all"
+
+- Multiple model assets can be installed in the cold vault without being loaded.
+- Multiple models can contribute to one task as short-lived specialists, sequentially or in carefully bounded parallelism.
+- Only selected cells/experts/blocks are resident during each operation.
+- Shared representations and cached intermediate results prevent needless repeat work.
+- A different model's raw internal layers are reused only when mathematically compatible or connected through a validated learned bridge.
+- No heavyweight model must remain continuously running just to preserve Friday's identity, memory or continuity.
+
+This is the closest technically honest interpretation of "jump between model internals without running the whole model". It is operation-level execution over selectively admitted components, not arbitrary extraction of intelligence from dormant weights.
+
+### 8.9 Prototype path and falsifiable gates
+
+Prototype in this order:
+1. Build an NFM simulator and trace current Friday inference to calculate peak live tensors and memory lifetimes.
+2. Add global memory reservations and prove that two independent model requests cannot exceed the configured inference budget.
+3. Implement one compatible block/encoder cell format and a cold-vault/hot-window loader; compare exact output against the original whole-model backend.
+4. Add asynchronous prefetch and cancellation at safe block boundaries; measure stalls, storage traffic and energy.
+5. Add MoE expert paging only for a model that genuinely exposes independent experts and router metadata.
+6. Add SCRB between two architecturally different specialist models; verify task quality and calibration against isolated baselines.
+7. Test low-memory, process death, storage exhaustion, thermal throttling, corrupted cells, incompatible contracts, simultaneous voice/action/inference and Android memory pressure on the target handset.
+
+Acceptance requires:
+- output parity within a declared numerical tolerance for exact cell/block execution;
+- no hard-budget violation under adversarial concurrency;
+- no loss of identity, memory journal or task checkpoint after inference eviction;
+- measured peak PSS/RSS, page faults, storage I/O, cold/warm latency, energy and thermal behaviour;
+- demonstrated benefit over loading the whole model for the target workload;
+- clear disclosure where flash bandwidth makes paging slower than a compact resident model.
+
+If the target runtime cannot execute a cell independently, keep the smallest valid block as the scheduling unit. Do not fake layer-level loading by reading a layer from disk while the runtime silently retains the entire model elsewhere.
+
+## 9. Research references
 
 - Qualcomm Snapdragon 695 platform specification: https://www.qualcomm.com/smartphones/products/6-series/snapdragon-695-5g-mobile-platform
 - Android LiteRT deployment: https://developer.android.com/ai/custom
