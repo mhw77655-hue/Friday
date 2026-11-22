@@ -48,16 +48,19 @@ object HostBootstrapPolicy {
             availableStorageMb = host.availableStorageMb
         )
         val nanoPlan = ai.friday.assistant.symbiosis.NanoSymbioticPolicy().plan(state)
-        val mode = when (nanoPlan.mode) {
+        val mode = when {
+            host.availableStorageMb in 0L..255L -> HostOperatingMode.PROTECTIVE
+            else -> when (nanoPlan.mode) {
             ai.friday.assistant.symbiosis.SymbioticMode.CRITICAL -> HostOperatingMode.PROTECTIVE
             ai.friday.assistant.symbiosis.SymbioticMode.ECO -> HostOperatingMode.EFFICIENT
             ai.friday.assistant.symbiosis.SymbioticMode.BALANCED -> HostOperatingMode.BALANCED
             ai.friday.assistant.symbiosis.SymbioticMode.PERFORMANCE -> HostOperatingMode.HIGH_CAPACITY
+            }
         }
         val localModelAllowed = host.installedGgufCount > 0 &&
             host.nativeInferenceLibraryPresent &&
             host.availableMemoryMb >= 900L &&
-            host.thermalStatus < 2
+            host.thermalStatus in 0..1
         val modelBudget = when (mode) {
             HostOperatingMode.PROTECTIVE -> 0L
             HostOperatingMode.EFFICIENT -> 512L * 1024L * 1024L
@@ -66,9 +69,9 @@ object HostBootstrapPolicy {
         }
         return HostConfiguration(
             mode = mode,
-            contextTokenBudget = nanoPlan.contextTokenBudget,
+            contextTokenBudget = if (mode == HostOperatingMode.PROTECTIVE) 512 else nanoPlan.contextTokenBudget,
             maxConcurrentExpensiveTasks = nanoPlan.maxConcurrentExpensiveTasks,
-            allowBackgroundIndexing = nanoPlan.allowBackgroundConsolidation,
+            allowBackgroundIndexing = nanoPlan.allowBackgroundConsolidation && mode == HostOperatingMode.HIGH_CAPACITY,
             allowLocalModelLoad = localModelAllowed && mode != HostOperatingMode.PROTECTIVE,
             recommendedModelMaxBytes = modelBudget,
             reason = if (measuredCpu == null) {
