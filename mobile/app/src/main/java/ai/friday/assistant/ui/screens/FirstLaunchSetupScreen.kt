@@ -172,6 +172,8 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
                         }
                         val modelLabel = when (modelBootstrap?.optString("state")) {
                             "MODEL_READY" -> "resident local model loaded and verified"
+                            "DOWNLOADING" -> "resident local model downloading over unmetered Wi-Fi"
+                            "LOADING" -> "resident local model is loading"
                             "WAITING_FOR_HOST_CAPACITY" -> "resident model waiting for host capacity"
                             "WAITING_FOR_STORAGE" -> "resident model waiting for private storage"
                             "WAITING_FOR_SAFE_DOWNLOAD_WINDOW" -> "resident model waiting for unmetered charging window"
