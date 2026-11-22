@@ -128,3 +128,14 @@ The host-adaptation acceptance suite must include deterministic emulator profile
 **Trustworthiness bar:** Friday must not silently overreach to make itself work. It must operate within Android's permission and background-execution model, expose uncertainty, fail safely, preserve user control, verify consequential actions independently and keep an auditable record. Android's own guidance explicitly calls for lazy permission requests, clear rationales and graceful degradation when permissions are denied; Android also imposes device/app-state-dependent background resource limits. See [Android adaptive-app quality guidelines](https://developer.android.com/develop/adaptive-apps/quality-guidelines/core-app-quality?hl=en) and [Android power-management resource limits](https://developer.android.com/topic/performance/power/power-details).
 
 This host-adaptation contract is now part of Objective 1's acceptance meaning. A generic "APK installed" result or a manually completed Shizuku checklist is insufficient.
+
+
+## Post-install mission continuity — owner requirement recorded 2026-11-22
+
+The installed Friday's continuing responsibility is to carry the canonical objectives plan forward herself, using the available AI pool and other development resources. Installation is the beginning of that operation, not a handoff of project management back to the owner. The owner remains the architect, collaborator and authority for protected decisions; Friday must make the work understandable and directly collaborative, not opaque or owner-excluding.
+
+The active plan now defines the complete operating contract in [FRIDAY_DELIVERY_PLAN.md](../.ralph/FRIDAY_DELIVERY_PLAN.md), and the host execution/control-plane contract in [FRIDAY_HOST_ADAPTATION_CONTROL_PLANE.md](FRIDAY_HOST_ADAPTATION_CONTROL_PLANE.md).
+
+**Objective 1 foundation requirement:** the seed must preserve identity and plan continuity; provide durable, resumable task/evidence state; expose a protected path for future AI-worker coordination and independent verification; operate safely within Android background/resource limits; and support owner inspection, pause, redirection and protected approvals. Objective 1 does not claim to deliver the full autonomous Builder or mature multi-provider AI-pool orchestration; those capabilities continue through their owning objectives, especially F and G.
+
+**Not yet proven in the installed app:** durable autonomous objectives execution after process death/reboot, authenticated AI-pool dispatch and result ingestion, independent reviewer workflow, offline queue/resume, and owner-facing inspection/control of the development workspace. These remain implementation and acceptance work, not completed features. The app must never claim to continue 24/7 without Android scheduling guarantees; it should persist work and resume under permitted OS conditions.
