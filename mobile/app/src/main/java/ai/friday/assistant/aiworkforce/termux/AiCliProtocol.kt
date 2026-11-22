@@ -6,7 +6,7 @@ import org.json.JSONObject
 internal object AiCliProtocol {
     fun command(worker: AiCliWorkerId): String = when (worker) {
         AiCliWorkerId.OPENAI_CODEX ->
-            "exec codex exec --json --sandbox read-only -"
+            "exec codex exec --json --sandbox read-only --ephemeral -"
         AiCliWorkerId.ANTHROPIC_CLAUDE ->
             "exec claude -p --output-format json --tools ''"
     }
