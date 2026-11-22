@@ -42,7 +42,8 @@ data class AiCliConsultation(
 internal class TermuxAiCliWorkerPool(context: Context) {
     private val appContext = context.applicationContext
     private val runner = TermuxCommandRunner(appContext)
-    private val bashPath = TermuxCommandRunner.bashExecutable(appContext)
+    private val bashPath by lazy { TermuxCommandRunner.bashExecutable(appContext) }
+    private val workerDirectory = "~/.friday-ai-worker-sandbox"
 
     suspend fun discover(): List<AiCliWorkerStatus> {
         val bridgeState = runner.state()
@@ -55,6 +56,24 @@ internal class TermuxAiCliWorkerPool(context: Context) {
             }
             return AiCliWorkerId.entries.map {
                 AiCliWorkerStatus(it, AiCliWorkerState.TERMUX_UNAVAILABLE, detail)
+            }
+        }
+
+        val sandbox = runCatching {
+            runner.run(
+                commandPath = bashPath,
+                arguments = listOf("-c", "mkdir -p ~/.friday-ai-worker-sandbox && printf READY"),
+                stdin = "",
+                timeoutMs = 15_000L
+            )
+        }.getOrNull()
+        if (sandbox == null || sandbox.errorCode != android.app.Activity.RESULT_OK || sandbox.exitCode != 0) {
+            return AiCliWorkerId.entries.map {
+                AiCliWorkerStatus(
+                    it,
+                    AiCliWorkerState.TERMUX_UNAVAILABLE,
+                    "Friday could not prepare its isolated Termux consultation directory. Check Termux external-command settings."
+                )
             }
         }
 
@@ -111,7 +130,7 @@ internal class TermuxAiCliWorkerPool(context: Context) {
             commandPath = bashPath,
             arguments = listOf("-c", command),
             stdin = prompt,
-            workDirectory = "~/",
+            workDirectory = workerDirectory,
             timeoutMs = timeoutMs
         )
         check(result.errorCode == android.app.Activity.RESULT_OK && result.exitCode == 0) {
