@@ -51,59 +51,61 @@ internal class TermuxAiCliWorkerPool(
     private val workerDirectory = "~/.friday-ai-worker-sandbox"
 
     suspend fun discover(): List<AiCliWorkerStatus> {
-        val selected = environments.selectReady()
-        if (selected == null) {
+        val ready = environments.readyEnvironments()
+        if (ready.isEmpty()) {
             val probes = environments.discover()
             val detail = probes.joinToString(" ") { "${it.kind}: ${it.detail}" }
                 .ifBlank { "No AI execution environment has been registered." }
-            val state = when {
-                probes.any { it.state == AiExecutionEnvironmentState.PERMISSION_REQUIRED } ->
-                    AiCliWorkerState.TERMUX_UNAVAILABLE
-                else -> AiCliWorkerState.EXECUTION_ENVIRONMENT_UNAVAILABLE
-            }
+            val state = if (probes.any { it.state == AiExecutionEnvironmentState.PERMISSION_REQUIRED })
+                AiCliWorkerState.TERMUX_UNAVAILABLE
+            else AiCliWorkerState.EXECUTION_ENVIRONMENT_UNAVAILABLE
             return AiCliWorkerId.entries.map { AiCliWorkerStatus(it, state, detail) }
         }
 
-        val (environment, probe) = selected
-        val sandbox = runCatching {
-            environment.executeShell(
-                command = "mkdir -p ~/.friday-ai-worker-sandbox && printf READY",
-                stdin = "",
-                workingDirectory = workerDirectory,
-                timeoutMs = 15_000L
-            )
-        }.getOrNull()
-        if (sandbox == null || sandbox.transportError != null || sandbox.exitCode != 0) {
-            return AiCliWorkerId.entries.map {
-                AiCliWorkerStatus(
-                    it,
-                    AiCliWorkerState.EXECUTION_ENVIRONMENT_UNAVAILABLE,
-                    "Friday could not prepare an isolated workspace in ${environment.kind}.",
-                    environment.kind
-                )
-            }
-        }
-
         return AiCliWorkerId.entries.map { worker ->
-            val command = "command -v ${worker.commandName}"
-            val result = runCatching {
-                environment.executeShell(command, "", workerDirectory, 15_000L)
-            }.getOrNull()
-            when {
-                result == null || result.transportError != null -> AiCliWorkerStatus(
-                    worker, AiCliWorkerState.EXECUTION_ENVIRONMENT_UNAVAILABLE,
-                    "The ${environment.kind} command bridge failed its availability probe.",
-                    environment.kind
-                )
-                result.exitCode == 0 && result.stdout.isNotBlank() -> AiCliWorkerStatus(
-                    worker, AiCliWorkerState.AUTHENTICATION_NOT_CONFIRMED,
-                    "CLI found in ${environment.kind}. Its account login is checked on first consultation.",
-                    environment.kind
-                )
-                else -> AiCliWorkerStatus(
-                    worker, AiCliWorkerState.NOT_INSTALLED,
-                    "${worker.commandName} CLI was not found in ${environment.kind}.",
-                    environment.kind
+            val located = ready.firstNotNullOfOrNull { (environment, _) ->
+                val result = runCatching {
+                    environment.executeShell(
+                        command = "command -v ${worker.commandName}",
+                        stdin = "",
+                        workingDirectory = workerDirectory,
+                        timeoutMs = 15_000L
+                    )
+                }.getOrNull()
+                if (result != null && result.transportError == null &&
+                    result.exitCode == 0 && result.stdout.isNotBlank()
+                ) environment else null
+            }
+            if (located != null) {
+                val setup = runCatching {
+                    located.executeShell(
+                        command = "mkdir -p ~/.friday-ai-worker-sandbox && printf READY",
+                        stdin = "",
+                        workingDirectory = workerDirectory,
+                        timeoutMs = 15_000L
+                    )
+                }.getOrNull()
+                if (setup != null && setup.transportError == null && setup.exitCode == 0) {
+                    AiCliWorkerStatus(
+                        worker,
+                        AiCliWorkerState.AUTHENTICATION_NOT_CONFIRMED,
+                        "CLI found in ${located.kind}. Its account login is checked on first consultation.",
+                        located.kind
+                    )
+                } else {
+                    AiCliWorkerStatus(
+                        worker,
+                        AiCliWorkerState.EXECUTION_ENVIRONMENT_UNAVAILABLE,
+                        "The isolated workspace could not be prepared in ${located.kind}.",
+                        located.kind
+                    )
+                }
+            } else {
+                AiCliWorkerStatus(
+                    worker,
+                    AiCliWorkerState.NOT_INSTALLED,
+                    "${worker.commandName} CLI was not found in any ready environment: " +
+                        ready.joinToString { it.first.kind.name } + "."
                 )
             }
         }
@@ -116,8 +118,22 @@ internal class TermuxAiCliWorkerPool(
     ): AiCliConsultation {
         require(prompt.isNotBlank()) { "An AI consultation prompt cannot be blank." }
         require(prompt.length <= MAX_PROMPT_CHARS) { "The AI consultation prompt exceeds Friday's limit." }
-        val (environment, _) = environments.selectReady()
-            ?: throw IllegalStateException("No registered AI execution environment is ready.")
+        val ready = environments.readyEnvironments()
+        val environment = ready.firstNotNullOfOrNull { (candidate, _) ->
+            val probe = runCatching {
+                candidate.executeShell(
+                    command = "command -v ${worker.commandName}",
+                    stdin = "",
+                    workingDirectory = workerDirectory,
+                    timeoutMs = 15_000L
+                )
+            }.getOrNull()
+            if (probe != null && probe.transportError == null &&
+                probe.exitCode == 0 && probe.stdout.isNotBlank()
+            ) candidate else null
+        } ?: throw IllegalStateException(
+            "${worker.displayName} is not installed in any ready AI execution environment."
+        )
 
         val startedAt = System.currentTimeMillis()
         val result = environment.executeShell(
