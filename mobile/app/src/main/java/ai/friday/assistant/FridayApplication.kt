@@ -40,6 +40,9 @@ class FridayApplication : Application() {
         // Study this exact Android host and prepare Friday's private development
         // workspace once. Unique work keeps retries/resumes idempotent across launches.
         ai.friday.assistant.bootstrap.host.HostBootstrapWorker.enqueue(this)
+        // Import and periodically refresh the canonical objectives locally;
+        // the plan remains readable from app-private storage while offline.
+        ai.friday.assistant.bootstrap.plan.ObjectivePlanSyncWorker.enqueue(this)
         // Process-scoped background/foreground for the Companion Core (plan
         // §4.3, audit R-A3). ProcessLifecycleOwner fires ON_STOP only when the
         // LAST activity stops — i.e. the whole process backgrounds — so a
