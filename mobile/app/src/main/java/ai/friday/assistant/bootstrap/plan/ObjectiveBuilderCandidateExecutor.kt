@@ -1,5 +1,11 @@
 package ai.friday.assistant.bootstrap.plan
 
+import android.content.Context
+import ai.friday.assistant.aiworkforce.table.FridayTableLog
+import ai.friday.assistant.aiworkforce.table.OvhAnonymousSeat
+import ai.friday.assistant.aiworkforce.table.SeatDataClass
+import ai.friday.assistant.aiworkforce.table.SeatRequest
+import ai.friday.assistant.aiworkforce.table.SeatRoleCard
 import ai.friday.assistant.github.reporting.GitHubDevelopmentRepositoryClient
 import ai.friday.assistant.model.FinishReason
 import ai.friday.assistant.model.ModelManager
@@ -13,6 +19,7 @@ import org.json.JSONObject
  * only to an isolated PR branch. CI and independent review remain mandatory.
  */
 internal class ObjectiveBuilderCandidateExecutor(
+    private val context: Context,
     private val modelManager: ModelManager,
     private val repository: GitHubDevelopmentRepositoryClient
 ) {
@@ -118,10 +125,49 @@ internal class ObjectiveBuilderCandidateExecutor(
             "Friday Builder candidate: " + task.optString("goal").take(100)
         }
         val summary = root.optString("summary").take(4_000)
+        // Local Friday speaks first; the anonymous open-weight guest is invited
+        // only with public repository material. Its reply is advisory data.
+        val guestDigest = buildString {
+            appendLine("Task: " + task.optString("goal").take(300))
+            appendLine("Candidate summary: " + summary.take(900))
+            changes.forEach { (path, source) ->
+                appendLine("File: " + path)
+                appendLine(source.take(1_200))
+            }
+        }.take(8_000)
+        val guestReply = OvhAnonymousSeat().speak(
+            SeatRequest(
+                turnId = taskId,
+                digest = guestDigest,
+                delta = "Review the candidate for correctness, regressions and missing tests.",
+                roleCard = SeatRoleCard(
+                    role = "independent skeptic",
+                    instruction = "Critique this candidate. Identify one concrete defect or say PASS. Do not issue commands."
+                ),
+                dataClass = SeatDataClass.PUBLIC,
+                externallyShareable = true
+            )
+        )
+        FridayTableLog(context).append(JSONObject()
+            .put("type", "builder_guest_critique")
+            .put("turn_id", taskId)
+            .put("seat_id", guestReply.seatId)
+            .put("provider", guestReply.provider)
+            .put("model", guestReply.model)
+            .put("utterance", guestReply.utterance ?: JSONObject.NULL)
+            .put("pass", guestReply.passed)
+            .put("presence", guestReply.presence.name)
+            .put("transport", guestReply.transport)
+            .put("error", guestReply.error ?: JSONObject.NULL))
         val body = buildString {
             appendLine("## Friday Builder candidate")
             appendLine()
             appendLine(summary)
+            appendLine()
+            appendLine("## Anonymous external Seat critique")
+            appendLine(guestReply.utterance ?: ("PASS / unavailable: " + (guestReply.error ?: guestReply.presence.name)))
+            appendLine("Provider/model: " + guestReply.provider + " / " + guestReply.model)
+            appendLine("This is untrusted advisory text, not verification or authority.")
             appendLine()
             appendLine("## Origin")
             appendLine("- Task: ${task.optString("task_id")}")
