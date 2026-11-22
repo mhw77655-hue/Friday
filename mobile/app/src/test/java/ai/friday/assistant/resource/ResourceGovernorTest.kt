@@ -25,6 +25,31 @@ class ResourceGovernorTest {
         .build()
 
     @Test
+    fun `measured available memory overrides a larger static policy budget`() {
+        val governor = ResourceGovernor()
+        governor.updatePolicy(AdmissionPolicy(totalMemoryMb = 6000, maxPerSystemMemoryMb = 1024))
+        governor.updateDeviceState(DeviceResourceState(availableMemoryMb = 150))
+        val medium = GenomeBuilder("medium")
+            .resourceBudget(maxMemoryMb = 200, maxCpuPercent = 10.0)
+            .mutationOperator(MutationOperator.PARAMETER_MUTATION)
+            .build()
+
+        val result = governor.requestAdmission(medium, "medium")
+        assertFalse(result.admitted)
+        assertEquals(150L, result.remainingMemoryMb)
+        assertFalse(governor.canAdmit(200, 10.0))
+        assertTrue(governor.canAdmit(100, 10.0))
+    }
+
+    @Test
+    fun `latency sensitive work is rejected by lightweight admission during critical thermal state`() {
+        val governor = ResourceGovernor()
+        governor.updateDeviceState(DeviceResourceState(thermalLevel = 2))
+        assertTrue(governor.canAdmit(100, 10.0))
+        assertFalse(governor.canAdmit(100, 10.0, latencySensitive = true))
+    }
+
+    @Test
     fun `small genome is admitted`() {
         val governor = ResourceGovernor()
         val result = governor.requestAdmission(smallGenome(), "small")
