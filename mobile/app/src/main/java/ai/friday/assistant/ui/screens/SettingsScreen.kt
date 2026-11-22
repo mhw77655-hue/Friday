@@ -168,7 +168,7 @@ fun SettingsScreen() {
             }.getOrElse {
                 "The local objectives ledger could not be verified. Friday preserves it and will not reset its task history."
             }
-            planSummary + "\\n" + modelSummary
+            planSummary + "\n" + modelSummary
         }
     }
 
