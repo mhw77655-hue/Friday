@@ -94,6 +94,9 @@ class GitHubDevelopmentRepositoryClient(
         return validSha(json.optJSONObject("tree")?.optString("sha").orEmpty(), "base tree")
     }
 
+    /** Read a bounded repository source file for Friday's local Builder context. */
+    fun readSourceFile(path: String, ref: String = "main"): String = getFile(path, ref)
+
     private fun getFile(path: String, ref: String): String {
         validatePath(path)
         val url = apiRoot + "/contents/" + encodePath(path) + "?ref=" + encode(ref)
