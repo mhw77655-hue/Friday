@@ -149,3 +149,8 @@ The active plan now defines the complete operating contract in [FRIDAY_DELIVERY_
 **Objective 1 foundation requirement:** the seed must preserve identity and plan continuity; provide durable, resumable task/evidence state; expose a protected path for future AI-worker coordination and independent verification; operate safely within Android background/resource limits; and support owner inspection, pause, redirection and protected approvals. Objective 1 does not claim to deliver the full autonomous Builder or mature multi-provider AI-pool orchestration; those capabilities continue through their owning objectives, especially F and G.
 
 **Not yet proven in the installed app:** durable autonomous objectives execution after process death/reboot, authenticated AI-pool dispatch and result ingestion, independent reviewer workflow, offline queue/resume, and owner-facing inspection/control of the development workspace. These remain implementation and acceptance work, not completed features. The app must never claim to continue 24/7 without Android scheduling guarantees; it should persist work and resume under permitted OS conditions.
+
+
+### Latest Builder compile correction
+
+The local Builder's Table transcript calls now explicitly use the executor's Android Context property, avoiding shadowing by the repository-context String. The accidental literal newline token in the Kotlin source was removed. These corrections are committed on the Objective 1 branch; they are not considered verified until a workflow run checks the exact branch head.
