@@ -111,6 +111,12 @@ fun SettingsScreen() {
     var shizukuAcceptanceReport by remember { mutableStateOf("") }
     var shizukuAcceptanceRunning by remember { mutableStateOf(false) }
     var objectiveExecutionStatus by remember { mutableStateOf("Friday is loading the canonical objectives ledger…") }
+    val aiWorkerPool = remember { ai.friday.assistant.aiworkforce.termux.TermuxAiCliWorkerPool(context) }
+    var aiWorkerStatuses by remember {
+        mutableStateOf(emptyList<ai.friday.assistant.aiworkforce.termux.AiCliWorkerStatus>())
+    }
+    var aiWorkerBusy by remember { mutableStateOf(false) }
+    var aiWorkerTestReport by remember { mutableStateOf("") }
 
     // Bumped on ON_RESUME so runtime status and local diagnostic counts
     // refresh when the owner returns to Settings from Android system panels.
@@ -132,6 +138,7 @@ fun SettingsScreen() {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     LaunchedEffect(resumeSignal) {
+        aiWorkerStatuses = runCatching { aiWorkerPool.discover() }.getOrDefault(emptyList())
         objectiveExecutionStatus = withContext(Dispatchers.IO) {
             val modelFile = File(context.filesDir, "friday-development/model-bootstrap.json")
             val modelSummary = if (modelFile.isFile) runCatching {
