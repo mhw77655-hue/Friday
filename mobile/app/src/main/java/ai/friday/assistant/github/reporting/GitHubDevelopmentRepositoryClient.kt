@@ -58,7 +58,7 @@ class GitHubDevelopmentRepositoryClient(
         require(taskId.matches(Regex("[A-Za-z0-9._-]{3,80}"))) { "Task id is malformed." }
         require(title.isNotBlank() && title.length <= 180) { "Candidate title is invalid." }
         require(body.isNotBlank() && body.length <= 20_000) { "Candidate evidence body is invalid." }
-        require(!SECRET_PATTERN.containsMatchIn(title + "\\n" + body)) {
+        require(!SECRET_PATTERN.containsMatchIn(title + "\n" + body)) {
             "Candidate metadata was blocked because it resembles a credential."
         }
         validateChanges(changes)
@@ -103,7 +103,7 @@ class GitHubDevelopmentRepositoryClient(
         }
         val encoded = json.optString("content").replace("\\n", "")
         val bytes = runCatching {
-            Base64.getDecoder().decode(encoded.replace("\\n", "").replace("\\r", ""))
+            Base64.getDecoder().decode(encoded.replace("\n", "").replace("\r", ""))
         }.getOrElse { throw IOException("GitHub returned an unreadable source file.") }
         return String(bytes, StandardCharsets.UTF_8)
     }
@@ -292,7 +292,7 @@ class GitHubDevelopmentRepositoryClient(
         private const val MAX_FILE_CHARS = 160_000
         private const val MAX_TOTAL_BYTES = 512 * 1024
         private val SECRET_PATTERN = Regex(
-            "(?i)(github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{30,}|bearer\\\\s+[A-Za-z0-9._-]{20,})"
+            "(?i)(github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{30,}|bearer\\s+[A-Za-z0-9._-]{20,})"
         )
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
     }
