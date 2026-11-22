@@ -125,7 +125,12 @@ internal class ObjectiveBuilderCandidateExecutor(
             "Friday Builder candidate: " + task.optString("goal").take(100)
         }
         val summary = root.optString("summary").take(4_000)
-        // Local Friday speaks first; the anonymous open-weight guest is invited
+        FridayTableLog(context).append(JSONObject()
+            .put("type", "friday_local_turn")
+            .put("turn_id", taskId)
+            .put("summary", summary.take(1_200))
+            .put("model", "friday-resident"))
+\n        // Local Friday speaks first; the anonymous open-weight guest is invited
         // only with public repository material. Its reply is advisory data.
         val guestDigest = buildString {
             appendLine("Task: " + task.optString("goal").take(300))
