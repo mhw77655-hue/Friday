@@ -1,7 +1,6 @@
 package ai.friday.assistant.ui.screens
 
 import android.Manifest
-import android.app.Activity
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -16,10 +15,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -191,7 +188,11 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
         }
     )
 
-    val verifiedCount = items.count { it.status == "Enabled" || it.status == "Unrestricted by battery optimization" || it.status == "Running · Friday authorized" }
+    val verifiedCount = items.count { item ->
+        item.status == "Enabled" ||
+            item.status == "Unrestricted by battery optimization" ||
+            item.status.startsWith("bound · verified Shizuku uid=")
+    }
     Column(
         modifier = Modifier.fillMaxSize().padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
