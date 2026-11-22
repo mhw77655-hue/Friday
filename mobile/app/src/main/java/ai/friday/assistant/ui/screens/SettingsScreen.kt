@@ -133,11 +133,19 @@ fun SettingsScreen() {
     }
     LaunchedEffect(resumeSignal) {
         objectiveExecutionStatus = withContext(Dispatchers.IO) {
-            val file = File(context.filesDir, "friday-development/plan/execution-ledger.json")
-            if (!file.isFile) {
+            val modelFile = File(context.filesDir, "friday-development/model-bootstrap.json")
+            val modelSummary = if (modelFile.isFile) runCatching {
+                val model = JSONObject(modelFile.readText(Charsets.UTF_8))
+                "Resident model: " + model.optString("state", "UNKNOWN") +
+                    " · " + model.optString("reason", "No detail recorded")
+            }.getOrDefault("Resident model: status file is unreadable.")
+            else "Resident model: waiting for host study and safe unmetered bootstrap."
+
+            val ledgerFile = File(context.filesDir, "friday-development/plan/execution-ledger.json")
+            val planSummary = if (!ledgerFile.isFile) {
                 "The canonical plan or local execution ledger has not been imported yet. Friday will retry bootstrap."
             } else runCatching {
-                val ledger = JSONObject(file.readText(Charsets.UTF_8))
+                val ledger = JSONObject(ledgerFile.readText(Charsets.UTF_8))
                 val objectives = ledger.optJSONArray("objectives") ?: org.json.JSONArray()
                 val phases = ledger.optJSONArray("phases") ?: org.json.JSONArray()
                 val tasks = ledger.optJSONArray("tasks") ?: org.json.JSONArray()
@@ -160,8 +168,10 @@ fun SettingsScreen() {
             }.getOrElse {
                 "The local objectives ledger could not be verified. Friday preserves it and will not reset its task history."
             }
+            planSummary + "\\n" + modelSummary
         }
     }
+
     var shizukuDozeStatus by remember { mutableStateOf("Not checked.") }
     var keepFridayAlive by remember(resumeSignal) {
         mutableStateOf(ai.friday.assistant.runtime.FridayRuntimeController.isEnabled(context))
