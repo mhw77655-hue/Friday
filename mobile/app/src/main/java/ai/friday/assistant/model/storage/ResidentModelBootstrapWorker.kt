@@ -40,6 +40,20 @@ import java.util.concurrent.TimeUnit
  * unmetered Wi-Fi, charging, adequate battery and non-low storage. A host that
  * cannot currently admit the model is recorded as waiting, not retried forever.
  */
+/**
+ * Resident candidates ordered from highest capability to smallest safe fallback.
+ * Only assets with a pinned digest and a host-budget-compatible minimum size
+ * can enter the download queue.
+ */
+internal fun residentBootstrapCandidates(modelBudgetBytes: Long): List<OfflineModelAsset> {
+    if (modelBudgetBytes <= 0L) return emptyList()
+    return listOf(OfflineModelCatalog.resident, OfflineModelCatalog.tinyFallback)
+        .filter { asset ->
+            !asset.sha256.isNullOrBlank() &&
+                asset.expectedMinimumBytes <= modelBudgetBytes
+        }
+}
+
 class ResidentModelBootstrapWorker(
     appContext: Context,
     params: WorkerParameters
@@ -69,13 +83,7 @@ class ResidentModelBootstrapWorker(
             // Select the strongest verified resident candidate that the measured
             // host budget and live NAE admission both allow. Never download an
             // unpinned fallback or force the primary model onto a constrained phone.
-            val candidates = listOf(
-                OfflineModelCatalog.resident,
-                OfflineModelCatalog.tinyFallback
-            ).filter { asset ->
-                !asset.sha256.isNullOrBlank() &&
-                    asset.expectedMinimumBytes <= modelBudgetBytes
-            }
+            val candidates = residentBootstrapCandidates(modelBudgetBytes)
             val selected = candidates.firstNotNullOfOrNull { candidate ->
                 val gate = resourceGovernor.admitModel(
                     modelBytes = candidate.expectedMinimumBytes,
