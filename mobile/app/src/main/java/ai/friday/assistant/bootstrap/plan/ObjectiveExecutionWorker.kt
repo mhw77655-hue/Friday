@@ -171,8 +171,10 @@ class ObjectiveExecutionWorker(
             )
             .addTag(UNIQUE_FOLLOWUP_TAG)
             .build()
+        val uniqueName = UNIQUE_FOLLOWUP_PREFIX + completedParentTaskId +
+            if (initialDelaySeconds > 0L) "-retry-" + (System.currentTimeMillis() / 60_000L) else ""
         WorkManager.getInstance(context).enqueueUniqueWork(
-            UNIQUE_FOLLOWUP_PREFIX + completedParentTaskId,
+            uniqueName,
             ExistingWorkPolicy.KEEP,
             request
         )
