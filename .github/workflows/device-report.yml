@@ -8,7 +8,7 @@ permissions: {}
 
 jobs:
   archive-device-report:
-    if: startsWith(github.event.issue.title, '[Friday device report] ')
+    if: github.event.issue.user.login == 'mhw77655-hue' && startsWith(github.event.issue.title, '[Friday device report] ')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
