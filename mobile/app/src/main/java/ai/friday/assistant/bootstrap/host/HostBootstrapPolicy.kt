@@ -10,6 +10,8 @@ data class HostCapacity(
     val memoryClassMb: Int,
     val availableStorageMb: Long,
     val cpuCores: Int,
+    val cpuLoadPercent: Double,
+    val processPssMb: Long,
     val primaryAbi: String,
     val thermalStatus: Int,
     val batteryPercent: Int,
@@ -33,57 +35,45 @@ data class HostConfiguration(
 
 object HostBootstrapPolicy {
     fun configure(host: HostCapacity): HostConfiguration {
-        val critical = host.thermalStatus >= 4 ||
-            host.availableMemoryMb < 650L ||
-            host.availableStorageMb in 0L..255L ||
-            (!host.charging && host.batteryPercent in 0..8)
-        val constrained = critical ||
-            host.thermalStatus >= 3 ||
-            host.availableMemoryMb < 1400L ||
-            host.powerSave ||
-            (!host.charging && host.batteryPercent in 0..20)
-
-        val mode = when {
-            critical -> HostOperatingMode.PROTECTIVE
-            constrained -> HostOperatingMode.EFFICIENT
-            host.charging && host.availableMemoryMb >= 3000L &&
-                host.availableStorageMb >= 4096L && host.thermalStatus <= 1 ->
-                HostOperatingMode.HIGH_CAPACITY
-            else -> HostOperatingMode.BALANCED
-        }
-
-        val context = when (mode) {
-            HostOperatingMode.PROTECTIVE -> 512
-            HostOperatingMode.EFFICIENT -> 1024
-            HostOperatingMode.BALANCED -> 2048
-            HostOperatingMode.HIGH_CAPACITY -> 4096
+        // Reuse Friday's existing Nano Symbiotic Engine policy rather than
+        // creating a competing host scheduler. Unknown CPU load prevents the
+        // high-capacity profile from being selected.
+        val measuredCpu = host.cpuLoadPercent.takeIf { it in 0.0..100.0 }
+        val state = ai.friday.assistant.symbiosis.HostResourceState(
+            availableMemoryMb = host.availableMemoryMb,
+            cpuLoadPercent = measuredCpu ?: 0.0,
+            thermalLevel = host.thermalStatus,
+            batteryPercent = host.batteryPercent,
+            isCharging = host.charging && measuredCpu != null && measuredCpu <= 75.0,
+            availableStorageMb = host.availableStorageMb
+        )
+        val nanoPlan = ai.friday.assistant.symbiosis.NanoSymbioticPolicy().plan(state)
+        val mode = when (nanoPlan.mode) {
+            ai.friday.assistant.symbiosis.SymbioticMode.CRITICAL -> HostOperatingMode.PROTECTIVE
+            ai.friday.assistant.symbiosis.SymbioticMode.ECO -> HostOperatingMode.EFFICIENT
+            ai.friday.assistant.symbiosis.SymbioticMode.BALANCED -> HostOperatingMode.BALANCED
+            ai.friday.assistant.symbiosis.SymbioticMode.PERFORMANCE -> HostOperatingMode.HIGH_CAPACITY
         }
         val localModelAllowed = host.installedGgufCount > 0 &&
             host.nativeInferenceLibraryPresent &&
             host.availableMemoryMb >= 900L &&
-            host.thermalStatus < 4
+            host.thermalStatus < 2
         val modelBudget = when (mode) {
             HostOperatingMode.PROTECTIVE -> 0L
             HostOperatingMode.EFFICIENT -> 512L * 1024L * 1024L
             HostOperatingMode.BALANCED -> 2L * 1024L * 1024L * 1024L
             HostOperatingMode.HIGH_CAPACITY -> 4L * 1024L * 1024L * 1024L
         }
-
-        val reason = when (mode) {
-            HostOperatingMode.PROTECTIVE -> "Host pressure is high; preserve responsiveness and defer expensive work."
-            HostOperatingMode.EFFICIENT -> "Constrained host; use small contexts and serialize expensive work."
-            HostOperatingMode.BALANCED -> "Use balanced local workloads with one expensive task at a time."
-            HostOperatingMode.HIGH_CAPACITY -> "Measured headroom currently supports deeper local workloads."
-        }
         return HostConfiguration(
             mode = mode,
-            contextTokenBudget = context,
-            maxConcurrentExpensiveTasks = if (mode == HostOperatingMode.HIGH_CAPACITY) 2 else 1,
-            allowBackgroundIndexing = mode == HostOperatingMode.HIGH_CAPACITY &&
-                host.availableStorageMb >= 2048L && host.batteryPercent !in 0..19,
-            allowLocalModelLoad = localModelAllowed,
+            contextTokenBudget = nanoPlan.contextTokenBudget,
+            maxConcurrentExpensiveTasks = nanoPlan.maxConcurrentExpensiveTasks,
+            allowBackgroundIndexing = nanoPlan.allowBackgroundConsolidation,
+            allowLocalModelLoad = localModelAllowed && mode != HostOperatingMode.PROTECTIVE,
             recommendedModelMaxBytes = modelBudget,
-            reason = reason
+            reason = if (measuredCpu == null) {
+                nanoPlan.reason + " CPU load was unavailable, so high-capacity admission was withheld."
+            } else nanoPlan.reason
         )
     }
 }
