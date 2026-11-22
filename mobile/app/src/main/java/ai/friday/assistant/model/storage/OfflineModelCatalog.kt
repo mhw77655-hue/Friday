@@ -60,8 +60,11 @@ object OfflineModelCatalog {
         filename = "Qwen3.5-0.8B-abliterated-Q4_K_M.gguf",
         license = "Apache-2.0",
         description = "Smallest English reduced-refusal fallback for constrained phones. Approximately 517 MB; runtime memory is higher and reasoning capability is limited.",
-        expectedMinimumBytes = 450L * 1024L * 1024L,
-        resident = false
+        expectedMinimumBytes = 517L * 1024L * 1024L,
+        resident = false,
+        // SHA-256 corroborated by the matching Xet file pointer; downloader
+        // still verifies the complete downloaded bytes before promotion.
+        sha256 = "35a35d9f6baf63ef70b272b30ea920010ac2d585c439d7176f0f830dea58c9b3"
     )
 
     // Explicitly uncensored Qwen3.5 2B reasoning fallback with a pinned SHA-256.
