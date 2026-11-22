@@ -68,9 +68,13 @@ class MainActivity : ComponentActivity() {
         // object-graph construction + a lane thread start, no I/O).
         ai.friday.assistant.companioncore.presence.CompanionCoreHolder.init(applicationContext)
 
+        val setupPreferences = getSharedPreferences("friday_first_launch", MODE_PRIVATE)
+        val showSetup = !setupPreferences.getBoolean("completed", false)
         setContent {
             FridayTheme {
-                FridayNavHost()
+                FridayNavHost(showSetup = showSetup) {
+                    setupPreferences.edit().putBoolean("completed", true).apply()
+                }
             }
         }
     }
