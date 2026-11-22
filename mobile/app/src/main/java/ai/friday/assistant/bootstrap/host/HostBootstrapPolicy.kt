@@ -50,6 +50,7 @@ object HostBootstrapPolicy {
         val nanoPlan = ai.friday.assistant.symbiosis.NanoSymbioticPolicy().plan(state)
         val mode = when {
             host.availableStorageMb in 0L..255L -> HostOperatingMode.PROTECTIVE
+            nanoPlan.mode == ai.friday.assistant.symbiosis.SymbioticMode.PERFORMANCE && host.availableStorageMb < 4096L -> HostOperatingMode.BALANCED
             else -> when (nanoPlan.mode) {
             ai.friday.assistant.symbiosis.SymbioticMode.CRITICAL -> HostOperatingMode.PROTECTIVE
             ai.friday.assistant.symbiosis.SymbioticMode.ECO -> HostOperatingMode.EFFICIENT
