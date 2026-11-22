@@ -314,6 +314,79 @@ class ObjectiveExecutionLedgerStore(context: Context) {
         writeAtomically(ledgerFile, ledger.toString(2))
     }
 
+
+    @Synchronized
+    fun nextQueuedChildTask(): JSONObject? {
+        val tasks = snapshot()?.optJSONArray("tasks") ?: return null
+        for (index in 0 until tasks.length()) {
+            val task = tasks.optJSONObject(index) ?: continue
+            if (task.optString("task_type") == "BOUNDED_DEVELOPMENT_STEP" &&
+                task.optString("status") == "QUEUED" &&
+                task.optBoolean("reversible", false) &&
+                task.optString("risk") == "LOW" &&
+                !task.optBoolean("requires_owner_approval", true)
+            ) return JSONObject(task.toString())
+        }
+        return null
+    }
+
+    @Synchronized
+    fun recordCandidatePublished(taskId: String, candidate: JSONObject) {
+        val ledger = snapshot() ?: error("Execution ledger is not initialized.")
+        val tasks = ledger.optJSONArray("tasks") ?: error("Task ledger is missing.")
+        val task = (0 until tasks.length()).map { tasks.getJSONObject(it) }
+            .firstOrNull { it.optString("task_id") == taskId }
+            ?: error("Builder task no longer exists.")
+        require(task.optString("status") == "EXECUTING") {
+            "Builder task is no longer executing."
+        }
+        task.put("status", "CANDIDATE_PUBLISHED")
+            .put("candidate", candidate)
+            .put("checkpoint", JSONObject()
+                .put("stage", "PULL_REQUEST_OPENED_CI_PENDING")
+                .put("updated_at_epoch_ms", System.currentTimeMillis()))
+            .put("updated_at_epoch_ms", System.currentTimeMillis())
+        ledger.put("updated_at_epoch_ms", System.currentTimeMillis())
+            .put("execution_state", "CANDIDATE_PUBLISHED_AWAITING_INDEPENDENT_VERIFICATION")
+        writeAtomically(ledgerFile, ledger.toString(2))
+    }
+
+    @Synchronized
+    fun markChildTaskExecuting(taskId: String): Boolean {
+        val ledger = snapshot() ?: return false
+        val tasks = ledger.optJSONArray("tasks") ?: return false
+        val task = (0 until tasks.length()).map { tasks.getJSONObject(it) }
+            .firstOrNull { it.optString("task_id") == taskId } ?: return false
+        if (task.optString("status") != "QUEUED") return false
+        task.put("status", "EXECUTING")
+            .put("checkpoint", JSONObject()
+                .put("stage", "LOCAL_CANDIDATE_GENERATION")
+                .put("updated_at_epoch_ms", System.currentTimeMillis()))
+            .put("updated_at_epoch_ms", System.currentTimeMillis())
+        ledger.put("updated_at_epoch_ms", System.currentTimeMillis())
+        writeAtomically(ledgerFile, ledger.toString(2))
+        return true
+    }
+
+    @Synchronized
+    fun recordChildTaskFailure(taskId: String, reason: String) {
+        val ledger = snapshot() ?: return
+        val tasks = ledger.optJSONArray("tasks") ?: return
+        val task = (0 until tasks.length()).map { tasks.getJSONObject(it) }
+            .firstOrNull { it.optString("task_id") == taskId } ?: return
+        if (task.optString("status") == "EXECUTING") {
+            task.put("status", "QUEUED")
+                .put("last_builder_error", reason.take(400))
+                .put("builder_attempts", task.optInt("builder_attempts", 0) + 1)
+                .put("checkpoint", JSONObject()
+                    .put("stage", "RETRYABLE_FAILURE")
+                    .put("updated_at_epoch_ms", System.currentTimeMillis()))
+                .put("updated_at_epoch_ms", System.currentTimeMillis())
+            ledger.put("updated_at_epoch_ms", System.currentTimeMillis())
+            writeAtomically(ledgerFile, ledger.toString(2))
+        }
+    }
+
     @Synchronized
     fun recordDecompositionFailure(parentTaskId: String, reason: String) {
         val ledger = snapshot() ?: return
