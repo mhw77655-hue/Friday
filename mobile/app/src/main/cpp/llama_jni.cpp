@@ -19,7 +19,7 @@
 // ------------------------------------------------------------------
 // JNI Helper macros
 // ------------------------------------------------------------------
-#define JNI_CLASS(name) Java_ai_friday_assistant_model_adapters_LocalInferenceEngine_##name
+#define JNI_CLASS(name) Java_ai_friday_assistant_model_adapters_LocalInferenceEngine_00024Companion_##name
 
 // ------------------------------------------------------------------
 // Native handle management
