@@ -22,6 +22,7 @@ A Binder connection without the expected execution identity is not a usable priv
 - `diagnosticsSnapshot`: return bounded system, storage, battery and build diagnostics.
 - `captureScreenSummary`: capture the foreground UI hierarchy and extract visible text.
 - `setDozeWhitelist`: add or remove only Friday's own package from Device Idle whitelist and verify by reading the whitelist back.
+- `isDozeWhitelisted`: read-only, verified query of Friday's current Device Idle whitelist state so acceptance tests can restore the owner's original choice.
 - `launchApp`: launch an installed package through Android's launcher intent and verify that the package owns the resumed/top-resumed activity.
 
 The app-launch operation accepts a package name, not a command. Package names are validated before use. The service uses an argument-vector ProcessBuilder with fixed executable and argument structure; it does not expose arbitrary shell, scripts, paths or command strings.
