@@ -55,8 +55,8 @@ object OfflineModelCatalog {
     val tinyFallback = OfflineModelAsset(
         id = "qwen3.5-0.8b-abliterated",
         displayName = "Qwen3.5 0.8B Abliterated · Q4_K_M",
-        repository = "xdchinza/Qwen3.5-0.8B-abliterated-GGUF",
-        revision = "6cef073",
+        repository = "OpceanAI/Qwen3.5-0.8B-abliterated-GGUF",
+        revision = "8146c57",
         filename = "Qwen3.5-0.8B-abliterated-Q4_K_M.gguf",
         license = "Apache-2.0",
         description = "Smallest English reduced-refusal fallback for constrained phones. Approximately 517 MB; runtime memory is higher and reasoning capability is limited.",
