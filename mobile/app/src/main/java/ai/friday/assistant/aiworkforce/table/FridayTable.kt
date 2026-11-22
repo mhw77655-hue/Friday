@@ -179,7 +179,7 @@ class FridayTableLog(context: Context) {
         val safe = JSONObject(event.toString())
             .put("sequence", nextSequence())
             .put("recorded_at_epoch_ms", System.currentTimeMillis())
-        file.appendText(safe.toString() + "\\n", Charsets.UTF_8)
+        file.appendText(safe.toString() + "\n", Charsets.UTF_8)
     }
 
     @Synchronized
