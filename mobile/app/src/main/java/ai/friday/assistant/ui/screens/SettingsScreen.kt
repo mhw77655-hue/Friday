@@ -640,6 +640,13 @@ fun SettingsScreen() {
                             githubToken = ""
                             githubReportStatus = "Credential encrypted locally. Verify repository access before uploading."
                         }
+                        runCatching { githubCredentialStore.save(githubToken) }
+                        .onSuccess {
+                            githubConfigured = true
+                            githubToken = ""
+                            githubReportStatus = "Credential encrypted locally. Verify repository access before uploading."
+                            ai.friday.assistant.bootstrap.plan.ObjectiveExecutionWorker.enqueue(context)
+                        }
                         .onFailure {
                             githubReportStatus = it.message ?: "Credential could not be stored securely."
                         }
