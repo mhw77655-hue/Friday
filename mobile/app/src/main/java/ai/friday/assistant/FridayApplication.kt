@@ -33,6 +33,9 @@ class FridayApplication : Application() {
         // Secondary capability habitats construct only their own organs.
         if (currentProcessName() != packageName) return
         FridayEngine.init(this)
+        // If Android completed an APK replacement, verify the newly installed
+        // package before the app reports the update as healthy.
+        ai.friday.assistant.update.FridayUpdateStateStore(this).verifyPendingHealthCheck()
         scheduleFridayUpdates()
         // Process-scoped background/foreground for the Companion Core (plan
         // §4.3, audit R-A3). ProcessLifecycleOwner fires ON_STOP only when the
