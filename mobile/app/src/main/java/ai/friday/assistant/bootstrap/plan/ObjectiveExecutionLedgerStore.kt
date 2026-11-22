@@ -26,6 +26,9 @@ class ObjectiveExecutionLedgerStore(context: Context) {
         val previous = if (ledgerFile.isFile) runCatching {
             JSONObject(ledgerFile.readText(Charsets.UTF_8))
         }.getOrNull() else null
+        val planMetadata = runCatching {
+            JSONObject(File(directory, "objective-ledger.json").readText(Charsets.UTF_8))
+        }.getOrNull()
         val oldPhases = previous?.optJSONArray("phases") ?: JSONArray()
         val oldById = (0 until oldPhases.length()).associate { index ->
             val phase = oldPhases.getJSONObject(index)
@@ -56,7 +59,8 @@ class ObjectiveExecutionLedgerStore(context: Context) {
         val ledger = JSONObject()
             .put("schema_version", 1)
             .put("plan_sha256", planHash)
-            .put("source_revision", previous?.optString("source_revision") ?: "unknown")
+            .put("source_revision", planMetadata?.optString("source_revision_at_install")
+                ?: previous?.optString("source_revision") ?: "unknown")
             .put("created_at_epoch_ms", previous?.optLong("created_at_epoch_ms") ?: System.currentTimeMillis())
             .put("updated_at_epoch_ms", System.currentTimeMillis())
             .put("phase_count", phases.size)
@@ -75,27 +79,49 @@ class ObjectiveExecutionLedgerStore(context: Context) {
         } else reconcile()
         val phases = ledger.getJSONArray("phases")
         val tasks = ledger.optJSONArray("tasks") ?: JSONArray()
-        val existing = (0 until tasks.length()).map { tasks.getJSONObject(it) }
-            .filter { it.optString("status") !in TERMINAL_TASK_STATES }
-            .map { it.optString("phase_id") }.toSet()
+        val activeTaskHashes = mutableSetOf<String>()
+        for (index in 0 until tasks.length()) {
+            val existingTask = tasks.getJSONObject(index)
+            if (existingTask.optString("status") in TERMINAL_TASK_STATES) continue
+            val phaseId = existingTask.optInt("phase_id", -1)
+            val currentPhase = (0 until phases.length()).map { phases.getJSONObject(it) }
+                .firstOrNull { it.optInt("id", -2) == phaseId }
+            val currentHash = currentPhase?.optString("content_sha256").orEmpty()
+            if (currentHash.isNotBlank() &&
+                existingTask.optString("phase_content_sha256") != currentHash
+            ) {
+                existingTask.put("status", "STALE_PLAN_CHANGED")
+                    .put("updated_at_epoch_ms", System.currentTimeMillis())
+            } else if (currentHash.isNotBlank()) {
+                activeTaskHashes += "$phaseId:$currentHash"
+            }
+        }
         for (index in 0 until phases.length()) {
             val phase = phases.getJSONObject(index)
             val phaseId = phase.getInt("id")
-            if (phase.optString("status") == "ACCEPTED" || phaseId.toString() in existing) continue
+            val phaseHash = phase.getString("content_sha256")
+            if (phase.optString("status") == "ACCEPTED" ||
+                "$phaseId:$phaseHash" in activeTaskHashes
+            ) continue
             tasks.put(JSONObject()
-                .put("task_id", "objective-a-phase-$phaseId-assess")
+                .put("task_id", "objective-a-phase-$phaseId-assess-${phaseHash.take(8)}")
                 .put("objective_id", "A")
                 .put("phase_id", phaseId)
+                .put("phase_content_sha256", phaseHash)
+                .put("plan_sha256", ledger.getString("plan_sha256"))
                 .put("task_type", "PHASE_EVIDENCE_ASSESSMENT")
                 .put("goal", "Assess Phase $phaseId against its canonical exit evidence and current repository/device proof.")
                 .put("acceptance_criteria", phase.getString("exit_evidence"))
+                .put("scope_markdown", phase.getString("scope_markdown"))
                 .put("status", "QUEUED")
                 .put("executor", "NOT_ASSIGNED")
                 .put("requires_repository_access", true)
                 .put("dependencies", JSONArray())
+                .put("dependency_state", "NOT_EXTRACTED_FROM_CANONICAL_PLAN")
                 .put("checkpoint", JSONObject().put("stage", "NOT_STARTED"))
                 .put("created_at_epoch_ms", System.currentTimeMillis())
                 .put("updated_at_epoch_ms", System.currentTimeMillis()))
+            activeTaskHashes += "$phaseId:$phaseHash"
         }
         ledger.put("tasks", tasks)
             .put("updated_at_epoch_ms", System.currentTimeMillis())
@@ -124,6 +150,6 @@ class ObjectiveExecutionLedgerStore(context: Context) {
         .joinToString("") { "%02x".format(it) }
 
     companion object {
-        private val TERMINAL_TASK_STATES = setOf("ACCEPTED", "REJECTED", "CANCELLED")
+        private val TERMINAL_TASK_STATES = setOf("ACCEPTED", "REJECTED", "CANCELLED", "STALE_PLAN_CHANGED")
     }
 }
