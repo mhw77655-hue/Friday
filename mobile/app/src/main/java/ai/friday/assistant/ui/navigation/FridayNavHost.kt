@@ -55,6 +55,7 @@ import ai.friday.assistant.ui.theme.FridayColors
 import ai.friday.assistant.ui.theme.FridayType
 
 private const val ROUTE_HOME = "home"
+private const val ROUTE_FIRST_LAUNCH_SETUP = "first_launch_setup"
 private const val ROUTE_CONVERSATION = "conversation"
 private const val ROUTE_MISSIONS = "missions"
 private const val ROUTE_MEMORY = "memory"
@@ -93,7 +94,7 @@ private val tabExit = fadeOut(tween(150))
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FridayNavHost() {
+fun FridayNavHost(showSetup: Boolean = false, onSetupComplete: () -> Unit = {}) {
     val navController = rememberNavController()
     var moreSheetOpen by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
@@ -145,13 +146,16 @@ fun FridayNavHost() {
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = ROUTE_HOME,
+            startDestination = if (showSetup) ROUTE_FIRST_LAUNCH_SETUP else ROUTE_HOME,
             modifier = Modifier.padding(padding),
             enterTransition = { tabEnter },
             exitTransition = { tabExit },
             popEnterTransition = { tabEnter },
             popExitTransition = { tabExit }
         ) {
+            composable(ROUTE_FIRST_LAUNCH_SETUP) {
+                ai.friday.assistant.ui.screens.FirstLaunchSetupScreen(onComplete = onSetupComplete)
+            }
             composable(ROUTE_HOME) {
                 HomeScreen(onOpenTools = { navigateToTab(ROUTE_TOOLS) })
             }
