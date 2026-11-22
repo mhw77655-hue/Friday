@@ -17,12 +17,12 @@ class GitHubPendingReportStore(context: Context) {
         require(reportJson.toByteArray(Charsets.UTF_8).size <= MAX_REPORT_BYTES) {
             "Pending device report exceeds the upload size limit."
         }
-        prefs.edit().putString(KEY_PENDING_REPORT, reportJson).apply()
+        check(prefs.edit().putString(KEY_PENDING_REPORT, reportJson).commit()) { "Pending report could not be persisted." }
     }
 
     @Synchronized
     fun clear() {
-        prefs.edit().remove(KEY_PENDING_REPORT).apply()
+        check(prefs.edit().remove(KEY_PENDING_REPORT).commit()) { "Pending report could not be cleared." }
     }
 
     companion object {
