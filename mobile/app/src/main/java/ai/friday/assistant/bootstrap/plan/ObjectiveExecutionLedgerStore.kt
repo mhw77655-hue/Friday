@@ -26,7 +26,11 @@ class ObjectiveExecutionLedgerStore(context: Context) {
         val planHash = sha256(markdown)
         val previous = if (ledgerFile.isFile) runCatching {
             JSONObject(ledgerFile.readText(Charsets.UTF_8))
-        }.getOrNull() else null
+        }.getOrElse {
+            // Never replace a damaged execution ledger with a clean-looking one:
+            // the old task history/checkpoints may be the only recovery evidence.
+            throw java.io.IOException("Execution ledger is damaged; preserving it for recovery.", it)
+        } else null
         val planMetadataFile = File(directory, "objective-ledger.json")
         if (!planMetadataFile.isFile) throw java.io.IOException("Plan metadata is not committed yet.")
         val planMetadata = runCatching {
