@@ -154,3 +154,19 @@ The active plan now defines the complete operating contract in [FRIDAY_DELIVERY_
 **Objective 1 foundation requirement:** the seed must preserve identity and plan continuity; provide durable, resumable task/evidence state; expose a protected path for future AI-worker coordination and independent verification; operate safely within Android background/resource limits; and support owner inspection, pause, redirection and protected approvals. Objective 1 does not claim to deliver the full autonomous Builder or mature multi-provider AI-pool orchestration; those capabilities continue through their owning objectives, especially F and G.
 
 **Not yet proven in the installed app:** durable autonomous objectives execution after process death/reboot, authenticated AI-pool dispatch and result ingestion, independent reviewer workflow, offline queue/resume, and owner-facing inspection/control of the development workspace. These remain implementation and acceptance work, not completed features. The app must never claim to continue 24/7 without Android scheduling guarantees; it should persist work and resume under permitted OS conditions.
+
+
+## Objective 1 Builder implementation candidate — mainline reconstruction
+
+The implementation candidate was reconstructed on top of current `main` commit `dfe2177d91e1457a6b90a251331c37f2b6ffe8ce`, rather than carrying forward the diverged 135-commit branch history. The latest Objective 1 requirements from main were preserved, and the 30 implementation/test paths from the previous Builder branch were transplanted as a single clean commit.
+
+### Source corrections and host adaptation
+
+- Corrected the malformed Kotlin newline and Android Context/String shadowing in `ObjectiveBuilderCandidateExecutor.kt`.
+- Renamed the executor's Android context property to `androidContext` to prevent recurrence.
+- Added SHA-256 pinning for the 0.8B resident fallback and a testable selector that chooses the strongest pinned resident asset within the measured host model budget. Runtime admission still gates the actual model download.
+- The intermediate 1.2B fallback remains unavailable for automatic download until its file digest is pinned.
+
+### Verification status
+
+This is a clean candidate branch, not a completed acceptance. A fresh Android build, unit tests, whole-source audit and emulator instrumentation must run against the new branch head. Physical handset host adaptation, actual model load, first autonomous Builder cycle, process-death/reboot recovery and permanent-signing update continuity also remain to be demonstrated. Do not install or describe this candidate as verified until those checks pass.
