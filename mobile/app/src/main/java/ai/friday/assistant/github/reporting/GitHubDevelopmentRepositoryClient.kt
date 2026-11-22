@@ -242,7 +242,7 @@ class GitHubDevelopmentRepositoryClient(
                 path.startsWith("mobile/app/src/main/assets/friday/") ||
                 path.startsWith("docs/") || path.startsWith(".ralph/")
             ) { "This publisher only accepts bounded app source, test, asset and documentation paths." }
-            require(!path.contains("keystore", ignoreCase = true) &&
+            !path.contains('\\')
                 !path.contains("secret", ignoreCase = true) &&
                 !path.endsWith(".jks", ignoreCase = true) &&
                 !path.endsWith(".p12", ignoreCase = true) &&
