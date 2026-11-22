@@ -63,6 +63,17 @@ At runtime:
 - Do not bypass Android's permission model, force-stop semantics, foreground-service rules or OEM power policies.
 - If Shizuku is unavailable, Friday continues through ordinary Android APIs and reports the missing capability honestly.
 
+## Physical-device acceptance runner
+
+Friday Settings now exposes a one-tap Shizuku acceptance sequence. It:
+1. waits for a verified shell/root UserService identity;
+2. requests a bounded diagnostics snapshot and checks that its UID matches the identity probe;
+3. reads the existing Friday Doze-whitelist state;
+4. tests add and remove with read-back verification, then restores the original state even if an intermediate check fails;
+5. launches Android Settings and verifies the resumed activity.
+
+Each result is recorded as a privacy-filtered action event so the owner can upload it through the GitHub device-report channel. The runner does not execute arbitrary shell commands and does not change the owner's final Doze setting.
+
 ## Current limitations
 
 The Shizuku backend is not yet a universal device controller. The production router currently has MediaSession and Shizuku backends; the Shizuku backend supports screen capture and app launch. Diagnostics and Doze-whitelist changes are invoked through the Settings surface. Other action types still require explicit typed operations and verification contracts.
