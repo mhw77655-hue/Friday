@@ -488,3 +488,19 @@ Progressive responses must not confuse acknowledgement with correctness: Friday 
 
 This is cross-objective work and does not add a model-size gate to Objective 1. Full technical design and acceptance criteria: [Friday Adaptive Model Execution Fabric](../docs/FRIDAY_ADAPTIVE_MODEL_EXECUTION_FABRIC.md), sections 10–12.
 
+ 
+### Objective 1 compatibility gate for the future intelligence architecture
+
+Objective 1 must verify that the current Android foundation can safely evolve toward the response-time/continuity-first architecture; it must not falsely claim that future model streaming, multi-model scheduling or autonomous optimization already exists. The tested APK must preserve the extension seams and protected invariants needed to add those capabilities in later objectives.
+
+Required checks:
+- The resource admission path must use current measured device headroom as a hard upper bound beneath configured policy; stale/static RAM assumptions must not authorize work that current device memory cannot support.
+- Both admission APIs must agree on memory, CPU, concurrency, battery and thermal constraints. Latency-sensitive work must be rejected when critical thermal state makes its deadline unsafe.
+- Model providers remain behind the existing backend/provider boundary; model replacement must not own or reset Friday identity, conversation state, authorization, task records or action evidence.
+- Model loading/unloading and specialist activation must remain bounded and cancellable; an unavailable or unqualified model must degrade to a known-good route rather than block app startup or claim a capability exists.
+- Durable task/memory state must remain outside ephemeral model/KV/runtime caches. Model/cache eviction is not allowed to erase the source of continuity.
+- Resource pressure, process recreation, provider failure and cancellation must preserve the protected immediate interaction/control path and must not duplicate side effects.
+- CI must exercise these contracts with fake providers/resource states and adversarial boundary cases. Test reports must be tied to the exact APK source commit.
+
+The compatibility gate proves **architectural evolvability and safe fallback seams**, not production MoE expert streaming, arbitrary model compatibility, automatic model downloads, the Continuity Capsule as a complete feature, voice fluency, or target-phone performance. Those require their own implementation and physical-device evidence in later objectives. The future execution architecture and its full acceptance matrix are specified in [FRIDAY_ADAPTIVE_MODEL_EXECUTION_FABRIC.md](../docs/FRIDAY_ADAPTIVE_MODEL_EXECUTION_FABRIC.md).
+
