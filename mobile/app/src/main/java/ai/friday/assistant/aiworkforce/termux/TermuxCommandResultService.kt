@@ -1,5 +1,6 @@
 package ai.friday.assistant.aiworkforce.termux
 
+import android.app.Activity
 import android.app.IntentService
 import android.content.Intent
 
@@ -21,7 +22,7 @@ internal class TermuxCommandResultService : IntentService("FridayTermuxCommandRe
                 stdout = result.getString(TermuxCommandRunner.RESULT_STDOUT).orEmpty(),
                 stderr = result.getString(TermuxCommandRunner.RESULT_STDERR).orEmpty(),
                 exitCode = result.getInt(TermuxCommandRunner.RESULT_EXIT_CODE, -1),
-                errorCode = result.getInt(TermuxCommandRunner.RESULT_ERROR_CODE, -1),
+                errorCode = result.getInt(TermuxCommandRunner.RESULT_ERROR_CODE, Activity.RESULT_OK),
                 errorMessage = result.getString(TermuxCommandRunner.RESULT_ERROR_MESSAGE).orEmpty()
             )
         )
