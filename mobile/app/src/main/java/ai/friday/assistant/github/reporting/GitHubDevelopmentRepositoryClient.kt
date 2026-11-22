@@ -9,6 +9,7 @@ import org.json.JSONObject
 import java.io.IOException
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
+import java.util.Base64
 import java.util.concurrent.TimeUnit
 
 /**
@@ -57,6 +58,9 @@ class GitHubDevelopmentRepositoryClient(
         require(taskId.matches(Regex("[A-Za-z0-9._-]{3,80}"))) { "Task id is malformed." }
         require(title.isNotBlank() && title.length <= 180) { "Candidate title is invalid." }
         require(body.isNotBlank() && body.length <= 20_000) { "Candidate evidence body is invalid." }
+        require(!SECRET_PATTERN.containsMatchIn(title + "\\n" + body)) {
+            "Candidate metadata was blocked because it resembles a credential."
+        }
         validateChanges(changes)
 
         val baseCommit = getRef(baseBranch)
@@ -99,7 +103,7 @@ class GitHubDevelopmentRepositoryClient(
         }
         val encoded = json.optString("content").replace("\\n", "")
         val bytes = runCatching {
-            android.util.Base64.decode(encoded, android.util.Base64.DEFAULT)
+            Base64.getDecoder().decode(encoded.replace("\\n", "").replace("\\r", ""))
         }.getOrElse { throw IOException("GitHub returned an unreadable source file.") }
         return String(bytes, StandardCharsets.UTF_8)
     }
@@ -155,7 +159,7 @@ class GitHubDevelopmentRepositoryClient(
         base: String
     ): Pair<String, Int> {
         val payload = JSONObject().put("title", title).put("body", body)
-            .put("head", head).put("base", base)
+            .put("head", REPOSITORY_OWNER + ":" + head).put("base", base)
         val response = request(apiRoot + "/pulls", "POST", payload.toString())
         response.use { result ->
             val text = result.body?.string().orEmpty()
@@ -232,12 +236,22 @@ class GitHubDevelopmentRepositoryClient(
         var totalBytes = 0
         changes.forEach { (path, source) ->
             validatePath(path)
-            require(!path.startsWith(".github/workflows/") &&
-                !path.startsWith("gradle/wrapper/") &&
-                !path.contains("keystore", ignoreCase = true) &&
-                !path.contains("secret", ignoreCase = true)
-            ) { "This publisher cannot change workflow authority, signing or secret files." }
+            require(path.startsWith("mobile/app/src/main/java/") ||
+                path.startsWith("mobile/app/src/test/java/") ||
+                path.startsWith("mobile/app/src/androidTest/java/") ||
+                path.startsWith("mobile/app/src/main/assets/friday/") ||
+                path.startsWith("docs/") || path.startsWith(".ralph/")
+            ) { "This publisher only accepts bounded app source, test, asset and documentation paths." }
+            require(!path.contains("keystore", ignoreCase = true) &&
+                !path.contains("secret", ignoreCase = true) &&
+                !path.endsWith(".jks", ignoreCase = true) &&
+                !path.endsWith(".p12", ignoreCase = true) &&
+                !path.endsWith(".pem", ignoreCase = true)
+            ) { "This publisher cannot change signing or secret files." }
             require(source.length <= MAX_FILE_CHARS) { "Candidate file is too large: " + path }
+            require(!SECRET_PATTERN.containsMatchIn(source)) {
+                "Candidate source was blocked because it resembles a credential."
+            }
             totalBytes += source.toByteArray(StandardCharsets.UTF_8).size
         }
         require(totalBytes <= MAX_TOTAL_BYTES) { "Candidate exceeds the total patch size limit." }
@@ -277,6 +291,9 @@ class GitHubDevelopmentRepositoryClient(
         private const val MAX_FILES = 12
         private const val MAX_FILE_CHARS = 160_000
         private const val MAX_TOTAL_BYTES = 512 * 1024
+        private val SECRET_PATTERN = Regex(
+            "(?i)(github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{30,}|bearer\\\\s+[A-Za-z0-9._-]{20,})"
+        )
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
     }
 }
