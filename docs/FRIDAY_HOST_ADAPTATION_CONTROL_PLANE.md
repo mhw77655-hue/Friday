@@ -45,3 +45,18 @@ Not yet implemented or proven:
 - Physical-phone report upload and end-to-end adaptation acceptance.
 
 The current envelope is a payload builder only. It does not upload data or apply cloud changes. Do not claim Friday has completed cloud self-reconfiguration until all missing steps are implemented and tested on the target phone.
+
+
+## Post-install objectives execution and AI-pool coordination
+
+Friday's host control plane is also the operational home for her continuing development loop. After installation, she must be able to resume the canonical objectives plan, maintain a durable task/evidence ledger, and coordinate external AI workers as replaceable capabilities. This does not make the cloud or any worker her identity; Friday owns continuity, prioritization, authorization, integration and verification.
+
+The execution loop is: read current plan and evidence → identify a safe high-value next task → check dependencies, host/network/resource budget and authorization → delegate bounded work packets to suitable workers → independently challenge and verify results → integrate into an isolated candidate → run tests/security checks → record evidence and residual risks → request owner approval where required → promote through the signed update channel → verify health and retain rollback state.
+
+The worker pool is dynamic, not a fixed hierarchy. Friday can use one or more external models/coding agents, local models, deterministic tools or no AI worker depending on measured task fit, privacy, licence, latency, cost and availability. Independent reviewers must not simply repeat implementer reasoning. Worker output is untrusted candidate material until verified.
+
+Persist the objective-plan revision, task graph, assignments, checkpoints, idempotency keys, worker/model provenance, costs, diffs, tests, decisions, approvals and evidence locally. Process death, reboot, offline periods, provider changes and worker failures must not erase state. Resume safely and avoid duplicate side effects. Use Android-supported persistent scheduling for deferrable work and visible foreground execution only where justified; obey OS scheduling, battery, thermal, quota and network constraints. Do not promise uninterrupted background execution or evade platform restrictions.
+
+The owner remains the architect and active collaborator. Friday must expose plan status, worker participation, source changes, evidence, costs and blockers; allow the owner to inspect, challenge, redirect, pause or stop work and to use GitHub or other tools directly. Explicit authorization remains mandatory for protected operations, including permission/privilege changes, new external data disclosures, paid commitments, destructive changes, signing/identity changes and irreversible actions. Never expose credentials to workers or chat. Never use public GitHub Issues as a private device telemetry endpoint.
+
+**Implementation status:** this section records the required post-install operating contract. The current host-profile payload builder does not itself implement a durable autonomous objectives scheduler, authenticated AI-pool orchestration, independent review workflow, or signed proposal/promotion loop. Those must be implemented and verified before the installed app may claim this capability.
