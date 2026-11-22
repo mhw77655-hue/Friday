@@ -242,7 +242,7 @@ class GitHubDevelopmentRepositoryClient(
                 path.startsWith("mobile/app/src/main/assets/friday/") ||
                 path.startsWith("docs/") || path.startsWith(".ralph/")
             ) { "This publisher only accepts bounded app source, test, asset and documentation paths." }
-            !path.contains('\\')
+            require(!path.contains('\\') &&
                 !path.contains("secret", ignoreCase = true) &&
                 !path.endsWith(".jks", ignoreCase = true) &&
                 !path.endsWith(".p12", ignoreCase = true) &&
@@ -260,7 +260,7 @@ class GitHubDevelopmentRepositoryClient(
     private fun validatePath(path: String) {
         require(path.isNotBlank() && !path.startsWith("/") &&
             path.split('/').none { it.isBlank() || it == "." || it == ".." } &&
-            !path.contains('\\\\')
+            !path.contains('\\')
         ) { "Candidate contains an unsafe repository path." }
     }
 
