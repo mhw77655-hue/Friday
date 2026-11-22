@@ -149,7 +149,6 @@ class HostBootstrapWorker(
         val nativeLibraries = nativeDir.listFiles()?.map { it.name }.orEmpty()
         val hasInferenceLibrary = nativeLibraries.any {
             it.contains("llama", ignoreCase = true) ||
-                it.contains("friday", ignoreCase = true) ||
                 it.contains("ggml", ignoreCase = true)
         }
         val abi = Build.SUPPORTED_ABIS.firstOrNull().orEmpty()
@@ -250,7 +249,8 @@ class HostBootstrapWorker(
             val line = File("/proc/stat").useLines { lines -> lines.firstOrNull() } ?: return null
             val values = line.trim().split(Regex("\\s+")).drop(1).mapNotNull { it.toLongOrNull() }
             if (values.size < 4) return null
-            val total = values.sum()
+            // guest/guest_nice are already included in user/nice on Linux.
+            val total = values.take(8).sum()
             val idle = values[3] + (values.getOrNull(4) ?: 0L)
             return total to idle
         }
