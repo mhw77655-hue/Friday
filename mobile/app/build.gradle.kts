@@ -19,7 +19,8 @@ if (localPropertiesFile.exists()) {
 
 val fridayVersionCode = providers.gradleProperty("fridayVersionCode").orNull?.toIntOrNull() ?: 1
 val fridayVersionName = providers.gradleProperty("fridayVersionName").orNull ?: "1.0.0-seed"
-val fridaySourceRevision = System.getenv("GITHUB_SHA")?.takeIf { it.matches(Regex("[0-9a-fA-F]{40}")) }
+val fridaySourceRevision = System.getenv("FRIDAY_SOURCE_REVISION")?.takeIf { it.matches(Regex("[0-9a-fA-F]{40}")) }
+    ?: System.getenv("GITHUB_SHA")?.takeIf { it.matches(Regex("[0-9a-fA-F]{40}")) }
     ?: providers.gradleProperty("sourceRevision").orNull ?: "unknown"
 
 val fridayReleaseKeystorePath = System.getenv("FRIDAY_RELEASE_KEYSTORE_PATH")
