@@ -504,3 +504,8 @@ Required checks:
 
 The compatibility gate proves **architectural evolvability and safe fallback seams**, not production MoE expert streaming, arbitrary model compatibility, automatic model downloads, the Continuity Capsule as a complete feature, voice fluency, or target-phone performance. Those require their own implementation and physical-device evidence in later objectives. The future execution architecture and its full acceptance matrix are specified in [FRIDAY_ADAPTIVE_MODEL_EXECUTION_FABRIC.md](../docs/FRIDAY_ADAPTIVE_MODEL_EXECUTION_FABRIC.md).
 
+
+
+## Cross-objective visual identity and accessibility contract
+
+The installed Friday app uses one coherent visual identity: the neural-orbit launcher mark, a shared semantic color system and bundled Inter/JetBrains Mono typography. Root Compose MaterialTheme and Visual Foundation tokens must not drift into different state meanings. Blue is idle/nominal, teal is listening, amber is thinking, violet is sleep, green is reserved for verified success, and red communicates warning/critical states. Primary and secondary text use the documented near-white/steel pair; accent-filled controls must choose a legible dark foreground rather than assuming white text is safe. Typography uses Inter for display/UI and JetBrains Mono only for real technical data. Every screen must preserve text contrast, visible focus/disabled states and non-color status cues. The Objective 1 release build must compile the adaptive and legacy launcher icon resources and theme; physical-device visual review remains part of installation acceptance. See [FRIDAY_VISUAL_IDENTITY_REFRESH.md](../docs/FRIDAY_VISUAL_IDENTITY_REFRESH.md).
