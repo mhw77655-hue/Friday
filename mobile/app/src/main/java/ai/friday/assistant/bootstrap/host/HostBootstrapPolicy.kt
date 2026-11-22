@@ -59,16 +59,26 @@ object HostBootstrapPolicy {
             ai.friday.assistant.symbiosis.SymbioticMode.PERFORMANCE -> HostOperatingMode.HIGH_CAPACITY
             }
         }
-        val localModelAllowed = host.installedGgufCount > 0 &&
-            host.nativeInferenceLibraryPresent &&
-            host.availableMemoryMb >= 900L &&
-            host.thermalStatus in 0..1
-        val modelBudget = when (mode) {
+        val modeBudgetBytes = when (mode) {
             HostOperatingMode.PROTECTIVE -> 0L
             HostOperatingMode.EFFICIENT -> 512L * 1024L * 1024L
             HostOperatingMode.BALANCED -> 2L * 1024L * 1024L * 1024L
             HostOperatingMode.HIGH_CAPACITY -> 4L * 1024L * 1024L * 1024L
         }
+        // Estimate a conservative maximum weight size after preserving Android,
+        // runtime, context and activation headroom. Actual loads must still pass
+        // NanoSymbioticPolicy.admitModel with the exact model file size.
+        val reserveMb = maxOf(900L, nanoPlan.memoryReserveMb)
+        val contextOverheadMb = kotlin.math.ceil(nanoPlan.contextTokenBudget * 0.06).toLong() + 256L
+        val usableWeightMb = (host.availableMemoryMb - reserveMb - contextOverheadMb).coerceAtLeast(0L)
+        val memoryBoundBytes = (usableWeightMb.toDouble() / 1.12 * 1024.0 * 1024.0).toLong()
+        val modelBudget = minOf(modeBudgetBytes, memoryBoundBytes)
+        val localModelAllowed = host.installedGgufCount > 0 &&
+            host.nativeInferenceLibraryPresent &&
+            modelBudget >= 128L * 1024L * 1024L &&
+            host.thermalStatus in 0..1 &&
+            !host.powerSave &&
+            mode != HostOperatingMode.PROTECTIVE
         return HostConfiguration(
             mode = mode,
             contextTokenBudget = if (mode == HostOperatingMode.PROTECTIVE) 512 else nanoPlan.contextTokenBudget,
