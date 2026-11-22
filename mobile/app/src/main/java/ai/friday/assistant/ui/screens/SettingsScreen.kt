@@ -101,6 +101,8 @@ fun SettingsScreen() {
     val shizukuGranted by ai.friday.assistant.ShizukuBridge.isGranted.collectAsState()
     val shizukuStatus by ai.friday.assistant.ScreenBridge.status.collectAsState()
     var shizukuSnapshot by remember { mutableStateOf("") }
+    var shizukuAcceptanceReport by remember { mutableStateOf("") }
+    var shizukuAcceptanceRunning by remember { mutableStateOf(false) }
 
     // Bumped on ON_RESUME so runtime status and local diagnostic counts
     // refresh when the owner returns to Settings from Android system panels.
@@ -466,6 +468,27 @@ fun SettingsScreen() {
         ) { Text("Read live device diagnostics") }
         if (shizukuSnapshot.isNotBlank()) {
             Text(text = shizukuSnapshot, style = FridayType.Technical, modifier = Modifier.padding(top = 6.dp))
+        }
+        Button(
+            onClick = {
+                shizukuAcceptanceRunning = true
+                shizukuAcceptanceReport = "Running remote identity, diagnostics, Doze add/remove/restore and harmless app-launch checks. Android Settings may open during the final check."
+                scope.launch {
+                    val result = runCatching {
+                        ai.friday.assistant.android.ShizukuDeviceAcceptanceRunner().run(context)
+                    }
+                    shizukuAcceptanceReport = result.fold(
+                        onSuccess = { it },
+                        onFailure = { "Device acceptance failed: " + (it.message ?: it.javaClass.simpleName) }
+                    )
+                    shizukuAcceptanceRunning = false
+                }
+            },
+            enabled = shizukuGranted && !shizukuAcceptanceRunning,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(if (shizukuAcceptanceRunning) "Running device acceptance…" else "Run Shizuku device acceptance") }
+        if (shizukuAcceptanceReport.isNotBlank()) {
+            Text(text = shizukuAcceptanceReport, style = FridayType.Technical, modifier = Modifier.padding(vertical = 6.dp))
         }
 
         SectionLabel("LIVE TEST ACTION JOURNAL")
