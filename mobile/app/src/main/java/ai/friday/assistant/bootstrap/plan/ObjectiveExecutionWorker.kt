@@ -42,6 +42,7 @@ class ObjectiveExecutionWorker(
                 ?: return@withContext Result.success()
             try {
                 val activeProfile = FridayEngine.environmentManager?.activeEnvironment?.value
+                    ?: return@withContext Result.retry()
                 val workers = if (AiWorkforceEnvironmentPolicy.allowsExternalWorkers(activeProfile)) {
                     TermuxAiCliWorkerPool(applicationContext)
                 } else {
