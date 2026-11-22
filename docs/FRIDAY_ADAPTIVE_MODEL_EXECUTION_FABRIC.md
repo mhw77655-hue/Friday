@@ -448,3 +448,112 @@ The model may fit in storage while remaining too slow, power-hungry or thermally
 8. Repeat on the actual Realme handset, recording Android version, build, free memory, storage, battery, thermal state and competing foreground load.
 
 A successful file load is not an accepted result. Acceptance requires end-to-end output correctness, stable memory bounds, measured resource improvement and no unacceptable quality regression.
+
+## 11. Response-Time and Continuity Architecture
+
+The primary optimization target is not maximum parameter count, model count, or raw tokens/second. It is **time to first useful response, time to first safe action, verified task completion latency, and continuity under changing resources**. A model that produces tokens quickly but blocks interaction, loses task state or causes thermal throttling is not a fast Friday.
+
+### 11.1 Three cooperating execution lanes, one individual
+
+- **Immediate lane:** bounded, predictable, low-memory operations for input framing, turn-taking, interruption/cancellation, session continuity, deterministic checks, capability lookup, safe acknowledgements and eligible low-risk actions. It must not depend on loading a large generative model. It never fabricates deep reasoning or claims an action completed without verification.
+- **Adaptive lane:** schedules the smallest set of specialist capabilities that meets the current task's quality and deadline constraints. Specialists may be resident, streamed, short-lived, sequential or bounded-parallel. The scheduler may refine an answer as evidence arrives.
+- **Deep lane:** handles expensive reasoning, prediction, research, multi-specialist critique and complex planning. It runs without monopolizing the UI or starving the immediate lane. Work is checkpointed and resumable.
+
+These are scheduling lanes, not three agents, identities or fixed model sizes. All lanes operate on one Friday-owned state and one task identity. A task can move between lanes without restarting the conversation.
+
+### 11.2 Continuity Capsule (CC)
+
+Every live task owns a compact, versioned, model-independent Continuity Capsule. It is not merely a transcript or serialized KV cache. It contains:
+- task/turn identity, user intent and material alternative interpretations;
+- relevant memory references with provenance, timestamps and confidence;
+- facts, constraints, preferences and commitments currently in force;
+- unresolved questions, uncertainty and evidence still required;
+- actions requested, idempotency keys, execution status and independent postcondition evidence;
+- specialist jobs, their inputs/outputs, cancellation tokens and checkpoints;
+- current plan frontier, next useful operation and deadlines;
+- model/runtime-independent conversation summary and response style state.
+
+The capsule is append/checkpoint based, versioned, checksummed and recoverable after process death. Sensitive content is minimized and stored under Friday's local privacy policy. It supports interruption, model replacement, network loss, process restart and specialist failure. Rehydration must verify schema compatibility and provenance; a corrupt or stale capsule falls back to the last verified checkpoint, never inventing continuity.
+
+KV caches, hidden states, recurrent states and accelerator buffers are optional ephemeral accelerators. They may be reused only when exact model, tokenizer, adapter, context position, runtime and tensor-layout compatibility is proven. The Continuity Capsule is the durable source of task continuity when those caches are evicted or incompatible.
+
+### 11.3 Progressive response without false completion
+
+The scheduler separates interaction acknowledgement from answer correctness:
+1. acknowledge input and establish the task capsule within a strict latency budget;
+2. classify urgency, risk, expected depth and whether immediate deterministic work is possible;
+3. start the lowest-cost qualified path and stream useful partial progress when it is safe and clearly labelled;
+4. concurrently prepare deeper specialist work only when the expected benefit justifies its resource cost;
+5. merge results through evidence/conflict checks, not majority vote alone;
+6. commit the final answer/action result only when required quality and independent verification gates pass.
+
+For actions, preparation may be parallelized, but side effects remain behind authorization and idempotency controls. A fast lane must never execute a duplicate action merely because a deep lane timed out or restarted. If no qualified answer is available yet, Friday says she is still checking rather than inventing certainty.
+
+### 11.4 Resource Envelope Governor (REG)
+
+A device profile is not a fixed RAM number. REG continuously estimates a safe application envelope from available memory, process PSS/RSS, memory pressure, foreground importance, CPU/GPU/NPU availability, storage throughput and latency, battery/charging, thermal headroom, Android lifecycle, current voice/UI/action deadlines and competing workloads.
+
+REG assigns dynamic budgets for:
+- resident control plane and immediate lane;
+- active model dense spine and bounded expert cache;
+- KV/activation buffers and maximum context;
+- concurrent model count and specialist queue;
+- storage read bandwidth, prefetch I/O and decompression workers;
+- CPU/GPU/NPU time slices and thermal duty cycle.
+
+It uses hysteresis and admission control to avoid oscillation. On pressure, shed work in this order where safe: cancel speculative prefetch; stop low-priority deep jobs; evict clean expert/adapter/KV caches; reduce optional context and concurrency; suspend nonessential specialists; switch to a lower-resource qualified route. Never kill the immediate lane or corrupt the task capsule to preserve a model. If the OS kills the process anyway, recover from durable state. The governor must respect Android process and memory policies, not attempt to override LMK or claim privileged memory reservations.
+
+### 11.5 Predictive activation and task-aware model acquisition
+
+Do not preselect a permanent model roster by parameter count. First define cognitive capability requirements and acceptance tasks, then discover compatible models/runtimes/assets that meet them. Model acquisition is a capability-resolution process:
+- query an authenticated, provenance-aware catalog for candidate assets and licences;
+- evaluate architecture, tokenizer, language, modality, context, tool-use, quantization, runtime and accelerator compatibility;
+- estimate download size, storage headroom, peak memory, sustained throughput, latency, energy and thermal cost;
+- rank candidates against task quality floors and user network/storage policy;
+- acquire only required manifests, tokenizer/metadata and the minimum model components needed for the next qualified capability;
+- use resumable, content-addressed downloads, hash/signature verification, atomic activation and rollback;
+- retain one known-good fallback and remove unused assets only after dependency and owner-retention checks.
+
+No model is downloaded just because it is popular or large. No required capability is silently declared available before its model/runtime assets are installed and verified. The owner can set Wi-Fi-only, charging-only, storage ceiling and deletion/retention policies. First-run setup should explain unavoidable storage/network choices once; subsequent discovery, compatibility, download, setup, benchmark and update work is automatic within those policies.
+
+### 11.6 Predictive working-set control
+
+Use a multi-timescale cache rather than a single LRU:
+- **hot:** components needed now or repeatedly during the active task;
+- **warm:** experts/adapters likely to be needed soon, admitted only if predicted stall avoided exceeds memory and energy cost;
+- **cold:** verified immutable assets on storage, not resident;
+- **discardable:** speculative buffers, old KV state and recomputable activations.
+
+Predictions use recent task context, expert co-occurrence, layer position, confidence, storage latency and miss penalty. Every prefetch has a byte/time budget and cancellation path. Prediction misses cannot change the model's required output. A predictor that increases read amplification, thermal load or foreground latency is disabled automatically.
+
+### 11.7 Multi-model cooperation without model pile-up
+
+The multi-AI pool is a logical pool of available skills and model endpoints, not a requirement to keep multiple full models resident. A specialist may be invoked as a short-lived process, a streamed expert package, a remote optional provider or a non-neural algorithm. Prefer sequential specialists when parallel execution would exceed the resource envelope. Parallelize only independent work whose expected latency/quality benefit is greater than model duplication, IPC, synchronization, KV, memory and thermal costs. Share representations or KV only under proven compatibility; otherwise use the capsule and explicit typed summaries.
+
+### 11.8 Continuity and responsiveness acceptance
+
+Test and report:
+- time from input to acknowledgement, first useful response, first safe action and verified completion;
+- p50/p95 latency under warm/cold caches, low storage, poor network, long context and competing foreground apps;
+- interruption during generation, model switch, expert cache eviction, process death, device restart and network transition;
+- recovery of exact task identity, pending work, completed side effects and verified evidence;
+- peak PSS/RSS, private dirty memory, storage I/O/read amplification, CPU/GPU/NPU duty, battery and thermal trajectory;
+- task quality and false-action rate at every scheduling mode.
+
+Acceptance requires that memory pressure cannot silently discard task continuity; switching or evicting a model cannot change Friday's identity or duplicate an action; the immediate lane remains responsive under bounded deep work; and every claimed performance improvement is measured on target hardware with quality held constant.
+
+## 12. Research-to-device engineering constraints
+
+Android's memory manager reclaims file-backed clean pages and may kill processes under pressure; memory headroom cannot be assumed from installed RAM. Measure PSS/RSS, private dirty pages, low-memory exits, storage latency and thermal state. Use app-private files, supported asynchronous I/O and architecture-specific runtimes. Do not assume that SSD streaming will be fast enough on every handset: random-read throughput, flash translation, page cache, decompression and accelerator upload may dominate token latency.
+
+Use hardware acceleration only after capability discovery and benchmarking. LiteRT provides CPU/GPU execution and NPU paths for supported devices/models; it is a candidate backend for compatible perception/specialist workloads, not a universal replacement for a generative MoE runtime. Runtime selection is per model/operator and must be verified on the actual SoC. Keep the UI, voice turn-taking and immediate control path isolated from long inference jobs.
+
+The initial Realme 9 Pro 5G is the first measurement target, not the universal hardware ceiling. If a model cannot meet quality, latency, memory, energy and thermal floors on that handset, Friday should automatically select a smaller qualified local route, use optional remote compute when permitted, or explain the limitation. Never claim that arbitrary models can be made lag-free by scheduling alone; compute and storage bandwidth remain physical constraints.
+
+Useful platform references:
+- Android memory allocation and low-memory management: https://developer.android.com/topic/performance/memory-management
+- Android memory-mapping and clean/dirty page behaviour: https://developer.android.com/topic/performance/memory/guide/concepts
+- LiteRT Android deployment and accelerators: https://developer.android.com/ai/custom
+- LiteRT model/runtime overview: https://developers.google.com/edge/litert/overview
+- Survey of MoE inference optimization and expert offloading: https://doi.org/10.1145/3794845
+
