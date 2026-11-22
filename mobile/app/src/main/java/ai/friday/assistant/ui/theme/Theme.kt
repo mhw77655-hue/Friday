@@ -14,41 +14,34 @@ import androidx.compose.ui.unit.sp
 import ai.friday.assistant.R
 
 /**
- * Palette refreshed to match the approved living-UI prototype. Token
- * NAMES are unchanged on purpose — DiagnosticsViewModel.kt, SystemScreen.kt,
- * and everything else that references FridayColors.CoreIdle etc. keeps
- * compiling untouched; only the hex values move to the richer palette.
- * One genuinely new addition: CoreAttention (amber) — the prototype's
- * "uncertain / needs input" meaning didn't have a token before (the old
- * palette only had Warning-red and Unknown-gray, nothing in between).
- * Nothing references it yet; it's here for whatever wires an
- * uncertain/needs-attention state to the UI next.
+ * Friday's canonical semantic palette.
+ *
+ * These values intentionally match the Visual Foundation tokens so legacy
+ * screens and newer components cannot assign different meanings to the same
+ * system state. Color is semantic: blue=idle, teal=listening, amber=thinking,
+ * violet=sleep, green=verified success, red=warning/critical.
  */
 object FridayColors {
-    val SurfaceBase = Color(0xFF08090C)
-    val SurfacePanel = Color(0xFF12151B)
-    val SurfaceHairline = Color(0x12FFFFFF)
-    val CoreIdle = Color(0xFF7C5CFF)       // was blue 0x3B82F6 -> now violet, matches prototype's "presence/continuity"
-    val CoreThinking = Color(0xFF4C8DFF)   // was purple 0x7C3AED -> now blue, kept deliberately distinct from CoreIdle's violet
-    val CoreSuccess = Color(0xFF34D399)    // refined mint-green
-    val CoreWarning = Color(0xFFFB4B4B)    // refined red
-    val CoreOffline = Color(0xFF5B6270)    // refined dormant gray
-    val CoreUnknown = Color(0xFF7B8394)    // lighter neutral, distinct from CoreOffline
-    val CoreAttention = Color(0xFFF5A623)  // NEW — amber, "uncertain / needs input", nothing wired to it yet
+    val SurfaceBase = Color(0xFF04060B)
+    val SurfacePanel = Color(0xFF0A0E1A)
+    val SurfaceHairline = Color(0x33FFFFFF)
+    val CoreIdle = Color(0xFF2E9BFF)
+    val CoreListening = Color(0xFF00D9C0)
+    val CoreThinking = Color(0xFFF5A623)
+    val CoreBuilding = Color(0xFFE8ECF2)
+    val CoreSuccess = Color(0xFF34D399)
+    val CoreWarning = Color(0xFFFF3B30)
+    val CoreCritical = Color(0xFFFF1744)
+    val CoreSleep = Color(0xFF7C4DFF)
+    val CoreOffline = Color(0xFF8A94A6)
+    val CoreUnknown = Color(0xFF8A94A6)
+    val CoreAttention = Color(0xFFF5A623)
     val TextPrimary = Color(0xFFECEDF1)
-    val TextSecondary = Color(0xFF8B93A3)
+    val TextSecondary = Color(0xFF8A94A6)
+    val TextOnAccent = Color(0xFF04101D)
 }
 
-/**
- * Design spec §4: "Display/Identity: Inter... weight 600", "Body: Inter,
- * weight 400", "Label: ...uppercase" (also Inter, weight per spec is
- * unspecified for Label beyond caps — kept at Medium/500 as a readable
- * mid-weight for small uppercase text), "Technical/mono: JetBrains Mono".
- * Files expected at res/font/: inter_regular.ttf, inter_medium.ttf,
- * inter_semibold.ttf, jetbrains_mono_regular.ttf — see the Termux
- * download script that fetches these before this file will compile
- * (R.font.* references fail to resolve if the files aren't present).
- */
+/** Inter for product/UI language; JetBrains Mono only for actual machine data. */
 private val InterFamily = FontFamily(
     Font(R.font.inter_regular, FontWeight.Normal),
     Font(R.font.inter_medium, FontWeight.Medium),
@@ -63,46 +56,82 @@ object FridayType {
     val Display = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 30.sp,
+        fontSize = 32.sp,
+        lineHeight = 40.sp,
         color = FridayColors.TextPrimary
     )
     val Body = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
         color = FridayColors.TextPrimary
     )
     val Technical = TextStyle(
         fontFamily = JetBrainsMonoFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
         color = FridayColors.TextSecondary
     )
     val Label = TextStyle(
         fontFamily = InterFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 11.sp,
-        letterSpacing = 0.08.em,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.12.em,
         color = FridayColors.TextSecondary
     )
 }
 
+private val FridayMaterialTypography = Typography(
+    displayLarge = FridayType.Display.copy(fontSize = 48.sp, lineHeight = 56.sp),
+    displayMedium = FridayType.Display.copy(fontSize = 40.sp, lineHeight = 48.sp),
+    displaySmall = FridayType.Display,
+    headlineLarge = FridayType.Display,
+    headlineMedium = FridayType.Display.copy(fontSize = 24.sp, lineHeight = 32.sp),
+    headlineSmall = FridayType.Display.copy(fontSize = 20.sp, lineHeight = 28.sp),
+    titleLarge = FridayType.Display.copy(fontSize = 20.sp, lineHeight = 28.sp),
+    titleMedium = FridayType.Body.copy(fontWeight = FontWeight.Medium),
+    titleSmall = FridayType.Body.copy(fontWeight = FontWeight.Medium, fontSize = 14.sp),
+    bodyLarge = FridayType.Body,
+    bodyMedium = FridayType.Body,
+    bodySmall = FridayType.Body.copy(fontSize = 12.sp, lineHeight = 16.sp),
+    labelLarge = FridayType.Label.copy(fontSize = 14.sp),
+    labelMedium = FridayType.Label,
+    labelSmall = FridayType.Label.copy(fontSize = 11.sp, letterSpacing = 0.08.em)
+)
+
 private val FridayDarkScheme = darkColorScheme(
-    background = FridayColors.SurfaceBase,
-    surface = FridayColors.SurfaceBase,
-    surfaceVariant = FridayColors.SurfacePanel,
     primary = FridayColors.CoreIdle,
+    onPrimary = FridayColors.TextOnAccent,
+    primaryContainer = Color(0xFF102A45),
+    onPrimaryContainer = FridayColors.TextPrimary,
+    secondary = FridayColors.CoreListening,
+    onSecondary = FridayColors.TextOnAccent,
+    secondaryContainer = Color(0xFF07312F),
+    onSecondaryContainer = FridayColors.TextPrimary,
+    tertiary = FridayColors.CoreThinking,
+    onTertiary = FridayColors.TextOnAccent,
+    background = FridayColors.SurfaceBase,
     onBackground = FridayColors.TextPrimary,
+    surface = FridayColors.SurfaceBase,
     onSurface = FridayColors.TextPrimary,
-    error = FridayColors.CoreWarning
+    surfaceVariant = FridayColors.SurfacePanel,
+    onSurfaceVariant = FridayColors.TextSecondary,
+    outline = Color(0xFF465267),
+    outlineVariant = Color(0xFF293448),
+    error = FridayColors.CoreWarning,
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFF3A1115),
+    onErrorContainer = Color(0xFFFFDAD6)
 )
 
 @Composable
 fun FridayTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = FridayDarkScheme,
-        typography = Typography(),
+        typography = FridayMaterialTypography,
         content = content
     )
 }
