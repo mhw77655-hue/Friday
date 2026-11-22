@@ -3,7 +3,6 @@ package ai.friday.assistant.aiworkforce.termux
 import android.content.Context
 import kotlinx.coroutines.async
 import kotlinx.coroutines.supervisorScope
-import org.json.JSONObject
 
 enum class AiCliWorkerId(val displayName: String, val commandName: String) {
     OPENAI_CODEX("ChatGPT / OpenAI Codex", "codex"),
@@ -119,12 +118,7 @@ internal class TermuxAiCliWorkerPool(context: Context) {
             "Friday's Termux bridge is not ready."
         }
 
-        val command = when (worker) {
-            AiCliWorkerId.OPENAI_CODEX ->
-                "exec codex exec --json --sandbox read-only -"
-            AiCliWorkerId.ANTHROPIC_CLAUDE ->
-                "exec claude -p --output-format json --tools ''"
-        }
+        val command = AiCliProtocol.command(worker)
         val startedAt = System.currentTimeMillis()
         val result = runner.run(
             commandPath = bashPath,
@@ -136,10 +130,7 @@ internal class TermuxAiCliWorkerPool(context: Context) {
         check(result.errorCode == android.app.Activity.RESULT_OK && result.exitCode == 0) {
             safeFailure(worker, result)
         }
-        val response = when (worker) {
-            AiCliWorkerId.OPENAI_CODEX -> extractCodexFinalMessage(result.stdout)
-            AiCliWorkerId.ANTHROPIC_CLAUDE -> extractClaudeResult(result.stdout)
-        }
+        val response = AiCliProtocol.extractResponse(worker, result.stdout)
         check(response.isNotBlank()) {
             "${worker.displayName} returned no final response."
         }
@@ -164,23 +155,6 @@ internal class TermuxAiCliWorkerPool(context: Context) {
                 runCatching { consult(status.id, prompt, timeoutMs) }
             }
         }.associate { (id, deferred) -> id to deferred.await() }
-    }
-
-    private fun extractCodexFinalMessage(output: String): String {
-        val lines = output.lineSequence().filter { it.isNotBlank() }.toList()
-        val finalMessage = lines.asReversed().firstNotNullOfOrNull { line ->
-            runCatching {
-                val event = JSONObject(line)
-                val item = event.optJSONObject("item")
-                if (item?.optString("type") == "agent_message") item.optString("text") else null
-            }.getOrNull()?.takeIf { it.isNotBlank() }
-        }
-        return finalMessage ?: output.trim()
-    }
-
-    private fun extractClaudeResult(output: String): String {
-        val json = runCatching { JSONObject(output.trim()) }.getOrNull()
-        return json?.optString("result")?.takeIf { it.isNotBlank() } ?: output.trim()
     }
 
     private fun safeFailure(worker: AiCliWorkerId, result: TermuxCommandResult): String {
