@@ -42,17 +42,6 @@ class MainActivity : ComponentActivity() {
         // FridayApplication.onCreate() — never re-initialized or released
         // here. That per-Activity churn was itself a crash source.
 
-        val hasMicPermission = ContextCompat.checkSelfPermission(
-            this, Manifest.permission.RECORD_AUDIO
-        ) == PackageManager.PERMISSION_GRANTED
-
-        if (hasMicPermission) {
-            if (ai.friday.assistant.runtime.FridayRuntimeController.isEnabled(this)) {
-                ai.friday.assistant.runtime.FridayRuntimeController.startWithMicrophone(this)
-            } else {
-                FridayMic.start(lifecycleScope)
-            }
-        }
         // Objective A is typed-first. Do not request microphone permission just
         // because Friday was installed or opened; only an explicit voice entry
         // point or the owner's MIC action may request it.
