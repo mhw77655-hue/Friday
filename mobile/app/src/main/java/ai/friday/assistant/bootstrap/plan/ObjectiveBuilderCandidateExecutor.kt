@@ -151,6 +151,12 @@ internal class ObjectiveBuilderCandidateExecutor(
         ).none { it in lower }) {
             "The Builder candidate touches a protected subsystem."
         }
+        require(path !in setOf(
+            "mobile/app/src/main/java/ai/friday/assistant/bootstrap/plan/ObjectiveExecutionWorker.kt",
+            "mobile/app/src/main/java/ai/friday/assistant/bootstrap/plan/ObjectiveExecutionLedgerStore.kt",
+            "mobile/app/src/main/java/ai/friday/assistant/bootstrap/plan/ObjectiveBuilderCandidateExecutor.kt",
+            "mobile/app/src/main/java/ai/friday/assistant/github/reporting/GitHubDevelopmentRepositoryClient.kt"
+        )) { "The Builder cannot rewrite its own authority or publication boundary." }
         require(!path.contains("..") && !path.startsWith("/") && !path.contains('\\')) {
             "The Builder candidate contains an unsafe path."
         }
