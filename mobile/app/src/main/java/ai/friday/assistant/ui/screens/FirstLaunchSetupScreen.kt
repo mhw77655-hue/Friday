@@ -32,9 +32,12 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -46,6 +49,8 @@ import androidx.core.content.ContextCompat
 import ai.friday.assistant.voice.FridayAccessibilityService
 import ai.friday.assistant.FridayNotificationListener
 import ai.friday.assistant.ShizukuBridge
+import ai.friday.assistant.ScreenBridge
+import kotlinx.coroutines.launch
 import rikka.shizuku.Shizuku
 
 private data class SetupItem(
@@ -66,10 +71,15 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     var refreshToken by remember { mutableIntStateOf(0) }
+    var shizukuExecutionStatus by remember { mutableStateOf("Not checked") }
+    val scope = rememberCoroutineScope()
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) refreshToken++
+            if (event == Lifecycle.Event.ON_RESUME) {
+                ShizukuBridge.refresh()
+                refreshToken++
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -108,8 +118,14 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
         ActivityResultContracts.RequestPermission()
     ) { refreshToken++ }
 
-    // Read the token so returning from system settings invalidates this composition.
-    @Suppress("UNUSED_VARIABLE") val refresh = refreshToken
+    // Re-check effective shell/root identity after authorization and every return from settings.
+    LaunchedEffect(shizukuAuthorized, refreshToken) {
+        if (!shizukuAuthorized) {
+            shizukuExecutionStatus = if (shizukuRunning) "Friday authorization required" else "Shizuku server unavailable"
+        } else if (!shizukuExecutionStatus.startsWith("bound · verified Shizuku uid=")) {
+            shizukuExecutionStatus = ScreenBridge.ensureVerifiedBinding(context)
+        }
+    }
 
     val items = listOf(
         SetupItem(
@@ -154,18 +170,25 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
             "Shizuku",
             "Optional elevated phone capability. Friday checks the live Binder and its own authorization; ADB-shell is not root.",
             when {
-                shizukuAuthorized -> "Running · Friday authorized"
+                shizukuAuthorized -> shizukuExecutionStatus
                 shizukuRunning -> "Running · Friday not authorized"
                 shizukuInstalled -> "Installed · server stopped"
                 else -> "Not installed"
             },
             when {
-                shizukuAuthorized -> "Verified"
+                shizukuExecutionStatus.startsWith("bound · verified Shizuku uid=") -> "Verified"
+                shizukuAuthorized -> "Verify effective privilege"
                 shizukuRunning -> "Authorize Friday in Shizuku"
                 shizukuInstalled -> "Open Shizuku"
                 else -> "Open Shizuku setup guide"
             }
-        ) { openShizuku(context) }
+        ) {
+            if (shizukuAuthorized) {
+                scope.launch { shizukuExecutionStatus = ScreenBridge.ensureVerifiedBinding(context) }
+            } else {
+                openShizuku(context)
+            }
+        }
     )
 
     val verifiedCount = items.count { it.status == "Enabled" || it.status == "Unrestricted by battery optimization" || it.status == "Running · Friday authorized" }
