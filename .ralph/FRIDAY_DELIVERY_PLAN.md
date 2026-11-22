@@ -729,3 +729,25 @@ Phases define dependency and acceptance gates, not a serial queue. Phases 0–3 
 ### Objective 1 release decision
 
 Objective 1 is complete only when Phase 7 passes and every mandatory phase exit has evidence. Green CI alone, a debug APK, a successful emulator, a configured Shizuku dependency, a generated key, a successful GitHub workflow dispatch or a published artifact alone is insufficient. If permanent signing requires an owner-only custody/authorization action, report the precise action and preserve the in-app-first workflow; do not call the release ready until the owner action is completed and the resulting signed update chain is verified.
+
+
+## Objective 1 phase and evidence register (2026-11-22)
+
+**Phase count correction:** Objective 1 has **eight phases**, numbered Phase 0 through Phase 7. Do not call this a seven-phase plan. The phase names and intended outcomes are:
+
+0. **Truth and purification** — inventory the actual production composition, donor mechanisms, dependencies, licences, stale assumptions and product identity; reconcile one canonical product.
+1. **Protected identity and continuity** — durable identity/state, local runtime, signing/update trust, recovery journal and replaceable capability contracts.
+2. **Self-configuration** — first-launch guided checklist that opens the exact Android/Shizuku/GitHub setup surface, returns to Friday, verifies each result, explains failures and allows safe deferral of optional capabilities.
+3. **Shizuku and phone capabilities** — detect manager/server/Binder/Friday authorization/effective UID; guide supported setup; verify bounded allowlisted operations and lifecycle recovery.
+4. **Friday-native operations centre** — app-centred control for diagnostics, repository/development jobs, tests, builds, external services and approvals, without requiring the owner to navigate unrelated tools for routine operations.
+5. **Permanent release and update chain** — owner-controlled permanent signing identity, authenticated release configuration, APK signer/digest/package/version verification, same-key in-place update and recoverable rollback.
+6. **Adversarial testing and immune foundation** — attack the protected floor and recovery mechanisms; prove containment, bounded recovery, independent verification and truthful degraded states.
+7. **Production seed integration** — combine the accepted foundation and verify the exact production-signed seed on the owner's physical handset.
+
+**Evidence discipline:** a green workflow whose production release steps were skipped is not a release. Unit tests and an emulator build are not physical-device acceptance. A Shizuku API dependency, Binder flag or mocked UID is not proof of working handset agency. A setup screen is not complete until it re-checks system state after the user returns. A signed APK is not an accepted seed until its certificate fingerprint is pinned, its same-key update path is demonstrated, and the real installed app passes continuity/health checks.
+
+**Repository audit snapshot:** commit `b39fd1d69e022519ade57b5a3f3b47c20a768f11` has a successful Android build workflow (debug APK, disposable-key release variant, unit tests, source audit and emulator instrumentation APK preparation) and a successful Lean formal-contract workflow. The corresponding signed-release workflow completed its job but skipped checkout, keystore decoding, production APK build, signature verification and publication because permanent signing secrets were not configured; it produced no release artifact. The emulator job built the app and instrumentation APK and booted a disposable emulator, but this is not evidence of the owner's physical handset behavior.
+
+**Known implementation gaps at this snapshot:** MainActivity starts the existing app navigation and initializes Shizuku, but no integrated first-launch permission/configuration wizard is wired as the start experience. ShizukuBridge tracks Binder/permission state and ScreenBridge verifies a UserService UID of shell/root; the documented operation set remains limited and handset authorization/lifecycle cases are not physically verified. The update channel documentation itself records that same-key upgrade continuity and last-known-good rollback are not yet fully accepted. The release workflow cannot publish until the owner-controlled signing identity and required secrets exist. The old public GitHub Issues bridge is retired; any app-centred development control plane must use a private authenticated owner-authorized path, not reintroduce public telemetry or public command channels.
+
+This register is an evidence snapshot, not a declaration of completion. Update each status only when the corresponding artifact, test report or device evidence exists.
