@@ -126,6 +126,37 @@ Before adding a language/runtime to production, record: the exact problem; basel
 
 The initial implementation is intentionally small: retain Kotlin/C++, use Python for development tooling, introduce Lean 4 formal contracts and a dedicated CI check, and document TLA+ as the next modelling tool for concurrent execution/update protocols. Other candidates remain research options, not immediate dependencies.
 
+## Self-optimising cognitive efficiency — cross-objective developmental requirement
+
+Friday must eventually be able to invent, evaluate and safely adopt better ways to implement and execute her own cognitive functions. This is broader than model compression, model selection, neural-cell paging or a runtime scheduler. Those are candidate techniques and possible objects of improvement, not the boundary of the capability.
+
+The required developmental loop is **observe → explain → hypothesize → design → simulate → prototype → measure → adversarially validate → compare → promote or reject → monitor → roll back if regressed → retain the learning**.
+
+The system should continuously look for avoidable cost and quality loss across the whole cognitive substrate: algorithms, representations, model internals, neural and non-neural operations, memory layout and retrieval, scheduling, data movement, caching, precision, sparsity, compilation, runtime selection, concurrency, storage, network use, energy and thermal behaviour. It may invent a new mechanism rather than merely tune a known knob. It should be free to discover that a smaller student, a sparse pathway, a reusable intermediate representation, a different algorithm, a compressed memory, a new execution schedule or a non-neural method gives better whole-system results.
+
+### Required capabilities
+
+- **Self-observation:** collect attributable, privacy-bounded telemetry for quality, calibration, errors, first-useful-result latency, total task latency, peak and sustained memory, allocations, I/O, energy proxies, thermal pressure, battery impact and recovery behaviour. Track the workload and hardware context so comparisons are meaningful.
+- **Bottleneck and redundancy discovery:** identify repeated work, unused or low-value parameters/paths, excessive context and KV growth, expensive representation conversions, duplicated model/runtime residency, cache misses, synchronization stalls, memory fragmentation and energy/quality trade-offs. Distinguish correlation from cause.
+- **Algorithm invention:** generate multiple candidate optimizations, including mechanisms not present in the current implementation. Candidate generation can use learned search, program synthesis, evolutionary search, compiler/autotuning, mathematical optimization, causal experiments and model-assisted design. No one technique is mandatory.
+- **What-If simulation:** estimate expected quality/resource effects and failure modes before deployment. Simulations are hypotheses, not proof; calibrate them against observed measurements and retain prediction error.
+- **Isolated experimentation:** run candidates in a sandbox, simulator, shadow path or bounded canary. Never let a candidate modify the only known-good execution path or consume protected continuity/security resources.
+- **Whole-individual fitness:** optimize a Pareto frontier, not one headline metric. A candidate must preserve or improve task quality, calibration, coverage, privacy, reliability and continuity while reducing one or more of memory, latency, energy, storage I/O or operational cost. Do not trade away a critical faculty or silently lower a quality threshold just to appear lighter.
+- **Progressive optimization:** start with safe low-cost changes, then attempt more ambitious structural changes when evidence and resources justify them. Friday can learn which optimizations transfer across tasks and which are workload-specific.
+- **Promotion and rollback:** require reproducible baselines, minimum sample counts, confidence intervals or other uncertainty bounds, adversarial/regression suites, signed provenance and a known-good rollback point. Promote atomically and monitor after promotion. If quality or stability regresses, revert automatically within the authorized policy.
+- **Developmental memory:** retain what was tried, conditions, hypotheses, expected and observed results, rejected approaches, successful transformations, transfer limits and confidence. Learning must alter future optimization choices; merely storing experiment logs is insufficient.
+- **Resource-aware self-improvement:** the optimizer itself has strict CPU/RAM/storage/energy budgets and must yield to voice, identity, memory, action verification and recovery. Heavy training or search may be deferred to charging/idle or external compute, but Friday's local continuity and ability to observe/learn from outcomes remain available offline.
+
+### Critical separation of authority
+
+The mutable cognitive substrate may propose and test improvements but cannot certify its own correctness or authorize its own privileged changes. A smaller protected supervisor controls experiment budgets, sandbox boundaries, artifact integrity, promotion policy, signing, approval requirements and rollback. Owner authentication, identity, durable memory, authorization and the trusted update chain are never optimization targets that can be weakened. Any source-code or executable change follows isolated candidate generation, independent build/test/security verification, trusted signing and staged promotion. Model/algorithm parameter updates and code changes have distinct risk classes and promotion rules.
+
+### Acceptance across later objectives
+
+Demonstrate longitudinally that Friday discovers at least one previously unimplemented optimization, predicts its effects, tests it under controlled conditions, measures quality and resource use against a reproducible baseline, rejects unsafe/regressive candidates, safely adopts a beneficial candidate, and can roll it back. Repeat across more than one cognitive workload and resource condition. Report actual improvement and uncertainty; do not use synthetic benchmarks alone. This is a cross-objective developmental capability and must not delay Objective 1's bounded security/resilience acceptance or Objective 2 voice work.
+
+The Neural Cell Fabric and Adaptive Model Execution Fabric are candidate execution substrates for this larger self-optimising capability. They do not define or exhaust it. Friday must remain free to invent a better substrate than either proposal.
+
 ## Digital-individual functional completeness — cross-objective requirement
 
 Implementation architecture: [Friday Adaptive Model Execution Fabric](../docs/FRIDAY_ADAPTIVE_MODEL_EXECUTION_FABRIC.md). This is a technical design reference; it does not add an objective or alter objective order.
