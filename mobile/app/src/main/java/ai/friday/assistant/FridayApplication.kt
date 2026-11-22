@@ -43,6 +43,9 @@ class FridayApplication : Application() {
         // Import and periodically refresh the canonical objectives locally;
         // the plan remains readable from app-private storage while offline.
         ai.friday.assistant.bootstrap.plan.ObjectivePlanSyncWorker.enqueue(this)
+        // Reconcile the canonical plan into durable Objective 1 evidence tasks.
+        // This local-first worker never claims a phase complete without proof.
+        ai.friday.assistant.bootstrap.plan.ObjectiveExecutionWorker.enqueue(this)
         // Process-scoped background/foreground for the Companion Core (plan
         // §4.3, audit R-A3). ProcessLifecycleOwner fires ON_STOP only when the
         // LAST activity stops — i.e. the whole process backgrounds — so a
