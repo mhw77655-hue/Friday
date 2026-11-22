@@ -42,7 +42,7 @@ data class AiCliConsultation(
 internal class TermuxAiCliWorkerPool(context: Context) {
     private val appContext = context.applicationContext
     private val runner = TermuxCommandRunner(appContext)
-    private val bashPath = TermuxCommandRunner.TERMUX_DATA_DIR + "/files/usr/bin/bash"
+    private val bashPath = TermuxCommandRunner.bashExecutable(appContext)
 
     suspend fun discover(): List<AiCliWorkerStatus> {
         val bridgeState = runner.state()
@@ -67,7 +67,13 @@ internal class TermuxAiCliWorkerPool(context: Context) {
                     timeoutMs = 15_000L
                 )
             }.getOrNull()
-            if (probe?.exitCode == 0 && probe.stdout.isNotBlank()) {
+            if (probe == null || probe.errorCode != 0) {
+                AiCliWorkerStatus(
+                    worker,
+                    AiCliWorkerState.TERMUX_UNAVAILABLE,
+                    "Termux refused the bridge request. Check allow-external-apps=true in Termux properties."
+                )
+            } else if (probe.exitCode == 0 && probe.stdout.isNotBlank()) {
                 AiCliWorkerStatus(
                     worker,
                     AiCliWorkerState.AUTHENTICATION_NOT_CONFIRMED,
