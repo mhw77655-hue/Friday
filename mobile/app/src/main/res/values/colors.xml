@@ -1,4 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="friday_icon_background">#04060B</color>
+    <color name="friday_surface_base">#04060B</color>
+    <color name="friday_surface_panel">#0A0E1A</color>
+    <color name="friday_idle">#2E9BFF</color>
+    <color name="friday_listening">#00D9C0</color>
+    <color name="friday_thinking">#F5A623</color>
+    <color name="friday_building">#E8ECF2</color>
+    <color name="friday_success">#34D399</color>
+    <color name="friday_warning">#FF3B30</color>
+    <color name="friday_critical">#FF1744</color>
+    <color name="friday_sleep">#7C4DFF</color>
+    <color name="friday_text_primary">#ECEDF1</color>
+    <color name="friday_text_secondary">#8A94A6</color>
 </resources>
