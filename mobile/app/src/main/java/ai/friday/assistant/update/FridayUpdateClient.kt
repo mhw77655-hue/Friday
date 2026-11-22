@@ -71,15 +71,11 @@ class FridayUpdateClient(
             val installed = installedIdentity()
             val latest = getJson("https://api.github.com/repos/$repository/releases/latest")
             val assets = latest.getJSONArray("assets")
-            var metadataUrl: String? = null
-            var apkUrl: String? = null
-            for (index in 0 until assets.length()) {
-                val asset = assets.getJSONObject(index)
-                when (asset.optString("name")) {
-                    METADATA_ASSET -> metadataUrl = asset.optString("browser_download_url")
-                    APK_ASSET -> apkUrl = asset.optString("browser_download_url")
-                }
-            }
+            // GitHub distinguishes an asset's underlying filename from its
+            // optional display label. The established release workflow labels
+            // app-release.apk as friday.apk, so accept either field.
+            val metadataUrl = findReleaseAssetUrl(assets, METADATA_ASSET)
+            val apkUrl = findReleaseAssetUrl(assets, APK_ASSET)
             val metadataLink = metadataUrl?.takeIf { it.startsWith("https://") }
                 ?: return@withContext Result.Rejected("Latest release has no trusted metadata asset.")
             val apkLink = apkUrl?.takeIf { it.startsWith("https://") }
@@ -296,6 +292,16 @@ class FridayUpdateClient(
         value.filterNot { it == ':' || it.isWhitespace() }.uppercase()
 
     companion object {
+        internal fun findReleaseAssetUrl(assets: org.json.JSONArray, expectedName: String): String? {
+            for (index in 0 until assets.length()) {
+                val asset = assets.optJSONObject(index) ?: continue
+                if (asset.optString("name") == expectedName || asset.optString("label") == expectedName) {
+                    return asset.optString("browser_download_url").takeIf { it.startsWith("https://") }
+                }
+            }
+            return null
+        }
+
         const val DEFAULT_REPOSITORY = "mhw77655-hue/Friday"
         private const val METADATA_ASSET = "friday-release-metadata.json"
         private const val APK_ASSET = "friday.apk"
