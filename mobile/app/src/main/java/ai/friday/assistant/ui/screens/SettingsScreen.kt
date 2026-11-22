@@ -52,6 +52,8 @@ import androidx.lifecycle.LifecycleEventObserver
 import ai.friday.assistant.update.FridayPackageInstaller
 import ai.friday.assistant.update.FridayUpdateClient
 import ai.friday.assistant.update.FridayUpdateStateStore
+import ai.friday.assistant.github.reporting.GitHubCredentialStore
+import ai.friday.assistant.github.reporting.FridayGitHubReportClient
 import ai.friday.assistant.ui.theme.FridayColors
 import ai.friday.assistant.ui.theme.FridayType
 
@@ -73,6 +75,13 @@ fun SettingsScreen() {
     var recallLimit by remember { mutableStateOf(prefs.getString(KEY_RECALL_LIMIT, "") ?: "") }
     var jevApiKey by remember { mutableStateOf("") }
     var jevConfigured by remember { mutableStateOf(ai.friday.assistant.voice.JevApiKeyStore(context).read() != null) }
+    var githubToken by remember { mutableStateOf("") }
+    val githubCredentialStore = remember { GitHubCredentialStore(context) }
+    var githubConfigured by remember { mutableStateOf(githubCredentialStore.isConfigured()) }
+    var githubReportStatus by remember {
+        mutableStateOf(if (githubConfigured) "GitHub credential is encrypted on this phone." else "GitHub reporting is not connected.")
+    }
+    var githubBusy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val updateStateStore = remember { FridayUpdateStateStore(context) }
     var updateStatus by remember { mutableStateOf(updateStateStore.lastStatus()) }
@@ -301,7 +310,7 @@ fun SettingsScreen() {
 
         SectionLabel("LOCAL CONTINUITY")
         Text(
-            text = "Friday keeps her identity, local memory and available on-device capabilities on this phone. Missing model assets, revoked permissions or Android resource limits can reduce individual capabilities. No public GitHub issue, pull request or remote build is created from this screen.",
+            text = "Friday keeps her identity, local memory and available on-device capabilities on this phone. Missing model assets, revoked permissions or Android resource limits can reduce individual capabilities. GitHub reporting is a separate owner-authorized channel; local continuity does not depend on it.",
             style = FridayType.Label,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -461,7 +470,7 @@ fun SettingsScreen() {
 
         SectionLabel("LIVE TEST ACTION JOURNAL")
         Text(
-            text = "Friday records phone-control attempts locally so failures can be diagnosed here. The journal stores action categories, execution routes, outcomes and durations—not spoken requests, typed text, tap labels, screen contents or credentials. Executor-reported success is deliberately marked unverified until a separate outcome check exists.",
+            text = "Friday records bounded phone-control attempts locally. The journal stores action categories, execution routes, outcomes and durations—not spoken requests, typed text, tap labels, screen contents or credentials.",
             style = FridayType.Label,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -470,32 +479,104 @@ fun SettingsScreen() {
             style = FridayType.Technical,
             modifier = Modifier.padding(bottom = 8.dp)
         )
-        Button(
-            onClick = {
-                val report = ai.friday.assistant.diagnostics.PhoneActionDiagnostics.exportText(context)
-                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                clipboard.setPrimaryClip(ClipData.newPlainText("Friday live test report", report))
-                actionTraceCount = ai.friday.assistant.diagnostics.PhoneActionDiagnostics.eventCount()
-                Toast.makeText(context, "Friday diagnostic report copied. Paste it into the development conversation.", Toast.LENGTH_LONG).show()
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("Copy live test report") }
-        Button(
-            onClick = {
-                val report = ai.friday.assistant.diagnostics.PhoneActionDiagnostics.exportText(context)
-                val share = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_SUBJECT, "Friday live test report")
-                    putExtra(Intent.EXTRA_TEXT, report)
-                }
-                context.startActivity(Intent.createChooser(share, "Send Friday report to ChatGPT"))
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("Send report to ChatGPT") }
+
+        SectionLabel("GITHUB DEVICE REPORTING")
         Text(
-            text = "Choose ChatGPT in the Android share sheet, open this same development conversation, and send the report. If ChatGPT is not offered, use Copy live test report and paste it here. The report includes action traces, app/build identity, device capability status and sanitized crash evidence—not your spoken words or screen contents.",
+            text = "Connect a fine-grained GitHub token for mhw77655-hue/Friday with Issues read and write permission. Friday encrypts it with Android Keystore. When you tap Upload, Friday sends a bounded report containing app/build identity, device capability states, sanitized crash frames and action categories. It never includes conversations, speech transcripts, typed content, screen text, notifications or the token. Each upload creates a GitHub issue and a validated Actions artifact.",
+            style = FridayType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        OutlinedTextField(
+            value = githubToken,
+            onValueChange = { githubToken = it },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("Fine-grained GitHub token", style = FridayType.Body) },
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = FridayColors.SurfaceHairline,
+                unfocusedBorderColor = FridayColors.SurfaceHairline
+            )
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Button(
+                onClick = {
+                    runCatching { githubCredentialStore.save(githubToken) }
+                        .onSuccess {
+                            githubConfigured = true
+                            githubToken = ""
+                            githubReportStatus = "Credential encrypted locally. Verify repository access before uploading."
+                        }
+                        .onFailure {
+                            githubReportStatus = it.message ?: "Credential could not be stored securely."
+                        }
+                },
+                enabled = githubToken.isNotBlank()
+            ) { Text("Save GitHub credential") }
+            TextButton(onClick = {
+                githubCredentialStore.clear()
+                githubConfigured = false
+                githubToken = ""
+                githubReportStatus = "GitHub credential removed from this phone."
+            }) { Text("Remove") }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = {
+                    val token = githubCredentialStore.read()
+                    if (token == null) {
+                        githubReportStatus = "Save a GitHub credential first."
+                    } else {
+                        githubBusy = true
+                        scope.launch {
+                            val result = runCatching {
+                                withContext(Dispatchers.IO) {
+                                    FridayGitHubReportClient(token).verifyRepositoryAccess()
+                                }
+                            }
+                            githubReportStatus = result.fold(
+                                onSuccess = { it },
+                                onFailure = { it.message ?: "GitHub access verification failed." }
+                            )
+                            githubBusy = false
+                        }
+                    }
+                },
+                enabled = githubConfigured && !githubBusy
+            ) { Text("Verify access") }
+            Button(
+                onClick = {
+                    val token = githubCredentialStore.read()
+                    if (token == null) {
+                        githubReportStatus = "Save a GitHub credential first."
+                    } else {
+                        githubBusy = true
+                        githubReportStatus = "Preparing and uploading the sanitized device report…"
+                        val report = ai.friday.assistant.diagnostics.PhoneActionDiagnostics.exportJson(context)
+                        scope.launch {
+                            val result = runCatching {
+                                withContext(Dispatchers.IO) {
+                                    FridayGitHubReportClient(token).submitDeviceReport(report)
+                                }
+                            }
+                            githubReportStatus = result.fold(
+                                onSuccess = { "Report uploaded successfully: $it" },
+                                onFailure = { it.message ?: "GitHub report upload failed. The local journal is unchanged." }
+                            )
+                            githubBusy = false
+                        }
+                    }
+                },
+                enabled = githubConfigured && !githubBusy
+            ) { Text(if (githubBusy) "Working…" else "Upload device report") }
+        }
+        Text(
+            text = githubReportStatus,
             style = FridayType.Technical,
-            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
+            modifier = Modifier.padding(vertical = 8.dp)
         )
         TextButton(
             onClick = {
