@@ -645,3 +645,87 @@ The ledger must cover at minimum: Laya/seq-JEPA/JEPA-TTT; Nano/NAE host adaptati
 - Show the entire owner workflow, operation history, approvals, logs, tests, release verification and recovery in Friday.
 
 **Success criterion:** Friday is not a conventional agent framework assembled from popular projects. She is one continuing, phone-centered individual that extracts useful mechanisms, redesigns them for her own environment and replaces or surpasses donor implementations when evidence supports it.
+
+
+## Objective A / Objective 1 — phase reconfiguration under the Friday-native design
+
+**Owner correction (2026-11-22):** apply the donor re-authoring rule to Objective 1 itself, not only to the overall project. Objective 1 must establish a seed whose architecture, operations and owner experience are Friday-native. Do not reproduce the conventional open-source pattern where the owner must install a shell, configure services, browse dashboards, manually assemble permissions or understand build infrastructure. The installed Friday app is the single owner-facing control point. External infrastructure may execute work, but Friday owns the operation, continuity, authorization, evidence and recovery.
+
+**Scope discipline:** Objective 1 establishes the protected, installable and evolvable foundation. It does not have to finish the future cognitive architecture, universal phone agency, full autonomous Builder, complete voice experience or every donor algorithm. Those remain in their owning objectives. Objective 1 must provide real extension seams and prove they do not compromise identity, security, offline continuity or resource control. A future-facing interface is not evidence that the future capability is implemented.
+
+### Phase 0 — Plan truth, source provenance and product boundary
+
+- Reconcile all Objective 1 requirements against the owner's current vision and the donor re-authoring ledger. Resolve contradictions before code changes; preserve useful source material and provenance.
+- Inventory the actual production path from launcher to UI, runtime, local data, capabilities, permissions, Shizuku, update client and recovery. Distinguish production code, test harness, research, historical prototypes and dead paths.
+- Establish a single canonical app/package identity, production composition, versioning policy, build entry point and active delivery plan. Remove stale destinations and obsolete product assumptions only after dependency/reference checks.
+- For each imported mechanism, record original purpose, exact source/revision, license, assumptions, Friday conflict, transformed design, environment, permission, resource cost, implementation status and evidence.
+- **Exit evidence:** source-to-plan traceability; dependency/reference audit; donor/provenance ledger; no unresolved conflicting production destinations; reproducible baseline build and test report. No feature is marked implemented merely because a class, dependency or document exists.
+
+### Phase 1 — Protected identity, continuity and local seed
+
+- Establish the permanent Android application ID, production signing identity, monotonic version-code policy, release channel and signer-lineage policy before the first permanent install.
+- Build the smallest protected continuity core: durable local identity/state, transactional storage, operation/experience journal, schema migration rules, provenance, backup/restore hooks and recovery metadata.
+- Ensure app components can be killed/recreated without losing authoritative state. Persist operations independently of Activity/process lifetime; resume idempotently after process death and reboot.
+- Establish the local runtime/capability contract and truthful capability registry. The registry reports actual loaded/reachable providers, not merely dependencies or configured URLs.
+- **Exit evidence:** clean production-signed install; force-stop/restart and reboot continuity; local read/write and retrieval; truthful runtime/provider trace; schema migration and restore tests; no essential localhost or cloud dependency for supported local operations.
+
+### Phase 2 — Friday as the first-launch configuration orchestrator
+
+- Implement the in-app configuration experience as an adaptive, dependency-aware operation plan. On first open Friday assesses the actual device/app/provider state, generates the relevant checklist and leads the owner through it one step at a time.
+- Include only permissions and setup actions required by implemented or explicitly enabled capabilities. Explain the purpose, benefit, data scope and consequence of declining. Open the exact official Android/provider screen; on return, re-query authoritative state and verify the postcondition before advancing.
+- Include normal runtime permissions, special app access, notification/battery/background settings, storage/model assets, network/provider setup, Shizuku when useful, GitHub authorization and signing/release enrollment as distinct typed steps—not a generic permission dump.
+- The setup engine must handle granted, denied, permanently denied, restricted, unavailable, cancelled, revoked, unsupported, offline and insufficient-storage states. Offer continue-with-limited-capability paths when possible; do not block core use for optional features.
+- Persist progress and resume after process death, reboot and update. Reconcile state on every return and on later app launches; never treat a button tap as proof of completion.
+- Finish with an end-to-end readiness report separating verified, optional, unavailable, blocked and unverified capabilities.
+- **Exit evidence:** physical-device first-launch walkthrough; every checklist item opens the correct official flow; grant/deny/revoke/cancel/restart tests; progress resumes correctly; no false-positive completion; optional denial does not break unrelated core paths; final readiness report matches actual device state.
+
+### Phase 3 — Shizuku as a Friday-owned capability provider
+
+- Integrate the official Shizuku API behind Friday's provider contract. Friday owns detection, onboarding, authorization state, operation selection, result verification, fallback and user-facing explanation.
+- Detect manager installation, server state, Binder reachability, Friday authorization, effective server UID/privilege and per-operation permission. Distinguish ADB-shell from root; never infer universal access.
+- Provide the relevant first-launch flow: explain why a supported feature benefits from Shizuku, open the official manager/setup path, guide wireless debugging/pairing or root-backed startup as applicable, then re-check state when the owner returns. Detect restart requirement after reboot.
+- Define a versioned, least-privilege allowlist of bounded, reversible Objective 1 probes and verify each postcondition independently. Keep native Android alternatives and degraded behavior.
+- **Exit evidence:** real handset tests for absent, stopped, unauthorized, ADB-authorized and (if available) root-backed states; Binder death/restart; reboot; revocation; unsupported operations; privilege-specific outcomes; core Friday works without Shizuku. Unit tests and emulator mocks are supplementary, not substitutes.
+
+### Phase 4 — Friday-native operations and development control plane
+
+- Deliver the in-app operations surface as the owner's place to configure, diagnose, inspect, authorize, develop, test, build, update, back up and recover Friday. This is the first usable slice of the cross-objective self-service requirement, not a claim that all future development is already autonomous.
+- Model each operation as a durable record: goal, plan, selected local/remote executor, required authority, resource budget, checkpoints, cancellation, provenance, logs, result and independently verified postcondition.
+- Provide authenticated least-privilege repository/provider connection; scope and expiry must be visible. Friday can inspect source/revision, propose candidate changes, request review/approval, dispatch isolated build/test work, fetch artifacts and evidence, and resume the same operation after app/process/network interruption.
+- Remote workers are replaceable execution capacity. They must not receive ambient signing keys, owner credentials or authority to promote their own changes. Keep candidate source/build execution isolated from the installed production process and protected continuity data.
+- Use supported provider authorization flows. If an API permission or secret-management capability is unavailable to the connected integration, identify that exact blocker and offer the narrowest secure owner authorization flow—never ask for secrets in chat or ordinary app text.
+- **Exit evidence:** initiate a real repository operation from Friday; inspect exact commit; create and review a candidate patch; run isolated tests/build; interrupt/restart and resume; revoke provider access; verify logs/artifacts/provenance; demonstrate no worker can self-authorize or promote code.
+
+### Phase 5 — Permanent release, update and recovery chain
+
+- Establish the production key in owner-controlled secure custody (prefer non-exportable managed signing where practical); enroll the certificate fingerprint and configure the release provider through an explicitly authorized secure flow. Never generate a replacement silently.
+- Configure the required CI secret set through a supported authorized API/flow, with client-side encryption where required by the provider. Verify the provider accepted the intended secret names without ever reading secret values back or logging them.
+- Build a production APK from an exact reviewed commit; verify package ID, version code, artifact hash, certificate fingerprint, signer lineage, manifest and provenance independently of the build worker.
+- Publish a signed release manifest; implement Friday's update discovery, compatibility checks, hash/signature verification, staged download, supported PackageInstaller handoff, migration checkpoint, post-update health check and rollback metadata.
+- Prove same-key upgrade on an already installed seed while preserving local identity, experience and settings. Exercise failed download, corrupt artifact, wrong signer, rollback/downgrade, interrupted installation, migration failure and last-known-good recovery.
+- **Exit evidence:** production artifact exists; independent signer/hash verification matches enrolled identity; first install and second same-key update pass on physical handset; data continuity verified; update and rollback failure injection passes. A debug build or disposable CI key is never accepted as the permanent seed.
+
+### Phase 6 — Adversarial foundation and adaptive immune floor
+
+- Attack the complete Objective 1 production path, not isolated demo classes: identity, storage, task journal, permissions, Shizuku, provider authorization, operation dispatch, update verification, migration, backup/restore and rollback.
+- Test malformed/untrusted inputs, corrupt or truncated state, replay/duplicate operations, process death, reboot, storage exhaustion, low memory, thermal pressure, network loss, stale credentials, permission revocation, Binder death, compromised/incorrect artifacts, wrong signing identity, interrupted updates and dependency failure.
+- Exercise recovery itself: fail the detector, recovery action, checkpoint, verifier and rollback path. Detect retry storms, oscillation, cascading failures, false health and silent data loss. Bound retries, time, battery and resource consumption.
+- Automatic repair is limited to safe, reversible, idempotent operations and verified fallback. Owner approval is required for destructive changes, data migrations with loss risk, permission/authorization changes, release publication and signing identity operations.
+- Require independent verification: the component that performed a repair cannot be its only verifier. Report the last verified state, what remains usable, attempted recovery, measured or unknown ETA and owner action required.
+- **Exit evidence:** adversarial matrix with reproducible failures; mutation tests kill expected safeguards; fault-injection tests demonstrate bounded recovery and rollback; no unresolved critical/high security or data-integrity defect; physical-device evidence for relevant lifecycle/platform cases; explicit residual-risk register.
+
+### Phase 7 — Production seed integration and handover
+
+- Assemble the exact production composition—not a test-only substitute—and verify app startup, local runtime, durable state, configuration, Shizuku optional path, operation control plane, signed update client, backup/recovery and visual identity.
+- Run the integrated offline acceptance session with network physically disabled and after force-stop/restart. Report actual provider, model, route, permission, timing and result for every step; no simulated success.
+- Verify the permanent install/update identity and a second same-key update. Inspect every first-launch screen and major app surface on the target handset for layout, text, color, accessibility and failure-state correctness.
+- Produce a release dossier: exact source commit, build workflow/run, test matrix, artifact SHA-256, signer fingerprint, dependency/license inventory, physical-device model/OS, install/update evidence, known limitations, unresolved risks and rollback instructions.
+- **Exit evidence:** every mandatory Objective 1 gate has linked reproducible evidence; physical-device and CI evidence are separated; no critical blocker remains; release is installable and updateable without uninstalling; owner-facing setup and operations remain inside Friday.
+
+### Parallel workstreams and phase gates
+
+Phases define dependency and acceptance gates, not a serial queue. Phases 0–3 can proceed concurrently where interfaces are stable; Phase 4 can be built in parallel against mocked and then real provider contracts; Phase 5 signing/update engineering can proceed while the setup and operations UI is developed; Phase 6 adversarial tests begin as soon as each protected surface exists and continue continuously. Phase 7 integrates only verified outputs. A phase is not complete because its code exists: its exit evidence must pass. Cross-objective voice, developmental learning, universal action, full Nano adaptation and autonomous capability acquisition continue in their owning objectives and must not be falsely pulled into Objective 1 as completion blockers.
+
+### Objective 1 release decision
+
+Objective 1 is complete only when Phase 7 passes and every mandatory phase exit has evidence. Green CI alone, a debug APK, a successful emulator, a configured Shizuku dependency, a generated key, a successful GitHub workflow dispatch or a published artifact alone is insufficient. If permanent signing requires an owner-only custody/authorization action, report the precise action and preserve the in-app-first workflow; do not call the release ready until the owner action is completed and the resulting signed update chain is verified.
