@@ -21,7 +21,8 @@ class FridayGitHubReportClient(
         .readTimeout(20, TimeUnit.SECONDS)
         .writeTimeout(20, TimeUnit.SECONDS)
         .callTimeout(30, TimeUnit.SECONDS)
-        .build()
+        .build(),
+    private val apiRoot: String = API_ROOT
 ) {
     init {
         require(GitHubCredentialStore.isPlausibleToken(token)) { "GitHub token is not configured." }
@@ -29,7 +30,7 @@ class FridayGitHubReportClient(
 
     /** Verifies repository and issue-list access without creating a test issue. */
     fun verifyRepositoryAccess(): String {
-        val request = requestBuilder(API_ROOT + "/issues?state=all&per_page=1").get().build()
+        val request = requestBuilder(apiRoot + "/issues?state=all&per_page=1").get().build()
         http.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException(accessError(response.code))
             return "GitHub access verified for " + REPOSITORY +
@@ -53,7 +54,7 @@ class FridayGitHubReportClient(
             .put("body", body)
             .toString()
             .toRequestBody(JSON_MEDIA_TYPE)
-        val request = requestBuilder(API_ROOT + "/issues").post(requestBody).build()
+        val request = requestBuilder(apiRoot + "/issues").post(requestBody).build()
 
         http.newCall(request).execute().use { response ->
             val responseText = response.body?.string().orEmpty()
@@ -66,7 +67,7 @@ class FridayGitHubReportClient(
     }
 
     private fun findExistingIssue(title: String): String? {
-        val request = requestBuilder(API_ROOT + "/issues?state=all&per_page=100").get().build()
+        val request = requestBuilder(apiRoot + "/issues?state=all&per_page=100").get().build()
         http.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException(accessError(response.code))
             val issues = runCatching { JSONArray(response.body?.string().orEmpty()) }.getOrNull()
