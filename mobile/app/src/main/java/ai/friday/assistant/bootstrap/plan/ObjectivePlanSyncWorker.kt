@@ -41,16 +41,30 @@ class ObjectivePlanSyncWorker(
             val ledgerFile = File(planDir, "objective-ledger.json")
 
             // Offline-first: establish the local source of truth before any HTTP call.
-            if (!planFile.isFile || !ledgerFile.isFile) {
+            if (!planFile.isFile) {
                 val bundled = applicationContext.assets.open(BUNDLED_PLAN_ASSET)
                     .bufferedReader(Charsets.UTF_8).use { it.readText() }
-                val objectives = validatePlan(bundled)
+                validatePlan(bundled)
                 writePlan(
                     planDir = planDir,
                     markdown = bundled,
                     source = "apk_asset:$BUNDLED_PLAN_ASSET",
                     sourceType = "BUNDLED_APK_ASSET",
                     remoteSyncStatus = "NOT_YET_SYNCED",
+                    etag = "",
+                    lastModified = ""
+                )
+            } else if (!ledgerFile.isFile) {
+                // Recover metadata from the existing valid snapshot rather than
+                // replacing a possibly newer local plan with the APK seed.
+                val existing = planFile.readText(Charsets.UTF_8)
+                validatePlan(existing)
+                writePlan(
+                    planDir = planDir,
+                    markdown = existing,
+                    source = "recovered_local_snapshot",
+                    sourceType = "LOCAL_SNAPSHOT_RECOVERY",
+                    remoteSyncStatus = "UNKNOWN",
                     etag = "",
                     lastModified = ""
                 )
@@ -136,8 +150,8 @@ class ObjectivePlanSyncWorker(
 
     private fun hasValidatedInternet(): Boolean = runCatching {
         val manager = applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val network = manager.activeNetwork ?: return false
-        manager.getNetworkCapabilities(network)
+        val network = manager.activeNetwork
+        network != null && manager.getNetworkCapabilities(network)
             ?.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
     }.getOrDefault(false)
 
