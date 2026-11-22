@@ -19,7 +19,7 @@ import org.json.JSONObject
  * only to an isolated PR branch. CI and independent review remain mandatory.
  */
 internal class ObjectiveBuilderCandidateExecutor(
-    private val context: Context,
+    private val androidContext: Context,
     private val modelManager: ModelManager,
     private val repository: GitHubDevelopmentRepositoryClient
 ) {
@@ -125,7 +125,7 @@ internal class ObjectiveBuilderCandidateExecutor(
             "Friday Builder candidate: " + task.optString("goal").take(100)
         }
         val summary = root.optString("summary").take(4_000)
-        FridayTableLog(this.context).append(JSONObject()
+        FridayTableLog(androidContext).append(JSONObject()
             .put("type", "friday_local_turn")
             .put("turn_id", taskId)
             .put("summary", summary.take(1_200))
@@ -154,7 +154,7 @@ internal class ObjectiveBuilderCandidateExecutor(
                 externallyShareable = true
             )
         )
-        FridayTableLog(this.context).append(JSONObject()
+        FridayTableLog(androidContext).append(JSONObject()
             .put("type", "builder_guest_critique")
             .put("turn_id", taskId)
             .put("seat_id", guestReply.seatId)
