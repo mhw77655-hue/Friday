@@ -124,8 +124,11 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
             if (notificationsGranted) "Enabled" else "Not granted",
             if (notificationsGranted) "Verified" else "Allow notifications"
         ) {
-            if (Build.VERSION.SDK_INT >= 33) requestNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-            else openAppNotificationSettings(context)
+            if (Build.VERSION.SDK_INT >= 33 && !runtimeNotificationPermissionGranted) {
+                requestNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                openAppNotificationSettings(context)
+            }
         },
         SetupItem(
             "Accessibility service",
