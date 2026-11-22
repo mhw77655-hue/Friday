@@ -187,10 +187,10 @@ jobs:
         run: |
           set -euo pipefail
           TAG="friday-v$VERSION_NAME"
-          gh release create "$TAG" \\
-            release-assets/friday.apk \\
-            release-assets/friday-release-metadata.json \\
-            --repo "$GITHUB_REPOSITORY" \\
-            --target "$GITHUB_SHA" \\
-            --title "Friday $VERSION_NAME" \\
+          gh release create "$TAG" \
+            release-assets/friday.apk \
+            release-assets/friday-release-metadata.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Friday $VERSION_NAME" \
             --notes "Official Friday Android release. APK signature and certificate fingerprint were verified by the permanent-release workflow."
