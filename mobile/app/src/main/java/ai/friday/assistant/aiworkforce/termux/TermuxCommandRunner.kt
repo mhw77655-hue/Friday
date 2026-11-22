@@ -82,7 +82,7 @@ internal class TermuxCommandRunner(private val context: Context) {
         val executionId = UUID.randomUUID().toString()
         val completion = CompletableDeferred<TermuxCommandResult>()
         pending[executionId] = completion
-        try {
+        return try {
             val callbackIntent = Intent(context, TermuxCommandResultService::class.java)
                 .putExtra(EXTRA_EXECUTION_ID, executionId)
             val pendingFlags = PendingIntent.FLAG_ONE_SHOT or
