@@ -8,7 +8,8 @@ import kotlinx.coroutines.supervisorScope
 
 enum class AiCliWorkerId(val displayName: String, val commandName: String) {
     OPENAI_CODEX("ChatGPT / OpenAI Codex", "codex"),
-    ANTHROPIC_CLAUDE("Claude Code", "claude")
+    ANTHROPIC_CLAUDE("Claude Code", "claude"),
+    GOOGLE_GEMINI("Google Gemini CLI", "gemini")
 }
 
 enum class AiCliWorkerState {
