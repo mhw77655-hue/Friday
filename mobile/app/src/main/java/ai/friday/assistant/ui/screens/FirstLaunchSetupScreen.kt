@@ -164,14 +164,14 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
                         } else "local model loading not currently qualified"
                         "Phone profile: " + mode + " · " + memory + " MB available · " +
                             cores + " CPU cores · " + cpuLabel + " · " + shizukuLabel + " · " + modelLabel +
-                            "\\n" + executionSummary
+                            "\n" + executionSummary
                     }.getOrElse { "Phone study report exists but could not be read safely." }
                     failureFile.isFile -> runCatching {
                         val failure = JSONObject(failureFile.readText(Charsets.UTF_8))
                         "Phone study needs retry (" + failure.optString("failure_type", "unknown failure") +
                             "); Friday will retry."
                     }.getOrDefault("Phone study failed to record a readable status; Friday will retry.")
-                    else -> "Friday is studying this phone and preparing her local configuration…\\n" + executionSummary
+                    else -> "Friday is studying this phone and preparing her local configuration…\n" + executionSummary
                 }
             }
             hostStudySummary = summary
