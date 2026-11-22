@@ -8,6 +8,10 @@ This bridge is designed for Android/Termux and does not require provider API key
 
 ## Architecture decision
 
+Friday is a multi-environment Android application. The AI workforce must not be coupled to Termux or any one execution host. Provider adapters describe how to talk to a worker; execution-environment adapters describe where that worker can run. Friday's `AiExecutionEnvironmentRegistry` probes registered environments and selects the first healthy compatible one. Registration order is policy (for example app-managed runtime, Termux native, then Linux/proot). A missing environment must not disable other environments or Friday's local intelligence.
+
+The first verified execution adapter is Termux. App-managed and Linux/proot environments are extension points, not claimed working adapters until their runtime, CLI compatibility, account login, and result transport pass tests on the target Android host.
+
 Use the authenticated CLI orchestration pattern demonstrated by Orchestrator MCP, with the local request/result bridge pattern demonstrated by OpenBrowser and Proxima:
 
 ```text
@@ -50,7 +54,11 @@ Codex reads the prompt from standard input and emits JSONL events. Claude Code p
 
 These are provider subscription/CLI entitlements, not unlimited free access. Limits, availability and any plan-specific credits remain controlled by the provider. Codex CLI ChatGPT sign-in is not the same as access to this current ChatGPT conversation: Friday receives a new Codex session and cannot read this chat's history or hidden context.
 
-## Android bridge
+## Execution environment contract
+
+`AiExecutionEnvironment` separates command execution from provider identity. It exposes a bounded health probe and a request/result command contract. `AiExecutionEnvironmentRegistry` probes all registered candidates, chooses the first ready candidate, and falls through when a preferred environment is absent or unhealthy. Provider protocol parsing remains independent of the selected host. The current registry registers Termux only; adding an app-managed runtime or Linux/proot adapter must not require changes to Codex/Claude protocol adapters.
+
+## Termux adapter
 
 The Android app invokes Termux's documented `com.termux.RUN_COMMAND` service. A mutable one-shot PendingIntent returns stdout, stderr and exit status to Friday's private result service. Each call has a timeout and bounded prompt/argument sizes. The command path is constrained to Termux's own `usr/bin` directory. Friday never reads the Termux home directory or provider auth files.
 
@@ -79,6 +87,9 @@ Each provider CLI must also be installed and signed in once. No API key is requi
 ## Current implementation boundary
 
 Implemented in the initial Android bridge:
+- Provider-independent execution-environment contract and ordered registry.
+- Environment selection and fallback behavior, with unit tests using fake environments.
+- Termux as the first concrete environment adapter.
 - Termux package discovery and permission check.
 - Result-returning Termux RUN_COMMAND IPC.
 - Fixed Codex and Claude CLI consultation commands.
@@ -88,6 +99,7 @@ Implemented in the initial Android bridge:
 - Unit tests for command and response envelopes.
 
 Not yet implemented:
+- Concrete app-managed and Linux/proot execution adapters (the registry supports adding them, but they are not yet registered or validated).
 - Automatic installation of a compatible Linux CLI runtime on the Android host.
 - Guided ChatGPT/Codex and Claude OAuth onboarding from Friday.
 - Additional workers such as OpenCode, GitHub Copilot CLI or Google's supported agent CLI where account authentication and Android compatibility are verified.
