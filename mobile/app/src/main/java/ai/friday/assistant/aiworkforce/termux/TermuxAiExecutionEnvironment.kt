@@ -32,11 +32,19 @@ internal class TermuxAiExecutionEnvironment(context: Context) : AiExecutionEnvir
         workingDirectory: String,
         timeoutMs: Long
     ): AiEnvironmentCommandResult {
+        val termuxHome = appContext.packageManager
+            .getApplicationInfo(TermuxCommandRunner.TERMUX_PACKAGE, 0)
+            .dataDir + "/files/home"
+        val resolvedWorkingDirectory = when {
+            workingDirectory == "~" -> termuxHome
+            workingDirectory.startsWith("~/") -> termuxHome + workingDirectory.removePrefix("~")
+            else -> workingDirectory
+        }
         val result = runner.run(
             commandPath = TermuxCommandRunner.bashExecutable(appContext),
             arguments = listOf("-c", command),
             stdin = stdin,
-            workDirectory = workingDirectory,
+            workDirectory = resolvedWorkingDirectory,
             timeoutMs = timeoutMs
         )
         return AiEnvironmentCommandResult(
