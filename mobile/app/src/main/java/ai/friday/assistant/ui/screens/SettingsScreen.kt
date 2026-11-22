@@ -66,8 +66,9 @@ private const val KEY_RECALL_LIMIT = "recall_limit"
 
 /**
  * Local runtime controls, capability status and owner-exported diagnostics.
- * Cloud development and public issue/PR automation are deliberately not
- * exposed here; local continuity must remain independent of GitHub.
+ * Repository development is an optional, owner-authorized bridge that can
+ * publish isolated candidate PRs; it cannot merge or release. Local continuity
+ * remains independent of GitHub.
  */
 @Composable
 fun SettingsScreen() {
