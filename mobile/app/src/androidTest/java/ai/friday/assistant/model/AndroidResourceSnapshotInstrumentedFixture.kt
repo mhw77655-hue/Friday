@@ -30,6 +30,13 @@ class AndroidResourceSnapshotInstrumentedFixture {
     fun on_device_snapshot_returns_real_ram_cpu_thermal_battery_values() {
         val s = snapshot()
         assertNotNull("snapshot must construct", s)
+        val productionDefault = defaultModelResourceSnapshot(
+            InstrumentationRegistry.getInstrumentation().targetContext
+        )
+        assertTrue(
+            "production ModelManager default must resolve to live Android telemetry",
+            productionDefault is AndroidResourceSnapshot
+        )
         assertTrue("availableMemoryMb must be a real positive value", s.availableMemoryMb > 0)
         assertTrue("cpuLoadPercent must be a real load in [0,100]", s.cpuLoadPercent in 0.0..100.0)
         assertTrue("thermalLevel must be a real status in [0,2]", s.thermalLevel in 0..2)
