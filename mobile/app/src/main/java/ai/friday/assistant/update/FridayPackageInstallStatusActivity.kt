@@ -55,8 +55,15 @@ class FridayPackageInstallStatusActivity : Activity() {
                 }
             }
             PackageInstaller.STATUS_SUCCESS -> {
-                FridayUpdateStateStore(this).clearStaged()
-                FridayUpdateStateStore(this).recordStatus("Android accepted the Friday update. The new app process will verify continuity on next launch.")
+                val state = FridayUpdateStateStore(this)
+                val staged = state.loadStaged()
+                if (staged != null) {
+                    state.recordPendingHealthCheck(staged.release)
+                    state.clearStaged()
+                    state.recordStatus("Android accepted Friday ${staged.release.versionName}. The next app launch will verify version, source revision and signing identity.")
+                } else {
+                    state.recordStatus("Android reported installation success, but Friday could not recover the staged release identity for the post-update health check.")
+                }
                 Toast.makeText(this, "Friday update installed. Restarting Friday…", Toast.LENGTH_LONG).show()
                 finish()
             }

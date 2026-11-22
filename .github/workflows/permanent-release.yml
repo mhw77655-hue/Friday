@@ -1,0 +1,196 @@
+name: permanent-release-apk
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: Monotonically increasing Android version code
+        required: true
+        type: string
+        default: "1"
+      version_name:
+        description: Friday release version name
+        required: true
+        type: string
+        default: "1.0.0"
+      publish_release:
+        description: Publish a public GitHub release for Friday's in-app updater (requires verified keystore backups)
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: friday-permanent-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  signed-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout exact source revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Configure writable Android SDK
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${RUNNER_TEMP}/android-sdk"
+          mkdir -p "$SDK_ROOT"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+
+      - name: Install pinned Android build components
+        run: |
+          set -euo pipefail
+          SDKMANAGER=/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager
+          yes | "$SDKMANAGER" --licenses --sdk_root="$ANDROID_HOME" >/dev/null 2>&1 || true
+          "$SDKMANAGER" --install \
+            "platforms;android-36" \
+            "build-tools;35.0.0" \
+            "ndk;27.3.13750724" \
+            "cmake;3.22.1" \
+            --sdk_root="$ANDROID_HOME"
+
+      - name: Restore permanent signing identity and verify its certificate
+        env:
+          KEYSTORE_B64: ${{ secrets.FRIDAY_RELEASE_KEYSTORE_BASE64 }}
+          FRIDAY_RELEASE_STORE_PASSWORD: ${{ secrets.FRIDAY_RELEASE_STORE_PASSWORD }}
+          FRIDAY_RELEASE_KEY_ALIAS: ${{ secrets.FRIDAY_RELEASE_KEY_ALIAS }}
+          EXPECTED_CERT_SHA256: ${{ secrets.FRIDAY_RELEASE_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_B64"
+          test -n "$FRIDAY_RELEASE_STORE_PASSWORD"
+          test -n "$FRIDAY_RELEASE_KEY_ALIAS"
+          test -n "$EXPECTED_CERT_SHA256"
+          KEYSTORE="$RUNNER_TEMP/friday-release.p12"
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > "$KEYSTORE"
+          chmod 600 "$KEYSTORE"
+          ACTUAL="$(keytool -list -v -keystore "$KEYSTORE" -storetype PKCS12 \
+            -storepass:env FRIDAY_RELEASE_STORE_PASSWORD \
+            -alias "$FRIDAY_RELEASE_KEY_ALIAS" |
+            awk '/SHA256:/{print $2; exit}' | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          EXPECTED="$(printf '%s' "$EXPECTED_CERT_SHA256" | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          if [[ ! "$ACTUAL" =~ ^[A-F0-9]{64}$ || "$ACTUAL" != "$EXPECTED" ]]; then
+            echo "::error::Permanent signing certificate does not match the configured fingerprint."
+            exit 1
+          fi
+          echo "FRIDAY_RELEASE_KEYSTORE_PATH=$KEYSTORE" >> "$GITHUB_ENV"
+          echo "FRIDAY_RELEASE_CERT_SHA256=$EXPECTED" >> "$GITHUB_ENV"
+          echo "Permanent signing certificate fingerprint verified."
+
+      - name: Validate release version metadata
+        env:
+          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]
+          (( VERSION_CODE <= 2100000000 ))
+          [[ "$VERSION_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$ ]]
+
+      - name: Build permanent-key signed release APK
+        env:
+          FRIDAY_RELEASE_STORE_PASSWORD: ${{ secrets.FRIDAY_RELEASE_STORE_PASSWORD }}
+          FRIDAY_RELEASE_KEY_ALIAS: ${{ secrets.FRIDAY_RELEASE_KEY_ALIAS }}
+          FRIDAY_RELEASE_KEY_PASSWORD: ${{ secrets.FRIDAY_RELEASE_KEY_PASSWORD }}
+          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name }}
+        run: |
+          set -euo pipefail
+          chmod +x ./gradlew
+          ./gradlew --no-daemon :mobile:app:assembleRelease \
+            -PfridayVersionCode="$VERSION_CODE" \
+            -PfridayVersionName="$VERSION_NAME"
+
+      - name: Verify APK signature and exact permanent certificate
+        run: |
+          set -euo pipefail
+          APK=mobile/app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK" | tee "$RUNNER_TEMP/apk-signature.txt"
+          ACTUAL="$(awk '/certificate SHA-256 digest:/{print $NF; exit}' "$RUNNER_TEMP/apk-signature.txt" | tr -d ':' | tr '[:lower:]' '[:upper:]')"
+          if [[ "$ACTUAL" != "$FRIDAY_RELEASE_CERT_SHA256" ]]; then
+            echo "::error::Built APK is not signed by Friday's permanent certificate."
+            exit 1
+          fi
+          echo "PASS: release APK signature matches Friday's permanent certificate."
+
+      - name: Create updater-compatible release assets
+        env:
+          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name }}
+          CERT_SHA256: ${{ env.FRIDAY_RELEASE_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/friday-release-assets"
+          mkdir -p "$OUT"
+          cp mobile/app/build/outputs/apk/release/app-release.apk "$OUT/friday.apk"
+          APK_SHA256="$(sha256sum "$OUT/friday.apk" | awk '{print $1}')"
+          export VERSION_CODE VERSION_NAME CERT_SHA256 APK_SHA256
+          python3 - <<'PY'
+          import json, os, pathlib
+          payload = {
+              "application_id": "ai.friday.assistant",
+              "version_code": int(os.environ["VERSION_CODE"]),
+              "version_name": os.environ["VERSION_NAME"],
+              "commit_sha": os.environ["GITHUB_SHA"],
+              "certificate_sha256": os.environ["CERT_SHA256"],
+              "apk_sha256": os.environ["APK_SHA256"],
+          }
+          out = pathlib.Path(os.environ["RUNNER_TEMP"]) / "friday-release-assets"
+          (out / "friday-release-metadata.json").write_text(
+              json.dumps(payload, sort_keys=True, indent=2) + "\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Upload signed APK and updater metadata as workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-permanent-signed-release
+          path: |
+            ${{ runner.temp }}/friday-release-assets/friday.apk
+            ${{ runner.temp }}/friday-release-assets/friday-release-metadata.json
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-release:
+    name: Publish official updater release
+    if: ${{ inputs.publish_release }}
+    needs: signed-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified signed release assets
+        uses: actions/download-artifact@v4
+        with:
+          name: friday-permanent-signed-release
+          path: release-assets
+
+      - name: Publish release consumed by Friday's updater
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_NAME: ${{ inputs.version_name }}
+        run: |
+          set -euo pipefail
+          TAG="friday-v$VERSION_NAME"
+          gh release create "$TAG" \\
+            release-assets/friday.apk \\
+            release-assets/friday-release-metadata.json \\
+            --repo "$GITHUB_REPOSITORY" \\
+            --target "$GITHUB_SHA" \\
+            --title "Friday $VERSION_NAME" \\
+            --notes "Official Friday Android release. APK signature and certificate fingerprint were verified by the permanent-release workflow."

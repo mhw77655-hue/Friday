@@ -9,6 +9,15 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import ai.friday.assistant.update.FridayUpdateWorker
+import java.util.concurrent.TimeUnit
 
 class FridayApplication : Application() {
     override fun onCreate() {
@@ -24,6 +33,10 @@ class FridayApplication : Application() {
         // Secondary capability habitats construct only their own organs.
         if (currentProcessName() != packageName) return
         FridayEngine.init(this)
+        // If Android completed an APK replacement, verify the newly installed
+        // package before the app reports the update as healthy.
+        ai.friday.assistant.update.FridayUpdateStateStore(this).verifyPendingHealthCheck()
+        scheduleFridayUpdates()
         // Process-scoped background/foreground for the Companion Core (plan
         // §4.3, audit R-A3). ProcessLifecycleOwner fires ON_STOP only when the
         // LAST activity stops — i.e. the whole process backgrounds — so a
@@ -42,6 +55,46 @@ class FridayApplication : Application() {
                 }
             }
         })
+    }
+
+
+    /**
+     * Keep the signed-release discovery lane alive without Termux or a manual
+     * command. WorkManager persists this schedule across process death/reboot;
+     * Android still controls when constrained background work actually runs.
+     */
+    private fun scheduleFridayUpdates() {
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(NetworkType.UNMETERED)
+            .build()
+        val workManager = WorkManager.getInstance(this)
+
+        val periodic = PeriodicWorkRequestBuilder<FridayUpdateWorker>(
+            24, TimeUnit.HOURS
+        ).setConstraints(constraints).build()
+        workManager.enqueueUniquePeriodicWork(
+            FridayUpdateWorker.UNIQUE_PERIODIC_WORK,
+            ExistingPeriodicWorkPolicy.KEEP,
+            periodic
+        )
+
+        val schedulerPreferences = getSharedPreferences(
+            "friday_update_scheduler",
+            MODE_PRIVATE
+        )
+        if (!schedulerPreferences.getBoolean("initial_check_enqueued", false)) {
+            val initial = OneTimeWorkRequestBuilder<FridayUpdateWorker>()
+                .setConstraints(constraints)
+                .build()
+            workManager.enqueueUniqueWork(
+                FridayUpdateWorker.UNIQUE_INITIAL_WORK,
+                ExistingWorkPolicy.KEEP,
+                initial
+            )
+            schedulerPreferences.edit()
+                .putBoolean("initial_check_enqueued", true)
+                .apply()
+        }
     }
 
     private fun currentProcessName(): String? {
