@@ -302,7 +302,7 @@ class GitHubDevelopmentRepositoryClient(
     private fun validatePath(path: String) {
         require(path.isNotBlank() && !path.startsWith("/") &&
             path.split('/').none { it.isBlank() || it == "." || it == ".." } &&
-            !path.contains('\\\\')
+            !path.contains('\\')
         ) { "Candidate contains an unsafe repository path." }
     }
 
