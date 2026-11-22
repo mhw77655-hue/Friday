@@ -110,6 +110,8 @@ class ResidentModelBootstrapWorker(
                 "MODEL_READY",
                 "The pinned resident model passed SHA-256 verification and loaded through Friday's inference backend."
             )
+            // The local planner can now begin decomposing the canonical work queue.
+            ai.friday.assistant.bootstrap.plan.ObjectiveExecutionWorker.enqueue(applicationContext)
             Result.success(
                 workDataOf(
                     "state" to "MODEL_READY",
