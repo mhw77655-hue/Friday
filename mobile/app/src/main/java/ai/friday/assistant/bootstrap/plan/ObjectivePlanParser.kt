@@ -52,9 +52,9 @@ object ObjectivePlanParser {
         }
         val phases = phaseStarts.mapIndexed { index, (start, match) ->
             val end = phaseStarts.getOrNull(index + 1)?.first ?: objectiveEnd
-            val section = lines.subList(start, end).joinToString("\\n").trim()
+            val section = lines.subList(start, end).joinToString("\n").trim()
             val evidence = Regex(
-                "(?is)\\*\\*Exit evidence:\\*\\*\\s*(.*?)(?:\\n\\n|$)"
+                "(?is)\\*\\*Exit evidence:\\*\\*\\s*(.*?)(?:\n\n|$)"
             ).find(section)?.groupValues?.getOrNull(1)?.trim().orEmpty()
             Phase(
                 id = match.groupValues[1].toInt(),
