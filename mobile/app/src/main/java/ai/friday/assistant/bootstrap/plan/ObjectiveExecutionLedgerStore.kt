@@ -352,6 +352,46 @@ class ObjectiveExecutionLedgerStore(context: Context) {
     }
 
     @Synchronized
+    fun nextCandidateForVerification(): JSONObject? {
+        val tasks = snapshot()?.optJSONArray("tasks") ?: return null
+        for (index in 0 until tasks.length()) {
+            val task = tasks.optJSONObject(index) ?: continue
+            if (task.optString("status") == "CANDIDATE_PUBLISHED") {
+                return JSONObject(task.toString())
+            }
+        }
+        return null
+    }
+
+    @Synchronized
+    fun recordCandidateCiResult(taskId: String, checks: JSONObject) {
+        val ledger = snapshot() ?: error("Execution ledger is not initialized.")
+        val tasks = ledger.optJSONArray("tasks") ?: error("Task ledger is missing.")
+        val task = (0 until tasks.length()).map { tasks.getJSONObject(it) }
+            .firstOrNull { it.optString("task_id") == taskId }
+            ?: error("Builder task no longer exists.")
+        require(task.optString("status") == "CANDIDATE_PUBLISHED") {
+            "Candidate is no longer awaiting CI."
+        }
+        val state = checks.optString("state")
+        require(state in setOf("PENDING", "SUCCESS", "FAILURE")) { "Unknown CI state." }
+        if (state != "PENDING") {
+            task.put("status", if (state == "SUCCESS") "CI_PASSED_AWAITING_REVIEW" else "CI_FAILED_REQUIRES_REPAIR")
+        }
+        task.put("ci", checks)
+            .put("checkpoint", JSONObject()
+                .put("stage", when (state) {
+                    "SUCCESS" -> "CI_PASSED_AWAITING_INDEPENDENT_REVIEW"
+                    "FAILURE" -> "CI_FAILED_REPAIR_REQUIRED"
+                    else -> "CI_PENDING"
+                })
+                .put("updated_at_epoch_ms", System.currentTimeMillis()))
+            .put("updated_at_epoch_ms", System.currentTimeMillis())
+        ledger.put("updated_at_epoch_ms", System.currentTimeMillis())
+        writeAtomically(ledgerFile, ledger.toString(2))
+    }
+
+    @Synchronized
     fun markChildTaskExecuting(taskId: String): Boolean {
         val ledger = snapshot() ?: return false
         val tasks = ledger.optJSONArray("tasks") ?: return false
