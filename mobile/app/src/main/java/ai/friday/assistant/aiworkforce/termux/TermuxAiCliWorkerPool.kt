@@ -1,6 +1,8 @@
 package ai.friday.assistant.aiworkforce.termux
 
 import android.content.Context
+import ai.friday.assistant.aiworkforce.AiWorkerConsultationPort
+import ai.friday.assistant.aiworkforce.AiWorkerReply
 import kotlinx.coroutines.async
 import kotlinx.coroutines.supervisorScope
 
@@ -47,7 +49,7 @@ internal class TermuxAiCliWorkerPool(
     context: Context,
     private val environments: AiExecutionEnvironmentRegistry =
         AiExecutionEnvironmentRegistry(listOf(TermuxAiExecutionEnvironment(context.applicationContext)))
-) {
+) : AiWorkerConsultationPort {
     private val workerDirectory = "~/.friday-ai-worker-sandbox"
 
     suspend fun discover(): List<AiCliWorkerStatus> {
@@ -156,6 +158,17 @@ internal class TermuxAiCliWorkerPool(
             environment = environment.kind
         )
     }
+
+    override suspend fun consultAvailable(prompt: String): List<AiWorkerReply> =
+        consultInstalled(prompt).mapNotNull { (provider, result) ->
+            result.getOrNull()?.let {
+                AiWorkerReply(
+                    providerId = provider.name,
+                    response = it.response,
+                    executionEnvironment = it.environment.name
+                )
+            }
+        }
 
     /** Ask every discovered worker concurrently; a failure never cancels another provider. */
     suspend fun consultInstalled(
