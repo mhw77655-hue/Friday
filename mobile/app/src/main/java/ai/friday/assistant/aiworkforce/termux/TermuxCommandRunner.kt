@@ -66,7 +66,10 @@ internal class TermuxCommandRunner(private val context: Context) {
         check(state() == TermuxBridgeState.READY) {
             "Termux is not ready. Install Termux and grant Friday the Run commands in Termux permission."
         }
-        require(commandPath.startsWith(TERMUX_DATA_DIR + "/files/usr/bin/")) {
+        val termuxDataDir = runCatching {
+            context.packageManager.getApplicationInfo(TERMUX_PACKAGE, 0).dataDir
+        }.getOrElse { throw IllegalStateException("Termux's private runtime path is unavailable.", it) }
+        require(commandPath.startsWith(termuxDataDir + "/files/usr/bin/")) {
             "Friday may only launch an executable from Termux's usr/bin directory."
         }
         require(arguments.size <= 16 && arguments.all { it.length <= MAX_ARGUMENT_CHARS }) {
@@ -116,7 +119,10 @@ internal class TermuxCommandRunner(private val context: Context) {
         internal const val TERMUX_PACKAGE = "com.termux"
         internal const val RUN_COMMAND_PERMISSION = "com.termux.permission.RUN_COMMAND"
         internal const val TERMUX_RUN_COMMAND_SERVICE = "com.termux.app.RunCommandService"
-        internal const val TERMUX_DATA_DIR = "/data/data/com.termux"
+        fun bashExecutable(context: Context): String {
+            val dataDir = context.packageManager.getApplicationInfo(TERMUX_PACKAGE, 0).dataDir
+            return "$dataDir/files/usr/bin/bash"
+        }
         internal const val EXTRA_EXECUTION_ID = "friday_execution_id"
 
         private const val ACTION_RUN_COMMAND = "com.termux.RUN_COMMAND"
