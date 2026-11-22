@@ -589,10 +589,10 @@ fun SettingsScreen() {
                     } else {
                         githubBusy = true
                         githubReportStatus = "Preparing and uploading the sanitized device report…"
-                        val report = ai.friday.assistant.diagnostics.PhoneActionDiagnostics.exportJson(context)
                         scope.launch {
                             val result = runCatching {
                                 withContext(Dispatchers.IO) {
+                                    val report = ai.friday.assistant.diagnostics.PhoneActionDiagnostics.exportJson(context)
                                     FridayGitHubReportClient(token).submitDeviceReport(report)
                                 }
                             }
