@@ -14,13 +14,16 @@ class HostBootstrapPolicyTest {
         charging: Boolean = true,
         powerSave: Boolean = false,
         models: Int = 1,
-        native: Boolean = true
+        native: Boolean = true,
+        cpuLoad: Double = 15.0
     ) = HostCapacity(
         apiLevel = 35,
         availableMemoryMb = memory,
         memoryClassMb = 256,
         availableStorageMb = storage,
         cpuCores = 8,
+        cpuLoadPercent = cpuLoad,
+        processPssMb = 420,
         primaryAbi = "arm64-v8a",
         thermalStatus = thermal,
         batteryPercent = battery,
@@ -57,6 +60,11 @@ class HostBootstrapPolicyTest {
     @Test fun `local model load requires both a model and native inference runtime`() {
         assertFalse(HostBootstrapPolicy.configure(host(models = 0)).allowLocalModelLoad)
         assertFalse(HostBootstrapPolicy.configure(host(native = false)).allowLocalModelLoad)
+    }
+
+    @Test fun `unknown CPU load does not authorize high capacity`() {
+        val config = HostBootstrapPolicy.configure(host(cpuLoad = -1.0))
+        assertEquals(HostOperatingMode.BALANCED, config.mode)
     }
 
     @Test fun `storage pressure blocks expensive profile`() {
