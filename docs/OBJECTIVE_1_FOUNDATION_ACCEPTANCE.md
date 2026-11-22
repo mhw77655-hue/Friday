@@ -87,3 +87,17 @@ Objective 1 remains open until the adversarial campaign has completed, critical 
 - The exact PR head `84689627b554b37f846a6785b0d3f77382bd7505` passed CI run [45029884401](https://github.com/mhw77655-hue/Friday/actions/runs/45029884401): `debug-apk`, `Disposable Android phone twin (instrumented)`, and `Whole-repository source inventory and Kotlin vision audit` all concluded `success`; `report-failure` was skipped because no failure occurred.
 - This is PR-head CI evidence. It is not physical-device evidence and does not establish that a release APK containing the merge has been published. A separate post-merge production release verification remains required.
 - Android requires matching application ID and signing certificate (or valid proof-of-rotation) for updates, and may require user approval. See [Android app update requirements](https://developer.android.com/google/play/app-updates).
+
+
+## Post-merge production release evidence — 2026-11-22
+
+- Main commit: `8cc07c8feb4726e8028f169d4f6b96bcac259e19`.
+- Main CI run [45031221224](https://github.com/mhw77655-hue/Friday/actions/runs/45031221224) completed successfully. Its three substantive jobs passed: `debug-apk`, `Disposable Android phone twin (instrumented)`, and `Whole-repository source inventory and Kotlin vision audit`. The failure-report job was skipped because there was no failed job.
+- Production signing workflow [45032924556](https://github.com/mhw77655-hue/Friday/actions/runs/45032924556) completed successfully. It checked all five permanent signing secrets, decoded the configured PKCS#12 keystore, built the release APK, verified its signature against the pinned certificate, generated metadata/checksum, and published the release.
+- Published release: [Friday 1.0.492](https://github.com/mhw77655-hue/Friday/releases/tag/friday-v1.0.492), version code 1492, target commit `8cc07c8feb4726e8028f169d4f6b96bcac259e19`.
+- The release job log records APK v2 signature verification and signer SHA-256 `fd84811f911585d8152dc2bfff700d8fce36d5a07df392be89f91d5646a6d1b8`, matching the owner's permanent signing certificate. The uploaded APK asset is `app-release.apk` (release display label `friday.apk`).
+- This closes the post-merge build and permanent-signing publication gate. It does **not** prove in-place installation over the owner's current app, a physical update journey, phone-side report submission, or the full adversarial campaign.
+
+## Execution retrospective — process corrections to apply immediately
+
+A companion record, [Objective 1 execution retrospective](OBJECTIVE_1_EXECUTION_RETROSPECTIVE.md), captures the workflow failures and process changes observed across the project conversation. Apply it to all remaining Objective 1 work and later objectives: inspect repository state before asking the owner to run commands; use GitHub Actions for builds/reports; distinguish debug artifacts from permanent-key production releases; verify exact commit, job conclusions, APK certificate and published assets before claiming success; never ask for secrets in chat; and ask for physical-device actions only when a real device-only gate is reached.
