@@ -123,6 +123,20 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
                 val root = File(context.filesDir, "friday-development")
                 val reportFile = File(root, "host-bootstrap.json")
                 val failureFile = File(root, "host-bootstrap-failure.json")
+                val executionFile = File(root, "plan/execution-ledger.json")
+                val executionSummary = if (executionFile.isFile) runCatching {
+                    val ledger = JSONObject(executionFile.readText(Charsets.UTF_8))
+                    val phases = ledger.optJSONArray("phases") ?: org.json.JSONArray()
+                    val tasks = ledger.optJSONArray("tasks") ?: org.json.JSONArray()
+                    val assessed = (0 until phases.length()).count { index ->
+                        phases.optJSONObject(index)?.optString("status") == "ACCEPTED"
+                    }
+                    val queued = (0 until tasks.length()).count { index ->
+                        tasks.optJSONObject(index)?.optString("status") == "QUEUED"
+                    }
+                    "Objective 1: $assessed/${phases.length()} phases accepted · $queued evidence tasks queued"
+                }.getOrDefault("Objective 1 ledger exists but could not be read.")
+                else "Objective 1: waiting for the local execution ledger."
                 when {
                     reportFile.isFile -> runCatching {
                         val report = JSONObject(reportFile.readText(Charsets.UTF_8))
@@ -149,14 +163,15 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
                             "local model load eligible within live admission checks"
                         } else "local model loading not currently qualified"
                         "Phone profile: " + mode + " · " + memory + " MB available · " +
-                            cores + " CPU cores · " + cpuLabel + " · " + shizukuLabel + " · " + modelLabel
+                            cores + " CPU cores · " + cpuLabel + " · " + shizukuLabel + " · " + modelLabel +
+                            "\\n" + executionSummary
                     }.getOrElse { "Phone study report exists but could not be read safely." }
                     failureFile.isFile -> runCatching {
                         val failure = JSONObject(failureFile.readText(Charsets.UTF_8))
                         "Phone study needs retry (" + failure.optString("failure_type", "unknown failure") +
                             "); Friday will retry."
                     }.getOrDefault("Phone study failed to record a readable status; Friday will retry.")
-                    else -> "Friday is studying this phone and preparing her local configuration…"
+                    else -> "Friday is studying this phone and preparing her local configuration…\\n" + executionSummary
                 }
             }
             hostStudySummary = summary
