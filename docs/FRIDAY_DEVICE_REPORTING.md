@@ -34,6 +34,7 @@ The create-issue endpoint requires the fine-grained token's Issues write permiss
 ## Delivery semantics
 
 - A report has a stable UUID in its issue title. If GitHub accepted the issue but the phone lost the response, retrying the same report finds the existing issue instead of creating a duplicate.
+- Friday persists the exact pending report locally until GitHub returns the issue URL. A retry reuses the same UUID and payload; the owner can explicitly discard it to capture a fresh snapshot.
 - GitHub Actions validates the report type, schema version, ID/title match, size, and credential-like content before archiving.
 - Invalid reports fail closed and are not archived.
 - The issue remains the durable record; the Actions artifact is a short-lived convenience copy.
