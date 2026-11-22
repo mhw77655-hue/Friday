@@ -27,6 +27,7 @@ on:
       - docs/OBJECTIVE_1_SOURCE_AUDIT_TRIAGE.md
       - AGENTS.md
       - .github/workflows/build.yml
+  pull_request:
   workflow_dispatch:
 
 concurrency:

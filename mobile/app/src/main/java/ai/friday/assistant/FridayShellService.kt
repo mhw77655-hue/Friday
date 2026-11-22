@@ -99,6 +99,16 @@ class FridayShellService : IFridayShellService.Stub() {
         return "status=${if (verified) "verified" else "not-verified"}; enabled=$present; command=$commandResult"
     }
 
+    /** Read-only state probe used to preserve the owner's existing Doze choice during acceptance. */
+    override fun isDozeWhitelisted(): String {
+        val listing = runFixed("cmd", "deviceidle", "whitelist")
+        if (listing.startsWith("unavailable:") || listing == "timeout") {
+            return "status=unsupported; readback=$listing"
+        }
+        val present = listing.contains("ai.friday.assistant")
+        return "status=verified; enabled=$present"
+    }
+
     private val PACKAGE_NAME = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+")
 
     private fun readFile(path: String, maxChars: Int): String =

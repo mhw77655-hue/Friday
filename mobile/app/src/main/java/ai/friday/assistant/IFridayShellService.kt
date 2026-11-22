@@ -14,6 +14,7 @@ interface IFridayShellService : IInterface {
     fun diagnosticsSnapshot(): String
     fun captureScreenSummary(): String
     fun setDozeWhitelist(enabled: Boolean): String
+    fun isDozeWhitelisted(): String
     fun launchApp(packageName: String): String
     fun destroy()
 
@@ -65,6 +66,13 @@ interface IFridayShellService : IInterface {
                     reply?.writeString(result)
                     return true
                 }
+                TRANSACTION_DOZE_WHITELIST_STATE -> {
+                    data.enforceInterface(DESCRIPTOR)
+                    val result = isDozeWhitelisted()
+                    reply?.writeNoException()
+                    reply?.writeString(result)
+                    return true
+                }
                 // Shizuku UserService destruction transaction for a hand-written Binder contract.
                 SHIZUKU_DESTROY_TRANSACTION -> {
                     destroy()
@@ -81,6 +89,7 @@ interface IFridayShellService : IInterface {
             const val TRANSACTION_CAPTURE_SCREEN = IBinder.FIRST_CALL_TRANSACTION + 2
             const val TRANSACTION_DOZE_WHITELIST = IBinder.FIRST_CALL_TRANSACTION + 3
             const val TRANSACTION_LAUNCH_APP = IBinder.FIRST_CALL_TRANSACTION + 4
+            const val TRANSACTION_DOZE_WHITELIST_STATE = IBinder.FIRST_CALL_TRANSACTION + 5
             const val SHIZUKU_DESTROY_TRANSACTION = 16777114
 
             @JvmStatic
@@ -159,6 +168,20 @@ interface IFridayShellService : IInterface {
                 data.writeInterfaceToken(Stub.DESCRIPTOR)
                 data.writeString(packageName)
                 remote.transact(Stub.TRANSACTION_LAUNCH_APP, data, reply, 0)
+                reply.readException()
+                reply.readString() ?: "status=unverified"
+            } finally {
+                data.recycle()
+                reply.recycle()
+            }
+        }
+
+        override fun isDozeWhitelisted(): String {
+            val data = Parcel.obtain()
+            val reply = Parcel.obtain()
+            return try {
+                data.writeInterfaceToken(Stub.DESCRIPTOR)
+                remote.transact(Stub.TRANSACTION_DOZE_WHITELIST_STATE, data, reply, 0)
                 reply.readException()
                 reply.readString() ?: "status=unverified"
             } finally {

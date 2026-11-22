@@ -22,6 +22,7 @@ A Binder connection without the expected execution identity is not a usable priv
 - `diagnosticsSnapshot`: return bounded system, storage, battery and build diagnostics.
 - `captureScreenSummary`: capture the foreground UI hierarchy and extract visible text.
 - `setDozeWhitelist`: add or remove only Friday's own package from Device Idle whitelist and verify by reading the whitelist back.
+- `isDozeWhitelisted`: read-only, verified query of Friday's current Device Idle whitelist state so acceptance tests can restore the owner's original choice.
 - `launchApp`: launch an installed package through Android's launcher intent and verify that the package owns the resumed/top-resumed activity.
 
 The app-launch operation accepts a package name, not a command. Package names are validated before use. The service uses an argument-vector ProcessBuilder with fixed executable and argument structure; it does not expose arbitrary shell, scripts, paths or command strings.
@@ -62,6 +63,17 @@ At runtime:
 - Make every capability individually revocable and observable.
 - Do not bypass Android's permission model, force-stop semantics, foreground-service rules or OEM power policies.
 - If Shizuku is unavailable, Friday continues through ordinary Android APIs and reports the missing capability honestly.
+
+## Physical-device acceptance runner
+
+Friday Settings now exposes a one-tap Shizuku acceptance sequence. It:
+1. waits for a verified shell/root UserService identity;
+2. requests a bounded diagnostics snapshot and checks that its UID matches the identity probe;
+3. reads the existing Friday Doze-whitelist state;
+4. tests add and remove with read-back verification, then restores the original state even if an intermediate check fails;
+5. launches Android Settings and verifies the resumed activity.
+
+Each result is recorded as a privacy-filtered action event so the owner can upload it through the GitHub device-report channel. The runner does not execute arbitrary shell commands and does not change the owner's final Doze setting.
 
 ## Current limitations
 

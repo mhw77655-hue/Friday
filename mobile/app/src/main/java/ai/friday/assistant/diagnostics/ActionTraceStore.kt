@@ -91,6 +91,12 @@ class ActionTraceStore(
     fun exportJson(capabilities: JSONObject = JSONObject()): String = synchronized(monitor) {
         withFileLock {
             val stored = readRoot()
+            val sourceEvents = stored.optJSONArray("events") ?: JSONArray()
+            val boundedEvents = JSONArray()
+            val firstEvent = (sourceEvents.length() - MAX_EXPORT_EVENTS).coerceAtLeast(0)
+            for (index in firstEvent until sourceEvents.length()) {
+                boundedEvents.put(sourceEvents.getJSONObject(index))
+            }
             JSONObject()
                 .put("report_type", "FRIDAY_LIVE_TEST_REPORT")
                 .put("device_capabilities", capabilities)
@@ -101,7 +107,7 @@ class ActionTraceStore(
                 .put("app_version", stored.optString("app_version", appVersion))
                 .put("android_api", stored.optInt("android_api", androidApi))
                 .put("source_revision", stored.optString("source_revision", sourceRevision))
-                .put("events", stored.optJSONArray("events") ?: JSONArray())
+                .put("events", boundedEvents)
                 .toString(2)
         }
     }
@@ -269,6 +275,7 @@ class ActionTraceStore(
     companion object {
         const val DEFAULT_MAX_EVENTS = 200
         private const val SCHEMA_VERSION = 1
+        private const val MAX_EXPORT_EVENTS = 50
         private const val FILE_NAME = "phone-action-traces.json"
         private const val LOCK_FILE = "phone-action-traces.lock"
     }
@@ -286,11 +293,11 @@ internal fun sanitizedCrashSummary(previousCrash: JSONObject?): JSONObject {
     summary.put("thread", previousCrash.optString("thread", "unknown"))
     val safeChain = JSONArray()
     val chain = previousCrash.optJSONArray("exception_chain") ?: JSONArray()
-    for (index in 0 until minOf(chain.length(), 6)) {
+    for (index in 0 until minOf(chain.length(), 4)) {
         val item = chain.optJSONObject(index) ?: continue
         val safeFrames = JSONArray()
         val frames = item.optJSONArray("frames") ?: JSONArray()
-        for (frameIndex in 0 until minOf(frames.length(), 12)) {
+        for (frameIndex in 0 until minOf(frames.length(), 8)) {
             val frame = frames.optJSONObject(frameIndex) ?: continue
             safeFrames.put(JSONObject()
                 .put("class", frame.optString("class", "unknown").take(180))
@@ -344,6 +351,23 @@ object PhoneActionDiagnostics {
         store?.exportText(capabilitySnapshot(context.applicationContext))
             ?: "FRIDAY LIVE TEST REPORT\nDiagnostics are not initialized in this process."
     }.getOrDefault("FRIDAY LIVE TEST REPORT\nThe local action journal could not be read.")
+
+    /** Structured, privacy-filtered report for direct owner-authorized GitHub upload. */
+    fun exportJson(context: android.content.Context): String = runCatching {
+        store?.exportJson(capabilitySnapshot(context.applicationContext))
+            ?: JSONObject().put("report_type", "FRIDAY_LIVE_TEST_REPORT")
+                .put("schema_version", 1)
+                .put("report_id", java.util.UUID.randomUUID().toString())
+                .put("events", JSONArray())
+                .toString()
+    }.getOrElse {
+        JSONObject().put("report_type", "FRIDAY_LIVE_TEST_REPORT")
+            .put("schema_version", 1)
+            .put("report_id", java.util.UUID.randomUUID().toString())
+            .put("events", JSONArray())
+            .put("diagnostic_error", "Local action journal unavailable; no exception details exported.")
+            .toString()
+    }
 
     private fun capabilitySnapshot(context: android.content.Context): JSONObject {
         val enabledAccessibility = android.provider.Settings.Secure.getString(

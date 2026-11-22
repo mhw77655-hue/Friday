@@ -35,6 +35,17 @@ The original foundation build and architecture gates have passed on earlier veri
 - Independent offline backup of the private keystore and its password remains unverified. The existing GitHub signing secret and local keystore have already produced a matching production-signed artifact; do not rotate or delete either.
 
 
+## Phone-to-GitHub reporting and physical Shizuku acceptance — implementation staged, CI/device proof pending
+
+- Branch `objective-1/github-device-reporting` adds a direct phone-to-repository report path. Friday Settings stores a fine-grained GitHub token encrypted with a non-exportable Android Keystore AES-GCM key. The token is never included in diagnostic payloads or logs.
+- The token is restricted by design to this repository and GitHub Issues read/write. Friday submits an explicitly owner-triggered, bounded JSON diagnostic as a GitHub issue. The payload includes app/build identity, device capability states, sanitized crash frames and action-category events; it excludes conversation content, transcripts, typed text, screen text, notifications and raw exception messages.
+- A GitHub Actions workflow accepts only owner-created report issues, validates schema, report ID/title match, size and credential-like content, then archives the JSON as a 14-day artifact and comments with the validation run.
+- Report payloads are capped at 40 KiB and the action journal export is bounded to the most recent 50 events. Stable report IDs and issue-title lookup prevent duplicate creation when a delivery response is lost and the same payload is retried.
+- The branch adds MockWebServer tests for API method/auth headers, issue creation, duplicate detection and permission failures; payload tests for schema, size and credential rejection; and an emulator instrumentation test for Android Keystore credential round-tripping.
+- The branch also adds a one-tap Shizuku acceptance runner: verify remote UID, verify diagnostics UID matches, exercise Doze add/remove with read-back and restore the owner's original whitelist state, then launch Android Settings and verify its resumed activity. It records only sanitized pass/fail action events.
+- **Not yet proven:** the branch has not yet passed CI, been merged, or been installed on the owner's physical phone. No GitHub token has been configured in Friday, no device report has been uploaded, and the Shizuku runner has not been exercised on the Realme handset. GitHub issue visibility follows repository visibility; owner must check this before uploading.
+- The one-time owner action after the tested build is installed: create a fine-grained token for only this repository with Issues read/write, paste it directly into Friday Settings, save, verify access, run the Shizuku acceptance checks, then tap Upload device report. The token must never be sent to ChatGPT.
+
 ## Adversarial work added; validation still pending
 
 - [Adversarial validation plan](OBJECTIVE_1_ADVERSARIAL_VALIDATION_PLAN.md) now covers static/build integrity, source-to-test mapping, property/boundary tests, mutation, fuzzing, state-machine testing, concurrency, fault injection, Android lifecycle, native boundaries, security, soak testing and recovery-system attacks.

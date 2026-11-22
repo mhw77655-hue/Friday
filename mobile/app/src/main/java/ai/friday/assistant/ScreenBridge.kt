@@ -85,7 +85,7 @@ object ScreenBridge {
         val args = Shizuku.UserServiceArgs(ComponentName(context, FridayShellService::class.java))
             .daemon(true)
             .tag("friday-device-capability-core")
-            .version(4)
+            .version(5)
         userServiceArgs = args
         try {
             _status.value = "binding..."
@@ -193,6 +193,14 @@ object ScreenBridge {
         val svc = service ?: return@withContext null
         runCatching { svc.setDozeWhitelist(enabled) }
             .onFailure { _status.value = "Doze whitelist update failed: ${it.message}" }
+            .getOrNull()
+    }
+
+    /** Read the current Friday-only Doze exemption without changing device state. */
+    suspend fun isDozeWhitelisted(): String? = withContext(Dispatchers.IO) {
+        val svc = service ?: return@withContext null
+        runCatching { svc.isDozeWhitelisted() }
+            .onFailure { _status.value = "Doze whitelist read failed: ${it.message}" }
             .getOrNull()
     }
 
