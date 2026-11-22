@@ -127,14 +127,18 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
                 val executionSummary = if (executionFile.isFile) runCatching {
                     val ledger = JSONObject(executionFile.readText(Charsets.UTF_8))
                     val phases = ledger.optJSONArray("phases") ?: org.json.JSONArray()
+                    val objectives = ledger.optJSONArray("objectives") ?: org.json.JSONArray()
                     val tasks = ledger.optJSONArray("tasks") ?: org.json.JSONArray()
+                    val acceptedObjectives = (0 until objectives.length()).count { index ->
+                        objectives.optJSONObject(index)?.optString("status") == "ACCEPTED"
+                    }
                     val assessed = (0 until phases.length()).count { index ->
                         phases.optJSONObject(index)?.optString("status") == "ACCEPTED"
                     }
                     val queued = (0 until tasks.length()).count { index ->
                         tasks.optJSONObject(index)?.optString("status") == "QUEUED"
                     }
-                    "Objective 1: $assessed/${phases.length()} phases accepted · $queued evidence tasks queued"
+                    "Objectives: $acceptedObjectives/${objectives.length()} accepted · Objective 1: $assessed/${phases.length()} phases accepted · $queued work packets queued (not yet executed)"
                 }.getOrDefault("Objective 1 ledger exists but could not be read.")
                 else "Objective 1: waiting for the local execution ledger."
                 when {
