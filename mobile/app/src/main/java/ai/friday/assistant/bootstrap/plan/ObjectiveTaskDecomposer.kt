@@ -25,7 +25,7 @@ class ObjectiveTaskDecomposer(
         }
 
         val modelId = "friday-resident:latest"
-        val prompt = SYSTEM_PROMPT.trimIndent() + "\\n\\n" + buildString {
+        val prompt = SYSTEM_PROMPT.trimIndent() + "\n\n" + buildString {
             appendLine("Parent task: " + parent.optString("task_id"))
             appendLine("Objective: " + parent.optString("objective_id"))
             appendLine("Phase: " + parent.opt("phase_id"))
@@ -65,7 +65,6 @@ class ObjectiveTaskDecomposer(
     }
 
     companion object {
-        private const val MAX_ITEMS = 4
         private const val MAX_SCOPE_CHARS = 6_000
         private const val SYSTEM_PROMPT = """
 You are Friday's local development planner. Convert the supplied canonical task into 1-4 small, independently verifiable work items.
