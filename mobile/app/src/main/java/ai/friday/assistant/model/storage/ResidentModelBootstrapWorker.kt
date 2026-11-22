@@ -48,8 +48,6 @@ class ResidentModelBootstrapWorker(
     override suspend fun doWork(): Result {
         val manager = FridayEngine.modelManager ?: return Result.retry()
         val resourceGovernor = FridayEngine.nanoSymbiosis ?: return Result.retry()
-        val asset = OfflineModelCatalog.resident
-
         return try {
             val hostReportFile = File(applicationContext.filesDir, "friday-development/host-bootstrap.json")
             if (!hostReportFile.isFile) return Result.retry()
@@ -66,35 +64,51 @@ class ResidentModelBootstrapWorker(
             }
 
             val downloader = OfflineModelDownloader(applicationContext)
+            val modelBudgetBytes = hostReport.optJSONObject("configuration")
+                ?.optLong("recommended_model_max_bytes", 0L) ?: 0L
+            // Select the strongest verified resident candidate that the measured
+            // host budget and live NAE admission both allow. Never download an
+            // unpinned fallback or force the primary model onto a constrained phone.
+            val candidates = listOf(
+                OfflineModelCatalog.resident,
+                OfflineModelCatalog.tinyFallback
+            ).filter { asset ->
+                !asset.sha256.isNullOrBlank() &&
+                    asset.expectedMinimumBytes <= modelBudgetBytes
+            }
+            val selected = candidates.firstNotNullOfOrNull { candidate ->
+                val gate = resourceGovernor.admitModel(
+                    modelBytes = candidate.expectedMinimumBytes,
+                    requestedContextTokens = RESIDENT_CONTEXT_TOKENS
+                )
+                if (gate.allowed) candidate to gate else null
+            }
+            if (selected == null) {
+                val reason = "Friday's measured host budget cannot safely admit a pinned resident model. The Builder remains queued."
+                recordState("WAITING_FOR_HOST_CAPACITY", reason)
+                return Result.success(workDataOf("state" to "WAITING_FOR_HOST_CAPACITY", "reason" to reason))
+            }
+            val asset = selected.first
+            val admission = selected.second
             val alreadyInstalled = downloader.isInstalled(asset)
             if (!alreadyInstalled) {
                 if (!isSafeToDownload()) {
-                    val reason = "The verified resident model is queued until Friday has validated unmetered internet and the phone is charging."
+                    val reason = "The selected verified resident model is queued until Friday has validated unmetered internet and the phone is charging."
                     recordState("WAITING_FOR_SAFE_DOWNLOAD_WINDOW", reason)
                     return Result.success(workDataOf("state" to "WAITING_FOR_SAFE_DOWNLOAD_WINDOW", "reason" to reason))
                 }
                 val requiredBytes = asset.expectedMinimumBytes + MIN_FREE_BYTES
                 if (downloader.availableStorageBytes() < requiredBytes) {
-                    val reason = "Insufficient private storage for the pinned resident model plus the safety reserve."
+                    val reason = "Insufficient private storage for the selected pinned resident model plus the safety reserve."
                     recordState("WAITING_FOR_STORAGE", reason)
                     return Result.success(workDataOf("state" to "WAITING_FOR_STORAGE", "reason" to reason))
                 }
             }
 
-            val admission = resourceGovernor.admitModel(
-                modelBytes = asset.expectedMinimumBytes,
-                requestedContextTokens = RESIDENT_CONTEXT_TOKENS
-            )
-            if (!admission.allowed) {
-                val reason = admission.reason
-                recordState("WAITING_FOR_HOST_CAPACITY", reason)
-                return Result.success(workDataOf("state" to "WAITING_FOR_HOST_CAPACITY", "reason" to reason))
-            }
-
             recordState(
                 if (alreadyInstalled) "LOADING" else "DOWNLOADING",
                 if (alreadyInstalled) "Verified resident weights are installed; Friday is attempting the live model load."
-                else "Downloading the pinned resident model over unmetered Wi-Fi while charging."
+                else "Downloading the selected pinned resident model over unmetered Wi-Fi while charging."
             )
             if (!alreadyInstalled) setForeground(createForegroundInfo())
             val modelFile = if (alreadyInstalled) {
