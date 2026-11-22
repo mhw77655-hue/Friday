@@ -74,6 +74,7 @@ class MainActivity : ComponentActivity() {
             FridayTheme {
                 FridayNavHost(showSetup = showSetup) {
                     setupPreferences.edit().putBoolean("completed", true).apply()
+                    recreate()
                 }
             }
         }
