@@ -193,7 +193,7 @@ jobs:
           FRIDAY_RELEASE_STORE_PASSWORD="$PASSWORD" \
           FRIDAY_RELEASE_KEY_ALIAS="friday-release" \
           FRIDAY_RELEASE_KEY_PASSWORD="$PASSWORD" \
-            bash tools/friday-builder/gradle_retry.sh :mobile:app:assembleRelease \\
+            bash tools/friday-builder/gradle_retry.sh :mobile:app:assembleRelease \
               -PfridayVersionCode=2001 \
               -PfridayVersionName=ci-smoke \
               -PfridayAbiFilters=arm64-v8a
