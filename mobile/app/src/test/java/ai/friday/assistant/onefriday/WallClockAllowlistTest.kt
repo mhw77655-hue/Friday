@@ -179,6 +179,7 @@ class WallClockAllowlistTest {
         put("continuity/ContinuityGate.kt", 1)
         put("failure/CircuitBreaker.kt", 1)
         put("failure/FailureSurface.kt", 1)
+        put("failure/RecoveryController.kt", 2)
         put("humancore/HumanCore.kt", 3)
 
         // ── identity ──────────────────────────────────────────────────────────
