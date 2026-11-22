@@ -196,6 +196,14 @@ object ScreenBridge {
             .getOrNull()
     }
 
+    /** Read the current Friday-only Doze exemption without changing device state. */
+    suspend fun isDozeWhitelisted(): String? = withContext(Dispatchers.IO) {
+        val svc = service ?: return@withContext null
+        runCatching { svc.isDozeWhitelisted() }
+            .onFailure { _status.value = "Doze whitelist read failed: ${it.message}" }
+            .getOrNull()
+    }
+
     /**
      * Convert the real uiautomator hierarchy returned by the Shizuku UserService
      * into the same bounded semantic-node format consumed by Friday's phone
