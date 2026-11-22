@@ -187,3 +187,20 @@ This stage is an adversarial evidence campaign. It cannot guarantee the absence 
 - The user-facing failure surface records failure/recovery state, but universal recovery-progress notifications and evidence-based ETA estimates are not yet established.
 - The repository inventory counts source files, not executable line/branch coverage.
 
+ 
+## 8. Cross-objective architecture compatibility gate
+
+The new Elastic Intelligence / Continuity architecture is a future capability, not an Objective 1 implementation claim. Before Objective 1 closes, test that the present APK foundation has safe extension seams and cannot violate its protected invariants when those later capabilities are introduced.
+
+At minimum, adversarially verify:
+- dynamic memory admission is bounded by current available memory, not just a configured device-size default;
+- lightweight and full admission checks agree on memory, CPU, concurrency, battery and thermal policy;
+- latency-sensitive work is denied under critical thermal pressure;
+- provider/model replacement cannot reset owner identity, durable task state, authorization or action-verification evidence;
+- model absence, provider crash, cancellation and cache eviction degrade safely without startup deadlock or false capability claims;
+- durable continuity is independent of model/KV cache lifetime;
+- model downloads/assets are not treated as trusted or active before integrity and compatibility checks;
+- bounded specialist work cannot starve the immediate path or duplicate side effects after timeout/restart.
+
+Use fake providers and deterministic resource-state injection where hardware is not available. Verify production wiring for each claimed seam; a standalone class test is not proof of production reachability. Report each check as implemented-and-tested, partially supported, or future work. Do not make Objective 1 wait for full MoE streaming, automatic model acquisition, predictive expert routing, self-optimizing schedulers, human-level voice or the complete Continuity Capsule. Those remain later objective deliverables. Objective 1 must leave the APK safe to extend, not pretend the extension already exists.
+
