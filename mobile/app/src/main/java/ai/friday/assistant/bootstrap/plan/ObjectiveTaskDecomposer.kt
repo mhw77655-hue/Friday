@@ -25,9 +25,19 @@ class ObjectiveTaskDecomposer(
 
     suspend fun decompose(parent: JSONObject): ResultPacket {
         val providerType = modelManager.activeProvider.value.providerType
-        require(providerType == ModelProviderType.LLAMA_CPP ||
-            providerType == ModelProviderType.OLLAMA
-        ) { "No approved local model provider is active; cloud and heuristic providers are not used for offline planning." }
+        val localProvider = when (providerType) {
+            ModelProviderType.LLAMA_CPP -> true
+            ModelProviderType.OLLAMA -> {
+                val endpoint = modelManager.activeProvider.value.config?.parameters?.get("endpoint")
+                    ?: "http://127.0.0.1:11434"
+                val host = runCatching { java.net.URI(endpoint).host }.getOrNull()
+                host == "localhost" || host == "127.0.0.1" || host == "::1"
+            }
+            else -> false
+        }
+        require(localProvider) {
+            "No approved on-device model provider is active; cloud and heuristic providers are not used for offline planning."
+        }
         require(modelManager.isTierLoaded(ai.friday.assistant.model.ModelTier.RESIDENT)) {
             "Friday's resident local model is not loaded."
         }
