@@ -65,16 +65,16 @@ internal class ObjectiveBuilderCandidateExecutor(
             implementation or test/doc change only. Return complete replacement contents for 1-3 files.
 
             TASK:
-            \${task.optString("goal").take(400)}
+            ${task.optString("goal").take(400)}
 
             ACCEPTANCE:
-            \${task.optJSONArray("acceptance_criteria")?.toString()?.take(1800).orEmpty()}
+            ${task.optJSONArray("acceptance_criteria")?.toString()?.take(1800).orEmpty()}
 
             EVIDENCE REQUESTED:
-            \${task.optJSONArray("evidence_needed")?.toString()?.take(1800).orEmpty()}
+            ${task.optJSONArray("evidence_needed")?.toString()?.take(1800).orEmpty()}
 
             REPOSITORY CONTEXT:
-            \${context.take(MAX_CONTEXT_CHARS)}
+            ${context.take(MAX_CONTEXT_CHARS)}
 
             Return ONLY JSON:
             {
@@ -124,8 +124,8 @@ internal class ObjectiveBuilderCandidateExecutor(
             appendLine(summary)
             appendLine()
             appendLine("## Origin")
-            appendLine("- Task: \${task.optString("task_id")}")
-            appendLine("- Objective: \${task.optString("objective_id")}")
+            appendLine("- Task: ${task.optString("task_id")}")
+            appendLine("- Objective: ${task.optString("objective_id")}")
             appendLine("- Local model: friday-resident")
             appendLine("- Candidate is untrusted and has not been accepted.")
             appendLine()
@@ -158,9 +158,9 @@ internal class ObjectiveBuilderCandidateExecutor(
 
     private fun parseJson(content: String): JSONObject {
         val cleaned = content.trim()
-            .removePrefix("\`\`\`json")
-            .removePrefix("\`\`\`")
-            .removeSuffix("\`\`\`")
+            .removePrefix("```json")
+            .removePrefix("```")
+            .removeSuffix("```")
             .trim()
         val start = cleaned.indexOf('{')
         val end = cleaned.lastIndexOf('}')
