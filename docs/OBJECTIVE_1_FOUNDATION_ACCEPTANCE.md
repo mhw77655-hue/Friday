@@ -158,3 +158,8 @@ The original PR workflow #2838 checked merge revision `4b33b4f8` and failed with
 The source was corrected in commit `4da78949f8afa630a2ea8000b16c0aade5919c77`; the Android context property was then explicitly renamed to `androidContext` in commit `ddb685cfc5a024944396a52ae63c4fc59d5be78c` to prevent recurrence. The exact current PR head is `ddb685cfc5a024944396a52ae63c4fc59d5be78c`.
 
 **Verification remains blocked:** GitHub Actions has no run for the current head. The connected GitHub actions surface can inspect and rerun existing jobs but does not expose a workflow-dispatch operation. Re-running #2838 would test the old failed merge revision, not this corrected head. No build or test pass is claimed.
+
+
+### Host-adaptive resident model gap
+
+The first-run downloader currently targets the pinned MiniCPM5 2B resident asset only. The inference backend can select smaller fallback GGUFs if they are already installed, but the fallback catalog entries do not all carry pinned SHA-256 digests and the downloader correctly refuses to install an asset without one. Therefore automatic smaller-model acquisition on a low-capacity phone is not implemented yet. Host study and safe refusal are present; complete automatic model fallback is not accepted until each fallback has a verified immutable revision, file size, license and SHA-256 and the bootstrap worker selects it from measured host capacity.
