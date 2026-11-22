@@ -75,6 +75,7 @@ class FridayUpdateStateStore(context: Context) {
             .apply()
     }
 
+    @Suppress("DEPRECATION")
     fun verifyPendingHealthCheck(): String? {
         val expectedVersion = prefs.getLong(KEY_PENDING_VERSION_CODE, -1L)
         if (expectedVersion <= 0L) return null
@@ -85,10 +86,8 @@ class FridayUpdateStateStore(context: Context) {
             val flags = if (Build.VERSION.SDK_INT >= 28) {
                 PackageManager.GET_SIGNING_CERTIFICATES
             } else {
-                @Suppress("DEPRECATION")
                 PackageManager.GET_SIGNATURES
             }
-            @Suppress("DEPRECATION")
             val info = if (Build.VERSION.SDK_INT >= 33) {
                 appContext.packageManager.getPackageInfo(
                     appContext.packageName,
@@ -106,7 +105,6 @@ class FridayUpdateStateStore(context: Context) {
             val signatures = if (Build.VERSION.SDK_INT >= 28) {
                 info.signingInfo?.apkContentsSigners
             } else {
-                @Suppress("DEPRECATION")
                 info.signatures
             } ?: error("Installed signing identity is unavailable.")
             val signer = signatures.singleOrNull() ?: error("Installed package has an unsupported multiple-signer identity.")
