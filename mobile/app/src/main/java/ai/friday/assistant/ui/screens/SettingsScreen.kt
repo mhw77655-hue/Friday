@@ -83,6 +83,7 @@ fun SettingsScreen() {
     var githubConfigured by remember { mutableStateOf(githubCredentialStore.isConfigured()) }
     val githubPendingReportStore = remember { ai.friday.assistant.github.reporting.GitHubPendingReportStore(context) }
     var githubPendingReport by remember { mutableStateOf(githubPendingReportStore.read() != null) }
+    var githubDevelopmentStatus by remember { mutableStateOf("Development repository access has not been checked.") }
     var githubReportStatus by remember {
         mutableStateOf(if (githubConfigured) "GitHub credential is encrypted on this phone." else "GitHub reporting is not connected.")
     }
@@ -550,6 +551,37 @@ fun SettingsScreen() {
             text = "$actionTraceCount action events currently stored on this phone.",
             style = FridayType.Technical,
             modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        Button(
+            onClick = {
+                val token = githubCredentialStore.read()
+                if (token == null) {
+                    githubDevelopmentStatus = "Save a GitHub credential first."
+                } else {
+                    githubBusy = true
+                    scope.launch {
+                        val result = runCatching {
+                            withContext(Dispatchers.IO) {
+                                ai.friday.assistant.github.reporting.GitHubDevelopmentRepositoryClient(token)
+                                    .verifyDevelopmentAccess()
+                            }
+                        }
+                        githubDevelopmentStatus = result.fold(
+                            onSuccess = { it },
+                            onFailure = { it.message ?: "GitHub development access check failed." }
+                        )
+                        githubBusy = false
+                    }
+                }
+            },
+            enabled = githubConfigured && !githubBusy,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Verify Friday development repository access") }
+        Text(
+            text = githubDevelopmentStatus,
+            style = FridayType.Technical,
+            modifier = Modifier.padding(bottom = 12.dp)
         )
 
         SectionLabel("GITHUB DEVICE REPORTING")
