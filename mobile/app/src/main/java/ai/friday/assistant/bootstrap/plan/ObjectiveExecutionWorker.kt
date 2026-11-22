@@ -69,6 +69,38 @@ class ObjectiveExecutionWorker(
                 return@withContext Result.success()
             }
 
+            // Poll the candidate's remote CI before generating another patch.
+            val pendingCandidate = store.nextCandidateForVerification()
+            if (pendingCandidate != null) {
+                val candidate = pendingCandidate.optJSONObject("candidate")
+                val commitSha = candidate?.optString("commit_sha").orEmpty()
+                val candidateTaskId = pendingCandidate.optString("task_id")
+                if (token == null) {
+                    android.util.Log.i(TAG, "Candidate CI check is waiting for repository authorization.")
+                    return@withContext Result.success()
+                }
+                try {
+                    val checks = ai.friday.assistant.github.reporting.GitHubDevelopmentRepositoryClient(token)
+                        .inspectCandidateChecks(commitSha)
+                    val evidence = org.json.JSONObject()
+                        .put("state", checks.state)
+                        .put("total", checks.total)
+                        .put("completed", checks.completed)
+                        .put("failed", checks.failed)
+                        .put("details", org.json.JSONArray(checks.details))
+                        .put("checked_at_epoch_ms", System.currentTimeMillis())
+                    store.recordCandidateCiResult(candidateTaskId, evidence)
+                    if (checks.state == "PENDING") {
+                        enqueueFollowUp(applicationContext, candidateTaskId, initialDelaySeconds = 600)
+                    }
+                    android.util.Log.i(TAG, "Candidate PR CI state: " + checks.state)
+                } catch (checkFailure: Exception) {
+                    android.util.Log.w(TAG, "Candidate CI inspection deferred.", checkFailure)
+                    enqueueFollowUp(applicationContext, candidateTaskId, initialDelaySeconds = 600)
+                }
+                return@withContext Result.success()
+            }
+
             // Once parent packets have been decomposed, the local Builder turns
             // one safe child task into an isolated GitHub candidate. CI/review
             // are separate evidence stages; this worker never merges or releases.
@@ -123,8 +155,9 @@ class ObjectiveExecutionWorker(
         }
     }
 
-    private fun enqueueFollowUp(context: Context, completedParentTaskId: String) {
+    private fun enqueueFollowUp(context: Context, completedParentTaskId: String, initialDelaySeconds: Long = 0L) {
         val request = OneTimeWorkRequestBuilder<ObjectiveExecutionWorker>()
+            .setInitialDelay(initialDelaySeconds, TimeUnit.SECONDS)
             .setConstraints(
                 Constraints.Builder()
                     .setRequiresBatteryNotLow(true)
