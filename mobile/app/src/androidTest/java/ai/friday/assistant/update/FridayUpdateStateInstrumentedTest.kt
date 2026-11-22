@@ -11,6 +11,7 @@ import org.junit.Test
 import org.json.JSONArray
 import org.junit.runner.RunWith
 import java.io.File
+import java.security.MessageDigest
 
 @RunWith(AndroidJUnit4::class)
 class FridayUpdateStateInstrumentedTest {
@@ -91,6 +92,37 @@ class FridayUpdateStateInstrumentedTest {
                 .put("browser_download_url", "http://example.invalid/friday.apk")
         )
         assertEquals(null, FridayUpdateClient.findReleaseAssetUrl(insecure, "friday.apk"))
+    }
+
+    @Test
+    fun postInstallHealthCheckConfirmsCurrentVersionSourceAndSigner() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val flags = android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES
+        val info = context.packageManager.getPackageInfo(
+            context.packageName,
+            android.content.pm.PackageManager.PackageInfoFlags.of(flags.toLong())
+        )
+        val signer = info.signingInfo!!.apkContentsSigners.single()
+        val fingerprint = MessageDigest.getInstance("SHA-256")
+            .digest(signer.toByteArray())
+            .joinToString("") { "%02x".format(it) }
+            .uppercase()
+        val release = FridayUpdateClient.Release(
+            packageId = context.packageName,
+            versionCode = info.longVersionCode,
+            versionName = info.versionName!!,
+            sourceCommit = ai.friday.assistant.BuildConfig.SOURCE_REVISION,
+            certificateSha256 = fingerprint,
+            apkSha256 = "0".repeat(64),
+            apkUrl = "https://example.invalid/friday.apk"
+        )
+        val store = FridayUpdateStateStore(context)
+        store.recordPendingHealthCheck(release)
+
+        val status = store.verifyPendingHealthCheck()
+
+        assertTrue(status.orEmpty().contains("Post-update health check passed"))
+        assertTrue(store.lastStatus().contains("Post-update health check passed"))
     }
 
 }
