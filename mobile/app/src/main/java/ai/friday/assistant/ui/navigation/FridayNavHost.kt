@@ -154,7 +154,13 @@ fun FridayNavHost(showSetup: Boolean = false, onSetupComplete: () -> Unit = {}) 
             popExitTransition = { tabExit }
         ) {
             composable(ROUTE_FIRST_LAUNCH_SETUP) {
-                ai.friday.assistant.ui.screens.FirstLaunchSetupScreen(onComplete = onSetupComplete)
+                ai.friday.assistant.ui.screens.FirstLaunchSetupScreen(onComplete = {
+                    onSetupComplete()
+                    navController.navigate(ROUTE_HOME) {
+                        popUpTo(ROUTE_FIRST_LAUNCH_SETUP) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                })
             }
             composable(ROUTE_HOME) {
                 HomeScreen(onOpenTools = { navigateToTab(ROUTE_TOOLS) })
