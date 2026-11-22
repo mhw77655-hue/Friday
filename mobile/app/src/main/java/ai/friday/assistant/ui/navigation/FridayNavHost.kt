@@ -55,7 +55,6 @@ import ai.friday.assistant.ui.theme.FridayColors
 import ai.friday.assistant.ui.theme.FridayType
 
 private const val ROUTE_HOME = "home"
-private const val ROUTE_FIRST_LAUNCH_SETUP = "first_launch_setup"
 private const val ROUTE_CONVERSATION = "conversation"
 private const val ROUTE_MISSIONS = "missions"
 private const val ROUTE_MEMORY = "memory"
