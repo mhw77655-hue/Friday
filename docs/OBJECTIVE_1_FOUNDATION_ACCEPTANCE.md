@@ -6,9 +6,24 @@
 **Owner declaration:** pending; this document is evidence, not sign-off  
 **Current main at record update:** `cc88077658965e81c3fed8e891a742b59d5a035f`
 
+## Corrected Objective 1 outcome — installed Builder, not just foundation
+
+Objective 1 is **not complete** until the installed Friday can bootstrap and operate her own development environment on the owner's Android host, read and continue the canonical plan, coordinate an authorized AI worker pool, create and validate a real bounded change, preserve durable evidence, and resume after interruption. The owner gives outcomes; Friday determines and executes the engineering route within granted authority.
+
+**Termux is explicitly not a production dependency.** The owner intends to uninstall Termux after installing Friday. Therefore any implementation whose only working AI-worker or source-development route calls Termux RUN_COMMAND is not acceptable as Objective 1 completion. Termux may remain a research donor or optional development aid, but the accepted runtime must be provisioned and owned by Friday inside her app-managed environment.
+
+The current source evidence shows why this correction matters:
+- `ObjectiveExecutionWorker` reconciles/decomposes queued parent tasks; it does not yet implement, build, test, integrate or promote source changes.
+- `TermuxAiCliWorkerPool` is the concrete subscription-worker adapter in the current PR #113 branch. It depends on Termux's RUN_COMMAND bridge and Termux home directory.
+- The `APP_MANAGED` environment kind exists as an enum value, but no production app-managed execution adapter was found in the inspected source.
+- The plan itself previously deferred the complete autonomous Builder to Objective F. That conflicts with the owner's clarified Objective 1 outcome and is corrected in the canonical plan.
+- The installed app must not depend on this ChatGPT conversation, a manual Termux session, or the owner relaying prompts/responses. External subscription workers may guide Friday only through supported authentication and execution paths.
+
+**Required implementation proof:** a Friday-owned bootstrap/runtime manager; app-private workspace and toolchain lifecycle; host-aware resource admission; provider authentication/onboarding through supported flows; durable objective/task/checkpoint/evidence ledger; isolated candidate construction; test/build execution; independent review and postcondition verification; trusted repository/update integration; process-death/reboot recovery; and an actual no-Termux acceptance test. If a CLI cannot run on Android, Friday must prove an alternative route rather than silently assume compatibility.
+
 ## Current status
 
-The original foundation build and architecture gates have passed on earlier verified commits. The owner has now defined the final Objective 1 stage: an adversarial simulation campaign that deliberately attempts to break the retained foundation, tests the recovery paths, and records every failure and unresolved gap.
+The original foundation build and architecture gates have passed on earlier verified commits. The owner has clarified that Objective 1 is the installed Builder seed: Friday must configure her own development environment on the actual phone, continue the canonical plan, use an AI pool for guidance, and complete a real self-development cycle without Termux or routine owner project management. The adversarial campaign remains necessary, but it is not the definition of Objective 1 or a substitute for the working Builder.
 
 **Objective 1 is not complete yet.** The adversarial campaign is in progress. No green job, successful build, or heuristic audit report is being treated as proof that every source line or behaviour is safe.
 
