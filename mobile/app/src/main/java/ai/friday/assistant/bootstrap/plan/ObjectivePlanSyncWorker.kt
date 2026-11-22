@@ -29,50 +29,53 @@ class ObjectivePlanSyncWorker(
     params: WorkerParameters
 ) : CoroutineWorker(appContext, params) {
 
-    override suspend fun doWork(): Result = withContext(Dispatchers.IO) { try {
-        val request = Request.Builder()
-            .url(CANONICAL_PLAN_URL)
-            .header("Accept", "text/plain")
-            .header("User-Agent", "Friday-Android-PlanBootstrap")
-            .build()
-        val response = CLIENT.newCall(request).execute()
-        response.use {
-            if (!it.isSuccessful) {
-                return if (it.code >= 500 || it.code == 429) Result.retry() else Result.failure()
-            }
-            val markdown = it.body?.string().orEmpty()
-            val objectives = ObjectivePlanParser.parse(markdown)
-            val expected = ('A'..'G').map(Char::toString).toSet()
-            require(objectives.map { objective -> objective.id }.toSet().containsAll(expected)) {
-                "Canonical plan snapshot is incomplete; expected Objectives A-G."
-            }
+    override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url(CANONICAL_PLAN_URL)
+                .header("Accept", "text/plain")
+                .header("User-Agent", "Friday-Android-PlanBootstrap")
+                .build()
+            val response = CLIENT.newCall(request).execute()
+            response.use { http ->
+                if (!http.isSuccessful) {
+                    if (http.code >= 500 || http.code == 429) Result.retry()
+                    else Result.failure()
+                } else {
+                    val markdown = http.body?.string().orEmpty()
+                    val objectives = ObjectivePlanParser.parse(markdown)
+                    val expected = ('A'..'G').map { it.toString() }.toSet()
+                    require(objectives.map { objective -> objective.id }.toSet().containsAll(expected)) {
+                        "Canonical plan snapshot is incomplete; expected Objectives A-G."
+                    }
 
-            val root = File(applicationContext.filesDir, "friday-development")
-            val planDir = File(root, "plan").apply {
-                if (!exists() && !mkdirs()) error("Cannot create local plan directory")
+                    val root = File(applicationContext.filesDir, "friday-development")
+                    val planDir = File(root, "plan").apply {
+                        if (!exists() && !mkdirs()) error("Cannot create local plan directory")
+                    }
+                    val digest = sha256(markdown)
+                    writeAtomically(File(planDir, "canonical-delivery-plan.md"), markdown)
+                    val ledger = JSONObject()
+                        .put("schema_version", 1)
+                        .put("source", CANONICAL_PLAN_URL)
+                        .put("source_revision_at_install", ai.friday.assistant.BuildConfig.SOURCE_REVISION)
+                        .put("content_sha256", digest)
+                        .put("etag", http.header("ETag").orEmpty())
+                        .put("last_modified", http.header("Last-Modified").orEmpty())
+                        .put("synced_at_epoch_ms", System.currentTimeMillis())
+                        .put("objective_count", objectives.size)
+                        .put("objectives", ObjectivePlanParser.toJson(objectives))
+                        .put("execution_status", "PLAN_IMPORTED_NOT_YET_EXECUTING")
+                    writeAtomically(File(planDir, "objective-ledger.json"), ledger.toString(2))
+                    Result.success()
+                }
             }
-            val digest = sha256(markdown)
-            val planFile = File(planDir, "canonical-delivery-plan.md")
-            writeAtomically(planFile, markdown)
-            val ledger = JSONObject()
-                .put("schema_version", 1)
-                .put("source", CANONICAL_PLAN_URL)
-                .put("source_revision_at_install", ai.friday.assistant.BuildConfig.SOURCE_REVISION)
-                .put("content_sha256", digest)
-                .put("etag", it.header("ETag").orEmpty())
-                .put("last_modified", it.header("Last-Modified").orEmpty())
-                .put("synced_at_epoch_ms", System.currentTimeMillis())
-                .put("objective_count", objectives.size)
-                .put("objectives", ObjectivePlanParser.toJson(objectives))
-                .put("execution_status", "PLAN_IMPORTED_NOT_YET_EXECUTING")
-            writeAtomically(File(planDir, "objective-ledger.json"), ledger.toString(2))
-            Result.success()
+        } catch (_: java.io.IOException) {
+            Result.retry()
+        } catch (_: Exception) {
+            Result.failure()
         }
-    } catch (_: java.io.IOException) {
-        Result.retry()
-    } catch (_: Exception) {
-        Result.failure()
-    } }
+    }
 
     private fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")
         .digest(value.toByteArray(Charsets.UTF_8))
