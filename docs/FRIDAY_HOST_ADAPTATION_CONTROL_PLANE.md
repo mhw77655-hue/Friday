@@ -60,3 +60,16 @@ Persist the objective-plan revision, task graph, assignments, checkpoints, idemp
 The owner remains the architect and active collaborator. Friday must expose plan status, worker participation, source changes, evidence, costs and blockers; allow the owner to inspect, challenge, redirect, pause or stop work and to use GitHub or other tools directly. Explicit authorization remains mandatory for protected operations, including permission/privilege changes, new external data disclosures, paid commitments, destructive changes, signing/identity changes and irreversible actions. Never expose credentials to workers or chat. Never use public GitHub Issues as a private device telemetry endpoint.
 
 **Implementation status:** this section records the required post-install operating contract. The current host-profile payload builder does not itself implement a durable autonomous objectives scheduler, authenticated AI-pool orchestration, independent review workflow, or signed proposal/promotion loop. Those must be implemented and verified before the installed app may claim this capability.
+
+
+## First-launch host study and plan bootstrap — implementation slice
+
+The friday-host-bootstrap-runtime branch adds an executable first-launch path:
+
+- HostBootstrapWorker reads Android API/device/ABI facts, available and total memory, app memory class, CPU core count, private-storage headroom, thermal state, battery/charging and power-save state, validated/metered network state, Friday's own feature-permission and optional-integration readiness, packaged inference-library names, and a bounded count of app-private GGUF model files.
+- HostBootstrapPolicy converts those measured values into protective, efficient, balanced or high-capacity operating recommendations. It does not change Android settings, request permissions, or assume that an accelerator works.
+- First launch prepares private workspace, candidates, evidence, cache and checkpoints directories under filesDir/friday-development and persists a schema-versioned host-bootstrap.json report. The unique WorkManager request avoids duplicate bootstrap jobs across app launches.
+- ObjectivePlanSyncWorker fetches the canonical .ralph/FRIDAY_DELIVERY_PLAN.md directly from the repository when a validated network is available, verifies that Objectives A-G are present, stores a local Markdown snapshot and a SHA-256-addressed objective ledger, and schedules a weekly refresh. The local snapshot remains available while offline.
+- Unit tests cover the deterministic host policy and extraction of all seven canonical objective sections.
+
+Remaining implementation work: the objective ledger currently imports objective sections as UNASSESSED; it does not yet resolve the plan's full dependency graph, assess completion evidence, choose and execute tasks, construct/test source candidates, or integrate an AI worker pool. The host survey also does not yet prove individual action routes or identify an available Android source-build toolchain. Do not describe this first bootstrap slice as autonomous plan completion.
