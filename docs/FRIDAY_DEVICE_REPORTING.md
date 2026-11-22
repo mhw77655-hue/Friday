@@ -28,7 +28,7 @@ The create-issue endpoint requires the fine-grained token's Issues write permiss
 - The report includes app version, Android API, source revision, capability/permission states, sanitized crash class and stack frames, and bounded action-category events.
 - It excludes conversations, speech transcripts, typed payloads, screen text, notification content, and raw exception messages.
 - Reports are bounded to 40 KiB and rejected if they resemble GitHub credentials.
-- GitHub issue and artifact visibility follows the repository's visibility and access policy. Check the repository visibility before uploading device details.
+- The `mhw77655-hue/Friday` repository is currently public. Uploaded GitHub issues and Actions artifacts are therefore readable by anyone. Upload only if you accept the sanitized device diagnostics being public.
 - Remove the credential in Friday Settings to delete the local ciphertext and Keystore key. Revoke the token separately in GitHub token settings when it is no longer needed.
 
 ## Delivery semantics
