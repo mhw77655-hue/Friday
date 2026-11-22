@@ -72,6 +72,11 @@ class HostBootstrapPolicyTest {
         assertEquals(HostOperatingMode.PROTECTIVE, config.mode)
     }
 
+    @Test fun `model recommendation also respects available storage reserve`() {
+        val config = HostBootstrapPolicy.configure(host(storage = 1000))
+        assertTrue(config.recommendedModelMaxBytes <= 488L * 1024L * 1024L)
+    }
+
     @Test fun `insufficient measured RAM blocks local model loading`() {
         val config = HostBootstrapPolicy.configure(host(memory = 1000))
         assertFalse(config.allowLocalModelLoad)

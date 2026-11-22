@@ -72,7 +72,8 @@ object HostBootstrapPolicy {
         val contextOverheadMb = kotlin.math.ceil(nanoPlan.contextTokenBudget * 0.06).toLong() + 256L
         val usableWeightMb = (host.availableMemoryMb - reserveMb - contextOverheadMb).coerceAtLeast(0L)
         val memoryBoundBytes = (usableWeightMb.toDouble() / 1.12 * 1024.0 * 1024.0).toLong()
-        val modelBudget = minOf(modeBudgetBytes, memoryBoundBytes)
+        val storageBoundBytes = (host.availableStorageMb - 512L).coerceAtLeast(0L) * 1024L * 1024L
+        val modelBudget = minOf(modeBudgetBytes, memoryBoundBytes, storageBoundBytes)
         val localModelAllowed = host.installedGgufCount > 0 &&
             host.nativeInferenceLibraryPresent &&
             modelBudget >= 128L * 1024L * 1024L &&
