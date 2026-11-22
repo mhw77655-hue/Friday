@@ -23,6 +23,17 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 
 /**
+ * Production model admission must use live Android resource telemetry. The
+ * all-clear snapshot is retained only for context-free JVM construction.
+ * Reuse one sampler so CPU deltas are meaningful across admission decisions.
+ */
+private fun defaultModelResourceGovernor(context: Context?): ResourceGovernor {
+    val snapshot = context?.let { AndroidResourceSnapshot(it.applicationContext) }
+        ?: ResourceSnapshot.alwaysHealthy()
+    return ResourceGovernor(snapshotProvider = { snapshot })
+}
+
+/**
  * ModelManager — orchestrates model providers and delegates to the active adapter.
  * Provider-agnostic: HumanCore, LatencyLayer, and UI only talk to ModelManager.
  *
@@ -45,7 +56,7 @@ class ModelManager(
     // second, parallel loading path.
     private val backend: ModelBackend? = null,
     // Admission authority for every non-resident organ wake.
-    private val resourceGovernor: ResourceGovernor = ResourceGovernor(),
+    private val resourceGovernor: ResourceGovernor = defaultModelResourceGovernor(context),
     // Idle time after release() before the sweep unloads an on-demand organ.
     private val cooldownMs: Long = 60_000L,
     // ADAPTER-MANIFEST: the load-time authority for adapter bytes. Consulted at
