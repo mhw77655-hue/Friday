@@ -214,6 +214,108 @@ class ObjectiveExecutionLedgerStore(context: Context) {
     }
 
     @Synchronized
+    fun nextQueuedParentTask(): JSONObject? {
+        val ledger = snapshot() ?: return null
+        val tasks = ledger.optJSONArray("tasks") ?: return null
+        for (index in 0 until tasks.length()) {
+            val task = tasks.optJSONObject(index) ?: continue
+            if (task.optString("status") == "QUEUED" &&
+                task.optString("task_type") in PARENT_TASK_TYPES
+            ) return JSONObject(task.toString())
+        }
+        return null
+    }
+
+    @Synchronized
+    fun hasQueuedParentTasks(): Boolean = nextQueuedParentTask() != null
+
+    @Synchronized
+    fun recordDecomposition(
+        parentTaskId: String,
+        modelId: String,
+        items: JSONArray
+    ) {
+        val ledger = snapshot() ?: error("Execution ledger is not initialized.")
+        val tasks = ledger.getJSONArray("tasks")
+        val parentIndex = (0 until tasks.length()).firstOrNull { index ->
+            tasks.getJSONObject(index).optString("task_id") == parentTaskId
+        } ?: error("Parent task no longer exists.")
+        val parent = tasks.getJSONObject(parentIndex)
+        require(parent.optString("status") == "QUEUED") {
+            "Parent task is no longer queued for decomposition."
+        }
+        require(items.length() in 1..4) { "A decomposition must contain one to four bounded work items." }
+        val itemIds = (0 until items.length()).map { items.getJSONObject(it).getString("id") }.toSet()
+        require(itemIds.size == items.length()) { "Decomposition contains duplicate child ids." }
+        val childIds = JSONArray()
+        for (index in 0 until items.length()) {
+            val item = items.getJSONObject(index)
+            val childId = parentTaskId + "-" + item.getString("id")
+            val dependencies = item.optJSONArray("dependencies") ?: JSONArray()
+            for (depIndex in 0 until dependencies.length()) {
+                require(dependencies.getString(depIndex) in itemIds) {
+                    "A child dependency points outside this decomposition batch."
+                }
+            }
+            val childDependencies = JSONArray()
+            for (depIndex in 0 until dependencies.length()) {
+                childDependencies.put(parentTaskId + "-" + dependencies.getString(depIndex))
+            }
+            val child = JSONObject()
+                .put("task_id", childId)
+                .put("parent_task_id", parentTaskId)
+                .put("objective_id", parent.optString("objective_id"))
+                .put("phase_id", parent.opt("phase_id") ?: JSONObject.NULL)
+                .put("task_type", "BOUNDED_DEVELOPMENT_STEP")
+                .put("goal", item.getString("goal"))
+                .put("acceptance_criteria", item.getJSONArray("acceptance_criteria"))
+                .put("evidence_needed", item.getJSONArray("evidence_needed"))
+                .put("risk", item.getString("risk"))
+                .put("reversible", item.getBoolean("reversible"))
+                .put("requires_owner_approval", item.getBoolean("requires_owner_approval"))
+                .put("status", "QUEUED")
+                .put("executor", "BUILDER_NOT_CONNECTED")
+                .put("requires_repository_access", true)
+                .put("dependencies", childDependencies)
+                .put("dependency_state", item.optString("dependency_state", "UNRESOLVED"))
+                .put("source_model_id", modelId)
+                .put("checkpoint", JSONObject().put("stage", "NOT_STARTED"))
+                .put("created_at_epoch_ms", System.currentTimeMillis())
+                .put("updated_at_epoch_ms", System.currentTimeMillis())
+            if ((0 until tasks.length()).none { tasks.getJSONObject(it).optString("task_id") == childId }) {
+                tasks.put(child)
+            }
+            childIds.put(childId)
+        }
+        parent.put("status", "DECOMPOSED")
+            .put("child_task_ids", childIds)
+            .put("decomposed_by_model", modelId)
+            .put("decomposed_at_epoch_ms", System.currentTimeMillis())
+            .put("updated_at_epoch_ms", System.currentTimeMillis())
+        ledger.put("tasks", tasks)
+            .put("updated_at_epoch_ms", System.currentTimeMillis())
+            .put("execution_state", "WORK_BREAKDOWN_READY_BUILDER_NOT_CONNECTED")
+        writeAtomically(ledgerFile, ledger.toString(2))
+    }
+
+    @Synchronized
+    fun recordDecompositionFailure(parentTaskId: String, reason: String) {
+        val ledger = snapshot() ?: return
+        val tasks = ledger.optJSONArray("tasks") ?: return
+        for (index in 0 until tasks.length()) {
+            val task = tasks.optJSONObject(index) ?: continue
+            if (task.optString("task_id") == parentTaskId && task.optString("status") == "QUEUED") {
+                task.put("decomposition_attempts", task.optInt("decomposition_attempts", 0) + 1)
+                    .put("last_decomposition_error", reason.take(400))
+                    .put("updated_at_epoch_ms", System.currentTimeMillis())
+                break
+            }
+        }
+        ledger.put("updated_at_epoch_ms", System.currentTimeMillis())
+        writeAtomically(ledgerFile, ledger.toString(2))
+    }
+
+    @Synchronized
     fun snapshot(): JSONObject? = if (ledgerFile.isFile) {
         runCatching { JSONObject(ledgerFile.readText(Charsets.UTF_8)) }.getOrNull()
     } else null
@@ -233,6 +335,7 @@ class ObjectiveExecutionLedgerStore(context: Context) {
         .joinToString("") { "%02x".format(it) }
 
     companion object {
-        private val TERMINAL_TASK_STATES = setOf("ACCEPTED", "REJECTED", "CANCELLED", "STALE_PLAN_CHANGED")
+        private val TERMINAL_TASK_STATES = setOf("ACCEPTED", "REJECTED", "CANCELLED", "STALE_PLAN_CHANGED", "DECOMPOSED")
+        private val PARENT_TASK_TYPES = setOf("PHASE_EVIDENCE_ASSESSMENT", "OBJECTIVE_SCOPE_ASSESSMENT")
     }
 }
