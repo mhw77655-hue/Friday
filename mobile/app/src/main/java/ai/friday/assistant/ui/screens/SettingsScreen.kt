@@ -505,7 +505,7 @@ fun SettingsScreen() {
 
         SectionLabel("GITHUB DEVICE REPORTING")
         Text(
-            text = "Create a fine-grained token limited to the mhw77655-hue/Friday repository, with Issues read and write permission (Metadata read is automatic). Paste it here once. Friday encrypts it with Android Keystore. When you tap Upload, Friday sends a bounded report containing app/build identity, device capability states, sanitized crash frames and action categories. It never includes conversations, speech transcripts, typed content, screen text, notifications or the token. Each upload creates a GitHub issue and a validated Actions artifact.",
+            text = "Create a fine-grained token limited to the mhw77655-hue/Friday repository, with Issues read and write permission (Metadata read is automatic). Paste it here once. Friday encrypts it with Android Keystore. When you tap Upload, Friday sends a bounded report containing app/build identity, device capability states, sanitized crash frames and action categories. It never includes conversations, speech transcripts, typed content, screen text, notifications or the token. Each upload creates a GitHub issue and a validated Actions artifact. GitHub issue visibility follows the repository; check whether the repository is public before uploading device details.",
             style = FridayType.Label,
             modifier = Modifier.padding(bottom = 8.dp)
         )
