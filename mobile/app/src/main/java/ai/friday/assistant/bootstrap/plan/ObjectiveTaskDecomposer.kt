@@ -1,10 +1,6 @@
 package ai.friday.assistant.bootstrap.plan
 
-import ai.friday.assistant.env.ModelProviderType
 import ai.friday.assistant.model.FinishReason
-import ai.friday.assistant.model.GenerateRequest
-import ai.friday.assistant.model.Message
-import ai.friday.assistant.model.MessageRole
 import ai.friday.assistant.model.ModelManager
 import org.json.JSONArray
 import org.json.JSONObject
@@ -24,26 +20,12 @@ class ObjectiveTaskDecomposer(
     )
 
     suspend fun decompose(parent: JSONObject): ResultPacket {
-        val providerType = modelManager.activeProvider.value.providerType
-        val localProvider = when (providerType) {
-            ModelProviderType.LLAMA_CPP -> true
-            ModelProviderType.OLLAMA -> {
-                val endpoint = modelManager.activeProvider.value.config?.parameters?.get("endpoint")
-                    ?: "http://127.0.0.1:11434"
-                val host = runCatching { java.net.URI(endpoint).host }.getOrNull()
-                host == "localhost" || host == "127.0.0.1" || host == "::1"
-            }
-            else -> false
-        }
-        require(localProvider) {
-            "No approved on-device model provider is active; cloud and heuristic providers are not used for offline planning."
-        }
         require(modelManager.isTierLoaded(ai.friday.assistant.model.ModelTier.RESIDENT)) {
             "Friday's resident local model is not loaded."
         }
 
-        val modelId = modelManager.activeProvider.value.config?.modelId ?: "friday-resident:latest"
-        val prompt = buildString {
+        val modelId = "friday-resident:latest"
+        val prompt = SYSTEM_PROMPT.trimIndent() + "\\n\\n" + buildString {
             appendLine("Parent task: " + parent.optString("task_id"))
             appendLine("Objective: " + parent.optString("objective_id"))
             appendLine("Phase: " + parent.opt("phase_id"))
@@ -52,23 +34,10 @@ class ObjectiveTaskDecomposer(
             appendLine("Canonical scope:")
             appendLine(parent.optString("scope_markdown").take(MAX_SCOPE_CHARS))
         }
-        val request = GenerateRequest(
-            messages = listOf(
-                Message(
-                    role = MessageRole.SYSTEM,
-                    content = SYSTEM_PROMPT
-                ),
-                Message(
-                    role = MessageRole.USER,
-                    content = prompt
-                )
-            ),
-            maxTokens = MAX_OUTPUT_TOKENS,
-            temperature = 0.1f,
-            topP = 0.9f,
-            modelId = "friday-resident:latest"
+        val generated = modelManager.generateOnTier(
+            ai.friday.assistant.model.ModelTier.RESIDENT,
+            prompt
         )
-        val generated = modelManager.generate(request)
         require(generated.finishReason != FinishReason.ERROR &&
             generated.finishReason != FinishReason.CONTENT_FILTER &&
             generated.content.isNotBlank()
@@ -98,7 +67,6 @@ class ObjectiveTaskDecomposer(
     companion object {
         private const val MAX_ITEMS = 4
         private const val MAX_SCOPE_CHARS = 6_000
-        private const val MAX_OUTPUT_TOKENS = 900
         private const val SYSTEM_PROMPT = """
 You are Friday's local development planner. Convert the supplied canonical task into 1-4 small, independently verifiable work items.
 
