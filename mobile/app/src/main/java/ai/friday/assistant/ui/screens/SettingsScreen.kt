@@ -605,7 +605,7 @@ fun SettingsScreen() {
                             githubPendingReport = githubPendingReportStore.read() != null
                             githubReportStatus = result.fold(
                                 onSuccess = { "Report uploaded successfully: $it" },
-                                onFailure = { it.message ?: "GitHub report upload failed. The exact report is saved for retry." }
+                                onFailure = { it.message ?: "GitHub report upload failed. If a report was prepared, Friday kept the exact payload for retry." }
                             )
                             githubBusy = false
                         }
