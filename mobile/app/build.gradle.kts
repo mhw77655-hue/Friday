@@ -186,6 +186,7 @@ dependencies {
     // provided on the test classpath — standard practice, test-only.
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
 
     // Galaxy Memory Stage 02 unit tests run against pure-Kotlin zero-native
     // reference implementations (FakeMemoryGraphStore, KotlinVectorStore in
