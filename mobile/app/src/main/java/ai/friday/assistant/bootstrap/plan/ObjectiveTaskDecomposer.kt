@@ -1,6 +1,7 @@
 package ai.friday.assistant.bootstrap.plan
 
 import ai.friday.assistant.model.FinishReason
+import ai.friday.assistant.aiworkforce.AiWorkerConsultationPort
 import ai.friday.assistant.model.ModelManager
 import org.json.JSONArray
 import org.json.JSONObject
@@ -12,7 +13,8 @@ import org.json.JSONObject
  * as queued work. No task is marked executed or accepted here.
  */
 class ObjectiveTaskDecomposer(
-    private val modelManager: ModelManager
+    private val modelManager: ModelManager?,
+    private val externalWorkers: AiWorkerConsultationPort? = null
 ) {
     data class ResultPacket(
         val modelId: String,
@@ -20,11 +22,6 @@ class ObjectiveTaskDecomposer(
     )
 
     suspend fun decompose(parent: JSONObject): ResultPacket {
-        require(modelManager.isTierLoaded(ai.friday.assistant.model.ModelTier.RESIDENT)) {
-            "Friday's resident local model is not loaded."
-        }
-
-        val modelId = "friday-resident:latest"
         val prompt = SYSTEM_PROMPT.trimIndent() + "\n\n" + buildString {
             appendLine("Parent task: " + parent.optString("task_id"))
             appendLine("Objective: " + parent.optString("objective_id"))
@@ -34,21 +31,66 @@ class ObjectiveTaskDecomposer(
             appendLine("Canonical scope:")
             appendLine(parent.optString("scope_markdown").take(MAX_SCOPE_CHARS))
         }
-        val generated = modelManager.generateOnTier(
-            ai.friday.assistant.model.ModelTier.RESIDENT,
-            prompt
-        )
-        require(generated.finishReason != FinishReason.ERROR &&
-            generated.finishReason != FinishReason.CONTENT_FILTER &&
-            generated.content.isNotBlank()
-        ) { "The local model did not return a usable task decomposition." }
-        val root = parseJson(generated.content)
-        val items = root.optJSONArray("work_items")
-            ?: throw IllegalArgumentException("The local model omitted work_items.")
-        ObjectiveTaskDecompositionValidator.validate(items)
-        return ResultPacket(
-            modelId = generated.model ?: modelId,
-            items = items
+
+        // Prefer Friday's local resident model. If it is unavailable or its
+        // output fails the strict schema validator, ask already-authorized
+        // subscription CLI workers. External output remains untrusted.
+        val local = modelManager?.takeIf {
+            it.isTierLoaded(ai.friday.assistant.model.ModelTier.RESIDENT)
+        }
+        if (local != null) {
+            val generated = runCatching {
+                local.generateOnTier(ai.friday.assistant.model.ModelTier.RESIDENT, prompt)
+            }.getOrNull()
+            if (generated != null &&
+                generated.finishReason != FinishReason.ERROR &&
+                generated.finishReason != FinishReason.CONTENT_FILTER &&
+                generated.content.isNotBlank()
+            ) {
+                val accepted = runCatching {
+                    val items = parseJson(generated.content).optJSONArray("work_items")
+                        ?: throw IllegalArgumentException("The local model omitted work_items.")
+                    ObjectiveTaskDecompositionValidator.validate(items)
+                    items
+                }.getOrNull()
+                if (accepted != null) {
+                    return ResultPacket(
+                        modelId = generated.model ?: "friday-resident:latest",
+                        items = accepted
+                    )
+                }
+            }
+        }
+
+        val workers = externalWorkers
+            ?: throw IllegalStateException("No local resident model or authorized external AI worker is available.")
+        val replies = workers.consultAvailable(prompt)
+        if (replies.isEmpty()) {
+            throw IllegalStateException(
+                "No authorized subscription AI worker is available; the task remains queued for local execution."
+            )
+        }
+        val rejected = mutableListOf<String>()
+        for (reply in replies) {
+            val accepted = runCatching {
+                val items = parseJson(reply.response).optJSONArray("work_items")
+                    ?: throw IllegalArgumentException("Worker omitted work_items.")
+                ObjectiveTaskDecompositionValidator.validate(items)
+                items
+            }.getOrElse {
+                rejected += reply.providerId + ": " + (it.message ?: "invalid response")
+                null
+            }
+            if (accepted != null) {
+                return ResultPacket(
+                    modelId = "subscription-worker:" + reply.providerId + "@" + reply.executionEnvironment,
+                    items = accepted
+                )
+            }
+        }
+        throw IllegalArgumentException(
+            "All subscription worker responses failed Friday's task schema validation: " +
+                rejected.joinToString("; ").take(500)
         )
     }
 
