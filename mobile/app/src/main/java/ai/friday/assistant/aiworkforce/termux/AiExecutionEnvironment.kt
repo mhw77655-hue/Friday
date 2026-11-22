@@ -67,11 +67,12 @@ class AiExecutionEnvironmentRegistry(
         }
     }
 
-    suspend fun selectReady(): Pair<AiExecutionEnvironment, AiExecutionEnvironmentProbe>? {
-        for (candidate in candidates) {
-            val result = runCatching { candidate.probe() }.getOrNull() ?: continue
-            if (result.state == AiExecutionEnvironmentState.READY) return candidate to result
+    suspend fun readyEnvironments(): List<Pair<AiExecutionEnvironment, AiExecutionEnvironmentProbe>> =
+        candidates.mapNotNull { candidate ->
+            val result = runCatching { candidate.probe() }.getOrNull()
+            if (result?.state == AiExecutionEnvironmentState.READY) candidate to result else null
         }
-        return null
-    }
+
+    suspend fun selectReady(): Pair<AiExecutionEnvironment, AiExecutionEnvironmentProbe>? =
+        readyEnvironments().firstOrNull()
 }
