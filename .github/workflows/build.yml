@@ -29,11 +29,10 @@ on:
   workflow_dispatch:
 
 concurrency:
-  # Serialize main verification. Preserve the active build when a new commit
-  # arrives; GitHub keeps only the newest pending run in this group by default.
-  # This prevents ordinary commits from repeatedly killing SDK setup, APK
-  # assembly, instrumentation and the source audit before they can finish.
-  group: friday-build-${{ github.ref }}
+  # Give each exact source revision its own verification group. A long-running
+  # or queued build for an older commit must not block the final tested commit,
+  # and a newer commit must never cancel evidence for an earlier revision.
+  group: friday-build-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: false
 
 permissions: {}
