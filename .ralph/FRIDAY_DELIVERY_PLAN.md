@@ -128,6 +128,8 @@ The initial implementation is intentionally small: retain Kotlin/C++, use Python
 
 ## Digital-individual functional completeness — cross-objective requirement
 
+Implementation architecture: [Friday Adaptive Model Execution Fabric](../docs/FRIDAY_ADAPTIVE_MODEL_EXECUTION_FABRIC.md). This is a technical design reference; it does not add an objective or alter objective order.
+
 This section makes the owner's digital-human outcome operational. It refines the destination and cross-objective integration target; it does not create a new objective, a fixed brain atlas, a mandatory pipeline, or a requirement to finish long-horizon research before Objective B. Implement the capabilities in dependency order and in parallel where safe. The functional domains below describe coverage to achieve, not permanent specialist modules or separate agents. Friday's liquid cognitive substrate may combine, split, replace or reorganize mechanisms as evidence warrants.
 
 ### Required functional breadth
