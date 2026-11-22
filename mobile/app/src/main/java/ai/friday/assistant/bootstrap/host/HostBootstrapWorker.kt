@@ -83,6 +83,7 @@ class HostBootstrapWorker(
                 .put("recommended_model_max_bytes", config.recommendedModelMaxBytes)
                 .put("reason", config.reason))
             .put("integrations", inspection.integrations)
+            .put("setup_checklist", inspection.setupChecklist)
             .put("development_workspace", JSONObject()
                 .put("root", "files/friday-development")
                 .put("directories_ready", directories.size)
@@ -118,7 +119,8 @@ class HostBootstrapWorker(
     private data class HostInspection(
         val capacity: HostCapacity,
         val facts: JSONObject,
-        val integrations: JSONObject
+        val integrations: JSONObject,
+        val setupChecklist: JSONArray
     )
 
     private fun inspectHost(): HostInspection {
@@ -200,21 +202,40 @@ class HostBootstrapWorker(
             .put("free_private_storage_mb", availableStorageMb)
             .put("network", network)
 
+        val microphoneGranted = hasPermission(Manifest.permission.RECORD_AUDIO)
+        val cameraGranted = hasPermission(Manifest.permission.CAMERA)
+        val notificationsGranted = Build.VERSION.SDK_INT < 33 ||
+            hasPermission(Manifest.permission.POST_NOTIFICATIONS)
+        val batteryOptimizationExempt = power.isIgnoringBatteryOptimizations(context.packageName)
+        val accessibilityEnabled = isAccessibilityServiceEnabled()
+        val notificationListenerEnabled = isNotificationListenerEnabled()
+        val shizuku = inspectShizukuState()
+        val validatedInternet = networkCapabilities?.hasCapability(
+            android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
         val integrations = JSONObject()
-            .put("microphone_permission", hasPermission(Manifest.permission.RECORD_AUDIO))
-            .put("camera_permission", hasPermission(Manifest.permission.CAMERA))
-            .put("notifications_permission", Build.VERSION.SDK_INT < 33 ||
-                hasPermission(Manifest.permission.POST_NOTIFICATIONS))
-            .put("battery_optimization_exempt", power.isIgnoringBatteryOptimizations(context.packageName))
-            .put("accessibility_service_enabled", isAccessibilityServiceEnabled())
-            .put("notification_listener_enabled", isNotificationListenerEnabled())
-            .put("shizuku", shizukuStateJson())
+            .put("microphone_permission", microphoneGranted)
+            .put("camera_permission", cameraGranted)
+            .put("notifications_permission", notificationsGranted)
+            .put("battery_optimization_exempt", batteryOptimizationExempt)
+            .put("accessibility_service_enabled", accessibilityEnabled)
+            .put("notification_listener_enabled", notificationListenerEnabled)
+            .put("shizuku", shizuku.toJson())
             .put("native_libraries", JSONArray(nativeLibraries.filter {
                 it.contains("llama", true) || it.contains("ggml", true) ||
                     it.contains("onnx", true) || it.contains("sherpa", true)
             }))
             .put("local_model_files", JSONObject().put("gguf_count", modelCount))
-        return HostInspection(capacity, facts, integrations)
+        val checklist = HostSetupChecklist.build(
+            microphoneGranted = microphoneGranted,
+            cameraGranted = cameraGranted,
+            notificationsGranted = notificationsGranted,
+            batteryOptimizationExempt = batteryOptimizationExempt,
+            accessibilityEnabled = accessibilityEnabled,
+            notificationListenerEnabled = notificationListenerEnabled,
+            shizuku = shizuku,
+            validatedInternet = validatedInternet
+        )
+        return HostInspection(capacity, facts, integrations, checklist)
     }
 
 
@@ -243,10 +264,10 @@ class HostBootstrapWorker(
             .coerceIn(0.0, 100.0)
     }.getOrNull()
 
-    private fun shizukuStateJson(): JSONObject {
+    private fun inspectShizukuState(): ShizukuCapabilityState {
         val installed = isPackageInstalled("moe.shizuku.privileged.api")
-        // Initialize the official Shizuku API and query the live Binder; merely
-        // finding its manager package is not evidence that its server is running.
+        // Initialize the official API and query the live Binder; package presence
+        // alone is not evidence that a server is running or Friday is authorized.
         val binderReachable = runCatching {
             ShizukuBridge.init()
             ShizukuBridge.refresh()
@@ -257,20 +278,21 @@ class HostBootstrapWorker(
                 Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
         }.getOrDefault(false)
         val uid = if (binderReachable) runCatching { Shizuku.getUid() }.getOrNull() else null
-        val state = ShizukuCapabilityState(
+        return ShizukuCapabilityState(
             managerInstalled = installed,
             binderReachable = binderReachable,
             fridayAuthorized = authorized,
             serverUid = uid
         )
-        return JSONObject()
-            .put("manager_installed", state.managerInstalled)
-            .put("binder_reachable", state.binderReachable)
-            .put("friday_authorized", state.fridayAuthorized)
-            .put("server_uid", state.serverUid ?: JSONObject.NULL)
-            .put("privilege", state.privilege.name)
-            .put("usable_by_friday", state.usableByFriday)
     }
+
+    private fun ShizukuCapabilityState.toJson(): JSONObject = JSONObject()
+        .put("manager_installed", managerInstalled)
+        .put("binder_reachable", binderReachable)
+        .put("friday_authorized", fridayAuthorized)
+        .put("server_uid", serverUid ?: JSONObject.NULL)
+        .put("privilege", privilege.name)
+        .put("usable_by_friday", usableByFriday)
 
     private fun hasPermission(permission: String): Boolean =
         applicationContext.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
