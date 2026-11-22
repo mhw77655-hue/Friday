@@ -1,0 +1,129 @@
+package ai.friday.assistant.bootstrap.plan
+
+import android.content.Context
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.File
+import java.security.MessageDigest
+
+/**
+ * Durable execution ledger independent of plan-sync metadata.
+ *
+ * Syncing a newer plan must never reset accepted work, checkpoints or task
+ * history. A changed phase is explicitly returned to reassessment instead.
+ */
+class ObjectiveExecutionLedgerStore(context: Context) {
+    private val directory = File(context.filesDir, "friday-development/plan")
+    private val planFile = File(directory, "canonical-delivery-plan.md")
+    private val ledgerFile = File(directory, "execution-ledger.json")
+
+    @Synchronized
+    fun reconcile(): JSONObject {
+        require(planFile.isFile) { "Canonical local objectives plan is not imported yet." }
+        val markdown = planFile.readText(Charsets.UTF_8)
+        val phases = ObjectivePlanParser.parseObjectiveOnePhases(markdown)
+        val planHash = sha256(markdown)
+        val previous = if (ledgerFile.isFile) runCatching {
+            JSONObject(ledgerFile.readText(Charsets.UTF_8))
+        }.getOrNull() else null
+        val oldPhases = previous?.optJSONArray("phases") ?: JSONArray()
+        val oldById = (0 until oldPhases.length()).associate { index ->
+            val phase = oldPhases.getJSONObject(index)
+            phase.getInt("id") to phase
+        }
+        val nextPhases = JSONArray()
+        phases.forEach { phase ->
+            val old = oldById[phase.id]
+            val oldHash = old?.optString("content_sha256").orEmpty()
+            val changed = old != null && oldHash.isNotBlank() && oldHash != sha256(phase.markdown)
+            val status = when {
+                old == null -> "UNASSESSED"
+                changed && old.optString("status") == "ACCEPTED" -> "REASSESSMENT_REQUIRED"
+                changed -> "REASSESSMENT_REQUIRED"
+                else -> old.optString("status", "UNASSESSED")
+            }
+            nextPhases.put(JSONObject()
+                .put("id", phase.id)
+                .put("title", phase.title)
+                .put("status", status)
+                .put("content_sha256", sha256(phase.markdown))
+                .put("exit_evidence", phase.exitEvidence)
+                .put("scope_markdown", phase.markdown)
+                .put("previous_status", if (changed) old?.optString("status") else JSONObject.NULL)
+                .put("last_verified_at_epoch_ms", if (changed) JSONObject.NULL else old?.opt("last_verified_at_epoch_ms") ?: JSONObject.NULL)
+                .put("evidence_refs", if (changed) JSONArray() else old?.optJSONArray("evidence_refs") ?: JSONArray()))
+        }
+        val ledger = JSONObject()
+            .put("schema_version", 1)
+            .put("plan_sha256", planHash)
+            .put("source_revision", previous?.optString("source_revision") ?: "unknown")
+            .put("created_at_epoch_ms", previous?.optLong("created_at_epoch_ms") ?: System.currentTimeMillis())
+            .put("updated_at_epoch_ms", System.currentTimeMillis())
+            .put("phase_count", phases.size)
+            .put("phases", nextPhases)
+            .put("tasks", previous?.optJSONArray("tasks") ?: JSONArray())
+            .put("active_task_id", previous?.opt("active_task_id") ?: JSONObject.NULL)
+            .put("execution_state", "PLAN_RECONCILED_TASKS_REQUIRE_REAL_EVIDENCE")
+        writeAtomically(ledgerFile, ledger.toString(2))
+        return ledger
+    }
+
+    @Synchronized
+    fun ensurePhaseAssessmentPackets(): JSONObject {
+        val ledger = if (ledgerFile.isFile) {
+            JSONObject(ledgerFile.readText(Charsets.UTF_8))
+        } else reconcile()
+        val phases = ledger.getJSONArray("phases")
+        val tasks = ledger.optJSONArray("tasks") ?: JSONArray()
+        val existing = (0 until tasks.length()).map { tasks.getJSONObject(it) }
+            .filter { it.optString("status") !in TERMINAL_TASK_STATES }
+            .map { it.optString("phase_id") }.toSet()
+        for (index in 0 until phases.length()) {
+            val phase = phases.getJSONObject(index)
+            val phaseId = phase.getInt("id")
+            if (phase.optString("status") == "ACCEPTED" || phaseId.toString() in existing) continue
+            tasks.put(JSONObject()
+                .put("task_id", "objective-a-phase-$phaseId-assess")
+                .put("objective_id", "A")
+                .put("phase_id", phaseId)
+                .put("task_type", "PHASE_EVIDENCE_ASSESSMENT")
+                .put("goal", "Assess Phase $phaseId against its canonical exit evidence and current repository/device proof.")
+                .put("acceptance_criteria", phase.getString("exit_evidence"))
+                .put("status", "QUEUED")
+                .put("executor", "NOT_ASSIGNED")
+                .put("requires_repository_access", true)
+                .put("dependencies", JSONArray())
+                .put("checkpoint", JSONObject().put("stage", "NOT_STARTED"))
+                .put("created_at_epoch_ms", System.currentTimeMillis())
+                .put("updated_at_epoch_ms", System.currentTimeMillis()))
+        }
+        ledger.put("tasks", tasks)
+            .put("updated_at_epoch_ms", System.currentTimeMillis())
+            .put("execution_state", "TASKS_DECOMPOSED_AWAITING_EXECUTOR")
+        writeAtomically(ledgerFile, ledger.toString(2))
+        return ledger
+    }
+
+    @Synchronized
+    fun snapshot(): JSONObject? = if (ledgerFile.isFile) {
+        runCatching { JSONObject(ledgerFile.readText(Charsets.UTF_8)) }.getOrNull()
+    } else null
+
+    private fun writeAtomically(file: File, content: String) {
+        if (!directory.exists() && !directory.mkdirs()) error("Cannot create execution ledger directory.")
+        val temp = File(directory, file.name + ".tmp")
+        temp.writeText(content, Charsets.UTF_8)
+        if (!temp.renameTo(file)) {
+            temp.copyTo(file, overwrite = true)
+            temp.delete()
+        }
+    }
+
+    private fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")
+        .digest(value.toByteArray(Charsets.UTF_8))
+        .joinToString("") { "%02x".format(it) }
+
+    companion object {
+        private val TERMINAL_TASK_STATES = setOf("ACCEPTED", "REJECTED", "CANCELLED")
+    }
+}
