@@ -23,14 +23,17 @@ The original foundation build and architecture gates have passed on earlier veri
 - **Source audit:** 475 production Kotlin files were scanned. The heuristic audit produced 269 deviation signals and 403 observations; these are not 269 confirmed defects and are not an all-clear. See the [source-audit triage](OBJECTIVE_1_SOURCE_AUDIT_TRIAGE.md) and the [source-audit artifact/run](https://github.com/mhw77655-hue/Friday/actions/runs/44932395624).
 - **Source/test map:** 115 filename matches, 216 lexical symbol-reference matches and 144 files with no candidate mapping. These are heuristic candidate mappings, not runtime coverage. Exact TSV is in the source-audit artifact.
 
-## Permanent signing and self-update integration — implementation merged, validation pending
+## Permanent signing and self-update integration — implementation merged, validation in progress
 
-- Permanent signing workflow merged to `main` in commit `34a15591c372bb39fe124457fcbd8ff796713864` (PR #109). It restores the existing owner keystore from GitHub Secrets, checks the certificate fingerprint, builds the release APK, and verifies the resulting APK signer against the expected permanent fingerprint.
-- The workflow generates `friday.apk` and `friday-release-metadata.json`, matching the existing in-app update client's asset contract. Public GitHub Release publication is an explicit manual opt-in and defaults to disabled.
-- The existing updater already performs release discovery, APK staging, checksum/package/version/certificate verification, and Android PackageInstaller handoff. The application now schedules first-run and 24-hour update discovery through WorkManager on unmetered networks; this is subject to Android background scheduling and force-stop policy.
-- After PackageInstaller reports success, Friday preserves the expected release identity and checks installed version code, version name, source revision and signing certificate on the next main-process launch.
-- These additions have not yet passed a CI run on the merged source revision, and no permanent signed artifact or public release has been produced. No physical-device update test has been performed.
-- Automatic rollback after a defective update that was successfully installed is not implemented. A rejected/failed PackageInstaller transaction should leave the prior installed package intact; this is not equivalent to post-install rollback.
+- The repository's established `.github/workflows/release.yml` is the production release pipeline; a redundant second manual release workflow was removed. It restores the owner-configured PKCS#12 key from GitHub Secrets, builds the release APK, checks the APK signer against the pinned certificate fingerprint, and publishes the signed APK plus metadata and checksum.
+- Production signing is no longer hypothetical: run [44992085464](https://github.com/mhw77655-hue/Friday/actions/runs/44992085464) completed successfully on commit `a604f38c2251fcce3685032f1976694fd7a36a08`. Its signing log reports SHA-256 `fd84811f911585d8152dc2bfff700d8fce36d5a07df392be89f91d5646a6d1b8`, matching the owner's permanent certificate. It published release `friday-v1.0.477` with the APK, metadata and checksum assets.
+- The existing updater performs release discovery, APK staging, checksum/package/version/certificate verification, and Android PackageInstaller handoff. WorkManager now schedules first-run and 24-hour discovery on unmetered networks; Android may defer constrained background work, and a force-stopped app will not run until relaunched.
+- After PackageInstaller reports success, Friday preserves the expected release identity and verifies installed version code, version name, source revision and signing certificate on the next main-process launch.
+- A real integration defect was found and fixed: the established release asset is named `app-release.apk` in GitHub's `name` field but carries the `friday.apk` display label. The updater now accepts the expected asset name or label, while still requiring HTTPS. An instrumentation test covers this behavior and rejects HTTP URLs.
+- The newer app/update integration and asset-resolution test have been pushed to `main`. Fresh CI runs are in progress; the earlier attempt failed because ShellCheck rejected a redundant workflow's malformed line continuations. That redundant workflow has since been removed. No success is claimed until the final-head run completes.
+- No physical-device update journey has been performed. A failed/rejected PackageInstaller transaction should leave the previous package intact; automatic rollback after a defective update has successfully installed is not implemented.
+- Independent offline backup of the private keystore and its password remains unverified. The existing GitHub signing secret and local keystore have already produced a matching production-signed artifact; do not rotate or delete either.
+
 
 ## Adversarial work added; validation still pending
 
@@ -54,8 +57,8 @@ The original foundation build and architecture gates have passed on earlier veri
 
 - No physical installation, permission grant, or acceptance test has been performed on the owner's Realme 9 Pro 5G.
 - No local model is installed on the owner's phone.
-- No permanent production-signed APK or GitHub Release has been published. The owner-created PKCS#12 identity and five GitHub Actions secrets are now configured; the permanent release workflow is merged but has not yet been executed. Independent offline keystore/password backup is still unverified.
-- Same-key in-place upgrade, post-update continuity health checks, and last-known-good rollback are not yet proven as production guarantees.
+- A permanent production-signed APK and GitHub Release have been published as `friday-v1.0.477` and its APK signer matches the owner's recorded permanent fingerprint. The newer update-integration build and physical-device update remain unverified. Independent offline keystore/password backup is still unverified.
+- Same-key in-place upgrade and post-update continuity health checks are implemented but not yet proven on the owner's physical phone. Last-known-good rollback after a successfully installed defective update is not implemented.
 - Full offline end-to-end cognition, persistent developmental learning, and universal phone control are not accepted by this foundation record.
 - Voice-control implementation remains in Objective B's existing voice phases; it is not being pulled into Objective 1.
 
