@@ -15,6 +15,8 @@ import android.provider.Settings
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import ai.friday.assistant.BuildConfig
+import ai.friday.assistant.ShizukuBridge
+import rikka.shizuku.Shizuku
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -198,13 +200,43 @@ class HostBootstrapWorker(
             .put("battery_optimization_exempt", power.isIgnoringBatteryOptimizations(context.packageName))
             .put("accessibility_service_enabled", isAccessibilityServiceEnabled())
             .put("notification_listener_enabled", isNotificationListenerEnabled())
-            .put("shizuku_provider_installed", isPackageInstalled("moe.shizuku.privileged.api"))
+            .put("shizuku", shizukuStateJson())
             .put("native_libraries", JSONArray(nativeLibraries.filter {
                 it.contains("llama", true) || it.contains("ggml", true) ||
                     it.contains("onnx", true) || it.contains("sherpa", true)
             }))
             .put("local_model_files", JSONObject().put("gguf_count", modelCount))
         return HostInspection(capacity, facts, integrations)
+    }
+
+
+    private fun shizukuStateJson(): JSONObject {
+        val installed = isPackageInstalled("moe.shizuku.privileged.api")
+        // Initialize the official Shizuku API and query the live Binder; merely
+        // finding its manager package is not evidence that its server is running.
+        val binderReachable = runCatching {
+            ShizukuBridge.init()
+            ShizukuBridge.refresh()
+            Shizuku.pingBinder()
+        }.getOrDefault(false)
+        val authorized = binderReachable && runCatching {
+            ShizukuBridge.isGranted.value &&
+                Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
+        }.getOrDefault(false)
+        val uid = if (binderReachable) runCatching { Shizuku.getUid() }.getOrNull() else null
+        val state = ShizukuCapabilityState(
+            managerInstalled = installed,
+            binderReachable = binderReachable,
+            fridayAuthorized = authorized,
+            serverUid = uid
+        )
+        return JSONObject()
+            .put("manager_installed", state.managerInstalled)
+            .put("binder_reachable", state.binderReachable)
+            .put("friday_authorized", state.fridayAuthorized)
+            .put("server_uid", state.serverUid ?: JSONObject.NULL)
+            .put("privilege", state.privilege.name)
+            .put("usable_by_friday", state.usableByFriday)
     }
 
     private fun hasPermission(permission: String): Boolean =
