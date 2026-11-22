@@ -126,6 +126,10 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
                 val root = File(context.filesDir, "friday-development")
                 val reportFile = File(root, "host-bootstrap.json")
                 val failureFile = File(root, "host-bootstrap-failure.json")
+                val modelBootstrapFile = File(root, "model-bootstrap.json")
+                val modelBootstrap = if (modelBootstrapFile.isFile) runCatching {
+                    JSONObject(modelBootstrapFile.readText(Charsets.UTF_8))
+                }.getOrNull() else null
                 val executionFile = File(root, "plan/execution-ledger.json")
                 val executionSummary = if (executionFile.isFile) runCatching {
                     val ledger = JSONObject(executionFile.readText(Charsets.UTF_8))
@@ -166,9 +170,16 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
                             shizuku.optBoolean("manager_installed") -> "Shizuku installed · server stopped"
                             else -> "Shizuku not installed"
                         }
-                        val modelLabel = if (config.optBoolean("allow_local_model_load")) {
-                            "local model load eligible within live admission checks"
-                        } else "local model loading not currently qualified"
+                        val modelLabel = when (modelBootstrap?.optString("state")) {
+                            "MODEL_READY" -> "resident local model loaded and verified"
+                            "WAITING_FOR_HOST_CAPACITY" -> "resident model waiting for host capacity"
+                            "WAITING_FOR_STORAGE" -> "resident model waiting for private storage"
+                            "WAITING_FOR_SAFE_DOWNLOAD_WINDOW" -> "resident model waiting for unmetered charging window"
+                            "WAITING_FOR_NATIVE_RUNTIME" -> "resident model waiting for native runtime"
+                            else -> if (config.optBoolean("allow_local_model_load")) {
+                                "local model load eligible within live admission checks"
+                            } else "local model loading not currently qualified"
+                        }
                         "Phone profile: " + mode + " · " + memory + " MB available · " +
                             cores + " CPU cores · " + cpuLabel + " · " + shizukuLabel + " · " + modelLabel +
                             "\n" + executionSummary
