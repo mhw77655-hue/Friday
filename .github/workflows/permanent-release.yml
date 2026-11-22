@@ -85,17 +85,29 @@ jobs:
           echo "FRIDAY_RELEASE_CERT_SHA256=$EXPECTED" >> "$GITHUB_ENV"
           echo "Permanent signing certificate fingerprint verified."
 
+      - name: Validate release version metadata
+        env:
+          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]
+          (( VERSION_CODE <= 2100000000 ))
+          [[ "$VERSION_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$ ]]
+
       - name: Build permanent-key signed release APK
         env:
           FRIDAY_RELEASE_STORE_PASSWORD: ${{ secrets.FRIDAY_RELEASE_STORE_PASSWORD }}
           FRIDAY_RELEASE_KEY_ALIAS: ${{ secrets.FRIDAY_RELEASE_KEY_ALIAS }}
           FRIDAY_RELEASE_KEY_PASSWORD: ${{ secrets.FRIDAY_RELEASE_KEY_PASSWORD }}
+          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name }}
         run: |
           set -euo pipefail
           chmod +x ./gradlew
           ./gradlew --no-daemon :mobile:app:assembleRelease \
-            -PfridayVersionCode="${{ inputs.version_code }}" \
-            -PfridayVersionName="${{ inputs.version_name }}"
+            -PfridayVersionCode="$VERSION_CODE" \
+            -PfridayVersionName="$VERSION_NAME"
 
       - name: Verify APK signature and exact permanent certificate
         run: |
