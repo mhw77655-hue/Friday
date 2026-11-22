@@ -48,6 +48,20 @@ class AiExecutionEnvironmentRegistryTest {
         assertEquals(AiExecutionEnvironmentKind.TERMUX_NATIVE, selected!!.first.kind)
     }
 
+    @Test fun `keeps every ready environment available for per-provider routing`() = runBlocking {
+        val registry = AiExecutionEnvironmentRegistry(
+            listOf(
+                FakeEnvironment(AiExecutionEnvironmentKind.APP_MANAGED, AiExecutionEnvironmentState.READY),
+                FakeEnvironment(AiExecutionEnvironmentKind.TERMUX_NATIVE, AiExecutionEnvironmentState.READY),
+                FakeEnvironment(AiExecutionEnvironmentKind.LINUX_PROOT, AiExecutionEnvironmentState.NOT_INSTALLED)
+            )
+        )
+        assertEquals(
+            listOf(AiExecutionEnvironmentKind.APP_MANAGED, AiExecutionEnvironmentKind.TERMUX_NATIVE),
+            registry.readyEnvironments().map { it.first.kind }
+        )
+    }
+
     @Test fun `returns no selection when all registered environments are unavailable`() = runBlocking {
         val registry = AiExecutionEnvironmentRegistry(
             listOf(
