@@ -575,3 +575,73 @@ This requirement changes the owner experience for the entire project: **Friday i
 **Acceptance evidence:** install a clean build on the target handset; first open displays the complete dependency-aware checklist; each step launches the correct system/provider flow; grant, deny, permanently deny, cancel and revoke each permission; return/resume and verify the actual state; interrupt the app or reboot midway and prove progress resumes correctly; test offline, low-storage, unsupported and OEM-specific cases; confirm optional denial does not block unrelated/core capabilities; prove no permission is marked granted without authoritative state; complete all required steps and pass final readiness checks. Capture physical-device evidence separately from emulator and unit-test evidence.
 
 **User-experience invariant:** Friday leads the setup. The owner makes informed decisions and grants consent; Friday handles discovery, ordering, navigation, state verification, recovery and explanation. The normal first-install path must feel like opening Friday and completing her guided setup—not debugging an unfinished application.
+
+
+## Owner challenge: re-author community ideas around Friday, not their original worldview
+
+**Direction (2026-11-22):** inspect the active plan and owner-authored vision, identify donor-project assumptions, common agent-framework patterns, open-source conventions and platform defaults that conflict with Friday, then extract and redesign useful mechanisms around Friday's own rules and environments. The installed Android app is the central owner-facing point and continuity anchor. External workers, cloud services, repositories, models, Shizuku, Android APIs and donor algorithms are resources Friday coordinates—not competing homes, identities or authorities.
+
+### Re-authoring rule
+
+For every meaningful donor idea, inspect the original problem, mechanism, intended user/environment, assumptions, fixed constraints, dependencies, failure modes, license/terms and provenance. Identify the conflict with Friday, then state exactly what is retained, transformed, discarded or newly invented. A README, benchmark, popularity metric or community convention is evidence, not authority. Do not copy an entire framework when its useful mechanism can be extracted. Do not reject a useful mechanism because its donor's overall architecture conflicts with Friday. Distinguish actual law, license terms, platform/API security boundaries and provider terms from customary architecture or maintainer preference.
+
+### Conflicts to actively challenge
+
+- **Fixed agents and permanent cognitive departments:** re-author as temporary composable capabilities selected by need, affordance, resource cost and measured outcome. No donor agent becomes a separate Friday or permanent cognitive owner.
+- **Tool catalogues as the boundary of agency:** a tool is an affordance, not a ceiling. Friday may combine, adapt or help create capabilities in a verified workspace.
+- **Cloud-first and desktop-first workflows:** phone app remains the central control point. Remote workers may perform repository research, compilation, tests or CI when the phone is unsuitable, but Friday owns the task, authorization, progress, evidence, continuity and result.
+- **One-model/one-runtime assumptions:** use a replaceable resource field of local/remote models, native algorithms and specialist computations. Select by task quality, latency, RAM, energy, thermal state, offline availability and risk; do not keep every model resident.
+- **Transcript storage mistaken for learning:** Friday's standard remains persistent internal change that measurably changes later behaviour after restart, without replaying the original episode.
+- **Code generation mistaken for self-development:** generated changes are candidates, not improvements. Require isolation, tests, adversarial evaluation, independent verification, provenance, protected approval, signed release and rollback.
+- **Research-first defaults:** research is optional. Choose the least costly adequate route; perform simple local tasks locally and preserve useful offline operation.
+- **Privilege escalation mistaken for universal control:** root, Shizuku ADB-shell, Accessibility, ordinary Android permissions and system APIs are distinct affordances. Detect actual privilege and check each operation. Never infer universal control from one enabled service.
+- **Human-brain analogies mistaken for a blueprint:** extract useful principles such as prediction, learning, attention and adaptation without freezing a permanent biological organ map or claiming equivalence without evidence.
+- **Benchmarks mistaken for lived capability:** measure end-to-end outcomes on the actual phone, including correctness, continuity, first useful result, memory, heat, battery and recovery—not only tokens/sec or desktop throughput.
+- **Community convention mistaken for law:** follow binding licenses, law, security requirements and platform contracts. Treat common architecture patterns and community preferences as optional evidence. Record license and attribution obligations before reusing code/assets.
+
+### Friday-native model: one central point, multiple replaceable environments
+
+The Friday Android app is the owner's single front door and the continuity anchor. It owns durable operation records, identity/experience references, capability registry, resource and permission state, orchestration, authorization prompts, status, verification evidence and recovery interface.
+
+Execution is selected dynamically across:
+1. Phone-local Android runtime, local databases, resident models, native libraries, sensors, tools and permitted system/Shizuku routes.
+2. Phone-attached isolated workspaces for bounded capability execution and tests.
+3. Remote development/build workers for source research, experiments, CI and APK production when local resources are unsuitable.
+4. Optional external model and knowledge services.
+5. Future devices and hosts as additional authorized resource endpoints for the same Friday.
+
+All environments use Friday-owned contracts: Need, Affordance, Resource Field, Outcome and protected Continuity. Each operation has durable identity, execution location, permission envelope, resource budget, provenance, checkpoint, cancellation semantics and independently verifiable postcondition. A task may move between environments without creating a different Friday. The owner should not need to understand which worker, model or service executes it; he tells Friday the outcome, authorizes specific actions and receives verified results inside Friday.
+
+**Central-point invariant:** external infrastructure is allowed; an external owner workflow is not the normal product. If a handoff is necessary, Friday initiates it, tracks it, resumes the same operation and presents the evidence on return.
+
+### Liquid adaptation without chaos
+
+Open-ended does not mean ungoverned. Keep the protected trunk stable while branches remain replaceable. Evaluate capability changes by outcome quality, first useful result, end-to-end latency, peak RAM, CPU/GPU/NPU only when actually supported, energy, heat, storage/network cost, offline availability, failure containment, permission scope and reversibility. Use shadow evaluation, canaries, bounded exploration and known-good fallback. Stable exchange contracts do not require frozen internals. No mechanism is better merely because it is newer, smaller, popular or biologically inspired; target-environment evidence decides.
+
+### Required reconciliations
+
+- The single active plan remains authoritative; historical plans and vault material are research inputs, not competing instructions.
+- Resolve the apparent conflict between in-app ownership and remote source development: Friday app is the central point; execution can be local or remote. Friday must initiate, authorize, supervise, inspect, resume and verify the full lifecycle in-app.
+- Reconcile Builder ambition with executable-code safety: bounded capability definitions may be studied and tested in a restricted runtime; compiled APK/source changes may use isolated workers. Never load arbitrary downloaded executable code into the production process. Android warns that dynamic code loading increases compromise risk and inherits host permissions.
+- Treat Shizuku as an optional per-operation provider, not a universal permission switch. Check effective UID and permission; preserve native fallbacks.
+- Capability diversity does not mean all models stay resident. Use measured hot/warm/cold working sets, streaming, prefetch, eviction, admission control and quality-preserving fallback.
+- Preserve identity, experience and signing continuity across every candidate change; no candidate may rewrite its own trust root or authorization policy.
+- Maintain a donor ledger: source/revision, license, reused mechanism/files, modifications, notices, excluded assets, assumptions, Friday conflict, redesign, environment, permission, resource profile, implementation status, test evidence, limits and promotion/retirement decision.
+
+### Donor and idea ledger scope
+
+The ledger must cover at minimum: Laya/seq-JEPA/JEPA-TTT; Nano/NAE host adaptation; Shizuku; JEV/TypeSafe typed decisions; Frenemy/multi-provider consultation; local inference and streaming; capability synthesis/DSL and mutant habitats; memory and developmental learning; predictive cognition; formal methods/Lean; self-study and repository workers; immune resilience; voice/accessibility/system-assistant integration; and install-once signed updates. Mark unknown licensing and unverified claims explicitly. Research references do not prove implementation.
+
+### Acceptance: prove Friday is central
+
+- From the installed app, express a development/configuration outcome; Friday creates one durable operation and selects local or remote execution using measured constraints.
+- Interrupt network and kill/restart the app; local identity and operation state survive, then resume the same operation without duplication or lost provenance.
+- Use two materially different capability providers for one outcome and compare quality/cost/risk rather than fixed agent labels.
+- Demonstrate a donor mechanism redesigned for Friday with baseline and target-device evidence.
+- Replace or compose a capability without changing Friday's identity or keeping every specialist resident.
+- Prove no remote worker, model provider, plugin, repository or donor framework can authorize itself, alter protected identity/signing roots, bypass owner consent or promote code silently.
+- Verify local fallback when external services are unavailable.
+- Verify license/provenance for reused code/assets; unknown-license material is not silently imported.
+- Show the entire owner workflow, operation history, approvals, logs, tests, release verification and recovery in Friday.
+
+**Success criterion:** Friday is not a conventional agent framework assembled from popular projects. She is one continuing, phone-centered individual that extracts useful mechanisms, redesigns them for her own environment and replaces or surpasses donor implementations when evidence supports it.
