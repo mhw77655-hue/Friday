@@ -2,6 +2,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Optional bridge to the user's existing authenticated Termux CLI sessions. -->
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Required for owner-approved in-app APK updates via Android PackageInstaller. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
@@ -19,6 +21,7 @@
 
     <queries>
         <package android:name="moe.shizuku.privileged.api" />
+        <package android:name="com.termux" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
@@ -65,6 +68,10 @@
             android:exported="false"
             android:excludeFromRecents="true"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <service
+            android:name=".aiworkforce.termux.TermuxCommandResultService"
+            android:exported="false" />
 
         <service
             android:name=".runtime.FridayRuntimeService"
