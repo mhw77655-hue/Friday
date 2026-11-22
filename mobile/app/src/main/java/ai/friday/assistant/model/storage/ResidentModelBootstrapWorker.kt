@@ -73,6 +73,11 @@ class ResidentModelBootstrapWorker(
                 return Result.success(workDataOf("state" to "WAITING_FOR_HOST_CAPACITY", "reason" to reason))
             }
 
+            recordState(
+                if (alreadyInstalled) "LOADING" else "DOWNLOADING",
+                if (alreadyInstalled) "Verified resident weights are installed; Friday is attempting the live model load."
+                else "Downloading the pinned resident model over unmetered Wi-Fi while charging."
+            )
             val modelFile = if (alreadyInstalled) {
                 downloader.installedFile(asset)
             } else {
