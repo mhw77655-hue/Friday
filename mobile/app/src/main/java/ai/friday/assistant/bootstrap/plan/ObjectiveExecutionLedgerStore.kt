@@ -123,9 +123,21 @@ class ObjectiveExecutionLedgerStore(context: Context) {
         }
         for (index in 0 until tasks.length()) {
             val task = tasks.getJSONObject(index)
-            if (task.optString("status") in TERMINAL_TASK_STATES) continue
+            val taskStatus = task.optString("status")
             val objectiveId = task.optString("objective_id")
             val phaseId = task.optInt("phase_id", -1)
+            if (taskStatus in TERMINAL_TASK_STATES) {
+                if (taskStatus == "DECOMPOSED") {
+                    if (phaseId >= 0) {
+                        val hash = phaseById[phaseId]?.optString("content_sha256").orEmpty()
+                        if (hash.isNotBlank()) activeTaskHashes += "$phaseId:$hash"
+                    } else {
+                        val hash = objectiveById[objectiveId]?.optString("content_sha256").orEmpty()
+                        if (hash.isNotBlank()) activeObjectiveHashes += "$objectiveId:$hash"
+                    }
+                }
+                continue
+            }
             if (phaseId >= 0) {
                 val phase = phaseById[phaseId]
                 val currentHash = phase?.optString("content_sha256").orEmpty()
