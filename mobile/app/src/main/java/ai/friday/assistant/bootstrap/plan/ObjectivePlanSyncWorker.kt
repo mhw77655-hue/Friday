@@ -40,8 +40,16 @@ class ObjectivePlanSyncWorker(
             val planFile = File(planDir, "canonical-delivery-plan.md")
             val ledgerFile = File(planDir, "objective-ledger.json")
 
-            // Offline-first: establish the local source of truth before any HTTP call.
-            if (!planFile.isFile) {
+            // Offline-first: validate the local snapshot and its ledger before
+            // any HTTP call. Recover metadata from valid content; fall back to
+            // the bundled APK seed only when the local snapshot is absent/corrupt.
+            val existingMarkdown = if (planFile.isFile) {
+                runCatching {
+                    planFile.readText(Charsets.UTF_8).also { validatePlan(it) }
+                }.getOrNull()
+            } else null
+
+            if (existingMarkdown == null) {
                 val bundled = applicationContext.assets.open(BUNDLED_PLAN_ASSET)
                     .bufferedReader(Charsets.UTF_8).use { it.readText() }
                 validatePlan(bundled)
@@ -54,20 +62,23 @@ class ObjectivePlanSyncWorker(
                     etag = "",
                     lastModified = ""
                 )
-            } else if (!ledgerFile.isFile) {
-                // Recover metadata from the existing valid snapshot rather than
-                // replacing a possibly newer local plan with the APK seed.
-                val existing = planFile.readText(Charsets.UTF_8)
-                validatePlan(existing)
-                writePlan(
-                    planDir = planDir,
-                    markdown = existing,
-                    source = "recovered_local_snapshot",
-                    sourceType = "LOCAL_SNAPSHOT_RECOVERY",
-                    remoteSyncStatus = "UNKNOWN",
-                    etag = "",
-                    lastModified = ""
-                )
+            } else {
+                val ledgerMatches = if (ledgerFile.isFile) runCatching {
+                    val ledger = JSONObject(ledgerFile.readText(Charsets.UTF_8))
+                    ledger.optInt("schema_version") == 1 &&
+                        ledger.optString("content_sha256") == sha256(existingMarkdown)
+                }.getOrDefault(false) else false
+                if (!ledgerMatches) {
+                    writePlan(
+                        planDir = planDir,
+                        markdown = existingMarkdown,
+                        source = "recovered_local_snapshot",
+                        sourceType = "LOCAL_SNAPSHOT_RECOVERY",
+                        remoteSyncStatus = "UNKNOWN",
+                        etag = "",
+                        lastModified = ""
+                    )
+                }
             }
 
             // Network is only an enhancement. If the phone is offline or lacks
