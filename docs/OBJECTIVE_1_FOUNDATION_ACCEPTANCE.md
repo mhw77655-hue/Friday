@@ -6,6 +6,16 @@
 **Owner declaration:** pending; this document is evidence, not sign-off  
 **Current main at record update:** `cc88077658965e81c3fed8e891a742b59d5a035f`
 
+## Corrected Objective 1 outcome — installed Builder seed
+
+Objective 1 is the first operational Builder, not only a protected foundation or adversarial audit. The installed Friday must study the Android host, configure an app-owned development workspace without Termux, load the canonical plan offline, use local intelligence and available no-bill external Seats, construct a bounded candidate, run CI/build verification, preserve evidence and resume interrupted work. The owner supplies outcomes and protected approvals; Friday owns routine execution.
+
+The canonical plan now defines this scope, and the same corrected plan is bundled in the APK asset so offline first launch does not bootstrap an obsolete Objective 1 definition.
+
+**New implementation in PR #112:** the local resident model now has a bounded source-candidate executor; candidates are path/secret checked and published only to isolated GitHub PRs. A shared Friday Table log records Friday's local turn and an anonymous OVHcloud open-weight guest critique. The guest uses keyless HTTPS, is restricted to public/shareable repository context, and has no paid fallback. Candidate CI checks are polled and stored in the task ledger. No generated candidate is auto-merged or released.
+
+This is still not acceptance evidence by itself. The current branch must pass latest-head CI; the physical phone must complete host study, resident-model admission, Termux-free execution and a real Builder cycle; CI/review evidence and update continuity must be verified. No physical-device pass is inferred from emulator results.
+
 ## Current status
 
 The original foundation build and architecture gates have passed on earlier verified commits. The owner has now defined the final Objective 1 stage: an adversarial simulation campaign that deliberately attempts to break the retained foundation, tests the recovery paths, and records every failure and unresolved gap.
