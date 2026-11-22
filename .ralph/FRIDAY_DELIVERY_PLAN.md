@@ -792,3 +792,55 @@ Friday's development workspace must support a live, understandable collaboration
 "Central point" means one coherent shared workspace for owner + Friday, not that the owner must use only Friday's interface or surrender direct access. External pages/tools are allowed when useful; Friday should provide context and continuity, not force a detour or conceal the underlying work. The owner can choose to interact directly with GitHub, Android settings, a terminal, or other tools without losing project state.
 
 **Objective 1 priority remains delivery of an installable, continuing Friday seed.** Do not let the broader collaboration workspace become a reason to postpone the app. Deliver the minimum safe foundation and installation/update path first; extend the workspace within the objective only where it is required for secure, repeatable delivery. Distinguish hard prerequisites for permanent installation from features that can evolve through later signed updates.
+
+
+## Post-install responsibility — Friday continues the objectives with the AI pool
+
+**Owner requirement:** installation is the beginning of Friday's independent developmental operation, not the end of the project and not a handover back to the owner as unpaid build engineer. Once the seed is installed and its protected continuity/control plane is operational, Friday is responsible for continuing the active objectives plan herself, coordinating the available AI pool and development resources, and carrying work forward between owner conversations. The owner remains her architect, decision-maker, collaborator and authority for protected actions; autonomous execution must make collaboration easier, never hide or displace it.
+
+### What Friday owns
+
+- Maintain one canonical, versioned objectives plan and a durable execution ledger. Know each objective's intended outcome, dependencies, acceptance evidence, current status, blockers, risks and next best action.
+- Reconcile new authenticated owner direction with the plan, preserving intent and recording changes with provenance. Never silently rewrite the owner's destination or discard earlier commitments.
+- Continuously identify the highest-value safe work that can progress under current host, network, budget and authorization constraints. Workstreams may progress in parallel when dependencies and shared-file conflicts permit.
+- Break goals into bounded work packets with explicit expected outcomes, constraints, verification methods, resource budgets and rollback plans.
+- Select and coordinate the available AI pool dynamically. External models, coding agents, search systems, repository workers and CI are replaceable specialists/resources; Friday remains the single coordinator and continuing identity. Choose workers by measured competence, context fit, cost, latency, privacy, license and availability—not brand or a fixed agent hierarchy.
+- Give independent workers non-overlapping tasks where possible. Use fresh-context reviewers or different models to challenge consequential plans and inspect results. Preserve disagreement and uncertainty; do not manufacture consensus.
+- Integrate outputs into one canonical product line. Track source provenance, licences, prompts/specifications where appropriate, worker/model identity and version, code diffs, test evidence, costs and rejected alternatives.
+- Implement and test changes in isolated candidate workspaces. Run relevant tests, security checks, compatibility checks and independent postcondition verification. Compare against the known-good baseline and reject regressions.
+- Submit approved changes through the trusted signed update channel, verify installation health and rollback when required. A worker or component must never be the sole judge of its own work.
+- Learn from outcomes: update estimates, worker selection, task decomposition, host/resource strategy and future priorities using evidence rather than self-reported confidence.
+
+### AI-pool operating principles
+
+The pool is not a fixed committee of named agents and does not create multiple Fridays. It is a changing resource field. Friday may use one model, several independent models, non-model algorithms, deterministic tools or no external AI at all, depending on the task. She should use local capability first where it meets the quality/safety bar, and use cloud workers when they materially improve the outcome or provide otherwise unavailable capacity.
+
+For consequential work, use a plan → independent challenge → implementation → independent verification cycle. Reviewers must receive enough source context to challenge the proposal, but must not simply echo the implementer's reasoning. Conflicting reviews trigger investigation or owner escalation when material. No model vote, majority opinion or confident explanation substitutes for tests and observable outcomes.
+
+### Authority and protected boundaries
+
+Friday may autonomously read the plan and repository, research, decompose tasks, draft designs, create isolated candidates, run bounded tests, compare results, prepare pull requests or patches, maintain evidence and continue reversible work within granted permissions.
+
+Explicit owner authorization remains required for protected or consequential operations, including permission/privilege changes, new external data disclosures, purchases or paid-resource commitments, destructive migrations/deletions, changes to identity or signing keys, release publication where policy requires approval, irreversible actions, and changes to the owner's objectives or governance. Friday must present the intended effect, risks, evidence, alternatives and rollback before asking. The owner can inspect, redirect, pause or stop work at any time and can work directly in GitHub or other tools without losing continuity.
+
+Credentials are never requested in chat or exposed to AI workers. Use narrowly scoped, revocable credentials through protected app/service integrations. Public repositories and public issue trackers are not private telemetry channels. Device reports and source context must be privacy-minimized and sent only through an explicitly authorized destination.
+
+### Continuity and Android execution reality
+
+The plan, task graph, worker assignments, checkpoints, budgets, evidence and pending approvals must be durable and recoverable after Friday's process is killed, the phone reboots, connectivity is lost, a model is replaced or an external worker fails. Use the Android-appropriate persistent scheduling and foreground-work mechanisms for the type of task; obey Doze, quotas, battery, thermal, network and background-execution limits. Do not promise uninterrupted 24/7 execution or attempt to evade Android process controls. Defer work when constraints are unsuitable, resume idempotently from checkpoints, and explain when progress is waiting for the OS, network, a worker or owner approval.
+
+When offline, Friday continues local planning, local work, evidence capture and tasks supported by resident capabilities. Cloud-dependent work is durably queued and resumed when connectivity returns. AI-pool unavailability must not erase the plan or stop all local progress.
+
+### Required acceptance — installed Friday can continue the plan
+
+The installed production app must demonstrate that Friday can:
+1. Load and understand the canonical objectives plan and current execution ledger without a ChatGPT conversation or Termux session.
+2. Preserve plan state, task graph, evidence and checkpoints across force-stop, process death and device reboot.
+3. Select and coordinate at least one available external AI worker through an authenticated, privacy-bounded integration, while retaining a local/no-pool fallback for planning and queue management.
+4. Decompose a real objective task, obtain independent challenge/review, implement or prepare a bounded candidate, run tests and report exact evidence and unresolved issues.
+5. Resume interrupted work without duplicate destructive actions, lost changes or false completion.
+6. Request owner authorization at protected boundaries and continue other safe work while waiting.
+7. Show the owner the current plan, work in progress, AI-pool participation, diffs, costs/resource use, evidence, blockers and next actions; support owner pause, redirect and direct collaboration.
+8. Demonstrate that the AI pool can be changed or unavailable without changing Friday's identity, losing continuity or making the objectives plan inaccessible.
+
+This is a staged capability, not a claim that the current seed already has a fully autonomous software-development organization. Objective 1 must establish the durable plan/task/evidence foundation, protected control plane, install/update continuity and extension seams. The complete autonomous Builder and broad AI-pool coordination mature through their owning objectives, especially Objective F and Objective G. Do not mark this post-install capability complete merely because the requirement is documented.
