@@ -67,7 +67,7 @@ internal class TermuxAiCliWorkerPool(context: Context) {
                     timeoutMs = 15_000L
                 )
             }.getOrNull()
-            if (probe == null || probe.errorCode != 0) {
+            if (probe == null || probe.errorCode != android.app.Activity.RESULT_OK) {
                 AiCliWorkerStatus(
                     worker,
                     AiCliWorkerState.TERMUX_UNAVAILABLE,
@@ -114,7 +114,7 @@ internal class TermuxAiCliWorkerPool(context: Context) {
             workDirectory = "~/",
             timeoutMs = timeoutMs
         )
-        check(result.errorCode == 0 && result.exitCode == 0) {
+        check(result.errorCode == android.app.Activity.RESULT_OK && result.exitCode == 0) {
             safeFailure(worker, result)
         }
         val response = when (worker) {
