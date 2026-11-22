@@ -616,7 +616,7 @@ fun SettingsScreen() {
             modifier = Modifier.padding(bottom = 8.dp)
         )
         if (aiWorkerStatuses.isEmpty()) {
-            Text("Termux AI worker discovery has not completed.", style = FridayType.Technical)
+            Text("AI worker discovery has not completed.", style = FridayType.Technical)
         } else {
             aiWorkerStatuses.forEach { status ->
                 Text(
@@ -648,7 +648,7 @@ fun SettingsScreen() {
             ) { Text("Open Termux environment") }
         }
         Text(
-            text = "Friday selects the first healthy registered execution environment. If Termux is selected, grant Friday the Run commands in Termux permission and enable allow-external-apps=true in ~/.termux/termux.properties. Other registered environments can use their own isolated permissions and runtime. Friday cannot bypass an environment security gate.",
+            text = "Provider adapters are independent of execution environments. The current concrete host adapter is Termux; app-managed and Linux/proot adapters remain future work, not active capabilities. If Termux is used, grant Friday the Run commands in Termux permission and enable allow-external-apps=true in ~/.termux/termux.properties. Friday cannot bypass an environment security gate.",
             style = FridayType.Label,
             modifier = Modifier.padding(vertical = 8.dp)
         )
