@@ -43,30 +43,64 @@ class ObjectiveExecutionWorker(
             }
 
             val parent = store.nextQueuedParentTask()
-                ?: return@withContext Result.success()
-            try {
-                val decomposition = ObjectiveTaskDecomposer(manager).decompose(parent)
-                store.recordDecomposition(
-                    parentTaskId = parent.getString("task_id"),
-                    modelId = decomposition.modelId,
-                    items = decomposition.items
-                )
-                android.util.Log.i(
-                    TAG,
-                    "Locally decomposed task " + parent.getString("task_id") +
-                        " into " + decomposition.items.length() + " bounded work items."
-                )
-                if (store.hasQueuedParentTasks()) {
+            if (parent != null) {
+                try {
+                    val decomposition = ObjectiveTaskDecomposer(manager).decompose(parent)
+                    store.recordDecomposition(
+                        parentTaskId = parent.getString("task_id"),
+                        modelId = decomposition.modelId,
+                        items = decomposition.items
+                    )
+                    android.util.Log.i(
+                        TAG,
+                        "Locally decomposed task " + parent.getString("task_id") +
+                            " into " + decomposition.items.length() + " bounded work items."
+                    )
                     enqueueFollowUp(applicationContext, parent.getString("task_id"))
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (planningFailure: Exception) {
+                    store.recordDecompositionFailure(
+                        parentTaskId = parent.optString("task_id"),
+                        reason = planningFailure.message ?: planningFailure.javaClass.simpleName
+                    )
+                    android.util.Log.w(TAG, "Local task decomposition was deferred; parent remains queued.", planningFailure)
                 }
+                return@withContext Result.success()
+            }
+
+            // Once parent packets have been decomposed, the local Builder turns
+            // one safe child task into an isolated GitHub candidate. CI/review
+            // are separate evidence stages; this worker never merges or releases.
+            val child = store.nextQueuedChildTask()
+                ?: return@withContext Result.success()
+            val token = ai.friday.assistant.github.reporting.GitHubCredentialStore(
+                applicationContext
+            ).read()
+            if (token == null) {
+                android.util.Log.i(TAG, "Builder is waiting for an authorized repository credential.")
+                return@withContext Result.success()
+            }
+            val taskId = child.optString("task_id")
+            if (!store.markChildTaskExecuting(taskId)) {
+                return@withContext Result.success()
+            }
+            try {
+                val repository = ai.friday.assistant.github.reporting.GitHubDevelopmentRepositoryClient(token)
+                val candidate = ObjectiveBuilderCandidateExecutor(manager, repository).execute(child)
+                store.recordCandidatePublished(taskId, candidate.toJson())
+                android.util.Log.i(TAG, "Builder opened candidate PR #" + candidate.number)
+                enqueueFollowUp(applicationContext, taskId)
             } catch (cancelled: CancellationException) {
+                store.recordChildTaskFailure(taskId, "Builder operation was cancelled.")
                 throw cancelled
-            } catch (planningFailure: Exception) {
-                store.recordDecompositionFailure(
-                    parentTaskId = parent.optString("task_id"),
-                    reason = planningFailure.message ?: planningFailure.javaClass.simpleName
+            } catch (builderFailure: Exception) {
+                store.recordChildTaskFailure(
+                    taskId,
+                    builderFailure.message ?: builderFailure.javaClass.simpleName
                 )
-                android.util.Log.w(TAG, "Local task decomposition was deferred; parent remains queued.", planningFailure)
+                android.util.Log.w(TAG, "Builder candidate was not published; task remains resumable.", builderFailure)
+                if (runAttemptCount < 3) return@withContext Result.retry()
             }
             Result.success()
         } catch (invalidPlan: IllegalArgumentException) {
