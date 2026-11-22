@@ -1,6 +1,6 @@
 # Objective 1 — foundation verification record
 
-**Recorded:** 2026-11-21  
+**Recorded:** 2026-11-22  
 **Scope:** repository, Android, formal and adversarial foundation  
 **Canonical branch:** `main`  
 **Owner declaration:** pending; this document is evidence, not sign-off  
@@ -35,7 +35,7 @@ The original foundation build and architecture gates have passed on earlier veri
 - Independent offline backup of the private keystore and its password remains unverified. The existing GitHub signing secret and local keystore have already produced a matching production-signed artifact; do not rotate or delete either.
 
 
-## Phone-to-GitHub reporting and physical Shizuku acceptance — implementation staged, CI/device proof pending
+## Phone-to-GitHub reporting and physical Shizuku acceptance — implementation merged, physical proof pending
 
 - Branch `objective-1/github-device-reporting` adds a direct phone-to-repository report path. Friday Settings stores a fine-grained GitHub token encrypted with a non-exportable Android Keystore AES-GCM key. The token is never included in diagnostic payloads or logs.
 - The token is restricted by design to this repository and GitHub Issues read/write. Friday submits an explicitly owner-triggered, bounded JSON diagnostic as a GitHub issue. The payload includes app/build identity, device capability states, sanitized crash frames and action-category events; it excludes conversation content, transcripts, typed text, screen text, notifications and raw exception messages.
@@ -43,8 +43,8 @@ The original foundation build and architecture gates have passed on earlier veri
 - Report payloads are capped at 40 KiB and the action journal export is bounded to the most recent 50 events. Stable report IDs and issue-title lookup prevent duplicate creation when a delivery response is lost and the same payload is retried.
 - The branch adds MockWebServer tests for API method/auth headers, issue creation, duplicate detection and permission failures; payload tests for schema, size and credential rejection; and an emulator instrumentation test for Android Keystore credential round-tripping.
 - The branch also adds a one-tap Shizuku acceptance runner: verify remote UID, verify diagnostics UID matches, exercise Doze add/remove with read-back and restore the owner's original whitelist state, then launch Android Settings and verify its resumed activity. It records only sanitized pass/fail action events.
-- **Not yet proven:** the branch has not yet passed CI, been merged, or been installed on the owner's physical phone. No GitHub token has been configured in Friday, no device report has been uploaded, and the Shizuku runner has not been exercised on the Realme handset. GitHub issue visibility follows repository visibility; owner must check this before uploading.
-- The one-time owner action after the tested build is installed: create a fine-grained token for only this repository with Issues read/write, paste it directly into Friday Settings, save, verify access, run the Shizuku acceptance checks, then tap Upload device report. The token must never be sent to ChatGPT.
+- **Not yet proven:** the merged implementation has not yet been installed on the owner's physical phone. No GitHub token has been configured in Friday, no device report has been uploaded, and the Shizuku runner has not been exercised on the Realme handset. GitHub issue visibility follows repository visibility; the repository is public, so device reports submitted as issues are public. The owner must review the payload and accept that visibility before uploading.
+- The one-time owner action after a production-signed build containing this merge is available: create a fine-grained token for only this repository with Issues read/write, paste it directly into Friday Settings, save, verify access, run the Shizuku acceptance checks, then tap Upload device report. The token must never be sent to ChatGPT.
 
 ## Adversarial work added; validation still pending
 
@@ -79,3 +79,11 @@ The original foundation build and architecture gates have passed on earlier veri
 - [Current CI run for the adversarial test infrastructure](https://github.com/mhw77655-hue/Friday/actions/runs/44932928715)
 
 Objective 1 remains open until the adversarial campaign has completed, critical findings have been fixed or explicitly dispositioned, the final coverage/mutation evidence is published, all required CI lanes pass on the final commit, and the owner chooses to declare it complete.
+
+
+## Reporting integration merge update — 2026-11-22
+
+- PR #110 is merged into `main` at `87d8dace06d5daa2dc940df216bebb32a13aea71`.
+- The exact PR head `84689627b554b37f846a6785b0d3f77382bd7505` passed CI run [45029884401](https://github.com/mhw77655-hue/Friday/actions/runs/45029884401): `debug-apk`, `Disposable Android phone twin (instrumented)`, and `Whole-repository source inventory and Kotlin vision audit` all concluded `success`; `report-failure` was skipped because no failure occurred.
+- This is PR-head CI evidence. It is not physical-device evidence and does not establish that a release APK containing the merge has been published. A separate post-merge production release verification remains required.
+- Android requires matching application ID and signing certificate (or valid proof-of-rotation) for updates, and may require user approval. See [Android app update requirements](https://developer.android.com/google/play/app-updates).
