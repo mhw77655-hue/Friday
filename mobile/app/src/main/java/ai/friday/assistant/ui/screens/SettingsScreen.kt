@@ -609,6 +609,104 @@ fun SettingsScreen() {
             modifier = Modifier.padding(bottom = 12.dp)
         )
 
+        SectionLabel("SUBSCRIPTION AI WORKFORCE")
+        Text(
+            text = "Friday reaches existing AI subscriptions through their official command-line clients in Termux. OpenAI Codex supports ChatGPT-account sign-in; Claude Code supports Claude-account sign-in. Friday does not ask for provider API keys or extract provider credentials. Normal account limits and provider usage rules still apply.",
+            style = FridayType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        if (aiWorkerStatuses.isEmpty()) {
+            Text("Termux AI worker discovery has not completed.", style = FridayType.Technical)
+        } else {
+            aiWorkerStatuses.forEach { status ->
+                Text(
+                    text = status.id.displayName + " · " + status.state.name + "\n" + status.detail,
+                    style = FridayType.Technical,
+                    modifier = Modifier.padding(vertical = 4.dp)
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = {
+                    scope.launch {
+                        aiWorkerStatuses = runCatching { aiWorkerPool.discover() }
+                            .getOrDefault(emptyList())
+                    }
+                },
+                enabled = !aiWorkerBusy
+            ) { Text("Refresh AI workers") }
+            Button(
+                onClick = {
+                    val launch = context.packageManager.getLaunchIntentForPackage("com.termux")
+                    if (launch != null) context.startActivity(launch)
+                    else aiWorkerTestReport = "Termux is not installed."
+                }
+            ) { Text("Open Termux") }
+        }
+        Text(
+            text = "One-time bridge setup: grant Friday the Run commands in Termux permission in Android App info. In Termux, enable allow-external-apps=true in ~/.termux/termux.properties and reload Termux settings. Friday cannot bypass this security gate.",
+            style = FridayType.Label,
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
+        Button(
+            onClick = {
+                context.startActivity(
+                    Intent(
+                        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        android.net.Uri.parse("package:" + context.packageName)
+                    )
+                )
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Open Friday app permissions") }
+        Button(
+            onClick = {
+                aiWorkerBusy = true
+                aiWorkerTestReport = "Consulting installed subscription-authenticated AI workers…"
+                scope.launch {
+                    val results = runCatching {
+                        aiWorkerPool.consultInstalled(
+                            "You are being contacted by Friday, an Android assistant. " +
+                                "Confirm which AI worker you are and return a short connection diagnostic. " +
+                                "Do not access local files, credentials, tools, or external resources."
+                        )
+                    }
+                    aiWorkerTestReport = results.fold(
+                        onSuccess = { responses ->
+                            if (responses.isEmpty()) {
+                                "No installed AI CLI workers were found. The approved Codex and/or Claude CLI runtime is required."
+                            } else {
+                                responses.entries.joinToString("\n\n") { (id, result) ->
+                                    val body = result.fold(
+                                        onSuccess = { it.response.take(2_000) },
+                                        onFailure = { it.message ?: "Consultation failed." }
+                                    )
+                                    id.displayName + ":\n" + body
+                                }
+                            }
+                        },
+                        onFailure = { it.message ?: "AI workforce test failed." }
+                    )
+                    aiWorkerBusy = false
+                }
+            },
+            enabled = !aiWorkerBusy && aiWorkerStatuses.any {
+                it.state == ai.friday.assistant.aiworkforce.termux.AiCliWorkerState.AUTHENTICATION_NOT_CONFIRMED
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(if (aiWorkerBusy) "Consulting…" else "Test connected AI workers") }
+        if (aiWorkerTestReport.isNotBlank()) {
+            Text(
+                text = aiWorkerTestReport,
+                style = FridayType.Technical,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+        }
+
         SectionLabel("GITHUB DEVICE REPORTING")
         Text(
             text = "Create a fine-grained token limited to the mhw77655-hue/Friday repository, with Contents read/write, Pull requests read/write, Actions read, and Issues read/write (Metadata read is automatic). These permissions let Friday inspect the canonical plan, publish isolated candidate branches/PRs, check CI, and submit optional device reports. Paste it here once. Friday encrypts it with Android Keystore. When you tap Upload, Friday sends a bounded report containing app/build identity, device capability states, sanitized crash frames and action categories. It never includes conversations, speech transcripts, typed content, screen text, notifications or the token. Each upload creates a GitHub issue and a validated Actions artifact. This Friday repository is public. Anyone can read uploaded GitHub issues and Actions artifacts. Upload only if you accept those sanitized device diagnostics being public.",
