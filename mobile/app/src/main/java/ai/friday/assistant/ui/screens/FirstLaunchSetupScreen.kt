@@ -88,6 +88,9 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    val cameraGranted = ContextCompat.checkSelfPermission(
+        context, Manifest.permission.CAMERA
+    ) == PackageManager.PERMISSION_GRANTED
     val microphoneGranted = ContextCompat.checkSelfPermission(
         context, Manifest.permission.RECORD_AUDIO
     ) == PackageManager.PERMISSION_GRANTED
@@ -186,6 +189,9 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
         }
     }
 
+    val requestCamera = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { refreshToken++ }
     val requestMicrophone = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { refreshToken++ }
@@ -203,6 +209,14 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
     }
 
     val items = listOf(
+        SetupItem(
+            "Camera",
+            "Optional visual perception. Friday requests camera access only when you choose to use a camera feature.",
+            if (cameraGranted) "Enabled" else "Optional · not granted",
+            if (cameraGranted) "Verified" else "Allow camera"
+        ) {
+            requestCamera.launch(Manifest.permission.CAMERA)
+        },
         SetupItem(
             "Microphone",
             "Enables voice conversations. Friday only requests it when you choose voice.",
