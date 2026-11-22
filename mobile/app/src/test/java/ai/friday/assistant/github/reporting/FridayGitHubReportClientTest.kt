@@ -34,8 +34,10 @@ class FridayGitHubReportClientTest {
         assertTrue(runCatching {
             FridayGitHubReportPayload.parse(report(reportType = "CHAT_EXPORT"))
         }.isFailure)
+        // The production contract accepts bounded opaque IDs containing letters,
+        // digits and hyphens; a value with whitespace is genuinely malformed.
         assertTrue(runCatching {
-            FridayGitHubReportPayload.parse(report(reportId = "not-an-id"))
+            FridayGitHubReportPayload.parse(report(reportId = "bad id"))
         }.isFailure)
     }
 
