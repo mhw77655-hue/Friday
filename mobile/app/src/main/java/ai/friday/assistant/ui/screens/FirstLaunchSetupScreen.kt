@@ -43,7 +43,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.core.content.ContextCompat
-import ai.friday.assistant.FridayAccessibilityService
+import ai.friday.assistant.voice.FridayAccessibilityService
 import ai.friday.assistant.FridayNotificationListener
 import ai.friday.assistant.ShizukuBridge
 import rikka.shizuku.Shizuku
@@ -169,7 +169,7 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
             style = MaterialTheme.typography.bodyMedium
         )
         LinearProgressIndicator(
-            progress = { verifiedCount.toFloat() / items.size.toFloat() },
+            progress = verifiedCount.toFloat() / items.size.toFloat(),
             modifier = Modifier.fillMaxWidth()
         )
         Text("$verifiedCount of ${items.size} setup items verified", style = MaterialTheme.typography.labelMedium)
