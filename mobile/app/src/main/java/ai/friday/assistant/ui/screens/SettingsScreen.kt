@@ -32,6 +32,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +48,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import java.io.File
+import org.json.JSONObject
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import ai.friday.assistant.update.FridayPackageInstaller
@@ -105,6 +108,7 @@ fun SettingsScreen() {
     var shizukuSnapshot by remember { mutableStateOf("") }
     var shizukuAcceptanceReport by remember { mutableStateOf("") }
     var shizukuAcceptanceRunning by remember { mutableStateOf(false) }
+    var objectiveExecutionStatus by remember { mutableStateOf("Friday is loading the canonical objectives ledger…") }
 
     // Bumped on ON_RESUME so runtime status and local diagnostic counts
     // refresh when the owner returns to Settings from Android system panels.
@@ -124,6 +128,37 @@ fun SettingsScreen() {
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(resumeSignal) {
+        objectiveExecutionStatus = withContext(Dispatchers.IO) {
+            val file = File(context.filesDir, "friday-development/plan/execution-ledger.json")
+            if (!file.isFile) {
+                "The canonical plan or local execution ledger has not been imported yet. Friday will retry bootstrap."
+            } else runCatching {
+                val ledger = JSONObject(file.readText(Charsets.UTF_8))
+                val objectives = ledger.optJSONArray("objectives") ?: org.json.JSONArray()
+                val phases = ledger.optJSONArray("phases") ?: org.json.JSONArray()
+                val tasks = ledger.optJSONArray("tasks") ?: org.json.JSONArray()
+                val acceptedObjectives = (0 until objectives.length()).count {
+                    objectives.optJSONObject(it)?.optString("status") == "ACCEPTED"
+                }
+                val acceptedPhases = (0 until phases.length()).count {
+                    phases.optJSONObject(it)?.optString("status") == "ACCEPTED"
+                }
+                val queued = (0 until tasks.length()).count {
+                    tasks.optJSONObject(it)?.optString("status") == "QUEUED"
+                }
+                val stale = (0 until tasks.length()).count {
+                    tasks.optJSONObject(it)?.optString("status") == "STALE_PLAN_CHANGED"
+                }
+                "Plan ledger verified · Objectives $acceptedObjectives/${objectives.length()} accepted · " +
+                    "Objective 1 phases $acceptedPhases/${phases.length()} accepted · " +
+                    "$queued work packets queued · $stale stale packets awaiting reassessment. " +
+                    "Queued means planned, not executed; Friday does not mark work complete without evidence."
+            }.getOrElse {
+                "The local objectives ledger could not be verified. Friday preserves it and will not reset its task history."
+            }
+        }
     }
     var shizukuDozeStatus by remember { mutableStateOf("Not checked.") }
     var keepFridayAlive by remember(resumeSignal) {
@@ -311,6 +346,18 @@ fun SettingsScreen() {
             }
         }
 
+
+        SectionLabel("OBJECTIVES AND DEVELOPMENT")
+        Text(
+            text = "Friday keeps the canonical objectives and evidence ledger locally. Work is tracked across the full plan; queued packets are not counted as completed work. Repository changes still require a configured, authorized development executor.",
+            style = FridayType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Text(
+            text = objectiveExecutionStatus,
+            style = FridayType.Technical,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
 
         SectionLabel("LOCAL CONTINUITY")
         Text(
