@@ -27,9 +27,14 @@ class ObjectiveExecutionLedgerStore(context: Context) {
         val previous = if (ledgerFile.isFile) runCatching {
             JSONObject(ledgerFile.readText(Charsets.UTF_8))
         }.getOrNull() else null
+        val planMetadataFile = File(directory, "objective-ledger.json")
+        if (!planMetadataFile.isFile) throw java.io.IOException("Plan metadata is not committed yet.")
         val planMetadata = runCatching {
-            JSONObject(File(directory, "objective-ledger.json").readText(Charsets.UTF_8))
-        }.getOrNull()
+            JSONObject(planMetadataFile.readText(Charsets.UTF_8))
+        }.getOrElse { throw java.io.IOException("Plan metadata is unreadable.", it) }
+        if (planMetadata.optString("content_sha256") != planHash) {
+            throw java.io.IOException("Canonical plan and its integrity ledger do not match yet.")
+        }
         val oldPhases = previous?.optJSONArray("phases") ?: JSONArray()
         val oldObjectives = previous?.optJSONArray("objectives") ?: JSONArray()
         val oldById = (0 until oldPhases.length()).associate { index ->
