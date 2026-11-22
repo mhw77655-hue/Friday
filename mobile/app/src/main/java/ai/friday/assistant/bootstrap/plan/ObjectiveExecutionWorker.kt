@@ -1,6 +1,7 @@
 package ai.friday.assistant.bootstrap.plan
 
 import ai.friday.assistant.FridayEngine
+import ai.friday.assistant.aiworkforce.AiWorkforceEnvironmentPolicy
 import ai.friday.assistant.aiworkforce.termux.TermuxAiCliWorkerPool
 import android.content.Context
 import androidx.work.Constraints
@@ -40,7 +41,12 @@ class ObjectiveExecutionWorker(
             val parent = store.nextQueuedParentTask()
                 ?: return@withContext Result.success()
             try {
-                val workers = TermuxAiCliWorkerPool(applicationContext)
+                val activeProfile = FridayEngine.environmentManager?.activeEnvironment?.value
+                val workers = if (AiWorkforceEnvironmentPolicy.allowsExternalWorkers(activeProfile)) {
+                    TermuxAiCliWorkerPool(applicationContext)
+                } else {
+                    null
+                }
                 val decomposition = ObjectiveTaskDecomposer(manager, workers).decompose(parent)
                 store.recordDecomposition(
                     parentTaskId = parent.getString("task_id"),
