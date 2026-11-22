@@ -45,7 +45,7 @@ class HostSetupChecklistTest {
         )
         val sync = (0 until items.length()).map { items.getJSONObject(it) }
             .first { it.getString("id") == "network_plan_sync" }
-        assertEquals("WAITING_FOR_NETWORK", sync.getString("status"))
+        assertEquals("OFFLINE_BUNDLED_PLAN_READY", sync.getString("status"))
         assertEquals("WAIT_FOR_NETWORK", sync.getString("next_action"))
     }
 
