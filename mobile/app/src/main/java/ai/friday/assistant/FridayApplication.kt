@@ -40,6 +40,8 @@ class FridayApplication : Application() {
         // Study this exact Android host and prepare Friday's private development
         // workspace once. Unique work keeps retries/resumes idempotent across launches.
         ai.friday.assistant.bootstrap.host.HostBootstrapWorker.enqueue(this)
+        // Acquire the pinned resident model only after host measurement, on unmetered Wi-Fi while charging.
+        ai.friday.assistant.model.storage.ResidentModelBootstrapWorker.enqueue(this)
         // Import and periodically refresh the canonical objectives locally;
         // the plan remains readable from app-private storage while offline.
         ai.friday.assistant.bootstrap.plan.ObjectivePlanSyncWorker.enqueue(this)
