@@ -13,6 +13,11 @@ on:
         required: true
         type: string
         default: "1.0.0"
+      publish_release:
+        description: Publish a public GitHub release for Friday's in-app updater (requires verified keystore backups)
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -122,10 +127,70 @@ jobs:
           fi
           echo "PASS: release APK signature matches Friday's permanent certificate."
 
-      - name: Publish signed APK as a workflow artifact (not a public release)
+      - name: Create updater-compatible release assets
+        env:
+          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name }}
+          CERT_SHA256: ${{ env.FRIDAY_RELEASE_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/friday-release-assets"
+          mkdir -p "$OUT"
+          cp mobile/app/build/outputs/apk/release/app-release.apk "$OUT/friday.apk"
+          APK_SHA256="$(sha256sum "$OUT/friday.apk" | awk '{print $1}')"
+          export VERSION_CODE VERSION_NAME CERT_SHA256 APK_SHA256
+          python3 - <<'PY'
+          import json, os, pathlib
+          payload = {
+              "application_id": "ai.friday.assistant",
+              "version_code": int(os.environ["VERSION_CODE"]),
+              "version_name": os.environ["VERSION_NAME"],
+              "commit_sha": os.environ["GITHUB_SHA"],
+              "certificate_sha256": os.environ["CERT_SHA256"],
+              "apk_sha256": os.environ["APK_SHA256"],
+          }
+          out = pathlib.Path(os.environ["RUNNER_TEMP"]) / "friday-release-assets"
+          (out / "friday-release-metadata.json").write_text(
+              json.dumps(payload, sort_keys=True, indent=2) + "\\n",
+              encoding="utf-8",
+          )
+          PY
+
+      - name: Upload signed APK and updater metadata as workflow artifacts
         uses: actions/upload-artifact@v4
         with:
           name: friday-permanent-signed-release
-          path: mobile/app/build/outputs/apk/release/app-release.apk
+          path: |
+            ${{ runner.temp }}/friday-release-assets/friday.apk
+            ${{ runner.temp }}/friday-release-assets/friday-release-metadata.json
           if-no-files-found: error
           retention-days: 30
+
+  publish-release:
+    name: Publish official updater release
+    if: ${{ inputs.publish_release }}
+    needs: signed-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified signed release assets
+        uses: actions/download-artifact@v4
+        with:
+          name: friday-permanent-signed-release
+          path: release-assets
+
+      - name: Publish release consumed by Friday's updater
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION_NAME: ${{ inputs.version_name }}
+        run: |
+          set -euo pipefail
+          TAG="friday-v$VERSION_NAME"
+          gh release create "$TAG" \\
+            release-assets/friday.apk \\
+            release-assets/friday-release-metadata.json \\
+            --repo "$GITHUB_REPOSITORY" \\
+            --target "$GITHUB_SHA" \\
+            --title "Friday $VERSION_NAME" \\
+            --notes "Official Friday Android release. APK signature and certificate fingerprint were verified by the permanent-release workflow."
