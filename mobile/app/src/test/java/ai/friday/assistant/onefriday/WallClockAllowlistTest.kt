@@ -274,6 +274,7 @@ class WallClockAllowlistTest {
         put("continuity/ContinuityGate.kt", "default retrieval instant on the per-turn gate; the ONE root's clock reaches the gate's own consumers")
         put("failure/CircuitBreaker.kt", "injected nowMs default for the breaker window")
         put("failure/FailureSurface.kt", "injected nowMs default for turn-id and dedup windows")
+        put("failure/RecoveryController.kt", "two System.nanoTime reads measure a monotonic deadline and remaining verification time; they are elapsed-time controls, not wall-clock timestamps")
         put("humancore/HumanCore.kt", "injected clock default, session-end instant default and the legacy session-gap observation")
 
         put("identity/PersonaTuner.kt", "durable adjustment record timestamp")
