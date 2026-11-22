@@ -73,3 +73,10 @@ The friday-host-bootstrap-runtime branch adds an executable first-launch path:
 - Unit tests cover the deterministic host policy and extraction of all seven canonical objective sections.
 
 Remaining implementation work: the objective ledger currently imports objective sections as UNASSESSED; it does not yet resolve the plan's full dependency graph, assess completion evidence, choose and execute tasks, construct/test source candidates, or integrate an AI worker pool. The host survey also does not yet prove individual action routes or identify an available Android source-build toolchain. Do not describe this first bootstrap slice as autonomous plan completion.
+
+
+### Host study refinement: measured CPU, process footprint and Shizuku authority
+
+The bootstrap now also samples aggregate CPU utilization over a short `/proc/stat` interval and captures Friday's process PSS. If CPU counters or thermal telemetry are unavailable, the report records that uncertainty rather than treating the host as idle/cool. The initial workload recommendation delegates to the existing `NanoSymbioticPolicy`, with additional conservative gates: unknown CPU load cannot select high-capacity mode; low storage downgrades performance; critically low storage selects protective mode; and local model loading requires a detected model, a packaged inference library, sufficient memory and known-safe thermal telemetry.
+
+Shizuku discovery now goes beyond checking whether the manager package exists. Friday initializes the official Shizuku API and records live Binder reachability, Friday's own authorization state, the server UID and the resulting privilege classification (`ROOT`, `ADB_SHELL`, `UNKNOWN`, or `NOT_RUNNING`). A running server without Friday authorization, an unknown UID, or a manager package without a live Binder is not marked usable. This is capability discovery only; the first-launch survey does not execute elevated operations. The existing bounded Shizuku acceptance runner remains the separate route-verification step.
