@@ -50,6 +50,7 @@ object HostBootstrapPolicy {
         val nanoPlan = ai.friday.assistant.symbiosis.NanoSymbioticPolicy().plan(state)
         val mode = when {
             host.availableStorageMb in 0L..255L -> HostOperatingMode.PROTECTIVE
+            host.powerSave -> HostOperatingMode.EFFICIENT
             nanoPlan.mode == ai.friday.assistant.symbiosis.SymbioticMode.PERFORMANCE && host.availableStorageMb < 4096L -> HostOperatingMode.BALANCED
             else -> when (nanoPlan.mode) {
             ai.friday.assistant.symbiosis.SymbioticMode.CRITICAL -> HostOperatingMode.PROTECTIVE
@@ -73,7 +74,7 @@ object HostBootstrapPolicy {
             contextTokenBudget = if (mode == HostOperatingMode.PROTECTIVE) 512 else nanoPlan.contextTokenBudget,
             maxConcurrentExpensiveTasks = nanoPlan.maxConcurrentExpensiveTasks,
             allowBackgroundIndexing = nanoPlan.allowBackgroundConsolidation && mode == HostOperatingMode.HIGH_CAPACITY,
-            allowLocalModelLoad = localModelAllowed && mode != HostOperatingMode.PROTECTIVE,
+            allowLocalModelLoad = localModelAllowed && mode != HostOperatingMode.PROTECTIVE && !host.powerSave,
             recommendedModelMaxBytes = modelBudget,
             reason = if (measuredCpu == null) {
                 nanoPlan.reason + " CPU load was unavailable, so high-capacity admission was withheld."
