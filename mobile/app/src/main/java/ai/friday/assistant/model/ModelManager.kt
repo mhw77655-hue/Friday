@@ -27,9 +27,13 @@ import kotlinx.coroutines.withTimeout
  * all-clear snapshot is retained only for context-free JVM construction.
  * Reuse one sampler so CPU deltas are meaningful across admission decisions.
  */
-private fun defaultModelResourceGovernor(context: Context?): ResourceGovernor {
-    val snapshot = context?.let { AndroidResourceSnapshot(it.applicationContext) }
+internal fun defaultModelResourceSnapshot(context: Context?): ResourceSnapshot =
+    context?.let { AndroidResourceSnapshot(it.applicationContext) }
         ?: ResourceSnapshot.alwaysHealthy()
+
+private fun defaultModelResourceGovernor(context: Context?): ResourceGovernor {
+    // Reuse one sampler so CPU deltas remain meaningful across admissions.
+    val snapshot = defaultModelResourceSnapshot(context)
     return ResourceGovernor(snapshotProvider = { snapshot })
 }
 
