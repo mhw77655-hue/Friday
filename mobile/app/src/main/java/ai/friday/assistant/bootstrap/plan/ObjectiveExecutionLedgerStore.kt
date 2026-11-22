@@ -130,10 +130,14 @@ class ObjectiveExecutionLedgerStore(context: Context) {
                 if (taskStatus == "DECOMPOSED") {
                     if (phaseId >= 0) {
                         val hash = phaseById[phaseId]?.optString("content_sha256").orEmpty()
-                        if (hash.isNotBlank()) activeTaskHashes += "$phaseId:$hash"
+                        if (hash.isNotBlank() && task.optString("phase_content_sha256") == hash) {
+                            activeTaskHashes += "$phaseId:$hash"
+                        }
                     } else {
                         val hash = objectiveById[objectiveId]?.optString("content_sha256").orEmpty()
-                        if (hash.isNotBlank()) activeObjectiveHashes += "$objectiveId:$hash"
+                        if (hash.isNotBlank() && task.optString("scope_content_sha256") == hash) {
+                            activeObjectiveHashes += "$objectiveId:$hash"
+                        }
                     }
                 }
                 continue
