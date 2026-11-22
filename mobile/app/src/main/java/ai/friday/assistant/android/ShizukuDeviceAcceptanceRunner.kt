@@ -30,8 +30,8 @@ class ShizukuDeviceAcceptanceRunner {
                 route = "shizuku_user_service",
                 outcome = if (passed) "verified" else "failed",
                 durationMs = ((System.nanoTime() - started) / 1_000_000L).coerceAtLeast(0L),
-                verificationState = if (passed) "independently_verified" else "failed",
-                verificationStage = "DEVICE_ACCEPTANCE"
+                verificationState = if (passed) "verified" else "not_independently_verified",
+                verificationStage = if (passed) "VERIFIED" else "UNKNOWN"
             )
         }
 
