@@ -78,9 +78,12 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
     val microphoneGranted = ContextCompat.checkSelfPermission(
         context, Manifest.permission.RECORD_AUDIO
     ) == PackageManager.PERMISSION_GRANTED
-    val notificationsGranted = Build.VERSION.SDK_INT < 33 ||
+    val runtimeNotificationPermissionGranted = Build.VERSION.SDK_INT < 33 ||
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
         PackageManager.PERMISSION_GRANTED
+    val notificationsEnabled = context.getSystemService(NotificationManager::class.java)
+        ?.areNotificationsEnabled() == true
+    val notificationsGranted = runtimeNotificationPermissionGranted && notificationsEnabled
     val accessibilityEnabled = isServiceEnabled(
         context, ComponentName(context, FridayAccessibilityService::class.java)
     )
