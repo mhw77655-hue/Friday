@@ -1,6 +1,7 @@
 package ai.friday.assistant.model.storage
 
 import ai.friday.assistant.FridayEngine
+import ai.friday.assistant.BuildConfig
 import ai.friday.assistant.model.ModelTier
 import ai.friday.assistant.model.OrganRole
 import android.content.Context
@@ -44,6 +45,7 @@ class ResidentModelBootstrapWorker(
             val hostReport = runCatching {
                 JSONObject(hostReportFile.readText(Charsets.UTF_8))
             }.getOrElse { return Result.retry() }
+            if (hostReport.optString("source_revision") != BuildConfig.SOURCE_REVISION) return Result.retry()
             val nativeInferencePresent = hostReport.optJSONObject("capacity")
                 ?.optBoolean("native_inference_library_present") == true
             if (!nativeInferencePresent) {
