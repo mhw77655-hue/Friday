@@ -2,6 +2,9 @@ package ai.friday.assistant.update
 
 import android.content.Context
 import java.io.File
+import android.content.pm.PackageManager
+import android.os.Build
+import java.security.MessageDigest
 
 /**
  * Small local index for a verified APK staged by the background updater.
@@ -56,6 +59,81 @@ class FridayUpdateStateStore(context: Context) {
         )
     }
 
+
+    /**
+     * Preserve the expected identity across PackageInstaller's process restart.
+     * The next main-process launch compares the installed package against this
+     * record before declaring the update healthy.
+     */
+    fun recordPendingHealthCheck(release: FridayUpdateClient.Release) {
+        prefs.edit()
+            .putLong(KEY_PENDING_VERSION_CODE, release.versionCode)
+            .putString(KEY_PENDING_VERSION_NAME, release.versionName)
+            .putString(KEY_PENDING_SOURCE_COMMIT, release.sourceCommit)
+            .putString(KEY_PENDING_CERTIFICATE, release.certificateSha256)
+            .putString(KEY_STATUS, "Update installed by Android; awaiting first-launch continuity verification.")
+            .apply()
+    }
+
+    fun verifyPendingHealthCheck(): String? {
+        val expectedVersion = prefs.getLong(KEY_PENDING_VERSION_CODE, -1L)
+        if (expectedVersion <= 0L) return null
+        val expectedName = prefs.getString(KEY_PENDING_VERSION_NAME, null)
+        val expectedCommit = prefs.getString(KEY_PENDING_SOURCE_COMMIT, null)
+        val expectedCertificate = prefs.getString(KEY_PENDING_CERTIFICATE, null)
+        val problem = runCatching {
+            val flags = if (Build.VERSION.SDK_INT >= 28) {
+                PackageManager.GET_SIGNING_CERTIFICATES
+            } else {
+                @Suppress("DEPRECATION")
+                PackageManager.GET_SIGNATURES
+            }
+            @Suppress("DEPRECATION")
+            val info = if (Build.VERSION.SDK_INT >= 33) {
+                appContext.packageManager.getPackageInfo(
+                    appContext.packageName,
+                    PackageManager.PackageInfoFlags.of(flags.toLong())
+                )
+            } else {
+                appContext.packageManager.getPackageInfo(appContext.packageName, flags)
+            }
+            val actualVersion = if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else info.versionCode.toLong()
+            if (actualVersion != expectedVersion) error("Installed version code $actualVersion does not match expected $expectedVersion.")
+            if (info.versionName != expectedName) error("Installed version name does not match the staged release.")
+            if (ai.friday.assistant.BuildConfig.SOURCE_REVISION != expectedCommit) {
+                error("Installed source revision does not match the staged release commit.")
+            }
+            val signatures = if (Build.VERSION.SDK_INT >= 28) {
+                info.signingInfo?.apkContentsSigners
+            } else {
+                @Suppress("DEPRECATION")
+                info.signatures
+            } ?: error("Installed signing identity is unavailable.")
+            val signer = signatures.singleOrNull() ?: error("Installed package has an unsupported multiple-signer identity.")
+            val actualCertificate = MessageDigest.getInstance("SHA-256")
+                .digest(signer.toByteArray())
+                .joinToString("") { "%02x".format(it) }
+                .uppercase()
+            val expected = expectedCertificate.orEmpty().filterNot { it == ':' || it.isWhitespace() }.uppercase()
+            if (actualCertificate != expected) error("Installed signing certificate does not match the verified release.")
+            null
+        }.getOrElse { it.message?.take(200) ?: "Post-update verification failed." }
+
+        val status = if (problem == null) {
+            "Post-update health check passed: Friday " + (expectedName ?: "") + " is running with the expected version, source revision and signing identity."
+        } else {
+            "Post-update health check failed: $problem"
+        }
+        recordStatus(status)
+        prefs.edit()
+            .remove(KEY_PENDING_VERSION_CODE)
+            .remove(KEY_PENDING_VERSION_NAME)
+            .remove(KEY_PENDING_SOURCE_COMMIT)
+            .remove(KEY_PENDING_CERTIFICATE)
+            .apply()
+        return status
+    }
+
     fun recordStatus(status: String) {
         prefs.edit().putString(KEY_STATUS, status.take(240)).apply()
     }
@@ -87,5 +165,9 @@ class FridayUpdateStateStore(context: Context) {
         private const val KEY_APK_URL = "apk_url"
         private const val KEY_APK_PATH = "apk_path"
         private const val KEY_STATUS = "status"
+        private const val KEY_PENDING_VERSION_CODE = "pending_version_code"
+        private const val KEY_PENDING_VERSION_NAME = "pending_version_name"
+        private const val KEY_PENDING_SOURCE_COMMIT = "pending_source_commit"
+        private const val KEY_PENDING_CERTIFICATE = "pending_certificate"
     }
 }
