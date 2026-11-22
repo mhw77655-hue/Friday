@@ -57,14 +57,17 @@ class FridayPackageInstallStatusActivity : Activity() {
             PackageInstaller.STATUS_SUCCESS -> {
                 val state = FridayUpdateStateStore(this)
                 val staged = state.loadStaged()
-                if (staged != null) {
+                val healthStatus = if (staged != null) {
                     state.recordPendingHealthCheck(staged.release)
+                    val verified = state.verifyPendingHealthCheck()
                     state.clearStaged()
-                    state.recordStatus("Android accepted Friday ${staged.release.versionName}. The next app launch will verify version, source revision and signing identity.")
+                    verified
                 } else {
-                    state.recordStatus("Android reported installation success, but Friday could not recover the staged release identity for the post-update health check.")
+                    "Android reported installation success, but Friday could not recover the staged release identity for the post-update health check."
                 }
-                Toast.makeText(this, "Friday update installed. Restarting Friday…", Toast.LENGTH_LONG).show()
+                val message = healthStatus ?: "Friday installed the update, but its post-install identity check did not run."
+                state.recordStatus(message)
+                Toast.makeText(this, message, Toast.LENGTH_LONG).show()
                 finish()
             }
             else -> {
