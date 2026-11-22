@@ -5,7 +5,13 @@ import ai.friday.assistant.BuildConfig
 import ai.friday.assistant.model.ModelTier
 import ai.friday.assistant.model.OrganRole
 import android.content.Context
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.pm.ServiceInfo
+import android.os.Build
+import androidx.core.app.NotificationCompat
 import androidx.work.Constraints
+import androidx.work.ForegroundInfo
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
@@ -80,6 +86,7 @@ class ResidentModelBootstrapWorker(
                 if (alreadyInstalled) "Verified resident weights are installed; Friday is attempting the live model load."
                 else "Downloading the pinned resident model over unmetered Wi-Fi while charging."
             )
+            if (!alreadyInstalled) setForeground(createForegroundInfo())
             val modelFile = if (alreadyInstalled) {
                 downloader.installedFile(asset)
             } else {
@@ -125,6 +132,37 @@ class ResidentModelBootstrapWorker(
         }
     }
 
+    private fun createForegroundInfo(): ForegroundInfo {
+        val channelId = "friday-model-bootstrap"
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = applicationContext.getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(
+                NotificationChannel(
+                    channelId,
+                    "Friday offline model setup",
+                    NotificationManager.IMPORTANCE_LOW
+                ).apply { description = "Download and verify Friday's resident model." }
+            )
+        }
+        val notification = NotificationCompat.Builder(applicationContext, channelId)
+            .setSmallIcon(android.R.drawable.stat_sys_download)
+            .setContentTitle("Friday is preparing offline intelligence")
+            .setContentText("Downloading a verified model over unmetered Wi-Fi while charging.")
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            .build()
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ForegroundInfo(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            )
+        } else {
+            ForegroundInfo(NOTIFICATION_ID, notification)
+        }
+    }
+
     private fun recordState(state: String, reason: String) {
         runCatching {
             val directory = File(applicationContext.filesDir, "friday-development")
@@ -149,6 +187,7 @@ class ResidentModelBootstrapWorker(
         private const val PERIODIC_WORK_NAME = "friday-resident-model-bootstrap-periodic"
         private const val RESIDENT_CONTEXT_TOKENS = 2048
         private const val MIN_FREE_BYTES = 128L * 1024L * 1024L
+        private const val NOTIFICATION_ID = 7401
 
         fun enqueue(context: Context) {
             val manager = WorkManager.getInstance(context)
