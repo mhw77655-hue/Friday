@@ -106,3 +106,11 @@ class ShizukuCapabilityStateTest {
         assertFalse(state.usableByFriday)
     }
 }
+
+
+    @Test fun `power saver prevents high-capacity model admission`() {
+        val config = HostBootstrapPolicy.configure(host(powerSave = true))
+        assertEquals(HostOperatingMode.EFFICIENT, config.mode)
+        assertFalse(config.allowLocalModelLoad)
+        assertFalse(config.allowBackgroundIndexing)
+    }
