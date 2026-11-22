@@ -5,6 +5,11 @@ import ai.friday.assistant.BuildConfig
 import ai.friday.assistant.model.ModelTier
 import ai.friday.assistant.model.OrganRole
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.BatteryManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.pm.ServiceInfo
@@ -63,6 +68,11 @@ class ResidentModelBootstrapWorker(
             val downloader = OfflineModelDownloader(applicationContext)
             val alreadyInstalled = downloader.isInstalled(asset)
             if (!alreadyInstalled) {
+                if (!isSafeToDownload()) {
+                    val reason = "The verified resident model is queued until Friday has validated unmetered internet and the phone is charging."
+                    recordState("WAITING_FOR_SAFE_DOWNLOAD_WINDOW", reason)
+                    return Result.success(workDataOf("state" to "WAITING_FOR_SAFE_DOWNLOAD_WINDOW", "reason" to reason))
+                }
                 val requiredBytes = asset.expectedMinimumBytes + MIN_FREE_BYTES
                 if (downloader.availableStorageBytes() < requiredBytes) {
                     val reason = "Insufficient private storage for the pinned resident model plus the safety reserve."
@@ -134,6 +144,19 @@ class ResidentModelBootstrapWorker(
         }
     }
 
+    private fun isSafeToDownload(): Boolean = runCatching {
+        val connectivity = applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = connectivity.activeNetwork ?: return false
+        val capabilities = connectivity.getNetworkCapabilities(network) ?: return false
+        val validated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        val unmetered = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+        val battery = applicationContext.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        val status = battery?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+        val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+            status == BatteryManager.BATTERY_STATUS_FULL
+        validated && unmetered && charging
+    }.getOrDefault(false)
+
     private fun createForegroundInfo(): ForegroundInfo {
         val channelId = "friday-model-bootstrap"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -199,9 +222,9 @@ class ResidentModelBootstrapWorker(
                 .setRequiresStorageNotLow(true)
                 .setRequiresCharging(true)
                 .build()
-            val initial = OneTimeWorkRequestBuilder<ResidentModelBootstrapWorker>()
-                .setConstraints(constraints)
-                .build()
+            // First run is unconstrained so an already-installed model can load
+            // offline. The worker itself refuses large downloads unless safe.
+            val initial = OneTimeWorkRequestBuilder<ResidentModelBootstrapWorker>().build()
             manager.enqueueUniqueWork(UNIQUE_WORK_NAME, ExistingWorkPolicy.KEEP, initial)
             val periodic = PeriodicWorkRequestBuilder<ResidentModelBootstrapWorker>(
                 12, TimeUnit.HOURS
