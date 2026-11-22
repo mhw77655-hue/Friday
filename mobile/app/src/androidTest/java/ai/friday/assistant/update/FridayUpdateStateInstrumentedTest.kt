@@ -8,6 +8,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.json.JSONArray
 import org.junit.runner.RunWith
 import java.io.File
 
@@ -71,4 +72,25 @@ class FridayUpdateStateInstrumentedTest {
             outside.delete()
         }
     }
+    @Test
+    fun releaseAssetResolverAcceptsGitHubDisplayLabelAndRequiresHttps() {
+        val assets = JSONArray().put(
+            org.json.JSONObject()
+                .put("name", "app-release.apk")
+                .put("label", "friday.apk")
+                .put("browser_download_url", "https://github.com/example/friday.apk")
+        )
+        assertEquals(
+            "https://github.com/example/friday.apk",
+            FridayUpdateClient.findReleaseAssetUrl(assets, "friday.apk")
+        )
+
+        val insecure = JSONArray().put(
+            org.json.JSONObject()
+                .put("name", "friday.apk")
+                .put("browser_download_url", "http://example.invalid/friday.apk")
+        )
+        assertEquals(null, FridayUpdateClient.findReleaseAssetUrl(insecure, "friday.apk"))
+    }
+
 }
