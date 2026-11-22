@@ -161,10 +161,17 @@ fun SettingsScreen() {
                 val stale = (0 until tasks.length()).count {
                     tasks.optJSONObject(it)?.optString("status") == "STALE_PLAN_CHANGED"
                 }
+                val decomposed = (0 until tasks.length()).count {
+                    tasks.optJSONObject(it)?.optString("status") == "DECOMPOSED"
+                }
+                val childTasks = (0 until tasks.length()).count {
+                    tasks.optJSONObject(it)?.optString("task_type") == "BOUNDED_DEVELOPMENT_STEP"
+                }
                 "Plan ledger verified · Objectives $acceptedObjectives/${objectives.length()} accepted · " +
                     "Objective 1 phases $acceptedPhases/${phases.length()} accepted · " +
-                    "$queued work packets queued · $stale stale packets awaiting reassessment. " +
-                    "Queued means planned, not executed; Friday does not mark work complete without evidence."
+                    "$queued work packets queued · $decomposed parent packets decomposed into $childTasks child tasks · " +
+                    "$stale stale packets awaiting reassessment. Decomposed/queued means planned, not executed; " +
+                    "Friday does not mark work complete without evidence."
             }.getOrElse {
                 "The local objectives ledger could not be verified. Friday preserves it and will not reset its task history."
             }
