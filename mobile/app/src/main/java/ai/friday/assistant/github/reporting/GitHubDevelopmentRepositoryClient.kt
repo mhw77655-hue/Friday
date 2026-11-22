@@ -84,6 +84,45 @@ class GitHubDevelopmentRepositoryClient(
         return CandidatePullRequest(candidateBranch, commit, pr.first, pr.second)
     }
 
+    data class CandidateChecks(
+        val state: String,
+        val total: Int,
+        val completed: Int,
+        val failed: Int,
+        val details: List<String>
+    )
+
+    /** Read-only CI status inspection for a candidate commit. */
+    fun inspectCandidateChecks(commitSha: String): CandidateChecks {
+        require(commitSha.matches(Regex("[0-9a-f]{40}"))) { "Candidate commit SHA is invalid." }
+        val checks = getJson(apiRoot + "/commits/" + commitSha + "/check-runs?per_page=100")
+        val runs = checks.optJSONArray("check_runs") ?: JSONArray()
+        val details = mutableListOf<String>()
+        var completed = 0
+        var failed = 0
+        for (index in 0 until runs.length()) {
+            val run = runs.optJSONObject(index) ?: continue
+            val name = run.optString("name", "unnamed-check").take(120)
+            val status = run.optString("status")
+            val conclusion = run.optString("conclusion")
+            details += "$name:$status:$conclusion"
+            if (status == "completed") {
+                completed++
+                if (conclusion !in setOf("success", "neutral", "skipped")) failed++
+            }
+        }
+        val combined = getJson(apiRoot + "/commits/" + commitSha + "/status")
+        val combinedState = combined.optString("state", "pending")
+        val total = runs.length()
+        val state = when {
+            failed > 0 || combinedState == "failure" || combinedState == "error" -> "FAILURE"
+            total > 0 && completed == total && combinedState == "success" -> "SUCCESS"
+            total > 0 && completed == total && combinedState == "pending" -> "SUCCESS"
+            else -> "PENDING"
+        }
+        return CandidateChecks(state, total, completed, failed, details)
+    }
+
     private fun getRef(branch: String): String {
         val json = getJson(apiRoot + "/git/ref/heads/" + encodePath(branch))
         return validSha(json.optJSONObject("object")?.optString("sha").orEmpty(), "branch")
