@@ -65,6 +65,8 @@ class HostBootstrapWorker(
                 .put("memory_class_mb", inspection.capacity.memoryClassMb)
                 .put("available_storage_mb", inspection.capacity.availableStorageMb)
                 .put("cpu_cores", inspection.capacity.cpuCores)
+                .put("cpu_load_percent", if (inspection.capacity.cpuLoadPercent >= 0.0) inspection.capacity.cpuLoadPercent else JSONObject.NULL)
+                .put("process_pss_mb", inspection.capacity.processPssMb)
                 .put("primary_abi", inspection.capacity.primaryAbi)
                 .put("thermal_status", inspection.capacity.thermalStatus)
                 .put("battery_percent", inspection.capacity.batteryPercent)
@@ -133,8 +135,8 @@ class HostBootstrapWorker(
             status == BatteryManager.BATTERY_STATUS_FULL
         val power = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         val thermal = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            runCatching { power.currentThermalStatus }.getOrDefault(0)
-        } else 0
+            runCatching { power.currentThermalStatus }.getOrDefault(-1)
+        } else -1
         val availableStorageMb = storage.availableBytes / (1024L * 1024L)
         val modelCount = countLocalModels(listOf(
             File(context.filesDir, "models"),
@@ -155,6 +157,11 @@ class HostBootstrapWorker(
             memoryClassMb = activityManager.memoryClass,
             availableStorageMb = availableStorageMb,
             cpuCores = Runtime.getRuntime().availableProcessors().coerceAtLeast(1),
+            cpuLoadPercent = measureCpuLoadPercent() ?: -1.0,
+            processPssMb = runCatching {
+                activityManager.getProcessMemoryInfo(intArrayOf(android.os.Process.myPid()))
+                    .firstOrNull()?.totalPss?.div(1024L) ?: 0L
+            }.getOrDefault(0L),
             primaryAbi = abi,
             thermalStatus = thermal,
             batteryPercent = batteryPercent,
@@ -187,6 +194,7 @@ class HostBootstrapWorker(
             .put("api_level", Build.VERSION.SDK_INT)
             .put("supported_abis", JSONArray(Build.SUPPORTED_ABIS.toList()))
             .put("cpu_cores", capacity.cpuCores)
+            .put("process_pss_mb", capacity.processPssMb)
             .put("total_memory_mb", memory.totalMem / (1024L * 1024L))
             .put("app_memory_class_mb", activityManager.memoryClass)
             .put("free_private_storage_mb", availableStorageMb)
@@ -209,6 +217,31 @@ class HostBootstrapWorker(
         return HostInspection(capacity, facts, integrations)
     }
 
+
+
+    /**
+     * Measures aggregate CPU utilization over a short interval. If /proc/stat
+     * is unavailable or counters are invalid, returns null rather than claiming
+     * the phone is idle.
+     */
+    private fun measureCpuLoadPercent(): Double? = runCatching {
+        fun counters(): Pair<Long, Long>? {
+            val line = File("/proc/stat").useLines { lines -> lines.firstOrNull() } ?: return null
+            val values = line.trim().split(Regex("\\s+")).drop(1).mapNotNull { it.toLongOrNull() }
+            if (values.size < 4) return null
+            val total = values.sum()
+            val idle = values[3] + (values.getOrNull(4) ?: 0L)
+            return total to idle
+        }
+        val first = counters() ?: return null
+        android.os.SystemClock.sleep(120)
+        val second = counters() ?: return null
+        val totalDelta = second.first - first.first
+        val idleDelta = second.second - first.second
+        if (totalDelta <= 0L || idleDelta < 0L) null
+        else (((totalDelta - idleDelta).toDouble() / totalDelta.toDouble()) * 100.0)
+            .coerceIn(0.0, 100.0)
+    }.getOrNull()
 
     private fun shizukuStateJson(): JSONObject {
         val installed = isPackageInstalled("moe.shizuku.privileged.api")
