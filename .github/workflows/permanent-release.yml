@@ -151,7 +151,7 @@ jobs:
           }
           out = pathlib.Path(os.environ["RUNNER_TEMP"]) / "friday-release-assets"
           (out / "friday-release-metadata.json").write_text(
-              json.dumps(payload, sort_keys=True, indent=2) + "\\n",
+              json.dumps(payload, sort_keys=True, indent=2) + "\n",
               encoding="utf-8",
           )
           PY
