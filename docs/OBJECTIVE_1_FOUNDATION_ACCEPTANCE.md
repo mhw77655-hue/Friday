@@ -23,6 +23,15 @@ The original foundation build and architecture gates have passed on earlier veri
 - **Source audit:** 475 production Kotlin files were scanned. The heuristic audit produced 269 deviation signals and 403 observations; these are not 269 confirmed defects and are not an all-clear. See the [source-audit triage](OBJECTIVE_1_SOURCE_AUDIT_TRIAGE.md) and the [source-audit artifact/run](https://github.com/mhw77655-hue/Friday/actions/runs/44932395624).
 - **Source/test map:** 115 filename matches, 216 lexical symbol-reference matches and 144 files with no candidate mapping. These are heuristic candidate mappings, not runtime coverage. Exact TSV is in the source-audit artifact.
 
+## Permanent signing and self-update integration — implementation merged, validation pending
+
+- Permanent signing workflow merged to `main` in commit `34a15591c372bb39fe124457fcbd8ff796713864` (PR #109). It restores the existing owner keystore from GitHub Secrets, checks the certificate fingerprint, builds the release APK, and verifies the resulting APK signer against the expected permanent fingerprint.
+- The workflow generates `friday.apk` and `friday-release-metadata.json`, matching the existing in-app update client's asset contract. Public GitHub Release publication is an explicit manual opt-in and defaults to disabled.
+- The existing updater already performs release discovery, APK staging, checksum/package/version/certificate verification, and Android PackageInstaller handoff. The application now schedules first-run and 24-hour update discovery through WorkManager on unmetered networks; this is subject to Android background scheduling and force-stop policy.
+- After PackageInstaller reports success, Friday preserves the expected release identity and checks installed version code, version name, source revision and signing certificate on the next main-process launch.
+- These additions have not yet passed a CI run on the merged source revision, and no permanent signed artifact or public release has been produced. No physical-device update test has been performed.
+- Automatic rollback after a defective update that was successfully installed is not implemented. A rejected/failed PackageInstaller transaction should leave the prior installed package intact; this is not equivalent to post-install rollback.
+
 ## Adversarial work added; validation still pending
 
 - [Adversarial validation plan](OBJECTIVE_1_ADVERSARIAL_VALIDATION_PLAN.md) now covers static/build integrity, source-to-test mapping, property/boundary tests, mutation, fuzzing, state-machine testing, concurrency, fault injection, Android lifecycle, native boundaries, security, soak testing and recovery-system attacks.
@@ -45,7 +54,7 @@ The original foundation build and architecture gates have passed on earlier veri
 
 - No physical installation, permission grant, or acceptance test has been performed on the owner's Realme 9 Pro 5G.
 - No local model is installed on the owner's phone.
-- No permanent production-signed APK or GitHub Release has been published; permanent owner signing secrets remain unconfigured.
+- No permanent production-signed APK or GitHub Release has been published. The owner-created PKCS#12 identity and five GitHub Actions secrets are now configured; the permanent release workflow is merged but has not yet been executed. Independent offline keystore/password backup is still unverified.
 - Same-key in-place upgrade, post-update continuity health checks, and last-known-good rollback are not yet proven as production guarantees.
 - Full offline end-to-end cognition, persistent developmental learning, and universal phone control are not accepted by this foundation record.
 - Voice-control implementation remains in Objective B's existing voice phases; it is not being pulled into Objective 1.
