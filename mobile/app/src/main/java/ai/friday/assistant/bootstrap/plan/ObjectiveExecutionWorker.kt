@@ -69,6 +69,10 @@ class ObjectiveExecutionWorker(
                 return@withContext Result.success()
             }
 
+            val token = ai.friday.assistant.github.reporting.GitHubCredentialStore(
+                applicationContext
+            ).read()
+
             // Poll the candidate's remote CI before generating another patch.
             val pendingCandidate = store.nextCandidateForVerification()
             if (pendingCandidate != null) {
@@ -106,9 +110,6 @@ class ObjectiveExecutionWorker(
             // are separate evidence stages; this worker never merges or releases.
             val child = store.nextQueuedChildTask()
                 ?: return@withContext Result.success()
-            val token = ai.friday.assistant.github.reporting.GitHubCredentialStore(
-                applicationContext
-            ).read()
             if (token == null) {
                 android.util.Log.i(TAG, "Builder is waiting for an authorized repository credential.")
                 return@withContext Result.success()
