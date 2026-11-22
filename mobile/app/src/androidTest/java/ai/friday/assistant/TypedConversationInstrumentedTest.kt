@@ -28,6 +28,11 @@ class TypedConversationInstrumentedTest {
         val marker = "FRIDAY_TYPED_UI_ACCEPTANCE_" + UUID.randomUUID()
 
         composeRule.waitUntil(timeoutMillis = 30_000L) {
+            composeRule.onAllNodesWithText("Finish setup").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeRule.onNodeWithText("Finish setup").performClick()
+
+        composeRule.waitUntil(timeoutMillis = 30_000L) {
             composeRule.onAllNodesWithText("Chat").fetchSemanticsNodes().isNotEmpty()
         }
         composeRule.onNodeWithText("Chat").performClick()
