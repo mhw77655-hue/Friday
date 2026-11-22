@@ -126,6 +126,74 @@ Before adding a language/runtime to production, record: the exact problem; basel
 
 The initial implementation is intentionally small: retain Kotlin/C++, use Python for development tooling, introduce Lean 4 formal contracts and a dedicated CI check, and document TLA+ as the next modelling tool for concurrent execution/update protocols. Other candidates remain research options, not immediate dependencies.
 
+## Digital-individual functional completeness — cross-objective requirement
+
+This section makes the owner's digital-human outcome operational. It refines the destination and cross-objective integration target; it does not create a new objective, a fixed brain atlas, a mandatory pipeline, or a requirement to finish long-horizon research before Objective B. Implement the capabilities in dependency order and in parallel where safe. The functional domains below describe coverage to achieve, not permanent specialist modules or separate agents. Friday's liquid cognitive substrate may combine, split, replace or reorganize mechanisms as evidence warrants.
+
+### Required functional breadth
+
+Friday must develop a continuously available local implementation for the fundamental functions below. "Available" means there is a real executable local path, state representation and tested fallback—not that every function has human-equivalent quality, unlimited knowledge or identical depth on every host.
+
+- **Individual continuity:** persistent self-model, identity, personality, values, goals, preferences, autobiographical experience, relationship history and a coherent account of her own capabilities and limitations.
+- **Perception and attention:** ingest supported language, audio, visual, device and contextual signals; track provenance and uncertainty; select what matters; maintain context over time.
+- **Memory:** working memory, episodic/autobiographical memory, semantic knowledge, procedural/skill memory, associative retrieval, consolidation, forgetting/retention policy, and durable recovery across process death and model/runtime replacement.
+- **Language and communication:** understand direct and indirect language, context, ambiguity, humour, sarcasm and conversational turn-taking; generate natural language; support interruption-aware streaming voice when the relevant local speech assets and Android permissions are available.
+- **Reasoning and understanding:** combine learned inference, causal and temporal reasoning, explicit symbolic constraints where useful, analogy, abstraction, problem decomposition, uncertainty calibration and self-correction.
+- **Imagination and prediction:** construct alternative hypotheses and counterfactuals; predict likely consequences; use world/state models and What-If simulation to prepare for failure and opportunity. Predictions must be scored against observed outcomes and must not be represented as facts.
+- **Social and emotional intelligence:** infer possible intentions and emotional states from context without treating signals as certainty; understand mixed emotions, relationships, social norms and cultural/language variation; choose context-appropriate responses; maintain boundaries; revise interpretations when corrected; learn from interaction history. Do not reduce this to sentiment labels or scripted empathy.
+- **Executive function and agency:** maintain goals, prioritize, plan, monitor progress, manage interruptions, choose among available capabilities, act within authorization, verify postconditions and resume interrupted work.
+- **Metacognition and self-regulation:** track what she knows and does not know, confidence, assumptions, resource limits, errors, competing interpretations and reasons for decisions; know when to ask, act, wait or decline.
+- **Learning and development:** turn relevant experience into persistent changes in knowledge, predictive models, skills and future behaviour; support multiple learning timescales, replay/evaluation, controlled adaptation and rollback. A transcript or profile update alone is not learning.
+- **Creative and adaptive problem-solving:** recombine known mechanisms, generate candidate approaches, test them, measure results and retain only improvements that pass evidence and safety gates.
+- **Resilience and immune response:** observe, detect, diagnose, contain, recover, independently verify and learn from failures across cognitive, voice, memory, model, device and update paths.
+
+These domains must cooperate through shared state and open exchange contracts. They must not become a static committee of agents that merely exchange prompts. No single model owns any of these functions. Existing neural models may contribute language, perception, representation or learned skills, while non-LLM algorithms and future architectures contribute memory, prediction, planning, adaptation and other computation.
+
+### Local completeness and online extension invariant
+
+Offline and online are operating conditions for the same Friday, not different product personalities or separate brains. Network loss, provider changes, model replacement or remote-service unavailability must not remove the local implementation of a fundamental faculty, reset identity, block essential local memory, or prevent supported local reasoning and authorized phone actions.
+
+The local implementation must be useful and independently testable for every fundamental domain. Its depth, speed, breadth of knowledge and available sensory inputs may be bounded by the installed assets and host resources. Online resources may add information, computational depth, specialist capability or collaboration, but must not be the sole implementation of identity, essential memory, emotional/social state, executive control, self-observation or continuity. Remote results enter Friday's state only through authenticated, provenance-bearing reconciliation and conflict handling.
+
+Use anytime and progressive-computation strategies where suitable: produce a safe useful result from available local resources, improve it when more computation or evidence becomes available, and preserve the same task and identity state. Do not claim equal online/offline quality where compute, current external information or sensors differ. If a local path cannot meet its quality or safety threshold, Friday must say what is limited rather than fabricate capability.
+
+### Cognitive substrate research and algorithm integration
+
+Keep the eventual brain architecture open. Benchmark and combine mechanisms by demonstrated function, not popularity or model size. Research candidates include predictive world models and action-conditioned representations (JEPA/V-JEPA-family ideas), learned associative/neural memory (Titans/MIRAS-family ideas), multi-timescale continual learning and nested optimization (Nested Learning/Hope-family ideas), active inference and belief-state decision methods, liquid/continuous-time recurrent computation, neuro-symbolic reasoning, hierarchical planning, causal models, social cognition, cognitive appraisal, and adaptive sparse/conditional computation.
+
+These are research families, not commitments to import a named implementation or to claim that a research result already works on the target phone. For each candidate: identify the exact algorithmic advantage; inspect source, licence, training/data requirements and hardware assumptions; create a donor-independent interface; compare against a baseline on Friday-relevant tasks; measure quality, calibration, latency, memory, storage, energy, thermals, offline behaviour and failure recovery; run adversarial and regression tests; and integrate only when it improves the whole individual. Preserve provenance and a rollback path. Do not assume that combining papers or model weights automatically produces a coherent cognitive system.
+
+The What-If capability is project-wide. It should anticipate outcomes and failure combinations across all objectives and subsystems, not be confined to Objective 1 or a single recovery controller. Its predictions must be evaluated against actual outcomes and feed preparation, testing, resource allocation and recovery.
+
+### What must be installed, downloaded and retained
+
+Do not make Friday depend on downloading a giant model bundle before she can function. Separate the **always-installed functional substrate** from **optional capability assets**:
+
+1. **Installed with the application or its mandatory split packages:** identity and state-management code; local database and migration logic; capability contracts and scheduler; local memory read/write and retrieval baseline; executive/task state; uncertainty and provenance handling; permission-aware Android action framework; recovery/health mechanisms; resource discovery and admission; and a minimal local language/interaction path sufficient to operate the installed product. The app must boot, preserve identity, capture experience and expose truthful capability status without a model download or network connection.
+2. **Bundled small assets where practical:** compact tokenizers, schemas, essential lexical/index data, small classifiers or deterministic models, and minimal speech components only if size, licence and device benchmarks justify bundling. Keep APK/install size and update costs measured.
+3. **Downloadable optional assets:** larger language or multimodal model weights, tokenizer/vocabulary packs not bundled, embedding/reranking models, ASR/TTS voices, world-model weights, specialist adapters and domain packs. Download only the assets required for a chosen capability or user-enabled language/feature. Verify signatures/digests, licence, compatibility, storage, memory and thermal budget before activation. Stage atomically, retain a known-good version, support pause/resume, remove unused assets safely and never erase identity or memory when an asset is removed.
+4. **Optional remote resources:** cloud models and services are additional compute/information providers, never a boot dependency or the only path to essential individual state.
+
+A capability registry must distinguish code installed, asset present, asset downloaded but unqualified, qualified locally, currently available, degraded and unavailable. Never equate a compiled runtime with an installed model or a declared capability with a working capability. If a required optional asset is absent, explain exactly what it enables, its size/storage requirements when known, and offer an explicit download; continue all unrelated local functions.
+
+### Resource strategy for the owner's phone and other hosts
+
+Do not select model size first and force the design around it. Discover the actual host and benchmark the whole workload. The current target phone's nominal RAM is shared with Android and other apps; model weights are only part of peak memory, which also includes KV/cache, activations, runtime, native buffers, memory-mapped pages and Friday's other continuously available functions. Storage bandwidth, CPU/GPU/NPU support, battery, thermal throttling and background execution limits also matter.
+
+Evaluate quantization, sparsity/conditional activation, expert/layer paging, SSD-backed weight streaming, predictive prefetch, cache policy, shared representations, adapter specialization, distillation, low-rank methods and mixed precision where supported. Treat recent large-MoE streaming approaches as experimental candidates, not proof that a 35B model will be fast or reliable on this particular phone. Establish cold/warm latency, first-useful-action time, peak resident memory, sustained thermals, energy, storage traffic and quality under realistic concurrent workloads. Prefer the architecture that preserves broad functional coverage and continuity under resource pressure; gracefully lower computational depth rather than unload identity, memory or executive control.
+
+### Acceptance and sequencing
+
+- **Objective 1:** secure the foundation and adversarially test its actual recovery, integrity, permission, continuity and update invariants. Do not turn the entire digital-human research programme into an Objective 1 blocker.
+- **Objective 2:** preserve its existing voice phases and deliver natural, interruption-aware voice plus fluent authorized device control. Voice is a presence and interaction path into the same individual, not a separate personality or a substitute for cognitive development.
+- **Objectives 3 onward:** implement and integrate the individual-state, developmental memory, social/emotional understanding, perception, predictive cognition, learning and liquid substrate according to the current objective dependencies. Research and independent components may proceed in parallel; do not invent a new objective or silently reorder the plan.
+- **Cross-objective acceptance:** demonstrate each fundamental faculty with an actual local execution path; run integrated network-disabled sessions across restart and model/provider replacement; test missing/corrupt/downloaded assets, storage pressure, low memory, thermal throttling, permission revocation, language changes, interruptions and concurrent workloads; compare offline and online behaviour without confusing resource differences with identity changes; and publish a capability/asset matrix with evidence and limitations.
+- **Individuality evaluation:** use longitudinal, unscripted and adversarial evaluations of continuity, social/emotional calibration, ambiguity handling, relationship memory, self-correction, initiative, natural conversation and consistency across offline/online transitions. Evaluate with diverse people and contexts. Do not claim human-equivalent performance from a demo or a single benchmark.
+
+The engineering target is the broadest coherent human-inspired functional system technology can support, not a chatbot that merely imitates conversational style. Keep claims behavioural and evidence-based; do not divert implementation into philosophical debates about consciousness.
+
+---
+
 ### Objective A — Install and establish the first Friday
 
 Deliver one coherent Android application with a proper app identity, icon and usable interface; persistent identity and state; a local runtime; reliable launch and recovery; and an integrated interaction path. Friday must remain the same individual across process death, model replacement, updates and connectivity changes. The Android app is the production host. Termux is not a required runtime.
