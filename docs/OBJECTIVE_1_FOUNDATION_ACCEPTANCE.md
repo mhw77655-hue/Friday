@@ -153,4 +153,8 @@ The active plan now defines the complete operating contract in [FRIDAY_DELIVERY_
 
 ### Latest Builder compile correction
 
-The local Builder's Table transcript calls now explicitly use the executor's Android Context property, avoiding shadowing by the repository-context String. The accidental literal newline token in the Kotlin source was removed. These corrections are committed on the Objective 1 branch; they are not considered verified until a workflow run checks the exact branch head.
+The original PR workflow #2838 checked merge revision `4b33b4f8` and failed with two Context/String argument mismatches and one malformed literal-newline syntax error in `ObjectiveBuilderCandidateExecutor.kt`.
+
+The source was corrected in commit `4da78949f8afa630a2ea8000b16c0aade5919c77`; the Android context property was then explicitly renamed to `androidContext` in commit `ddb685cfc5a024944396a52ae63c4fc59d5be78c` to prevent recurrence. The exact current PR head is `ddb685cfc5a024944396a52ae63c4fc59d5be78c`.
+
+**Verification remains blocked:** GitHub Actions has no run for the current head. The connected GitHub actions surface can inspect and rerun existing jobs but does not expose a workflow-dispatch operation. Re-running #2838 would test the old failed merge revision, not this corrected head. No build or test pass is claimed.
