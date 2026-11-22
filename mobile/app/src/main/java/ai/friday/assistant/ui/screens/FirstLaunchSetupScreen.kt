@@ -179,7 +179,9 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
                 }
             }
             hostStudySummary = summary
-            if (!summary.startsWith("Friday is studying")) return@LaunchedEffect
+            if (!summary.startsWith("Friday is studying") &&
+                !summary.contains("waiting for the local execution ledger")
+            ) return@LaunchedEffect
             if (attempt < 9) delay(500)
         }
     }
