@@ -145,7 +145,7 @@ jobs:
 
       - name: Build debug APK
         id: assemble-apk
-        run: ./gradlew :mobile:app:assembleDebug
+        run: bash tools/friday-builder/gradle_retry.sh :mobile:app:assembleDebug
 
       - name: Verify Friday launcher icon is packaged
         run: |
@@ -193,7 +193,7 @@ jobs:
           FRIDAY_RELEASE_STORE_PASSWORD="$PASSWORD" \
           FRIDAY_RELEASE_KEY_ALIAS="friday-release" \
           FRIDAY_RELEASE_KEY_PASSWORD="$PASSWORD" \
-            ./gradlew :mobile:app:assembleRelease \
+            bash tools/friday-builder/gradle_retry.sh :mobile:app:assembleRelease \\
               -PfridayVersionCode=2001 \
               -PfridayVersionName=ci-smoke \
               -PfridayAbiFilters=arm64-v8a
@@ -204,12 +204,12 @@ jobs:
       # not erase independent evidence about source/test health.
       - name: Run unit tests independently of APK assembly
         if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
-        run: ./gradlew :mobile:app:testDebugUnitTest
+        run: bash tools/friday-builder/gradle_retry.sh :mobile:app:testDebugUnitTest
 
       - name: Generate JaCoCo unit-test coverage report
         if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
         run: |
-          ./gradlew :mobile:app:createDebugUnitTestCoverageReport
+          bash tools/friday-builder/gradle_retry.sh :mobile:app:createDebugUnitTestCoverageReport
           test -s mobile/app/build/reports/coverage/test/debug/index.html
 
       - name: Upload unit-test coverage
@@ -308,7 +308,7 @@ jobs:
             "system-images;android-35;google_apis;x86_64"
 
       - name: Build app and instrumentation APKs
-        run: ./gradlew :mobile:app:assembleDebug :mobile:app:assembleDebugAndroidTest
+        run: bash tools/friday-builder/gradle_retry.sh :mobile:app:assembleDebug :mobile:app:assembleDebugAndroidTest
 
       - name: Enable KVM acceleration for the disposable phone
         run: |
