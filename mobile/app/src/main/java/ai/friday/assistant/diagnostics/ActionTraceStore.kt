@@ -293,11 +293,11 @@ internal fun sanitizedCrashSummary(previousCrash: JSONObject?): JSONObject {
     summary.put("thread", previousCrash.optString("thread", "unknown"))
     val safeChain = JSONArray()
     val chain = previousCrash.optJSONArray("exception_chain") ?: JSONArray()
-    for (index in 0 until minOf(chain.length(), 6)) {
+    for (index in 0 until minOf(chain.length(), 4)) {
         val item = chain.optJSONObject(index) ?: continue
         val safeFrames = JSONArray()
         val frames = item.optJSONArray("frames") ?: JSONArray()
-        for (frameIndex in 0 until minOf(frames.length(), 12)) {
+        for (frameIndex in 0 until minOf(frames.length(), 8)) {
             val frame = frames.optJSONObject(frameIndex) ?: continue
             safeFrames.put(JSONObject()
                 .put("class", frame.optString("class", "unknown").take(180))
