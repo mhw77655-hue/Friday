@@ -156,6 +156,7 @@ jobs:
           FRIDAY_RELEASE_STORE_PASSWORD: ${{ secrets.FRIDAY_RELEASE_STORE_PASSWORD }}
           FRIDAY_RELEASE_KEY_ALIAS: ${{ secrets.FRIDAY_RELEASE_KEY_ALIAS }}
           FRIDAY_RELEASE_KEY_PASSWORD: ${{ secrets.FRIDAY_RELEASE_KEY_PASSWORD }}
+          FRIDAY_SOURCE_REVISION: ${{ env.TARGET_SHA }}
         run: |
           set -euo pipefail
           VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER))
