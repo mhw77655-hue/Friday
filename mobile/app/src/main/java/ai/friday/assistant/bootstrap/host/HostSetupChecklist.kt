@@ -31,11 +31,11 @@ object HostSetupChecklist {
         put(item(
             id = "network_plan_sync",
             feature = "Canonical objectives plan synchronization",
-            status = if (validatedInternet) "READY" else "WAITING_FOR_NETWORK",
+            status = if (validatedInternet) "READY" else "OFFLINE_BUNDLED_PLAN_READY",
             requiredForCore = false,
-            explanation = if (validatedInternet) "Internet is validated; the canonical plan can be synchronized."
-                else "The plan sync will wait for a validated network. Friday can continue using any cached plan offline.",
-            nextAction = "WAIT_FOR_NETWORK",
+            explanation = if (validatedInternet) "The bundled plan is available and GitHub can refresh it now."
+                else "The canonical plan is bundled in the APK and available offline; GitHub refresh waits for validated internet.",
+            nextAction = if (validatedInternet) "NONE" else "WAIT_FOR_NETWORK",
             activationPolicy = "AUTOMATIC_WHEN_AVAILABLE"
         ))
         put(item(
