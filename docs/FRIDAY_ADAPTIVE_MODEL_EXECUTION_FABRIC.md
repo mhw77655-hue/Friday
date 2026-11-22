@@ -359,3 +359,92 @@ If the target runtime cannot execute a cell independently, keep the smallest val
 - mzCache, mobile model/KV memory restoration (2026): https://arxiv.org/abs/2609.01338
 
 Research is not implementation evidence. All third-party runtimes, algorithms, models, licenses and performance claims must be rechecked at the time of integration.
+
+## 10. Elastic MoE Streaming and Self-Optimizing Expert Fabric
+
+This extends the Neural Cell Fabric rather than creating a competing model runtime. The design is inspired by storage-resident sparse experts, but goes beyond fixed expert caching: Friday continuously learns the best safe relationship between routing, storage, cache residency, prefetch, precision, quality and device conditions.
+
+### 10.1 Separate the model into three execution planes
+
+1. **Resident spine:** token embeddings, attention/DeltaNet or other always-used operators, normalization, positional state, routers, shared experts and small control tensors that the exact architecture requires on every token. Keep resident only after measuring their aggregate memory and proving they are actually on the critical path.
+2. **Elastic expert field:** routed expert weights stored as immutable, independently addressable extents in app-private storage. Only selected experts/pages are staged into a bounded hot window.
+3. **Friday control plane:** a small always-available scheduler, resource governor, model-independent identity/memory interfaces, quality monitor and recovery controller. It remains separate from the neural model and cannot be evicted by expert cache pressure.
+
+Not every MoE has the same structure. Hybrid recurrent/attention models, shared experts, multi-token prediction heads and architecture-specific operators must be described in a model adapter manifest; never infer the decomposition from a parameter count or filename.
+
+### 10.2 Expert Storage Fabric (ESF)
+
+Build a model conversion tool in the development plane that turns a supported source checkpoint into a signed, content-addressed expert package:
+- one manifest for architecture, tensor graph, tokenizer, layer order, router semantics, expert count, top-k policy, shared weights, quantization and calibration;
+- aligned fixed-stride or indexed expert extents with per-extent hashes, offsets, sizes, precision and tensor layout;
+- separate dense-spine and expert regions, plus optional compiled-kernel packages;
+- integrity tree / signed manifest, atomic package installation and resumable acquisition;
+- locality-aware layout so experts predicted together can be read with fewer storage operations where measurement supports co-location;
+- a compatibility map from source checkpoint to the exact runtime adapter and kernel version.
+
+Prefer sequential/coalesced reads where possible, but don't assume fixed-stride is always optimal: expert sizes, alignment, compression and flash translation layers differ. Benchmark packed extents against per-expert files and memory-mapped layouts on the actual Android storage device. Never use unsafe raw block access or require root; use app-private files and supported OS APIs. Direct I/O is an experiment only where Android/NDK support, alignment and filesystem semantics are proven.
+
+### 10.3 Predictive Expert Pipeline (PEP)
+
+At each layer, routing reveals the current token's selected experts. While the current layer computes, PEP can:
+- use the current hidden state and prior routing history to predict likely experts in later layers;
+- issue bounded asynchronous reads into staging buffers;
+- overlap storage I/O with attention, shared-expert and independent compute;
+- prioritize experts by probability × miss penalty × quality contribution ÷ bytes/energy;
+- cancel stale speculative reads as soon as the actual router output is known;
+- batch/coalesce reads when several experts are selected;
+- adapt lookahead depth to available storage bandwidth, thermal state, token latency and prediction accuracy.
+
+Prediction is a latency optimization, never a correctness dependency. An incorrect prefetch must only waste bounded I/O; actual router selections remain authoritative unless a separately qualified quality-constrained routing policy is active. The pipeline must avoid read amplification and stop prefetch immediately under memory pressure, thermal pressure or foreground urgency.
+
+### 10.4 Quality-Constrained Cache-Aware Routing (QCAR)
+
+A trained router's choices cannot be casually overridden. Introduce an optional policy layer with three progressively more ambitious modes:
+- **Mode 0 — exact routing:** use the model's original top-k experts. This is the correctness baseline.
+- **Mode 1 — route-preserving scheduling:** keep exactly the same selected experts, but optimize their cache placement, read order, batching and prefetch.
+- **Mode 2 — validated substitute routing:** only where the model exposes calibrated expert similarity/importance or Friday has trained a substitute predictor, permit a cached expert to replace a requested expert when a quality-risk estimate remains within a declared budget.
+
+Mode 2 must be trained/calibrated on representative hidden states and task data; use shadow evaluation and a holdout set. Enforce per-layer and per-task quality budgets, detect distribution shift, and instantly fall back to exact routing when uncertainty is high. Never apply an arbitrary positive cache bonus to router logits: that changes model semantics and can cause silent quality loss. Any route deviation is logged with requested expert, substitute, reason, confidence and measured downstream effect.
+
+### 10.5 Adaptive precision and expert importance
+
+Assign precision per expert or tensor group using sensitivity measurements, not a single global bit width. Frequently used, high-impact or quality-sensitive experts may receive higher precision; low-impact experts may use smaller representations. Use calibration, layer-wise error propagation and periodic full-precision/reference comparisons. Quantization metadata travels with each extent. Re-quantization creates a new immutable version and cannot overwrite the last known-good asset.
+
+### 10.6 Self-optimizing scheduler: the part that makes this improve with age
+
+Friday maintains a bounded workload profile: task family, layer/expert activation statistics, expert co-occurrence, hit/miss rates, storage latency distributions, prefetch accuracy, token latency, energy/thermal observations, memory pressure, output-quality checks and user-approved outcome signals. Avoid storing raw private content when aggregate statistics suffice.
+
+The optimizer generates candidate policies—not arbitrary live mutations—including:
+- cache size and replacement policy;
+- expert grouping and storage layout;
+- lookahead horizon and prefetch thresholds;
+- read batching and buffer count;
+- per-expert precision;
+- model-specific admission and concurrency;
+- safe routing substitutions where Mode 2 is supported;
+- whether to use the sparse model, a smaller resident model or a specialist cascade for a task.
+
+For each candidate, run deterministic replay and shadow evaluation against a frozen baseline, then bounded on-device canaries. Compare task quality, exact-routing agreement, p50/p95 latency, peak PSS/RSS, page faults, storage bytes/read count, energy proxy, thermal trajectory, cancellation/recovery and foreground responsiveness. Adopt only when the candidate meets all quality/safety floors and improves a declared objective under the same device and workload conditions. Maintain a champion policy, candidate policy, experiment provenance and one-step rollback. The optimizer cannot change weights/router policy and certify its own quality; independent evaluators and held-out tasks are required.
+
+### 10.7 Multi-model pool scheduling
+
+Extend the same storage and resource fabric across multiple independently packaged models. Each model exposes capabilities and costs, not a permanent agent identity. Friday can run one specialist, several sequentially, or a bounded parallel ensemble. The scheduler accounts for shared tokenizer/encoder reuse only when compatible, duplicated dense spines, adapter residency, representation-bridge cost, KV memory, storage contention and task deadline. Prefer sequential short-lived specialists on a constrained phone; parallelism is admitted only when measured total latency/quality benefit justifies peak memory and thermal cost.
+
+### 10.8 Device reality and expected trade-offs
+
+For Friday's initial Realme 9 Pro 5G / Snapdragon 695 target, this is a research/implementation path, not a promise that 35B/80B inference will be practical. CPU/GPU kernel throughput, UFS/flash random-read bandwidth, Android page-cache behaviour, available RAM, KV cache, thermals and background scheduling must be measured on the handset. Apple Swift/Metal results are architectural inspiration, not Android performance evidence. Port the data layout and scheduling concepts to Kotlin/C++/Android NDK and a verified backend; do not port Metal assumptions.
+
+The model may fit in storage while remaining too slow, power-hungry or thermally unsustainable. Establish useful thresholds for time-to-first-token, sustained tokens/sec, task completion, quality, memory, energy and thermal stability. If expert I/O stalls dominate, choose a smaller model, larger bounded cache, better coalescing or a distilled student rather than pretending the scheduler can eliminate the bandwidth limit.
+
+### 10.9 Falsifiable implementation gates
+
+1. Reproduce exact outputs (within numerical tolerance) using original top-k routing and streamed experts on a supported MoE checkpoint.
+2. Demonstrate a hard peak-memory cap under long context, cache misses and concurrent voice/action work.
+3. Measure cache hit/miss and I/O stalls with cold and warm storage; compare file-per-expert, packed extents and memory-mapped candidates.
+4. Demonstrate prefetch overlap and quantify wasted reads; disable it automatically when it harms energy/latency.
+5. Prove QCAR Mode 0 and Mode 1 preserve routing exactly; evaluate Mode 2 separately on held-out tasks with explicit quality bounds and automatic fallback.
+6. Show per-expert precision reduces storage/memory traffic without violating quality floors.
+7. Demonstrate that the self-optimizer discovers a better policy from replay, promotes it through a canary and rolls it back after an injected regression.
+8. Repeat on the actual Realme handset, recording Android version, build, free memory, storage, battery, thermal state and competing foreground load.
+
+A successful file load is not an accepted result. Acceptance requires end-to-end output correctness, stable memory bounds, measured resource improvement and no unacceptable quality regression.
