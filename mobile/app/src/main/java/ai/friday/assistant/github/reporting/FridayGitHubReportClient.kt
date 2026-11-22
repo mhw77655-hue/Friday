@@ -142,7 +142,10 @@ internal object FridayGitHubReportPayload {
         appendLine("This report was explicitly submitted by the device owner from Friday Settings.")
         appendLine("It contains bounded technical diagnostics and action categories, not conversation content.")
         appendLine()
+        appendLine("FRIDAY_DEVICE_REPORT_JSON_BEGIN")
         append(payload.toString(2))
+        appendLine()
+        appendLine("FRIDAY_DEVICE_REPORT_JSON_END")
     }.also {
         require(it.toByteArray(Charsets.UTF_8).size <= MAX_REPORT_BYTES + 1024) {
             "Formatted diagnostic report exceeds the GitHub issue limit."
