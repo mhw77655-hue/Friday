@@ -751,3 +751,20 @@ Objective 1 is complete only when Phase 7 passes and every mandatory phase exit 
 **Known implementation gaps at this snapshot:** MainActivity starts the existing app navigation and initializes Shizuku, but no integrated first-launch permission/configuration wizard is wired as the start experience. ShizukuBridge tracks Binder/permission state and ScreenBridge verifies a UserService UID of shell/root; the documented operation set remains limited and handset authorization/lifecycle cases are not physically verified. The update channel documentation itself records that same-key upgrade continuity and last-known-good rollback are not yet fully accepted. The release workflow cannot publish until the owner-controlled signing identity and required secrets exist. The old public GitHub Issues bridge is retired; any app-centred development control plane must use a private authenticated owner-authorized path, not reintroduce public telemetry or public command channels.
 
 This register is an evidence snapshot, not a declaration of completion. Update each status only when the corresponding artifact, test report or device evidence exists.
+
+
+### Objective 1 implementation delta (2026-11-22, after the b39fd1d audit snapshot)
+
+The first-launch guided configuration slice is now implemented in the Android source, pending CI and handset verification:
+
+- Fresh installs enter a dedicated Friday setup screen before the normal navigation/engine wake screen.
+- The screen presents microphone, notifications, accessibility, notification-listener, optional background battery policy and Shizuku as separate feature-linked items.
+- Runtime permissions are requested only after the owner taps the corresponding item. Special-access items open their Android settings surfaces; Shizuku opens its manager or official setup guide.
+- On return to Friday, the screen re-reads the state. For Shizuku it checks server reachability, Friday's own authorization, then asks the existing typed UserService to prove the effective remote UID (shell 2000 or root 0); a Binder alone is not accepted as proof.
+- Optional access can be skipped; core typed interaction is not blocked by microphone, accessibility, notification-listener or Shizuku denial.
+- A microphone permission grant alone no longer starts capture on ordinary app launch. Microphone capture remains tied to an explicit voice entry point or an already owner-enabled runtime.
+- The typed-interaction emulator acceptance test now completes first-run setup before exercising the chat path.
+
+Relevant source changes are on main after the audit snapshot: `FirstLaunchSetupScreen.kt`, `MainActivity.kt`, `FridayNavHost.kt`, `AndroidManifest.xml`, and `TypedConversationInstrumentedTest.kt`. These changes are **implemented but not yet CI-verified at this snapshot**. They are not physical-device verified.
+
+The following Objective 1 blockers remain unchanged: permanent signing credentials and a signed production APK; same-key in-place update proof and last-known-good recovery acceptance; owner-phone first-launch and Shizuku verification; completion of the in-app operations/development control plane; and the full adversarial/recovery campaign. Do not call Objective 1 complete until each has evidence.
