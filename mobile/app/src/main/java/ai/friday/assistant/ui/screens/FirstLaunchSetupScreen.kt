@@ -48,6 +48,11 @@ import ai.friday.assistant.FridayNotificationListener
 import ai.friday.assistant.ShizukuBridge
 import ai.friday.assistant.ScreenBridge
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
+import java.io.File
+import org.json.JSONObject
 import rikka.shizuku.Shizuku
 
 private data class SetupItem(
@@ -69,6 +74,7 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
     val lifecycleOwner = LocalLifecycleOwner.current
     var refreshToken by remember { mutableIntStateOf(0) }
     var shizukuExecutionStatus by remember { mutableStateOf("Not checked") }
+    var hostStudySummary by remember { mutableStateOf("Friday is starting her phone study…") }
     val scope = rememberCoroutineScope()
 
     DisposableEffect(lifecycleOwner) {
@@ -107,6 +113,57 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
     val shizukuAuthorized = shizukuRunning && runCatching {
         Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
     }.getOrDefault(false)
+
+
+    // Read the exact local report produced by Friday's first-launch host worker.
+    // A missing report is shown as queued/running, never as a successful study.
+    LaunchedEffect(refreshToken) {
+        repeat(10) { attempt ->
+            val summary = withContext(Dispatchers.IO) {
+                val root = File(context.filesDir, "friday-development")
+                val reportFile = File(root, "host-bootstrap.json")
+                val failureFile = File(root, "host-bootstrap-failure.json")
+                when {
+                    reportFile.isFile -> runCatching {
+                        val report = JSONObject(reportFile.readText(Charsets.UTF_8))
+                        val host = report.optJSONObject("host") ?: JSONObject()
+                        val capacity = report.optJSONObject("capacity") ?: JSONObject()
+                        val config = report.optJSONObject("configuration") ?: JSONObject()
+                        val shizuku = report.optJSONObject("integrations")
+                            ?.optJSONObject("shizuku") ?: JSONObject()
+                        val mode = config.optString("mode", "UNKNOWN")
+                        val memory = capacity.optLong("available_memory_mb", -1L)
+                        val cores = host.optInt("cpu_cores", -1)
+                        val cpu = capacity.opt("cpu_load_percent")
+                        val cpuLabel = if (cpu == null || cpu == JSONObject.NULL) "CPU load unavailable"
+                            else "CPU " + cpu.toString() + "%"
+                        val shizukuLabel = when {
+                            shizuku.optBoolean("usable_by_friday") ->
+                                "Shizuku " + shizuku.optString("privilege")
+                            shizuku.optBoolean("binder_reachable") ->
+                                "Shizuku running · authorization/privilege incomplete"
+                            shizuku.optBoolean("manager_installed") -> "Shizuku installed · server stopped"
+                            else -> "Shizuku not installed"
+                        }
+                        val modelLabel = if (config.optBoolean("allow_local_model_load")) {
+                            "local model load eligible within live admission checks"
+                        } else "local model loading not currently qualified"
+                        "Phone profile: " + mode + " · " + memory + " MB available · " +
+                            cores + " CPU cores · " + cpuLabel + " · " + shizukuLabel + " · " + modelLabel
+                    }.getOrElse { "Phone study report exists but could not be read safely." }
+                    failureFile.isFile -> runCatching {
+                        val failure = JSONObject(failureFile.readText(Charsets.UTF_8))
+                        "Phone study needs retry (" + failure.optString("failure_type", "unknown failure") +
+                            "); Friday will retry."
+                    }.getOrDefault("Phone study failed to record a readable status; Friday will retry.")
+                    else -> "Friday is studying this phone and preparing her local configuration…"
+                }
+            }
+            hostStudySummary = summary
+            if (!summary.startsWith("Friday is studying")) return@LaunchedEffect
+            if (attempt < 9) delay(500)
+        }
+    }
 
     val requestMicrophone = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -202,6 +259,7 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
             "I'll open each relevant system screen for you. When you return, I'll check what actually changed. Optional capabilities can be skipped.",
             style = MaterialTheme.typography.bodyMedium
         )
+        Text(hostStudySummary, style = MaterialTheme.typography.bodySmall)
         LinearProgressIndicator(
             progress = verifiedCount.toFloat() / items.size.toFloat(),
             modifier = Modifier.fillMaxWidth()
