@@ -1,7 +1,7 @@
 package ai.friday.assistant.bootstrap.plan
 
 import ai.friday.assistant.FridayEngine
-import ai.friday.assistant.model.ModelTier
+import ai.friday.assistant.aiworkforce.termux.TermuxAiCliWorkerPool
 import android.content.Context
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -37,15 +37,11 @@ class ObjectiveExecutionWorker(
             store.reconcile()
             val ledger = store.ensurePhaseAssessmentPackets()
             val manager = FridayEngine.modelManager
-            if (manager == null || !manager.isTierLoaded(ModelTier.RESIDENT)) {
-                android.util.Log.i(TAG, "Plan ledger ready; waiting for a verified local resident model.")
-                return@withContext Result.success()
-            }
-
             val parent = store.nextQueuedParentTask()
                 ?: return@withContext Result.success()
             try {
-                val decomposition = ObjectiveTaskDecomposer(manager).decompose(parent)
+                val workers = TermuxAiCliWorkerPool(applicationContext)
+                val decomposition = ObjectiveTaskDecomposer(manager, workers).decompose(parent)
                 store.recordDecomposition(
                     parentTaskId = parent.getString("task_id"),
                     modelId = decomposition.modelId,
