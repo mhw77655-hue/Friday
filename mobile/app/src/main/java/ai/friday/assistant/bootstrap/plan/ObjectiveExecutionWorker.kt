@@ -37,13 +37,12 @@ class ObjectiveExecutionWorker(
             store.reconcile()
             val ledger = store.ensurePhaseAssessmentPackets()
             val manager = FridayEngine.modelManager
-            if (manager == null || !manager.isTierLoaded(ModelTier.RESIDENT)) {
-                android.util.Log.i(TAG, "Plan ledger ready; waiting for a verified local resident model.")
-                return@withContext Result.success()
-            }
-
             val parent = store.nextQueuedParentTask()
             if (parent != null) {
+                if (manager == null || !manager.isTierLoaded(ModelTier.RESIDENT)) {
+                    android.util.Log.i(TAG, "Plan ledger ready; waiting for a verified local resident model.")
+                    return@withContext Result.success()
+                }
                 try {
                     val decomposition = ObjectiveTaskDecomposer(manager).decompose(parent)
                     store.recordDecomposition(
@@ -102,6 +101,11 @@ class ObjectiveExecutionWorker(
                     android.util.Log.w(TAG, "Candidate CI inspection deferred.", checkFailure)
                     enqueueFollowUp(applicationContext, candidateTaskId, initialDelaySeconds = 600)
                 }
+                return@withContext Result.success()
+            }
+
+            if (manager == null || !manager.isTierLoaded(ModelTier.RESIDENT)) {
+                android.util.Log.i(TAG, "Builder candidate queue is waiting for a verified local resident model.")
                 return@withContext Result.success()
             }
 
