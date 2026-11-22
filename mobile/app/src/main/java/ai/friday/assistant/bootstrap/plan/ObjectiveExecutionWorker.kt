@@ -10,6 +10,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.util.concurrent.TimeUnit
 
 /**
@@ -32,9 +33,18 @@ class ObjectiveExecutionWorker(
             val queued = ledger.optJSONArray("tasks")?.length() ?: 0
             android.util.Log.i(TAG, "Objective ledger reconciled; durable task packets=$queued")
             Result.success()
-        } catch (missingPlan: IllegalArgumentException) {
-            // Plan import is independently scheduled and may still be running.
-            if (runAttemptCount < 8) Result.retry() else Result.failure()
+        } catch (invalidPlan: IllegalArgumentException) {
+            // Only a genuinely missing local snapshot is retryable. A malformed
+            // canonical plan must fail visibly instead of retrying forever.
+            val planFile = File(
+                File(applicationContext.filesDir, "friday-development/plan"),
+                "canonical-delivery-plan.md"
+            )
+            if (!planFile.isFile && runAttemptCount < 8) Result.retry()
+            else {
+                android.util.Log.e(TAG, "Canonical Objective 1 plan is invalid", invalidPlan)
+                Result.failure()
+            }
         } catch (failure: java.io.IOException) {
             Result.retry()
         } catch (failure: Exception) {
