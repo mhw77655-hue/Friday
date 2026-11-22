@@ -71,17 +71,18 @@ class HostBootstrapPolicyTest {
         val config = HostBootstrapPolicy.configure(host(storage = 100))
         assertEquals(HostOperatingMode.PROTECTIVE, config.mode)
     }
-}
 
+    @Test fun `power saver prevents high-capacity model admission`() {
+        val config = HostBootstrapPolicy.configure(host(powerSave = true))
+        assertEquals(HostOperatingMode.EFFICIENT, config.mode)
+        assertFalse(config.allowLocalModelLoad)
+        assertFalse(config.allowBackgroundIndexing)
+    }
+}
 
 class ShizukuCapabilityStateTest {
     @Test fun `manager installation alone is not a usable Shizuku route`() {
-        val state = ShizukuCapabilityState(
-            managerInstalled = true,
-            binderReachable = false,
-            fridayAuthorized = false,
-            serverUid = null
-        )
+        val state = ShizukuCapabilityState(true, false, false, null)
         assertEquals(ShizukuPrivilege.NOT_RUNNING, state.privilege)
         assertFalse(state.usableByFriday)
     }
@@ -106,11 +107,3 @@ class ShizukuCapabilityStateTest {
         assertFalse(state.usableByFriday)
     }
 }
-
-
-    @Test fun `power saver prevents high-capacity model admission`() {
-        val config = HostBootstrapPolicy.configure(host(powerSave = true))
-        assertEquals(HostOperatingMode.EFFICIENT, config.mode)
-        assertFalse(config.allowLocalModelLoad)
-        assertFalse(config.allowBackgroundIndexing)
-    }
