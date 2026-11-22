@@ -95,6 +95,11 @@ private val tabExit = fadeOut(tween(150))
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FridayNavHost(showSetup: Boolean = false, onSetupComplete: () -> Unit = {}) {
+    if (showSetup) {
+        ai.friday.assistant.ui.screens.FirstLaunchSetupScreen(onComplete = onSetupComplete)
+        return
+    }
+
     val navController = rememberNavController()
     var moreSheetOpen by remember { mutableStateOf(false) }
     val sheetState = rememberModalBottomSheetState()
@@ -146,22 +151,13 @@ fun FridayNavHost(showSetup: Boolean = false, onSetupComplete: () -> Unit = {}) 
     ) { padding ->
         NavHost(
             navController = navController,
-            startDestination = if (showSetup) ROUTE_FIRST_LAUNCH_SETUP else ROUTE_HOME,
+            startDestination = ROUTE_HOME,
             modifier = Modifier.padding(padding),
             enterTransition = { tabEnter },
             exitTransition = { tabExit },
             popEnterTransition = { tabEnter },
             popExitTransition = { tabExit }
         ) {
-            composable(ROUTE_FIRST_LAUNCH_SETUP) {
-                ai.friday.assistant.ui.screens.FirstLaunchSetupScreen(onComplete = {
-                    onSetupComplete()
-                    navController.navigate(ROUTE_HOME) {
-                        popUpTo(ROUTE_FIRST_LAUNCH_SETUP) { inclusive = true }
-                        launchSingleTop = true
-                    }
-                })
-            }
             composable(ROUTE_HOME) {
                 HomeScreen(onOpenTools = { navigateToTab(ROUTE_TOOLS) })
             }
