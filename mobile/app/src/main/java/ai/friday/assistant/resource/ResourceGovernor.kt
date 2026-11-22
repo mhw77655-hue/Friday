@@ -38,8 +38,13 @@ class ResourceGovernor(private val nowMs: () -> Long = { System.currentTimeMilli
 
         val usedMemoryMb = activeResources.values.sumOf { it.memoryMb }
         val usedCpu = activeResources.values.sumOf { it.cpuPercent }
+        val deviceState = _resourceState.value
 
-        val remainingMemory = policy.totalMemoryMb - usedMemoryMb
+        // The configured ceiling is only an upper bound. Current device
+        // headroom is authoritative so stale/default policy cannot over-admit.
+        val effectiveMemoryBudget = minOf(policy.totalMemoryMb, deviceState.availableMemoryMb)
+
+        val remainingMemory = effectiveMemoryBudget - usedMemoryMb
         val remainingCpu = policy.totalCpuPercent - usedCpu
 
         val reasons = mutableListOf<String>()
@@ -117,18 +122,19 @@ class ResourceGovernor(private val nowMs: () -> Long = { System.currentTimeMilli
      * True when a system needing [memoryMb] RAM and [cpuPercent] CPU could be
      * admitted under the current policy and device state.
      */
-    fun canAdmit(memoryMb: Long, cpuPercent: Double): Boolean {
+    fun canAdmit(memoryMb: Long, cpuPercent: Double, latencySensitive: Boolean = false): Boolean {
         val policy = _admissionPolicy.value
         val usedMemoryMb = activeResources.values.sumOf { it.memoryMb }
         val usedCpu = activeResources.values.sumOf { it.cpuPercent }
         val state = _resourceState.value
+        val effectiveMemoryBudget = minOf(policy.totalMemoryMb, state.availableMemoryMb)
 
-        return memoryMb <= (policy.totalMemoryMb - usedMemoryMb) &&
+        return memoryMb <= (effectiveMemoryBudget - usedMemoryMb) &&
             memoryMb <= policy.maxPerSystemMemoryMb &&
             cpuPercent <= (policy.totalCpuPercent - usedCpu) &&
             activeResources.size < policy.maxConcurrentSystems &&
-            (state.thermalLevel <= 1 ||
-                state.batteryPercent >= policy.minBatteryPercent ||
+            (!latencySensitive || state.thermalLevel <= 1) &&
+            (state.batteryPercent >= policy.minBatteryPercent ||
                 (state.isCharging && policy.allowWhileCharging))
     }
 
