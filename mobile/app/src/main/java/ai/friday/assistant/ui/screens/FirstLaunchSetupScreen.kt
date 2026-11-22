@@ -94,6 +94,8 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
         context.getSystemService(PowerManager::class.java)
             ?.isIgnoringBatteryOptimizations(context.packageName) == true
     } else true
+    val shizukuInstalled = context.packageManager
+        .getLaunchIntentForPackage("moe.shizuku.privileged.api") != null
     val shizukuRunning = runCatching { Shizuku.pingBinder() }.getOrDefault(false)
     val shizukuAuthorized = shizukuRunning && runCatching {
         Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
@@ -154,12 +156,14 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
             when {
                 shizukuAuthorized -> "Running · Friday authorized"
                 shizukuRunning -> "Running · Friday not authorized"
-                else -> "Not running"
+                shizukuInstalled -> "Installed · server stopped"
+                else -> "Not installed"
             },
             when {
                 shizukuAuthorized -> "Verified"
                 shizukuRunning -> "Authorize Friday in Shizuku"
-                else -> "Open Shizuku"
+                shizukuInstalled -> "Open Shizuku"
+                else -> "Open Shizuku setup guide"
             }
         ) { openShizuku(context) }
     )
