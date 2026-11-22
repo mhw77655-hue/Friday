@@ -187,7 +187,7 @@ class FridayTableLog(context: Context) {
         require(limit in 1..500)
         if (!file.isFile) return emptyList()
         return file.useLines { lines ->
-            lines.filter { it.isNotBlank() }.toList().takeLast(limit).map(::JSONObject)
+            lines.filter { it.isNotBlank() }.toList().takeLast(limit).map { JSONObject(it) }
         }
     }
 
