@@ -87,7 +87,7 @@ class ObjectiveExecutionWorker(
             }
             try {
                 val repository = ai.friday.assistant.github.reporting.GitHubDevelopmentRepositoryClient(token)
-                val candidate = ObjectiveBuilderCandidateExecutor(manager, repository).execute(child)
+                val candidate = ObjectiveBuilderCandidateExecutor(applicationContext, manager, repository).execute(child)
                 store.recordCandidatePublished(taskId, candidate.toJson())
                 android.util.Log.i(TAG, "Builder opened candidate PR #" + candidate.number)
                 enqueueFollowUp(applicationContext, taskId)
