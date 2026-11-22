@@ -78,6 +78,8 @@ fun SettingsScreen() {
     var githubToken by remember { mutableStateOf("") }
     val githubCredentialStore = remember { GitHubCredentialStore(context) }
     var githubConfigured by remember { mutableStateOf(githubCredentialStore.isConfigured()) }
+    val githubPendingReportStore = remember { ai.friday.assistant.github.reporting.GitHubPendingReportStore(context) }
+    var githubPendingReport by remember { mutableStateOf(githubPendingReportStore.read() != null) }
     var githubReportStatus by remember {
         mutableStateOf(if (githubConfigured) "GitHub credential is encrypted on this phone." else "GitHub reporting is not connected.")
     }
@@ -592,20 +594,34 @@ fun SettingsScreen() {
                         scope.launch {
                             val result = runCatching {
                                 withContext(Dispatchers.IO) {
-                                    val report = ai.friday.assistant.diagnostics.PhoneActionDiagnostics.exportJson(context)
-                                    FridayGitHubReportClient(token).submitDeviceReport(report)
+                                    val report = githubPendingReportStore.read()
+                                        ?: ai.friday.assistant.diagnostics.PhoneActionDiagnostics.exportJson(context)
+                                            .also(githubPendingReportStore::save)
+                                    val issueUrl = FridayGitHubReportClient(token).submitDeviceReport(report)
+                                    githubPendingReportStore.clear()
+                                    issueUrl
                                 }
                             }
+                            githubPendingReport = githubPendingReportStore.read() != null
                             githubReportStatus = result.fold(
                                 onSuccess = { "Report uploaded successfully: $it" },
-                                onFailure = { it.message ?: "GitHub report upload failed. The local journal is unchanged." }
+                                onFailure = { it.message ?: "GitHub report upload failed. The exact report is saved for retry." }
                             )
                             githubBusy = false
                         }
                     }
                 },
                 enabled = githubConfigured && !githubBusy
-            ) { Text(if (githubBusy) "Working…" else "Upload device report") }
+            ) { Text(if (githubBusy) "Working…" else if (githubPendingReport) "Retry pending report" else "Upload device report") }
+        }
+        if (githubPendingReport && !githubBusy) {
+            TextButton(
+                onClick = {
+                    githubPendingReportStore.clear()
+                    githubPendingReport = false
+                    githubReportStatus = "Pending report discarded. The next upload will capture a fresh snapshot."
+                }
+            ) { Text("Discard pending report and capture a fresh one") }
         }
         Text(
             text = githubReportStatus,
