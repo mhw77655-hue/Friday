@@ -39,9 +39,9 @@ class ChatGPTPlanRevocationInstrumentedTest {
             server.enqueue(MockResponse().setBody(
                 JSONObject()
                     .put("issuer", ChatGPTPlanAuth.ISSUER)
-                    .put("authorization_endpoint", "https://auth.openai.com/api/accounts/authorize")
-                    .put("token_endpoint", "https://auth.openai.com/api/accounts/oauth/token")
-                    .put("jwks_uri", "https://auth.openai.com/.well-known/jwks.json")
+                    .put("authorization_endpoint", server.url("/authorize").toString())
+                    .put("token_endpoint", server.url("/token").toString())
+                    .put("jwks_uri", server.url("/jwks").toString())
                     .put("revocation_endpoint", server.url("/revoke").toString())
                     .toString()
             ))
@@ -51,7 +51,8 @@ class ChatGPTPlanRevocationInstrumentedTest {
                 context = context,
                 credentials = store,
                 http = OkHttpClient.Builder().callTimeout(10, TimeUnit.SECONDS).build(),
-                discoveryEndpoint = server.url("/.well-known/openid-configuration").toString()
+                discoveryEndpoint = server.url("/.well-known/openid-configuration").toString(),
+                trustedEndpointOrigin = server.url("/").toString().trimEnd('/')
             )
             val result = kotlinx.coroutines.runBlocking { auth.disconnect() }
 
