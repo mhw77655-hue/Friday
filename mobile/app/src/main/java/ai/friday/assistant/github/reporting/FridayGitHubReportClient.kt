@@ -109,7 +109,7 @@ class FridayGitHubReportClient(
 internal object FridayGitHubReportPayload {
     private const val MAX_REPORT_BYTES = 40 * 1024
     private val secretPattern = Regex(
-        "(?i)(github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|bearer\\s+[A-Za-z0-9._-]{20,})"
+        "(?i)(github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{30,}|xox[baprs]-[A-Za-z0-9-]{20,}|bearer\\s+[A-Za-z0-9._-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)"
     )
 
     fun parse(reportJson: String): JSONObject {
