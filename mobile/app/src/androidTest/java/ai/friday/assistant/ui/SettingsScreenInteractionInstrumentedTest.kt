@@ -47,7 +47,7 @@ class SettingsScreenInteractionInstrumentedTest {
         compose.onNodeWithText("Remove key").performClick()
         compose.waitForIdle()
         compose.onNodeWithText(
-            "Jev credential removed. Friday continues with local deterministic command handling."
+            "Jev not configured — Friday continues with local deterministic command handling."
         ).assertExists()
     }
 }
