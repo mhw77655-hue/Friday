@@ -121,7 +121,8 @@ class ChatGPTPlanAuth(
             if (existing != null && existing.subject != subject) {
                 error("The newly authorized ChatGPT account does not match the previously selected account.")
             }
-            val expiresIn = token.optLong("expires_in", 3600L).coerceIn(60L, 86_400L)
+            val expiresIn = token.optLong("expires_in", 0L)
+            require(expiresIn > 0L) { "OpenAI token response has no valid expiry." }
             credentials.save(
                 ChatGPTPlanCredentialStore.Credentials(
                     clientId = issuedClientId,
@@ -156,6 +157,7 @@ class ChatGPTPlanAuth(
             .add("resource", RESOURCE)
             .build()
         val refreshed = executeTokenRequest(form) ?: return@withContext null
+        if (!refreshed.optString("token_type").equals("Bearer", ignoreCase = true)) return@withContext null
         val newScopes = refreshed.optString("scope")
             .takeIf { it.isNotBlank() }?.split(' ')?.filter { it.isNotBlank() }?.toSet()
             ?: current.scopes
@@ -169,7 +171,8 @@ class ChatGPTPlanAuth(
             val claims = verifyIdToken(idToken, current.clientId, expectedNonce = null)
             if (claims.optString("sub") != current.subject) return@withContext null
         }
-        val expiresIn = refreshed.optLong("expires_in", 3600L).coerceIn(60L, 86_400L)
+        val expiresIn = refreshed.optLong("expires_in", 0L)
+        if (expiresIn <= 0L) return@withContext null
         credentials.save(current.copy(
             idToken = idToken,
             accessToken = access,
