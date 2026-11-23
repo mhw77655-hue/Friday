@@ -12,6 +12,10 @@ object HostAcceptanceEvidence {
     const val FOUNDATION_READY = "ON_DEVICE_FOUNDATION_READY"
     const val FOUNDATION_BLOCKED = "ON_DEVICE_FOUNDATION_BLOCKED"
     const val ACCEPTANCE_SCOPE = "FOUNDATION_PROBES_ONLY_NOT_FULL_OBJECTIVE_ACCEPTANCE"
+    const val PINNED_RELEASE_SIGNER_SHA256 = "FD84811F911585D8152DC2BFFF700D8FCE36D5A07DF392BE89F91D5646A6D1B8"
+
+    fun signerMatchesPinned(fingerprint: String?): Boolean =
+        fingerprint?.filter { it.isLetterOrDigit() }?.uppercase() == PINNED_RELEASE_SIGNER_SHA256
 
     data class Checks(
         val workspaceDirectoriesReady: Boolean,
