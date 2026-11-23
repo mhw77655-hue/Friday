@@ -80,3 +80,17 @@ Each result is recorded as a privacy-filtered action event so the owner can uplo
 The Shizuku backend is not yet a universal device controller. The production router currently has MediaSession and Shizuku backends; the Shizuku backend supports screen capture and app launch. Diagnostics and Doze-whitelist changes are invoked through the Settings surface. Other action types still require explicit typed operations and verification contracts.
 
 CI can verify compilation and unit tests, but only a physical handset with Shizuku started and Friday explicitly authorized can prove real shell/root execution. The device acceptance test must record the remote UID, launch a harmless known app, verify its resumed activity, read diagnostics, and test Doze whitelist add/remove with read-back verification.
+
+
+## Background self-update backend — implementation candidate (2026-11-23)
+
+PR #121 adds a typed Shizuku installer path to Friday's existing release updater:
+
+- The app re-verifies the staged APK's package identity, checksum, version and permanent signer before privileged transfer.
+- The client streams the APK to the UserService in sequential 128 KiB Binder chunks. The service enforces a 200 MiB bound, sequential offsets and a second full-file SHA-256 check.
+- The service invokes only the fixed `pm install -r` operation for Friday's own update flow; it exposes no arbitrary shell command, executable, package name or destination path.
+- The connected UserService UID must be verified as shell (2000) or root (0). UserService version is bumped so an old daemon cannot be mistaken for the expanded Binder contract.
+- Scheduled update work attempts background installation automatically when Shizuku is live and Friday's permission is granted. Otherwise the verified update remains staged and the existing native PackageInstaller path is available.
+- The expected release identity is persisted before installation. The next app process verifies version code, version name, source revision and signer; staged bytes are removed only after a successful health check.
+
+The Binder marshalling contract has an Android instrumentation test. This proves the typed IPC contract on an emulator, not that Shizuku actually grants package-install capability on every Android/OEM build. Physical-host installation, service UID, package-manager result, process replacement and post-update verification remain unproven until Friday executes the flow on the target handset.
