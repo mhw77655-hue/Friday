@@ -2,7 +2,6 @@ package ai.friday.assistant.ui
 
 import ai.friday.assistant.ui.screens.SettingsScreen
 import ai.friday.assistant.ui.theme.FridayTheme
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
