@@ -30,6 +30,8 @@ class ChatGPTPlanCredentialStore(context: Context) {
         val modelSlug: String?
     )
 
+    data class Registration(val clientId: String, val hostId: String, val subject: String, val email: String?)
+
     private val appContext = context.applicationContext
     private val prefs = appContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
@@ -70,6 +72,40 @@ class ChatGPTPlanCredentialStore(context: Context) {
     }.getOrNull()
 
     @Synchronized
+    fun readRegistration(): Registration? = runCatching {
+        val ciphertext = prefs.getString(KEY_REG_CIPHERTEXT, null) ?: return null
+        val iv = prefs.getString(KEY_REG_IV, null) ?: return null
+        val cipher = Cipher.getInstance(TRANSFORMATION)
+        cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP)))
+        val json = JSONObject(String(cipher.doFinal(Base64.decode(ciphertext, Base64.NO_WRAP)), Charsets.UTF_8))
+        Registration(
+            clientId = json.getString("client_id"),
+            hostId = json.getString("host_id"),
+            subject = json.getString("subject"),
+            email = json.optString("email").takeIf { it.isNotBlank() }
+        ).takeIf { it.clientId.startsWith("oaiapp_") && it.subject.isNotBlank() }
+    }.getOrNull()
+
+    @Synchronized
+    fun pendingClientId(): String? =
+        prefs.getString(KEY_PENDING_CLIENT_ID, null)?.takeIf { it.startsWith("oaiapp_") }
+
+    @Synchronized
+    fun setPendingClientId(clientId: String) {
+        require(clientId.startsWith("oaiapp_"))
+        prefs.edit().putString(KEY_PENDING_CLIENT_ID, clientId).commit()
+    }
+
+    @Synchronized
+    fun clearTokensPreserveRegistration() {
+        prefs.edit()
+            .remove(KEY_CIPHERTEXT)
+            .remove(KEY_IV)
+            .remove(KEY_PENDING_CLIENT_ID)
+            .commit()
+    }
+
+    @Synchronized
     fun save(credentials: Credentials) {
         require(credentials.clientId.startsWith("oaiapp_"))
         require(credentials.subject.isNotBlank())
@@ -91,7 +127,14 @@ class ChatGPTPlanCredentialStore(context: Context) {
         prefs.edit()
             .putString(KEY_CIPHERTEXT, Base64.encodeToString(encrypted, Base64.NO_WRAP))
             .putString(KEY_IV, Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
+            .remove(KEY_PENDING_CLIENT_ID)
             .commit()
+        saveRegistration(Registration(
+            clientId = credentials.clientId,
+            hostId = credentials.hostId,
+            subject = credentials.subject,
+            email = credentials.email
+        ))
     }
 
     @Synchronized
@@ -102,11 +145,33 @@ class ChatGPTPlanCredentialStore(context: Context) {
 
     @Synchronized
     fun clear() {
-        prefs.edit().remove(KEY_CIPHERTEXT).remove(KEY_IV).commit()
+        prefs.edit()
+            .remove(KEY_CIPHERTEXT)
+            .remove(KEY_IV)
+            .remove(KEY_REG_CIPHERTEXT)
+            .remove(KEY_REG_IV)
+            .remove(KEY_PENDING_CLIENT_ID)
+            .commit()
         runCatching {
             val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
             keyStore.deleteEntry(KEY_ALIAS)
         }
+    }
+
+    @Synchronized
+    private fun saveRegistration(registration: Registration) {
+        val json = JSONObject()
+            .put("client_id", registration.clientId)
+            .put("host_id", registration.hostId)
+            .put("subject", registration.subject)
+            .put("email", registration.email ?: JSONObject.NULL)
+        val cipher = Cipher.getInstance(TRANSFORMATION)
+        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
+        val encrypted = cipher.doFinal(json.toString().toByteArray(Charsets.UTF_8))
+        prefs.edit()
+            .putString(KEY_REG_CIPHERTEXT, Base64.encodeToString(encrypted, Base64.NO_WRAP))
+            .putString(KEY_REG_IV, Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
+            .commit()
     }
 
     private fun getOrCreateKey(): SecretKey {
@@ -133,6 +198,9 @@ class ChatGPTPlanCredentialStore(context: Context) {
         private const val PREFS_NAME = "friday_chatgpt_plan_secure"
         private const val KEY_CIPHERTEXT = "credentials_ciphertext"
         private const val KEY_IV = "credentials_iv"
+        private const val KEY_REG_CIPHERTEXT = "registration_ciphertext"
+        private const val KEY_REG_IV = "registration_iv"
+        private const val KEY_PENDING_CLIENT_ID = "pending_issued_client_id"
         private const val KEY_HOST_ID = "agent_host_id"
     }
 }
