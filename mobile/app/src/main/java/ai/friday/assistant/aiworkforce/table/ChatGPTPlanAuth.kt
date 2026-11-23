@@ -59,6 +59,7 @@ class ChatGPTPlanAuth(
 
     suspend fun signIn(activity: Activity): String = refreshMutex.withLock {
         withContext(Dispatchers.IO) {
+        val oidc = openIdConfiguration()
         val existing = credentials.read()
         val registration = credentials.readRegistration()
         val pendingClientId = credentials.pendingClientId()
