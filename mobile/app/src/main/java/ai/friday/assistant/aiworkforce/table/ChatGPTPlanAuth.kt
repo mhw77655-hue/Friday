@@ -276,8 +276,12 @@ class ChatGPTPlanAuth(
             else -> false
         }
         require(audienceMatches) { "OpenAI ID token audience does not match Friday's issued client ID." }
+        if (audience is JSONArray && audience.length() > 1) {
+            require(claims.optString("azp") == clientId) { "OpenAI ID token authorized party is invalid." }
+        }
         val now = System.currentTimeMillis() / 1000L
-        require(claims.optLong("exp", 0L) > now) { "OpenAI ID token has expired." }
+        require(claims.has("exp") && claims.optLong("exp", 0L) > now) { "OpenAI ID token has expired." }
+        require(claims.has("iat")) { "OpenAI ID token has no issued-at time." }
         require(claims.optLong("nbf", 0L) <= now + CLOCK_SKEW_SECONDS) { "OpenAI ID token is not yet valid." }
         require(claims.optLong("iat", now + 1L) <= now + CLOCK_SKEW_SECONDS) { "OpenAI ID token was issued in the future." }
         require(claims.optString("sub").isNotBlank()) { "OpenAI ID token has no account subject." }
