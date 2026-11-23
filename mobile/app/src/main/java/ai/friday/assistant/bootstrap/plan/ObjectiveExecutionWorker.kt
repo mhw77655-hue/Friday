@@ -93,8 +93,10 @@ class ObjectiveExecutionWorker(
                         .put("details", org.json.JSONArray(checks.details))
                         .put("checked_at_epoch_ms", System.currentTimeMillis())
                     store.recordCandidateCiResult(candidateTaskId, evidence)
-                    if (checks.state == "PENDING") {
-                        enqueueFollowUp(applicationContext, candidateTaskId, initialDelaySeconds = 600)
+                    when (checks.state) {
+                        "PENDING" -> enqueueFollowUp(applicationContext, candidateTaskId, initialDelaySeconds = 600)
+                        "SUCCESS" -> enqueueFollowUp(applicationContext, candidateTaskId)
+                        "FAILURE" -> Unit // Preserve failure evidence; never retry a failed candidate blindly.
                     }
                     android.util.Log.i(TAG, "Candidate PR CI state: " + checks.state)
                 } catch (checkFailure: Exception) {
