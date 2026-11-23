@@ -200,6 +200,37 @@ class NervousSystemTest {
     }
 
     @Test
+    fun `pipeline maps current output to the next provider input port`() = runBlocking {
+        val registry = MicroSystemRegistry()
+        val lookup = promoteSpec(
+            registry,
+            Behavior.Lookup(mapOf("hi" to "hello"), default = "unknown"),
+            AlgorithmSpec.Strategy.DETERMINISTIC,
+            "lookup"
+        )
+        val reverse = promoteSpec(
+            registry,
+            Behavior.ReverseWords(),
+            AlgorithmSpec.Strategy.DETERMINISTIC,
+            "reverse_words"
+        )
+        lookup.onPromoted()
+        reverse.onPromoted()
+
+        val router = CapabilityRouter(registry)
+        val coordinator = OrganismCoordinator(registry, router)
+        val result = coordinator.pipeline(
+            listOf("lookup", "reverse_words"),
+            mapOf("key" to "hi")
+        )
+
+        assertTrue("different adjacent port names must be wired correctly: $result", result.success)
+        assertEquals(2, result.completedStages.size)
+        val finalData = result.completedStages.last().data as Map<*, *>
+        assertEquals("olleh", finalData["result"])
+    }
+
+    @Test
     fun `pipeline stops loudly at the first missing stage`() = runBlocking {
         val registry = MicroSystemRegistry()
         promoteSpec(registry, Behavior.Clamp(0.0, 100.0), AlgorithmSpec.Strategy.DETERMINISTIC, "clamp")
