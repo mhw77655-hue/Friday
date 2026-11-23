@@ -638,13 +638,9 @@ fun SettingsScreen() {
                         .onSuccess {
                             githubConfigured = true
                             githubToken = ""
-                            githubReportStatus = "Credential encrypted locally. Verify repository access before uploading."
-                        }
-                        runCatching { githubCredentialStore.save(githubToken) }
-                        .onSuccess {
-                            githubConfigured = true
-                            githubToken = ""
-                            githubReportStatus = "Credential encrypted locally. Verify repository access before uploading."
+                            githubReportStatus = "Credential encrypted locally. Friday's Builder queue has been started."
+                            ai.friday.assistant.bootstrap.host.HostBootstrapWorker.enqueue(context)
+                            ai.friday.assistant.model.storage.ResidentModelBootstrapWorker.enqueue(context)
                             ai.friday.assistant.bootstrap.plan.ObjectiveExecutionWorker.enqueue(context)
                         }
                         .onFailure {
