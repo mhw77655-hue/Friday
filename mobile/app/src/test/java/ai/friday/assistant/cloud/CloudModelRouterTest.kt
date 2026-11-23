@@ -67,19 +67,25 @@ class CloudModelRouterTest {
 
     @Test
     fun `all-failure request advances the starting provider for the next request`() {
-        val p1 = failing("pool-a")
-        val p2 = failing("pool-b")
+        val order = mutableListOf<String>()
+        val p1 = FakeCloudProvider("pool-a") {
+            order += "pool-a"
+            CloudResult.Failure("pool-a", "provider down", false)
+        }
+        val p2 = FakeCloudProvider("pool-b") {
+            order += "pool-b"
+            CloudResult.Failure("pool-b", "provider down", false)
+        }
         val router = CloudModelRouter(listOf(p1, p2))
 
         val first = router.submit(CloudReasoningRequest("first"))
         assertFalse(first.succeeded)
-        assertEquals(1, p1.calls)
-        assertEquals(1, p2.calls)
+        assertEquals(listOf("pool-a", "pool-b"), order)
 
+        order.clear()
         val second = router.submit(CloudReasoningRequest("second"))
         assertFalse(second.succeeded)
-        assertEquals("the next request must start at pool-b", 2, p1.calls)
-        assertEquals("pool-b is attempted first on the second request", 2, p2.calls)
+        assertEquals("the next request must start at pool-b", listOf("pool-b", "pool-a"), order)
     }
 
     @Test
