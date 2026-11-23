@@ -20,7 +20,7 @@ import java.util.concurrent.TimeUnit
  */
 class ChatGPTPlanSeat(
     context: Context,
-    private val auth: ChatGPTPlanAuth,
+    private val auth: ChatGPTPlanAuth = ChatGPTPlanAuth(context),
     private val credentials: ChatGPTPlanCredentialStore = ChatGPTPlanCredentialStore(context),
     private val http: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
@@ -139,7 +139,7 @@ class ChatGPTPlanSeat(
                         "response.incomplete" -> failureCode =
                             event.optJSONObject("response")?.optJSONObject("incomplete_details")
                                 ?.optString("reason") ?: "response_incomplete"
-                        "response.completed" -> completed = true
+                        "response.completed" -> { completed = true; break }
                     }
                     if (failureCode != null) break
                 }
