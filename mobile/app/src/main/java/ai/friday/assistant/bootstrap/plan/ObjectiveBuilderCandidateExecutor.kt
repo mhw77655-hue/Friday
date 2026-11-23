@@ -39,10 +39,9 @@ internal suspend fun consultIndependentReview(
         } catch (_: Exception) {
             null
         }
-        if (preferredReply != null &&
-            preferredReply.presence == SeatPresence.HERE &&
-            !preferredReply.utterance.isNullOrBlank()
-        ) return preferredReply
+        if (preferredReply != null && preferredReply.presence == SeatPresence.HERE) {
+            return preferredReply
+        }
     }
     return fallbackSeat.speak(request)
 }
