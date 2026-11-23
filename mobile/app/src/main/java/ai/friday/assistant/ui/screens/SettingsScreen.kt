@@ -692,9 +692,11 @@ fun SettingsScreen() {
             ) { Text("Save GitHub credential") }
             TextButton(onClick = {
                 githubCredentialStore.clear()
+                githubDeviceReportConsentStore.setEnabled(false)
+                githubAutoReportConsent = false
                 githubConfigured = false
                 githubToken = ""
-                githubReportStatus = "GitHub credential removed from this phone."
+                githubReportStatus = "GitHub credential and automatic-reporting consent removed from this phone. Pending evidence remains local."
             }) { Text("Remove") }
         }
         Row(
