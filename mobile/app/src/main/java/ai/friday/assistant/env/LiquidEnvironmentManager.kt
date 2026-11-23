@@ -66,7 +66,27 @@ class LiquidEnvironmentManager(
         val targetProfile = profiles.find { it.id == activeId }
             ?: profiles.first { it.id == "local-on-device" }
 
-        activate(targetProfile)
+        val restored = activate(targetProfile)
+        if (restored.isFailure) {
+            // A persisted profile can become unsupported after an app update.
+            // Never leave startup with no selected environment when the known
+            // safe built-in remains available.
+            val safeProfile = profiles.firstOrNull { it.id == "safe" }
+                ?: throw IllegalStateException(
+                    "Saved environment failed and no safe fallback profile exists.",
+                    restored.exceptionOrNull()
+                )
+            if (safeProfile.id == targetProfile.id) {
+                throw restored.exceptionOrNull()
+                    ?: IllegalStateException("Safe environment activation failed.")
+            }
+            activate(safeProfile).getOrElse { fallbackFailure ->
+                throw IllegalStateException(
+                    "Saved environment and safe fallback both failed to activate.",
+                    fallbackFailure
+                ).also { restored.exceptionOrNull()?.let(it::addSuppressed) }
+            }
+        }
     }
 
     /** Register a new custom profile */
@@ -117,6 +137,8 @@ class LiquidEnvironmentManager(
                     try {
                         applyEnvironment(previous).getOrThrow()
                         _activeEnvironment.value = previous
+                    } catch (restoreCancelled: CancellationException) {
+                        throw restoreCancelled
                     } catch (restoreFailure: Exception) {
                         failure.addSuppressed(restoreFailure)
                         _activeEnvironment.value = null
