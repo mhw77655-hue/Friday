@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
@@ -17,6 +19,7 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.SocketTimeoutException
 import java.security.KeyFactory
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -50,7 +53,7 @@ class ChatGPTPlanAuth(
         try {
             server.reuseAddress = false
             server.bind(InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0), 1)
-            server.soTimeout = CALLBACK_TIMEOUT_MS
+            server.soTimeout = ACCEPT_POLL_MS
             val redirectUri = "http://127.0.0.1:${server.localPort}/auth/callback"
             val state = randomUrlSafe(32)
             val nonce = randomUrlSafe(32)
@@ -86,7 +89,7 @@ class ChatGPTPlanAuth(
                 activity.startActivity(Intent(Intent.ACTION_VIEW, auth))
             }
 
-            val callback = awaitCallback(server, state)
+            val callback = awaitCallback(server, state, android.os.SystemClock.elapsedRealtime() + CALLBACK_TIMEOUT_MS)
             require(constantTimeEquals(state, callback.getQueryParameter("state").orEmpty())) {
                 "ChatGPT sign-in state validation failed."
             }
@@ -201,9 +204,13 @@ class ChatGPTPlanAuth(
         }
     }
 
-    private fun awaitCallback(server: ServerSocket, expectedState: String): Uri {
+    private suspend fun awaitCallback(server: ServerSocket, expectedState: String, deadlineElapsedMs: Long): Uri {
         while (true) {
-            val socket = server.accept()
+            currentCoroutineContext().ensureActive()
+            if (android.os.SystemClock.elapsedRealtime() >= deadlineElapsedMs) {
+                throw SocketTimeoutException("ChatGPT sign-in callback timed out.")
+            }
+            val socket = try { server.accept() } catch (_: SocketTimeoutException) { continue }
             socket.soTimeout = SOCKET_TIMEOUT_MS
             try {
                 val reader = socket.getInputStream().bufferedReader(Charsets.US_ASCII)
@@ -324,7 +331,8 @@ class ChatGPTPlanAuth(
         private const val DYNAMIC_CLIENT_ID = "dynamic_agent_client"
         private const val APP_NAME = "Friday"
         private const val CALLBACK_PATH = "/auth/callback"
-        private const val CALLBACK_TIMEOUT_MS = 5 * 60 * 1000
+        private const val CALLBACK_TIMEOUT_MS = 5 * 60 * 1000L
+        private const val ACCEPT_POLL_MS = 1_000
         private const val SOCKET_TIMEOUT_MS = 15_000
         private const val TOKEN_REFRESH_SKEW_SECONDS = 90L
         private const val CLOCK_SKEW_SECONDS = 60L
