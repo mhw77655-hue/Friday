@@ -27,3 +27,19 @@ internal object ObjectiveTaskDependencyGate {
         return true
     }
 }
+
+/** Process-generation and lease policy for crash-safe task recovery. */
+internal object ObjectiveTaskRecoveryPolicy {
+    fun shouldRecover(
+        status: String,
+        recordedProcessId: String,
+        currentProcessId: String,
+        updatedAtEpochMs: Long,
+        nowEpochMs: Long,
+        staleAfterMs: Long
+    ): Boolean {
+        if (status != "EXECUTING") return false
+        if (recordedProcessId.isBlank() || recordedProcessId != currentProcessId) return true
+        return updatedAtEpochMs <= 0L || nowEpochMs - updatedAtEpochMs >= staleAfterMs
+    }
+}
