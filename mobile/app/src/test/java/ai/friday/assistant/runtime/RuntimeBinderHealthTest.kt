@@ -1,5 +1,6 @@
 package ai.friday.assistant.runtime
 
+import ai.friday.assistant.model.ProviderHealth
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -8,27 +9,42 @@ class RuntimeBinderHealthTest {
     @Test
     fun healthyProviderObservationIsHealthy() {
         assertTrue(
-            runtimeHealthFromProviderObservation(isHealthy = true, error = null) is RuntimeHealth.HEALTHY
+            runtimeHealthFromProviderObservation(
+                ProviderHealth(isHealthy = true, latencyMs = 12, modelLoaded = true, currentModel = "test-model")
+            ) is RuntimeHealth.HEALTHY
+        )
+    }
+
+    @Test
+    fun neverCheckedProviderRemainsUnknown() {
+        assertTrue(
+            runtimeHealthFromProviderObservation(
+                ProviderHealth(isHealthy = false, latencyMs = -1, modelLoaded = false, currentModel = null)
+            ) is RuntimeHealth.UNKNOWN
         )
     }
 
     @Test
     fun failedProviderObservationPreservesBoundedReason() {
         val result = runtimeHealthFromProviderObservation(
-            isHealthy = false,
-            error = "provider endpoint unreachable"
+            ProviderHealth(
+                isHealthy = false,
+                latencyMs = 25,
+                modelLoaded = false,
+                currentModel = null,
+                error = "provider endpoint unreachable"
+            )
         )
-        assertEquals(
-            RuntimeHealth.UNHEALTHY("provider endpoint unreachable"),
-            result
-        )
+        assertEquals(RuntimeHealth.UNHEALTHY("provider endpoint unreachable"), result)
     }
 
     @Test
-    fun missingProviderErrorUsesExplicitUnknownObservationMessage() {
+    fun missingErrorAfterCompletedFailedProbeUsesExplicitReason() {
         assertEquals(
-            RuntimeHealth.UNHEALTHY("No healthy provider observation is available."),
-            runtimeHealthFromProviderObservation(isHealthy = false, error = null)
+            RuntimeHealth.UNHEALTHY("The provider health check did not pass."),
+            runtimeHealthFromProviderObservation(
+                ProviderHealth(isHealthy = false, latencyMs = 25, modelLoaded = false, currentModel = null)
+            )
         )
     }
 }
