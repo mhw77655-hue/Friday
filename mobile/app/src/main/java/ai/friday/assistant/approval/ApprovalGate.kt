@@ -11,6 +11,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * An action the organism might take on-device (port of the retired
@@ -26,7 +30,13 @@ data class FridayAction(
 
 /** Outcome of a gate review. */
 sealed interface GateResult {
-    data class AutoApproved(val riskLevel: RiskLevel) : GateResult
+    /** Token is minted only by ApprovalGate and is bound to one exact action. */
+    data class AutoApproved(val riskLevel: RiskLevel, internal val permitToken: String = "") : GateResult
+    data class Approved(
+        val approvalId: String,
+        val riskLevel: RiskLevel,
+        internal val permitToken: String = ""
+    ) : GateResult
     data class Pending(val approvalId: String, val riskLevel: RiskLevel) : GateResult
     data class Denied(val reason: String, val riskLevel: RiskLevel) : GateResult
 }
@@ -77,6 +87,16 @@ object ApprovalGate {
 
     private lateinit var logFile: File
     @Volatile private var initialized = false
+
+    private data class PermitRecord(
+        val actionFingerprint: String,
+        val riskLevel: RiskLevel,
+        val config: GateConfig,
+        val expiresAtMs: Long
+    )
+
+    private val issuedPermits = ConcurrentHashMap<String, PermitRecord>()
+    private const val PERMIT_LIFETIME_MS = 60_000L
 
     fun init(filesDir: File) {
         if (initialized) return
@@ -147,7 +167,7 @@ object ApprovalGate {
         val autoApprovable = risk.ordinal <= config.autoApproveRiskUpTo.ordinal && !requiresConsent
 
         val result: GateResult = if (autoApprovable) {
-            GateResult.AutoApproved(risk)
+            GateResult.AutoApproved(risk, issuePermit(action, risk))
         } else {
             val approval = approvalQueue.requestApproval(
                 taskId = action.mission ?: "action-${System.currentTimeMillis()}",
@@ -167,6 +187,100 @@ object ApprovalGate {
         return result
     }
 
+    /**
+     * Turn a persisted human approval into a one-use execution permit. The
+     * approval must match the exact action arguments; approval IDs alone are
+     * not execution authority.
+     */
+    suspend fun resumeApproved(
+        action: FridayAction,
+        approvalId: String,
+        approvalQueue: LocalApprovalQueue
+    ): GateResult {
+        val risk = classifyRisk(action)
+        val approval = approvalQueue.getApproval(approvalId)
+            ?: return GateResult.Denied("approval not found", risk)
+        val expectedArguments = actionArguments(action)
+        val matches = approval.status == ApprovalStatus.APPROVED &&
+            approval.decision == ApprovalDecision.APPROVE &&
+            approval.capability == action.capability &&
+            approval.arguments == expectedArguments &&
+            (action.mission == null || approval.taskId == action.mission)
+        if (!matches) {
+            val denied = GateResult.Denied("approval does not authorize this exact action", risk)
+            log(action, denied)
+            return denied
+        }
+        if (action.type == "write" && writesForbidden()) {
+            val denied = GateResult.Denied("writes disabled by current environment policy", risk)
+            log(action, denied)
+            return denied
+        }
+        val result = GateResult.Approved(approvalId, risk, issuePermit(action, risk))
+        log(action, result)
+        return result
+    }
+
+    /** Consume a one-use permit at the execution boundary. Forged, stale,
+     * reused, action-substituted or policy-stale decisions fail closed. */
+    internal fun consumePermit(action: FridayAction, decision: GateResult): Boolean {
+        val token = when (decision) {
+            is GateResult.AutoApproved -> decision.permitToken
+            is GateResult.Approved -> decision.permitToken
+            else -> return false
+        }
+        if (token.isBlank()) return false
+        val permit = issuedPermits.remove(token) ?: return false
+        if (permit.expiresAtMs < System.currentTimeMillis()) return false
+        if (permit.actionFingerprint != actionFingerprint(action)) return false
+        if (permit.config != config || permit.riskLevel != classifyRisk(action)) return false
+        return when (decision) {
+            is GateResult.AutoApproved ->
+                config.safetyRestrictions != SafetyRestrictions.CLOUD_ONLY &&
+                    permit.riskLevel.ordinal <= config.autoApproveRiskUpTo.ordinal &&
+                    !(action.type == "write" && writesForbidden())
+            is GateResult.Approved -> !(action.type == "write" && writesForbidden())
+            else -> false
+        }
+    }
+
+    private fun writesForbidden(): Boolean =
+        config.safetyRestrictions == SafetyRestrictions.READ_ONLY ||
+            config.safetyRestrictions == SafetyRestrictions.MAX ||
+            config.permissionPolicy == PermissionPolicy.SAFE_MODE
+
+    private fun issuePermit(action: FridayAction, risk: RiskLevel): String {
+        val now = System.currentTimeMillis()
+        issuedPermits.entries.removeIf { it.value.expiresAtMs < now }
+        val token = UUID.randomUUID().toString()
+        issuedPermits[token] = PermitRecord(
+            actionFingerprint = actionFingerprint(action),
+            riskLevel = risk,
+            config = config,
+            expiresAtMs = now + PERMIT_LIFETIME_MS
+        )
+        return token
+    }
+
+    private fun actionArguments(action: FridayAction): Map<String, Any> = mapOf(
+        "type" to action.type,
+        "targetPath" to (action.targetPath ?: ""),
+        "payload" to (action.payload ?: "")
+    )
+
+    private fun actionFingerprint(action: FridayAction): String {
+        val canonical = listOf(
+            action.mission.orEmpty(),
+            action.type,
+            action.targetPath.orEmpty(),
+            action.payload.orEmpty(),
+            action.capability
+        ).joinToString("\u0000")
+        return MessageDigest.getInstance("SHA-256")
+            .digest(canonical.toByteArray(StandardCharsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+    }
+
     private fun log(action: FridayAction, result: GateResult) {
         if (!initialized) {
             Log.w(TAG, "review() called before init() -- log entry dropped for mission=${action.mission}")
@@ -175,6 +289,8 @@ object ApprovalGate {
         val (approved, tier, reason) = when (result) {
             is GateResult.AutoApproved ->
                 Triple(true, result.riskLevel.ordinal + 1, "auto-approved (${result.riskLevel})")
+            is GateResult.Approved ->
+                Triple(true, result.riskLevel.ordinal + 1, "human-approved (${result.approvalId})")
             is GateResult.Pending ->
                 Triple(false, result.riskLevel.ordinal + 1, "requires approval (${result.approvalId})")
             is GateResult.Denied ->
