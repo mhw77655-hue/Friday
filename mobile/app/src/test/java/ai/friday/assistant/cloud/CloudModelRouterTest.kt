@@ -66,6 +66,51 @@ class CloudModelRouterTest {
     }
 
     @Test
+    fun `all-failure request advances the starting provider for the next request`() {
+        val order = mutableListOf<String>()
+        val p1 = FakeCloudProvider("pool-a") {
+            order += "pool-a"
+            CloudResult.Failure("pool-a", "provider down", false)
+        }
+        val p2 = FakeCloudProvider("pool-b") {
+            order += "pool-b"
+            CloudResult.Failure("pool-b", "provider down", false)
+        }
+        val router = CloudModelRouter(listOf(p1, p2))
+
+        val first = router.submit(CloudReasoningRequest("first"))
+        assertFalse(first.succeeded)
+        assertEquals(listOf("pool-a", "pool-b"), order)
+
+        order.clear()
+        val second = router.submit(CloudReasoningRequest("second"))
+        assertFalse(second.succeeded)
+        assertEquals("the next request must start at pool-b", listOf("pool-b", "pool-a"), order)
+    }
+
+    @Test
+    fun `empty pool returns an explicit configuration failure`() {
+        val result = CloudModelRouter(emptyList()).submit(CloudReasoningRequest("hello"))
+        assertFalse(result.succeeded)
+        assertEquals(1, result.failures.size)
+        assertEquals("cloud-pool", result.failures.single().providerId)
+        assertTrue(result.failures.single().reason.contains("No cloud providers"))
+    }
+
+    @Test
+    fun `blank or mismatched provider success is rejected`() {
+        val blank = FakeCloudProvider("pool-a") { CloudResult.Success("", "pool-a") }
+        val wrongIdentity = FakeCloudProvider("pool-b") { CloudResult.Success("answer", "other-provider") }
+        val router = CloudModelRouter(listOf(blank, wrongIdentity))
+
+        val result = router.submit(CloudReasoningRequest("hello"))
+
+        assertFalse(result.succeeded)
+        assertEquals(2, result.failures.size)
+        assertTrue(result.failures.all { !it.rateLimited })
+    }
+
+    @Test
     fun `rotation cursor advances round-robin per submit like ralph sh iterations`() {
         val p1 = succeeding("pool-a", "poolA")
         val p2 = succeeding("pool-b", "poolB")

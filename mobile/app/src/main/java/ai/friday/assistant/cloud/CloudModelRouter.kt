@@ -43,13 +43,27 @@ class CloudModelRouter(
         val succeeded: Boolean get() = text != null
     }
 
+    @Synchronized
     fun submit(request: CloudReasoningRequest): PoolResult {
         val failures = mutableListOf<CloudResult.Failure>()
+        if (pool.isEmpty()) {
+            return PoolResult(
+                text = null,
+                succeededProviderId = null,
+                failures = listOf(CloudResult.Failure("cloud-pool", "No cloud providers are configured.", false))
+            )
+        }
+
+        // Advance once per request, including requests where every provider
+        // fails. Otherwise an exhausted pool retries the same first member on
+        // every subsequent request and never changes its starting point.
+        val startCursor = rotationCursor
+        rotationCursor = (rotationCursor + 1) % pool.size
 
         // Rotate through the pool round-robin, starting at the current cursor,
         // mirroring ralph.sh's (i-1) % POOL_SIZE walk.
         val order = (0 until pool.size).map { rotationIndex ->
-            pool[(rotationCursor + rotationIndex) % pool.size]
+            pool[(startCursor + rotationIndex) % pool.size]
         }
 
         for (provider in order) {
@@ -61,10 +75,16 @@ class CloudModelRouter(
 
             when (result) {
                 is CloudResult.Success -> {
-                    // ralph.sh rotates round-robin per iteration: the cursor
-                    // advances one step every submit, so the next request starts
-                    // from the next pool member.
-                    rotationCursor = (rotationCursor + 1) % pool.size
+                    if (result.providerId != provider.id || result.text.isBlank()) {
+                        failures.add(
+                            CloudResult.Failure(
+                                provider.id,
+                                if (result.providerId != provider.id) "provider identity mismatch" else "provider returned blank reasoning",
+                                rateLimited = false
+                            )
+                        )
+                        continue
+                    }
                     return PoolResult(result.text, result.providerId, failures)
                 }
                 is CloudResult.Failure -> {
