@@ -303,7 +303,7 @@ class MemoryPromotion(
             c >= 'ݐ' && c <= 'ݿ' ||
             c >= 'ࢠ' && c <= 'ࣿ' ||
             c >= 'ﭐ' && c <= '﷿' ||
-            c >= 'ﹰ' && c <= '\\uFEFF'
+            c >= 'ﹰ' && c <= '\uFEFF'
         }
         return if (hasArabic) "ar" else "en"
     }
