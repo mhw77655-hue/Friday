@@ -22,6 +22,7 @@ class ChatGPTPlanSeatApiInstrumentedTest {
         val server = MockWebServer()
         server.start()
         try {
+            ChatGPTPlanBackgroundConsentStore(context).setEnabled(true)
             server.enqueue(MockResponse().setBody(
                 """{"models":[{"slug":"gpt-test","display_name":"GPT Test","visibility":"list"}]}"""
             ))
@@ -68,6 +69,7 @@ class ChatGPTPlanSeatApiInstrumentedTest {
             assertTrue(body.contains("\"stream\":true"))
             assertTrue(body.contains("public sanitized digest"))
         } finally {
+            ChatGPTPlanBackgroundConsentStore(context).setEnabled(false)
             server.shutdown()
         }
     }
@@ -77,6 +79,7 @@ class ChatGPTPlanSeatApiInstrumentedTest {
         val server = MockWebServer()
         server.start()
         try {
+            ChatGPTPlanBackgroundConsentStore(context).setEnabled(true)
             var tokenReads = 0
             val provider = object : ChatGPTPlanTokenProvider {
                 override suspend fun validAccessToken(): String? {
@@ -105,6 +108,7 @@ class ChatGPTPlanSeatApiInstrumentedTest {
             assertEquals(0, tokenReads)
             assertEquals(0, server.requestCount)
         } finally {
+            ChatGPTPlanBackgroundConsentStore(context).setEnabled(false)
             server.shutdown()
         }
     }
@@ -114,6 +118,7 @@ class ChatGPTPlanSeatApiInstrumentedTest {
         val server = MockWebServer()
         server.start()
         try {
+            ChatGPTPlanBackgroundConsentStore(context).setEnabled(true)
             server.enqueue(MockResponse().setBody(
                 """{"models":[{"slug":"gpt-test","display_name":"GPT Test","visibility":"list"}]}"""
             ))
@@ -143,6 +148,7 @@ class ChatGPTPlanSeatApiInstrumentedTest {
             assertTrue(reply.error.orEmpty().contains("no paid fallback"))
             assertEquals(2, server.requestCount)
         } finally {
+            ChatGPTPlanBackgroundConsentStore(context).setEnabled(false)
             server.shutdown()
         }
     }
