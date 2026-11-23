@@ -144,7 +144,8 @@ internal class ObjectiveBuilderCandidateExecutor(
                 appendLine(source.take(1_200))
             }
         }.take(8_000)
-        val guestReply = if (repository.isRepositoryPublic()) {
+        val shareGate = runCatching { repository.validateExternalShareableCandidate(changes) }
+        val guestReply = if (shareGate.isSuccess) {
             OvhAnonymousSeat(wallet = SeatWalletStore(androidContext)).speak(
                 SeatRequest(
                     turnId = taskId,
@@ -166,9 +167,9 @@ internal class ObjectiveBuilderCandidateExecutor(
                 utterance = null,
                 passed = true,
                 presence = SeatPresence.DISABLED,
-                transport = "not-sent-private-repository",
+                transport = "not-sent-by-privacy-gate",
                 receivedAtEpochMs = System.currentTimeMillis(),
-                error = "Repository is private; public Seat was not sent source."
+                error = shareGate.exceptionOrNull()?.message ?: "Privacy gate denied external sharing."
             )
         }
         FridayTableLog(androidContext).append(JSONObject()
