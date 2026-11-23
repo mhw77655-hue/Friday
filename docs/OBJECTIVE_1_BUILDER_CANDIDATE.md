@@ -17,7 +17,7 @@
 
 ## Known gaps before acceptance
 - No confirmed exact-head green Android build/unit-test/source-audit/emulator run.
-- Builder now opens isolated candidates, polls CI and records a separate exact-diff external review. A complete automated repair/retry lifecycle and safe capability promotion are not yet demonstrated.
+- Builder now opens isolated candidates, polls CI and records a separate exact-diff external review. A complete automated repair/retry lifecycle, fixed-cost/quota accounting beyond cooldown, and safe capability promotion are not yet demonstrated.
 - Table currently has one anonymous external Seat; multi-seat registry, per-seat delta-history computation, Roundtable/Vision UI and richer quota accounting still need implementation and tests. Fixed stance parsing and persistent cooldown/presence state are implemented in this candidate.
 - Local app-managed toolchain/build sandbox is not yet demonstrated as a complete source-build environment; remote CI is the current candidate build path.
 - Physical host adaptation, actual resident-model load, force-stop/reboot recovery and the first installed autonomous Builder cycle remain unverified.
