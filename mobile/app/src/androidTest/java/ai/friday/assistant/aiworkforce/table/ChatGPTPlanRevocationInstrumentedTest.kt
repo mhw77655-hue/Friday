@@ -37,7 +37,13 @@ class ChatGPTPlanRevocationInstrumentedTest {
                 modelSlug = "test-model"
             ))
             server.enqueue(MockResponse().setBody(
-                """{"revocation_endpoint":"${server.url("/revoke")}"}"""
+                JSONObject()
+                    .put("issuer", ChatGPTPlanAuth.ISSUER)
+                    .put("authorization_endpoint", "https://auth.openai.com/api/accounts/authorize")
+                    .put("token_endpoint", "https://auth.openai.com/api/accounts/oauth/token")
+                    .put("jwks_uri", "https://auth.openai.com/.well-known/jwks.json")
+                    .put("revocation_endpoint", server.url("/revoke").toString())
+                    .toString()
             ))
             server.enqueue(MockResponse().setResponseCode(200).setBody(""))
 
