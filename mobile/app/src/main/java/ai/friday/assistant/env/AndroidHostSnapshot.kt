@@ -121,7 +121,7 @@ data class AndroidHostSnapshot(
                 Settings.Secure.getString(app.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
                     .orEmpty().split(':').any { it.substringBefore('/').equals(app.packageName, ignoreCase = true) }
             }.getOrDefault(false)
-            val batteryIgnored = if (Build.VERSION.SDK_INT >= 23) power.isIgnoringBatteryOptimizations(app.packageName) else true
+            val batteryIgnored = power.isIgnoringBatteryOptimizations(app.packageName)
             val thermal = if (Build.VERSION.SDK_INT >= 29) power.currentThermalStatus else null
             val network = when {
                 caps == null -> "offline"
@@ -148,7 +148,7 @@ data class AndroidHostSnapshot(
                 lowMemory = memory.lowMemory,
                 androidRelease = Build.VERSION.RELEASE.orEmpty().take(24),
                 apiLevel = Build.VERSION.SDK_INT,
-                securityPatch = if (Build.VERSION.SDK_INT >= 23) Build.VERSION.SECURITY_PATCH else null,
+                securityPatch = Build.VERSION.SECURITY_PATCH,
                 supportedAbis = Build.SUPPORTED_ABIS.take(8),
                 appVersionName = packageInfo.versionName.orEmpty(),
                 appVersionCode = versionCode,
