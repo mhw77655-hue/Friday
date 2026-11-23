@@ -9,7 +9,7 @@ import ai.friday.assistant.microsystem.MicroSystemContract
 import ai.friday.assistant.microsystem.MicroSystemRegistry
 import ai.friday.assistant.microsystem.OperationResult
 import ai.friday.assistant.microsystem.SpecMicroSystem
-import ai.friday.assistant.microsystem.isRoutable
+import ai.friday.assistant.microsystem.isCapabilityCallable
 
 /**
  * Capability Router (§9 routing layer, §17 model agnosticism): decides which
@@ -33,7 +33,7 @@ class CapabilityRouter(
     /** «Who provides this capability?» — cheapest-valid first (§17). */
     fun providers(capability: String): List<MicroSystemContract> =
         registry.provides(capability)
-            .filter { it.isRoutable() }
+            .filter { it.isCapabilityCallable() }
             .sortedBy { costTier(it) }
 
     fun hasProvider(capability: String): Boolean = providers(capability).isNotEmpty()
