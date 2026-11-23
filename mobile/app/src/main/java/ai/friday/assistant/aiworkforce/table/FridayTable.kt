@@ -193,7 +193,7 @@ class OvhAnonymousSeat(
         val stance = runCatching { SeatStance.valueOf(match.groupValues[1].uppercase()) }
             .getOrDefault(SeatStance.UNSPECIFIED)
         val reason = match.groupValues.getOrNull(2)?.trim()?.takeIf { it.isNotBlank() }
-        val utterance = lines.filterIndexed { index, _ -> index != stanceIndex }.joinToString("\\n").trim()
+        val utterance = lines.filterIndexed { index, _ -> index != stanceIndex }.joinToString("\n").trim()
         return utterance to (stance to reason)
     }
 
