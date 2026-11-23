@@ -67,10 +67,10 @@ class GitHubDeviceReportWorker(
             ai.friday.assistant.diagnostics.PhoneActionDiagnostics.exportJson(applicationContext)
         )
         val hostFile = File(applicationContext.filesDir, "friday-development/host-bootstrap.json")
-        if (hostFile.isFile) {
-            val host = runCatching { JSONObject(hostFile.readText(Charsets.UTF_8)) }.getOrNull()
-            if (host != null) base.put("host_bootstrap", host)
-        }
+        if (!hostFile.isFile) throw IOException("Host bootstrap evidence is not ready.")
+        val host = runCatching { JSONObject(hostFile.readText(Charsets.UTF_8)) }
+            .getOrElse { throw IOException("Host bootstrap evidence could not be read safely.") }
+        base.put("host_bootstrap", host)
         base.put("submission_mode", "AUTOMATIC_AFTER_EXPLICIT_OWNER_CONSENT")
         base.put("milestone", inputData.getString(KEY_REASON).orEmpty().take(80))
         return base.toString()
