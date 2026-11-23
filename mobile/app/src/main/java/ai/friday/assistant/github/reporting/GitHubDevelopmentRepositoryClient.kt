@@ -47,6 +47,25 @@ class GitHubDevelopmentRepositoryClient(
             "Candidate creation additionally requires Contents write and Pull requests write."
     }
 
+    /**
+     * Recover a branch that was created before an Android process died. The
+     * exact existing commit is reused; no candidate code is regenerated.
+     */
+    fun recoverExistingCandidate(
+        taskId: String,
+        title: String,
+        recoveryBody: String,
+        baseBranch: String = "main"
+    ): CandidatePullRequest? {
+        require(taskId.matches(Regex("[A-Za-z0-9._-]{3,80}"))) { "Task id is malformed." }
+        val branch = "friday/candidate/" + taskId.lowercase()
+            .replace(Regex("[^a-z0-9._/-]"), "-")
+        val commit = runCatching { getRef(branch) }.getOrNull() ?: return null
+        val pr = findExistingPullRequest(branch, baseBranch)
+            ?: createPullRequest(title, recoveryBody, branch, baseBranch)
+        return CandidatePullRequest(branch, commit, pr.first, pr.second)
+    }
+
     /** Publish a bounded candidate. Never writes directly to main and never merges. */
     fun publishCandidate(
         taskId: String,
