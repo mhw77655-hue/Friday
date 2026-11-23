@@ -280,7 +280,8 @@ class FridayTableLog(context: Context) {
 /** Local Friday conducts: it decides if a public guest is worth waking. */
 class FridayTableConductor(
     private val guestSeats: List<IntelligenceSeat>,
-    private val log: FridayTableLog
+    private val log: FridayTableLog,
+    private val shouldConsult: (SeatRequest, String) -> Boolean = { _, _ -> true }
 ) {
     suspend fun consultPublicGuest(
         request: SeatRequest,
@@ -291,6 +292,13 @@ class FridayTableConductor(
             .put("turn_id", request.turnId)
             .put("summary", localSummary.take(1_200)))
         if (request.dataClass != SeatDataClass.PUBLIC || !request.externallyShareable) return emptyList()
+        if (!shouldConsult(request, localSummary)) {
+            log.append(JSONObject()
+                .put("type", "guest_consult_skipped")
+                .put("turn_id", request.turnId)
+                .put("reason", "Friday local conductor decided this turn did not need a guest."))
+            return emptyList()
+        }
         return supervisorScope {
             val arrivals = Channel<SeatReply>(capacity = guestSeats.size)
             guestSeats.forEach { seat ->
