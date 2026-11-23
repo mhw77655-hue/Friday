@@ -84,6 +84,14 @@ fun SettingsScreen() {
     var recallLimit by remember { mutableStateOf(prefs.getString(KEY_RECALL_LIMIT, "") ?: "") }
     var jevApiKey by remember { mutableStateOf("") }
     var jevConfigured by remember { mutableStateOf(ai.friday.assistant.voice.JevApiKeyStore(context).read() != null) }
+    var jevStatus by remember {
+        mutableStateOf(
+            if (ai.friday.assistant.voice.JevApiKeyStore(context).read() != null)
+                "Jev credential is stored securely; decision calls require internet."
+            else
+                "Jev not configured — Friday continues with local deterministic command handling."
+        )
+    }
     var githubToken by remember { mutableStateOf("") }
     val githubCredentialStore = remember { GitHubCredentialStore(context) }
     var githubConfigured by remember { mutableStateOf(githubCredentialStore.isConfigured()) }
@@ -476,21 +484,33 @@ fun SettingsScreen() {
                 onClick = {
                     if (jevApiKey.isNotBlank()) {
                         runCatching { ai.friday.assistant.voice.JevApiKeyStore(context).save(jevApiKey) }
-                            .onSuccess { jevConfigured = true; jevApiKey = "" }
+                            .onSuccess {
+                                jevConfigured = true
+                                jevApiKey = ""
+                                jevStatus = "Jev credential stored securely; decision calls require internet."
+                            }
+                            .onFailure {
+                                jevStatus = "Jev credential was not saved: " +
+                                    (it.message?.take(180) ?: it.javaClass.simpleName)
+                            }
                     }
                 },
                 enabled = jevApiKey.isNotBlank()
             ) { Text("Save Jev key") }
             TextButton(onClick = {
-                ai.friday.assistant.voice.JevApiKeyStore(context).clear()
-                jevConfigured = false
-                jevApiKey = ""
+                runCatching { ai.friday.assistant.voice.JevApiKeyStore(context).clear() }
+                    .onSuccess {
+                        jevConfigured = false
+                        jevApiKey = ""
+                        jevStatus = "Jev credential removed. Friday continues with local deterministic command handling."
+                    }
+                    .onFailure {
+                        jevStatus = "Jev credential could not be removed: " +
+                            (it.message?.take(180) ?: it.javaClass.simpleName)
+                    }
             }) { Text("Remove key") }
         }
-        Text(
-            text = if (jevConfigured) "Jev credential stored securely; decision calls require internet." else "Jev not configured — Friday continues with local deterministic command handling.",
-            style = FridayType.Technical
-        )
+        Text(text = jevStatus, style = FridayType.Technical)
 
         SectionLabel("PHONE CONTROL")
         Text(
