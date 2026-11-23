@@ -49,7 +49,7 @@ class TaskWritePathPolicyTest {
     fun rejectsSymlinkFileEvenWhenItsTargetIsInsideRoot() {
         val root = temporary.newFolder("friday-files")
         val protected = root.toPath().resolve("identity.json")
-        Files.writeString(protected, "protected")
+        Files.write(protected, "protected".toByteArray())
         Files.createSymbolicLink(root.toPath().resolve("ordinary.txt"), protected)
         assertTrue(runCatching {
             TaskWritePathPolicy.resolve(root, "ordinary.txt")
