@@ -238,3 +238,21 @@ PR #122's ChatGPT integration has been ported onto the current main line for con
 - ChatGPT joins the local Builder Table alongside the existing anonymous OVH Seat. All guest critiques are preserved and passed to the local Builder as untrusted advisory input; Friday remains the authority.
 
 Instrumentation tests cover encrypted storage, consent, privacy gating, mocked inference, rate-limit behavior, token revocation and RS256/JWKS identity verification. Actual account eligibility and a real owner-authorized inference turn remain runtime acceptance evidence, not CI claims.
+
+
+## Repository state refresh — 2026-11-23 (after latest merges)
+
+The following implementation changes are now merged into main:
+
+- **PR #121** — Shizuku-backed automatic background self-updates; merge commit  c5067f92fbb16b6e34da19b954b3d79ae4837cba. The implementation transfers the verified APK through a bounded Shizuku UserService, checks the live authorized UID (shell 2000 or root 0), invokes a fixed Friday-only package install, and retains native Android fallback behavior. This is code/CI evidence, not proof that Shizuku-Next is authorized or that a real handset completed a silent update.
+- **PR #123** — direct ChatGPT plan Seat; merge commit  5cbc74e4cd81cabcd48997b96ad0f2cc5fdcac9a. The official Sign in with ChatGPT OAuth/PKCE path, encrypted credential handling, Responses API Seat and explicit background-use consent are merged. Exact-head run [45223346500](https://github.com/mhw77655-hue/Friday/actions/runs/45223346500) passed. A real owner-authorized sign-in and completed Seat turn have not yet been recorded.
+- **PR #124** — Shizuku-Next onboarding/update-plan alignment; merge commit  24e653589fa623ce5819387a9179dfe878a0a720. Exact-head run [45222535234](https://github.com/mhw77655-hue/Friday/actions/runs/45222535234) passed. It detects the Next version, points to its releases/setup, and explains its optional boot/watchdog recovery configuration. The production APK 1.0.509 was built from the earlier PR #121 commit and therefore does **not** contain PR #123 or #124.
+
+Two further changes are under exact-head validation and are not yet merged:
+
+- **PR #125** — use the explicitly consented ChatGPT plan Seat for the independent post-CI exact-diff review, with the anonymous OVH Seat as a no-paid-fallback recovery path. Tests cover success, explicit PASS, rate-limit fallback, exception fallback and cancellation.
+- **PR #126** — restore byte-for-byte identity between the canonical .ralph/FRIDAY_DELIVERY_PLAN.md and the APK-bundled delivery-plan asset. The two files were found to differ on main; the PR branch has been checked and they are byte-identical there.
+
+The signed production release **Friday 1.0.509 (version code 1509)** was built from commit  c5067f92fbb16b6e34da19b954b3d79ae4837cba. The signed-release job passed APK signature verification against the pinned permanent certificate SHA-256 FD84811F911585D8152DC2BFFF700D8FCE36D5A07DF392BE89F91D5646A6D1B8, and published the APK, metadata and checksum. It is a valid signed release, but it is not the post-PR-123/124 build.
+
+**Objective 1 remains OPEN.** The next release must be built from the latest fully tested main commit. Remaining acceptance gates include: the installed app's own physical-host evidence and first Builder mission; actual ChatGPT sign-in/Seat use where eligible; real Shizuku-Next-authorized background update and post-update identity check; same-key continuity and last-known-good rollback evidence; durable process-death/reboot/offline/low-resource recovery; and the bounded Builder cycle's exact diff, CI, independent review and sanitized report. CI/emulator results remain separately labelled and do not substitute for the handset's own evidence. No manual ADB/Termux/log-copy test assignment is being made to the owner.
