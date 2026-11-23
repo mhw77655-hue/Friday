@@ -277,16 +277,22 @@ class FridayAccessibilityService : AccessibilityService() {
 
     private fun openApp(label: String): PhoneControlResult {
         val pm = packageManager
-        val match = pm.getInstalledApplications(0).firstOrNull { app ->
-            pm.getApplicationLabel(app).toString().trim().equals(label.trim(), ignoreCase = true)
+        // Query only launcher activities. The manifest declares this exact
+        // MAIN/LAUNCHER intent under <queries>, so Android 11+ package
+        // visibility is explicit without requesting QUERY_ALL_PACKAGES.
+        val launcherIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+        val match = pm.queryIntentActivities(launcherIntent, 0).firstOrNull { resolved ->
+            pm.getApplicationLabel(resolved.activityInfo.applicationInfo)
+                .toString().trim().equals(label.trim(), ignoreCase = true)
         } ?: return PhoneControlResult.NotFound(label)
+        val packageName = match.activityInfo.packageName
 
         // Prefer the explicitly verified Shizuku UserService when it is ready.
         // Its typed launchApp operation checks the resumed activity; ordinary
         // Android launch remains the least-privilege fallback when Shizuku is
         // absent or the shell operation is unsupported on this OEM build.
         val shizukuStartedAt = android.os.SystemClock.elapsedRealtime()
-        val shizukuAttempt = runCatching { ScreenBridge.launchApp(match.packageName) }
+        val shizukuAttempt = runCatching { ScreenBridge.launchApp(packageName) }
         val shizukuResult = shizukuAttempt.getOrNull()
         ai.friday.assistant.diagnostics.PhoneActionDiagnostics.record(
             action = "OpenApp",
@@ -303,7 +309,7 @@ class FridayAccessibilityService : AccessibilityService() {
             return PhoneControlResult.Success
         }
 
-        val launch = pm.getLaunchIntentForPackage(match.packageName)
+        val launch = pm.getLaunchIntentForPackage(packageName)
         if (launch == null) {
             ai.friday.assistant.diagnostics.PhoneActionDiagnostics.record(
                 action = "OpenApp",
