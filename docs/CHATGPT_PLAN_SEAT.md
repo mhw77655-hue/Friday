@@ -9,6 +9,7 @@ Friday can use an owner's eligible ChatGPT plan as one explicitly authorized Int
 - First registration uses `client_id=dynamic_agent_client`, `agent_name_hint=Friday`, and a stable per-installation `ext_agent_host_id`.
 - The issued `oaiapp_...` client ID returned by the callback is retained and reused for later sign-ins.
 - Authorization uses the system browser, loopback HTTP callback on `127.0.0.1` with the exact `/auth/callback` path, random state and nonce, and PKCE S256.
+- Authorization, token, JWKS and revocation endpoints are loaded from OpenAI's production OpenID discovery document; the issuer and endpoint origin are validated against `https://auth.openai.com` before use.
 - Token exchange uses the issued client ID, code verifier, exact redirect URI and `resource=https://api.openai.com/v1`. No client secret or API key is used.
 - The ID token is verified against the configured OpenAI JWKS. Friday checks RS256 signature, issuer, audience/authorized party, expiry, issued-at, nonce and subject before storing credentials.
 - The token response must include `chatgpt.tokens.use.direct`; a valid identity token alone is insufficient.
