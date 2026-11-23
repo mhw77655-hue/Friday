@@ -23,6 +23,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import ai.friday.assistant.diagnostics.DiagnosticEventLog
 import ai.friday.assistant.diagnostics.CrashJournal
+import ai.friday.assistant.diagnostics.EngineFailureHealthGate
 import ai.friday.assistant.FridayEngine
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
@@ -537,10 +538,21 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 findings += SelfDiagnosticFinding(id, title, level, detail, recommendation)
             }
 
+            val activeEngineIncident = runCatching {
+                val failureSurface = FridayEngine.getFailureSurface()
+                EngineFailureHealthGate.hasActiveEngineFailure(
+                    failureSurface.currentFailures.value.filter { it.isActive }.map { it.subsystem }
+                )
+            }.getOrDefault(false)
+
             when (val readiness = FridayEngine.currentReadiness) {
-                is EngineReadinessState.Ready -> add(
+                is EngineReadinessState.Ready -> if (activeEngineIncident) add(
+                    "engine", "Friday engine", DiagnosticLevel.FAILURE,
+                    "The composition root reached Ready, but the authoritative FailureSurface still records an active ENGINE incident.",
+                    "Inspect the active ENGINE diagnosis and verify recovery. Construction readiness must not override an unrecovered runtime failure."
+                ) else add(
                     "engine", "Friday engine", DiagnosticLevel.PASS,
-                    "The production composition root reached Ready."
+                    "The production composition root reached Ready and no active ENGINE incident is recorded."
                 )
                 is EngineReadinessState.FailedToWake -> add(
                     "engine", "Friday engine", DiagnosticLevel.FAILURE,

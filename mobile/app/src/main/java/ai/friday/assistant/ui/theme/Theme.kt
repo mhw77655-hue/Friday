@@ -22,8 +22,8 @@ import ai.friday.assistant.R
  * violet=sleep, green=verified success, red=warning/critical.
  */
 object FridayColors {
-    val SurfaceBase = Color(0xFF04060B)
-    val SurfacePanel = Color(0xFF0A0E1A)
+    val SurfaceBase = Color(0xFF000000)
+    val SurfacePanel = Color(0xFF080D18)
     val SurfaceHairline = Color(0x33FFFFFF)
     val CoreIdle = Color(0xFF2E9BFF)
     val CoreListening = Color(0xFF00D9C0)
@@ -37,7 +37,7 @@ object FridayColors {
     val CoreUnknown = Color(0xFF8A94A6)
     val CoreAttention = Color(0xFFF5A623)
     val TextPrimary = Color(0xFFECEDF1)
-    val TextSecondary = Color(0xFF8A94A6)
+    val TextSecondary = Color(0xFFA8B2C4)
     val TextOnAccent = Color(0xFF04101D)
 }
 
@@ -97,9 +97,9 @@ private val FridayMaterialTypography = Typography(
     bodyLarge = FridayType.Body,
     bodyMedium = FridayType.Body,
     bodySmall = FridayType.Body.copy(fontSize = 12.sp, lineHeight = 16.sp),
-    labelLarge = FridayType.Label.copy(fontSize = 14.sp),
-    labelMedium = FridayType.Label,
-    labelSmall = FridayType.Label.copy(fontSize = 11.sp, letterSpacing = 0.08.em)
+    labelLarge = FridayType.Label.copy(fontSize = 14.sp, color = Color.Unspecified),
+    labelMedium = FridayType.Label.copy(color = Color.Unspecified),
+    labelSmall = FridayType.Label.copy(fontSize = 11.sp, letterSpacing = 0.08.em, color = Color.Unspecified)
 )
 
 private val FridayDarkScheme = darkColorScheme(

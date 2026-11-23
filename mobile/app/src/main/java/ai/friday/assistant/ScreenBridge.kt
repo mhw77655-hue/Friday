@@ -83,6 +83,7 @@ object ScreenBridge {
             return
         }
         val args = Shizuku.UserServiceArgs(ComponentName(context, FridayShellService::class.java))
+            .processNameSuffix("device-capability")
             .daemon(true)
             .tag("friday-device-capability-core")
             .version(6)
