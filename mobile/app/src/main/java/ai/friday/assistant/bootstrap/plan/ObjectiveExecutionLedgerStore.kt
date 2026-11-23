@@ -320,12 +320,14 @@ class ObjectiveExecutionLedgerStore(context: Context) {
         val tasks = snapshot()?.optJSONArray("tasks") ?: return null
         for (index in 0 until tasks.length()) {
             val task = tasks.optJSONObject(index) ?: continue
-            if (task.optString("task_type") == "BOUNDED_DEVELOPMENT_STEP" &&
-                task.optString("status") == "QUEUED" &&
-                task.optBoolean("reversible", false) &&
-                task.optString("risk") == "LOW" &&
-                !task.optBoolean("requires_owner_approval", true)
-            ) return JSONObject(task.toString())
+            if (task.optString("task_type") != "BOUNDED_DEVELOPMENT_STEP" ||
+                task.optString("status") != "QUEUED" ||
+                !task.optBoolean("reversible", false) ||
+                task.optString("risk") != "LOW" ||
+                task.optBoolean("requires_owner_approval", true) ||
+                !ObjectiveTaskDependencyGate.areSatisfied(task, tasks)
+            ) continue
+            return JSONObject(task.toString())
         }
         return null
     }
