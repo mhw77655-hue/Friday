@@ -18,6 +18,7 @@ class GitHubDevelopmentRepositoryClientTest {
 
     @Test fun `candidate is committed to an isolated branch and opened as a pull request`() {
         val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(404).setBody("""{"message":"Not Found"}"""))
         server.enqueue(MockResponse().setResponseCode(200).setBody(
             """{"object":{"sha":"$sha1"}}"""
         ))
@@ -56,14 +57,14 @@ class GitHubDevelopmentRepositoryClientTest {
             assertEquals(123, result.number)
             assertEquals("https://github.com/mhw77655-hue/Friday/pull/123", result.url)
 
-            val observed = (0 until 7).map { server.takeRequest() }
+            val observed = (0 until 8).map { server.takeRequest() }
             assertEquals(
-                listOf("GET", "GET", "POST", "POST", "POST", "POST", "POST"),
+                listOf("GET", "GET", "GET", "POST", "POST", "POST", "POST", "POST"),
                 observed.map { it.method }
             )
             assertTrue(observed.all { it.getHeader("Authorization") == "Bearer " + token })
-            assertTrue(observed[5].body.readUtf8().contains("refs/heads/friday/candidate/phase0-test"))
-            assertTrue(observed[6].body.readUtf8().contains("mhw77655-hue:friday/candidate/phase0-test"))
+            assertTrue(observed[6].body.readUtf8().contains("refs/heads/friday/candidate/phase0-test"))
+            assertTrue(observed[7].body.readUtf8().contains("mhw77655-hue:friday/candidate/phase0-test"))
         } finally {
             server.shutdown()
         }
