@@ -1,5 +1,6 @@
 package ai.friday.assistant.model
 
+import ai.friday.assistant.env.ModelProviderType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
