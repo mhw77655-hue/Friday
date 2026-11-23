@@ -256,8 +256,11 @@ object FridayEngine {
                     backoffMs = 1_500,
                     breakerThreshold = 3,
                     action = {
-                        modelManager.health()
-                        true
+                        // Bound the probe itself. A hung provider must count as
+                        // a failed recovery attempt, not pin the recovery worker.
+                        kotlinx.coroutines.withTimeoutOrNull(7_000) {
+                            modelManager.health()
+                        } != null
                     },
                     verify = { modelManager.providerHealth.value.isHealthy },
                     verificationTimeoutMs = 5_000,
