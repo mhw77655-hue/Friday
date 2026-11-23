@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -49,6 +50,8 @@ class ChatGPTPlanAuth(
 ) : ChatGPTPlanTokenProvider {
     suspend fun signIn(activity: Activity): String = withContext(Dispatchers.IO) {
         val existing = credentials.read()
+        val registration = credentials.readRegistration()
+        val pendingClientId = credentials.pendingClientId()
         val server = ServerSocket()
         try {
             server.reuseAddress = false
@@ -60,8 +63,8 @@ class ChatGPTPlanAuth(
             val verifier = randomUrlSafe(32)
             val challenge = base64Url(MessageDigest.getInstance("SHA-256")
                 .digest(verifier.toByteArray(Charsets.US_ASCII)))
-            val firstRegistration = existing == null
-            val clientId = existing?.clientId ?: DYNAMIC_CLIENT_ID
+            val firstRegistration = existing == null && registration == null && pendingClientId == null
+            val clientId = existing?.clientId ?: registration?.clientId ?: pendingClientId ?: DYNAMIC_CLIENT_ID
 
             val auth = Uri.parse(AUTHORIZATION_ENDPOINT).buildUpon()
                 .appendQueryParameter("client_id", clientId)
@@ -72,7 +75,7 @@ class ChatGPTPlanAuth(
                 .apply {
                     if (!firstRegistration) {
                         existing?.idToken?.let { appendQueryParameter("id_token_hint", it) }
-                        existing?.email?.let { appendQueryParameter("login_hint", it) }
+                        (existing?.email ?: registration?.email)?.let { appendQueryParameter("login_hint", it) }
                     }
                 }
                 .appendQueryParameter("response_type", "code")
@@ -103,11 +106,17 @@ class ChatGPTPlanAuth(
 
             val issuedClientId = callback.getQueryParameter("client_id")
                 ?: existing?.clientId
+                ?: registration?.clientId
+                ?: pendingClientId
                 ?: error("OpenAI did not return the newly issued client ID.")
             require(issuedClientId.startsWith("oaiapp_")) { "OpenAI returned an invalid issued client ID." }
             if (existing != null && issuedClientId != existing.clientId) {
                 error("OpenAI returned a different client registration; refusing to replace the selected account.")
             }
+            if (registration != null && issuedClientId != registration.clientId) {
+                error("OpenAI returned a different client registration; refusing to replace the saved account mapping.")
+            }
+            credentials.setPendingClientId(issuedClientId)
 
             val token = exchangeAuthorizationCode(code, issuedClientId, verifier, redirectUri)
             require(token.optString("token_type").equals("Bearer", ignoreCase = true)) { "OpenAI returned an unsupported token type." }
@@ -118,7 +127,7 @@ class ChatGPTPlanAuth(
             val idToken = token.getString("id_token")
             val claims = verifyIdToken(idToken, issuedClientId, nonce)
             val subject = claims.getString("sub")
-            if (existing != null && existing.subject != subject) {
+            if ((existing?.subject ?: registration?.subject)?.let { it != subject } == true) {
                 error("The newly authorized ChatGPT account does not match the previously selected account.")
             }
             val expiresIn = token.optLong("expires_in", 0L)
@@ -183,9 +192,45 @@ class ChatGPTPlanAuth(
         access
     }
 
-    fun disconnect() = credentials.clear()
+    suspend fun disconnect(): String = withContext(Dispatchers.IO) {
+        val current = credentials.read()
+            ?: return@withContext "ChatGPT tokens are already cleared; the saved account registration is retained."
+        var confirmed = false
+        var lastFailure = "OpenAI revocation endpoint could not be reached."
+        for (attempt in 0..2) {
+            try {
+                val discoveryRequest = Request.Builder().url(DISCOVERY_ENDPOINT).get().build()
+                val endpoint = http.newCall(discoveryRequest).execute().use { response ->
+                    if (!response.isSuccessful) error("OpenID discovery HTTP ${response.code}")
+                    JSONObject(response.body?.string().orEmpty()).getString("revocation_endpoint")
+                }
+                val form = FormBody.Builder()
+                    .add("token", current.refreshToken)
+                    .add("token_type_hint", "refresh_token")
+                    .add("client_id", current.clientId)
+                    .build()
+                val request = Request.Builder().url(endpoint).post(form).build()
+                val responseCode = http.newCall(request).execute().use { it.code }
+                if (responseCode == 200) { confirmed = true; break }
+                lastFailure = "OpenAI token revocation returned HTTP $responseCode."
+                if (responseCode !in 500..599) break
+            } catch (failure: Exception) {
+                lastFailure = failure.javaClass.simpleName
+            }
+            if (attempt < 2) delay(500L shl attempt)
+        }
+        credentials.clearTokensPreserveRegistration()
+        if (confirmed) {
+            "ChatGPT renewable session revoked; local access/refresh/ID tokens cleared. Account registration retained."
+        } else {
+            "Disconnected locally and cleared tokens, but remote revocation was not confirmed ($lastFailure). You can also disconnect Friday in ChatGPT Settings."
+        }
+    }
+
     fun isConnected(): Boolean = credentials.read()?.let { REQUIRED_SCOPE in it.scopes } == true
-    fun accountLabel(): String = credentials.read()?.email ?: "ChatGPT not connected"
+    fun accountLabel(): String = credentials.read()?.email
+        ?: credentials.readRegistration()?.email
+        ?: "ChatGPT not connected"
 
     private fun exchangeAuthorizationCode(code: String, clientId: String, verifier: String, redirectUri: String): JSONObject {
         val form = FormBody.Builder()
@@ -331,6 +376,7 @@ class ChatGPTPlanAuth(
         const val AUTHORIZATION_ENDPOINT = "https://auth.openai.com/api/accounts/authorize"
         const val TOKEN_ENDPOINT = "https://auth.openai.com/api/accounts/oauth/token"
         const val JWKS_ENDPOINT = "https://auth.openai.com/.well-known/jwks.json"
+        const val DISCOVERY_ENDPOINT = "https://auth.openai.com/.well-known/openid-configuration"
         const val REQUIRED_SCOPE = "chatgpt.tokens.use.direct"
         private const val DYNAMIC_CLIENT_ID = "dynamic_agent_client"
         private const val APP_NAME = "Friday"
