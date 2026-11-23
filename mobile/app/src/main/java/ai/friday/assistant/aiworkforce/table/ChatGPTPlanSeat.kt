@@ -178,6 +178,12 @@ class ChatGPTPlanSeat(
             }
         } catch (cancelled: CancellationException) {
             throw cancelled
+        } catch (_: PlanRateLimitedException) {
+            reply(null, null, true, SeatPresence.RATE_LIMITED,
+                "ChatGPT plan model access is rate-limited; no paid fallback will be attempted.")
+        } catch (_: PlanAuthorizationException) {
+            reply(null, null, true, SeatPresence.AWAY,
+                "ChatGPT authorization was rejected; reconnect the account.")
         } catch (_: IOException) {
             reply(null, null, true, SeatPresence.OFFLINE, "ChatGPT Responses API is unreachable.")
         } catch (failure: Exception) {
@@ -195,6 +201,8 @@ class ChatGPTPlanSeat(
             .get()
             .build()
         http.newCall(request).execute().use { response ->
+            if (response.code == 429) throw PlanRateLimitedException()
+            if (response.code == 401) throw PlanAuthorizationException()
             if (!response.isSuccessful) return emptyList()
             val models = JSONObject(response.body?.string().orEmpty()).optJSONArray("models")
                 ?: return emptyList()
@@ -245,6 +253,9 @@ class ChatGPTPlanSeat(
         val text = lines.filterIndexed { i, _ -> i != index }.joinToString("\n").trim()
         return text to (stance to reason)
     }
+
+    private class PlanRateLimitedException : IOException()
+    private class PlanAuthorizationException : IOException()
 
     companion object {
         const val API_BASE_URL = "https://api.openai.com/v1"
