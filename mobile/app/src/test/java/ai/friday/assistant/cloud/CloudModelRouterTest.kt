@@ -66,6 +66,45 @@ class CloudModelRouterTest {
     }
 
     @Test
+    fun `all-failure request advances the starting provider for the next request`() {
+        val p1 = failing("pool-a")
+        val p2 = failing("pool-b")
+        val router = CloudModelRouter(listOf(p1, p2))
+
+        val first = router.submit(CloudReasoningRequest("first"))
+        assertFalse(first.succeeded)
+        assertEquals(1, p1.calls)
+        assertEquals(1, p2.calls)
+
+        val second = router.submit(CloudReasoningRequest("second"))
+        assertFalse(second.succeeded)
+        assertEquals("the next request must start at pool-b", 2, p1.calls)
+        assertEquals("pool-b is attempted first on the second request", 2, p2.calls)
+    }
+
+    @Test
+    fun `empty pool returns an explicit configuration failure`() {
+        val result = CloudModelRouter(emptyList()).submit(CloudReasoningRequest("hello"))
+        assertFalse(result.succeeded)
+        assertEquals(1, result.failures.size)
+        assertEquals("cloud-pool", result.failures.single().providerId)
+        assertTrue(result.failures.single().reason.contains("No cloud providers"))
+    }
+
+    @Test
+    fun `blank or mismatched provider success is rejected`() {
+        val blank = FakeCloudProvider("pool-a") { CloudResult.Success("", "pool-a") }
+        val wrongIdentity = FakeCloudProvider("pool-b") { CloudResult.Success("answer", "other-provider") }
+        val router = CloudModelRouter(listOf(blank, wrongIdentity))
+
+        val result = router.submit(CloudReasoningRequest("hello"))
+
+        assertFalse(result.succeeded)
+        assertEquals(2, result.failures.size)
+        assertTrue(result.failures.all { !it.rateLimited })
+    }
+
+    @Test
     fun `rotation cursor advances round-robin per submit like ralph sh iterations`() {
         val p1 = succeeding("pool-a", "poolA")
         val p2 = succeeding("pool-b", "poolB")
