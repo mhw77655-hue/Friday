@@ -124,12 +124,27 @@ jobs:
           SDKMANAGER=/usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager
           mkdir -p "$ANDROID_HOME"
           yes | "$SDKMANAGER" --licenses --sdk_root="$ANDROID_HOME" >/dev/null 2>&1 || true
-          "$SDKMANAGER" --install \
-            "platforms;android-36" \
-            "build-tools;35.0.0" \
-            "ndk;27.3.13750724" \
-            "cmake;3.22.1" \
-            --sdk_root="$ANDROID_HOME"
+          packages=(
+            "platforms;android-36"
+            "build-tools;35.0.0"
+            "ndk;27.3.13750724"
+            "cmake;3.22.1"
+          )
+          for attempt in 1 2 3; do
+            if "$SDKMANAGER" --install "${packages[@]}" --sdk_root="$ANDROID_HOME"; then
+              echo "Android build SDK installed on attempt $attempt"
+              exit 0
+            fi
+            echo "::warning::SDK installation attempt $attempt failed; removing corrupt partial downloads before retry"
+            rm -rf "$ANDROID_HOME/.downloadIntermediates" "$ANDROID_HOME/.temp" \
+              "$ANDROID_HOME/platforms/android-36" \
+              "$ANDROID_HOME/build-tools/35.0.0" \
+              "$ANDROID_HOME/ndk/27.3.13750724" \
+              "$ANDROID_HOME/cmake/3.22.1"
+            sleep $((attempt * 8))
+          done
+          echo "::error::Android build SDK installation failed after three clean attempts"
+          exit 1
 
       # Verify the app builds from its repository checkout without rewriting
       # a device-local binary path during CI.
@@ -298,14 +313,33 @@ jobs:
           set -euo pipefail
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses >/dev/null 2>&1 || true
-          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install \
-            "platform-tools" \
-            "emulator" \
-            "platforms;android-36" \
-            "build-tools;35.0.0" \
-            "ndk;27.3.13750724" \
-            "cmake;3.22.1" \
+          packages=(
+            "platform-tools"
+            "emulator"
+            "platforms;android-36"
+            "build-tools;35.0.0"
+            "ndk;27.3.13750724"
+            "cmake;3.22.1"
             "system-images;android-35;google_apis;x86_64"
+          )
+          for attempt in 1 2 3; do
+            if "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install "${packages[@]}"; then
+              echo "Disposable phone SDK installed on attempt $attempt"
+              exit 0
+            fi
+            echo "::warning::Emulator SDK installation attempt $attempt failed; clearing corrupt partial package downloads"
+            rm -rf "$ANDROID_HOME/.downloadIntermediates" "$ANDROID_HOME/.temp" \
+              "$ANDROID_HOME/emulator" \
+              "$ANDROID_HOME/platform-tools" \
+              "$ANDROID_HOME/platforms/android-36" \
+              "$ANDROID_HOME/build-tools/35.0.0" \
+              "$ANDROID_HOME/ndk/27.3.13750724" \
+              "$ANDROID_HOME/cmake/3.22.1" \
+              "$ANDROID_HOME/system-images/android-35"
+            sleep $((attempt * 10))
+          done
+          echo "::error::Disposable phone SDK installation failed after three clean attempts"
+          exit 1
 
       - name: Build app and instrumentation APKs
         run: ./gradlew :mobile:app:assembleDebug :mobile:app:assembleDebugAndroidTest

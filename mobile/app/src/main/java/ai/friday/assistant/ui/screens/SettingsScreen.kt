@@ -32,6 +32,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +48,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
+import java.io.File
+import org.json.JSONObject
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import ai.friday.assistant.update.FridayPackageInstaller
@@ -63,8 +66,9 @@ private const val KEY_RECALL_LIMIT = "recall_limit"
 
 /**
  * Local runtime controls, capability status and owner-exported diagnostics.
- * Cloud development and public issue/PR automation are deliberately not
- * exposed here; local continuity must remain independent of GitHub.
+ * Repository development is an optional, owner-authorized bridge that can
+ * publish isolated candidate PRs; it cannot merge or release. Local continuity
+ * remains independent of GitHub.
  */
 @Composable
 fun SettingsScreen() {
@@ -79,7 +83,10 @@ fun SettingsScreen() {
     val githubCredentialStore = remember { GitHubCredentialStore(context) }
     var githubConfigured by remember { mutableStateOf(githubCredentialStore.isConfigured()) }
     val githubPendingReportStore = remember { ai.friday.assistant.github.reporting.GitHubPendingReportStore(context) }
+    val githubDeviceReportConsentStore = remember { ai.friday.assistant.github.reporting.GitHubDeviceReportConsentStore(context) }
+    var githubAutoReportConsent by remember { mutableStateOf(githubDeviceReportConsentStore.isEnabled()) }
     var githubPendingReport by remember { mutableStateOf(githubPendingReportStore.read() != null) }
+    var githubDevelopmentStatus by remember { mutableStateOf("Development repository access has not been checked.") }
     var githubReportStatus by remember {
         mutableStateOf(if (githubConfigured) "GitHub credential is encrypted on this phone." else "GitHub reporting is not connected.")
     }
@@ -105,6 +112,7 @@ fun SettingsScreen() {
     var shizukuSnapshot by remember { mutableStateOf("") }
     var shizukuAcceptanceReport by remember { mutableStateOf("") }
     var shizukuAcceptanceRunning by remember { mutableStateOf(false) }
+    var objectiveExecutionStatus by remember { mutableStateOf("Friday is loading the canonical objectives ledger…") }
 
     // Bumped on ON_RESUME so runtime status and local diagnostic counts
     // refresh when the owner returns to Settings from Android system panels.
@@ -125,6 +133,54 @@ fun SettingsScreen() {
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+    LaunchedEffect(resumeSignal) {
+        objectiveExecutionStatus = withContext(Dispatchers.IO) {
+            val modelFile = File(context.filesDir, "friday-development/model-bootstrap.json")
+            val modelSummary = if (modelFile.isFile) runCatching {
+                val model = JSONObject(modelFile.readText(Charsets.UTF_8))
+                "Resident model: " + model.optString("state", "UNKNOWN") +
+                    " · " + model.optString("reason", "No detail recorded")
+            }.getOrDefault("Resident model: status file is unreadable.")
+            else "Resident model: waiting for host study and safe unmetered bootstrap."
+
+            val ledgerFile = File(context.filesDir, "friday-development/plan/execution-ledger.json")
+            val planSummary = if (!ledgerFile.isFile) {
+                "The canonical plan or local execution ledger has not been imported yet. Friday will retry bootstrap."
+            } else runCatching {
+                val ledger = JSONObject(ledgerFile.readText(Charsets.UTF_8))
+                val objectives = ledger.optJSONArray("objectives") ?: org.json.JSONArray()
+                val phases = ledger.optJSONArray("phases") ?: org.json.JSONArray()
+                val tasks = ledger.optJSONArray("tasks") ?: org.json.JSONArray()
+                val acceptedObjectives = (0 until objectives.length()).count {
+                    objectives.optJSONObject(it)?.optString("status") == "ACCEPTED"
+                }
+                val acceptedPhases = (0 until phases.length()).count {
+                    phases.optJSONObject(it)?.optString("status") == "ACCEPTED"
+                }
+                val queued = (0 until tasks.length()).count {
+                    tasks.optJSONObject(it)?.optString("status") == "QUEUED"
+                }
+                val stale = (0 until tasks.length()).count {
+                    tasks.optJSONObject(it)?.optString("status") == "STALE_PLAN_CHANGED"
+                }
+                val decomposed = (0 until tasks.length()).count {
+                    tasks.optJSONObject(it)?.optString("status") == "DECOMPOSED"
+                }
+                val childTasks = (0 until tasks.length()).count {
+                    tasks.optJSONObject(it)?.optString("task_type") == "BOUNDED_DEVELOPMENT_STEP"
+                }
+                "Plan ledger verified · Objectives $acceptedObjectives/${objectives.length()} accepted · " +
+                    "Objective 1 phases $acceptedPhases/${phases.length()} accepted · " +
+                    "$queued work packets queued · $decomposed parent packets decomposed into $childTasks child tasks · " +
+                    "$stale stale packets awaiting reassessment. Decomposed/queued means planned, not executed; " +
+                    "Friday does not mark work complete without evidence."
+            }.getOrElse {
+                "The local objectives ledger could not be verified. Friday preserves it and will not reset its task history."
+            }
+            planSummary + "\n" + modelSummary
+        }
+    }
+
     var shizukuDozeStatus by remember { mutableStateOf("Not checked.") }
     var keepFridayAlive by remember(resumeSignal) {
         mutableStateOf(ai.friday.assistant.runtime.FridayRuntimeController.isEnabled(context))
@@ -311,6 +367,18 @@ fun SettingsScreen() {
             }
         }
 
+
+        SectionLabel("OBJECTIVES AND DEVELOPMENT")
+        Text(
+            text = "Friday keeps the canonical objectives and evidence ledger locally. Work is tracked across the full plan; queued packets are not counted as completed work. Repository changes still require a configured, authorized development executor.",
+            style = FridayType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Text(
+            text = objectiveExecutionStatus,
+            style = FridayType.Technical,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
 
         SectionLabel("LOCAL CONTINUITY")
         Text(
@@ -505,12 +573,79 @@ fun SettingsScreen() {
             modifier = Modifier.padding(bottom = 8.dp)
         )
 
+        Button(
+            onClick = {
+                val token = githubCredentialStore.read()
+                if (token == null) {
+                    githubDevelopmentStatus = "Save a GitHub credential first."
+                } else {
+                    githubBusy = true
+                    scope.launch {
+                        val result = runCatching {
+                            withContext(Dispatchers.IO) {
+                                ai.friday.assistant.github.reporting.GitHubDevelopmentRepositoryClient(token)
+                                    .verifyDevelopmentAccess()
+                            }
+                        }
+                        githubDevelopmentStatus = result.fold(
+                            onSuccess = { it },
+                            onFailure = { it.message ?: "GitHub development access check failed." }
+                        )
+                        githubBusy = false
+                    }
+                }
+            },
+            enabled = githubConfigured && !githubBusy,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Verify Friday development repository access") }
+        Text(
+            text = githubDevelopmentStatus,
+            style = FridayType.Technical,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
         SectionLabel("GITHUB DEVICE REPORTING")
         Text(
-            text = "Create a fine-grained token limited to the mhw77655-hue/Friday repository, with Issues read and write permission (Metadata read is automatic). Paste it here once. Friday encrypts it with Android Keystore. When you tap Upload, Friday sends a bounded report containing app/build identity, device capability states, sanitized crash frames and action categories. It never includes conversations, speech transcripts, typed content, screen text, notifications or the token. Each upload creates a GitHub issue and a validated Actions artifact. This Friday repository is public. Anyone can read uploaded GitHub issues and Actions artifacts. Upload only if you accept those sanitized device diagnostics being public.",
+            text = "Create a fine-grained token limited to the mhw77655-hue/Friday repository, with Contents read/write, Pull requests read/write, Actions read, and Issues read/write (Metadata read is automatic). These permissions let Friday inspect the canonical plan, publish isolated candidate branches/PRs, check CI, and submit sanitized device acceptance reports. Paste it here once. Friday encrypts it with Android Keystore. Automatic reporting is OFF by default and requires the separate consent switch below. If enabled, Friday submits bounded app/build identity, host capability states, sanitized crash frames and action categories after defined milestones. It never includes conversations, speech transcripts, typed content, screen text, notifications or the token. Reports create public GitHub issues/artifacts. Anyone can read them. Enable automatic reporting only if you accept this public disclosure.",
             style = FridayType.Label,
             modifier = Modifier.padding(bottom = 8.dp)
         )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Automatic sanitized device reports", style = FridayType.Body)
+                Text(
+                    if (githubAutoReportConsent) "Enabled by owner consent; reports are sent to public GitHub issues after host and Builder milestones."
+                    else "Off. Friday keeps reports local until you explicitly enable this.",
+                    style = FridayType.Technical
+                )
+            }
+            Switch(
+                checked = githubAutoReportConsent,
+                onCheckedChange = { enabled ->
+                    runCatching { githubDeviceReportConsentStore.setEnabled(enabled) }
+                        .onSuccess {
+                            githubAutoReportConsent = enabled
+                            githubReportStatus = if (enabled) {
+                                "Automatic sanitized reporting enabled by your consent."
+                            } else {
+                                "Automatic device reporting disabled. Existing local pending reports remain local."
+                            }
+                            if (enabled && githubConfigured) {
+                                ai.friday.assistant.github.reporting.GitHubDeviceReportWorker.enqueue(
+                                    context, "owner-consent-enabled"
+                                )
+                            }
+                        }
+                        .onFailure {
+                            githubReportStatus = it.message ?: "Reporting consent could not be saved."
+                        }
+                }
+            )
+        }
         Button(
             onClick = {
                 context.startActivity(
@@ -541,7 +676,13 @@ fun SettingsScreen() {
                         .onSuccess {
                             githubConfigured = true
                             githubToken = ""
-                            githubReportStatus = "Credential encrypted locally. Verify repository access before uploading."
+                            githubReportStatus = "Credential encrypted locally. Friday's Builder queue has been started."
+                            ai.friday.assistant.bootstrap.host.HostBootstrapWorker.enqueue(context)
+                            ai.friday.assistant.model.storage.ResidentModelBootstrapWorker.enqueue(context)
+                            ai.friday.assistant.bootstrap.plan.ObjectiveExecutionWorker.enqueue(context)
+                            if (githubAutoReportConsent) {
+                                ai.friday.assistant.github.reporting.GitHubDeviceReportWorker.enqueue(context, "credential-saved")
+                            }
                         }
                         .onFailure {
                             githubReportStatus = it.message ?: "Credential could not be stored securely."
@@ -551,9 +692,11 @@ fun SettingsScreen() {
             ) { Text("Save GitHub credential") }
             TextButton(onClick = {
                 githubCredentialStore.clear()
+                githubDeviceReportConsentStore.setEnabled(false)
+                githubAutoReportConsent = false
                 githubConfigured = false
                 githubToken = ""
-                githubReportStatus = "GitHub credential removed from this phone."
+                githubReportStatus = "GitHub credential and automatic-reporting consent removed from this phone. Pending evidence remains local."
             }) { Text("Remove") }
         }
         Row(

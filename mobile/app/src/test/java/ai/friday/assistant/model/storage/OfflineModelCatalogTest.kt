@@ -30,10 +30,26 @@ class OfflineModelCatalogTest {
     @Test fun tinyEnglishFallbackIsPinnedAndMarkedAsFallback() {
         val model = OfflineModelCatalog.tinyFallback
         assertEquals("qwen3.5-0.8b-abliterated", model.id)
-        assertEquals("xdchinza/Qwen3.5-0.8B-abliterated-GGUF", model.repository)
-        assertEquals("6cef073", model.revision)
+        assertEquals("OpceanAI/Qwen3.5-0.8B-abliterated-GGUF", model.repository)
+        assertEquals("8146c57", model.revision)
         assertEquals("Apache-2.0", model.license)
+        assertEquals(517L * 1024L * 1024L, model.expectedMinimumBytes)
+        assertEquals("35a35d9f6baf63ef70b272b30ea920010ac2d585c439d7176f0f830dea58c9b3", model.sha256)
         assertFalse(model.resident)
+    }
+
+    @Test fun bootstrapSelectsTheLargestPinnedModelWithinMeasuredHostBudget() {
+        val tinyBudget = 600L * 1024L * 1024L
+        assertEquals(
+            listOf(OfflineModelCatalog.tinyFallback.id),
+            residentBootstrapCandidates(tinyBudget).map { it.id }
+        )
+        val largeBudget = 2L * 1024L * 1024L * 1024L
+        assertEquals(
+            listOf(OfflineModelCatalog.resident.id, OfflineModelCatalog.tinyFallback.id),
+            residentBootstrapCandidates(largeBudget).map { it.id }
+        )
+        assertTrue(residentBootstrapCandidates(0L).isEmpty())
     }
 
     @Test fun reasoningModelIsSeparateAndApacheLicensed() {

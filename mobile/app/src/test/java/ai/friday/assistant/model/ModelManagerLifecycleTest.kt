@@ -1,5 +1,6 @@
 package ai.friday.assistant.model
 
+import ai.friday.assistant.env.ModelProviderType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -126,4 +127,19 @@ class ModelManagerLifecycleTest {
         assertEquals("concurrent requests must share one in-flight load", 1, backend.loadCount)
         assertTrue(backend.isLoaded(a))
     }
+    @Test
+    fun `generateOnTier uses the process-isolated resident backend rather than the active heuristic adapter`() = runBlocking {
+        val backend = FakeModelBackend(cannedResponse = { "local-resident:" + it.take(40) })
+        val m = manager(backend)
+
+        val resident = m.request(OrganRole.RESIDENT, task = "offline-planner", modelId = "friday-resident:latest")
+        assertTrue(backend.isAvailable(resident))
+        assertEquals(ModelProviderType.HEURISTIC, m.activeProvider.value.providerType)
+
+        val result = m.generateOnTier(ModelTier.RESIDENT, "decompose this local task")
+        assertEquals("local-resident:decompose this local task", result.content)
+        assertEquals("friday-resident:latest", result.model)
+        assertEquals(1, backend.generateCount)
+    }
+
 }

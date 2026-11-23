@@ -54,6 +54,12 @@ object FridayEngine {
     @Volatile var wiringThrowForTesting: Throwable? = null
 
     @Volatile private var appContext: Context? = null
+    @Volatile private var rootClock: (() -> Long)? = null
+
+    /** Shared Android root clock for workers and the production turn graph. */
+    fun nowMs(): Long = checkNotNull(rootClock) {
+        "FridayEngine.init() must install the host clock before timestamped work runs"
+    }.invoke()
     @Volatile var capabilities: CapabilityManifest? = null
         private set
 
@@ -298,6 +304,7 @@ object FridayEngine {
             FridayEngine.turnTraceStore = turnTraceStore
 
             val clock: () -> Long = { System.currentTimeMillis() }
+            this.rootClock = clock
             val threadTracker = ai.friday.assistant.threads.ThreadTracker(now = clock)
             FridayEngine.threadTracker = threadTracker
 

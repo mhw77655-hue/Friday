@@ -60,3 +60,33 @@ Persist the objective-plan revision, task graph, assignments, checkpoints, idemp
 The owner remains the architect and active collaborator. Friday must expose plan status, worker participation, source changes, evidence, costs and blockers; allow the owner to inspect, challenge, redirect, pause or stop work and to use GitHub or other tools directly. Explicit authorization remains mandatory for protected operations, including permission/privilege changes, new external data disclosures, paid commitments, destructive changes, signing/identity changes and irreversible actions. Never expose credentials to workers or chat. Never use public GitHub Issues as a private device telemetry endpoint.
 
 **Implementation status:** this section records the required post-install operating contract. The current host-profile payload builder does not itself implement a durable autonomous objectives scheduler, authenticated AI-pool orchestration, independent review workflow, or signed proposal/promotion loop. Those must be implemented and verified before the installed app may claim this capability.
+
+
+## First-launch host study and plan bootstrap — implementation slice
+
+The friday-host-bootstrap-runtime branch adds an executable first-launch path:
+
+- HostBootstrapWorker reads Android API/device/ABI facts, available and total memory, app memory class, CPU core count, private-storage headroom, thermal state, battery/charging and power-save state, validated/metered network state, Friday's own feature-permission and optional-integration readiness, packaged inference-library names, and a bounded count of app-private GGUF model files.
+- HostBootstrapPolicy converts those measured values into protective, efficient, balanced or high-capacity operating recommendations. It does not change Android settings, request permissions, or assume that an accelerator works.
+- First launch prepares private workspace, candidates, evidence, cache and checkpoints directories under filesDir/friday-development and persists a schema-versioned host-bootstrap.json report. The unique WorkManager request avoids duplicate bootstrap jobs across app launches.
+- ObjectivePlanSyncWorker fetches the canonical .ralph/FRIDAY_DELIVERY_PLAN.md directly from the repository when a validated network is available, verifies that Objectives A-G are present, stores a local Markdown snapshot and a SHA-256-addressed objective ledger, and schedules a weekly refresh. The local snapshot remains available while offline.
+- Unit tests cover the deterministic host policy and extraction of all seven canonical objective sections.
+
+Remaining implementation work: the objective ledger currently imports objective sections as UNASSESSED; it does not yet resolve the plan's full dependency graph, assess completion evidence, choose and execute tasks, construct/test source candidates, or integrate an AI worker pool. The host survey also does not yet prove individual action routes or identify an available Android source-build toolchain. Do not describe this first bootstrap slice as autonomous plan completion.
+
+
+### Host study refinement: measured CPU, process footprint and Shizuku authority
+
+The bootstrap now also samples aggregate CPU utilization over a short `/proc/stat` interval and captures Friday's process PSS. If CPU counters or thermal telemetry are unavailable, the report records that uncertainty rather than treating the host as idle/cool. The initial workload recommendation delegates to the existing `NanoSymbioticPolicy`, with additional conservative gates: unknown CPU load cannot select high-capacity mode; low storage downgrades performance; critically low storage selects protective mode; and local model loading requires a detected model, a packaged inference library, sufficient memory and known-safe thermal telemetry.
+
+Shizuku discovery now goes beyond checking whether the manager package exists. Friday initializes the official Shizuku API and records live Binder reachability, Friday's own authorization state, the server UID and the resulting privilege classification (`ROOT`, `ADB_SHELL`, `UNKNOWN`, or `NOT_RUNNING`). A running server without Friday authorization, an unknown UID, or a manager package without a live Binder is not marked usable. This is capability discovery only; the first-launch survey does not execute elevated operations. The existing bounded Shizuku acceptance runner remains the separate route-verification step.
+
+
+### Capability-scoped first-launch setup plan
+
+The bootstrap report now includes a machine-readable `setup_checklist`. It separates core readiness from optional, feature-scoped capabilities: microphone, camera, notifications, battery-optimization exemption, Accessibility, notification-listener access, Shizuku, and network availability for canonical-plan synchronization. Each item records current observed state, whether it is required for core operation, why it matters, the narrow next action, and the condition under which Friday should offer it. Optional permissions and privileged routes are not bundled into a blanket setup request and do not block core startup. This is currently a persisted assessment/plan, not yet the completed in-app guided consent flow; the app must still add the UI/system handoffs and re-check each postcondition after the owner returns.
+
+
+### Offline canonical-plan seed
+
+The canonical `.ralph/FRIDAY_DELIVERY_PLAN.md` is now bundled as `mobile/app/src/main/assets/friday/FRIDAY_DELIVERY_PLAN.md`. `ObjectivePlanSyncWorker` seeds the private local plan snapshot and objective ledger from that APK asset before attempting network access. The initial seed work has no network constraint; if no validated internet is available, it completes with the bundled plan ready for offline use. A periodic connected-network job may refresh the snapshot from the canonical repository. If the ledger is missing but a valid local plan snapshot exists, metadata is rebuilt from that snapshot rather than overwriting it with a potentially older APK copy. GitHub is therefore a refresh channel, not a first-boot dependency. The in-app setup assessment reports the bundled plan as ready even while remote refresh is pending.

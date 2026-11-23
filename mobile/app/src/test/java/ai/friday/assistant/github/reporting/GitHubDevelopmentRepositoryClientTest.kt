@@ -1,0 +1,243 @@
+package ai.friday.assistant.github.reporting
+
+import java.util.Base64
+import okhttp3.OkHttpClient
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import org.json.JSONObject
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class GitHubDevelopmentRepositoryClientTest {
+    private val token = "github_pat_" + "x".repeat(40)
+    private val sha1 = "1".repeat(40)
+    private val sha2 = "2".repeat(40)
+    private val sha3 = "3".repeat(40)
+    private val sha4 = "4".repeat(40)
+
+    @Test fun `candidate is committed to an isolated branch and opened as a pull request`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(404).setBody("""{"message":"Not Found"}"""))
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"object":{"sha":"$sha1"}}"""
+        ))
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"tree":{"sha":"$sha2"}}"""
+        ))
+        server.enqueue(MockResponse().setResponseCode(201).setBody(
+            """{"sha":"$sha3"}"""
+        ))
+        server.enqueue(MockResponse().setResponseCode(201).setBody(
+            """{"sha":"$sha4"}"""
+        ))
+        server.enqueue(MockResponse().setResponseCode(201).setBody(
+            """{"sha":"$sha1"}"""
+        ))
+        server.enqueue(MockResponse().setResponseCode(201).setBody(
+            """{"ref":"refs/heads/friday/candidate/phase0-test"}"""
+        ))
+        server.enqueue(MockResponse().setResponseCode(201).setBody(
+            """{"html_url":"https://github.com/mhw77655-hue/Friday/pull/123","number":123}"""
+        ))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val client = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+            val result = client.publishCandidate(
+                taskId = "phase0-test",
+                title = "Friday candidate: phase 0 evidence",
+                body = "Evidence and acceptance criteria.",
+                changes = mapOf(
+                    "mobile/app/src/main/java/ai/friday/assistant/Example.kt" to "package ai.friday.assistant\\n"
+                )
+            )
+            assertEquals("friday/candidate/phase0-test", result.branch)
+            assertEquals(sha1, result.commitSha)
+            assertEquals(123, result.number)
+            assertEquals("https://github.com/mhw77655-hue/Friday/pull/123", result.url)
+
+            val observed = (0 until 8).map { server.takeRequest() }
+            assertEquals(
+                listOf("GET", "GET", "GET", "POST", "POST", "POST", "POST", "POST"),
+                observed.map { it.method }
+            )
+            assertTrue(observed.all { it.getHeader("Authorization") == "Bearer " + token })
+            assertTrue(observed[6].body.readUtf8().contains("refs/heads/friday/candidate/phase0-test"))
+            assertTrue(observed[7].body.readUtf8().contains("mhw77655-hue:friday/candidate/phase0-test"))
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `retry reuses an existing candidate branch and pull request after process death`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"object":{"sha":"$sha3"}}"""
+        ))
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """[{"html_url":"https://github.com/mhw77655-hue/Friday/pull/123","number":123}]"""
+        ))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val client = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+            val result = client.publishCandidate(
+                taskId = "phase0-test",
+                title = "Friday candidate: phase 0 evidence",
+                body = "Evidence and acceptance criteria.",
+                changes = mapOf(
+                    "mobile/app/src/main/java/ai/friday/assistant/Example.kt" to "class Example"
+                )
+            )
+            assertEquals(sha3, result.commitSha)
+            assertEquals(123, result.number)
+            assertEquals(2, server.requestCount)
+            assertEquals("GET", server.takeRequest().method)
+            assertEquals("GET", server.takeRequest().method)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `recovery reuses immutable branch commit and opens missing pull request`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"object":{"sha":"$sha3"}}"""
+        ))
+        server.enqueue(MockResponse().setResponseCode(200).setBody("[]"))
+        server.enqueue(MockResponse().setResponseCode(201).setBody(
+            """{"html_url":"https://github.com/mhw77655-hue/Friday/pull/124","number":124}"""
+        ))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val client = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+            val recovered = client.recoverExistingCandidate(
+                taskId = "phase0-test",
+                title = "Recovered Friday candidate",
+                recoveryBody = "Recovered after process death."
+            )
+            assertEquals(sha3, recovered?.commitSha)
+            assertEquals(124, recovered?.number)
+            assertEquals(3, server.requestCount)
+            assertEquals("GET", server.takeRequest().method)
+            assertEquals("GET", server.takeRequest().method)
+            assertEquals("POST", server.takeRequest().method)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `read preflight verifies repository branch and canonical plan only`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"object":{"sha":"$sha1"}}"""
+        ))
+        val plan = "# Friday canonical plan"
+        val planBody = JSONObject()
+            .put("encoding", "base64")
+            .put("content", Base64.getEncoder().encodeToString(plan.toByteArray()))
+            .toString()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(planBody))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val message = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+                .verifyDevelopmentAccess()
+            assertTrue(message.contains(sha1.take(12)))
+            assertEquals(2, server.requestCount)
+            assertEquals("GET", server.takeRequest().method)
+            assertEquals("GET", server.takeRequest().method)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `external Seat gate refuses private repositories before sharing source`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"private":true}"""))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val client = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+            val failure = runCatching {
+                client.validateExternalShareableCandidate(
+                    mapOf("mobile/app/src/main/java/ai/friday/assistant/Example.kt" to "class Example")
+                )
+            }.exceptionOrNull()
+            assertTrue(failure is IllegalArgumentException)
+            assertEquals(1, server.requestCount)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `external Seat gate secret scans before source can leave the app`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"private":false}"""))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val client = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+            val failure = runCatching {
+                client.validateExternalShareableCandidate(
+                    mapOf(
+                        "mobile/app/src/main/java/ai/friday/assistant/Example.kt" to
+                            "val token = github_pat_" + "z".repeat(40)
+                    )
+                )
+            }.exceptionOrNull()
+            assertTrue(failure is IllegalArgumentException)
+            assertEquals(1, server.requestCount)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `exact commit diff is fetched read only with diff accept header`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody("diff --git a/A.kt b/A.kt"))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val client = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+            assertTrue(client.readCommitDiff(sha1).contains("diff --git"))
+            val request = server.takeRequest()
+            assertEquals("GET", request.method)
+            assertEquals("application/vnd.github.v3.diff", request.getHeader("Accept"))
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `publisher refuses unsafe paths and credential-like source before network access`() {
+        val server = MockWebServer()
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val client = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+            val unsafePath = runCatching {
+                client.publishCandidate(
+                    "phase0-test", "Title", "Body",
+                    mapOf("../../.github/workflows/build.yml" to "name: injected")
+                )
+            }.exceptionOrNull()
+            assertTrue(unsafePath is IllegalArgumentException)
+
+            val secret = runCatching {
+                client.publishCandidate(
+                    "phase0-test", "Title", "Body",
+                    mapOf(
+                        "mobile/app/src/main/java/ai/friday/assistant/Example.kt" to
+                            "val token = github_pat_" + "z".repeat(40)
+                    )
+                )
+            }.exceptionOrNull()
+            assertTrue(secret is IllegalArgumentException)
+            assertEquals(0, server.requestCount)
+        } finally {
+            server.shutdown()
+        }
+    }
+}

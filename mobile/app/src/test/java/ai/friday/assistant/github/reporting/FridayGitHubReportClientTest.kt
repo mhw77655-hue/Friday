@@ -57,8 +57,23 @@ class FridayGitHubReportClientTest {
         val parsed = FridayGitHubReportPayload.parse(report())
         val body = FridayGitHubReportPayload.issueBody(parsed)
         assertTrue(body.contains("FRIDAY_LIVE_TEST_REPORT"))
-        assertTrue(body.contains("explicitly submitted by the device owner"))
+        assertTrue(body.contains("explicit consent for sanitized automatic device reporting"))
         assertFalse(body.contains("conversation transcript"))
+    }
+
+    @Test
+    fun rejectsProviderKeysAndPrivateKeyHeadersBeforeUpload() {
+        val openAiKey = report().replace(
+            "\"events\":[]",
+            "\"events\":[{\"debug\":\"sk-proj-" + "a".repeat(40) + "\"}]"
+        )
+        assertTrue(runCatching { FridayGitHubReportPayload.parse(openAiKey) }.isFailure)
+
+        val privateKey = report().replace(
+            "\"events\":[]",
+            "\"events\":[{\"debug\":\"-----BEGIN PRIVATE KEY-----\"}]"
+        )
+        assertTrue(runCatching { FridayGitHubReportPayload.parse(privateKey) }.isFailure)
     }
 
     @Test

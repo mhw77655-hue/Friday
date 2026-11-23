@@ -266,6 +266,26 @@ class ModelManager(
         return _activeProvider.value.generate(request)
     }
 
+    /**
+     * Generate through a specific already-loaded in-app model tier. This is
+     * the offline path used by Friday's own planner/builder: it talks to the
+     * process-isolated ModelBackend, not the active HTTP/provider adapter.
+     */
+    suspend fun generateOnTier(tier: ModelTier, prompt: String): GenerateResult {
+        require(prompt.isNotBlank()) { "Local model prompt must not be blank." }
+        val handle = synchronized(lifecycleLock) { cachedByTier[tier] }
+            ?: return GenerateResult("", finishReason = FinishReason.ERROR)
+        if (!modelBackend.isAvailable(handle)) {
+            return GenerateResult("", finishReason = FinishReason.ERROR, model = handle.modelId)
+        }
+        val content = modelBackend.generate(handle, prompt)
+        return if (content.isNotBlank()) {
+            GenerateResult(content = content, finishReason = FinishReason.STOP, model = handle.modelId)
+        } else {
+            GenerateResult("", finishReason = FinishReason.ERROR, model = handle.modelId)
+        }
+    }
+
     /** Stream generation - delegates to active provider */
     fun stream(request: GenerateRequest) = _activeProvider.value.stream(request)
 

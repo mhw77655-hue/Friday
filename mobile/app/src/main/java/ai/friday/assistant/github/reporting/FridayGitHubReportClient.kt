@@ -109,7 +109,7 @@ class FridayGitHubReportClient(
 internal object FridayGitHubReportPayload {
     private const val MAX_REPORT_BYTES = 40 * 1024
     private val secretPattern = Regex(
-        "(?i)(github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|bearer\\s+[A-Za-z0-9._-]{20,})"
+        "(?i)(github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{30,}|xox[baprs]-[A-Za-z0-9-]{20,}|bearer\\s+[A-Za-z0-9._-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)"
     )
 
     fun parse(reportJson: String): JSONObject {
@@ -140,7 +140,7 @@ internal object FridayGitHubReportPayload {
     fun issueBody(payload: JSONObject): String = buildString {
         appendLine("Automated Friday phone diagnostic report.")
         appendLine()
-        appendLine("This report was explicitly submitted by the device owner from Friday Settings.")
+        appendLine("This report was submitted by Friday under the owner's explicit consent for sanitized automatic device reporting.")
         appendLine("It contains bounded technical diagnostics and action categories, not conversation content.")
         appendLine()
         appendLine("FRIDAY_DEVICE_REPORT_JSON_BEGIN")
