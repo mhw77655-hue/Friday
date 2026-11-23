@@ -2,6 +2,7 @@ package ai.friday.assistant.nervous
 
 import ai.friday.assistant.microsystem.MicroSystemRegistry
 import ai.friday.assistant.microsystem.OperationResult
+import ai.friday.assistant.microsystem.isRoutable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,13 +39,13 @@ class PredictiveRouter(private val registry: MicroSystemRegistry) {
         val table = transitions.value
         val nexts = table.filterKeys { it.first == trigger }
             .map { (key, count) -> key.second to count }
-        if (nexts.isEmpty()) return Prediction(trigger, 0.0, registry.provides(trigger).isNotEmpty())
+        if (nexts.isEmpty()) return Prediction(trigger, 0.0, registry.provides(trigger).any { it.isRoutable() })
         val total = nexts.sumOf { it.second }
         val (best, count) = nexts.maxByOrNull { it.second } ?: return Prediction(trigger, 0.0, false)
         return Prediction(
             predictedCapability = best,
             confidence = count.toDouble() / total,
-            providerReady = registry.provides(best).isNotEmpty()
+            providerReady = registry.provides(best).any { it.isRoutable() }
         )
     }
 
