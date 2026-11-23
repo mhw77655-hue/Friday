@@ -4,7 +4,7 @@ import ai.friday.assistant.microsystem.MicroSystemContract
 import ai.friday.assistant.microsystem.MicroSystemRegistry
 import ai.friday.assistant.microsystem.OperationResult
 import ai.friday.assistant.microsystem.SyncMessage
-import ai.friday.assistant.microsystem.isRoutable
+import ai.friday.assistant.microsystem.isCapabilityCallable
 import ai.friday.assistant.organism.manifests
 
 /**
@@ -28,7 +28,7 @@ class OrganismCoordinator(
 ) {
 
     /** Every capability currently provided by registered organisms. */
-    val readyCapabilities: Set<String> get() = registry.all().filter { it.isRoutable() }.flatMap { it.capabilities }.toSet()
+    val readyCapabilities: Set<String> get() = registry.all().filter { it.isCapabilityCallable() }.flatMap { it.capabilities }.toSet()
 
     /** Organisms that declare a capability. */
     fun providers(capability: String): List<MicroSystemContract> = registry.provides(capability).filter { it.isRoutable() }
@@ -83,7 +83,7 @@ class OrganismCoordinator(
                 failedAt = nextCapability,
                 error = "provider ${routed.providerId ?: "unknown"} omitted declared output port '$outputName'"
             )
-            val nextProvider = router.providers(nextCapability).firstOrNull()
+            val nextProvider = router.providers(nextCapability).firstOrNull { it is ai.friday.assistant.microsystem.CallableMicroSystem }
             val nextInputName = nextProvider?.genome?.inputs?.firstOrNull()?.name ?: "value"
             input = mapOf(nextInputName to outputValue)
         }
