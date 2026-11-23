@@ -56,10 +56,9 @@ class ChatGPTPlanIdTokenInstrumentedTest {
 
             val auth = ChatGPTPlanAuth(
                 context = context,
-                http = OkHttpClient.Builder().callTimeout(10, TimeUnit.SECONDS).build(),
-                jwksEndpoint = server.url("/jwks").toString()
+                http = OkHttpClient.Builder().callTimeout(10, TimeUnit.SECONDS).build()
             )
-            val claims = auth.verifyIdToken(token, clientId, nonce)
+            val claims = auth.verifyIdToken(token, clientId, nonce, server.url("/jwks").toString())
             assertEquals("account-subject", claims.getString("sub"))
             assertEquals(clientId, claims.getString("aud"))
         } finally {
