@@ -22,6 +22,7 @@ class ChatGPTPlanSeat(
     context: Context,
     private val tokenProvider: ChatGPTPlanTokenProvider = ChatGPTPlanAuth(context),
     private val credentials: ChatGPTPlanCredentialStore = ChatGPTPlanCredentialStore(context),
+    private val appContext: Context = context.applicationContext,
     private val apiBaseUrl: String = API_BASE_URL,
     private val http: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
@@ -37,6 +38,7 @@ class ChatGPTPlanSeat(
     @Volatile private var cachedModels: List<Pair<String, String>> = emptyList()
 
     override suspend fun presence(): SeatPresence {
+        if (!ChatGPTPlanBackgroundConsentStore(appContext).isEnabled()) return SeatPresence.DISABLED
         return try {
             if (tokenProvider.validAccessToken() == null) SeatPresence.AWAY else SeatPresence.HERE
         } catch (cancelled: CancellationException) {
@@ -55,6 +57,10 @@ class ChatGPTPlanSeat(
         if (request.dataClass != SeatDataClass.PUBLIC || !request.externallyShareable) {
             return@withContext reply(null, null, true, SeatPresence.DISABLED,
                 "Privacy gate: ChatGPT receives only explicitly shareable public digests.")
+        }
+        if (!ChatGPTPlanBackgroundConsentStore(appContext).isEnabled()) {
+            return@withContext reply(null, null, true, SeatPresence.DISABLED,
+                "Background ChatGPT plan use is disabled until the owner explicitly enables it in Settings.")
         }
         if (request.digest.isBlank() || request.digest.length > MAX_DIGEST_CHARS ||
             request.delta.length > MAX_DELTA_CHARS
