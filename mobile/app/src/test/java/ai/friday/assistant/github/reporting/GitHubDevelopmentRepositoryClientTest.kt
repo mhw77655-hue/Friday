@@ -94,6 +94,63 @@ class GitHubDevelopmentRepositoryClientTest {
         }
     }
 
+    @Test fun `external Seat gate refuses private repositories before sharing source`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"private":true}"""))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val client = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+            val failure = runCatching {
+                client.validateExternalShareableCandidate(
+                    mapOf("mobile/app/src/main/java/ai/friday/assistant/Example.kt" to "class Example")
+                )
+            }.exceptionOrNull()
+            assertTrue(failure is IllegalArgumentException)
+            assertEquals(1, server.requestCount)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `external Seat gate secret scans before source can leave the app`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody("""{"private":false}"""))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val client = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+            val failure = runCatching {
+                client.validateExternalShareableCandidate(
+                    mapOf(
+                        "mobile/app/src/main/java/ai/friday/assistant/Example.kt" to
+                            "val token = github_pat_" + "z".repeat(40)
+                    )
+                )
+            }.exceptionOrNull()
+            assertTrue(failure is IllegalArgumentException)
+            assertEquals(1, server.requestCount)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `exact commit diff is fetched read only with diff accept header`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody("diff --git a/A.kt b/A.kt"))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val client = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+            assertTrue(client.readCommitDiff(sha1).contains("diff --git"))
+            val request = server.takeRequest()
+            assertEquals("GET", request.method)
+            assertEquals("application/vnd.github.v3.diff", request.getHeader("Accept"))
+        } finally {
+            server.shutdown()
+        }
+    }
+
     @Test fun `publisher refuses unsafe paths and credential-like source before network access`() {
         val server = MockWebServer()
         server.start()
