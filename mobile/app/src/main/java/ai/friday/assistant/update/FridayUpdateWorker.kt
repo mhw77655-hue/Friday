@@ -16,8 +16,10 @@ import ai.friday.assistant.MainActivity
 import kotlinx.coroutines.CancellationException
 
 /**
- * Periodically discovers official signed releases and stages verified APKs.
- * The owner still approves installation when Android requires it.
+ * Periodic signed-release check. It stages only a fully verified release, then uses
+ * Shizuku's authorized privileged installer for background updates when available.
+ * If that route is unavailable, it preserves the staged APK and surfaces the native
+ * PackageInstaller fallback rather than claiming that installation succeeded.
  */
 class FridayUpdateWorker(
     appContext: Context,
