@@ -9,6 +9,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okhttp3.FormBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -153,7 +155,8 @@ class ChatGPTPlanAuth(
         }
     }
 
-    override suspend fun validAccessToken(): String? = withContext(Dispatchers.IO) {
+    override suspend fun validAccessToken(): String? = refreshMutex.withLock {
+        withContext(Dispatchers.IO) {
         val current = credentials.read() ?: return@withContext null
         if (REQUIRED_SCOPE !in current.scopes) return@withContext null
         val now = System.currentTimeMillis() / 1000L
@@ -191,9 +194,11 @@ class ChatGPTPlanAuth(
             scopes = newScopes
         ))
         access
+        }
     }
 
-    suspend fun disconnect(): String = withContext(Dispatchers.IO) {
+    suspend fun disconnect(): String = refreshMutex.withLock {
+        withContext(Dispatchers.IO) {
         val current = credentials.read()
             ?: return@withContext "ChatGPT tokens are already cleared; the saved account registration is retained."
         var confirmed = false
@@ -225,6 +230,7 @@ class ChatGPTPlanAuth(
             "ChatGPT renewable session revoked; local access/refresh/ID tokens cleared. Account registration retained."
         } else {
             "Disconnected locally and cleared tokens, but remote revocation was not confirmed ($lastFailure). You can also disconnect Friday in ChatGPT Settings."
+        }
         }
     }
 
@@ -387,5 +393,6 @@ class ChatGPTPlanAuth(
         private const val SOCKET_TIMEOUT_MS = 15_000
         private const val TOKEN_REFRESH_SKEW_SECONDS = 90L
         private const val CLOCK_SKEW_SECONDS = 60L
+        private val refreshMutex = Mutex()
     }
 }
