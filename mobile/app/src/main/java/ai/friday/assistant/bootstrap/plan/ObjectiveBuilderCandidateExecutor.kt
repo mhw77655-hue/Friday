@@ -6,6 +6,7 @@ import ai.friday.assistant.aiworkforce.table.OvhAnonymousSeat
 import ai.friday.assistant.aiworkforce.table.SeatDataClass
 import ai.friday.assistant.aiworkforce.table.SeatRequest
 import ai.friday.assistant.aiworkforce.table.SeatRoleCard
+import ai.friday.assistant.aiworkforce.table.SeatWalletStore
 import ai.friday.assistant.github.reporting.GitHubDevelopmentRepositoryClient
 import ai.friday.assistant.model.FinishReason
 import ai.friday.assistant.model.ModelManager
@@ -141,7 +142,7 @@ internal class ObjectiveBuilderCandidateExecutor(
                 appendLine(source.take(1_200))
             }
         }.take(8_000)
-        val guestReply = OvhAnonymousSeat().speak(
+        val guestReply = OvhAnonymousSeat(wallet = SeatWalletStore(androidContext)).speak(
             SeatRequest(
                 turnId = taskId,
                 digest = guestDigest,
@@ -161,6 +162,8 @@ internal class ObjectiveBuilderCandidateExecutor(
             .put("provider", guestReply.provider)
             .put("model", guestReply.model)
             .put("utterance", guestReply.utterance ?: JSONObject.NULL)
+            .put("stance", guestReply.stance.name)
+            .put("stance_reason", guestReply.stanceReason ?: JSONObject.NULL)
             .put("pass", guestReply.passed)
             .put("presence", guestReply.presence.name)
             .put("transport", guestReply.transport)
@@ -172,6 +175,7 @@ internal class ObjectiveBuilderCandidateExecutor(
             appendLine()
             appendLine("## Anonymous external Seat critique")
             appendLine(guestReply.utterance ?: ("PASS / unavailable: " + (guestReply.error ?: guestReply.presence.name)))
+            appendLine("Stance: " + guestReply.stance.name + (guestReply.stanceReason?.let { " — $it" } ?: ""))
             appendLine("Provider/model: " + guestReply.provider + " / " + guestReply.model)
             appendLine("This is untrusted advisory text, not verification or authority.")
             appendLine()
