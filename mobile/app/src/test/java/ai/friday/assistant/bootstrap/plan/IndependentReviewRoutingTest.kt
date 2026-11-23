@@ -66,7 +66,7 @@ class IndependentReviewRoutingTest {
     }
 
     @Test
-    fun doesNotSwallowCancellation() = runBlocking {
+    fun doesNotSwallowCancellation() {
         val preferred = FakeSeat("chatgpt-plan", failure = CancellationException("cancelled"))
         val fallback = FakeSeat("ovh-open-weight", SeatPresence.HERE, "Fallback review.")
 
