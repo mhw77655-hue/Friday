@@ -173,10 +173,32 @@ class ObjectiveExecutionWorker(
             }
             try {
                 val repository = ai.friday.assistant.github.reporting.GitHubDevelopmentRepositoryClient(token)
-                val candidate = ObjectiveBuilderCandidateExecutor(applicationContext, manager, repository).execute(child)
-                store.recordCandidatePublished(taskId, candidate.toJson())
-                android.util.Log.i(TAG, "Builder opened candidate PR #" + candidate.number)
-                enqueueFollowUp(applicationContext, taskId)
+                val recoveryTitle = "Friday candidate: " + child.optString("goal").take(120)
+                val recovered = repository.recoverExistingCandidate(
+                    taskId = taskId,
+                    title = recoveryTitle,
+                    recoveryBody = "Recovered the exact existing immutable candidate branch after an interrupted Android execution. No source was regenerated. Re-run CI and independent review before any promotion."
+                )
+                if (recovered != null) {
+                    val recoveredRecord = org.json.JSONObject()
+                        .put("number", recovered.number)
+                        .put("url", recovered.url)
+                        .put("branch", recovered.branch)
+                        .put("commit_sha", recovered.commitSha)
+                        .put("files", 0)
+                        .put("recovered_existing_branch", true)
+                    store.recordCandidatePublished(taskId, recoveredRecord)
+                    android.util.Log.i(TAG, "Recovered existing candidate PR #" + recovered.number)
+                    enqueueFollowUp(applicationContext, taskId)
+                } else {
+                    val candidate = ObjectiveBuilderCandidateExecutor(applicationContext, manager, repository).execute(child)
+                    store.recordCandidatePublished(
+                        taskId,
+                        candidate.toJson().put("recovered_existing_branch", false)
+                    )
+                    android.util.Log.i(TAG, "Builder opened candidate PR #" + candidate.number)
+                    enqueueFollowUp(applicationContext, taskId)
+                }
             } catch (cancelled: CancellationException) {
                 store.recordChildTaskFailure(taskId, "Builder operation was cancelled.")
                 throw cancelled
