@@ -106,10 +106,8 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
     val notificationAccessEnabled = isServiceEnabled(
         context, ComponentName(context, FridayNotificationListener::class.java)
     )
-    val batteryExempt = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        context.getSystemService(PowerManager::class.java)
-            ?.isIgnoringBatteryOptimizations(context.packageName) == true
-    } else true
+    val batteryExempt = context.getSystemService(PowerManager::class.java)
+        ?.isIgnoringBatteryOptimizations(context.packageName) == true
     val shizukuManagerVersion = shizukuManagerVersionName(context)
     val shizukuInstalled = shizukuManagerVersion != null
     val shizukuNextInstalled = shizukuManagerVersion?.contains("next", ignoreCase = true) == true
@@ -237,7 +235,7 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
             if (microphoneGranted) "Enabled" else "Not granted",
             if (microphoneGranted) "Verified" else "Allow microphone"
         ) {
-            if (Build.VERSION.SDK_INT >= 23) requestMicrophone.launch(Manifest.permission.RECORD_AUDIO)
+            requestMicrophone.launch(Manifest.permission.RECORD_AUDIO)
         },
         SetupItem(
             "Notifications",
@@ -373,10 +371,8 @@ private fun openAppNotificationSettings(context: Context) {
 }
 
 private fun openBatterySettings(context: Context) {
-    val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-        Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-            .setData(Uri.parse("package:${context.packageName}"))
-    } else Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+        .setData(Uri.parse("package:${context.packageName}"))
     runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }
 
