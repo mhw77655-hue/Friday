@@ -140,7 +140,7 @@ internal object FridayGitHubReportPayload {
     fun issueBody(payload: JSONObject): String = buildString {
         appendLine("Automated Friday phone diagnostic report.")
         appendLine()
-        appendLine("This report was explicitly submitted by the device owner from Friday Settings.")
+        appendLine("This report was submitted by Friday under the owner's explicit consent for sanitized automatic device reporting.")
         appendLine("It contains bounded technical diagnostics and action categories, not conversation content.")
         appendLine()
         appendLine("FRIDAY_DEVICE_REPORT_JSON_BEGIN")
