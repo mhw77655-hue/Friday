@@ -9,6 +9,10 @@ import ai.friday.assistant.aiworkforce.table.SeatRequest
 import ai.friday.assistant.aiworkforce.table.SeatRoleCard
 import ai.friday.assistant.aiworkforce.table.SeatPresence
 import ai.friday.assistant.aiworkforce.table.SeatReply
+import ai.friday.assistant.aiworkforce.table.IntelligenceSeat
+import ai.friday.assistant.aiworkforce.table.ChatGPTPlanAuth
+import ai.friday.assistant.aiworkforce.table.ChatGPTPlanSeat
+import ai.friday.assistant.aiworkforce.table.ChatGPTPlanBackgroundConsentStore
 import ai.friday.assistant.aiworkforce.table.SeatWalletStore
 import ai.friday.assistant.github.reporting.GitHubDevelopmentRepositoryClient
 import ai.friday.assistant.model.FinishReason
@@ -152,9 +156,16 @@ internal class ObjectiveBuilderCandidateExecutor(
             dataClass = SeatDataClass.PUBLIC,
             externallyShareable = true
         )
+        val guestSeats = mutableListOf<IntelligenceSeat>(
+            OvhAnonymousSeat(wallet = SeatWalletStore(androidContext))
+        )
+        val chatGptAuth = ChatGPTPlanAuth(androidContext)
+        if (ChatGPTPlanBackgroundConsentStore(androidContext).isEnabled() && chatGptAuth.isConnected()) {
+            guestSeats += ChatGPTPlanSeat(androidContext, chatGptAuth)
+        }
         val guestReply = if (shareGate.isSuccess) {
             val replies = FridayTableConductor(
-                guestSeats = listOf(OvhAnonymousSeat(wallet = SeatWalletStore(androidContext))),
+                guestSeats = guestSeats,
                 log = tableLog,
                 shouldConsult = { _, local -> local.isNotBlank() && task.optBoolean("request_guest_critique", true) }
             ).consultPublicGuest(seatRequest, summary)
