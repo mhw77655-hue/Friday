@@ -5,7 +5,7 @@
 **Canonical plan:** .ralph/FRIDAY_DELIVERY_PLAN.md on main
 
 ## Implemented in this candidate
-- First-launch host study, conservative resource admission and private app-managed development workspace.
+- First-launch host study, conservative resource admission and private app-managed development workspace; records CPU/memory/storage/thermal/battery, Vulkan feature declarations, NNAPI API availability, and explicitly labels runtime GPU/NPU capability as unverified until actually probed.
 - Offline canonical-plan bootstrap from the APK asset, integrity metadata, durable objective/task ledger and checkpoints.
 - Resident-model task decomposition and bounded source-candidate generation from real repository context.
 - Candidate path and secret validation; isolated GitHub branch/PR publication only.
@@ -17,7 +17,7 @@
 
 ## Known gaps before acceptance
 - No confirmed exact-head green Android build/unit-test/source-audit/emulator run.
-- Builder now opens isolated candidates, polls CI and records a separate exact-diff external review. A complete automated repair/retry lifecycle, fixed-cost/quota accounting beyond cooldown, and safe capability promotion are not yet demonstrated.
+- Builder now opens isolated candidates, polls CI and records a separate exact-diff external review. Candidate publication has process-death recovery and task leases. A complete automated repair/retry lifecycle, fixed-cost/quota accounting beyond cooldown, and safe capability promotion are not yet demonstrated.
 - Table currently has one anonymous external Seat; multi-seat registry, per-seat delta-history computation, Roundtable/Vision UI and richer quota accounting still need implementation and tests. Fixed stance parsing and persistent cooldown/presence state are implemented in this candidate.
 - Local app-managed toolchain/build sandbox is not yet demonstrated as a complete source-build environment; remote CI is the current candidate build path.
 - Physical host adaptation, actual resident-model load, force-stop/reboot recovery and the first installed autonomous Builder cycle remain unverified.
