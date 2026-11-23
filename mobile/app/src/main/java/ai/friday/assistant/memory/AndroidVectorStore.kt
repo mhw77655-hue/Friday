@@ -72,24 +72,27 @@ class AndroidVectorStore(
         val qblob = EmbeddingMath.binaryQuantize(query)
         // Pure-Kotlin Hamming search over persisted BLOB rows — no native call.
         val rows = mutableListOf<ScoredMemory>()
-        db.rawQuery(
+        val cursor = db.rawQuery(
             "SELECT id, content, embedding, metadata FROM memories", null
-        ).use { c ->
-            val idIdx = c.getColumnIndexOrThrow("id")
-            val contentIdx = c.getColumnIndexOrThrow("content")
-            val embIdx = c.getColumnIndexOrThrow("embedding")
-            val metaIdx = c.getColumnIndexOrThrow("metadata")
-            while (c.moveToNext()) {
-                val blob = c.getBlob(embIdx) ?: continue
+        )
+        try {
+            val idIdx = cursor.getColumnIndexOrThrow("id")
+            val contentIdx = cursor.getColumnIndexOrThrow("content")
+            val embIdx = cursor.getColumnIndexOrThrow("embedding")
+            val metaIdx = cursor.getColumnIndexOrThrow("metadata")
+            while (cursor.moveToNext()) {
+                val blob = cursor.getBlob(embIdx) ?: continue
                 rows.add(
                     ScoredMemory(
-                        id = c.getString(idIdx),
-                        content = c.getString(contentIdx),
+                        id = cursor.getString(idIdx),
+                        content = cursor.getString(contentIdx),
                         distance = EmbeddingMath.hammingDistance(qblob, blob),
-                        metadata = parseMeta(c.getString(metaIdx))
+                        metadata = parseMeta(cursor.getString(metaIdx))
                     )
                 )
             }
+        } finally {
+            cursor.close()
         }
         return rows.sortedBy { it.distance }.take(k)
     }
@@ -116,10 +119,14 @@ class AndroidVectorStore(
     override fun removeContaining(text: String): Int =
         db.delete("memories", "content LIKE ?", arrayOf("%$text%"))
 
-    override fun contents(): List<String> =
-        db.rawQuery("SELECT content FROM memories", null).use { c ->
-            buildList { while (c.moveToNext()) add(c.getString(0)) }
+    override fun contents(): List<String> {
+        val cursor = db.rawQuery("SELECT content FROM memories", null)
+        return try {
+            buildList { while (cursor.moveToNext()) add(cursor.getString(0)) }
+        } finally {
+            cursor.close()
         }
+    }
 
     override fun close() {
         try {
