@@ -13,13 +13,13 @@
 - Fail-closed task dependency gate: every declared prerequisite must be explicitly ACCEPTED; missing or merely CI-passed dependencies remain blocked.
 - Android-Keystore-backed repository credential storage.
 - Consent-gated automatic GitHub device-report worker: after one-time credential setup and separate explicit public-reporting consent, it uploads sanitized host-bootstrap and Builder milestone evidence with stable IDs and retry-safe issue creation. Disabled by default; no conversation/speech/screen/notification/token data is included.
-- Friday-owned local Table transcript, common Seat contract, fixed stance parsing, and one anonymous OVHcloud open-weight guest restricted to explicitly public/shareable context. No paid fallback; this is not ChatGPT, Claude or Gemini.
+- Friday-owned local Table transcript, common Seat contract, fixed stance parsing, and an owner-visible AI Table screen with Roundtable and Vision views. One anonymous OVHcloud open-weight guest is wired into the Builder and receives only explicitly public/shareable context. The provider documents an anonymous limit of two requests per minute per IP and model; availability is best-effort, no paid fallback is attempted, and this is not ChatGPT, Claude or Gemini.
 - Host-adaptive resident model selection and no Termux runtime dependency.
 
 ## Known gaps before acceptance
 - Exact-head CI is now green: [build run #2909](https://github.com/mhw77655-hue/Friday/actions/runs/45120253154) for commit `beb40b5bc737211b41431959f263557ae8425a3d`; debug APK, JUnit results, whole-repository audit and disposable virtual-phone evidence artifacts were produced. This is CI/emulator evidence, not physical handset acceptance or a production-signed APK.
 - Builder now opens isolated candidates, polls CI and records a separate exact-diff external review. Candidate publication has process-death recovery and task leases. A complete automated repair/retry lifecycle, fixed-cost/quota accounting beyond cooldown, and safe capability promotion are not yet demonstrated.
-- Table currently has one anonymous external Seat; multi-seat registry, per-seat delta-history computation, Roundtable/Vision UI and richer quota accounting still need implementation and tests. Fixed stance parsing and persistent cooldown/presence state are implemented in this candidate.
+- Table currently has one anonymous external Seat; a full multi-seat registry, per-seat delta-history computation and richer quota accounting still need implementation and tests. The Roundtable/Vision presentation UI and fixed stance parsing are implemented; persistent cooldown/presence state is stored locally.
 - Local app-managed toolchain/build sandbox is not yet demonstrated as a complete source-build environment; remote CI is the current candidate build path.
 - Physical host adaptation, actual resident-model load, force-stop/reboot recovery and the first installed autonomous Builder cycle remain unverified.
 - Permanent signing and same-key update continuity on the physical handset remain outstanding.
