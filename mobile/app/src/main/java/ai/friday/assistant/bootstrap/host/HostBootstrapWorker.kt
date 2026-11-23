@@ -96,6 +96,11 @@ class HostBootstrapWorker(
 
         writeAtomically(File(workspace, "host-bootstrap.json"), report.toString(2))
         File(workspace, "host-bootstrap-failure.json").takeIf { it.exists() }?.delete()
+        if (ai.friday.assistant.github.reporting.GitHubDeviceReportConsentStore(applicationContext).isEnabled()) {
+            ai.friday.assistant.github.reporting.GitHubDeviceReportWorker.enqueue(
+                applicationContext, "host-bootstrap"
+            )
+        }
         Result.success()
     } catch (error: Exception) {
         // Persist a sanitized failure marker; never serialize raw exception text.
