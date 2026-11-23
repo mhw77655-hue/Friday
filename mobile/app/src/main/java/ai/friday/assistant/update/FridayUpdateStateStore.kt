@@ -132,13 +132,16 @@ class FridayUpdateStateStore(context: Context) {
             "Post-update health check failed: $problem"
         }
         recordStatus(status)
-        if (problem == null) clearStaged()
-        prefs.edit()
-            .remove(KEY_PENDING_VERSION_CODE)
-            .remove(KEY_PENDING_VERSION_NAME)
-            .remove(KEY_PENDING_SOURCE_COMMIT)
-            .remove(KEY_PENDING_CERTIFICATE)
-            .apply()
+        if (problem == null) {
+            // A verified update is complete: remove the staged bytes and its
+            // one-shot post-install marker.
+            clearStaged()
+            clearPendingHealthCheck()
+        }
+        // On failure, deliberately retain both the pending identity and staged
+        // artifact. The recovery system needs durable evidence of which update
+        // failed; deleting the marker here made the first failed launch erase
+        // the only machine-readable trigger for follow-up repair.
         return status
     }
 
