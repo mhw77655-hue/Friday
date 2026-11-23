@@ -114,8 +114,13 @@ class ObjectiveExecutionWorker(
                 val candidate = pendingReview.optJSONObject("candidate")
                 val commitSha = candidate?.optString("commit_sha").orEmpty()
                 val reviewTaskId = pendingReview.optString("task_id")
-                if (token == null || manager == null) {
-                    android.util.Log.i(TAG, "Independent review is waiting for repository/model runtime readiness.")
+                if (token == null) {
+                    android.util.Log.i(TAG, "Independent review is waiting for repository authorization.")
+                    return@withContext Result.success()
+                }
+                if (manager == null) {
+                    enqueueFollowUp(applicationContext, reviewTaskId, initialDelaySeconds = 600)
+                    android.util.Log.i(TAG, "Independent review is waiting for the model manager to initialize.")
                     return@withContext Result.success()
                 }
                 try {
