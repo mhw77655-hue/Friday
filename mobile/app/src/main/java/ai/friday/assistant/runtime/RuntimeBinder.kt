@@ -48,11 +48,8 @@ class RuntimeBinder(
         // Do not equate "configured" with "connected". Use the provider's
         // latest real health observation; an unprobed provider stays unavailable.
         val providerHealth = modelManager.providerHealth.value
-        val observedHealth = runtimeHealthFromProviderObservation(
-            isHealthy = providerHealth.isHealthy,
-            error = providerHealth.error
-        )
-        _activeConnection.value = RuntimeConnection(
+        val observedHealth = runtimeHealthFromProviderObservation(providerHealth)
+        val connection = RuntimeConnection(
             connectionType = ConnectionType.LOCAL,
             endpoint = when (modelSource) {
                 is ModelSource.Local -> modelSource.path
@@ -63,7 +60,20 @@ class RuntimeBinder(
             health = observedHealth,
             capabilities = setOf("generate", "stream", "health")
         )
-        _connectionEvents.emit(ConnectionEvent.Connected(_activeConnection.value!!))
+        _activeConnection.value = connection
+        if (!connection.isConnected) {
+            val failure = IllegalStateException(
+                when (val health = observedHealth) {
+                    is RuntimeHealth.UNHEALTHY -> health.reason
+                    RuntimeHealth.UNKNOWN -> "Local provider health has not been verified."
+                    is RuntimeHealth.DEGRADED -> health.reason
+                    RuntimeHealth.HEALTHY -> "Local runtime is unavailable."
+                }
+            )
+            _connectionEvents.emit(ConnectionEvent.Failed(ConnectionType.LOCAL, failure))
+            return Result.failure(failure)
+        }
+        _connectionEvents.emit(ConnectionEvent.Connected(connection))
         Result.success(Unit)
     } catch (e: Exception) {
         Result.failure(e)
@@ -82,23 +92,14 @@ class RuntimeBinder(
             else -> "127.0.0.1:8150"
         }
 
-        val connection = RuntimeConnection(
-            connectionType = ConnectionType.REMOTE_FRIDAY,
-            endpoint = endpoint,
-            isConnected = true,
-            health = RuntimeHealth.UNKNOWN,
-            capabilities = setOf("generate", "stream", "health", "models", "tools", "sessions", "telemetry")
+        // Discovery/configuration is not an authenticated connection. Until a
+        // real remote health/identity handshake exists, fail closed and do not
+        // publish a Connected event or install a phantom active connection.
+        val failure = UnsupportedOperationException(
+            "Remote Friday connection is not available: authenticated health and identity handshake is not implemented."
         )
-
-        // The current RuntimeConnection has no authenticated remote health
-        // protocol. Never claim a remote endpoint is healthy without a real probe.
-        val testHealth = connection.testHealth()
-        connection.health = testHealth
-        connection.isConnected = testHealth is RuntimeHealth.HEALTHY
-
-        _activeConnection.value = connection
-        _connectionEvents.emit(ConnectionEvent.Connected(connection))
-        Result.success(Unit)
+        _connectionEvents.emit(ConnectionEvent.Failed(ConnectionType.REMOTE_FRIDAY, failure))
+        Result.failure(failure)
     } catch (e: Exception) {
         Result.failure(e)
     }
@@ -132,12 +133,6 @@ data class RuntimeConnection(
     var health: RuntimeHealth = RuntimeHealth.UNKNOWN,
     val capabilities: Set<String>
 ) {
-    suspend fun testHealth(): RuntimeHealth {
-        // This value is intentionally UNKNOWN until a real authenticated
-        // health endpoint is implemented. Returning HEALTHY here was a
-        // false-positive that made unreachable remotes appear connected.
-        return RuntimeHealth.UNKNOWN
-    }
 }
 
 /** Runtime health status */
@@ -168,12 +163,14 @@ sealed interface ConnectionEvent {
     data class HealthChanged(val connection: RuntimeConnection, val oldHealth: RuntimeHealth, val newHealth: RuntimeHealth) : ConnectionEvent
 }
 
-/** Pure mapping for provider health observations; unknown stays unknown. */
+/** Map an actual provider observation without turning "not checked" into failure. */
 internal fun runtimeHealthFromProviderObservation(
-    isHealthy: Boolean,
-    error: String?
-): RuntimeHealth = if (isHealthy) {
-    RuntimeHealth.HEALTHY
-} else {
-    RuntimeHealth.UNHEALTHY(error?.take(240) ?: "No healthy provider observation is available.")
+    observation: ai.friday.assistant.model.ProviderHealth
+): RuntimeHealth = when {
+    observation.isHealthy -> RuntimeHealth.HEALTHY
+    observation.latencyMs < 0L && observation.error.isNullOrBlank() &&
+        !observation.modelLoaded && observation.currentModel == null -> RuntimeHealth.UNKNOWN
+    else -> RuntimeHealth.UNHEALTHY(
+        observation.error?.take(240) ?: "The provider health check did not pass."
+    )
 }
