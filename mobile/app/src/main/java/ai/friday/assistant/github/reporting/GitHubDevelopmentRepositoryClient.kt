@@ -389,7 +389,7 @@ class GitHubDevelopmentRepositoryClient(
         private const val MAX_FILES = 12
         private const val MAX_FILE_CHARS = 160_000
         private const val MAX_TOTAL_BYTES = 512 * 1024
-        private const val MAX_REVIEW_DIFF_CHARS = 24_000
+        private const val MAX_REVIEW_DIFF_CHARS = 256_000
         private val SECRET_PATTERN = Regex(
             "(?i)(github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{30,}|xox[baprs]-[A-Za-z0-9-]{20,}|bearer\\s+[A-Za-z0-9._-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)"
         )
