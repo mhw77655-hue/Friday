@@ -14,6 +14,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -24,7 +25,6 @@ import ai.friday.assistant.alerts.AlertEntry
 import ai.friday.assistant.alerts.LocalAlertStore
 import ai.friday.assistant.ui.theme.FridayColors
 import ai.friday.assistant.ui.theme.FridayType
-import kotlinx.coroutines.flow.map
 
 /**
  * Alerts Screen — displays system alerts and warnings.
@@ -35,9 +35,10 @@ fun AlertsScreen(
     alertStore: LocalAlertStore,
     onNavigate: (String) -> Unit
 ) {
-    val alerts by alertStore.alerts
-        .map { it.filter { alert -> !alert.dismissed }.map { AlertEntry.from(it) } }
-        .collectAsStateWithLifecycle(initialValue = emptyList())
+    val storedAlerts by alertStore.alerts.collectAsStateWithLifecycle(initialValue = emptyList())
+    val alerts = remember(storedAlerts) {
+        storedAlerts.filterNot { it.dismissed }.map { AlertEntry.from(it) }
+    }
 
     Column(
         modifier = Modifier
