@@ -35,6 +35,7 @@ class GitHubDeviceReportWorker(
         val pending = GitHubPendingReportStore(applicationContext)
         try {
             val reportJson = pending.read() ?: buildSanitizedReport().also(pending::save)
+            if (!consent.isEnabled()) return@withContext Result.success()
             val issueUrl = FridayGitHubReportClient(token).submitDeviceReport(reportJson)
             pending.clear()
             applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit()
