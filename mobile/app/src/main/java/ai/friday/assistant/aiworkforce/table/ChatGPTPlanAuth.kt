@@ -46,6 +46,8 @@ class ChatGPTPlanAuth(
         ChatGPTPlanCredentialStore(context.applicationContext),
     private val http: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
+        .followRedirects(false)
+        .followSslRedirects(false)
         .readTimeout(45, TimeUnit.SECONDS)
         .callTimeout(60, TimeUnit.SECONDS)
         .build(),
@@ -423,7 +425,7 @@ class ChatGPTPlanAuth(
         private const val ACCEPT_POLL_MS = 1_000
         private const val SOCKET_TIMEOUT_MS = 15_000
         private const val TOKEN_REFRESH_SKEW_SECONDS = 90L
-        private const val CLOCK_SKEW_SECONDS = 60L
+        private const val CLOCK_SKEW_SECONDS = 5L
         private const val DISCOVERY_CACHE_MS = 10 * 60 * 1000L
         private val refreshMutex = Mutex()
     }
