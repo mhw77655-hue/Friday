@@ -368,12 +368,22 @@ fun SettingsScreen() {
         )
         if (chatGptConnected) {
             TextButton(
+                enabled = !chatGptBusy,
                 onClick = {
                     chatGptConsentStore.setEnabled(false)
                     chatGptBackgroundConsent = false
-                    chatGptAuth.disconnect()
-                    chatGptConnected = false
-                    chatGptStatus = "ChatGPT connection and local tokens disconnected."
+                    chatGptBusy = true
+                    chatGptStatus = "Revoking the ChatGPT renewable session…"
+                    scope.launch {
+                        try {
+                            chatGptStatus = chatGptAuth.disconnect()
+                        } catch (failure: Exception) {
+                            chatGptStatus = "Local sign-out failed: ${failure.javaClass.simpleName}."
+                        } finally {
+                            chatGptConnected = chatGptAuth.isConnected()
+                            chatGptBusy = false
+                        }
+                    }
                 }
             ) { Text("Disconnect ChatGPT") }
         }
