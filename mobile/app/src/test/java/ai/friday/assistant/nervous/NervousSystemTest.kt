@@ -70,9 +70,24 @@ class NervousSystemTest {
         // but it is not safe to route capability work to it yet.
         registry.register(unready)
 
+        val readyDelegate = SpecMicroSystem(
+            id = "ready_non_callable_delegate",
+            genome = GenomeFactory.genomeFor(CapabilityRequirement("non_callable_capability", "non-callable", behavior)),
+            spec = spec,
+            capabilities = setOf("non_callable_capability")
+        )
+        readyDelegate.initialize()
+        val readyButNonCallable = object : ai.friday.assistant.microsystem.MicroSystemContract by readyDelegate {
+            override val id: String = "ready_non_callable"
+            override val capabilities: Set<String> = setOf("non_callable_capability")
+        }
+        registry.register(readyButNonCallable)
+
         val router = CapabilityRouter(registry)
         assertTrue(router.providers("clamp").isEmpty())
         assertFalse(router.hasProvider("clamp"))
+        assertTrue("ready but non-callable is not a route", router.providers("non_callable_capability").isEmpty())
+        assertFalse(router.hasProvider("non_callable_capability"))
         val route = router.route("clamp", mapOf("value" to 5.0))
         assertFalse(route.success)
         assertTrue(route.gapDetected)
