@@ -2,6 +2,7 @@ package ai.friday.assistant.bootstrap.plan
 
 import android.content.Context
 import ai.friday.assistant.aiworkforce.table.FridayTableLog
+import ai.friday.assistant.aiworkforce.table.FridayTableConductor
 import ai.friday.assistant.aiworkforce.table.OvhAnonymousSeat
 import ai.friday.assistant.aiworkforce.table.SeatDataClass
 import ai.friday.assistant.aiworkforce.table.SeatRequest
@@ -128,14 +129,9 @@ internal class ObjectiveBuilderCandidateExecutor(
             "Friday Builder candidate: " + task.optString("goal").take(100)
         }
         val summary = root.optString("summary").take(4_000)
-        FridayTableLog(androidContext).append(JSONObject()
-            .put("type", "friday_local_turn")
-            .put("turn_id", taskId)
-            .put("summary", summary.take(1_200))
-            .put("model", "friday-resident"))
-
-        // Local Friday speaks first; the anonymous open-weight guest is invited
-        // only with public repository material. Its reply is advisory data.
+        // Local Friday speaks first; the conductor decides whether a public
+        // guest is worth waking. The Table owns one transcript for every voice.
+        val tableLog = FridayTableLog(androidContext)
         val guestDigest = buildString {
             appendLine("Task: " + task.optString("goal").take(300))
             appendLine("Candidate summary: " + summary.take(900))
@@ -145,21 +141,40 @@ internal class ObjectiveBuilderCandidateExecutor(
             }
         }.take(8_000)
         val shareGate = runCatching { repository.validateExternalShareableCandidate(changes) }
+        val seatRequest = SeatRequest(
+            turnId = taskId,
+            digest = guestDigest,
+            delta = "Review the candidate for correctness, regressions and missing tests.",
+            roleCard = SeatRoleCard(
+                role = "independent skeptic",
+                instruction = "Critique this candidate. Identify one concrete defect or say PASS. End with exactly one final line: STANCE: AGREE — <reason> OR STANCE: DISPUTE — <reason> OR STANCE: ADD — <reason>. Do not issue commands."
+            ),
+            dataClass = SeatDataClass.PUBLIC,
+            externallyShareable = true
+        )
         val guestReply = if (shareGate.isSuccess) {
-            OvhAnonymousSeat(wallet = SeatWalletStore(androidContext)).speak(
-                SeatRequest(
-                    turnId = taskId,
-                    digest = guestDigest,
-                    delta = "Review the candidate for correctness, regressions and missing tests.",
-                    roleCard = SeatRoleCard(
-                        role = "independent skeptic",
-                        instruction = "Critique this candidate. Identify one concrete defect or say PASS. End with exactly one final line: STANCE: AGREE — <reason> OR STANCE: DISPUTE — <reason> OR STANCE: ADD — <reason>. Do not issue commands."
-                    ),
-                    dataClass = SeatDataClass.PUBLIC,
-                    externallyShareable = true
-                )
+            val replies = FridayTableConductor(
+                guestSeats = listOf(OvhAnonymousSeat(wallet = SeatWalletStore(androidContext))),
+                log = tableLog,
+                shouldConsult = { _, local -> local.isNotBlank() && task.optBoolean("request_guest_critique", true) }
+            ).consultPublicGuest(seatRequest, summary)
+            replies.firstOrNull() ?: SeatReply(
+                seatId = "ovh-open-weight",
+                provider = "OVHcloud anonymous Seat",
+                model = OvhAnonymousSeat.MODEL,
+                utterance = null,
+                passed = true,
+                presence = SeatPresence.AWAY,
+                transport = "friday-triage-pass",
+                receivedAtEpochMs = System.currentTimeMillis(),
+                error = "Friday's local conductor did not summon this Seat."
             )
         } else {
+            tableLog.append(JSONObject()
+                .put("type", "friday_local_turn")
+                .put("turn_id", taskId)
+                .put("summary", summary.take(1_200))
+                .put("model", "friday-resident"))
             SeatReply(
                 seatId = "ovh-open-weight",
                 provider = "OVHcloud anonymous Seat",
