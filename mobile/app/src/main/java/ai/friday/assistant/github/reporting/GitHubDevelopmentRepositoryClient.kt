@@ -62,6 +62,18 @@ class GitHubDevelopmentRepositoryClient(
             "Candidate metadata was blocked because it resembles a credential."
         }
         validateChanges(changes)
+        val candidateBranch = "friday/candidate/" + taskId.lowercase()
+            .replace(Regex("[^a-z0-9._/-]"), "-")
+
+        // Crash recovery: if a previous attempt created this task's branch,
+        // reuse its exact commit and existing PR rather than generating a new
+        // commit that conflicts with the immutable candidate ref.
+        val existingCommit = runCatching { getRef(candidateBranch) }.getOrNull()
+        if (existingCommit != null) {
+            val existingPr = findExistingPullRequest(candidateBranch, baseBranch)
+                ?: createPullRequest(title, body, candidateBranch, baseBranch)
+            return CandidatePullRequest(candidateBranch, existingCommit, existingPr.first, existingPr.second)
+        }
 
         val baseCommit = getRef(baseBranch)
         val baseTree = getCommitTree(baseCommit)
@@ -77,8 +89,6 @@ class GitHubDevelopmentRepositoryClient(
         }
         val tree = createTree(baseTree, entries)
         val commit = createCommit("Friday candidate: " + title, tree, baseCommit)
-        val candidateBranch = "friday/candidate/" + taskId.lowercase()
-            .replace(Regex("[^a-z0-9._/-]"), "-")
         createRef(candidateBranch, commit)
         val pr = createPullRequest(title, body, candidateBranch, baseBranch)
         return CandidatePullRequest(candidateBranch, commit, pr.first, pr.second)
