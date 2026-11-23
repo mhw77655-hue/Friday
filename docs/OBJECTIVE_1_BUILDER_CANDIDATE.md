@@ -17,11 +17,11 @@
 - Host-adaptive resident model selection and no Termux runtime dependency.
 
 ## Known gaps before acceptance
-- No confirmed exact-head green Android build/unit-test/source-audit/emulator run.
+- Exact-head CI is now green: [build run #2909](https://github.com/mhw77655-hue/Friday/actions/runs/45120253154) for commit `beb40b5bc737211b41431959f263557ae8425a3d`; debug APK, JUnit results, whole-repository audit and disposable virtual-phone evidence artifacts were produced. This is CI/emulator evidence, not physical handset acceptance or a production-signed APK.
 - Builder now opens isolated candidates, polls CI and records a separate exact-diff external review. Candidate publication has process-death recovery and task leases. A complete automated repair/retry lifecycle, fixed-cost/quota accounting beyond cooldown, and safe capability promotion are not yet demonstrated.
 - Table currently has one anonymous external Seat; multi-seat registry, per-seat delta-history computation, Roundtable/Vision UI and richer quota accounting still need implementation and tests. Fixed stance parsing and persistent cooldown/presence state are implemented in this candidate.
 - Local app-managed toolchain/build sandbox is not yet demonstrated as a complete source-build environment; remote CI is the current candidate build path.
 - Physical host adaptation, actual resident-model load, force-stop/reboot recovery and the first installed autonomous Builder cycle remain unverified.
 - Permanent signing and same-key update continuity on the physical handset remain outstanding.
 
-No APK is install-ready on the basis of this record. A candidate PR, generated patch, passing emulator, or CI run alone is not Objective 1 acceptance.
+The candidate has a green exact-head CI run, but it remains unmerged. The debug APK artifact is not a production release. Production signing follows integration into main; physical-host acceptance, same-key update continuity, fault-injection evidence and the first installed Builder cycle are still required. A candidate PR, generated patch, passing emulator, or CI run alone is not Objective 1 acceptance.
