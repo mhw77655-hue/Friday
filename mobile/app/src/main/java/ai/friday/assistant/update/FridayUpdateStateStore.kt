@@ -132,6 +132,7 @@ class FridayUpdateStateStore(context: Context) {
             "Post-update health check failed: $problem"
         }
         recordStatus(status)
+        if (problem == null) clearStaged()
         prefs.edit()
             .remove(KEY_PENDING_VERSION_CODE)
             .remove(KEY_PENDING_VERSION_NAME)
