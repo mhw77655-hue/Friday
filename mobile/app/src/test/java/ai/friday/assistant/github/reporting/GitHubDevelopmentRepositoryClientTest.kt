@@ -99,6 +99,35 @@ class GitHubDevelopmentRepositoryClientTest {
         }
     }
 
+    @Test fun `recovery reuses immutable branch commit and opens missing pull request`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"object":{"sha":"$sha3"}}"""
+        ))
+        server.enqueue(MockResponse().setResponseCode(200).setBody("[]"))
+        server.enqueue(MockResponse().setResponseCode(201).setBody(
+            """{"html_url":"https://github.com/mhw77655-hue/Friday/pull/124","number":124}"""
+        ))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val client = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+            val recovered = client.recoverExistingCandidate(
+                taskId = "phase0-test",
+                title = "Recovered Friday candidate",
+                recoveryBody = "Recovered after process death."
+            )
+            assertEquals(sha3, recovered?.commitSha)
+            assertEquals(124, recovered?.number)
+            assertEquals(3, server.requestCount)
+            assertEquals("GET", server.takeRequest().method)
+            assertEquals("GET", server.takeRequest().method)
+            assertEquals("POST", server.takeRequest().method)
+        } finally {
+            server.shutdown()
+        }
+    }
+
     @Test fun `read preflight verifies repository branch and canonical plan only`() {
         val server = MockWebServer()
         server.enqueue(MockResponse().setResponseCode(200).setBody(
