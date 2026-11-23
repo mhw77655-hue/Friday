@@ -84,6 +84,27 @@ class GitHubDevelopmentRepositoryClient(
         return CandidatePullRequest(candidateBranch, commit, pr.first, pr.second)
     }
 
+    /** External public Seats may see source only after this live visibility check. */
+    fun isRepositoryPublic(): Boolean = !getJson(apiRoot).optBoolean("private", true)
+
+    /** Read a bounded commit diff for independent review; never executes candidate code. */
+    fun readCommitDiff(commitSha: String): String {
+        require(commitSha.matches(Regex("[0-9a-f]{40}"))) { "Candidate commit SHA is invalid." }
+        val response = http.newCall(
+            requestBuilder(apiRoot + "/commits/" + commitSha)
+                .header("Accept", "application/vnd.github.v3.diff")
+                .build()
+        ).execute()
+        response.use {
+            if (!it.isSuccessful) throw IOException(apiError(it.code, "read candidate diff"))
+            val diff = it.body?.string().orEmpty()
+            require(diff.isNotBlank() && diff.length <= MAX_REVIEW_DIFF_CHARS) {
+                "Candidate diff is empty or exceeds the independent-review budget."
+            }
+            return diff
+        }
+    }
+
     data class CandidateChecks(
         val state: String,
         val total: Int,
@@ -333,6 +354,7 @@ class GitHubDevelopmentRepositoryClient(
         private const val MAX_FILES = 12
         private const val MAX_FILE_CHARS = 160_000
         private const val MAX_TOTAL_BYTES = 512 * 1024
+        private const val MAX_REVIEW_DIFF_CHARS = 24_000
         private val SECRET_PATTERN = Regex(
             "(?i)(github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{30,}|bearer\\s+[A-Za-z0-9._-]{20,})"
         )
