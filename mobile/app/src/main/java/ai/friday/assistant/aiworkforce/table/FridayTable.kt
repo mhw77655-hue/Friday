@@ -1,6 +1,7 @@
 package ai.friday.assistant.aiworkforce.table
 
 import android.content.Context
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.channels.Channel
@@ -154,6 +155,8 @@ class OvhAnonymousSeat(
                         SeatPresence.HERE, null, parsed.second.first, parsed.second.second)
                 }
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (failure: IOException) {
             reply(request, null, true, SeatPresence.OFFLINE, "OVH anonymous endpoint is unreachable.")
         } catch (failure: Exception) {
@@ -291,6 +294,8 @@ class FridayTableConductor(
                 launch(Dispatchers.IO) {
                     val reply = try {
                         seat.speak(request)
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
                     } catch (failure: Exception) {
                         SeatReply(
                             seatId = seat.id,
