@@ -13,7 +13,9 @@ Friday can use an owner's eligible ChatGPT plan as one explicitly authorized Int
 - The ID token is verified against the configured OpenAI JWKS. Friday checks RS256 signature, issuer, audience/authorized party, expiry, issued-at, nonce and subject before storing credentials.
 - The token response must include `chatgpt.tokens.use.direct`; a valid identity token alone is insufficient.
 - Access/refresh/ID tokens and account identity are encrypted with an Android Keystore AES-GCM key. Tokens are never written to Table logs, crash reports or GitHub diagnostics.
-- Refresh rotates credentials atomically and preserves the issued client ID and account identity.
+- A newly issued client ID is persisted as pending before code exchange, so an `invalid_grant` retry uses that issued ID rather than registering a duplicate client.
+- Refresh is serialized across all in-process Seat instances to protect rotating refresh tokens; refresh rotates credentials atomically and preserves the issued client ID and account identity.
+- Sign-out discovers OpenID configuration, revokes the renewable refresh-token session, then clears local access/refresh/ID tokens while retaining the encrypted account/client mapping and host ID. If remote revocation cannot be confirmed after bounded retries, Friday reports that honestly and points to ChatGPT Settings.
 
 ## Inference and privacy contract
 
