@@ -94,6 +94,15 @@ jobs:
             echo "Skipping stale build $TARGET_SHA; main is now $CURRENT_MAIN_SHA."
           fi
 
+      - name: Verify APK-bundled delivery plan matches canonical source
+        if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'true'
+        run: |
+          if ! cmp -s .ralph/FRIDAY_DELIVERY_PLAN.md mobile/app/src/main/assets/friday/FRIDAY_DELIVERY_PLAN.md; then
+            echo "::error::Refusing to sign an APK whose bundled delivery plan diverges from canonical."
+            diff -u .ralph/FRIDAY_DELIVERY_PLAN.md mobile/app/src/main/assets/friday/FRIDAY_DELIVERY_PLAN.md || true
+            exit 1
+          fi
+
       - name: Set up JDK 17
         if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'true'
         uses: actions/setup-java@v4
