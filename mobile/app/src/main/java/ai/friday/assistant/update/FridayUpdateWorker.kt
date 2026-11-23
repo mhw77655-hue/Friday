@@ -34,8 +34,34 @@ class FridayUpdateWorker(
                 }
                 is FridayUpdateClient.Result.Staged -> {
                     state.saveStaged(result)
-                    state.recordStatus("Verified Friday ${result.release.versionName} is staged and waiting for owner approval.")
-                    notifyUpdateReady(result.release.versionName)
+                    ai.friday.assistant.ShizukuBridge.init()
+                    ai.friday.assistant.ShizukuBridge.refresh()
+                    if (ai.friday.assistant.ShizukuBridge.isAvailable.value &&
+                        ai.friday.assistant.ShizukuBridge.isGranted.value
+                    ) {
+                        state.recordPendingHealthCheck(result.release)
+                        when (val install = FridayShizukuPackageInstaller(applicationContext).install(result)) {
+                            is FridayShizukuPackageInstaller.Result.Installed -> {
+                                state.recordStatus(
+                                    "Friday update installed automatically through Shizuku UID ${install.uid}; post-update version/signer health check is pending process restart."
+                                )
+                            }
+                            is FridayShizukuPackageInstaller.Result.Unavailable -> {
+                                state.clearPendingHealthCheck()
+                                state.recordStatus(
+                                    "Verified update staged; privileged installer became unavailable and the update remains queued: ${install.reason}"
+                                )
+                                notifyUpdateReady(result.release.versionName)
+                            }
+                            is FridayShizukuPackageInstaller.Result.Rejected -> {
+                                state.clearPendingHealthCheck()
+                                state.recordStatus("Privileged update rejected; installed Friday remains unchanged: ${install.reason}")
+                            }
+                        }
+                    } else {
+                        state.recordStatus("Verified Friday ${result.release.versionName} is staged; no authorized Shizuku installer is available, so the native fallback is ready.")
+                        notifyUpdateReady(result.release.versionName)
+                    }
                 }
                 is FridayUpdateClient.Result.Rejected -> {
                     state.recordStatus("Update check deferred: ${result.reason}")
@@ -69,7 +95,7 @@ class FridayUpdateWorker(
                     "Friday updates",
                     NotificationManager.IMPORTANCE_DEFAULT
                 ).apply {
-                    description = "Verified Friday updates waiting for owner approval"
+                    description = "Verified Friday updates waiting for an authorized installer"
                 }
             )
         }
