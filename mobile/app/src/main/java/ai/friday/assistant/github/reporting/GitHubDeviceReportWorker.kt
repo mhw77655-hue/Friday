@@ -82,7 +82,7 @@ class GitHubDeviceReportWorker(
         private const val KEY_LAST_SENT_AT = "last_sent_at_epoch_ms"
         private const val KEY_LAST_REASON = "last_reason"
         private const val KEY_REASON = "reason"
-        private const val UNIQUE_PREFIX = "friday-github-device-report-"
+        private const val UNIQUE_NAME = "friday-github-device-report-queue"
 
         fun enqueue(context: Context, reason: String) {
             val request = OneTimeWorkRequestBuilder<GitHubDeviceReportWorker>()
@@ -101,8 +101,8 @@ class GitHubDeviceReportWorker(
                 )
                 .build()
             WorkManager.getInstance(context).enqueueUniqueWork(
-                UNIQUE_PREFIX + reason.lowercase().replace(Regex("[^a-z0-9-]"), "-").take(80),
-                ExistingWorkPolicy.KEEP,
+                UNIQUE_NAME,
+                ExistingWorkPolicy.APPEND_OR_REPLACE,
                 request
             )
         }
