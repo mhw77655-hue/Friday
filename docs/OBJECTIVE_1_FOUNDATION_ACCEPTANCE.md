@@ -180,16 +180,3 @@ Run recovery tests for force-stop/process death, reboot, offline transition, ext
 ### Current implementation/evidence status
 
 This document records requirements, not implementation success. PR #118 is an unmerged candidate and must not be described as part of the installed mainline until its exact head passes the repository's required checks and is integrated. The earlier Objective 1 PRs #115 and #116 are design/acceptance specifications, not runtime proof. No new physical-device acceptance is implied by this plan update. Update this section only with exact commit/run/artifact/device evidence as each gate is completed.
-
-
-## Builder implementation candidate — branch evidence
-
-The current implementation candidate is tracked in PR #118 and remains unmerged. Its branch includes:
-- First-launch host profiling and private development workspace directories.
-- Offline plan bootstrap from the bundled APK asset; that asset has now been synchronized with canonical plan commit 3426c642929fd801ba7b113043ad7f4f47c54ecd and the Objective 1 acceptance expansion.
-- A durable execution ledger with plan hashes, task checkpoints, candidate states and CI polling.
-- A resident-model candidate executor that limits changes to bounded source/test/docs paths and publishes only an isolated pull request.
-- A Friday-owned local Table transcript and one anonymous OVHcloud open-weight advisory Seat, restricted to explicitly public/shareable context and with no paid fallback.
-- Host-aware resident-model selection and a pinned small fallback asset.
-
-This candidate is not yet accepted. Its current source loop publishes a candidate and records CI; it does not yet prove a complete independent-review-and-promotion path, automatic repair of failed candidates, physical-phone execution, or signed production delivery. The Seat is one anonymous open-weight provider, not ChatGPT, Claude or Gemini. The app-managed workspace exists as a foundation but its full build/test toolchain and resource-isolated execution must be demonstrated. The latest exact-head CI run and physical-device results must be recorded before merge or release.
