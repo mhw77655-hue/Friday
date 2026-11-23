@@ -20,8 +20,9 @@ import java.util.concurrent.TimeUnit
  */
 class ChatGPTPlanSeat(
     context: Context,
-    private val auth: ChatGPTPlanAuth = ChatGPTPlanAuth(context),
+    private val tokenProvider: ChatGPTPlanTokenProvider = ChatGPTPlanAuth(context),
     private val credentials: ChatGPTPlanCredentialStore = ChatGPTPlanCredentialStore(context),
+    private val apiBaseUrl: String = API_BASE_URL,
     private val http: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(120, TimeUnit.SECONDS)
@@ -35,7 +36,7 @@ class ChatGPTPlanSeat(
 
     override suspend fun presence(): SeatPresence {
         return try {
-            if (auth.validAccessToken() == null) SeatPresence.AWAY else SeatPresence.HERE
+            if (tokenProvider.validAccessToken() == null) SeatPresence.AWAY else SeatPresence.HERE
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (_: Exception) {
@@ -95,7 +96,7 @@ class ChatGPTPlanSeat(
                 .put("max_output_tokens", 500)
             val body = payload.toString().toRequestBody(JSON_MEDIA_TYPE)
             val httpRequest = Request.Builder()
-                .url(RESPONSES_ENDPOINT)
+                .url("$apiBaseUrl/responses")
                 .header("Authorization", "Bearer $token")
                 .header("Content-Type", "application/json")
                 .header("Accept", "text/event-stream")
@@ -180,7 +181,7 @@ class ChatGPTPlanSeat(
         val now = System.currentTimeMillis()
         if (now - cachedModelsAt < MODEL_CACHE_MS && cachedModels.isNotEmpty()) return cachedModels
         val request = Request.Builder()
-            .url(MODELS_ENDPOINT)
+            .url("$apiBaseUrl/models")
             .header("Authorization", "Bearer $accessToken")
             .get()
             .build()
@@ -237,8 +238,7 @@ class ChatGPTPlanSeat(
     }
 
     companion object {
-        const val RESPONSES_ENDPOINT = "https://api.openai.com/v1/responses"
-        const val MODELS_ENDPOINT = "https://api.openai.com/v1/models"
+        const val API_BASE_URL = "https://api.openai.com/v1"
         private const val MAX_DIGEST_CHARS = 8_000
         private const val MAX_DELTA_CHARS = 3_000
         private const val MAX_REPLY_CHARS = 1_600
