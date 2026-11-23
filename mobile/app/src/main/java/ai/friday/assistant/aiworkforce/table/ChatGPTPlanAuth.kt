@@ -49,9 +49,11 @@ class ChatGPTPlanAuth(
         .readTimeout(45, TimeUnit.SECONDS)
         .callTimeout(60, TimeUnit.SECONDS)
         .build(),
-    private val jwksEndpoint: String = JWKS_ENDPOINT,
     private val discoveryEndpoint: String = DISCOVERY_ENDPOINT
 ) : ChatGPTPlanTokenProvider {
+    @Volatile private var cachedDiscovery: JSONObject? = null
+    @Volatile private var cachedDiscoveryAt = 0L
+
     suspend fun signIn(activity: Activity): String = refreshMutex.withLock {
         withContext(Dispatchers.IO) {
         val existing = credentials.read()
@@ -71,7 +73,7 @@ class ChatGPTPlanAuth(
             val firstRegistration = existing == null && registration == null && pendingClientId == null
             val clientId = existing?.clientId ?: registration?.clientId ?: pendingClientId ?: DYNAMIC_CLIENT_ID
 
-            val auth = Uri.parse(AUTHORIZATION_ENDPOINT).buildUpon()
+            val auth = Uri.parse(oidc.getString("authorization_endpoint")).buildUpon()
                 .appendQueryParameter("client_id", clientId)
                 .apply {
                     if (firstRegistration) appendQueryParameter("agent_name_hint", APP_NAME)
@@ -123,14 +125,14 @@ class ChatGPTPlanAuth(
             }
             credentials.setPendingClientId(issuedClientId)
 
-            val token = exchangeAuthorizationCode(code, issuedClientId, verifier, redirectUri)
+            val token = exchangeAuthorizationCode(code, issuedClientId, verifier, redirectUri, oidc.getString("token_endpoint"))
             require(token.optString("token_type").equals("Bearer", ignoreCase = true)) { "OpenAI returned an unsupported token type." }
             val scopes = token.optString("scope").split(' ').filter { it.isNotBlank() }.toSet()
             require(REQUIRED_SCOPE in scopes) {
                 "ChatGPT plan usage was not authorized. Sign in again and grant the ChatGPT plan permission."
             }
             val idToken = token.getString("id_token")
-            val claims = verifyIdToken(idToken, issuedClientId, nonce)
+            val claims = verifyIdToken(idToken, issuedClientId, nonce, oidc.getString("jwks_uri"))
             val subject = claims.getString("sub")
             if ((existing?.subject ?: registration?.subject)?.let { it != subject } == true) {
                 error("The newly authorized ChatGPT account does not match the previously selected account.")
@@ -166,13 +168,14 @@ class ChatGPTPlanAuth(
         if (current.expiresAtEpochSeconds > now + TOKEN_REFRESH_SKEW_SECONDS) {
             return@withContext current.accessToken
         }
+        val oidc = openIdConfiguration()
         val form = FormBody.Builder()
             .add("grant_type", "refresh_token")
             .add("client_id", current.clientId)
             .add("refresh_token", current.refreshToken)
             .add("resource", RESOURCE)
             .build()
-        val refreshed = executeTokenRequest(form) ?: return@withContext null
+        val refreshed = executeTokenRequest(form, oidc.getString("token_endpoint")) ?: return@withContext null
         if (!refreshed.optString("token_type").equals("Bearer", ignoreCase = true)) return@withContext null
         val newScopes = refreshed.optString("scope")
             .takeIf { it.isNotBlank() }?.split(' ')?.filter { it.isNotBlank() }?.toSet()
@@ -184,7 +187,7 @@ class ChatGPTPlanAuth(
             ?: current.refreshToken
         val idToken = refreshed.optString("id_token").takeIf { it.isNotBlank() } ?: current.idToken
         if (idToken != current.idToken) {
-            val claims = verifyIdToken(idToken, current.clientId, expectedNonce = null)
+            val claims = verifyIdToken(idToken, current.clientId, expectedNonce = null, jwksEndpoint = oidc.getString("jwks_uri"))
             if (claims.optString("sub") != current.subject) return@withContext null
         }
         val expiresIn = refreshed.optLong("expires_in", 0L)
@@ -208,11 +211,7 @@ class ChatGPTPlanAuth(
         var lastFailure = "OpenAI revocation endpoint could not be reached."
         for (attempt in 0..2) {
             try {
-                val discoveryRequest = Request.Builder().url(discoveryEndpoint).get().build()
-                val endpoint = http.newCall(discoveryRequest).execute().use { response ->
-                    if (!response.isSuccessful) error("OpenID discovery HTTP ${response.code}")
-                    JSONObject(response.body?.string().orEmpty()).getString("revocation_endpoint")
-                }
+                val endpoint = openIdConfiguration().getString("revocation_endpoint")
                 val form = FormBody.Builder()
                     .add("token", current.refreshToken)
                     .add("token_type_hint", "refresh_token")
@@ -244,7 +243,7 @@ class ChatGPTPlanAuth(
         ?: credentials.readRegistration()?.email
         ?: "ChatGPT not connected"
 
-    private fun exchangeAuthorizationCode(code: String, clientId: String, verifier: String, redirectUri: String): JSONObject {
+    private fun exchangeAuthorizationCode(code: String, clientId: String, verifier: String, redirectUri: String, tokenEndpoint: String): JSONObject {
         val form = FormBody.Builder()
             .add("grant_type", "authorization_code")
             .add("client_id", clientId)
@@ -253,11 +252,11 @@ class ChatGPTPlanAuth(
             .add("redirect_uri", redirectUri)
             .add("resource", RESOURCE)
             .build()
-        return executeTokenRequest(form) ?: error("OpenAI token exchange failed; no credentials were saved.")
+        return executeTokenRequest(form, tokenEndpoint) ?: error("OpenAI token exchange failed; no credentials were saved.")
     }
 
-    private fun executeTokenRequest(form: RequestBody): JSONObject? {
-        val request = Request.Builder().url(TOKEN_ENDPOINT).header("Accept", "application/json").post(form).build()
+    private fun executeTokenRequest(form: RequestBody, tokenEndpoint: String): JSONObject? {
+        val request = Request.Builder().url(tokenEndpoint).header("Accept", "application/json").post(form).build()
         http.newCall(request).execute().use { response ->
             val body = response.body?.string().orEmpty()
             if (!response.isSuccessful) return null
@@ -313,14 +312,15 @@ class ChatGPTPlanAuth(
         }
     }
 
-    internal fun verifyIdToken(idToken: String, clientId: String, expectedNonce: String?): JSONObject {
+    internal fun verifyIdToken(idToken: String, clientId: String, expectedNonce: String?, jwksEndpoint: String? = null): JSONObject {
         val parts = idToken.split('.')
         require(parts.size == 3) { "OpenAI ID token is malformed." }
         val header = JSONObject(String(decodeUrl(parts[0]), Charsets.UTF_8))
         require(header.optString("alg") == "RS256") { "OpenAI ID token uses an unsupported signature algorithm." }
         val kid = header.optString("kid")
         require(kid.isNotBlank()) { "OpenAI ID token has no signing key identifier." }
-        val jwksRequest = Request.Builder().url(jwksEndpoint).get().build()
+        val trustedJwksEndpoint = jwksEndpoint ?: openIdConfiguration().getString("jwks_uri")
+        val jwksRequest = Request.Builder().url(trustedJwksEndpoint).get().build()
         val jwks = http.newCall(jwksRequest).execute().use { response ->
             require(response.isSuccessful) { "OpenAI signing keys could not be retrieved." }
             JSONObject(response.body?.string().orEmpty())
@@ -364,6 +364,29 @@ class ChatGPTPlanAuth(
         return claims
     }
 
+    @Synchronized
+    private fun openIdConfiguration(): JSONObject {
+        val now = System.currentTimeMillis()
+        cachedDiscovery?.let { cached ->
+            if (now - cachedDiscoveryAt < DISCOVERY_CACHE_MS) return cached
+        }
+        val request = Request.Builder().url(discoveryEndpoint).header("Accept", "application/json").get().build()
+        val configuration = http.newCall(request).execute().use { response ->
+            require(response.isSuccessful) { "OpenAI OpenID discovery returned HTTP ${response.code}." }
+            JSONObject(response.body?.string().orEmpty())
+        }
+        require(configuration.optString("issuer") == ISSUER) { "OpenAI discovery issuer does not match the production issuer." }
+        listOf("authorization_endpoint", "token_endpoint", "jwks_uri", "revocation_endpoint").forEach { key ->
+            val endpoint = Uri.parse(configuration.getString(key))
+            require(endpoint.scheme == "https" && endpoint.host == "auth.openai.com") {
+                "OpenAI discovery returned an untrusted $key endpoint."
+            }
+        }
+        cachedDiscovery = configuration
+        cachedDiscoveryAt = now
+        return configuration
+    }
+
     private fun randomUrlSafe(bytes: Int): String {
         val random = ByteArray(bytes)
         SecureRandom().nextBytes(random)
@@ -385,9 +408,6 @@ class ChatGPTPlanAuth(
     companion object {
         const val ISSUER = "https://auth.openai.com"
         const val RESOURCE = "https://api.openai.com/v1"
-        const val AUTHORIZATION_ENDPOINT = "https://auth.openai.com/api/accounts/authorize"
-        const val TOKEN_ENDPOINT = "https://auth.openai.com/api/accounts/oauth/token"
-        const val JWKS_ENDPOINT = "https://auth.openai.com/.well-known/jwks.json"
         const val DISCOVERY_ENDPOINT = "https://auth.openai.com/.well-known/openid-configuration"
         const val REQUIRED_SCOPE = "chatgpt.tokens.use.direct"
         private const val DYNAMIC_CLIENT_ID = "dynamic_agent_client"
@@ -398,6 +418,7 @@ class ChatGPTPlanAuth(
         private const val SOCKET_TIMEOUT_MS = 15_000
         private const val TOKEN_REFRESH_SKEW_SECONDS = 90L
         private const val CLOCK_SKEW_SECONDS = 60L
+        private const val DISCOVERY_CACHE_MS = 10 * 60 * 1000L
         private val refreshMutex = Mutex()
     }
 }
