@@ -181,16 +181,14 @@ class ResidentModelBootstrapWorker(
 
     private fun createForegroundInfo(): ForegroundInfo {
         val channelId = "friday-model-bootstrap"
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val manager = applicationContext.getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(
-                NotificationChannel(
-                    channelId,
-                    "Friday offline model setup",
-                    NotificationManager.IMPORTANCE_LOW
-                ).apply { description = "Download and verify Friday's resident model." }
-            )
-        }
+        val manager = applicationContext.getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(
+            NotificationChannel(
+                channelId,
+                "Friday offline model setup",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply { description = "Download and verify Friday's resident model." }
+        )
         val notification = NotificationCompat.Builder(applicationContext, channelId)
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setContentTitle("Friday is preparing offline intelligence")
