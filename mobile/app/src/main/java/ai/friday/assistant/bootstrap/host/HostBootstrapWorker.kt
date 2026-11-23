@@ -127,7 +127,10 @@ class HostBootstrapWorker(
             .put("app_identity", JSONObject()
                 .put("package_name", applicationContext.packageName)
                 .put("version_name", BuildConfig.VERSION_NAME)
-                .put("source_revision", BuildConfig.SOURCE_REVISION))
+                .put("source_revision", BuildConfig.SOURCE_REVISION)
+                .put("installed_signer_sha256", installedSignerSha256() ?: JSONObject.NULL)
+                .put("matches_pinned_release_signer",
+                    HostAcceptanceEvidence.signerMatchesPinned(installedSignerSha256())))
             .put("development_workspace", JSONObject()
                 .put("root", "files/friday-development")
                 .put("directories_ready", directories.size)
@@ -331,6 +334,30 @@ class HostBootstrapWorker(
         if (totalDelta <= 0L || idleDelta < 0L) null
         else (((totalDelta - idleDelta).toDouble() / totalDelta.toDouble()) * 100.0)
             .coerceIn(0.0, 100.0)
+    }.getOrNull()
+
+    private fun installedSignerSha256(): String? = runCatching {
+        val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            applicationContext.packageManager.getPackageInfo(
+                applicationContext.packageName,
+                PackageManager.GET_SIGNING_CERTIFICATES
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            applicationContext.packageManager.getPackageInfo(
+                applicationContext.packageName,
+                PackageManager.GET_SIGNATURES
+            )
+        }
+        val certificate = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            packageInfo.signingInfo?.apkContentsSigners?.firstOrNull()?.toByteArray()
+        } else {
+            @Suppress("DEPRECATION")
+            packageInfo.signatures?.firstOrNull()?.toByteArray()
+        } ?: return null
+        java.security.MessageDigest.getInstance("SHA-256")
+            .digest(certificate)
+            .joinToString("") { byte -> "%02X".format(byte) }
     }.getOrNull()
 
     private fun inspectShizukuState(): ShizukuCapabilityState {
