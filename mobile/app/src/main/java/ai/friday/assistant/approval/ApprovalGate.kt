@@ -100,11 +100,14 @@ object ApprovalGate {
 
     /** Classify an action's risk under the current safety restrictions. */
     fun classifyRisk(action: FridayAction): RiskLevel {
+        // Capability risk must take precedence over the presentation/action
+        // verb. Otherwise a SHELL_EXEC request labeled "respond" or "noop"
+        // falls through to LOW and can be auto-approved by the FULL profile.
         val risk = when {
+            action.capability.equals("SHELL_EXEC", ignoreCase = true) -> RiskLevel.CRITICAL
             action.type == "write" ->
                 if (matchesProtected(action)) RiskLevel.CRITICAL else RiskLevel.MEDIUM
             action.type == "respond" || action.type == "noop" -> RiskLevel.LOW
-            action.capability == "SHELL_EXEC" -> RiskLevel.CRITICAL
             else -> RiskLevel.MEDIUM
         }
         // Safety restrictions escalate risk where the profile demands care.
