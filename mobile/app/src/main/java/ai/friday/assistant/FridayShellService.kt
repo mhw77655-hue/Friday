@@ -7,6 +7,7 @@ import java.util.concurrent.TimeUnit
 import java.security.MessageDigest
 import java.util.UUID
 import java.io.RandomAccessFile
+import java.io.FileInputStream
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -122,6 +123,19 @@ class FridayShellService : IFridayShellService.Stub() {
         runCatching { File(path).takeIf { it.isFile && it.canRead() }?.readText()?.take(maxChars) }
             .getOrNull().orEmpty()
 
+    private fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        FileInputStream(file).buffered().use { input ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                digest.update(buffer, 0, count)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }.uppercase()
+    }
+
     /** Runs only fixed executable/argument tuples authored in this class. */
     private fun runFixed(vararg command: String): String = runCatching {
         val process = ProcessBuilder(*command).redirectErrorStream(true).start()
@@ -181,10 +195,7 @@ class FridayShellService : IFridayShellService.Stub() {
                     return "status=rejected; reason=incomplete-transfer"
                 }
             }
-            val digest = MessageDigest.getInstance("SHA-256")
-                .digest(transfer.file.readBytes())
-                .joinToString("") { "%02x".format(it) }
-                .uppercase()
+            val digest = sha256(transfer.file)
             if (digest != transfer.expectedSha256) return "status=rejected; reason=transferred-apk-digest-mismatch"
 
             val process = ProcessBuilder("pm", "install", "-r", transfer.file.absolutePath)
