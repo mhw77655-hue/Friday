@@ -230,6 +230,19 @@ internal class ObjectiveBuilderCandidateExecutor(
             )
         }
         val diff = repository.readCommitDiff(commitSha)
+        if (diff.length > 7_500) {
+            return SeatReply(
+                seatId = "ovh-open-weight",
+                provider = "OVHcloud anonymous Seat",
+                model = OvhAnonymousSeat.MODEL,
+                utterance = null,
+                passed = true,
+                presence = SeatPresence.AWAY,
+                transport = "diff-too-large-not-sent",
+                receivedAtEpochMs = System.currentTimeMillis(),
+                error = "Exact diff exceeds the anonymous Seat digest budget; no truncated review was sent."
+            )
+        }
         val taskId = task.optString("task_id").take(64) + "-review"
         return OvhAnonymousSeat(wallet = SeatWalletStore(androidContext)).speak(
             SeatRequest(
