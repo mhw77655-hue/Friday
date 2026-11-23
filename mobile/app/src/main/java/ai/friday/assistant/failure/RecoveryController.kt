@@ -37,9 +37,9 @@ class RecoveryController(
         val maxAttempts: Int = 2,
         val backoffMs: Long = 1_500,
         val breakerThreshold: Int = 3,
-        val action: () -> Boolean,
+        val action: suspend () -> Boolean,
         /** Independent health oracle; action acceptance alone never means recovered. */
-        val verify: () -> Boolean,
+        val verify: suspend () -> Boolean,
         val verificationTimeoutMs: Long = 5_000,
         val verificationPollMs: Long = 100,
         /** Called when the breaker opens (subsystem disabled). */
