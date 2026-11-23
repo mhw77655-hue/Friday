@@ -110,6 +110,7 @@ class ChatGPTPlanAuth(
             }
 
             val token = exchangeAuthorizationCode(code, issuedClientId, verifier, redirectUri)
+            require(token.optString("token_type").equals("Bearer", ignoreCase = true)) { "OpenAI returned an unsupported token type." }
             val scopes = token.optString("scope").split(' ').filter { it.isNotBlank() }.toSet()
             require(REQUIRED_SCOPE in scopes) {
                 "ChatGPT plan usage was not authorized. Sign in again and grant the ChatGPT plan permission."
