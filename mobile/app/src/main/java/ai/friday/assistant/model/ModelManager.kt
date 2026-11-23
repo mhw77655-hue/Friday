@@ -99,7 +99,9 @@ class ModelManager(
         ModelProviderType.OLLAMA to ollamaAdapter,
         ModelProviderType.REMOTE_FRIDAY to remoteFridayAdapter,
         ModelProviderType.HEURISTIC to heuristicAdapter,
-        ModelProviderType.CLOUD to heuristicAdapter, // CloudProviderAdapter is a stub for now
+        // CLOUD is intentionally absent until a real authenticated cloud adapter
+        // is implemented. Mapping it to the heuristic adapter made Cloud Assisted
+        // appear configured/healthy while silently running local fallback logic.
         ModelProviderType.NONE to heuristicAdapter
     )
 
@@ -167,10 +169,11 @@ class ModelManager(
             }
             ModelProviderType.HEURISTIC -> heuristicAdapter
             ModelProviderType.NONE -> heuristicAdapter
-            ModelProviderType.CLOUD -> {
-                // TODO: CloudProviderAdapter
-                heuristicAdapter
-            }
+            ModelProviderType.CLOUD -> return Result.failure(
+                UnsupportedOperationException(
+                    "Cloud provider is not implemented. Friday remains on the existing provider; no cloud connection was made."
+                )
+            )
         }
 
         // Health check new provider before switching
@@ -211,8 +214,13 @@ class ModelManager(
 
     /** Load a model on the given provider (Model Manager UI). */
     suspend fun loadModel(type: ModelProviderType, modelId: String): Result<Unit> {
-        if (type == ModelProviderType.HEURISTIC || type == ModelProviderType.NONE || type == ModelProviderType.CLOUD) {
-            return Result.success(Unit) // nothing to load — heuristic/cloud route locally
+        if (type == ModelProviderType.CLOUD) {
+            return Result.failure(
+                UnsupportedOperationException("Cloud model loading is unavailable until a real cloud provider is configured.")
+            )
+        }
+        if (type == ModelProviderType.HEURISTIC || type == ModelProviderType.NONE) {
+            return Result.success(Unit) // the explicit local heuristic fallback has no model artifact
         }
         return try {
             request(roleForProvider(type), task = "loadModel", modelId = modelId, providerType = type)
@@ -224,9 +232,14 @@ class ModelManager(
 
     /** Unload a model from the given provider (Model Manager UI). */
     suspend fun unloadModel(type: ModelProviderType): Result<Unit> {
+        if (type == ModelProviderType.CLOUD) {
+            return Result.failure(
+                UnsupportedOperationException("No cloud provider is active, so there is no cloud model to unload.")
+            )
+        }
         // The manager now owns idle-unload: release starts the per-tier
         // cooldown and the sweep unloads from memory. Nothing to unload for
-        // heuristic-stub providers — release is a safe no-op there too.
+        // the explicit local heuristic fallback.
         release(roleForProvider(type))
         return Result.success(Unit)
     }
