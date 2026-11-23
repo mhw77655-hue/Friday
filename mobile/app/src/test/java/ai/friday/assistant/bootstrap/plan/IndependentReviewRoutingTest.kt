@@ -34,6 +34,17 @@ class IndependentReviewRoutingTest {
     }
 
     @Test
+    fun treatsExplicitPassAsCompletedReview() = runBlocking {
+        val preferred = FakeSeat("chatgpt-plan", SeatPresence.HERE, null)
+        val fallback = FakeSeat("ovh-open-weight", SeatPresence.HERE, "Fallback review.")
+
+        val result = consultIndependentReview(request, preferred, fallback)
+
+        assertEquals("chatgpt-plan", result.seatId)
+        assertEquals(0, fallback.calls)
+    }
+
+    @Test
     fun fallsBackToAnonymousFreeSeatWhenChatGptIsAway() = runBlocking {
         val preferred = FakeSeat("chatgpt-plan", SeatPresence.RATE_LIMITED, null)
         val fallback = FakeSeat("ovh-open-weight", SeatPresence.HERE, "Fallback review.")
