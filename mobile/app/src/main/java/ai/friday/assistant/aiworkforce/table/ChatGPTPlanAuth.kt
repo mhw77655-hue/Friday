@@ -41,7 +41,8 @@ class ChatGPTPlanAuth(
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(45, TimeUnit.SECONDS)
         .callTimeout(60, TimeUnit.SECONDS)
-        .build()
+        .build(),
+    private val jwksEndpoint: String = JWKS_ENDPOINT
 ) : ChatGPTPlanTokenProvider {
     suspend fun signIn(activity: Activity): String = withContext(Dispatchers.IO) {
         val existing = credentials.read()
@@ -244,14 +245,14 @@ class ChatGPTPlanAuth(
         }
     }
 
-    private fun verifyIdToken(idToken: String, clientId: String, expectedNonce: String?): JSONObject {
+    internal fun verifyIdToken(idToken: String, clientId: String, expectedNonce: String?): JSONObject {
         val parts = idToken.split('.')
         require(parts.size == 3) { "OpenAI ID token is malformed." }
         val header = JSONObject(String(decodeUrl(parts[0]), Charsets.UTF_8))
         require(header.optString("alg") == "RS256") { "OpenAI ID token uses an unsupported signature algorithm." }
         val kid = header.optString("kid")
         require(kid.isNotBlank()) { "OpenAI ID token has no signing key identifier." }
-        val jwksRequest = Request.Builder().url(JWKS_ENDPOINT).get().build()
+        val jwksRequest = Request.Builder().url(jwksEndpoint).get().build()
         val jwks = http.newCall(jwksRequest).execute().use { response ->
             require(response.isSuccessful) { "OpenAI signing keys could not be retrieved." }
             JSONObject(response.body?.string().orEmpty())
