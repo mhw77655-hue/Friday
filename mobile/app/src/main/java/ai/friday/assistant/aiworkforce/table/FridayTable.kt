@@ -100,7 +100,10 @@ class OvhAnonymousSeat(
             request.delta.length > MAX_DELTA_CHARS
         ) return@withContext reply(request, null, true, SeatPresence.AWAY, "Digest exceeds the seat contract.")
 
-        if (now < limitedUntil) {
+        val persistedLimit = wallet?.read(id)?.limitedUntilEpochMs ?: 0L
+        val effectiveLimit = maxOf(limitedUntil, persistedLimit)
+        if (now < effectiveLimit) {
+            limitedUntil = effectiveLimit
             return@withContext reply(request, null, true, SeatPresence.RATE_LIMITED, "Anonymous free quota cooldown.")
         }
 
