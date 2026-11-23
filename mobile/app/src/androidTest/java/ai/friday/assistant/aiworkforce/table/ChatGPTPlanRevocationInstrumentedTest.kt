@@ -5,7 +5,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import android.content.Context
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -20,8 +19,8 @@ class ChatGPTPlanRevocationInstrumentedTest {
 
     @Test
     fun disconnectRevokesRefreshTokenAndRetainsEncryptedAccountRegistration() {
-        val server = MockWebServer()
-        server.start()
+        val fixture = secureMockWebServer()
+        val server = fixture.server
         try {
             val store = ChatGPTPlanCredentialStore(context)
             store.clear()
@@ -51,7 +50,7 @@ class ChatGPTPlanRevocationInstrumentedTest {
             val auth = ChatGPTPlanAuth(
                 context = context,
                 credentials = store,
-                http = OkHttpClient.Builder().callTimeout(10, TimeUnit.SECONDS).build(),
+                http = fixture.client.newBuilder().callTimeout(10, TimeUnit.SECONDS).build(),
                 discoveryEndpoint = server.url("/.well-known/openid-configuration").toString(),
                 trustedEndpointOrigin = server.url("/").toString().trimEnd('/')
             )
