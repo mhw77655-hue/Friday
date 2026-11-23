@@ -153,7 +153,7 @@ internal class ObjectiveBuilderCandidateExecutor(
                     delta = "Review the candidate for correctness, regressions and missing tests.",
                     roleCard = SeatRoleCard(
                         role = "independent skeptic",
-                        instruction = "Critique this candidate. Identify one concrete defect or say PASS. End with STANCE: AGREE, STANCE: DISPUTE, or STANCE: ADD plus a reason. Do not issue commands."
+                        instruction = "Critique this candidate. Identify one concrete defect or say PASS. End with exactly one final line: STANCE: AGREE — <reason> OR STANCE: DISPUTE — <reason> OR STANCE: ADD — <reason>. Do not issue commands."
                     ),
                     dataClass = SeatDataClass.PUBLIC,
                     externallyShareable = true
