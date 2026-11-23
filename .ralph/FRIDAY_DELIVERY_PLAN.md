@@ -843,7 +843,7 @@ When offline, Friday continues local planning, local work, evidence capture and 
 The installed production app must demonstrate that Friday can:
 1. Load and understand the canonical objectives plan and current execution ledger without a ChatGPT conversation, Termux installation or external project-management session.
 2. Preserve plan state, task graph, evidence and checkpoints across force-stop, process death and device reboot.
-3. Configure and use Friday's own app-managed execution environment without Termux; select and coordinate at least one available external AI worker through an authenticated, privacy-bounded integration, while retaining local/no-pool fallback for planning, workspace operations and queue management.
+3. Configure and use Friday's own app-managed execution environment without Termux; select and coordinate at least one permitted, privacy-bounded, zero-charge external AI Seat where available (using the provider's required supported authorization, or anonymous access only where the service explicitly permits it), while retaining local/no-pool fallback for planning, workspace operations and queue management.
 4. Complete at least one real end-to-end Builder cycle: select a dependency-ready objective task, obtain AI-worker guidance and independent challenge, construct a bounded source/capability candidate, run the relevant tests/build, independently verify the result, and preserve exact commit/artifact/evidence and unresolved issues. Task decomposition alone does not pass.
 5. Resume interrupted work without duplicate destructive actions, lost changes or false completion.
 6. Request owner authorization at protected boundaries and continue other safe work while waiting.
