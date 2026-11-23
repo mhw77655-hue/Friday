@@ -4,6 +4,7 @@ import ai.friday.assistant.microsystem.MicroSystemContract
 import ai.friday.assistant.microsystem.MicroSystemRegistry
 import ai.friday.assistant.microsystem.OperationResult
 import ai.friday.assistant.microsystem.SyncMessage
+import ai.friday.assistant.microsystem.isRoutable
 import ai.friday.assistant.organism.manifests
 
 /**
@@ -27,10 +28,10 @@ class OrganismCoordinator(
 ) {
 
     /** Every capability currently provided by registered organisms. */
-    val readyCapabilities: Set<String> get() = registry.all().flatMap { it.capabilities }.toSet()
+    val readyCapabilities: Set<String> get() = registry.all().filter { it.isRoutable() }.flatMap { it.capabilities }.toSet()
 
     /** Organisms that declare a capability. */
-    fun providers(capability: String): List<MicroSystemContract> = registry.provides(capability)
+    fun providers(capability: String): List<MicroSystemContract> = registry.provides(capability).filter { it.isRoutable() }
 
     /** «What are you?» for every registered organism. */
     fun allManifests(): List<ai.friday.assistant.organism.OrganismManifests> =
