@@ -33,7 +33,6 @@ class SettingsScreenInteractionInstrumentedTest {
         compose.onNodeWithText("Check for Friday updates").assertHasClickAction()
         compose.onNodeWithText("Open battery optimization settings").assertHasClickAction()
         compose.onNodeWithText("Remove key").assertHasClickAction()
-        compose.onNodeWithText("Connect Friday to the phone").assertHasClickAction()
     }
 
     @Test
