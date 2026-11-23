@@ -34,4 +34,31 @@ class ObjectiveTaskDependencyGateTest {
         val task = JSONObject().put("dependencies", JSONArray().put("missing"))
         assertFalse(ObjectiveTaskDependencyGate.areSatisfied(task, JSONArray()))
     }
+    @Test
+    fun interruptedTaskFromPreviousProcessIsRecovered() {
+        assertTrue(ObjectiveTaskRecoveryPolicy.shouldRecover(
+            "EXECUTING", "old-process", "new-process", 9_000L, 10_000L, 60_000L
+        ))
+    }
+
+    @Test
+    fun sameProcessTaskIsNotRecoveredBeforeLeaseExpires() {
+        assertFalse(ObjectiveTaskRecoveryPolicy.shouldRecover(
+            "EXECUTING", "same-process", "same-process", 9_000L, 10_000L, 60_000L
+        ))
+    }
+
+    @Test
+    fun staleSameProcessLeaseIsRecovered() {
+        assertTrue(ObjectiveTaskRecoveryPolicy.shouldRecover(
+            "EXECUTING", "same-process", "same-process", 1_000L, 100_000L, 60_000L
+        ))
+    }
+
+    @Test
+    fun nonExecutingTaskIsNeverRecovered() {
+        assertFalse(ObjectiveTaskRecoveryPolicy.shouldRecover(
+            "CI_PASSED_AWAITING_REVIEW", "old-process", "new-process", 1_000L, 100_000L, 60_000L
+        ))
+    }
 }
