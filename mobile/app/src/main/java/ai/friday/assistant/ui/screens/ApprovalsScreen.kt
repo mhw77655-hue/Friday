@@ -14,6 +14,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -24,7 +25,6 @@ import ai.friday.assistant.approvals.ApprovalEntry
 import ai.friday.assistant.approvals.LocalApprovalQueue
 import ai.friday.assistant.ui.theme.FridayColors
 import ai.friday.assistant.ui.theme.FridayType
-import kotlinx.coroutines.flow.map
 
 /**
  * Approvals Screen — displays pending approvals for high-risk operations.
@@ -35,9 +35,10 @@ fun ApprovalsScreen(
     approvalQueue: LocalApprovalQueue,
     onNavigate: (String) -> Unit
 ) {
-    val approvals by approvalQueue.pendingApprovals
-        .map { it.map { ApprovalEntry.from(it) } }
-        .collectAsStateWithLifecycle(initialValue = emptyList())
+    val pendingApprovals by approvalQueue.pendingApprovals.collectAsStateWithLifecycle(initialValue = emptyList())
+    val approvals = remember(pendingApprovals) {
+        pendingApprovals.map { ApprovalEntry.from(it) }
+    }
 
     Column(
         modifier = Modifier
