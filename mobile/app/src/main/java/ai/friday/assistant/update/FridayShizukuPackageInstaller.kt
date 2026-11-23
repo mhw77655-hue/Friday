@@ -2,6 +2,7 @@ package ai.friday.assistant.update
 
 import android.content.Context
 import ai.friday.assistant.ScreenBridge
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.FileInputStream
@@ -87,6 +88,8 @@ class FridayShizukuPackageInstaller(context: Context) {
             } else {
                 Result.Rejected(result.take(700))
             }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
         } catch (error: Exception) {
             Result.Rejected(error.message?.take(240) ?: error.javaClass.simpleName)
         } finally {
