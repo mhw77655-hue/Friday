@@ -52,4 +52,18 @@ class HostAcceptanceEvidenceTest {
             evidence.getJSONArray("failed_probes").getString(0)
         )
     }
+    @Test
+    fun installedReleaseSignerMustMatchPinnedFridayIdentity() {
+        assertTrue(
+            HostAcceptanceEvidence.signerMatchesPinned(
+                "FD:84:81:1F:91:15:85:D8:15:2D:C2:BF:FF:70:0D:8F:CE:36:D5:A0:7D:F3:92:BE:89:F9:1D:56:46:A6:D1:B8"
+            )
+        )
+        assertEquals(
+            false,
+            HostAcceptanceEvidence.signerMatchesPinned("00".repeat(32))
+        )
+        assertEquals(false, HostAcceptanceEvidence.signerMatchesPinned(null))
+    }
+
 }
