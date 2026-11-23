@@ -23,6 +23,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import ai.friday.assistant.diagnostics.DiagnosticEventLog
 import ai.friday.assistant.diagnostics.CrashJournal
+import ai.friday.assistant.diagnostics.EngineFailureHealthGate
 import ai.friday.assistant.FridayEngine
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
