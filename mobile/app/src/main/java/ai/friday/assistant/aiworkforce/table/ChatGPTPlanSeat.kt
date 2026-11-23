@@ -146,6 +146,7 @@ class ChatGPTPlanSeat(
                 }
                 if (failureCode != null) {
                     val limited = failureCode!!.contains("usage_limit", ignoreCase = true) ||
+                        failureCode!!.contains("usage_unavailable", ignoreCase = true) ||
                         failureCode!!.contains("rate_limit", ignoreCase = true)
                     return@withContext reply(
                         model.first, null, true,
