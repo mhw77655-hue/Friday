@@ -85,7 +85,7 @@ object ScreenBridge {
         val args = Shizuku.UserServiceArgs(ComponentName(context, FridayShellService::class.java))
             .daemon(true)
             .tag("friday-device-capability-core")
-            .version(5)
+            .version(6)
         userServiceArgs = args
         try {
             _status.value = "binding..."
@@ -167,6 +167,42 @@ object ScreenBridge {
             }
         } ?: "Shizuku binding verification timed out"
     }
+
+    /** Actual UID proved by the connected UserService, not inferred from a running server. */
+    fun verifiedShizukuUid(): Int? = verifiedUid
+
+    /** Begin a bounded APK byte transfer to shell-owned temporary storage. */
+    suspend fun beginApkInstall(expectedSize: Long, expectedSha256: String): String? =
+        withContext(Dispatchers.IO) {
+            val svc = service ?: return@withContext null
+            runCatching { svc.beginApkInstall(expectedSize, expectedSha256) }
+                .onFailure { _status.value = "APK transfer start failed: ${it.javaClass.simpleName}" }
+                .getOrNull()
+        }
+
+    /** Send one sequential chunk; callers must use chunks no larger than 128 KiB. */
+    suspend fun writeApkInstallChunk(transferId: String, offset: Long, chunk: ByteArray): String? =
+        withContext(Dispatchers.IO) {
+            val svc = service ?: return@withContext null
+            runCatching { svc.writeApkInstallChunk(transferId, offset, chunk) }
+                .onFailure { _status.value = "APK transfer chunk failed: ${it.javaClass.simpleName}" }
+                .getOrNull()
+        }
+
+    /** Commit only a complete, digest-verified Friday APK through the fixed package-manager operation. */
+    suspend fun commitApkInstall(transferId: String): String? =
+        withContext(Dispatchers.IO) {
+            val svc = service ?: return@withContext null
+            runCatching { svc.commitApkInstall(transferId) }
+                .onFailure { _status.value = "Privileged APK install failed: ${it.javaClass.simpleName}" }
+                .getOrNull()
+        }
+
+    suspend fun cancelApkInstall(transferId: String): String? =
+        withContext(Dispatchers.IO) {
+            val svc = service ?: return@withContext null
+            runCatching { svc.cancelApkInstall(transferId) }.getOrNull()
+        }
 
     /** Launches an installed app by package name through a typed Shizuku operation. */
     fun launchApp(packageName: String): String? {

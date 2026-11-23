@@ -32,6 +32,10 @@ class FridayApplication : Application() {
         // process owns Friday's cognitive composition root and lifecycle.
         // Secondary capability habitats construct only their own organs.
         if (currentProcessName() != packageName) return
+        // Keep Shizuku capability state alive for scheduled background update
+        // work as well as foreground Settings interactions.
+        ShizukuBridge.init()
+        ShizukuBridge.refresh()
         FridayEngine.init(this)
         // If Android completed an APK replacement, verify the newly installed
         // package before the app reports the update as healthy.

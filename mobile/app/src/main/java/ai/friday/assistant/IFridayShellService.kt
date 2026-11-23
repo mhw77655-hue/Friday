@@ -16,6 +16,10 @@ interface IFridayShellService : IInterface {
     fun setDozeWhitelist(enabled: Boolean): String
     fun isDozeWhitelisted(): String
     fun launchApp(packageName: String): String
+    fun beginApkInstall(expectedSize: Long, expectedSha256: String): String
+    fun writeApkInstallChunk(transferId: String, offset: Long, chunk: ByteArray): String
+    fun commitApkInstall(transferId: String): String
+    fun cancelApkInstall(transferId: String): String
     fun destroy()
 
     abstract class Stub : Binder(), IFridayShellService {
@@ -73,6 +77,37 @@ interface IFridayShellService : IInterface {
                     reply?.writeString(result)
                     return true
                 }
+                TRANSACTION_BEGIN_APK_INSTALL -> {
+                    data.enforceInterface(DESCRIPTOR)
+                    val result = beginApkInstall(data.readLong(), data.readString().orEmpty())
+                    reply?.writeNoException()
+                    reply?.writeString(result)
+                    return true
+                }
+                TRANSACTION_WRITE_APK_CHUNK -> {
+                    data.enforceInterface(DESCRIPTOR)
+                    val transferId = data.readString().orEmpty()
+                    val offset = data.readLong()
+                    val chunk = data.createByteArray() ?: ByteArray(0)
+                    val result = writeApkInstallChunk(transferId, offset, chunk)
+                    reply?.writeNoException()
+                    reply?.writeString(result)
+                    return true
+                }
+                TRANSACTION_COMMIT_APK_INSTALL -> {
+                    data.enforceInterface(DESCRIPTOR)
+                    val result = commitApkInstall(data.readString().orEmpty())
+                    reply?.writeNoException()
+                    reply?.writeString(result)
+                    return true
+                }
+                TRANSACTION_CANCEL_APK_INSTALL -> {
+                    data.enforceInterface(DESCRIPTOR)
+                    val result = cancelApkInstall(data.readString().orEmpty())
+                    reply?.writeNoException()
+                    reply?.writeString(result)
+                    return true
+                }
                 // Shizuku UserService destruction transaction for a hand-written Binder contract.
                 SHIZUKU_DESTROY_TRANSACTION -> {
                     destroy()
@@ -90,6 +125,10 @@ interface IFridayShellService : IInterface {
             const val TRANSACTION_DOZE_WHITELIST = IBinder.FIRST_CALL_TRANSACTION + 3
             const val TRANSACTION_LAUNCH_APP = IBinder.FIRST_CALL_TRANSACTION + 4
             const val TRANSACTION_DOZE_WHITELIST_STATE = IBinder.FIRST_CALL_TRANSACTION + 5
+            const val TRANSACTION_BEGIN_APK_INSTALL = IBinder.FIRST_CALL_TRANSACTION + 6
+            const val TRANSACTION_WRITE_APK_CHUNK = IBinder.FIRST_CALL_TRANSACTION + 7
+            const val TRANSACTION_COMMIT_APK_INSTALL = IBinder.FIRST_CALL_TRANSACTION + 8
+            const val TRANSACTION_CANCEL_APK_INSTALL = IBinder.FIRST_CALL_TRANSACTION + 9
             const val SHIZUKU_DESTROY_TRANSACTION = 16777114
 
             @JvmStatic
@@ -184,6 +223,69 @@ interface IFridayShellService : IInterface {
                 remote.transact(Stub.TRANSACTION_DOZE_WHITELIST_STATE, data, reply, 0)
                 reply.readException()
                 reply.readString() ?: "status=unverified"
+            } finally {
+                data.recycle()
+                reply.recycle()
+            }
+        }
+
+        override fun beginApkInstall(expectedSize: Long, expectedSha256: String): String {
+            val data = Parcel.obtain()
+            val reply = Parcel.obtain()
+            return try {
+                data.writeInterfaceToken(Stub.DESCRIPTOR)
+                data.writeLong(expectedSize)
+                data.writeString(expectedSha256)
+                remote.transact(Stub.TRANSACTION_BEGIN_APK_INSTALL, data, reply, 0)
+                reply.readException()
+                reply.readString() ?: "status=error; reason=empty-begin-response"
+            } finally {
+                data.recycle()
+                reply.recycle()
+            }
+        }
+
+        override fun writeApkInstallChunk(transferId: String, offset: Long, chunk: ByteArray): String {
+            val data = Parcel.obtain()
+            val reply = Parcel.obtain()
+            return try {
+                data.writeInterfaceToken(Stub.DESCRIPTOR)
+                data.writeString(transferId)
+                data.writeLong(offset)
+                data.writeByteArray(chunk)
+                remote.transact(Stub.TRANSACTION_WRITE_APK_CHUNK, data, reply, 0)
+                reply.readException()
+                reply.readString() ?: "status=error; reason=empty-chunk-response"
+            } finally {
+                data.recycle()
+                reply.recycle()
+            }
+        }
+
+        override fun commitApkInstall(transferId: String): String {
+            val data = Parcel.obtain()
+            val reply = Parcel.obtain()
+            return try {
+                data.writeInterfaceToken(Stub.DESCRIPTOR)
+                data.writeString(transferId)
+                remote.transact(Stub.TRANSACTION_COMMIT_APK_INSTALL, data, reply, 0)
+                reply.readException()
+                reply.readString() ?: "status=error; reason=empty-commit-response"
+            } finally {
+                data.recycle()
+                reply.recycle()
+            }
+        }
+
+        override fun cancelApkInstall(transferId: String): String {
+            val data = Parcel.obtain()
+            val reply = Parcel.obtain()
+            return try {
+                data.writeInterfaceToken(Stub.DESCRIPTOR)
+                data.writeString(transferId)
+                remote.transact(Stub.TRANSACTION_CANCEL_APK_INSTALL, data, reply, 0)
+                reply.readException()
+                reply.readString() ?: "status=error; reason=empty-cancel-response"
             } finally {
                 data.recycle()
                 reply.recycle()
