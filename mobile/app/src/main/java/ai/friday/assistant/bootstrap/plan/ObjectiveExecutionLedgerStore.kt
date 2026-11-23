@@ -433,13 +433,51 @@ class ObjectiveExecutionLedgerStore(context: Context) {
     }
 
     @Synchronized
-    fun markChildTaskExecuting(taskId: String): Boolean {
+    fun recoverInterruptedTasks(processInstanceId: String, nowEpochMs: Long = System.currentTimeMillis()): Int {
+        require(processInstanceId.isNotBlank())
+        val ledger = snapshot() ?: return 0
+        val tasks = ledger.optJSONArray("tasks") ?: return 0
+        var recovered = 0
+        for (index in 0 until tasks.length()) {
+            val task = tasks.optJSONObject(index) ?: continue
+            val recordedProcess = task.optString("execution_process_id")
+            val updatedAt = task.optLong("updated_at_epoch_ms", 0L)
+            if (!ObjectiveTaskRecoveryPolicy.shouldRecover(
+                    status = task.optString("status"),
+                    recordedProcessId = recordedProcess,
+                    currentProcessId = processInstanceId,
+                    updatedAtEpochMs = updatedAt,
+                    nowEpochMs = nowEpochMs,
+                    staleAfterMs = EXECUTION_LEASE_STALE_MS
+                )
+            ) continue
+            task.put("status", "QUEUED")
+                .put("last_recovery_reason", "Recovered an interrupted Builder task after process-generation change or stale execution lease.")
+                .put("checkpoint", JSONObject()
+                    .put("stage", "RECOVERED_AFTER_INTERRUPTION")
+                    .put("updated_at_epoch_ms", nowEpochMs))
+                .put("updated_at_epoch_ms", nowEpochMs)
+            recovered++
+        }
+        if (recovered > 0) {
+            ledger.put("tasks", tasks)
+                .put("updated_at_epoch_ms", nowEpochMs)
+                .put("execution_state", "INTERRUPTED_TASKS_RECOVERED")
+            writeAtomically(ledgerFile, ledger.toString(2))
+        }
+        return recovered
+    }
+
+    @Synchronized
+    fun markChildTaskExecuting(taskId: String, processInstanceId: String): Boolean {
         val ledger = snapshot() ?: return false
         val tasks = ledger.optJSONArray("tasks") ?: return false
         val task = (0 until tasks.length()).map { tasks.getJSONObject(it) }
             .firstOrNull { it.optString("task_id") == taskId } ?: return false
         if (task.optString("status") != "QUEUED") return false
+        require(processInstanceId.isNotBlank())
         task.put("status", "EXECUTING")
+            .put("execution_process_id", processInstanceId)
             .put("checkpoint", JSONObject()
                 .put("stage", "LOCAL_CANDIDATE_GENERATION")
                 .put("updated_at_epoch_ms", System.currentTimeMillis()))
@@ -507,5 +545,6 @@ class ObjectiveExecutionLedgerStore(context: Context) {
     companion object {
         private val TERMINAL_TASK_STATES = setOf("ACCEPTED", "REJECTED", "CANCELLED", "STALE_PLAN_CHANGED", "DECOMPOSED")
         private val PARENT_TASK_TYPES = setOf("PHASE_EVIDENCE_ASSESSMENT", "OBJECTIVE_SCOPE_ASSESSMENT")
+        private const val EXECUTION_LEASE_STALE_MS = 6 * 60 * 60 * 1000L
     }
 }
