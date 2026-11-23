@@ -83,9 +83,14 @@ class OrganismCoordinator(
                 failedAt = nextCapability,
                 error = "provider ${routed.providerId ?: "unknown"} omitted declared output port '$outputName'"
             )
-            val nextProvider = router.providers(nextCapability).firstOrNull { it is ai.friday.assistant.microsystem.CallableMicroSystem }
-            val nextInputName = nextProvider?.genome?.inputs?.firstOrNull()?.name ?: "value"
-            input = mapOf(nextInputName to outputValue)
+            // A fallback provider may declare a different input port. Supply
+            // the same value under each candidate's first declared input name
+            // so the router can fall through without silently miswiring it.
+            val nextInputNames = router.providers(nextCapability)
+                .mapNotNull { it.genome.inputs.firstOrNull()?.name }
+                .toSet()
+                .ifEmpty { setOf("value") }
+            input = nextInputNames.associateWith { outputValue }
         }
         return PipelineResult(success = true, completedStages = outputs, failedAt = null)
     }
