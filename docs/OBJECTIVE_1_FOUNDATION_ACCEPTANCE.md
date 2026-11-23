@@ -225,3 +225,16 @@ After one-time GitHub authorization and a separate explicit public-reporting con
 - PR #121, `objective-1/shizuku-background-installer`, contains the first Shizuku-backed background updater implementation: typed APK transfer Binder methods, chunk/digest validation, fixed package-manager install, automatic scheduled installation when authorized, native fallback and next-process health verification.
 - PR #121 adds an Android instrumentation test for Binder argument/receipt marshalling. Exact-head CI is required; emulator success cannot prove real Shizuku privilege or physical self-update.
 - Objective 1 remains OPEN. The installed Builder mission, app-owned development environment, direct AI Seat acceptance, complete recovery/fault tests, same-key physical update continuity and physical-host evidence remain separate acceptance gates.
+
+
+## Direct ChatGPT plan Seat implementation candidate — 2026-11-23
+
+PR #122's ChatGPT integration has been ported onto the current main line for conflict-free validation:
+
+- Official open-source Sign in with ChatGPT dynamic registration, OAuth Authorization Code + PKCE, loopback callback and ID-token signature/claim validation.
+- Android Keystore AES-GCM token storage, serialized refresh, pending client-ID recovery after failed code exchange, and renewable-session revocation on sign-out while retaining encrypted account/client mapping.
+- Account-specific model discovery and streamed Responses API inference with `store=false`, `stream=true`, and completion-event validation.
+- Explicit background-use consent defaults OFF. Only PUBLIC and externally shareable Builder digests can reach the ChatGPT Seat; private data is rejected before token/network access.
+- ChatGPT joins the local Builder Table alongside the existing anonymous OVH Seat. All guest critiques are preserved and passed to the local Builder as untrusted advisory input; Friday remains the authority.
+
+Instrumentation tests cover encrypted storage, consent, privacy gating, mocked inference, rate-limit behavior, token revocation and RS256/JWKS identity verification. Actual account eligibility and a real owner-authorized inference turn remain runtime acceptance evidence, not CI claims.
