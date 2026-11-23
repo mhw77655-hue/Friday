@@ -75,6 +75,15 @@ class FridayUpdateStateStore(context: Context) {
             .apply()
     }
 
+    fun clearPendingHealthCheck() {
+        prefs.edit()
+            .remove(KEY_PENDING_VERSION_CODE)
+            .remove(KEY_PENDING_VERSION_NAME)
+            .remove(KEY_PENDING_SOURCE_COMMIT)
+            .remove(KEY_PENDING_CERTIFICATE)
+            .apply()
+    }
+
     @Suppress("DEPRECATION")
     fun verifyPendingHealthCheck(): String? {
         val expectedVersion = prefs.getLong(KEY_PENDING_VERSION_CODE, -1L)
