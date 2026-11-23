@@ -5,7 +5,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import android.content.Context
 import kotlinx.coroutines.runBlocking
 import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -75,8 +74,8 @@ class ChatGPTPlanSeatApiInstrumentedTest {
 
     @Test
     fun privateDigestIsBlockedBeforeTokenOrNetworkAccess() = runBlocking {
-        val server = MockWebServer()
-        server.start()
+        val fixture = secureMockWebServer()
+        val server = fixture.server
         try {
             ChatGPTPlanBackgroundConsentStore(context).setEnabled(true)
             var tokenReads = 0
@@ -90,7 +89,7 @@ class ChatGPTPlanSeatApiInstrumentedTest {
                 context = context,
                 tokenProvider = provider,
                 apiBaseUrl = server.url("/v1").toString().trimEnd('/'),
-                http = OkHttpClient()
+                http = fixture.client
             )
             val reply = seat.speak(
                 SeatRequest(
@@ -114,8 +113,8 @@ class ChatGPTPlanSeatApiInstrumentedTest {
 
     @Test
     fun backgroundConsentOffBlocksPublicDigestBeforeTokenOrNetworkAccess() = runBlocking {
-        val server = MockWebServer()
-        server.start()
+        val fixture = secureMockWebServer()
+        val server = fixture.server
         try {
             ChatGPTPlanBackgroundConsentStore(context).setEnabled(false)
             var tokenReads = 0
@@ -128,7 +127,7 @@ class ChatGPTPlanSeatApiInstrumentedTest {
                     }
                 },
                 apiBaseUrl = server.url("/v1").toString().trimEnd('/'),
-                http = OkHttpClient()
+                http = fixture.client
             )
             val reply = seat.speak(
                 SeatRequest(
@@ -152,8 +151,8 @@ class ChatGPTPlanSeatApiInstrumentedTest {
 
     @Test
     fun planUsageLimitNeverFallsBackToPaidApi() = runBlocking {
-        val server = MockWebServer()
-        server.start()
+        val fixture = secureMockWebServer()
+        val server = fixture.server
         try {
             ChatGPTPlanBackgroundConsentStore(context).setEnabled(true)
             server.enqueue(MockResponse().setBody(
@@ -168,7 +167,7 @@ class ChatGPTPlanSeatApiInstrumentedTest {
                     override suspend fun validAccessToken() = "oauth-access-token"
                 },
                 apiBaseUrl = server.url("/v1").toString().trimEnd('/'),
-                http = OkHttpClient()
+                http = fixture.client
             )
             val reply = seat.speak(
                 SeatRequest(
