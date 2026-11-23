@@ -51,7 +51,8 @@ class ChatGPTPlanAuth(
     private val jwksEndpoint: String = JWKS_ENDPOINT,
     private val discoveryEndpoint: String = DISCOVERY_ENDPOINT
 ) : ChatGPTPlanTokenProvider {
-    suspend fun signIn(activity: Activity): String = withContext(Dispatchers.IO) {
+    suspend fun signIn(activity: Activity): String = refreshMutex.withLock {
+        withContext(Dispatchers.IO) {
         val existing = credentials.read()
         val registration = credentials.readRegistration()
         val pendingClientId = credentials.pendingClientId()
@@ -152,6 +153,7 @@ class ChatGPTPlanAuth(
             "Connected to ChatGPT plan usage for ${claims.optString("email").ifBlank { "your authorized account" }}."
         } finally {
             runCatching { server.close() }
+        }
         }
     }
 
