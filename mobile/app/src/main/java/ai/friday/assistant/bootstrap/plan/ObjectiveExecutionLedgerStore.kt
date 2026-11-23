@@ -366,6 +366,45 @@ class ObjectiveExecutionLedgerStore(context: Context) {
     }
 
     @Synchronized
+    fun nextCandidateForReview(): JSONObject? {
+        val tasks = snapshot()?.optJSONArray("tasks") ?: return null
+        for (index in 0 until tasks.length()) {
+            val task = tasks.optJSONObject(index) ?: continue
+            if (task.optString("status") == "CI_PASSED_AWAITING_REVIEW") {
+                return JSONObject(task.toString())
+            }
+        }
+        return null
+    }
+
+    @Synchronized
+    fun recordCandidateReview(taskId: String, review: JSONObject) {
+        val ledger = snapshot() ?: error("Execution ledger is not initialized.")
+        val tasks = ledger.optJSONArray("tasks") ?: error("Task ledger is missing.")
+        val task = (0 until tasks.length()).map { tasks.getJSONObject(it) }
+            .firstOrNull { it.optString("task_id") == taskId }
+            ?: error("Builder task no longer exists.")
+        require(task.optString("status") == "CI_PASSED_AWAITING_REVIEW") {
+            "Candidate is not awaiting independent review."
+        }
+        val stance = review.optString("stance")
+        val nextStatus = when (stance) {
+            "AGREE" -> "VERIFIED_CANDIDATE_AWAITING_OWNER_REVIEW"
+            "DISPUTE", "ADD" -> "REVIEW_REQUIRES_REWORK"
+            else -> "REVIEW_INCOMPLETE"
+        }
+        task.put("status", nextStatus)
+            .put("independent_review", review)
+            .put("checkpoint", JSONObject()
+                .put("stage", nextStatus)
+                .put("updated_at_epoch_ms", System.currentTimeMillis()))
+            .put("updated_at_epoch_ms", System.currentTimeMillis())
+        ledger.put("updated_at_epoch_ms", System.currentTimeMillis())
+            .put("execution_state", nextStatus)
+        writeAtomically(ledgerFile, ledger.toString(2))
+    }
+
+    @Synchronized
     fun recordCandidateCiResult(taskId: String, checks: JSONObject) {
         val ledger = snapshot() ?: error("Execution ledger is not initialized.")
         val tasks = ledger.optJSONArray("tasks") ?: error("Task ledger is missing.")
