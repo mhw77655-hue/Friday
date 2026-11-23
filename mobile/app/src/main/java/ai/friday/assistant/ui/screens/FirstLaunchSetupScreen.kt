@@ -389,14 +389,16 @@ private fun openBatterySettings(context: Context) {
     runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }
 
-private fun openShizuku(context: Context) {
-    val launch = context.packageManager.getLaunchIntentForPackage("moe.shizuku.privileged.api")
+private fun openShizuku(context: Context, shizukuNextInstalled: Boolean) {
+    val launch = if (shizukuNextInstalled) {
+        context.packageManager.getLaunchIntentForPackage("moe.shizuku.privileged.api")
+    } else null
     if (launch != null) {
-        runCatching { context.startActivity(launch) }
+        runCatching { context.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     } else {
         runCatching {
             context.startActivity(
-                Intent(Intent.ACTION_VIEW, Uri.parse("https://shizuku.rikka.app/"))
+                Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/rushiranpise/Shizuku-Next/releases"))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
         }
