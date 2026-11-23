@@ -114,6 +114,44 @@ class ChatGPTPlanSeatApiInstrumentedTest {
     }
 
     @Test
+    fun backgroundConsentOffBlocksPublicDigestBeforeTokenOrNetworkAccess() = runBlocking {
+        val server = MockWebServer()
+        server.start()
+        try {
+            ChatGPTPlanBackgroundConsentStore(context).setEnabled(false)
+            var tokenReads = 0
+            val seat = ChatGPTPlanSeat(
+                context = context,
+                tokenProvider = object : ChatGPTPlanTokenProvider {
+                    override suspend fun validAccessToken(): String? {
+                        tokenReads += 1
+                        return "must-not-be-read"
+                    }
+                },
+                apiBaseUrl = server.url("/v1").toString().trimEnd('/'),
+                http = OkHttpClient()
+            )
+            val reply = seat.speak(
+                SeatRequest(
+                    turnId = "consent-off",
+                    digest = "public digest",
+                    delta = "public delta",
+                    roleCard = SeatRoleCard("reviewer", "Review only."),
+                    dataClass = SeatDataClass.PUBLIC,
+                    externallyShareable = true
+                )
+            )
+            assertTrue(reply.passed)
+            assertEquals(SeatPresence.DISABLED, reply.presence)
+            assertEquals(0, tokenReads)
+            assertEquals(0, server.requestCount)
+        } finally {
+            ChatGPTPlanBackgroundConsentStore(context).setEnabled(false)
+            server.shutdown()
+        }
+    }
+
+    @Test
     fun planUsageLimitNeverFallsBackToPaidApi() = runBlocking {
         val server = MockWebServer()
         server.start()
