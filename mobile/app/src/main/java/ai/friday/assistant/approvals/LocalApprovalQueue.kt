@@ -91,9 +91,21 @@ class LocalApprovalQueue(
         if (approval.status != ApprovalStatus.PENDING) {
             return@withContext Result.failure(IllegalStateException("Approval not pending"))
         }
+        val now = System.currentTimeMillis()
+        if (approval.expiresAt <= now) {
+            updateApproval(
+                approval.copy(
+                    status = ApprovalStatus.EXPIRED,
+                    decidedAt = now,
+                    decidedBy = "system",
+                    decision = ApprovalDecision.EXPIRE
+                )
+            )
+            return@withContext Result.failure(IllegalStateException("Approval expired"))
+        }
         val updated = approval.copy(
             status = ApprovalStatus.APPROVED,
-            decidedAt = System.currentTimeMillis(),
+            decidedAt = now,
             decidedBy = decidedBy,
             decision = ApprovalDecision.APPROVE
         )
@@ -139,7 +151,7 @@ class LocalApprovalQueue(
     suspend fun checkExpired(): List<ApprovalRequest> = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
         val expired = _approvals.value.filter {
-            it.status == ApprovalStatus.PENDING && it.expiresAt < now
+            it.status == ApprovalStatus.PENDING && it.expiresAt <= now
         }
         expired.forEach { approval ->
             val updated = approval.copy(
