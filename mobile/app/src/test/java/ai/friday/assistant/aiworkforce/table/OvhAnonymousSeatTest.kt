@@ -38,7 +38,7 @@ class OvhAnonymousSeatTest {
     @Test fun `anonymous seat sends no authorization and parses one utterance`() = runBlocking {
         val server = MockWebServer()
         server.enqueue(MockResponse().setResponseCode(200).setBody(
-            """{"choices":[{"message":{"content":"I found a missing edge case.\\nSTANCE: DISPUTE — add a regression test."}}]}"""
+            """{"choices":[{"message":{"content":"I found a missing edge case.\nSTANCE: DISPUTE — add a regression test."}}]}"""
         ))
         server.start()
         try {
