@@ -371,8 +371,10 @@ private fun openAppNotificationSettings(context: Context) {
 }
 
 private fun openBatterySettings(context: Context) {
-    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-        .setData(Uri.parse("package:${context.packageName}"))
+    // Open the system's optimization list instead of requesting the
+    // restricted per-app exemption dialog/permission. Friday remains usable
+    // without exemption and can explain background limits to the owner.
+    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
     runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }
 
