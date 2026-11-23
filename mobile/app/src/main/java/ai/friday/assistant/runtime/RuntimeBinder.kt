@@ -45,6 +45,13 @@ class RuntimeBinder(
     suspend fun attachLocal(modelSource: ModelSource): Result<Unit> = try {
         // For local, we just ensure ModelManager is configured
         // The actual connection is managed by ModelManager's adapters
+        // Do not equate "configured" with "connected". Use the provider's
+        // latest real health observation; an unprobed provider stays unavailable.
+        val providerHealth = modelManager.providerHealth.value
+        val observedHealth = runtimeHealthFromProviderObservation(
+            isHealthy = providerHealth.isHealthy,
+            error = providerHealth.error
+        )
         _activeConnection.value = RuntimeConnection(
             connectionType = ConnectionType.LOCAL,
             endpoint = when (modelSource) {
@@ -52,8 +59,8 @@ class RuntimeBinder(
                 is ModelSource.Remote -> modelSource.host
                 else -> "local"
             },
-            isConnected = true,
-            health = RuntimeHealth.UNKNOWN,
+            isConnected = observedHealth is RuntimeHealth.HEALTHY,
+            health = observedHealth,
             capabilities = setOf("generate", "stream", "health")
         )
         _connectionEvents.emit(ConnectionEvent.Connected(_activeConnection.value!!))
@@ -83,9 +90,11 @@ class RuntimeBinder(
             capabilities = setOf("generate", "stream", "health", "models", "tools", "sessions", "telemetry")
         )
 
-        // Test connection
+        // The current RuntimeConnection has no authenticated remote health
+        // protocol. Never claim a remote endpoint is healthy without a real probe.
         val testHealth = connection.testHealth()
         connection.health = testHealth
+        connection.isConnected = testHealth is RuntimeHealth.HEALTHY
 
         _activeConnection.value = connection
         _connectionEvents.emit(ConnectionEvent.Connected(connection))
@@ -124,12 +133,10 @@ data class RuntimeConnection(
     val capabilities: Set<String>
 ) {
     suspend fun testHealth(): RuntimeHealth {
-        return try {
-            // Delegate to ModelManager health for now
-            RuntimeHealth.HEALTHY
-        } catch (e: Exception) {
-            RuntimeHealth.UNHEALTHY(e.message ?: "Unknown error")
-        }
+        // This value is intentionally UNKNOWN until a real authenticated
+        // health endpoint is implemented. Returning HEALTHY here was a
+        // false-positive that made unreachable remotes appear connected.
+        return RuntimeHealth.UNKNOWN
     }
 }
 
@@ -159,4 +166,14 @@ sealed interface ConnectionEvent {
     data class Disconnected(val connectionType: ConnectionType) : ConnectionEvent
     data class Failed(val connectionType: ConnectionType, val error: Throwable) : ConnectionEvent
     data class HealthChanged(val connection: RuntimeConnection, val oldHealth: RuntimeHealth, val newHealth: RuntimeHealth) : ConnectionEvent
+}
+
+/** Pure mapping for provider health observations; unknown stays unknown. */
+internal fun runtimeHealthFromProviderObservation(
+    isHealthy: Boolean,
+    error: String?
+): RuntimeHealth = if (isHealthy) {
+    RuntimeHealth.HEALTHY
+} else {
+    RuntimeHealth.UNHEALTHY(error?.take(240) ?: "No healthy provider observation is available.")
 }
