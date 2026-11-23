@@ -190,6 +190,15 @@ class HostBootstrapWorker(
             .put("cellular", networkCapabilities?.hasTransport(
                 android.net.NetworkCapabilities.TRANSPORT_CELLULAR) == true)
 
+        val acceleratorProbe = JSONObject()
+            .put("vulkan_hardware_feature_advertised", vulkanLevel >= 0)
+            .put("vulkan_hardware_level", if (vulkanLevel >= 0) vulkanLevel else JSONObject.NULL)
+            .put("vulkan_hardware_version", if (vulkanVersion >= 0) vulkanVersion else JSONObject.NULL)
+            .put("vulkan_compute_runtime", "NOT_RUNTIME_VALIDATED")
+            .put("nnapi_api_available", Build.VERSION.SDK_INT >= 27)
+            .put("nnapi_device_enumeration", "NOT_PROBED")
+            .put("npu", "UNVERIFIED_NO_UNIVERSAL_PUBLIC_ANDROID_PROBE")
+
         val facts = JSONObject()
             .put("manufacturer", Build.MANUFACTURER)
             .put("model", Build.MODEL)
@@ -206,25 +215,6 @@ class HostBootstrapWorker(
             .put("free_private_storage_mb", availableStorageMb)
             .put("accelerators", acceleratorProbe)
             .put("network", network)
-
-        // Android exposes Vulkan feature declarations, but those declarations
-        // do not prove that a usable compute driver or NPU delegate is available.
-        // Record the distinction instead of guessing from the SoC marketing name.
-        val availableFeatures = context.packageManager.systemAvailableFeatures.orEmpty()
-        val vulkanLevel = availableFeatures.firstOrNull {
-            it.name == PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL
-        }?.version ?: -1
-        val vulkanVersion = availableFeatures.firstOrNull {
-            it.name == PackageManager.FEATURE_VULKAN_HARDWARE_VERSION
-        }?.version ?: -1
-        val acceleratorProbe = JSONObject()
-            .put("vulkan_hardware_feature_advertised", vulkanLevel >= 0)
-            .put("vulkan_hardware_level", if (vulkanLevel >= 0) vulkanLevel else JSONObject.NULL)
-            .put("vulkan_hardware_version", if (vulkanVersion >= 0) vulkanVersion else JSONObject.NULL)
-            .put("vulkan_compute_runtime", "NOT_RUNTIME_VALIDATED")
-            .put("nnapi_api_available", Build.VERSION.SDK_INT >= 27)
-            .put("nnapi_device_enumeration", "NOT_PROBED")
-            .put("npu", "UNVERIFIED_NO_UNIVERSAL_PUBLIC_ANDROID_PROBE")
 
         val microphoneGranted = hasPermission(Manifest.permission.RECORD_AUDIO)
         val cameraGranted = hasPermission(Manifest.permission.CAMERA)
