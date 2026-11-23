@@ -38,6 +38,7 @@ object TaskExecutor {
 
     private lateinit var execLogFile: File
     private lateinit var snapshotDir: File
+    private lateinit var writeRoot: File
     @Volatile private var initialized = false
 
     /** Capability dispatcher seam — set by CapabilityRegistry (or tests). */
@@ -51,6 +52,7 @@ object TaskExecutor {
         execLogFile = File(logsDir, "execution.jsonl")
         snapshotDir = File(filesDir, "snapshots")
         snapshotDir.mkdirs()
+        writeRoot = filesDir.canonicalFile
         initialized = true
     }
 
@@ -74,7 +76,13 @@ object TaskExecutor {
                 "write" -> {
                     val targetPath = action.targetPath
                         ?: throw ExecutionError("write action missing target_path")
-                    val target = File(targetPath)
+                    val root = if (initialized) writeRoot
+                        else throw ExecutionError("TaskExecutor is not initialized.")
+                    val target = try {
+                        TaskWritePathPolicy.resolve(root, targetPath)
+                    } catch (failure: Exception) {
+                        throw ExecutionError(failure.message ?: "write target rejected")
+                    }
                     snapshot(target)
                     target.parentFile?.mkdirs()
                     target.writeText(action.payload ?: "")
