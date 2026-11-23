@@ -151,22 +151,45 @@ The installed Friday's continuing responsibility is to carry the canonical objec
 
 The active plan now defines the complete operating contract in [FRIDAY_DELIVERY_PLAN.md](../.ralph/FRIDAY_DELIVERY_PLAN.md), and the host execution/control-plane contract in [FRIDAY_HOST_ADAPTATION_CONTROL_PLANE.md](FRIDAY_HOST_ADAPTATION_CONTROL_PLANE.md).
 
-**Objective 1 foundation requirement:** the seed must preserve identity and plan continuity; provide durable, resumable task/evidence state; expose a protected path for future AI-worker coordination and independent verification; operate safely within Android background/resource limits; and support owner inspection, pause, redirection and protected approvals. Objective 1 does not claim to deliver the full autonomous Builder or mature multi-provider AI-pool orchestration; those capabilities continue through their owning objectives, especially F and G.
+**Objective 1 foundation requirement:** the seed must preserve identity and plan continuity; provide durable, resumable task/evidence state; expose a protected path for future AI-worker coordination and independent verification; operate safely within Android background/resource limits; and support owner inspection, pause, redirection and protected approvals. Objective 1 does require the first bounded, end-to-end Builder cycle and a working interchangeable Seat contract. It does not require unlimited invention, autonomous promotion of protected production code, or a mature multi-provider frontier-model workforce; those expand through later objectives. Objective F must not be used to defer the first working Builder loop.
 
 **Not yet proven in the installed app:** durable autonomous objectives execution after process death/reboot, authenticated AI-pool dispatch and result ingestion, independent reviewer workflow, offline queue/resume, and owner-facing inspection/control of the development workspace. These remain implementation and acceptance work, not completed features. The app must never claim to continue 24/7 without Android scheduling guarantees; it should persist work and resume under permitted OS conditions.
 
 
-## Objective 1 Builder implementation candidate — mainline reconstruction
+## Objective 1 acceptance expansion — 2026-11-23
 
-The implementation candidate was reconstructed on top of current `main` commit `dfe2177d91e1457a6b90a251331c37f2b6ffe8ce`, rather than carrying forward the diverged 135-commit branch history. The latest Objective 1 requirements from main were preserved, and the 30 implementation/test paths from the previous Builder branch were transplanted as a single clean commit.
+The canonical requirements are in [.ralph/FRIDAY_DELIVERY_PLAN.md](../.ralph/FRIDAY_DELIVERY_PLAN.md), section “Objective 1 — installed developmental seed expansion”. This record makes the six operational gates testable:
 
-### Source corrections and host adaptation
+1. **Host bootstrap:** a real versioned profile separates observed/inferred/unavailable facts, includes resource and Android execution constraints, selects a viable operating mode and fallback, applies only app-owned configuration, verifies postconditions and re-evaluates after host changes.
+2. **Builder cycle:** gap identification → repository/research inspection → design challenge → isolated candidate → verified local or disclosed remote build/test → independent review → baseline comparison → provenance/evidence → safe candidate publication or rejection. A task decomposition, generated diff or open PR alone fails.
+3. **AI Table:** one Friday-owned persistent transcript; common Seat input/output/presence/provenance contract; local conductor; role cards; per-seat privacy-filtered delta digests; bounded utterance/PASS; asynchronous guest arrival; blind critique and preserved dissent. Guest content is data, never authority or executable instruction.
+4. **App-owned workspace:** durable workspace, tool/dependency provenance, candidate isolation, task/checkpoint journal, build/test orchestration, repository synchronization, cancellation, evidence and rollback references. Termux is not a production dependency.
+5. **Trust:** least privilege, secret isolation, licence/provenance checks, bounded sandbox/resources, independent reviewer/verifier, immutable evidence and known-good recovery. No worker can self-authorize, access signing keys or promote its own changes.
+6. **Installed autonomy:** load the canonical plan, choose a dependency-ready task, use local reasoning and a permitted zero-charge external Seat where available, construct/test a bounded candidate, preserve exact evidence and continue with the next safe task. Resume idempotently after force-stop, reboot, network/worker/model failure and interrupted work.
 
-- Corrected the malformed Kotlin newline and Android Context/String shadowing in `ObjectiveBuilderCandidateExecutor.kt`.
-- Renamed the executor's Android context property to `androidContext` to prevent recurrence.
-- Added SHA-256 pinning for the 0.8B resident fallback and a testable selector that chooses the strongest pinned resident asset within the measured host model budget. Runtime admission still gates the actual model download.
-- The intermediate 1.2B fallback remains unavailable for automatic download until its file digest is pinned.
+### Zero-bill and provider truth
 
-### Verification status
+Paid APIs, paid plans, upgrades and paid fallbacks are off by default. A Seat may be resident/local, anonymous public inference where terms permit, a genuinely free tier (which may require an account/key), or a clearly labelled manual relay. A provider's free tier is not necessarily anonymous or unlimited. An open-weight model is not the proprietary provider's consumer intelligence. Friday records actual model/provider identity, quota/cost state, terms/provenance and whether a response is a stand-in. Rate limits or outages mark a Seat away; they never trigger paid fallback. No consumer-app UI automation, browser-session extraction or private-token replay.
 
-This is a clean candidate branch, not a completed acceptance. A fresh Android build, unit tests, whole-source audit and emulator instrumentation must run against the new branch head. Physical handset host adaptation, actual model load, first autonomous Builder cycle, process-death/reboot recovery and permanent-signing update continuity also remain to be demonstrated. Do not install or describe this candidate as verified until those checks pass.
+### First-install mission and fault matrix
+
+The installed production app must complete one reproducible cycle from inside Friday: host discovery and adaptation; canonical-plan load; dependency-ready task selection; local and (where available) zero-charge guest guidance; isolated candidate construction; build/test; independent critique and postcondition verification; exact evidence/provenance capture; and selection/queueing of the next safe task.
+
+Run recovery tests for force-stop/process death, reboot, offline transition, external Seat outage/rate limit, local model absence, low memory/storage, thermal/battery pressure, permission denial/revocation and interrupted builds. Require idempotent resume from the last verified checkpoint and prove that no unsafe side effect is duplicated. Separate JVM, emulator, CI and physical-handset evidence. The actual phone must demonstrate its own host adaptation and first post-install cycle.
+
+### Current implementation/evidence status
+
+This document records requirements, not implementation success. PR #118 is an unmerged candidate and must not be described as part of the installed mainline until its exact head passes the repository's required checks and is integrated. The earlier Objective 1 PRs #115 and #116 are design/acceptance specifications, not runtime proof. No new physical-device acceptance is implied by this plan update. Update this section only with exact commit/run/artifact/device evidence as each gate is completed.
+
+
+## Builder implementation candidate — branch evidence
+
+The current implementation candidate is tracked in PR #118 and remains unmerged. Its branch includes:
+- First-launch host profiling and private development workspace directories.
+- Offline plan bootstrap from the bundled APK asset; that asset has now been synchronized with canonical plan commit 3426c642929fd801ba7b113043ad7f4f47c54ecd and the Objective 1 acceptance expansion.
+- A durable execution ledger with plan hashes, task checkpoints, candidate states and CI polling.
+- A resident-model candidate executor that limits changes to bounded source/test/docs paths and publishes only an isolated pull request.
+- A Friday-owned local Table transcript and one anonymous OVHcloud open-weight advisory Seat, restricted to explicitly public/shareable context and with no paid fallback.
+- Host-aware resident-model selection and a pinned small fallback asset.
+
+This candidate is not yet accepted. Its current source loop publishes a candidate and records CI; it does not yet prove a complete independent-review-and-promotion path, automatic repair of failed candidates, physical-phone execution, or signed production delivery. The Seat is one anonymous open-weight provider, not ChatGPT, Claude or Gemini. The app-managed workspace exists as a foundation but its full build/test toolchain and resource-isolated execution must be demonstrated. The latest exact-head CI run and physical-device results must be recorded before merge or release.
