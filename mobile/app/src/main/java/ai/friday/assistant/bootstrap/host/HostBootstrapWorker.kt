@@ -54,6 +54,46 @@ class HostBootstrapWorker(
 
         val inspection = inspectHost()
         val config = HostBootstrapPolicy.configure(inspection.capacity)
+
+        // Execute real first-install probes on this handset. These are evidence
+        // about the current host, not emulator-derived assumptions.
+        val workspaceProbe = File(workspace, "evidence/host-acceptance-probe.tmp")
+        val workspaceReadWriteVerified = runCatching {
+            val marker = "friday-host-probe-${BuildConfig.SOURCE_REVISION}"
+            workspaceProbe.writeText(marker, Charsets.UTF_8)
+            val verified = workspaceProbe.readText(Charsets.UTF_8) == marker
+            workspaceProbe.delete()
+            verified
+        }.getOrDefault(false)
+        val canonicalPlanBundled = runCatching {
+            applicationContext.assets.open("friday/FRIDAY_DELIVERY_PLAN.md").use { it.read() >= 0 }
+        }.getOrDefault(false)
+        val appIdentityPresent = runCatching {
+            applicationContext.packageManager.getPackageInfo(applicationContext.packageName, 0)
+                .packageName == "ai.friday.assistant"
+        }.getOrDefault(false)
+        val resourcePolicyBounded =
+            config.contextTokenBudget in 1..32768 &&
+            config.maxConcurrentExpensiveTasks in 1..8 &&
+            config.recommendedModelMaxBytes >= 0L &&
+            config.recommendedModelMaxBytes <= inspection.capacity.availableMemoryMb * 1024L * 1024L
+        val localInferenceAdmissionHonest = !config.allowLocalModelLoad ||
+            (inspection.capacity.installedGgufCount > 0 &&
+                inspection.capacity.nativeInferenceLibraryPresent)
+        val signerFingerprint = installedSignerSha256()
+        val acceptanceEvidence = HostAcceptanceEvidence.evaluate(
+            HostAcceptanceEvidence.Checks(
+                workspaceDirectoriesReady = directories.all { it.isDirectory && it.canWrite() },
+                workspaceReadWriteVerified = workspaceReadWriteVerified,
+                hostProfileObserved = inspection.capacity.apiLevel == Build.VERSION.SDK_INT &&
+                    inspection.capacity.cpuCores > 0 && inspection.capacity.availableMemoryMb > 0L,
+                resourcePolicyBounded = resourcePolicyBounded,
+                localInferenceAdmissionHonest = localInferenceAdmissionHonest,
+                canonicalPlanBundled = canonicalPlanBundled,
+                appIdentityPresent = appIdentityPresent
+            ),
+            sourceRevision = BuildConfig.SOURCE_REVISION
+        )
         val report = JSONObject()
             .put("schema_version", 1)
             .put("status", "host_studied_workspace_ready")
@@ -84,6 +124,14 @@ class HostBootstrapWorker(
                 .put("reason", config.reason))
             .put("integrations", inspection.integrations)
             .put("setup_checklist", inspection.setupChecklist)
+            .put("on_device_foundation_acceptance", acceptanceEvidence)
+            .put("app_identity", JSONObject()
+                .put("package_name", applicationContext.packageName)
+                .put("version_name", BuildConfig.VERSION_NAME)
+                .put("source_revision", BuildConfig.SOURCE_REVISION)
+                .put("installed_signer_sha256", signerFingerprint ?: JSONObject.NULL)
+                .put("matches_pinned_release_signer",
+                    HostAcceptanceEvidence.signerMatchesPinned(signerFingerprint)))
             .put("development_workspace", JSONObject()
                 .put("root", "files/friday-development")
                 .put("directories_ready", directories.size)
@@ -287,6 +335,30 @@ class HostBootstrapWorker(
         if (totalDelta <= 0L || idleDelta < 0L) null
         else (((totalDelta - idleDelta).toDouble() / totalDelta.toDouble()) * 100.0)
             .coerceIn(0.0, 100.0)
+    }.getOrNull()
+
+    private fun installedSignerSha256(): String? = runCatching {
+        val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            applicationContext.packageManager.getPackageInfo(
+                applicationContext.packageName,
+                PackageManager.GET_SIGNING_CERTIFICATES
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            applicationContext.packageManager.getPackageInfo(
+                applicationContext.packageName,
+                PackageManager.GET_SIGNATURES
+            )
+        }
+        val certificate = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            packageInfo.signingInfo?.apkContentsSigners?.firstOrNull()?.toByteArray()
+        } else {
+            @Suppress("DEPRECATION")
+            packageInfo.signatures?.firstOrNull()?.toByteArray()
+        } ?: return null
+        java.security.MessageDigest.getInstance("SHA-256")
+            .digest(certificate)
+            .joinToString("") { byte -> "%02X".format(byte.toInt() and 0xFF) }
     }.getOrNull()
 
     private fun inspectShizukuState(): ShizukuCapabilityState {
