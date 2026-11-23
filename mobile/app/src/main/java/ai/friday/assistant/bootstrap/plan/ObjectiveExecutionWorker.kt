@@ -104,6 +104,43 @@ class ObjectiveExecutionWorker(
                 return@withContext Result.success()
             }
 
+            // A green CI result is not the final review. Inspect the exact
+            // published diff with a separate public Seat, only when repository
+            // visibility permits disclosure. The Seat cannot merge or promote.
+            val pendingReview = store.nextCandidateForReview()
+            if (pendingReview != null) {
+                val candidate = pendingReview.optJSONObject("candidate")
+                val commitSha = candidate?.optString("commit_sha").orEmpty()
+                val reviewTaskId = pendingReview.optString("task_id")
+                if (token == null || manager == null) {
+                    android.util.Log.i(TAG, "Independent review is waiting for repository/model runtime readiness.")
+                    return@withContext Result.success()
+                }
+                try {
+                    val repository = ai.friday.assistant.github.reporting.GitHubDevelopmentRepositoryClient(token)
+                    val review = ObjectiveBuilderCandidateExecutor(applicationContext, manager, repository)
+                        .reviewCandidate(pendingReview, commitSha)
+                    val evidence = org.json.JSONObject()
+                        .put("seat_id", review.seatId)
+                        .put("provider", review.provider)
+                        .put("model", review.model)
+                        .put("utterance", review.utterance ?: org.json.JSONObject.NULL)
+                        .put("stance", review.stance.name)
+                        .put("stance_reason", review.stanceReason ?: org.json.JSONObject.NULL)
+                        .put("presence", review.presence.name)
+                        .put("transport", review.transport)
+                        .put("error", review.error ?: org.json.JSONObject.NULL)
+                        .put("reviewed_at_epoch_ms", System.currentTimeMillis())
+                    store.recordCandidateReview(reviewTaskId, evidence)
+                    enqueueFollowUp(applicationContext, reviewTaskId)
+                    android.util.Log.i(TAG, "Candidate independent review recorded: " + review.stance.name)
+                } catch (reviewFailure: Exception) {
+                    android.util.Log.w(TAG, "Independent candidate review deferred.", reviewFailure)
+                    enqueueFollowUp(applicationContext, reviewTaskId, initialDelaySeconds = 600)
+                }
+                return@withContext Result.success()
+            }
+
             if (manager == null || !manager.isTierLoaded(ModelTier.RESIDENT)) {
                 android.util.Log.i(TAG, "Builder candidate queue is waiting for a verified local resident model.")
                 return@withContext Result.success()
