@@ -95,6 +95,41 @@ class FridayUpdateStateInstrumentedTest {
     }
 
     @Test
+    fun failedPostInstallHealthCheckRetainsRecoveryMarker() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val info = context.packageManager.getPackageInfo(
+            context.packageName,
+            android.content.pm.PackageManager.PackageInfoFlags.of(
+                android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES.toLong()
+            )
+        )
+        val store = FridayUpdateStateStore(context)
+        val deliberatelyWrongRelease = FridayUpdateClient.Release(
+            packageId = context.packageName,
+            versionCode = info.longVersionCode + 1L,
+            versionName = "deliberately-wrong-version",
+            sourceCommit = "d".repeat(40),
+            certificateSha256 = "E".repeat(64),
+            apkSha256 = "f".repeat(64),
+            apkUrl = "https://example.invalid/friday.apk"
+        )
+        try {
+            store.recordPendingHealthCheck(deliberatelyWrongRelease)
+
+            val first = store.verifyPendingHealthCheck()
+            val second = store.verifyPendingHealthCheck()
+
+            assertTrue(first.orEmpty().contains("Post-update health check failed"))
+            assertTrue(
+                "A failed update must retain its recovery marker instead of erasing the failure on first launch.",
+                second.orEmpty().contains("Post-update health check failed")
+            )
+        } finally {
+            store.clearPendingHealthCheck()
+        }
+    }
+
+    @Test
     fun postInstallHealthCheckConfirmsCurrentVersionSourceAndSigner() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val flags = android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES
