@@ -60,6 +60,21 @@ class ModelManagerTest {
     }
 
     @Test
+    fun `cloud provider is rejected instead of silently activating heuristic fallback`() = runBlocking {
+        val m = manager()
+        val result = m.setActiveProvider(ModelProviderType.CLOUD)
+        assertTrue("cloud provider must fail closed until a real adapter exists", result.isFailure)
+        assertEquals(ModelProviderType.HEURISTIC, m.activeProvider.value.providerType)
+    }
+
+    @Test
+    fun `cloud model load and unload do not report fake success`() = runBlocking {
+        val m = manager()
+        assertTrue(m.loadModel(ModelProviderType.CLOUD, "cloud-model").isFailure)
+        assertTrue(m.unloadModel(ModelProviderType.CLOUD).isFailure)
+    }
+
+    @Test
     fun `configuring llama-cpp stores the config without switching`() = runBlocking {
         val m = manager()
         val cfg = ProviderConfig(modelId = "llama3.1-8b", authToken = "tok")
@@ -92,12 +107,13 @@ class ModelManagerTest {
         val m = manager()
         m.refreshHealth()
         // The sweep is async on the manager scope; give it a moment to settle.
-        // One entry per ModelProviderType key (CLOUD and NONE alias heuristic).
+        // CLOUD is deliberately absent until a real CloudProviderAdapter exists.
         val deadline = System.currentTimeMillis() + 5000
-        while (m.providerHealths.value.size < 6 && System.currentTimeMillis() < deadline) {
+        while (m.providerHealths.value.size < 5 && System.currentTimeMillis() < deadline) {
             kotlinx.coroutines.delay(20)
         }
-        assertEquals(6, m.providerHealths.value.size)
+        assertEquals(5, m.providerHealths.value.size)
+        assertTrue("cloud must not inherit heuristic health", !m.providerHealths.value.containsKey(ModelProviderType.CLOUD))
         // The heuristic entry reports healthy.
         assertTrue(m.providerHealths.value.getValue(ModelProviderType.HEURISTIC).isHealthy)
     }
