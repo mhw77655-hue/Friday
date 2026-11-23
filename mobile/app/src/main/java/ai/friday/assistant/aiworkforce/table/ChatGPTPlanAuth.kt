@@ -49,7 +49,8 @@ class ChatGPTPlanAuth(
         .readTimeout(45, TimeUnit.SECONDS)
         .callTimeout(60, TimeUnit.SECONDS)
         .build(),
-    private val discoveryEndpoint: String = DISCOVERY_ENDPOINT
+    private val discoveryEndpoint: String = DISCOVERY_ENDPOINT,
+    private val trustedEndpointOrigin: String = "https://auth.openai.com"
 ) : ChatGPTPlanTokenProvider {
     @Volatile private var cachedDiscovery: JSONObject? = null
     @Volatile private var cachedDiscoveryAt = 0L
@@ -378,7 +379,12 @@ class ChatGPTPlanAuth(
         require(configuration.optString("issuer") == ISSUER) { "OpenAI discovery issuer does not match the production issuer." }
         listOf("authorization_endpoint", "token_endpoint", "jwks_uri", "revocation_endpoint").forEach { key ->
             val endpoint = Uri.parse(configuration.getString(key))
-            require(endpoint.scheme == "https" && endpoint.host == "auth.openai.com") {
+            val trustedOrigin = Uri.parse(trustedEndpointOrigin)
+            require(
+                endpoint.scheme == trustedOrigin.scheme &&
+                    endpoint.host == trustedOrigin.host &&
+                    endpoint.port == trustedOrigin.port
+            ) {
                 "OpenAI discovery returned an untrusted $key endpoint."
             }
         }
