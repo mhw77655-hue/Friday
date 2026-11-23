@@ -38,7 +38,7 @@ class OvhAnonymousSeatTest {
     @Test fun `anonymous seat sends no authorization and parses one utterance`() = runBlocking {
         val server = MockWebServer()
         server.enqueue(MockResponse().setResponseCode(200).setBody(
-            """{"choices":[{"message":{"content":"DISPUTE — add a regression test."}}]}"""
+            """{"choices":[{"message":{"content":"I found a missing edge case.\\nSTANCE: DISPUTE — add a regression test."}}]}"""
         ))
         server.start()
         try {
@@ -49,7 +49,9 @@ class OvhAnonymousSeatTest {
             assertNull(sent.getHeader("Authorization"))
             assertEquals("gpt-oss-120b", org.json.JSONObject(sent.body.readUtf8()).optString("model"))
             assertFalse(reply.passed)
-            assertEquals("DISPUTE — add a regression test.", reply.utterance)
+            assertEquals("I found a missing edge case.", reply.utterance)
+            assertEquals(SeatStance.DISPUTE, reply.stance)
+            assertEquals("add a regression test.", reply.stanceReason)
             assertEquals(SeatPresence.HERE, reply.presence)
         } finally {
             server.shutdown()
