@@ -12,6 +12,7 @@
 - CI polling and task-ledger evidence recording.
 - Fail-closed task dependency gate: every declared prerequisite must be explicitly ACCEPTED; missing or merely CI-passed dependencies remain blocked.
 - Android-Keystore-backed repository credential storage.
+- Consent-gated automatic GitHub device-report worker: after one-time credential setup and separate explicit public-reporting consent, it uploads sanitized host-bootstrap and Builder milestone evidence with stable IDs and retry-safe issue creation. Disabled by default; no conversation/speech/screen/notification/token data is included.
 - Friday-owned local Table transcript, common Seat contract, fixed stance parsing, and one anonymous OVHcloud open-weight guest restricted to explicitly public/shareable context. No paid fallback; this is not ChatGPT, Claude or Gemini.
 - Host-adaptive resident model selection and no Termux runtime dependency.
 
