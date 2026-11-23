@@ -4,7 +4,6 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import android.content.Context
 import kotlinx.coroutines.runBlocking
-import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.Assert.assertEquals
@@ -19,8 +18,8 @@ class ChatGPTPlanSeatApiInstrumentedTest {
 
     @Test
     fun sendsOnlyPublicDigestAndRequiresCompletedResponsesStream() = runBlocking {
-        val server = MockWebServer()
-        server.start()
+        val fixture = secureMockWebServer()
+        val server = fixture.server
         try {
             ChatGPTPlanBackgroundConsentStore(context).setEnabled(true)
             server.enqueue(MockResponse().setBody(
@@ -39,7 +38,7 @@ class ChatGPTPlanSeatApiInstrumentedTest {
                 context = context,
                 tokenProvider = provider,
                 apiBaseUrl = server.url("/v1").toString().trimEnd('/'),
-                http = OkHttpClient()
+                http = fixture.client
             )
             val reply = seat.speak(
                 SeatRequest(
