@@ -56,13 +56,21 @@ object TaskExecutor {
 
     /** Apply a gated action (the ExecutionLayer port). */
     fun apply(action: FridayAction, decision: GateResult): ExecResult {
-        if (decision !is GateResult.AutoApproved) {
+        if (decision !is GateResult.AutoApproved && decision !is GateResult.Approved) {
             val reason = when (decision) {
                 is GateResult.Pending -> "awaiting approval (${decision.approvalId})"
                 is GateResult.Denied -> decision.reason
-                is GateResult.AutoApproved -> "impossible"
+                is GateResult.AutoApproved, is GateResult.Approved -> "invalid decision"
             }
             val result = ExecResult(applied = false, reason = reason)
+            log(action, result)
+            return result
+        }
+        if (!ApprovalGate.consumePermit(action, decision)) {
+            val result = ExecResult(
+                applied = false,
+                reason = "approval permit is invalid, expired, reused, or bound to a different action"
+            )
             log(action, result)
             return result
         }
