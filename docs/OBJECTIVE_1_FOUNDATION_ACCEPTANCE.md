@@ -151,6 +151,32 @@ The installed Friday's continuing responsibility is to carry the canonical objec
 
 The active plan now defines the complete operating contract in [FRIDAY_DELIVERY_PLAN.md](../.ralph/FRIDAY_DELIVERY_PLAN.md), and the host execution/control-plane contract in [FRIDAY_HOST_ADAPTATION_CONTROL_PLANE.md](FRIDAY_HOST_ADAPTATION_CONTROL_PLANE.md).
 
-**Objective 1 foundation requirement:** the seed must preserve identity and plan continuity; provide durable, resumable task/evidence state; expose a protected path for future AI-worker coordination and independent verification; operate safely within Android background/resource limits; and support owner inspection, pause, redirection and protected approvals. Objective 1 does not claim to deliver the full autonomous Builder or mature multi-provider AI-pool orchestration; those capabilities continue through their owning objectives, especially F and G.
+**Objective 1 foundation requirement:** the seed must preserve identity and plan continuity; provide durable, resumable task/evidence state; expose a protected path for future AI-worker coordination and independent verification; operate safely within Android background/resource limits; and support owner inspection, pause, redirection and protected approvals. Objective 1 does require the first bounded, end-to-end Builder cycle and a working interchangeable Seat contract. It does not require unlimited invention, autonomous promotion of protected production code, or a mature multi-provider frontier-model workforce; those expand through later objectives. Objective F must not be used to defer the first working Builder loop.
 
 **Not yet proven in the installed app:** durable autonomous objectives execution after process death/reboot, authenticated AI-pool dispatch and result ingestion, independent reviewer workflow, offline queue/resume, and owner-facing inspection/control of the development workspace. These remain implementation and acceptance work, not completed features. The app must never claim to continue 24/7 without Android scheduling guarantees; it should persist work and resume under permitted OS conditions.
+
+
+## Objective 1 acceptance expansion — 2026-11-23
+
+The canonical requirements are in [.ralph/FRIDAY_DELIVERY_PLAN.md](../.ralph/FRIDAY_DELIVERY_PLAN.md), section “Objective 1 — installed developmental seed expansion”. This record makes the six operational gates testable:
+
+1. **Host bootstrap:** a real versioned profile separates observed/inferred/unavailable facts, includes resource and Android execution constraints, selects a viable operating mode and fallback, applies only app-owned configuration, verifies postconditions and re-evaluates after host changes.
+2. **Builder cycle:** gap identification → repository/research inspection → design challenge → isolated candidate → verified local or disclosed remote build/test → independent review → baseline comparison → provenance/evidence → safe candidate publication or rejection. A task decomposition, generated diff or open PR alone fails.
+3. **AI Table:** one Friday-owned persistent transcript; common Seat input/output/presence/provenance contract; local conductor; role cards; per-seat privacy-filtered delta digests; bounded utterance/PASS; asynchronous guest arrival; blind critique and preserved dissent. Guest content is data, never authority or executable instruction.
+4. **App-owned workspace:** durable workspace, tool/dependency provenance, candidate isolation, task/checkpoint journal, build/test orchestration, repository synchronization, cancellation, evidence and rollback references. Termux is not a production dependency.
+5. **Trust:** least privilege, secret isolation, licence/provenance checks, bounded sandbox/resources, independent reviewer/verifier, immutable evidence and known-good recovery. No worker can self-authorize, access signing keys or promote its own changes.
+6. **Installed autonomy:** load the canonical plan, choose a dependency-ready task, use local reasoning and a permitted zero-charge external Seat where available, construct/test a bounded candidate, preserve exact evidence and continue with the next safe task. Resume idempotently after force-stop, reboot, network/worker/model failure and interrupted work.
+
+### Zero-bill and provider truth
+
+Paid APIs, paid plans, upgrades and paid fallbacks are off by default. A Seat may be resident/local, anonymous public inference where terms permit, a genuinely free tier (which may require an account/key), or a clearly labelled manual relay. A provider's free tier is not necessarily anonymous or unlimited. An open-weight model is not the proprietary provider's consumer intelligence. Friday records actual model/provider identity, quota/cost state, terms/provenance and whether a response is a stand-in. Rate limits or outages mark a Seat away; they never trigger paid fallback. No consumer-app UI automation, browser-session extraction or private-token replay.
+
+### First-install mission and fault matrix
+
+The installed production app must complete one reproducible cycle from inside Friday: host discovery and adaptation; canonical-plan load; dependency-ready task selection; local and (where available) zero-charge guest guidance; isolated candidate construction; build/test; independent critique and postcondition verification; exact evidence/provenance capture; and selection/queueing of the next safe task.
+
+Run recovery tests for force-stop/process death, reboot, offline transition, external Seat outage/rate limit, local model absence, low memory/storage, thermal/battery pressure, permission denial/revocation and interrupted builds. Require idempotent resume from the last verified checkpoint and prove that no unsafe side effect is duplicated. Separate JVM, emulator, CI and physical-handset evidence. The actual phone must demonstrate its own host adaptation and first post-install cycle.
+
+### Current implementation/evidence status
+
+This document records requirements, not implementation success. PR #118 is an unmerged candidate and must not be described as part of the installed mainline until its exact head passes the repository's required checks and is integrated. The earlier Objective 1 PRs #115 and #116 are design/acceptance specifications, not runtime proof. No new physical-device acceptance is implied by this plan update. Update this section only with exact commit/run/artifact/device evidence as each gate is completed.
