@@ -1,11 +1,5 @@
 name: build
 
-# Keep only the newest validation run for each branch; rapid repair commits
-# must not leave stale full Android builds queued behind the exact head.
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 on:
   push:
     branches: [ main ]
