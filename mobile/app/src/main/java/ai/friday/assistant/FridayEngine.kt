@@ -241,6 +241,30 @@ object FridayEngine {
         failureStore.attach(failureSurface)
         this.failureStore = failureStore
         this.recoveryController = recoveryController
+
+        // Register real, independent model recovery paths before any turn can
+        // report a retryable MODEL incident. A fresh provider health probe is
+        // the recovery action; the current provider's observed health is the
+        // independent verification oracle. This restores provider readiness
+        // for subsequent turns without fabricating a reply for the failed turn.
+        listOf("send", "generate_timeout", "generate").forEach { operation ->
+            recoveryController.register(
+                ai.friday.assistant.failure.RecoveryController.RetrySpec(
+                    subsystem = "MODEL",
+                    operation = operation,
+                    maxAttempts = 2,
+                    backoffMs = 1_500,
+                    breakerThreshold = 3,
+                    action = {
+                        modelManager.health()
+                        true
+                    },
+                    verify = { modelManager.providerHealth.value.isHealthy },
+                    verificationTimeoutMs = 5_000,
+                    verificationPollMs = 100
+                )
+            )
+        }
         this.selfDiagnosis = ai.friday.assistant.failure.SelfDiagnosis(failureSurface)
 
         // Friday's cognitive and identity path is assembled once below by
@@ -624,7 +648,7 @@ object FridayEngine {
             // races TTS init. Its own executor/coroutines keep the main thread
             // clear of the slow path.
             ai.friday.assistant.latency.LatencyLayer.init(appContext, modelManager)
-            ai.friday.assistant.latency.LatencyLayer.setFailureSink { r -> failureSurface.report(r) }
+            ai.friday.assistant.latency.LatencyLayer.setFailureSink { r -> recoveryController.handle(r) }
 
             // Runtime Binder + Environment Manager: need the handler thread.
             val runtimeBinder = RuntimeBinder(modelManager, scope)
