@@ -180,3 +180,7 @@ Run recovery tests for force-stop/process death, reboot, offline transition, ext
 ### Current implementation/evidence status
 
 This document records requirements, not implementation success. PR #118 is an unmerged candidate and must not be described as part of the installed mainline until its exact head passes the repository's required checks and is integrated. The earlier Objective 1 PRs #115 and #116 are design/acceptance specifications, not runtime proof. No new physical-device acceptance is implied by this plan update. Update this section only with exact commit/run/artifact/device evidence as each gate is completed.
+
+### Automatic evidence reporting
+
+After one-time GitHub authorization and a separate explicit public-reporting consent, Friday—not the owner—must prepare and submit sanitized host-bootstrap and Builder milestone evidence to GitHub. Reporting remains disabled by default and revocable. Public issues/artifacts may contain app/build identity, host capability facts, task/candidate IDs, test/checkpoint outcomes, sanitized crash frames and action categories only. They must exclude all conversation, speech, typed content, screen text, notifications, credentials, signing material and raw personal files. Without consent or authorization, evidence stays local and queued. Uploads use stable report IDs and idempotent retries.
