@@ -6,7 +6,6 @@ import android.content.Context
 import android.util.Base64
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
@@ -23,8 +22,8 @@ class ChatGPTPlanIdTokenInstrumentedTest {
 
     @Test
     fun verifiesOpenAiIssuerAudienceNonceExpiryAndRsaSignature() {
-        val server = MockWebServer()
-        server.start()
+        val fixture = secureMockWebServer()
+        val server = fixture.server
         try {
             val pair = rsaKeyPair()
             val jwk = JSONObject()
@@ -56,7 +55,7 @@ class ChatGPTPlanIdTokenInstrumentedTest {
 
             val auth = ChatGPTPlanAuth(
                 context = context,
-                http = OkHttpClient.Builder().callTimeout(10, TimeUnit.SECONDS).build()
+                http = fixture.client.newBuilder().callTimeout(10, TimeUnit.SECONDS).build()
             )
             val claims = auth.verifyIdToken(token, clientId, nonce, server.url("/jwks").toString())
             assertEquals("account-subject", claims.getString("sub"))
