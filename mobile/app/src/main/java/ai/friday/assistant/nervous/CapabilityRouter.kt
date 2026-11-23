@@ -9,6 +9,7 @@ import ai.friday.assistant.microsystem.MicroSystemContract
 import ai.friday.assistant.microsystem.MicroSystemRegistry
 import ai.friday.assistant.microsystem.OperationResult
 import ai.friday.assistant.microsystem.SpecMicroSystem
+import ai.friday.assistant.microsystem.isRoutable
 
 /**
  * Capability Router (§9 routing layer, §17 model agnosticism): decides which
@@ -31,9 +32,11 @@ class CapabilityRouter(
 
     /** «Who provides this capability?» — cheapest-valid first (§17). */
     fun providers(capability: String): List<MicroSystemContract> =
-        registry.provides(capability).sortedBy { costTier(it) }
+        registry.provides(capability)
+            .filter { it.isRoutable() }
+            .sortedBy { costTier(it) }
 
-    fun hasProvider(capability: String): Boolean = registry.provides(capability).isNotEmpty()
+    fun hasProvider(capability: String): Boolean = providers(capability).isNotEmpty()
 
     /** Route a request to the cheapest valid provider with fallback. */
     suspend fun route(capability: String, inputs: Map<String, Any>): RouteResult {
