@@ -190,6 +190,15 @@ class HostBootstrapWorker(
             .put("cellular", networkCapabilities?.hasTransport(
                 android.net.NetworkCapabilities.TRANSPORT_CELLULAR) == true)
 
+        // Keep platform feature declarations adjacent to the probe that consumes them.
+        // These are advertised capabilities, not runtime proof.
+        val availableFeatures = context.packageManager.systemAvailableFeatures.orEmpty()
+        val vulkanLevel = availableFeatures.firstOrNull {
+            it.name == PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL
+        }?.version ?: -1
+        val vulkanVersion = availableFeatures.firstOrNull {
+            it.name == PackageManager.FEATURE_VULKAN_HARDWARE_VERSION
+        }?.version ?: -1
         val acceleratorProbe = JSONObject()
             .put("vulkan_hardware_feature_advertised", vulkanLevel >= 0)
             .put("vulkan_hardware_level", if (vulkanLevel >= 0) vulkanLevel else JSONObject.NULL)
