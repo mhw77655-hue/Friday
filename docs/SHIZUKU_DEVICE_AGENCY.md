@@ -94,3 +94,5 @@ PR #121 adds a typed Shizuku installer path to Friday's existing release updater
 - The expected release identity is persisted before installation. The next app process verifies version code, version name, source revision and signer; staged bytes are removed only after a successful health check.
 
 The Binder marshalling contract has an Android instrumentation test. This proves the typed IPC contract on an emulator, not that Shizuku actually grants package-install capability on every Android/OEM build. Physical-host installation, service UID, package-manager result, process replacement and post-update verification remain unproven until Friday executes the flow on the target handset.
+
+- The transfer client propagates WorkManager cancellation rather than converting it into a false install failure; its cleanup path cancels and deletes any incomplete shell-side transfer. The Shizuku UserService version is bumped when its Binder contract changes so stale daemon instances are replaced.
