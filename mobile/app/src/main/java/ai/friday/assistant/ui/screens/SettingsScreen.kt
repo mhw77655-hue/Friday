@@ -1,6 +1,8 @@
 package ai.friday.assistant.ui.screens
 
 import android.Manifest
+import android.app.Activity
+import android.content.ContextWrapper
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.Intent
@@ -52,6 +54,8 @@ import java.io.File
 import org.json.JSONObject
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import ai.friday.assistant.aiworkforce.table.ChatGPTPlanAuth
+import ai.friday.assistant.aiworkforce.table.ChatGPTPlanBackgroundConsentStore
 import ai.friday.assistant.update.FridayPackageInstaller
 import ai.friday.assistant.update.FridayUpdateClient
 import ai.friday.assistant.update.FridayUpdateStateStore
@@ -92,6 +96,12 @@ fun SettingsScreen() {
     }
     var githubBusy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val chatGptAuth = remember(context) { ChatGPTPlanAuth(context) }
+    val chatGptConsentStore = remember(context) { ChatGPTPlanBackgroundConsentStore(context) }
+    var chatGptConnected by remember { mutableStateOf(chatGptAuth.isConnected()) }
+    var chatGptBackgroundConsent by remember { mutableStateOf(chatGptConsentStore.isEnabled()) }
+    var chatGptStatus by remember { mutableStateOf(chatGptAuth.accountLabel()) }
+    var chatGptBusy by remember { mutableStateOf(false) }
     val updateStateStore = remember { FridayUpdateStateStore(context) }
     var updateStatus by remember { mutableStateOf(updateStateStore.lastStatus()) }
     var stagedUpdate by remember { mutableStateOf(updateStateStore.loadStaged()) }
@@ -128,6 +138,9 @@ fun SettingsScreen() {
                 resumeSignal++
                 updateStatus = updateStateStore.lastStatus()
                 stagedUpdate = updateStateStore.loadStaged()
+                chatGptConnected = chatGptAuth.isConnected()
+                chatGptBackgroundConsent = chatGptConsentStore.isEnabled()
+                chatGptStatus = chatGptAuth.accountLabel()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -287,6 +300,84 @@ fun SettingsScreen() {
             ) { Text("Install verified update") }
         }
         Text(text = updateStatus, style = FridayType.Technical, modifier = Modifier.padding(bottom = 16.dp))
+
+        SectionLabel("AI TABLE — CHATGPT PLAN SEAT")
+        Text(
+            text = "Connect Friday directly to your ChatGPT plan through OpenAI's official open-source sign-in. No API key or paid API fallback. Availability and usage limits depend on your ChatGPT account.",
+            style = FridayType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Button(
+            onClick = {
+                val activity = context.findActivity()
+                if (activity == null) {
+                    chatGptStatus = "Friday could not obtain the foreground activity needed to open the secure sign-in flow."
+                } else {
+                    chatGptBusy = true
+                    chatGptStatus = "Waiting for OpenAI authorization in the system browser…"
+                    scope.launch {
+                        try {
+                            chatGptStatus = chatGptAuth.signIn(activity)
+                            chatGptConnected = chatGptAuth.isConnected()
+                        } catch (failure: Exception) {
+                            chatGptStatus = failure.message?.take(240) ?: "ChatGPT sign-in did not complete."
+                        } finally {
+                            chatGptBusy = false
+                        }
+                    }
+                }
+            },
+            enabled = !chatGptBusy,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(if (chatGptBusy) "Waiting for ChatGPT sign-in…" else if (chatGptConnected) "Reconnect ChatGPT" else "Continue with ChatGPT") }
+        Text(
+            text = if (chatGptConnected) "Connected: ${chatGptAuth.accountLabel()}" else "ChatGPT plan Seat is not connected.",
+            style = FridayType.Technical,
+            modifier = Modifier.padding(vertical = 6.dp)
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Allow background Builder use", style = FridayType.Body)
+                Text(
+                    "Explicitly authorize Friday to send eligible public task digests to ChatGPT during background work.",
+                    style = FridayType.Label
+                )
+            }
+            Switch(
+                checked = chatGptBackgroundConsent,
+                enabled = chatGptConnected,
+                onCheckedChange = {
+                    chatGptConsentStore.setEnabled(it)
+                    chatGptBackgroundConsent = it
+                    chatGptStatus = if (it) {
+                        "Background ChatGPT plan use is enabled for explicitly shareable Builder digests."
+                    } else {
+                        "Background ChatGPT plan use is disabled."
+                    }
+                }
+            )
+        }
+        Text(
+            text = "Friday does not receive access to ChatGPT conversations or memories. Only PUBLIC, explicitly shareable Builder digests are sent. Usage limits apply; no paid fallback is attempted.",
+            style = FridayType.Label,
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
+        if (chatGptConnected) {
+            TextButton(
+                onClick = {
+                    chatGptConsentStore.setEnabled(false)
+                    chatGptBackgroundConsent = false
+                    chatGptAuth.disconnect()
+                    chatGptConnected = false
+                    chatGptStatus = "ChatGPT connection and local tokens disconnected."
+                }
+            ) { Text("Disconnect ChatGPT") }
+        }
+        Text(text = chatGptStatus, style = FridayType.Technical, modifier = Modifier.padding(bottom = 16.dp))
 
         SectionLabel("PERSONALITY")
         Text(
@@ -800,4 +891,14 @@ fun SettingsScreen() {
 @Composable
 private fun SectionLabel(text: String) {
     Text(text = text, style = FridayType.Label, modifier = Modifier.padding(top = 24.dp, bottom = 4.dp))
+}
+
+
+private fun android.content.Context.findActivity(): Activity? {
+    var current: android.content.Context = this
+    while (current is ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return current as? Activity
 }
