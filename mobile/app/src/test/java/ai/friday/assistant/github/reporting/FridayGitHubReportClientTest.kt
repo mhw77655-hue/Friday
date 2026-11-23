@@ -62,6 +62,21 @@ class FridayGitHubReportClientTest {
     }
 
     @Test
+    fun rejectsProviderKeysAndPrivateKeyHeadersBeforeUpload() {
+        val openAiKey = report().replace(
+            "\"events\":[]",
+            "\"events\":[{\"debug\":\"sk-proj-" + "a".repeat(40) + "\"}]"
+        )
+        assertTrue(runCatching { FridayGitHubReportPayload.parse(openAiKey) }.isFailure)
+
+        val privateKey = report().replace(
+            "\"events\":[]",
+            "\"events\":[{\"debug\":\"-----BEGIN PRIVATE KEY-----\"}]"
+        )
+        assertTrue(runCatching { FridayGitHubReportPayload.parse(privateKey) }.isFailure)
+    }
+
+    @Test
     fun rejectsOversizedReports() {
         val oversized = JSONObject()
             .put("report_type", "FRIDAY_LIVE_TEST_REPORT")
