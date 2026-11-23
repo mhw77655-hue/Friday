@@ -109,9 +109,7 @@ fun SettingsScreen() {
     val updateInstallPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
-        updateStatus = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-            context.packageManager.canRequestPackageInstalls()
-        ) {
+        updateStatus = if (context.packageManager.canRequestPackageInstalls()) {
             "Android now allows Friday to request installs. Tap Install verified update."
         } else {
             "Android did not grant this install source. Friday remains unchanged."
