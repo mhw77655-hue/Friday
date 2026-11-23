@@ -83,6 +83,8 @@ fun SettingsScreen() {
     val githubCredentialStore = remember { GitHubCredentialStore(context) }
     var githubConfigured by remember { mutableStateOf(githubCredentialStore.isConfigured()) }
     val githubPendingReportStore = remember { ai.friday.assistant.github.reporting.GitHubPendingReportStore(context) }
+    val githubDeviceReportConsentStore = remember { ai.friday.assistant.github.reporting.GitHubDeviceReportConsentStore(context) }
+    var githubAutoReportConsent by remember { mutableStateOf(githubDeviceReportConsentStore.isEnabled()) }
     var githubPendingReport by remember { mutableStateOf(githubPendingReportStore.read() != null) }
     var githubDevelopmentStatus by remember { mutableStateOf("Development repository access has not been checked.") }
     var githubReportStatus by remember {
@@ -604,10 +606,46 @@ fun SettingsScreen() {
 
         SectionLabel("GITHUB DEVICE REPORTING")
         Text(
-            text = "Create a fine-grained token limited to the mhw77655-hue/Friday repository, with Contents read/write, Pull requests read/write, Actions read, and Issues read/write (Metadata read is automatic). These permissions let Friday inspect the canonical plan, publish isolated candidate branches/PRs, check CI, and submit optional device reports. Paste it here once. Friday encrypts it with Android Keystore. When you tap Upload, Friday sends a bounded report containing app/build identity, device capability states, sanitized crash frames and action categories. It never includes conversations, speech transcripts, typed content, screen text, notifications or the token. Each upload creates a GitHub issue and a validated Actions artifact. This Friday repository is public. Anyone can read uploaded GitHub issues and Actions artifacts. Upload only if you accept those sanitized device diagnostics being public.",
+            text = "Create a fine-grained token limited to the mhw77655-hue/Friday repository, with Contents read/write, Pull requests read/write, Actions read, and Issues read/write (Metadata read is automatic). These permissions let Friday inspect the canonical plan, publish isolated candidate branches/PRs, check CI, and submit sanitized device acceptance reports. Paste it here once. Friday encrypts it with Android Keystore. Automatic reporting is OFF by default and requires the separate consent switch below. If enabled, Friday submits bounded app/build identity, host capability states, sanitized crash frames and action categories after defined milestones. It never includes conversations, speech transcripts, typed content, screen text, notifications or the token. Reports create public GitHub issues/artifacts. Anyone can read them. Enable automatic reporting only if you accept this public disclosure.",
             style = FridayType.Label,
             modifier = Modifier.padding(bottom = 8.dp)
         )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Automatic sanitized device reports", style = FridayType.Body)
+                Text(
+                    if (githubAutoReportConsent) "Enabled by owner consent; reports are sent to public GitHub issues after host and Builder milestones."
+                    else "Off. Friday keeps reports local until you explicitly enable this.",
+                    style = FridayType.Technical
+                )
+            }
+            Switch(
+                checked = githubAutoReportConsent,
+                onCheckedChange = { enabled ->
+                    runCatching { githubDeviceReportConsentStore.setEnabled(enabled) }
+                        .onSuccess {
+                            githubAutoReportConsent = enabled
+                            githubReportStatus = if (enabled) {
+                                "Automatic sanitized reporting enabled by your consent."
+                            } else {
+                                "Automatic device reporting disabled. Existing local pending reports remain local."
+                            }
+                            if (enabled && githubConfigured) {
+                                ai.friday.assistant.github.reporting.GitHubDeviceReportWorker.enqueue(
+                                    context, "owner-consent-enabled"
+                                )
+                            }
+                        }
+                        .onFailure {
+                            githubReportStatus = it.message ?: "Reporting consent could not be saved."
+                        }
+                }
+            )
+        }
         Button(
             onClick = {
                 context.startActivity(
@@ -642,6 +680,9 @@ fun SettingsScreen() {
                             ai.friday.assistant.bootstrap.host.HostBootstrapWorker.enqueue(context)
                             ai.friday.assistant.model.storage.ResidentModelBootstrapWorker.enqueue(context)
                             ai.friday.assistant.bootstrap.plan.ObjectiveExecutionWorker.enqueue(context)
+                            if (githubAutoReportConsent) {
+                                ai.friday.assistant.github.reporting.GitHubDeviceReportWorker.enqueue(context, "credential-saved")
+                            }
                         }
                         .onFailure {
                             githubReportStatus = it.message ?: "Credential could not be stored securely."
