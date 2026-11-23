@@ -31,7 +31,7 @@ class OrganismCoordinator(
     val readyCapabilities: Set<String> get() = registry.all().filter { it.isCapabilityCallable() }.flatMap { it.capabilities }.toSet()
 
     /** Organisms that declare a capability. */
-    fun providers(capability: String): List<MicroSystemContract> = registry.provides(capability).filter { it.isRoutable() }
+    fun providers(capability: String): List<MicroSystemContract> = registry.provides(capability).filter { it.isCapabilityCallable() }
 
     /** «What are you?» for every registered organism. */
     fun allManifests(): List<ai.friday.assistant.organism.OrganismManifests> =
