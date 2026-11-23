@@ -4,6 +4,10 @@ import android.os.Process
 import org.json.JSONObject
 import java.io.File
 import java.util.concurrent.TimeUnit
+import java.security.MessageDigest
+import java.util.UUID
+import java.io.RandomAccessFile
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Shizuku UserService running with the explicitly granted shell/root identity.
@@ -12,6 +16,9 @@ import java.util.concurrent.TimeUnit
  * script, path, or caller-controlled process execution crosses this boundary.
  */
 class FridayShellService : IFridayShellService.Stub() {
+    private data class ApkTransfer(val file: File, val output: RandomAccessFile, val expectedSize: Long, val expectedSha256: String, var written: Long = 0L)
+    private val apkTransfers = ConcurrentHashMap<String, ApkTransfer>()
+
 
     /** Proves the bound process is actually running with Shizuku shell/root identity. */
     override fun identity(): String = "uid=${Process.myUid()};pid=${Process.myPid()}"
@@ -126,8 +133,101 @@ class FridayShellService : IFridayShellService.Stub() {
         process.inputStream.bufferedReader().use { it.readText().take(12_000) }
     }.getOrElse { "unavailable: ${it.javaClass.simpleName}" }
 
+    override fun beginApkInstall(expectedSize: Long, expectedSha256: String): String {
+        if (Process.myUid() != 0 && Process.myUid() != 2000) {
+            return "status=rejected; reason=untrusted-user-service-uid"
+        }
+        if (expectedSize !in 1L..MAX_APK_BYTES || !SHA256.matches(expectedSha256)) {
+            return "status=rejected; reason=invalid-size-or-digest"
+        }
+        return runCatching {
+            val directory = File("/data/local/tmp")
+            if (!directory.isDirectory && !directory.mkdirs()) error("temporary-directory-unavailable")
+            val id = UUID.randomUUID().toString().replace("-", "")
+            val file = File(directory, "friday-update-$id.apk")
+            apkTransfers[id] = ApkTransfer(
+                file, RandomAccessFile(file, "rw"), expectedSize, expectedSha256.uppercase()
+            )
+            "status=ready; transfer_id=$id; max_chunk_bytes=$MAX_CHUNK_BYTES"
+        }.getOrElse { "status=error; reason=${it.javaClass.simpleName}" }
+    }
+
+    override fun writeApkInstallChunk(transferId: String, offset: Long, chunk: ByteArray): String {
+        if (!TRANSFER_ID.matches(transferId) || chunk.isEmpty() || chunk.size > MAX_CHUNK_BYTES) {
+            return "status=rejected; reason=invalid-transfer-or-chunk"
+        }
+        val transfer = apkTransfers[transferId] ?: return "status=rejected; reason=unknown-transfer"
+        return synchronized(transfer) {
+            if (offset != transfer.written || transfer.written + chunk.size > transfer.expectedSize) {
+                return@synchronized "status=rejected; reason=nonsequential-or-oversized-chunk"
+            }
+            runCatching {
+                transfer.output.seek(offset)
+                transfer.output.write(chunk)
+                transfer.written += chunk.size
+                "status=accepted; bytes_written=${transfer.written}"
+            }.getOrElse { "status=error; reason=${it.javaClass.simpleName}" }
+        }
+    }
+
+    override fun commitApkInstall(transferId: String): String {
+        if (!TRANSFER_ID.matches(transferId)) return "status=rejected; reason=invalid-transfer-id"
+        val transfer = apkTransfers.remove(transferId) ?: return "status=rejected; reason=unknown-transfer"
+        val outputFile = File("/data/local/tmp/friday-update-$transferId.out")
+        return try {
+            synchronized(transfer) {
+                transfer.output.close()
+                if (transfer.written != transfer.expectedSize || transfer.file.length() != transfer.expectedSize) {
+                    return "status=rejected; reason=incomplete-transfer"
+                }
+            }
+            val digest = MessageDigest.getInstance("SHA-256")
+                .digest(transfer.file.readBytes())
+                .joinToString("") { "%02x".format(it) }
+                .uppercase()
+            if (digest != transfer.expectedSha256) return "status=rejected; reason=transferred-apk-digest-mismatch"
+
+            val process = ProcessBuilder("pm", "install", "-r", transfer.file.absolutePath)
+                .redirectErrorStream(true)
+                .redirectOutput(outputFile)
+                .start()
+            if (!process.waitFor(INSTALL_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                process.destroyForcibly()
+                return "status=failed; reason=package-manager-timeout"
+            }
+            val output = runCatching { outputFile.readText().take(2_000).trim() }.getOrDefault("")
+            val exitCode = process.exitValue()
+            if (exitCode == 0 && output.lineSequence().any { it.trim() == "Success" }) {
+                "status=installed; package=ai.friday.assistant; uid=${Process.myUid()}; output=${output.take(500)}"
+            } else {
+                "status=failed; exit_code=$exitCode; output=${output.take(500)}"
+            }
+        } catch (error: Exception) {
+            "status=error; reason=${error.javaClass.simpleName}"
+        } finally {
+            runCatching { transfer.output.close() }
+            transfer.file.delete()
+            outputFile.delete()
+        }
+    }
+
+    override fun cancelApkInstall(transferId: String): String {
+        if (!TRANSFER_ID.matches(transferId)) return "status=rejected; reason=invalid-transfer-id"
+        val transfer = apkTransfers.remove(transferId) ?: return "status=already-closed"
+        runCatching { transfer.output.close() }
+        return "status=cancelled; deleted=${transfer.file.delete()}"
+    }
+
     override fun destroy() {
-        // Shizuku owns this dedicated UserService process.
+        apkTransfers.keys.toList().forEach(::cancelApkInstall)
         Process.killProcess(Process.myPid())
+    }
+
+    private companion object {
+        const val MAX_APK_BYTES = 200L * 1024L * 1024L
+        const val MAX_CHUNK_BYTES = 128 * 1024
+        const val INSTALL_TIMEOUT_SECONDS = 180L
+        val SHA256 = Regex("[0-9a-fA-F]{64}")
+        val TRANSFER_ID = Regex("[0-9a-f]{32}")
     }
 }
