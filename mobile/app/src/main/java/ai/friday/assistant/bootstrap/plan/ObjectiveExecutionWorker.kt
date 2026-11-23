@@ -144,6 +144,11 @@ class ObjectiveExecutionWorker(
                         .put("error", review.error ?: org.json.JSONObject.NULL)
                         .put("reviewed_at_epoch_ms", System.currentTimeMillis())
                     store.recordCandidateReview(reviewTaskId, evidence)
+                    if (ai.friday.assistant.github.reporting.GitHubDeviceReportConsentStore(applicationContext).isEnabled()) {
+                        ai.friday.assistant.github.reporting.GitHubDeviceReportWorker.enqueue(
+                            applicationContext, "builder-cycle"
+                        )
+                    }
                     enqueueFollowUp(applicationContext, reviewTaskId)
                     android.util.Log.i(TAG, "Candidate independent review recorded: " + review.stance.name)
                 } catch (reviewFailure: Exception) {
