@@ -23,8 +23,9 @@ import java.util.concurrent.TimeUnit
  *
  * It imports the canonical objectives, maintains durable evidence packets and,
  * when a verified local resident model is loaded, decomposes one parent packet
- * into bounded child tasks. It does NOT edit repository source, mark phases
- * complete, or claim CI/physical-device evidence.
+ * into bounded child tasks and executes isolated source candidates through
+ * ObjectiveBuilderCandidateExecutor. It never marks an objective complete or
+ * claims CI/physical-device evidence without recorded verification.
  */
 class ObjectiveExecutionWorker(
     appContext: Context,
@@ -35,6 +36,10 @@ class ObjectiveExecutionWorker(
         val store = ObjectiveExecutionLedgerStore(applicationContext)
         try {
             store.reconcile()
+            val recoveredTasks = store.recoverInterruptedTasks(PROCESS_INSTANCE_ID)
+            if (recoveredTasks > 0) {
+                android.util.Log.i(TAG, "Recovered $recoveredTasks interrupted Builder task(s) from durable checkpoints.")
+            }
             val ledger = store.ensurePhaseAssessmentPackets()
             val manager = FridayEngine.modelManager
             val parent = store.nextQueuedParentTask()
@@ -163,7 +168,7 @@ class ObjectiveExecutionWorker(
                 return@withContext Result.success()
             }
             val taskId = child.optString("task_id")
-            if (!store.markChildTaskExecuting(taskId)) {
+            if (!store.markChildTaskExecuting(taskId, PROCESS_INSTANCE_ID)) {
                 return@withContext Result.success()
             }
             try {
@@ -226,6 +231,7 @@ class ObjectiveExecutionWorker(
 
     companion object {
         private const val TAG = "FridayObjectivePlan"
+        private val PROCESS_INSTANCE_ID = java.util.UUID.randomUUID().toString()
         const val UNIQUE_INITIAL_WORK = "friday-objective-execution-ledger-init"
         const val UNIQUE_PERIODIC_WORK = "friday-objective-execution-ledger-reconcile"
         private const val UNIQUE_FOLLOWUP_PREFIX = "friday-objective-decompose-after-"
