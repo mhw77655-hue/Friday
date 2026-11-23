@@ -113,7 +113,7 @@ class OvhAnonymousSeat(
                     "For an utterance, the final line MUST be exactly one of: STANCE: AGREE — <reason> OR " +
                     "STANCE: DISPUTE — <reason> OR STANCE: ADD — <reason>."))
             .put(JSONObject().put("role", "user").put("content",
-                "DIGEST:\\n${request.digest}\\nDELTA:\\n${request.delta}"))
+                "DIGEST:\n${request.digest}\nDELTA:\n${request.delta}"))
 
         val payload = JSONObject()
             .put("model", model)
