@@ -69,6 +69,36 @@ class GitHubDevelopmentRepositoryClientTest {
         }
     }
 
+    @Test fun `retry reuses an existing candidate branch and pull request after process death`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"object":{"sha":"$sha3"}}"""
+        ))
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """[{"html_url":"https://github.com/mhw77655-hue/Friday/pull/123","number":123}]"""
+        ))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val client = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+            val result = client.publishCandidate(
+                taskId = "phase0-test",
+                title = "Friday candidate: phase 0 evidence",
+                body = "Evidence and acceptance criteria.",
+                changes = mapOf(
+                    "mobile/app/src/main/java/ai/friday/assistant/Example.kt" to "class Example"
+                )
+            )
+            assertEquals(sha3, result.commitSha)
+            assertEquals(123, result.number)
+            assertEquals(2, server.requestCount)
+            assertEquals("GET", server.takeRequest().method)
+            assertEquals("GET", server.takeRequest().method)
+        } finally {
+            server.shutdown()
+        }
+    }
+
     @Test fun `read preflight verifies repository branch and canonical plan only`() {
         val server = MockWebServer()
         server.enqueue(MockResponse().setResponseCode(200).setBody(
