@@ -80,6 +80,7 @@ class HostBootstrapWorker(
         val localInferenceAdmissionHonest = !config.allowLocalModelLoad ||
             (inspection.capacity.installedGgufCount > 0 &&
                 inspection.capacity.nativeInferenceLibraryPresent)
+        val signerFingerprint = installedSignerSha256()
         val acceptanceEvidence = HostAcceptanceEvidence.evaluate(
             HostAcceptanceEvidence.Checks(
                 workspaceDirectoriesReady = directories.all { it.isDirectory && it.canWrite() },
@@ -128,9 +129,9 @@ class HostBootstrapWorker(
                 .put("package_name", applicationContext.packageName)
                 .put("version_name", BuildConfig.VERSION_NAME)
                 .put("source_revision", BuildConfig.SOURCE_REVISION)
-                .put("installed_signer_sha256", installedSignerSha256() ?: JSONObject.NULL)
+                .put("installed_signer_sha256", signerFingerprint ?: JSONObject.NULL)
                 .put("matches_pinned_release_signer",
-                    HostAcceptanceEvidence.signerMatchesPinned(installedSignerSha256())))
+                    HostAcceptanceEvidence.signerMatchesPinned(signerFingerprint)))
             .put("development_workspace", JSONObject()
                 .put("root", "files/friday-development")
                 .put("directories_ready", directories.size)
@@ -357,7 +358,7 @@ class HostBootstrapWorker(
         } ?: return null
         java.security.MessageDigest.getInstance("SHA-256")
             .digest(certificate)
-            .joinToString("") { byte -> "%02X".format(byte) }
+            .joinToString("") { byte -> "%02X".format(byte.toInt() and 0xFF) }
     }.getOrNull()
 
     private fun inspectShizukuState(): ShizukuCapabilityState {
