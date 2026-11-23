@@ -110,8 +110,18 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
         context.getSystemService(PowerManager::class.java)
             ?.isIgnoringBatteryOptimizations(context.packageName) == true
     } else true
-    val shizukuInstalled = context.packageManager
-        .getLaunchIntentForPackage("moe.shizuku.privileged.api") != null
+    val shizukuManagerVersion = runCatching {
+        if (Build.VERSION.SDK_INT >= 33) {
+            context.packageManager.getPackageInfo(
+                "moe.shizuku.privileged.api", PackageManager.PackageInfoFlags.of(0)
+            ).versionName
+        } else {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo("moe.shizuku.privileged.api", 0).versionName
+        }
+    }.getOrNull()
+    val shizukuInstalled = shizukuManagerVersion != null
+    val shizukuNextInstalled = shizukuManagerVersion?.contains("next", ignoreCase = true) == true
     val shizukuRunning = runCatching { Shizuku.pingBinder() }.getOrDefault(false)
     val shizukuAuthorized = shizukuRunning && runCatching {
         Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
