@@ -38,6 +38,7 @@ fun MoreSheet(
                 "Visual Presence" to "vision",
                 "Video Experience" to "video_knowledge",
                 "Voice Studio" to "voice_studio",
+                "AI Table" to "ai_table",
                 "Memory" to "memory",
                 "Tools" to "tools",
                 "System" to "system",
