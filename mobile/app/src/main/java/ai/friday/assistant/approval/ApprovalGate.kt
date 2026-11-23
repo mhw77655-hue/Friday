@@ -36,8 +36,10 @@ sealed interface GateResult {
  * whenever an environment is activated (permissionPolicy + safetyRestrictions).
  */
 data class GateConfig(
-    val permissionPolicy: PermissionPolicy = PermissionPolicy.FULL,
-    val safetyRestrictions: SafetyRestrictions = SafetyRestrictions.NONE
+    // Before an environment has been successfully activated, authorization
+    // must fail closed rather than inherit the most permissive policy.
+    val permissionPolicy: PermissionPolicy = PermissionPolicy.SAFE_MODE,
+    val safetyRestrictions: SafetyRestrictions = SafetyRestrictions.MAX
 ) {
     /**
      * Highest risk that may be auto-approved under the current policy.
