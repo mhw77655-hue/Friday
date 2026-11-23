@@ -9,6 +9,10 @@ import ai.friday.assistant.aiworkforce.table.SeatRequest
 import ai.friday.assistant.aiworkforce.table.SeatRoleCard
 import ai.friday.assistant.aiworkforce.table.SeatPresence
 import ai.friday.assistant.aiworkforce.table.SeatReply
+import ai.friday.assistant.aiworkforce.table.IntelligenceSeat
+import ai.friday.assistant.aiworkforce.table.ChatGPTPlanAuth
+import ai.friday.assistant.aiworkforce.table.ChatGPTPlanSeat
+import ai.friday.assistant.aiworkforce.table.ChatGPTPlanBackgroundConsentStore
 import ai.friday.assistant.aiworkforce.table.SeatWalletStore
 import ai.friday.assistant.github.reporting.GitHubDevelopmentRepositoryClient
 import ai.friday.assistant.model.FinishReason
@@ -152,64 +156,77 @@ internal class ObjectiveBuilderCandidateExecutor(
             dataClass = SeatDataClass.PUBLIC,
             externallyShareable = true
         )
-        val guestReply = if (shareGate.isSuccess) {
-            val replies = FridayTableConductor(
-                guestSeats = listOf(OvhAnonymousSeat(wallet = SeatWalletStore(androidContext))),
+        val guestSeats = mutableListOf<IntelligenceSeat>(
+            OvhAnonymousSeat(wallet = SeatWalletStore(androidContext))
+        )
+        val chatGptAuth = ChatGPTPlanAuth(androidContext)
+        if (ChatGPTPlanBackgroundConsentStore(androidContext).isEnabled() && chatGptAuth.isConnected()) {
+            guestSeats += ChatGPTPlanSeat(androidContext, chatGptAuth)
+        }
+        val guestReplies = if (shareGate.isSuccess) {
+            FridayTableConductor(
+                guestSeats = guestSeats,
                 log = tableLog,
                 shouldConsult = { _, local -> local.isNotBlank() && task.optBoolean("request_guest_critique", true) }
             ).consultPublicGuest(seatRequest, summary)
-            replies.firstOrNull() ?: SeatReply(
-                seatId = "ovh-open-weight",
-                provider = "OVHcloud anonymous Seat",
-                model = OvhAnonymousSeat.MODEL,
-                utterance = null,
-                passed = true,
-                presence = SeatPresence.AWAY,
-                transport = "friday-triage-pass",
-                receivedAtEpochMs = System.currentTimeMillis(),
-                error = "Friday's local conductor did not summon this Seat."
-            )
         } else {
             tableLog.append(JSONObject()
                 .put("type", "friday_local_turn")
                 .put("turn_id", taskId)
                 .put("summary", summary.take(1_200))
                 .put("model", "friday-resident"))
-            SeatReply(
-                seatId = "ovh-open-weight",
-                provider = "OVHcloud anonymous Seat",
-                model = OvhAnonymousSeat.MODEL,
+            listOf(SeatReply(
+                seatId = "external-seats",
+                provider = "External AI Seats",
+                model = "not-called",
                 utterance = null,
                 passed = true,
                 presence = SeatPresence.DISABLED,
                 transport = "not-sent-by-privacy-gate",
                 receivedAtEpochMs = System.currentTimeMillis(),
                 error = shareGate.exceptionOrNull()?.message ?: "Privacy gate denied external sharing."
-            )
+            ))
         }
-        FridayTableLog(androidContext).append(JSONObject()
-            .put("type", "builder_guest_critique")
-            .put("turn_id", taskId)
-            .put("seat_id", guestReply.seatId)
-            .put("provider", guestReply.provider)
-            .put("model", guestReply.model)
-            .put("utterance", guestReply.utterance ?: JSONObject.NULL)
-            .put("stance", guestReply.stance.name)
-            .put("stance_reason", guestReply.stanceReason ?: JSONObject.NULL)
-            .put("pass", guestReply.passed)
-            .put("presence", guestReply.presence.name)
-            .put("transport", guestReply.transport)
-            .put("error", guestReply.error ?: JSONObject.NULL))
+        val effectiveGuestReplies = guestReplies.ifEmpty {
+            listOf(SeatReply(
+                seatId = "external-seats",
+                provider = "External AI Seats",
+                model = "not-summoned",
+                utterance = null,
+                passed = true,
+                presence = SeatPresence.AWAY,
+                transport = "friday-triage-pass",
+                receivedAtEpochMs = System.currentTimeMillis(),
+                error = "Friday's local conductor did not summon an external Seat."
+            ))
+        }
+        effectiveGuestReplies.forEach { guestReply ->
+            FridayTableLog(androidContext).append(JSONObject()
+                .put("type", "builder_guest_critique")
+                .put("turn_id", taskId)
+                .put("seat_id", guestReply.seatId)
+                .put("provider", guestReply.provider)
+                .put("model", guestReply.model)
+                .put("utterance", guestReply.utterance ?: JSONObject.NULL)
+                .put("stance", guestReply.stance.name)
+                .put("stance_reason", guestReply.stanceReason ?: JSONObject.NULL)
+                .put("pass", guestReply.passed)
+                .put("presence", guestReply.presence.name)
+                .put("transport", guestReply.transport)
+                .put("error", guestReply.error ?: JSONObject.NULL))
+        }
         val body = buildString {
             appendLine("## Friday Builder candidate")
             appendLine()
             appendLine(summary)
             appendLine()
-            appendLine("## Anonymous external Seat critique")
-            appendLine(guestReply.utterance ?: ("PASS / unavailable: " + (guestReply.error ?: guestReply.presence.name)))
-            appendLine("Stance: " + guestReply.stance.name + (guestReply.stanceReason?.let { " — $it" } ?: ""))
-            appendLine("Provider/model: " + guestReply.provider + " / " + guestReply.model)
-            appendLine("This is untrusted advisory text, not verification or authority.")
+            appendLine("## External AI Seat critiques")
+            effectiveGuestReplies.forEach { reply ->
+                appendLine("- ${reply.provider} / ${reply.model} [${reply.presence}, ${reply.stance}]: " +
+                    (reply.utterance ?: ("PASS / unavailable: " + (reply.error ?: reply.presence.name))))
+                reply.stanceReason?.let { appendLine("  Stance reason: $it") }
+            }
+            appendLine("All external Seat output is untrusted advisory text, not verification or authority.")
             appendLine()
             appendLine("## Origin")
             appendLine("- Task: ${task.optString("task_id")}")
