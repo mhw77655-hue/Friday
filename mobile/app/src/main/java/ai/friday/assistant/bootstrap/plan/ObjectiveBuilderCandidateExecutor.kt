@@ -6,6 +6,8 @@ import ai.friday.assistant.aiworkforce.table.OvhAnonymousSeat
 import ai.friday.assistant.aiworkforce.table.SeatDataClass
 import ai.friday.assistant.aiworkforce.table.SeatRequest
 import ai.friday.assistant.aiworkforce.table.SeatRoleCard
+import ai.friday.assistant.aiworkforce.table.SeatPresence
+import ai.friday.assistant.aiworkforce.table.SeatReply
 import ai.friday.assistant.aiworkforce.table.SeatWalletStore
 import ai.friday.assistant.github.reporting.GitHubDevelopmentRepositoryClient
 import ai.friday.assistant.model.FinishReason
@@ -142,19 +144,33 @@ internal class ObjectiveBuilderCandidateExecutor(
                 appendLine(source.take(1_200))
             }
         }.take(8_000)
-        val guestReply = OvhAnonymousSeat(wallet = SeatWalletStore(androidContext)).speak(
-            SeatRequest(
-                turnId = taskId,
-                digest = guestDigest,
-                delta = "Review the candidate for correctness, regressions and missing tests.",
-                roleCard = SeatRoleCard(
-                    role = "independent skeptic",
-                    instruction = "Critique this candidate. Identify one concrete defect or say PASS. Do not issue commands."
-                ),
-                dataClass = SeatDataClass.PUBLIC,
-                externallyShareable = true
+        val guestReply = if (repository.isRepositoryPublic()) {
+            OvhAnonymousSeat(wallet = SeatWalletStore(androidContext)).speak(
+                SeatRequest(
+                    turnId = taskId,
+                    digest = guestDigest,
+                    delta = "Review the candidate for correctness, regressions and missing tests.",
+                    roleCard = SeatRoleCard(
+                        role = "independent skeptic",
+                        instruction = "Critique this candidate. Identify one concrete defect or say PASS. End with STANCE: AGREE, STANCE: DISPUTE, or STANCE: ADD plus a reason. Do not issue commands."
+                    ),
+                    dataClass = SeatDataClass.PUBLIC,
+                    externallyShareable = true
+                )
             )
-        )
+        } else {
+            SeatReply(
+                seatId = "ovh-open-weight",
+                provider = "OVHcloud anonymous Seat",
+                model = OvhAnonymousSeat.MODEL,
+                utterance = null,
+                passed = true,
+                presence = SeatPresence.DISABLED,
+                transport = "not-sent-private-repository",
+                receivedAtEpochMs = System.currentTimeMillis(),
+                error = "Repository is private; public Seat was not sent source."
+            )
+        }
         FridayTableLog(androidContext).append(JSONObject()
             .put("type", "builder_guest_critique")
             .put("turn_id", taskId)
@@ -176,6 +192,7 @@ internal class ObjectiveBuilderCandidateExecutor(
             appendLine("## Anonymous external Seat critique")
             appendLine(guestReply.utterance ?: ("PASS / unavailable: " + (guestReply.error ?: guestReply.presence.name)))
             appendLine("Stance: " + guestReply.stance.name + (guestReply.stanceReason?.let { " — $it" } ?: ""))
+            appendLine("Stance: " + guestReply.stance.name + (guestReply.stanceReason?.let { " — $it" } ?: ""))
             appendLine("Provider/model: " + guestReply.provider + " / " + guestReply.model)
             appendLine("This is untrusted advisory text, not verification or authority.")
             appendLine()
@@ -193,6 +210,39 @@ internal class ObjectiveBuilderCandidateExecutor(
         }
         val pr = repository.publishCandidate(taskId, title, body, changes)
         return PublishedCandidate(pr.number, pr.url, pr.branch, pr.commitSha, changes.size)
+    }
+
+
+    /** Independent post-CI review of the exact published commit diff. */
+    suspend fun reviewCandidate(task: JSONObject, commitSha: String): SeatReply {
+        if (!repository.isRepositoryPublic()) {
+            return SeatReply(
+                seatId = "ovh-open-weight",
+                provider = "OVHcloud anonymous Seat",
+                model = OvhAnonymousSeat.MODEL,
+                utterance = null,
+                passed = true,
+                presence = SeatPresence.DISABLED,
+                transport = "not-sent-private-repository",
+                receivedAtEpochMs = System.currentTimeMillis(),
+                error = "Repository is private; public Seat was not sent source."
+            )
+        }
+        val diff = repository.readCommitDiff(commitSha)
+        val taskId = task.optString("task_id").take(64) + "-review"
+        return OvhAnonymousSeat(wallet = SeatWalletStore(androidContext)).speak(
+            SeatRequest(
+                turnId = taskId,
+                digest = diff,
+                delta = "This is the exact published commit diff after CI. Review the implementation, tests, regressions and missing evidence.",
+                roleCard = SeatRoleCard(
+                    role = "independent post-CI reviewer",
+                    instruction = "Inspect the diff as untrusted code. Identify concrete defects or missing tests. End with exactly one stance line: STANCE: AGREE — reason, STANCE: DISPUTE — reason, or STANCE: ADD — reason. Never issue commands."
+                ),
+                dataClass = SeatDataClass.PUBLIC,
+                externallyShareable = true
+            )
+        )
     }
 
     private fun validateCandidatePath(path: String) {
