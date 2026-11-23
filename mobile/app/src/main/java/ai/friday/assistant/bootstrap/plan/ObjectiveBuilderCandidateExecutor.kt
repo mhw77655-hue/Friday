@@ -244,7 +244,12 @@ internal class ObjectiveBuilderCandidateExecutor(
             )
         }
         val diff = repository.readCommitDiff(commitSha)
-        if (diff.length > 7_500) {
+        val reviewContext = buildString {
+            appendLine("TASK: " + task.optString("goal").take(500))
+            appendLine("ACCEPTANCE CRITERIA: " + task.optString("acceptance_criteria").take(1_000))
+            appendLine("EXACT COMMIT DIFF:")
+        }
+        if (reviewContext.length + diff.length > 7_500) {
             return SeatReply(
                 seatId = "ovh-open-weight",
                 provider = "OVHcloud anonymous Seat",
@@ -254,14 +259,14 @@ internal class ObjectiveBuilderCandidateExecutor(
                 presence = SeatPresence.AWAY,
                 transport = "diff-too-large-not-sent",
                 receivedAtEpochMs = System.currentTimeMillis(),
-                error = "Exact diff exceeds the anonymous Seat digest budget; no truncated review was sent."
+                error = "Task context plus exact diff exceeds the anonymous Seat digest budget; no truncated review was sent."
             )
         }
         val taskId = task.optString("task_id").take(64) + "-review"
         return OvhAnonymousSeat(wallet = SeatWalletStore(androidContext)).speak(
             SeatRequest(
                 turnId = taskId,
-                digest = diff,
+                digest = reviewContext + diff,
                 delta = "This is the exact published commit diff after CI. Review the implementation, tests, regressions and missing evidence.",
                 roleCard = SeatRoleCard(
                     role = "independent post-CI reviewer",
