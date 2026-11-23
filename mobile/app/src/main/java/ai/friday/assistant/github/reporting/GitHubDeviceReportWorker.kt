@@ -72,6 +72,36 @@ class GitHubDeviceReportWorker(
         val host = runCatching { JSONObject(hostFile.readText(Charsets.UTF_8)) }
             .getOrElse { throw IOException("Host bootstrap evidence could not be read safely.") }
         base.put("host_bootstrap", host)
+
+        // Export only aggregate Builder evidence. Never include task goals,
+        // prompts, generated source, conversation text or raw repository paths.
+        val ledgerFile = File(applicationContext.filesDir, "friday-development/plan/execution-ledger.json")
+        if (ledgerFile.isFile) {
+            val ledger = runCatching { JSONObject(ledgerFile.readText(Charsets.UTF_8)) }.getOrNull()
+            if (ledger != null) {
+                val tasks = ledger.optJSONArray("tasks") ?: org.json.JSONArray()
+                val statusCounts = JSONObject()
+                val candidates = org.json.JSONArray()
+                for (index in 0 until tasks.length()) {
+                    val task = tasks.optJSONObject(index) ?: continue
+                    val status = task.optString("status", "UNKNOWN")
+                    statusCounts.put(status, statusCounts.optInt(status, 0) + 1)
+                    val candidate = task.optJSONObject("candidate") ?: continue
+                    val review = task.optJSONObject("independent_review")
+                    candidates.put(JSONObject()
+                        .put("status", status)
+                        .put("pull_request_number", candidate.optInt("number", -1))
+                        .put("commit_sha_prefix", candidate.optString("commit_sha").take(12))
+                        .put("ci_state", task.optJSONObject("ci")?.optString("state") ?: "UNKNOWN")
+                        .put("review_stance", review?.optString("stance") ?: "NOT_REVIEWED"))
+                }
+                base.put("builder_summary", JSONObject()
+                    .put("execution_state", ledger.optString("execution_state", "UNKNOWN"))
+                    .put("task_status_counts", statusCounts)
+                    .put("candidate_count", candidates.length())
+                    .put("candidates", candidates))
+            }
+        }
         base.put("submission_mode", "AUTOMATIC_AFTER_EXPLICIT_OWNER_CONSENT")
         base.put("milestone", inputData.getString(KEY_REASON).orEmpty().take(80))
         return base.toString()
