@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.currentCoroutineContext
@@ -222,6 +223,8 @@ class ChatGPTPlanAuth(
                 if (responseCode == 200) { confirmed = true; break }
                 lastFailure = "OpenAI token revocation returned HTTP $responseCode."
                 if (responseCode !in 500..599) break
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (failure: Exception) {
                 lastFailure = failure.javaClass.simpleName
             }
