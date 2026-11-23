@@ -110,8 +110,9 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
         context.getSystemService(PowerManager::class.java)
             ?.isIgnoringBatteryOptimizations(context.packageName) == true
     } else true
-    val shizukuInstalled = context.packageManager
-        .getLaunchIntentForPackage("moe.shizuku.privileged.api") != null
+    val shizukuManagerVersion = shizukuManagerVersionName(context)
+    val shizukuInstalled = shizukuManagerVersion != null
+    val shizukuNextInstalled = shizukuManagerVersion?.contains("next", ignoreCase = true) == true
     val shizukuRunning = runCatching { Shizuku.pingBinder() }.getOrDefault(false)
     val shizukuAuthorized = shizukuRunning && runCatching {
         Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
@@ -269,26 +270,27 @@ fun FirstLaunchSetupScreen(onComplete: () -> Unit) {
             if (batteryExempt) "Verified" else "Review battery settings"
         ) { openBatterySettings(context) },
         SetupItem(
-            "Shizuku",
-            "Optional elevated phone capability. Friday checks the live Binder and its own authorization; ADB-shell is not root.",
+            "Shizuku-Next",
+            "Preferred optional background-update capability. Friday verifies the live Binder and actual UID (shell is not root). For unattended recovery after reboot, configure Shizuku-Next's Start on boot and Watchdog options when your start method/device supports them. If the original Shizuku manager is installed, migrating to Next requires a one-time uninstall because Next uses the same package ID with a different signing key.",
             when {
                 shizukuAuthorized -> shizukuExecutionStatus
                 shizukuRunning -> "Running · Friday not authorized"
-                shizukuInstalled -> "Installed · server stopped"
+                shizukuNextInstalled -> "Shizuku-Next installed · server stopped"
+                shizukuInstalled -> "Other Shizuku manager found · Next not verified"
                 else -> "Not installed"
             },
             when {
                 shizukuExecutionStatus.startsWith("bound · verified Shizuku uid=") -> "Verified"
                 shizukuAuthorized -> "Verify effective privilege"
                 shizukuRunning -> "Authorize Friday in Shizuku"
-                shizukuInstalled -> "Open Shizuku"
-                else -> "Open Shizuku setup guide"
+                shizukuNextInstalled -> "Open Shizuku-Next"
+                else -> "Get Shizuku-Next"
             }
         ) {
             if (shizukuAuthorized) {
                 scope.launch { shizukuExecutionStatus = ScreenBridge.ensureVerifiedBinding(context) }
             } else {
-                openShizuku(context)
+                openShizuku(context, shizukuNextInstalled)
             }
         }
     )
@@ -378,16 +380,23 @@ private fun openBatterySettings(context: Context) {
     runCatching { context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
 }
 
-private fun openShizuku(context: Context) {
-    val launch = context.packageManager.getLaunchIntentForPackage("moe.shizuku.privileged.api")
+private fun openShizuku(context: Context, shizukuNextInstalled: Boolean) {
+    val launch = if (shizukuNextInstalled) {
+        context.packageManager.getLaunchIntentForPackage("moe.shizuku.privileged.api")
+    } else null
     if (launch != null) {
-        runCatching { context.startActivity(launch) }
+        runCatching { context.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     } else {
         runCatching {
             context.startActivity(
-                Intent(Intent.ACTION_VIEW, Uri.parse("https://shizuku.rikka.app/"))
+                Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/rushiranpise/Shizuku-Next/releases"))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             )
         }
     }
 }
+
+@Suppress("DEPRECATION")
+private fun shizukuManagerVersionName(context: Context): String? = runCatching {
+    context.packageManager.getPackageInfo("moe.shizuku.privileged.api", 0).versionName
+}.getOrNull()
