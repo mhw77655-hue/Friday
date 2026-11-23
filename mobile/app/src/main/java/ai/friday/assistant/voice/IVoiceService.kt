@@ -76,7 +76,7 @@ interface IVoiceService : IInterface {
                     data.enforceInterface(Stub.DESCRIPTOR)
                     val result = cancel()
                     reply?.writeNoException()
-                    reply?.writeBoolean(result)
+                    reply?.writeInt(if (result) 1 else 0)
                     return true
                 }
                 Stub.TRANSACTION_getCapabilities -> {
@@ -164,7 +164,7 @@ interface IVoiceService : IInterface {
                     data.writeInterfaceToken(Stub.DESCRIPTOR)
                     remote.transact(Stub.TRANSACTION_cancel, data, reply, 0)
                     reply.readException()
-                    reply.readBoolean()
+                    reply.readInt() != 0
                 } finally {
                     data.recycle()
                     reply.recycle()
