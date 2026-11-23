@@ -85,7 +85,7 @@ object ScreenBridge {
         val args = Shizuku.UserServiceArgs(ComponentName(context, FridayShellService::class.java))
             .daemon(true)
             .tag("friday-device-capability-core")
-            .version(5)
+            .version(6)
         userServiceArgs = args
         try {
             _status.value = "binding..."
