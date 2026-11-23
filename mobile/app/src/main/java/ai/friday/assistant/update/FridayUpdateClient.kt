@@ -16,10 +16,10 @@ import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 
 /**
- * Downloads and verifies a Friday production update without installing it.
- *
- * Installation is deliberately a separate, explicit operation: PackageInstaller
- * must validate the APK signer and may require owner confirmation.
+ * Discovers, downloads and verifies signed Friday releases without installing them.
+ * Installation is delegated to Friday's Shizuku-compatible privileged UserService
+ * when its live server is authorized; native PackageInstaller remains the fallback.
+ * This client never treats a verified download as a successful installation.
  */
 class FridayUpdateClient(
     context: Context,
