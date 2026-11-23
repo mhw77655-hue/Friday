@@ -25,6 +25,8 @@ class ChatGPTPlanSeat(
     private val apiBaseUrl: String = API_BASE_URL,
     private val http: OkHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS)
+        .followRedirects(false)
+        .followSslRedirects(false)
         .readTimeout(120, TimeUnit.SECONDS)
         .callTimeout(180, TimeUnit.SECONDS)
         .build()
