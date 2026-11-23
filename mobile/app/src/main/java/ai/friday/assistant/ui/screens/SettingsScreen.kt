@@ -53,6 +53,7 @@ import org.json.JSONObject
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import ai.friday.assistant.update.FridayPackageInstaller
+import ai.friday.assistant.update.FridayShizukuPackageInstaller
 import ai.friday.assistant.update.FridayUpdateClient
 import ai.friday.assistant.update.FridayUpdateStateStore
 import ai.friday.assistant.github.reporting.GitHubCredentialStore
@@ -268,23 +269,63 @@ fun SettingsScreen() {
         if (stagedUpdate != null) {
             Button(
                 onClick = {
-                    when (val result = FridayPackageInstaller(context).install(stagedUpdate!!)) {
-                        is FridayPackageInstaller.Result.Submitted -> {
-                            updateStatus = "Update submitted to Android PackageInstaller (session ${result.sessionId}). Waiting for Android's result."
-                            updateStateStore.recordStatus(updateStatus)
-                        }
-                        is FridayPackageInstaller.Result.PermissionRequired -> {
-                            updateStatus = "Allow Friday as an install source in Android settings, then return and tap Install again."
-                            updateInstallPermissionLauncher.launch(result.settingsIntent)
-                        }
-                        is FridayPackageInstaller.Result.Rejected -> {
-                            updateStatus = "Android installation was not started: ${result.reason}"
-                            updateStateStore.recordStatus(updateStatus)
+                    val staged = stagedUpdate
+                    if (staged != null) scope.launch {
+                        val useShizuku = shizukuAvailable && shizukuGranted
+                        if (useShizuku) {
+                            updateStatus = "Verifying release and connecting to Friday's privileged installer…"
+                            updateStateStore.recordPendingHealthCheck(staged.release)
+                            when (val privileged = FridayShizukuPackageInstaller(context).install(staged)) {
+                                is FridayShizukuPackageInstaller.Result.Installed -> {
+                                    updateStatus = "Background update installed through Shizuku UID ${privileged.uid}. Friday will verify version, source revision and signer after restart."
+                                    updateStateStore.recordStatus(updateStatus)
+                                }
+                                is FridayShizukuPackageInstaller.Result.Rejected -> {
+                                    updateStateStore.clearPendingHealthCheck()
+                                    updateStatus = "Privileged update rejected: ${privileged.reason}"
+                                    updateStateStore.recordStatus(updateStatus)
+                                    return@launch
+                                }
+                                is FridayShizukuPackageInstaller.Result.Unavailable -> {
+                                    updateStateStore.clearPendingHealthCheck()
+                                    updateStatus = "Shizuku installer unavailable; using Android's native installer. ${privileged.reason}"
+                                    updateStateStore.recordStatus(updateStatus)
+                                    when (val native = FridayPackageInstaller(context).install(staged)) {
+                                        is FridayPackageInstaller.Result.Submitted -> {
+                                            updateStatus = "Update submitted to Android PackageInstaller (session ${native.sessionId}). Android may request confirmation."
+                                            updateStateStore.recordStatus(updateStatus)
+                                        }
+                                        is FridayPackageInstaller.Result.PermissionRequired -> {
+                                            updateStatus = "Android requires Friday's install-source permission before the fallback can continue."
+                                            updateInstallPermissionLauncher.launch(native.settingsIntent)
+                                        }
+                                        is FridayPackageInstaller.Result.Rejected -> {
+                                            updateStatus = "Native installation was not started: ${native.reason}"
+                                            updateStateStore.recordStatus(updateStatus)
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            when (val native = FridayPackageInstaller(context).install(staged)) {
+                                is FridayPackageInstaller.Result.Submitted -> {
+                                    updateStatus = "Update submitted to Android PackageInstaller (session ${native.sessionId}). Android may request confirmation."
+                                    updateStateStore.recordStatus(updateStatus)
+                                }
+                                is FridayPackageInstaller.Result.PermissionRequired -> {
+                                    updateStatus = "Android requires Friday's install-source permission before the fallback can continue."
+                                    updateInstallPermissionLauncher.launch(native.settingsIntent)
+                                }
+                                is FridayPackageInstaller.Result.Rejected -> {
+                                    updateStatus = "Native installation was not started: ${native.reason}"
+                                    updateStateStore.recordStatus(updateStatus)
+                                }
+                            }
                         }
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
-            ) { Text("Install verified update") }
+            ) { Text(if (shizukuAvailable && shizukuGranted) "Install verified update in background" else "Install verified update") }
         }
         Text(text = updateStatus, style = FridayType.Technical, modifier = Modifier.padding(bottom = 16.dp))
 
