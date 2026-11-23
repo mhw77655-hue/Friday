@@ -24,6 +24,10 @@ import java.security.Signature
 import java.security.spec.RSAPublicKeySpec
 import java.util.concurrent.TimeUnit
 
+fun interface ChatGPTPlanTokenProvider {
+    suspend fun validAccessToken(): String?
+}
+
 /**
  * Implements OpenAI's documented open-source Sign in with ChatGPT flow:
  * dynamic client registration, loopback callback, PKCE, ID-token verification,
@@ -38,7 +42,7 @@ class ChatGPTPlanAuth(
         .readTimeout(45, TimeUnit.SECONDS)
         .callTimeout(60, TimeUnit.SECONDS)
         .build()
-) {
+) : ChatGPTPlanTokenProvider {
     suspend fun signIn(activity: Activity): String = withContext(Dispatchers.IO) {
         val existing = credentials.read()
         val server = ServerSocket()
@@ -133,7 +137,7 @@ class ChatGPTPlanAuth(
         }
     }
 
-    suspend fun validAccessToken(): String? = withContext(Dispatchers.IO) {
+    override suspend fun validAccessToken(): String? = withContext(Dispatchers.IO) {
         val current = credentials.read() ?: return@withContext null
         if (REQUIRED_SCOPE !in current.scopes) return@withContext null
         val now = System.currentTimeMillis() / 1000L
