@@ -87,6 +87,12 @@ class GitHubDevelopmentRepositoryClient(
     /** External public Seats may see source only after this live visibility check. */
     fun isRepositoryPublic(): Boolean = !getJson(apiRoot).optBoolean("private", true)
 
+    /** Fail closed before any candidate content is sent to a public advisory Seat. */
+    fun validateExternalShareableCandidate(changes: Map<String, String>) {
+        require(isRepositoryPublic()) { "Repository is private; candidate source cannot be shared externally." }
+        validateChanges(changes)
+    }
+
     /** Read a bounded commit diff for independent review; never executes candidate code. */
     fun readCommitDiff(commitSha: String): String {
         require(commitSha.matches(Regex("[0-9a-f]{40}"))) { "Candidate commit SHA is invalid." }
