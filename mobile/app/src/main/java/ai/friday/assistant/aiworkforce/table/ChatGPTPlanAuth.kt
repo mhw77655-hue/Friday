@@ -1,6 +1,7 @@
 package ai.friday.assistant.aiworkforce.table
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import kotlinx.coroutines.Dispatchers
@@ -29,7 +30,7 @@ import java.util.concurrent.TimeUnit
  * and ChatGPT-plan Responses API authorization. No API key or client secret.
  */
 class ChatGPTPlanAuth(
-    context: Activity,
+    context: Context,
     private val credentials: ChatGPTPlanCredentialStore =
         ChatGPTPlanCredentialStore(context.applicationContext),
     private val http: OkHttpClient = OkHttpClient.Builder()
@@ -38,9 +39,7 @@ class ChatGPTPlanAuth(
         .callTimeout(60, TimeUnit.SECONDS)
         .build()
 ) {
-    private val activity = context
-
-    suspend fun signIn(): String = withContext(Dispatchers.IO) {
+    suspend fun signIn(activity: Activity): String = withContext(Dispatchers.IO) {
         val existing = credentials.read()
         val server = ServerSocket()
         try {
