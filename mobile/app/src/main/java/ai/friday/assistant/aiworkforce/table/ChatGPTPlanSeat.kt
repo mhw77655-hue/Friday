@@ -45,7 +45,7 @@ class ChatGPTPlanSeat(
     }
 
     suspend fun availableModels(): List<Pair<String, String>> = withContext(Dispatchers.IO) {
-        val token = auth.validAccessToken() ?: return@withContext emptyList()
+        val token = tokenProvider.validAccessToken() ?: return@withContext emptyList()
         loadModels(token)
     }
 
@@ -62,7 +62,7 @@ class ChatGPTPlanSeat(
         }
 
         try {
-            val token = auth.validAccessToken()
+            val token = tokenProvider.validAccessToken()
                 ?: return@withContext reply(null, null, true, SeatPresence.AWAY,
                     "ChatGPT plan connection needs sign-in or reauthorization.")
             val models = loadModels(token)
