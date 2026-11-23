@@ -46,7 +46,8 @@ class ChatGPTPlanAuth(
         .readTimeout(45, TimeUnit.SECONDS)
         .callTimeout(60, TimeUnit.SECONDS)
         .build(),
-    private val jwksEndpoint: String = JWKS_ENDPOINT
+    private val jwksEndpoint: String = JWKS_ENDPOINT,
+    private val discoveryEndpoint: String = DISCOVERY_ENDPOINT
 ) : ChatGPTPlanTokenProvider {
     suspend fun signIn(activity: Activity): String = withContext(Dispatchers.IO) {
         val existing = credentials.read()
@@ -199,7 +200,7 @@ class ChatGPTPlanAuth(
         var lastFailure = "OpenAI revocation endpoint could not be reached."
         for (attempt in 0..2) {
             try {
-                val discoveryRequest = Request.Builder().url(DISCOVERY_ENDPOINT).get().build()
+                val discoveryRequest = Request.Builder().url(discoveryEndpoint).get().build()
                 val endpoint = http.newCall(discoveryRequest).execute().use { response ->
                     if (!response.isSuccessful) error("OpenID discovery HTTP ${response.code}")
                     JSONObject(response.body?.string().orEmpty()).getString("revocation_endpoint")
