@@ -52,12 +52,18 @@ object ProcessExitDiagnostics {
         }
     }
 
-    fun readSummary(context: Context): String {
+    fun readSummary(context: Context): org.json.JSONArray {
         val file = File(context.applicationContext.filesDir, "diagnostics/$FILE_NAME")
-        if (!file.isFile) return "[]"
+        if (!file.isFile) return org.json.JSONArray()
         return runCatching {
-            file.readText(StandardCharsets.UTF_8).takeLast(MAX_BYTES.toInt())
-        }.getOrDefault("[]")
+            org.json.JSONArray().apply {
+                file.readLines(StandardCharsets.UTF_8).takeLast(MAX_HISTORY).forEach { line ->
+                    if (line.isNotBlank()) {
+                        runCatching { put(JSONObject(line)) }
+                    }
+                }
+            }
+        }.getOrElse { org.json.JSONArray() }
     }
 
     private fun ApplicationExitInfo.toSafeRecord(id: String): JSONObject =
