@@ -178,6 +178,46 @@ class ImmuneSystem(
         return event
     }
 
+    /** Consume the canonical recovery outcome and close immune state only
+     * after the existing recovery authority has independently reported success. */
+    fun observeRecovery(event: ai.friday.assistant.failure.RecoveryEvent) {
+        val original = surface.recentFailures.value.firstOrNull {
+            it.subsystem == event.subsystem && it.operation == event.operation
+        }
+        if (original != null) {
+            val report = FailureReport(
+                subsystem = original.subsystem,
+                operation = original.operation,
+                severity = original.severity,
+                category = original.category,
+                message = original.message,
+                source = original.source,
+                cause = original.cause,
+                state = original.state,
+                dependency = original.dependency,
+                recoverability = original.recoverability,
+                correlationId = original.correlationId,
+                attempt = original.attempt,
+                recoveryAction = event.action,
+                metadata = original.metadata,
+                userMessage = original.userMessage,
+                failureCause = original.failureCause,
+                relatedStepId = original.relatedStepId,
+                relatedCapability = original.relatedCapability,
+                environment = original.environment,
+                rootCauseHypothesis = original.rootCauseHypothesis,
+                resourceState = original.resourceState
+            )
+            memory.record(
+                signature = failureSignatureOf(report),
+                attemptedAction = event.action,
+                result = event.result,
+                metadata = mapOf("verified" to "recovery-surface-outcome", "attempt" to event.attempt.toString())
+            )
+        }
+        if (event.result == RecoveryResult.SUCCESS) onSuccess(event.subsystem, event.operation)
+    }
+
     /**
      * Allow exactly one probe once the cooldown has elapsed. Returns whether a
      * probe was permitted and, if so, its outcome.
