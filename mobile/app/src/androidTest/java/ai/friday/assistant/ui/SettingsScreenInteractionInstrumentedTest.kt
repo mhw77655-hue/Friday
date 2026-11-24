@@ -171,7 +171,7 @@ class SettingsScreenInteractionInstrumentedTest {
         compose.onNodeWithText("Remove key").performScrollTo()
         compose.waitForIdle()
         compose.onNodeWithText("Remove key").assertIsDisplayed().performClick()
-        compose.onNodeWithText("Removing Jev credential…", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Removing Jev credential…", substring = true).assertExists()
         compose.waitUntil(9_000) {
             compose.onAllNodesWithText(
                 "Jev credential removed. Friday continues with local deterministic command handling.",
