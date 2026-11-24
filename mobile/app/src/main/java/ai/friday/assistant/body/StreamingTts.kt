@@ -707,10 +707,7 @@ class StreamingTts(
     }
 
     private fun toSsml(text: String): String {
-        val escaped = text
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
+        val escaped = escapeStreamingTtsText(text)
         val paced = escaped
             .replace(Regex("([.!?])(\\s+)"), "$1<break time=\"350ms\"/>$2")
             .replace(Regex(",(\\s+)"), ",<break time=\"150ms\"/>$1")
@@ -744,3 +741,8 @@ class StreamingTts(
         pendingSynthesis.close()
     }
 }
+
+internal fun escapeStreamingTtsText(text: String): String = text
+    .replace("&", "&amp;")
+    .replace("<", "&lt;")
+    .replace(">", "&gt;")
