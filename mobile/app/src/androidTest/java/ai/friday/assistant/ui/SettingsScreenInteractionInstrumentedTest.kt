@@ -10,6 +10,7 @@ import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onRoot
@@ -85,6 +86,35 @@ class SettingsScreenInteractionInstrumentedTest {
     }
 
     @Test
+    fun keepFridayAliveTogglePersistsTheOwnerSetting() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val prefs = context.getSharedPreferences("friday_runtime", Context.MODE_PRIVATE)
+        prefs.edit().clear().commit()
+
+        compose.setContent {
+            FridayTheme {
+                SettingsScreen()
+            }
+        }
+        compose.waitForIdle()
+
+        val toggle = compose.onNodeWithTag("friday_runtime_toggle")
+        toggle.assertIsDisplayed().performClick()
+        compose.waitUntil(5_000) { prefs.getBoolean("keep_alive_enabled", false) }
+        assertTrue(
+            "Enabling Keep Friday alive must persist the owner setting even if Android blocks service startup.",
+            prefs.getBoolean("keep_alive_enabled", false)
+        )
+
+        toggle.performClick()
+        compose.waitUntil(5_000) { !prefs.getBoolean("keep_alive_enabled", true) }
+        assertTrue(
+            "Disabling Keep Friday alive must persist the owner setting.",
+            !prefs.getBoolean("keep_alive_enabled", true)
+        )
+    }
+
+    @Test
     fun shizukuConnectionCheckIsAnExecutableAction() {
         compose.setContent {
             FridayTheme {
@@ -127,7 +157,9 @@ class SettingsScreenInteractionInstrumentedTest {
         compose.waitForIdle()
         // Jev controls are also below the initial viewport; scroll the actual
         // button into view before performing the user action.
-        compose.onNodeWithText("Remove key").performScrollTo().assertIsDisplayed().performClick()
+        compose.onNodeWithText("Remove key").performScrollTo()
+        compose.waitForIdle()
+        compose.onNodeWithText("Remove key").assertIsDisplayed().performClick()
         compose.onNodeWithText("Removing Jev credential…", substring = true).assertIsDisplayed()
         compose.waitUntil(9_000) {
             compose.onAllNodesWithText(
