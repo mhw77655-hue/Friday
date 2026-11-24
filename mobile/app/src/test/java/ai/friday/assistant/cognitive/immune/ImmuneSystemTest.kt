@@ -122,6 +122,21 @@ class ImmuneSystemTest {
         assertTrue(hit.previousFailures == 1)
     }
 
+    @Test
+    fun `observe consumes an already published live failure without duplicating it`() {
+        val sys = system()
+        val event = sys.surface.report(timeoutReport())
+
+        sys.observe(event)
+
+        assertEquals(1, sys.surface.totalFailureCount)
+        assertEquals(ContainmentStatus.ISOLATED, sys.containment.statusOf("STT"))
+        assertEquals(DegradationLevel.DEGRADED, sys.degradation.levelOf("stt"))
+        assertEquals(1, sys.memory.resembles(ai.friday.assistant.failure.failureSignatureOf(timeoutReport()))!!.previousFailures)
+        assertTrue(events.any { it is CognitiveEvent.FailureDetected })
+        assertFalse(events.any { it is CognitiveEvent.RecoveryStarted })
+    }
+
     // ────────────────────────────────────────────── circuit breaker
 
     @Test
