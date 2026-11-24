@@ -3,6 +3,7 @@ package ai.friday.assistant.model.adapters
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -12,6 +13,8 @@ class NativeInferenceBoundaryInstrumentedTest {
     @Test
     fun native_entry_points_fail_closed_for_null_handles() {
         LocalInferenceEngine.loadNative()
+        assertTrue("The exact JNI probe used by host bootstrap must return a runtime version.",
+            LocalInferenceEngine.nativeVersion().isNotBlank())
 
         assertEquals(-1, LocalInferenceEngine.nativeGetState(0L))
         assertNull(LocalInferenceEngine.nativeGetHealth(0L))
