@@ -199,9 +199,11 @@ class HostBootstrapWorker(
             File(context.filesDir, "model"),
             File(context.noBackupFilesDir, "models")
         ))
-        // Verify the actual JNI runtime, not nativeLibraryDir contents.
-        // With extractNativeLibs=false, loadable .so files may remain inside the
-        // APK and the extraction directory can legitimately be empty.
+        // Keep the extracted-library inventory for diagnostics, but do not
+        // use it as the runtime gate: extractNativeLibs=false can leave this
+        // directory empty while the APK-backed JNI library is loadable.
+        val nativeDir = File(context.applicationInfo.nativeLibraryDir)
+        val nativeLibraries = nativeDir.listFiles()?.map { it.name }.orEmpty()
         val hasInferenceLibrary = runCatching {
             LocalInferenceEngine.loadNative()
             LocalInferenceEngine.nativeVersion().isNotBlank()
