@@ -213,7 +213,7 @@ class SystemTTSEngine(
                 completer
             }
         }
-        if (pending == null) return initialized
+        if (pending == null) return true
 
         // Never let a missing Android TTS callback suspend Friday indefinitely.
         val result = withTimeoutOrNull(SYSTEM_TTS_INITIALIZATION_TIMEOUT_MS) { pending.await() }
