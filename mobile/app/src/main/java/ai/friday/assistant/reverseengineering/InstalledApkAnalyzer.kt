@@ -64,7 +64,13 @@ data class ApkReverseEngineeringReport(
     val assetEntries: Int,
     val resourceEntries: Int,
     val manifestBytes: Long,
-    val signerSha256: List<String>
+    val signerSha256: List<String>,
+    val requestedPermissions: List<String>,
+    val activityCount: Int,
+    val serviceCount: Int,
+    val receiverCount: Int,
+    val providerCount: Int,
+    val exportedComponents: List<String>
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("schema_version", 1)
@@ -83,6 +89,13 @@ data class ApkReverseEngineeringReport(
         .put("resource_entries", resourceEntries)
         .put("manifest_bytes", manifestBytes)
         .put("signer_sha256", JSONArray(signerSha256))
+        .put("requested_permissions", JSONArray(requestedPermissions))
+        .put("component_counts", JSONObject()
+            .put("activities", activityCount)
+            .put("services", serviceCount)
+            .put("receivers", receiverCount)
+            .put("providers", providerCount))
+        .put("exported_components", JSONArray(exportedComponents))
         .put("analysis_limits", JSONArray(listOf(
             "APK structure and public package metadata only",
             "No access to the selected app private data directory",
@@ -90,6 +103,40 @@ data class ApkReverseEngineeringReport(
             "Binary manifest and DEX instruction semantics are not decompiled in this phase"
         )))
 }
+
+/**
+ * Persists owner-requested analysis results in Friday's private development
+ * workspace so later capability reconstruction can consume stable evidence.
+ */
+class ApplicationKnowledgeStore(context: Context) {
+    private val directory = File(
+        context.applicationContext.filesDir,
+        "friday-development/application-intelligence"
+    )
+
+    fun persist(report: ApkReverseEngineeringReport): File {
+        require(directory.exists() || directory.mkdirs()) {
+            "Friday could not create its private application-intelligence workspace."
+        }
+        require(directory.isDirectory && directory.canWrite()) {
+            "Friday's application-intelligence workspace is not writable."
+        }
+        val safePackage = report.packageName.replace(Regex("[^A-Za-z0-9_.-]"), "_")
+        val filename = "$safePackage-${report.apkSha256.take(16)}.json"
+        val target = File(directory, filename)
+        val temporary = File(directory, filename + ".tmp")
+        temporary.writeText(report.toJson().toString(2), Charsets.UTF_8)
+        if (!temporary.renameTo(target)) {
+            temporary.copyTo(target, overwrite = true)
+            temporary.delete()
+        }
+        require(target.isFile && target.length() > 0L) {
+            "Friday could not verify the persisted application analysis."
+        }
+        return target
+    }
+}
+
 
 /**
  * Read-only APK structural analyzer. It hashes the installed base APK and
@@ -158,7 +205,12 @@ class InstalledApkAnalyzer(private val context: Context) {
 
         val packageInfo = pm.getPackageInfo(
             target.packageName,
-            PackageManager.GET_SIGNING_CERTIFICATES or PackageManager.GET_PERMISSIONS
+            PackageManager.GET_SIGNING_CERTIFICATES or
+                PackageManager.GET_PERMISSIONS or
+                PackageManager.GET_ACTIVITIES or
+                PackageManager.GET_SERVICES or
+                PackageManager.GET_RECEIVERS or
+                PackageManager.GET_PROVIDERS
         )
         val signerDigests = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             packageInfo.signingInfo?.apkContentsSigners?.map { signer ->
@@ -180,7 +232,18 @@ class InstalledApkAnalyzer(private val context: Context) {
             assetEntries = assetEntries,
             resourceEntries = resourceEntries,
             manifestBytes = manifestBytes,
-            signerSha256 = signerDigests
+            signerSha256 = signerDigests,
+            requestedPermissions = packageInfo.requestedPermissions?.toList().orEmpty().sorted(),
+            activityCount = packageInfo.activities?.size ?: 0,
+            serviceCount = packageInfo.services?.size ?: 0,
+            receiverCount = packageInfo.receivers?.size ?: 0,
+            providerCount = packageInfo.providers?.size ?: 0,
+            exportedComponents = buildList {
+                packageInfo.activities.orEmpty().filter { it.exported }.forEach { add("activity:${it.name}") }
+                packageInfo.services.orEmpty().filter { it.exported }.forEach { add("service:${it.name}") }
+                packageInfo.receivers.orEmpty().filter { it.exported }.forEach { add("receiver:${it.name}") }
+                packageInfo.providers.orEmpty().filter { it.exported }.forEach { add("provider:${it.name}") }
+            }.sorted()
         )
     }
 
