@@ -37,14 +37,15 @@ import java.util.concurrent.TimeUnit
  * First-run resident model acquisition.
  *
  * Friday first measures the actual host, then downloads only the pinned
- * resident asset when the live NAE budget admits it. WorkManager waits for
- * unmetered Wi-Fi, charging, adequate battery and non-low storage. A host that
- * cannot currently admit the model is recorded as waiting, not retried forever.
+ * resident asset when live NAE admission allows it. The one-time host report
+ * proves the native runtime exists; it is never reused as a live RAM/thermal
+ * budget. Blocked candidates retry with bounded WorkManager backoff until the
+ * phone cools or enough resources become available.
  */
 /**
  * Resident candidates ordered from highest capability to smallest safe fallback.
- * Only assets with a pinned digest and a host-budget-compatible minimum size
- * can enter the download queue.
+ * Only assets with a pinned digest and enough current private storage can enter
+ * the download queue; installed assets remain eligible when free storage is low.
  */
 internal fun residentBootstrapCandidates(
     availableStorageBytes: Long,
