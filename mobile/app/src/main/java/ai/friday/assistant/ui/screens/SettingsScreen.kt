@@ -1217,15 +1217,20 @@ private fun JevCredentialSection(context: Context) {
     val scope = rememberCoroutineScope()
     var jevApiKey by remember { mutableStateOf("") }
     var jevStatus by remember { mutableStateOf("Checking Jev credential status…") }
+    var jevStatusRevision by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(context) {
+        val revisionAtStart = jevStatusRevision
         val configured = withContext(Dispatchers.IO) {
             ai.friday.assistant.voice.JevApiKeyStore(context).read() != null
         }
-        jevStatus = if (configured) {
-            "Jev credential stored securely; decision calls require internet."
-        } else {
-            "Jev not configured — Friday continues with local deterministic command handling."
+        // An initial disk read must never overwrite a newer owner action.
+        if (revisionAtStart == jevStatusRevision) {
+            jevStatus = if (configured) {
+                "Jev credential stored securely; decision calls require internet."
+            } else {
+                "Jev not configured — Friday continues with local deterministic command handling."
+            }
         }
     }
 
@@ -1252,22 +1257,28 @@ private fun JevCredentialSection(context: Context) {
             Button(
                 onClick = {
                     val key = jevApiKey
-                    if (key.isNotBlank()) scope.launch {
-                        val result = withContext(Dispatchers.IO) {
-                            runCatching { ai.friday.assistant.voice.JevApiKeyStore(context).save(key) }
-                        }
-                        result.onSuccess {
-                            jevApiKey = ""
-                            jevStatus = "Jev credential stored securely; decision calls require internet."
-                        }.onFailure { failure ->
-                            jevStatus = "Jev credential was not saved: " +
-                                (failure.message?.take(180) ?: failure.javaClass.simpleName)
+                    if (key.isNotBlank()) {
+                        val operationRevision = ++jevStatusRevision
+                        scope.launch {
+                            val result = withContext(Dispatchers.IO) {
+                                runCatching { ai.friday.assistant.voice.JevApiKeyStore(context).save(key) }
+                            }
+                            if (operationRevision == jevStatusRevision) {
+                                result.onSuccess {
+                                    jevApiKey = ""
+                                    jevStatus = "Jev credential stored securely; decision calls require internet."
+                                }.onFailure { failure ->
+                                    jevStatus = "Jev credential was not saved: " +
+                                        (failure.message?.take(180) ?: failure.javaClass.simpleName)
+                                }
+                            }
                         }
                     }
                 },
                 enabled = jevApiKey.isNotBlank()
             ) { Text("Save Jev key") }
             TextButton(onClick = {
+                val operationRevision = ++jevStatusRevision
                 jevStatus = "Removing Jev credential…"
                 scope.launch {
                     val result = runCatching {
@@ -1277,12 +1288,14 @@ private fun JevCredentialSection(context: Context) {
                             }
                         }
                     }
-                    result.onSuccess {
-                        jevApiKey = ""
-                        jevStatus = "Jev credential removed. Friday continues with local deterministic command handling."
-                    }.onFailure { failure ->
-                        jevStatus = "Jev credential could not be removed: " +
-                            (failure.message?.take(180) ?: failure.javaClass.simpleName)
+                    if (operationRevision == jevStatusRevision) {
+                        result.onSuccess {
+                            jevApiKey = ""
+                            jevStatus = "Jev credential removed. Friday continues with local deterministic command handling."
+                        }.onFailure { failure ->
+                            jevStatus = "Jev credential could not be removed: " +
+                                (failure.message?.take(180) ?: failure.javaClass.simpleName)
+                        }
                     }
                 }
             }) { Text("Remove key") }
