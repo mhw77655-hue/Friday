@@ -10,6 +10,8 @@ import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.printToLog
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertTrue
@@ -61,6 +63,15 @@ class SettingsScreenInteractionInstrumentedTest {
 
         compose.waitForIdle()
         compose.onNodeWithText("Clear local journal").performClick()
+        compose.waitUntil(9_000) {
+            compose.onAllNodesWithText("Local action journal cleared.", substring = true).fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodesWithText("Could not clear the local journal.", substring = true).fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onRoot().printToLog("FRIDAY_JOURNAL_CLEAR_RESULT")
+        assertTrue(
+            "Settings must publish a successful journal-clear result.",
+            compose.onAllNodesWithText("Local action journal cleared.", substring = true).fetchSemanticsNodes().isNotEmpty()
+        )
         compose.waitUntil(9_000) { PhoneActionDiagnostics.eventCount() == 0 }
         val remaining = PhoneActionDiagnostics.eventCount()
         assertTrue("Clear action must empty the persisted journal; remaining=$remaining", remaining == 0)
@@ -109,6 +120,22 @@ class SettingsScreenInteractionInstrumentedTest {
 
         compose.waitForIdle()
         compose.onNodeWithText("Remove key").performClick()
+        compose.waitUntil(9_000) {
+            compose.onAllNodesWithText(
+                "Jev credential removed. Friday continues with local deterministic command handling.",
+                substring = true
+            ).fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodesWithText("Jev credential could not be removed:", substring = true)
+                    .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onRoot().printToLog("FRIDAY_JEV_REMOVE_RESULT")
+        assertTrue(
+            "Settings must publish a successful credential-removal result.",
+            compose.onAllNodesWithText(
+                "Jev credential removed. Friday continues with local deterministic command handling.",
+                substring = true
+            ).fetchSemanticsNodes().isNotEmpty()
+        )
         compose.waitUntil(9_000) { store.read() == null }
 
         assertTrue("Remove key must erase the encrypted credential.", store.read() == null)
