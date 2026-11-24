@@ -8,7 +8,6 @@ import android.content.pm.PackageManager
 import android.content.Intent
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.widget.Toast
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -45,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.launch
@@ -229,8 +229,12 @@ fun SettingsScreen() {
     var runtimeMicrophoneActive by remember { mutableStateOf(false) }
     var batteryOptimizationIgnored by remember { mutableStateOf(false) }
     var runtimeStartFailure by remember { mutableStateOf("") }
+    // A slow lifecycle snapshot or an older service poll must not overwrite a
+    // newer owner toggle. This revision is local to this Settings composition.
+    var runtimeStateRevision by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(resumeSignal) {
+        val revisionAtStart = runtimeStateRevision
         val snapshot = withContext(Dispatchers.IO) {
             RuntimeSnapshot(
                 enabled = ai.friday.assistant.runtime.FridayRuntimeController.isEnabled(context),
@@ -240,20 +244,25 @@ fun SettingsScreen() {
                 startFailure = ai.friday.assistant.runtime.FridayRuntimeController.lastStartFailure(context)
             )
         }
-        keepFridayAlive = snapshot.enabled
-        runtimeServiceRunning = snapshot.serviceRunning
-        runtimeMicrophoneActive = snapshot.microphoneActive
-        batteryOptimizationIgnored = snapshot.batteryOptimizationIgnored
-        runtimeStartFailure = snapshot.startFailure
+        if (revisionAtStart == runtimeStateRevision) {
+            keepFridayAlive = snapshot.enabled
+            runtimeServiceRunning = snapshot.serviceRunning
+            runtimeMicrophoneActive = snapshot.microphoneActive
+            batteryOptimizationIgnored = snapshot.batteryOptimizationIgnored
+            runtimeStartFailure = snapshot.startFailure
+        }
     }
 
     fun refreshRuntimeStatus(expectedRunning: Boolean) {
+        val revisionAtStart = runtimeStateRevision
         scope.launch {
             repeat(20) {
+                if (revisionAtStart != runtimeStateRevision) return@launch
                 val snapshot = withContext(Dispatchers.IO) {
                     ai.friday.assistant.runtime.FridayRuntimeController.isServiceRunning(context) to
                         ai.friday.assistant.runtime.FridayRuntimeController.isMicrophoneServiceActive(context)
                 }
+                if (revisionAtStart != runtimeStateRevision) return@launch
                 runtimeServiceRunning = snapshot.first
                 runtimeMicrophoneActive = snapshot.second
                 runtimeStartFailure = withContext(Dispatchers.IO) {
@@ -267,6 +276,7 @@ fun SettingsScreen() {
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
+        runtimeStateRevision++
         if (granted) {
             keepFridayAlive = true
             ai.friday.assistant.runtime.FridayRuntimeController.enable(context)
@@ -583,7 +593,9 @@ fun SettingsScreen() {
             }
             Switch(
                 checked = keepFridayAlive,
+                modifier = Modifier.testTag("friday_runtime_toggle"),
                 onCheckedChange = { enabled ->
+                    runtimeStateRevision++
                     if (enabled) {
                         if (Build.VERSION.SDK_INT >= 33 &&
                             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -1093,16 +1105,20 @@ private fun GitHubDeviceReportingSection(context: Context, actionTraceCount: Int
             onClick = {
                 actionJournalStatus = "Clearing local action journal…"
                 scope.launch {
-                    val cleared = runCatching {
-                        ai.friday.assistant.diagnostics.PhoneActionDiagnostics.clearAndAwait()
+                    val cleared = withContext(Dispatchers.IO) {
+                        runCatching {
+                            ai.friday.assistant.diagnostics.PhoneActionDiagnostics.clearAndAwait()
+                        }
                     }
-                    if (cleared.isSuccess) {
-                        displayedActionTraceCount = 0
-                        actionJournalStatus = "Local action journal cleared."
-                        Toast.makeText(context, actionJournalStatus, Toast.LENGTH_SHORT).show()
-                    } else {
-                        actionJournalStatus = "Could not clear the local journal. Existing evidence was preserved."
-                        Toast.makeText(context, actionJournalStatus, Toast.LENGTH_LONG).show()
+                    // Compose state and Android UI feedback are always updated
+                    // on Main after the journal's background executor completes.
+                    withContext(Dispatchers.Main.immediate) {
+                        if (cleared.isSuccess) {
+                            displayedActionTraceCount = 0
+                            actionJournalStatus = "Local action journal cleared."
+                        } else {
+                            actionJournalStatus = "Could not clear the local journal. Existing evidence was preserved."
+                        }
                     }
                 }
             },
