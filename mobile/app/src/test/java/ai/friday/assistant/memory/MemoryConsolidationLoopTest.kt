@@ -6,6 +6,7 @@ import ai.friday.assistant.identity.WorldModelService
 import ai.friday.assistant.memory.MemoryGraphStore
 import ai.friday.assistant.memory.MemoryNode
 import ai.friday.assistant.memory.RecentStatement
+import ai.friday.assistant.memory.ConsolidationBatch
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -90,7 +91,12 @@ class MemoryConsolidationLoopTest {
         fun loop(scope: CoroutineScope = CoroutineScope(Dispatchers.Default)): MemoryConsolidationLoop =
             MemoryConsolidationLoop(
                 userProfile = userProfile,
-                recentExperience = { statements.toList() },
+                recentExperience = { positions ->
+                    ConsolidationBatch(
+                        statements.withIndex().drop(positions["session-a"] ?: 0).map { it.value },
+                        mapOf("session-a" to statements.size)
+                    )
+                },
                 scope = scope
             )
     }
@@ -135,7 +141,7 @@ class MemoryConsolidationLoopTest {
         h.statements += RecentStatement(sessionId = "session-b", text = "I kind of prefer concise answers", timestamp = 2)
         val second = loop.runConsolidationPass()
 
-        assertEquals("both statements scanned", 2, second.scanned)
+        assertEquals("only the newly appended statement is scanned", 1, second.scanned)
         assertEquals("repeated pattern promoted exactly once this pass", 1, second.promoted)
         assertEquals(
             "promotion reason is the existing REPEATED_PATTERN reason",
@@ -184,7 +190,10 @@ class MemoryConsolidationLoopTest {
             val scope = CoroutineScope(Dispatchers.Default + Job())
             val loop = MemoryConsolidationLoop(
                 userProfile = h.userProfile,
-                recentExperience = { h.statements.toList() },
+                recentExperience = { positions ->
+                    val start = positions["session-once"] ?: 0
+                    ConsolidationBatch(h.statements.drop(start), mapOf("session-once" to h.statements.size))
+                },
                 scope = scope,
                 idleIntervalMs = 5
             )
@@ -230,13 +239,13 @@ class MemoryConsolidationLoopTest {
         var firstRead = true
         val loop = MemoryConsolidationLoop(
             userProfile = h.userProfile,
-            recentExperience = {
+            recentExperience = { positions ->
                 if (firstRead) {
                     firstRead = false
                     throw IllegalStateException("simulated transient store failure")
                 }
                 workerThread.complete(Thread.currentThread().name)
-                statements.toList()
+                ConsolidationBatch(statements.toList(), mapOf("empty" to statements.size))
             },
             scope = scope,
             idleIntervalMs = 5,
