@@ -51,7 +51,7 @@ class ImmuneSystem(
     private val recoveryLocks = ConcurrentHashMap<String, java.util.concurrent.locks.ReentrantLock>()
     private val recoveryAttempts = ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>()
     private val relatedCapabilityByOperation = ConcurrentHashMap<String, String>()
-    private val observedFailureIds = ConcurrentHashMap.newKeySet<String>()
+    private val observedFailureIds = LinkedHashMap<String, Unit>()
 
     fun breaker(subsystem: String, operation: String): CircuitBreaker =
         breakers.computeIfAbsent(key(subsystem, operation)) { breakerFactory(it) }
@@ -63,7 +63,7 @@ class ImmuneSystem(
      * thread. RecoveryController remains the sole async retry executor.
      */
     fun observe(event: FailureEvent) {
-        if (!observedFailureIds.add(event.id)) return
+        if (!claimObservedFailure(event.id)) return
         val report = FailureReport(
             subsystem = event.subsystem,
             operation = event.operation,
@@ -140,7 +140,7 @@ class ImmuneSystem(
         // The live FailureSurface listener may also observe this event. Claim
         // it here so this direct path and the asynchronous bus path cannot
         // increment breakers or memory twice for one incident.
-        observedFailureIds.add(event.id)
+        claimObservedFailure(event.id)
         emit(CognitiveEvent.FailureDetected(event, report.failureCause))
 
         // ── classify
@@ -442,6 +442,15 @@ class ImmuneSystem(
                 "cause" to (report.failureCause?.name ?: "UNKNOWN")
             )
         )
+    }
+
+    private fun claimObservedFailure(id: String): Boolean = synchronized(observedFailureIds) {
+        if (observedFailureIds.containsKey(id)) return@synchronized false
+        observedFailureIds[id] = Unit
+        while (observedFailureIds.size > 2_048) {
+            observedFailureIds.remove(observedFailureIds.entries.first().key)
+        }
+        true
     }
 
     private fun key(subsystem: String, operation: String): String = "$subsystem|$operation"
