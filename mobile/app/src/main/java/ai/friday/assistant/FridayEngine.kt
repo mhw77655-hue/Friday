@@ -195,7 +195,7 @@ object FridayEngine {
         // or one of its organs is stalled.
         if (mainThreadLivenessMonitor == null) {
             mainThreadLivenessMonitor = runCatching {
-                ai.friday.assistant.failure.MainThreadLivenessMonitor(failureSurface).also { it.start() }
+                ai.friday.assistant.failure.MainThreadLivenessMonitor(failureSurface)
             }.getOrNull()
         }
 
@@ -817,6 +817,14 @@ object FridayEngine {
     fun voiceOrganismHostSlot(): EngineSlot<ai.friday.assistant.voice.VoiceOrganismHost> = readinessGate.slot { voiceOrganismHost }
     fun voiceOutputPathSlot(): EngineSlot<ai.friday.assistant.voice.VoiceOutputPath> = readinessGate.slot { voiceOutputPath }
     fun voiceMicroSystemSlot(): EngineSlot<ai.friday.assistant.voice.VoiceOrganismMicroSystem> = readinessGate.slot { voiceMicroSystem }
+    fun startMainThreadWatchdog() {
+        mainThreadLivenessMonitor?.start()
+    }
+
+    fun stopMainThreadWatchdog() {
+        mainThreadLivenessMonitor?.stop()
+    }
+
     fun failureSurfaceSlot(): EngineSlot<ai.friday.assistant.failure.FailureSurface> = readinessGate.slot { failureSurface }
     fun failureStoreSlot(): EngineSlot<ai.friday.assistant.failure.FailureStore> = readinessGate.slot { failureStore }
     fun recoveryControllerSlot(): EngineSlot<ai.friday.assistant.failure.RecoveryController> = readinessGate.slot { recoveryController }
