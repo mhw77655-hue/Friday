@@ -4,6 +4,7 @@ import androidx.annotation.WorkerThread
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import ai.friday.assistant.approval.GateResult
+import ai.friday.assistant.approval.ExecResult
 import ai.friday.assistant.approval.TaskExecutor
 import ai.friday.assistant.approvals.RiskLevel
 import java.io.File
