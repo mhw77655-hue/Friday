@@ -2,7 +2,6 @@ package ai.friday.assistant.reverseengineering
 
 import android.content.Context
 import android.content.Intent
-import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import org.json.JSONArray
@@ -134,8 +133,17 @@ class InstalledApkAnalyzer(private val context: Context) {
                 val name = entry.name
                 when {
                     name == "AndroidManifest.xml" -> manifestBytes = entry.size.coerceAtLeast(0)
-                    name.matches(Regex("classes(\\\\d*)\\\\.dex")) -> {
-                        val header = zip.getInputStream(entry).use { input -> input.readNBytes(DEX_HEADER_BYTES) }
+                    name.matches(Regex("""classes(\\d*)\\.dex""")) -> {
+                        val header = zip.getInputStream(entry).use { input ->
+                            val bytes = ByteArray(DEX_HEADER_BYTES)
+                            var offset = 0
+                            while (offset < bytes.size) {
+                                val count = input.read(bytes, offset, bytes.size - offset)
+                                if (count < 0) break
+                                offset += count
+                            }
+                            if (offset == bytes.size) bytes else bytes.copyOf(offset)
+                        }
                         val stats = readDexHeader(header)
                         dexFiles++
                         dexClasses += stats.first
