@@ -4,6 +4,8 @@ import ai.friday.assistant.evolution.Behavior
 import ai.friday.assistant.evolution.BehaviorSynthesizer
 import ai.friday.assistant.evolution.CapabilityRequirement
 import ai.friday.assistant.evolution.GenomeFactory
+import ai.friday.assistant.genome.GenomeRegistry
+import ai.friday.assistant.builder.CapabilityGapDetector
 import ai.friday.assistant.failure.FailureSurface
 import ai.friday.assistant.microsystem.MicroSystemRegistry
 import ai.friday.assistant.microsystem.SpecMicroSystem
@@ -55,6 +57,62 @@ class NervousSystemTest {
         assertEquals("organism_clamp_deterministic", route.providerId)
         assertEquals(100.0, (route.result?.data as Map<*, *>)["result"])
         assertFalse(route.gapDetected)
+    }
+
+    @Test
+    fun `registered but unready organisms are not advertised or routed as capabilities`() = runBlocking {
+        val registry = MicroSystemRegistry()
+        val behavior = Behavior.Clamp(0.0, 100.0)
+        val spec = BehaviorSynthesizer.specFor(behavior, AlgorithmSpec.Strategy.DETERMINISTIC)
+        val genome = GenomeFactory.genomeFor(CapabilityRequirement("clamp", "clamp", behavior))
+        val unready = SpecMicroSystem("unready_clamp", genome, spec)
+        // Deliberately register without initialize(): the registry knows it,
+        // but it is not safe to route capability work to it yet.
+        registry.register(unready)
+
+        val readyDelegate = SpecMicroSystem(
+            id = "ready_non_callable_delegate",
+            genome = GenomeFactory.genomeFor(CapabilityRequirement("non_callable_capability", "non-callable", behavior)),
+            spec = spec,
+            capabilities = setOf("non_callable_capability")
+        )
+        readyDelegate.initialize()
+        val readyButNonCallable = object : ai.friday.assistant.microsystem.MicroSystemContract by readyDelegate {
+            override val id: String = "ready_non_callable"
+            override val capabilities: Set<String> = setOf("non_callable_capability")
+        }
+        registry.register(readyButNonCallable)
+
+        val router = CapabilityRouter(registry)
+        assertTrue(router.providers("clamp").isEmpty())
+        assertFalse(router.hasProvider("clamp"))
+        assertTrue("ready but non-callable is not a route", router.providers("non_callable_capability").isEmpty())
+        assertFalse(router.hasProvider("non_callable_capability"))
+        val route = router.route("clamp", mapOf("value" to 5.0))
+        assertFalse(route.success)
+        assertTrue(route.gapDetected)
+
+        val gap = CapabilityGapDetector(registry, GenomeRegistry(), router).detect("clamp")
+        assertTrue(gap.gap)
+        assertEquals("GAP", gap.status)
+
+        val predictive = PredictiveRouter(registry)
+        predictive.observe("start", "clamp")
+        assertFalse(predictive.predict("start").providerReady)
+
+        val coordinator = OrganismCoordinator(registry, router)
+        assertTrue(coordinator.readyCapabilities.isEmpty())
+        val nervous = GlobalNervousSystem(
+            router = router,
+            coordinator = coordinator,
+            predictive = predictive,
+            arbitration = ArbitrationEngine(),
+            registry = registry,
+            governor = ResourceGovernor(),
+            failureSurface = FailureSurface()
+        )
+        assertFalse(nervous.hasCapability("clamp"))
+        assertTrue(nervous.capabilities.isEmpty())
     }
 
     @Test
@@ -154,6 +212,37 @@ class NervousSystemTest {
         // Reversing twice returns the original string.
         val finalData = result.completedStages.last().data as Map<*, *>
         assertEquals("hello world", finalData["result"])
+    }
+
+    @Test
+    fun `pipeline maps current output to the next provider input port`() = runBlocking {
+        val registry = MicroSystemRegistry()
+        val lookup = promoteSpec(
+            registry,
+            Behavior.Lookup(mapOf("hi" to "hello world"), default = "unknown"),
+            AlgorithmSpec.Strategy.DETERMINISTIC,
+            "lookup"
+        )
+        val reverse = promoteSpec(
+            registry,
+            Behavior.ReverseWords(),
+            AlgorithmSpec.Strategy.DETERMINISTIC,
+            "reverse_words"
+        )
+        lookup.onPromoted()
+        reverse.onPromoted()
+
+        val router = CapabilityRouter(registry)
+        val coordinator = OrganismCoordinator(registry, router)
+        val result = coordinator.pipeline(
+            listOf("lookup", "reverse_words"),
+            mapOf("key" to "hi")
+        )
+
+        assertTrue("different adjacent port names must be wired correctly: $result", result.success)
+        assertEquals(2, result.completedStages.size)
+        val finalData = result.completedStages.last().data as Map<*, *>
+        assertEquals("world hello", finalData["result"])
     }
 
     @Test

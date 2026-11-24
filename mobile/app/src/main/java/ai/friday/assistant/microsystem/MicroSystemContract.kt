@@ -129,3 +129,12 @@ data class OperationResult(
     val latencyMs: Long = 0,
     val error: String? = null
 )
+
+
+/** True only when a registered organism can currently accept capability work. */
+internal fun MicroSystemContract.isRoutable(): Boolean =
+    isReady && health.value.status in setOf(MicroSystemStatus.HEALTHY, MicroSystemStatus.DEGRADED)
+
+/** True only when the organism is ready, healthy enough, and implements the call contract. */
+internal fun MicroSystemContract.isCapabilityCallable(): Boolean =
+    isRoutable() && this is CallableMicroSystem

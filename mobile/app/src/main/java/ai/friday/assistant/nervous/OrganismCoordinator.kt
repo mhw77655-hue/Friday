@@ -4,6 +4,8 @@ import ai.friday.assistant.microsystem.MicroSystemContract
 import ai.friday.assistant.microsystem.MicroSystemRegistry
 import ai.friday.assistant.microsystem.OperationResult
 import ai.friday.assistant.microsystem.SyncMessage
+import ai.friday.assistant.microsystem.isCapabilityCallable
+import ai.friday.assistant.microsystem.isRoutable
 import ai.friday.assistant.organism.manifests
 
 /**
@@ -27,10 +29,10 @@ class OrganismCoordinator(
 ) {
 
     /** Every capability currently provided by registered organisms. */
-    val readyCapabilities: Set<String> get() = registry.all().flatMap { it.capabilities }.toSet()
+    val readyCapabilities: Set<String> get() = registry.all().filter { it.isCapabilityCallable() }.flatMap { it.capabilities }.toSet()
 
     /** Organisms that declare a capability. */
-    fun providers(capability: String): List<MicroSystemContract> = registry.provides(capability)
+    fun providers(capability: String): List<MicroSystemContract> = registry.provides(capability).filter { it.isCapabilityCallable() }
 
     /** «What are you?» for every registered organism. */
     fun allManifests(): List<ai.friday.assistant.organism.OrganismManifests> =
@@ -46,7 +48,7 @@ class OrganismCoordinator(
     suspend fun pipeline(stages: List<String>, initialInput: Map<String, Any>): PipelineResult {
         var input = initialInput
         val outputs = mutableListOf<OperationResult>()
-        for (capability in stages) {
+        for ((index, capability) in stages.withIndex()) {
             val routed = router.route(capability, input)
             if (!routed.success) {
                 return PipelineResult(
@@ -56,15 +58,40 @@ class OrganismCoordinator(
                     error = routed.lastError ?: "no provider for $capability"
                 )
             }
-            outputs += routed.result ?: OperationResult(success = false, error = "empty result")
-            // Port-to-port wiring: unwrap the provider's declared output port
-            // value and feed it into the next provider's declared input port.
+            val stageResult = routed.result
+                ?: return PipelineResult(
+                    success = false,
+                    completedStages = outputs,
+                    failedAt = capability,
+                    error = "provider returned no operation result"
+                )
+            outputs += stageResult
+
+            val nextCapability = stages.getOrNull(index + 1) ?: continue
+            // The current provider declares the output port; the NEXT provider
+            // declares the input port. Using the current provider's input name
+            // silently miswires pipelines whose adjacent organisms have
+            // different contracts (for example lookup.key -> reverse_words.text).
             val provider = routed.providerId?.let { registry.get(it) }
-            val data = routed.result?.data
             val outputName = provider?.genome?.outputs?.firstOrNull()?.name ?: "result"
-            val outputValue = if (data is Map<*, *>) data[outputName] else data
-            val nextInputName = provider?.genome?.inputs?.firstOrNull()?.name ?: "value"
-            input = mapOf(nextInputName to (outputValue ?: "null"))
+            val outputValue = if (stageResult.data is Map<*, *>) {
+                stageResult.data[outputName]
+            } else {
+                stageResult.data
+            } ?: return PipelineResult(
+                success = false,
+                completedStages = outputs,
+                failedAt = nextCapability,
+                error = "provider ${routed.providerId ?: "unknown"} omitted declared output port '$outputName'"
+            )
+            // A fallback provider may declare a different input port. Supply
+            // the same value under each candidate's first declared input name
+            // so the router can fall through without silently miswiring it.
+            val nextInputNames = router.providers(nextCapability)
+                .mapNotNull { it.genome.inputs.firstOrNull()?.name }
+                .toSet()
+                .ifEmpty { setOf("value") }
+            input = nextInputNames.associateWith { outputValue }
         }
         return PipelineResult(success = true, completedStages = outputs, failedAt = null)
     }
@@ -72,7 +99,7 @@ class OrganismCoordinator(
     /** Broadcast a message to every registered organism (event fan-out). */
     suspend fun broadcast(message: SyncMessage): Int {
         var delivered = 0
-        for (system in registry.all()) {
+        for (system in registry.all().filter { it.isRoutable() }) {
             system.deliver(message)
             delivered++
         }

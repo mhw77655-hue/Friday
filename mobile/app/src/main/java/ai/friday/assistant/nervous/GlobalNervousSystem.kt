@@ -68,7 +68,7 @@ class GlobalNervousSystem(
     }
 
     /** Ask the federation: «does any organism provide X?» */
-    fun hasCapability(capability: String): Boolean = registry.provides(capability).isNotEmpty()
+    fun hasCapability(capability: String): Boolean = router.hasProvider(capability)
 
     /** Broadcast a synchronous message across the federation. */
     suspend fun publish(message: SyncMessage): Int = coordinator.broadcast(message)

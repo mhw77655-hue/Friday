@@ -3,6 +3,7 @@ package ai.friday.assistant.builder
 import ai.friday.assistant.genome.GenomeRegistry
 import ai.friday.assistant.microsystem.MicroSystemRegistry
 import ai.friday.assistant.nervous.CapabilityRouter
+import ai.friday.assistant.microsystem.isCapabilityCallable
 
 /**
  * Capability Gap Detector (§1, §15) — the entry point of the fundamental loop.
@@ -23,7 +24,7 @@ class CapabilityGapDetector(
 ) {
 
     fun detect(capability: String): GapAnalysis {
-        val live = registry.provides(capability)
+        val live = router?.providers(capability) ?: registry.provides(capability).filter { it.isCapabilityCallable() }
         if (live.isNotEmpty()) {
             return GapAnalysis(
                 capability = capability,
