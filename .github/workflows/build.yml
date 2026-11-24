@@ -536,7 +536,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: friday-whole-app-code-trace
-          path: \${{ runner.temp }}/friday-code-trace/
+          path: ${{ runner.temp }}/friday-code-trace/
           if-no-files-found: warn
           retention-days: 14
 
