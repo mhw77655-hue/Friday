@@ -40,6 +40,25 @@ data class DiagnosticFinding(
  * unavailable platform data is reported as INFO rather than silently passing.
  * This class never reads conversations, transcripts, notifications or screen data.
  */
+/**
+ * Classifies the authoritative FailureSurface summary without treating an
+ * unrecognized non-empty status as healthy. In particular, strings such as
+ * "Failures: ERROR — ENGINE: ERROR x1" must not fall through to INFO.
+ */
+internal fun classifyFailureSurfaceSeverity(raw: String): DiagnosticSeverity {
+    val lower = raw.trim().lowercase()
+    return when {
+        lower.contains("failures: none") || lower.contains("0 down, 0 degraded") ->
+            DiagnosticSeverity.PASS
+        Regex("\\b(?:error|critical|failed)\\b").containsMatchIn(lower) ||
+            Regex("\\b[1-9][0-9]* down\\b|\\b[1-9][0-9]* degraded\\b").containsMatchIn(lower) ->
+            DiagnosticSeverity.ERROR
+        Regex("\\bwarning\\b|\\bdegraded\\b").containsMatchIn(lower) ->
+            DiagnosticSeverity.WARNING
+        else -> DiagnosticSeverity.INFO
+    }
+}
+
 class DiagnosticRunner(private val app: Application) {
     fun run(liveSignals: Map<String, String>, lastCrash: JSONObject?): List<DiagnosticFinding> {
         val findings = mutableListOf<DiagnosticFinding>()
@@ -221,12 +240,15 @@ class DiagnosticRunner(private val app: Application) {
         val lower = value.lowercase()
         val key = name.lowercase()
         val (severity, assessment, action) = when (key) {
-            "failure_surface" -> when {
-                lower.contains("failures: none") || lower.contains("0 down, 0 degraded") ->
+            "failure_surface" -> when (classifyFailureSurfaceSeverity(value)) {
+                DiagnosticSeverity.PASS ->
                     Triple(DiagnosticSeverity.PASS, "FailureSurface reports no currently registered failures.", "No action required.")
-                Regex("\\b[1-9][0-9]* down\\b|\\b[1-9][0-9]* degraded\\b").containsMatchIn(lower) ->
-                    Triple(DiagnosticSeverity.ERROR, "FailureSurface reports one or more degraded or unavailable components.", "Open the component failure details and resolve the first causal failure.")
-                else -> Triple(DiagnosticSeverity.INFO, "FailureSurface returned a status that needs interpretation.", "Inspect the detailed failure registry; this status alone is not proof of health.")
+                DiagnosticSeverity.ERROR ->
+                    Triple(DiagnosticSeverity.ERROR, "FailureSurface reports an explicit error or unavailable component.", "Open the component failure details and resolve the first causal failure.")
+                DiagnosticSeverity.WARNING ->
+                    Triple(DiagnosticSeverity.WARNING, "FailureSurface reports a degraded or warning condition.", "Inspect the detailed failure registry and verify recovery.")
+                DiagnosticSeverity.INFO ->
+                    Triple(DiagnosticSeverity.INFO, "FailureSurface returned a status that needs interpretation.", "Inspect the detailed failure registry; this status alone is not proof of health.")
             }
             "model_runtime" -> when {
                 lower.contains("no model confirmed") || lower.contains("not loaded") ->
