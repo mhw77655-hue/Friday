@@ -1,6 +1,5 @@
 package ai.friday.assistant.approvals
 
-import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Test
