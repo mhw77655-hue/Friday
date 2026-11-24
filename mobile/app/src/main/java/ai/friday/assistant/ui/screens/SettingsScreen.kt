@@ -885,6 +885,8 @@ private fun GitHubDeviceReportingSection(context: Context, actionTraceCount: Int
     var githubDevelopmentStatus by remember { mutableStateOf("Development repository access has not been checked.") }
     var githubReportStatus by remember { mutableStateOf("GitHub reporting is not connected.") }
     var githubBusy by remember { mutableStateOf(false) }
+    var displayedActionTraceCount by remember { mutableIntStateOf(actionTraceCount) }
+    var actionJournalStatus by remember { mutableStateOf("Local action journal status has not been changed.") }
 
     LaunchedEffect(context) {
         val snapshot = withContext(Dispatchers.IO) {
@@ -912,7 +914,7 @@ private fun GitHubDeviceReportingSection(context: Context, actionTraceCount: Int
             modifier = Modifier.padding(bottom = 8.dp)
         )
         Text(
-            text = "$actionTraceCount action events currently stored on this phone.",
+            text = "$displayedActionTraceCount action events currently stored on this phone.",
             style = FridayType.Technical,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -1168,7 +1170,7 @@ private fun GitHubDeviceReportingSection(context: Context, actionTraceCount: Int
                         ai.friday.assistant.diagnostics.PhoneActionDiagnostics.clearAndAwait()
                     }
                     if (cleared.isSuccess) {
-                        actionTraceCount = 0
+                        displayedActionTraceCount = 0
                         actionJournalStatus = "Local action journal cleared."
                         Toast.makeText(context, actionJournalStatus, Toast.LENGTH_SHORT).show()
                     } else {
