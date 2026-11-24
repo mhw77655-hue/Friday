@@ -6,6 +6,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -61,6 +62,18 @@ class RecoveryController(
     private val entries = ConcurrentHashMap<String, Entry>() // key = subsystem|operation
     private val running = ConcurrentHashMap.newKeySet<String>()
 
+    // Subscribe to the canonical failure bus so every connected organ can use
+    // a registered recovery path without knowing about this controller.
+    // Historical events are not replayed during process startup.
+    private val failureListener: (FailureEvent) -> Unit = ::handleReportedFailure
+
+    init {
+        surface.addFailureListener(failureListener, replayExisting = false)
+        scope.coroutineContext[Job]?.invokeOnCompletion {
+            surface.removeFailureListener(failureListener)
+        }
+    }
+
     /** Register a recovery path for a dependency. Idempotent (first wins). */
     fun register(spec: RetrySpec) {
         val key = keyFor(spec.subsystem, spec.operation)
@@ -85,47 +98,46 @@ class RecoveryController(
      * @param base report with original severity/recoverability (retryable).
      * @return the surfaced failure event.
      */
-    fun handle(base: FailureReport): FailureEvent {
-        val key = keyFor(base.subsystem, base.operation)
-        val entry = entries[key]
+    fun handle(base: FailureReport): FailureEvent = surface.report(base)
 
-        // Always surface the failure first — it must never disappear.
-        val event = surface.report(base)
+    /** Process a just-published failure without publishing it a second time. */
+    private fun handleReportedFailure(event: FailureEvent) {
+        val entry = entries[keyFor(event.subsystem, event.operation)] ?: return
+        if (event.recoverability == Recoverability.NONE ||
+            event.recoverability == Recoverability.PERMANENT ||
+            event.recoveryAction == RecoveryAction.USER_ACTION_REQUIRED
+        ) return
 
-        if (entry == null) return event
-        // Do not retry failures that require an external owner action or are
-        // explicitly permanent. They remain visible but must not be hammered.
-        if (base.recoverability == Recoverability.NONE ||
-            base.recoverability == Recoverability.PERMANENT ||
-            base.recoveryAction == RecoveryAction.USER_ACTION_REQUIRED
-        ) return event
-
-        val breaker = entry.breaker
-        when {
-            breaker.isOpen && breaker.lastProbeSucceeded == false -> {
-                // Probe failed recently: fully open, stop hammering. Mark the
-                // dependency disabled/degraded so it stays visible.
-                surface.report(base.copy(
-                    severity = FailureSeverity.max(base.severity, FailureSeverity.DEGRADED),
-                    recoveryAction = RecoveryAction.DISABLE_COMPONENT,
-                    message = "${base.message} — circuit open, disabled until cooldown",
-                    metadata = base.metadata + ("circuit" to "open")
-                ))
-                entry.spec.onDisabled?.invoke()
+        val base = FailureReport(
+            subsystem = event.subsystem,
+            operation = event.operation,
+            severity = event.severity,
+            category = event.category,
+            message = event.message,
+            source = event.source,
+            cause = event.cause,
+            state = event.state,
+            dependency = event.dependency,
+            recoverability = event.recoverability,
+            correlationId = event.correlationId,
+            attempt = event.attempt,
+            recoveryAction = event.recoveryAction,
+            metadata = event.metadata,
+            userMessage = event.userMessage,
+            failureCause = event.failureCause,
+            relatedStepId = event.relatedStepId,
+            relatedCapability = event.relatedCapability,
+            environment = event.environment,
+            rootCauseHypothesis = event.rootCauseHypothesis,
+            resourceState = event.resourceState
+        )
+        if (entry.breaker.isOpen) {
+            if (entry.breaker.lastProbeSucceeded == false) {
+                runCatching { entry.spec.onDisabled?.invoke() }
             }
-            breaker.isOpen -> {
-                // Recently opened — wait for cooldown; report degraded but do
-                // not retry yet.
-                surface.report(base.copy(
-                    severity = FailureSeverity.max(base.severity, FailureSeverity.DEGRADED),
-                    recoveryAction = RecoveryAction.WAIT_FOR_RECOVERY,
-                    message = "${base.message} — circuit open, waiting to probe",
-                    metadata = base.metadata + ("circuit" to "open")
-                ))
-            }
-            else -> scheduleRetry(entry, base, countFailure = true)
+            return
         }
-        return event
+        scheduleRetry(entry, base, countFailure = true)
     }
 
     /** Healthy signal for a dependency that uses [handle]: closes its breaker. */
@@ -143,20 +155,12 @@ class RecoveryController(
 
     private fun scheduleRetry(entry: Entry, base: FailureReport, countFailure: Boolean) {
         val key = keyFor(base.subsystem, base.operation)
-        if (!running.add(key)) return // one recovery in flight per dependency
+        if (!running.add(key)) return
 
-        // Count a newly observed incident only after winning the in-flight slot;
-        // duplicate callbacks during one recovery must not trip the breaker.
         if (countFailure) entry.breaker.onFailure()
         if (entry.breaker.isOpen) {
             running.remove(key)
-            surface.report(base.copy(
-                severity = FailureSeverity.max(base.severity, FailureSeverity.DEGRADED),
-                recoveryAction = RecoveryAction.DISABLE_COMPONENT,
-                message = "${base.message} — circuit opened after repeated failures",
-                metadata = base.metadata + ("circuit" to "open")
-            ))
-            entry.spec.onDisabled?.invoke()
+            runCatching { entry.spec.onDisabled?.invoke() }
             return
         }
 
@@ -164,14 +168,14 @@ class RecoveryController(
         val spec = entry.spec
         if (attempt > spec.maxAttempts) {
             running.remove(key)
-            // Budget exhausted — degrade the dependency.
-            surface.report(base.copy(
-                severity = FailureSeverity.max(base.severity, FailureSeverity.DEGRADED),
-                recoveryAction = RecoveryAction.DEGRADE,
-                message = "${base.message} — retries exhausted ($attempt)",
-                metadata = base.metadata + ("retriesExhausted" to "true")
-            ))
-            spec.onDisabled?.invoke()
+            surface.recover(
+                base.dedupeKey,
+                RecoveryResult.FAILED,
+                "retry budget exhausted ($attempt)",
+                RecoveryAction.DEGRADE,
+                base.correlationId
+            )
+            runCatching { spec.onDisabled?.invoke() }
             return
         }
 
@@ -219,13 +223,7 @@ class RecoveryController(
                         attemptFailureMessage, specActionOf(spec), base.correlationId
                     )
                     if (entry.breaker.isOpen) {
-                        surface.report(base.copy(
-                            severity = FailureSeverity.max(base.severity, FailureSeverity.DEGRADED),
-                            recoveryAction = RecoveryAction.DISABLE_COMPONENT,
-                            message = "${base.message} — circuit opened after repeated retry failures",
-                            metadata = base.metadata + ("circuit" to "open")
-                        ))
-                        spec.onDisabled?.invoke()
+                        runCatching { spec.onDisabled?.invoke() }
                     } else {
                         // Defer scheduling until after this coroutine releases
                         // its running marker. Removing it early lets another
