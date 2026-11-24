@@ -68,6 +68,7 @@ class MainThreadLivenessMonitor(
         scheduledTask = null
         mainHandler.removeCallbacks(heartbeat)
         pingPending.set(false)
+        recoveryObserved.set(false)
     }
 
     private fun tick() {
