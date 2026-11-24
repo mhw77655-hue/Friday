@@ -135,6 +135,7 @@ fun SettingsScreen() {
     val shizukuStatus by ai.friday.assistant.ScreenBridge.status.collectAsState()
     var shizukuSnapshot by remember { mutableStateOf("") }
     var shizukuDiagnosticsRunning by remember { mutableStateOf(false) }
+    var shizukuBindingRunning by remember { mutableStateOf(false) }
     var shizukuAcceptanceReport by remember { mutableStateOf("") }
     var shizukuAcceptanceRunning by remember { mutableStateOf(false) }
     var objectiveExecutionStatus by remember { mutableStateOf("Friday is loading the canonical objectives ledger…") }
@@ -697,13 +698,27 @@ fun SettingsScreen() {
                 when {
                     !shizukuAvailable -> ai.friday.assistant.ShizukuBridge.refresh()
                     !shizukuGranted -> ai.friday.assistant.ShizukuBridge.requestPermission()
-                    else -> ai.friday.assistant.ScreenBridge.bind(context)
+                    else -> {
+                        shizukuBindingRunning = true
+                        shizukuSnapshot = "Connecting to Friday's verified Shizuku service…"
+                        scope.launch {
+                            try {
+                                shizukuSnapshot = ai.friday.assistant.ScreenBridge.ensureVerifiedBinding(context)
+                            } catch (failure: Exception) {
+                                shizukuSnapshot = "Shizuku connection failed: ${failure.message ?: failure.javaClass.simpleName}"
+                            } finally {
+                                shizukuBindingRunning = false
+                            }
+                        }
+                    }
                 }
             },
+            enabled = !shizukuBindingRunning,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
                 when {
+                    shizukuBindingRunning -> "Connecting…"
                     !shizukuAvailable -> "Check Shizuku connection"
                     !shizukuGranted -> "Grant Friday Shizuku access"
                     else -> "Connect Friday to the phone"
