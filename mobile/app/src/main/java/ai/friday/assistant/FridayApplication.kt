@@ -25,6 +25,11 @@ class FridayApplication : Application() {
             Thread(runnable, "FridayStartupIO").apply { isDaemon = true }
         }
     }
+    private val maintenanceExecutor by lazy {
+        Executors.newFixedThreadPool(2) { runnable ->
+            Thread(runnable, "FridayMaintenanceIO").apply { isDaemon = true }
+        }
+    }
     private val shizukuExecutor by lazy {
         Executors.newSingleThreadExecutor { runnable ->
             Thread(runnable, "FridayShizukuInit").apply { isDaemon = true }
@@ -71,16 +76,18 @@ class FridayApplication : Application() {
             startupTask("objective execution scheduling") {
                 ai.friday.assistant.bootstrap.plan.ObjectiveExecutionWorker.enqueue(this)
             }
-            // Verify after durable workers have been enqueued so a slow package
-            // manager query cannot prevent the background maintenance lanes.
-            startupTask("process-exit diagnostics") {
-                ai.friday.assistant.diagnostics.ProcessExitDiagnostics.capture(this)
-            }
-            startupTask("crash history retention") {
-                ai.friday.assistant.diagnostics.CrashJournal.pruneHistory(this)
-            }
             startupTask("update health verification") {
                 ai.friday.assistant.update.FridayUpdateStateStore(this).verifyPendingHealthCheck()
+            }
+        }
+        // Best-effort diagnostics use a separate lane so a stuck system-history
+        // Binder call cannot delay durable work scheduling or update verification.
+        maintenanceExecutor.execute {
+            maintenanceTask("process-exit diagnostics") {
+                ai.friday.assistant.diagnostics.ProcessExitDiagnostics.capture(this)
+            }
+            maintenanceTask("crash history retention") {
+                ai.friday.assistant.diagnostics.CrashJournal.pruneHistory(this)
             }
         }
         // Process-scoped background/foreground for the Companion Core (plan
@@ -107,6 +114,12 @@ class FridayApplication : Application() {
     private fun startupTask(name: String, action: () -> Unit) {
         runCatching(action).onFailure { failure ->
             Log.e("FridayApplication", "Background startup task failed: $name", failure)
+        }
+    }
+
+    private fun maintenanceTask(name: String, action: () -> Unit) {
+        runCatching(action).onFailure { failure ->
+            Log.w("FridayApplication", "Best-effort maintenance task failed: $name", failure)
         }
     }
 
