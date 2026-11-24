@@ -37,7 +37,7 @@ object CompanionCoreHolder {
     private val laneScope = CoroutineScope(SupervisorJob() + tickLane)
 
     @Volatile
-    private var core: CompanionCore? = null
+    @Volatile private var core: CompanionCore? = null
 
     /**
      * Build (once) and start the Companion Core. Idempotent. Called from two
