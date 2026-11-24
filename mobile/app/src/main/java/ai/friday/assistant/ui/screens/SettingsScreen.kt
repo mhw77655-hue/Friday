@@ -588,6 +588,7 @@ fun SettingsScreen() {
                 enabled = jevApiKey.isNotBlank()
             ) { Text("Save Jev key") }
             TextButton(onClick = {
+                jevStatus = "Removing Jev credential…"
                 scope.launch {
                     val result = withContext(Dispatchers.IO) {
                         runCatching { ai.friday.assistant.voice.JevApiKeyStore(context).clear() }
@@ -1110,6 +1111,7 @@ fun SettingsScreen() {
         )
         TextButton(
             onClick = {
+                actionJournalStatus = "Clearing local action journal…"
                 scope.launch {
                     val cleared = runCatching {
                         ai.friday.assistant.diagnostics.PhoneActionDiagnostics.clearAndAwait()
