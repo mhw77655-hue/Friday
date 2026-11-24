@@ -99,6 +99,8 @@ class SettingsScreenInteractionInstrumentedTest {
         compose.waitForIdle()
 
         val toggle = compose.onNodeWithTag("friday_runtime_toggle")
+        toggle.performScrollTo()
+        compose.waitForIdle()
         toggle.assertIsDisplayed().performClick()
         compose.waitUntil(5_000) { prefs.getBoolean("keep_alive_enabled", false) }
         assertTrue(
