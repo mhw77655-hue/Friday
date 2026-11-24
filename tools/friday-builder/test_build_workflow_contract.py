@@ -59,7 +59,7 @@ class BuildWorkflowContractTests(unittest.TestCase):
 
 
     def test_pull_request_runs_cancel_only_superseded_pull_request_validation(self):
-        self.assertIn("on:\\n  push:\\n    branches: [ main ]", self.workflow)
+        self.assertIn("on:\n  push:\n    branches: [ main ]", self.workflow)
         self.assertIn("pull_request:", self.workflow)
         self.assertIn("concurrency:", self.workflow)
         self.assertIn("group: friday-build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}", self.workflow)
