@@ -220,7 +220,7 @@ class SystemTTSEngine(
         if (result != null) return result
 
         // Invalidate a late callback before shutting down the timed-out engine.
-        withContext(Dispatchers.Main.immediate) {
+        val readyAfterTimeoutCheck = withContext(Dispatchers.Main.immediate) {
             synchronized(initLock) {
                 if (initialization === pending) {
                     initializationGeneration.incrementAndGet()
@@ -228,9 +228,14 @@ class SystemTTSEngine(
                     initialized = false
                     tts?.shutdown()
                     tts = null
+                    false
+                } else {
+                    // The callback may have won the race with timeout delivery.
+                    initialized
                 }
             }
         }
+        if (readyAfterTimeoutCheck) return true
         Log.e("SystemTTSEngine", "TTS initialization callback timed out")
         return false
     }
