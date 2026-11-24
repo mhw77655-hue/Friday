@@ -80,10 +80,21 @@ class SettingsScreenInteractionInstrumentedTest {
 
         compose.waitForIdle()
         compose.onNodeWithText("Check Shizuku connection").performClick()
-        compose.waitForIdle()
-        // The emulator may not have Shizuku installed; the important contract
-        // is that the check runs and the settings surface remains interactive.
-        compose.onNodeWithText("FRIDAY RUNTIME").assertExists()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Shizuku is not running. Friday remains operational without it.", substring = true)
+                .fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodesWithText("Shizuku is running. Friday refreshed its binder availability.", substring = true)
+                    .fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodesWithText("Shizuku connection check failed:", substring = true)
+                    .fetchSemanticsNodes().isNotEmpty()
+        }
+        val reported = compose.onAllNodesWithText("Shizuku is not running.", substring = true)
+            .fetchSemanticsNodes().isNotEmpty() ||
+            compose.onAllNodesWithText("Shizuku is running.", substring = true)
+                .fetchSemanticsNodes().isNotEmpty() ||
+            compose.onAllNodesWithText("Shizuku connection check failed:", substring = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        assertTrue("Shizuku check must publish an explicit outcome.", reported)
     }
 
     @Test
