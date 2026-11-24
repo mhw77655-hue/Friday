@@ -90,11 +90,19 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     val diagnosticFindings: StateFlow<List<ai.friday.assistant.diagnostics.DiagnosticFinding>> = _diagnosticFindings.asStateFlow()
     private val _diagnosticRunning = MutableStateFlow(false)
     val diagnosticRunning: StateFlow<Boolean> = _diagnosticRunning.asStateFlow()
+    private val _diagnosticAt = MutableStateFlow<Long?>(null)
+    val diagnosticAt: StateFlow<Long?> = _diagnosticAt.asStateFlow()
+    private val _diagnosticRunCount = MutableStateFlow(0)
+    val diagnosticRunCount: StateFlow<Int> = _diagnosticRunCount.asStateFlow()
     private val diagnosticRunner = ai.friday.assistant.diagnostics.DiagnosticRunner(application)
     private val _selfDiagnosticFindings = MutableStateFlow<List<SelfDiagnosticFinding>>(emptyList())
     val selfDiagnosticFindings: StateFlow<List<SelfDiagnosticFinding>> = _selfDiagnosticFindings.asStateFlow()
     private val _selfDiagnosticAt = MutableStateFlow<Long?>(null)
     val selfDiagnosticAt: StateFlow<Long?> = _selfDiagnosticAt.asStateFlow()
+    private val _selfDiagnosticRunning = MutableStateFlow(false)
+    val selfDiagnosticRunning: StateFlow<Boolean> = _selfDiagnosticRunning.asStateFlow()
+    private val _selfDiagnosticRunCount = MutableStateFlow(0)
+    val selfDiagnosticRunCount: StateFlow<Int> = _selfDiagnosticRunCount.asStateFlow()
 
     private var lastBatteryText = ""
     private var lastNetworkText = "Net: checking..."
@@ -432,6 +440,8 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 )
                 diagnosticEvents.record("active_diagnostic", "failed; type=${failure.javaClass.simpleName}")
             } finally {
+                _diagnosticAt.value = System.currentTimeMillis()
+                _diagnosticRunCount.value += 1
                 _diagnosticRunning.value = false
             }
         }
@@ -561,6 +571,8 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun runSelfDiagnosis() {
+        if (_selfDiagnosticRunning.value) return
+        _selfDiagnosticRunning.value = true
         viewModelScope.launch(Dispatchers.Default) {
             try {
             val findings = mutableListOf<SelfDiagnosticFinding>()
@@ -835,6 +847,10 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                     )
                 )
                 _selfDiagnosticAt.value = System.currentTimeMillis()
+            } finally {
+                _selfDiagnosticAt.value = System.currentTimeMillis()
+                _selfDiagnosticRunCount.value += 1
+                _selfDiagnosticRunning.value = false
             }
         }
     }
