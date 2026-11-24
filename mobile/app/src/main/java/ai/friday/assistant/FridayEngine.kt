@@ -530,17 +530,17 @@ object FridayEngine {
                         val savedPosition = processedPositions[session.id] ?: 0
                         val startPosition = if (savedPosition > messageCount) 0 else savedPosition
                         endPositions[session.id] = messageCount
-                        session.messages.asSequence()
-                            .withIndex()
-                            .drop(startPosition)
-                            .filter { it.value.role == ai.friday.assistant.session.MessageRole.USER }
-                            .forEach { indexed ->
+                        // subList starts directly at the saved cursor; Sequence.drop()
+                        // would still iterate through every historical message.
+                        session.messages.subList(startPosition, messageCount).forEach { message ->
+                            if (message.role == ai.friday.assistant.session.MessageRole.USER) {
                                 newStatements += ai.friday.assistant.memory.RecentStatement(
                                     sessionId = session.id,
-                                    text = indexed.value.content,
-                                    timestamp = indexed.value.timestamp
+                                    text = message.content,
+                                    timestamp = message.timestamp
                                 )
                             }
+                        }
                     }
                     ai.friday.assistant.memory.ConsolidationBatch(newStatements, endPositions)
                 },
