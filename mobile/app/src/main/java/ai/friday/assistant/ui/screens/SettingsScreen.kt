@@ -69,6 +69,20 @@ private const val PREFS_NAME = "friday_settings"
 private const val KEY_PERSONA = "persona_text"
 private const val KEY_RECALL_LIMIT = "recall_limit"
 
+private data class SettingsSnapshot(
+    val jevConfigured: Boolean,
+    val githubConfigured: Boolean,
+    val githubAutoReportConsent: Boolean,
+    val githubPendingReport: Boolean,
+    val chatGptConnected: Boolean,
+    val chatGptBackgroundConsent: Boolean,
+    val chatGptAccountLabel: String,
+    val updateStatus: String,
+    val stagedUpdate: FridayUpdateClient.Result.Staged?,
+    val actionTraceCount: Int,
+    val phoneControlConnected: Boolean
+)
+
 /**
  * Local runtime controls, capability status and owner-exported diagnostics.
  * Repository development is an optional, owner-authorized bridge that can
@@ -83,14 +97,14 @@ fun SettingsScreen() {
     var personaText by remember { mutableStateOf(prefs.getString(KEY_PERSONA, "") ?: "") }
     var recallLimit by remember { mutableStateOf(prefs.getString(KEY_RECALL_LIMIT, "") ?: "") }
     var jevApiKey by remember { mutableStateOf("") }
-    var jevConfigured by remember { mutableStateOf(ai.friday.assistant.voice.JevApiKeyStore(context).read() != null) }
+    var jevConfigured by remember { mutableStateOf(false) }
     var githubToken by remember { mutableStateOf("") }
     val githubCredentialStore = remember { GitHubCredentialStore(context) }
-    var githubConfigured by remember { mutableStateOf(githubCredentialStore.isConfigured()) }
+    var githubConfigured by remember { mutableStateOf(false) }
     val githubPendingReportStore = remember { ai.friday.assistant.github.reporting.GitHubPendingReportStore(context) }
     val githubDeviceReportConsentStore = remember { ai.friday.assistant.github.reporting.GitHubDeviceReportConsentStore(context) }
-    var githubAutoReportConsent by remember { mutableStateOf(githubDeviceReportConsentStore.isEnabled()) }
-    var githubPendingReport by remember { mutableStateOf(githubPendingReportStore.read() != null) }
+    var githubAutoReportConsent by remember { mutableStateOf(false) }
+    var githubPendingReport by remember { mutableStateOf(false) }
     var githubDevelopmentStatus by remember { mutableStateOf("Development repository access has not been checked.") }
     var githubReportStatus by remember {
         mutableStateOf(if (githubConfigured) "GitHub credential is encrypted on this phone." else "GitHub reporting is not connected.")
@@ -99,13 +113,14 @@ fun SettingsScreen() {
     val scope = rememberCoroutineScope()
     val chatGptAuth = remember(context) { ChatGPTPlanAuth(context) }
     val chatGptConsentStore = remember(context) { ChatGPTPlanBackgroundConsentStore(context) }
-    var chatGptConnected by remember { mutableStateOf(chatGptAuth.isConnected()) }
-    var chatGptBackgroundConsent by remember { mutableStateOf(chatGptConsentStore.isEnabled()) }
-    var chatGptStatus by remember { mutableStateOf(chatGptAuth.accountLabel()) }
+    var chatGptConnected by remember { mutableStateOf(false) }
+    var chatGptBackgroundConsent by remember { mutableStateOf(false) }
+    var chatGptAccountLabel by remember { mutableStateOf("") }
+    var chatGptStatus by remember { mutableStateOf("Checking ChatGPT connection…") }
     var chatGptBusy by remember { mutableStateOf(false) }
     val updateStateStore = remember { FridayUpdateStateStore(context) }
-    var updateStatus by remember { mutableStateOf(updateStateStore.lastStatus()) }
-    var stagedUpdate by remember { mutableStateOf(updateStateStore.loadStaged()) }
+    var updateStatus by remember { mutableStateOf("Checking update status…") }
+    var stagedUpdate by remember { mutableStateOf<FridayUpdateClient.Result.Staged?>(null) }
     val updateInstallPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
@@ -126,26 +141,47 @@ fun SettingsScreen() {
     // Bumped on ON_RESUME so runtime status and local diagnostic counts
     // refresh when the owner returns to Settings from Android system panels.
     var resumeSignal by remember { mutableIntStateOf(0) }
-    var actionTraceCount by remember(resumeSignal) { mutableIntStateOf(ai.friday.assistant.diagnostics.PhoneActionDiagnostics.eventCount()) }
+    var actionTraceCount by remember { mutableIntStateOf(0) }
     val lifecycleOwner = LocalLifecycleOwner.current
-    val phoneControlConnected = remember(resumeSignal) {
-        ai.friday.assistant.voice.FridayAccessibilityService.isEnabled()
-    }
+    var phoneControlConnected by remember { mutableStateOf(false) }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
+                // Secure-store and filesystem refresh happens asynchronously below.
                 resumeSignal++
-                updateStatus = updateStateStore.lastStatus()
-                stagedUpdate = updateStateStore.loadStaged()
-                chatGptConnected = chatGptAuth.isConnected()
-                chatGptBackgroundConsent = chatGptConsentStore.isEnabled()
-                chatGptStatus = chatGptAuth.accountLabel()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     LaunchedEffect(resumeSignal) {
+        val settingsSnapshot = withContext(Dispatchers.IO) {
+            SettingsSnapshot(
+                jevConfigured = ai.friday.assistant.voice.JevApiKeyStore(context).read() != null,
+                githubConfigured = githubCredentialStore.isConfigured(),
+                githubAutoReportConsent = githubDeviceReportConsentStore.isEnabled(),
+                githubPendingReport = githubPendingReportStore.read() != null,
+                chatGptConnected = chatGptAuth.isConnected(),
+                chatGptBackgroundConsent = chatGptConsentStore.isEnabled(),
+                chatGptAccountLabel = chatGptAuth.accountLabel(),
+                updateStatus = updateStateStore.lastStatus(),
+                stagedUpdate = updateStateStore.loadStaged(),
+                actionTraceCount = ai.friday.assistant.diagnostics.PhoneActionDiagnostics.eventCount(),
+                phoneControlConnected = ai.friday.assistant.voice.FridayAccessibilityService.isEnabled()
+            )
+        }
+        jevConfigured = settingsSnapshot.jevConfigured
+        githubConfigured = settingsSnapshot.githubConfigured
+        githubAutoReportConsent = settingsSnapshot.githubAutoReportConsent
+        githubPendingReport = settingsSnapshot.githubPendingReport
+        chatGptConnected = settingsSnapshot.chatGptConnected
+        chatGptBackgroundConsent = settingsSnapshot.chatGptBackgroundConsent
+        chatGptAccountLabel = settingsSnapshot.chatGptAccountLabel
+        chatGptStatus = if (settingsSnapshot.chatGptConnected) "Connected." else "ChatGPT plan Seat is not connected."
+        updateStatus = settingsSnapshot.updateStatus
+        stagedUpdate = settingsSnapshot.stagedUpdate
+        actionTraceCount = settingsSnapshot.actionTraceCount
+        phoneControlConnected = settingsSnapshot.phoneControlConnected
         objectiveExecutionStatus = withContext(Dispatchers.IO) {
             val modelFile = File(context.filesDir, "friday-development/model-bootstrap.json")
             val modelSummary = if (modelFile.isFile) runCatching {
@@ -357,7 +393,8 @@ fun SettingsScreen() {
                     scope.launch {
                         try {
                             chatGptStatus = chatGptAuth.signIn(activity)
-                            chatGptConnected = chatGptAuth.isConnected()
+                            chatGptConnected = withContext(Dispatchers.IO) { chatGptAuth.isConnected() }
+                            chatGptAccountLabel = withContext(Dispatchers.IO) { chatGptAuth.accountLabel() }
                         } catch (failure: Exception) {
                             chatGptStatus = failure.message?.take(240) ?: "ChatGPT sign-in did not complete."
                         } finally {
@@ -370,7 +407,7 @@ fun SettingsScreen() {
             modifier = Modifier.fillMaxWidth()
         ) { Text(if (chatGptBusy) "Waiting for ChatGPT sign-in…" else if (chatGptConnected) "Reconnect ChatGPT" else "Continue with ChatGPT") }
         Text(
-            text = if (chatGptConnected) "Connected: ${chatGptAuth.accountLabel()}" else "ChatGPT plan Seat is not connected.",
+            text = if (chatGptConnected) "Connected: $chatGptAccountLabel" else "ChatGPT plan Seat is not connected.",
             style = FridayType.Technical,
             modifier = Modifier.padding(vertical = 6.dp)
         )
@@ -419,7 +456,8 @@ fun SettingsScreen() {
                         } catch (failure: Exception) {
                             chatGptStatus = "Local sign-out failed: ${failure.javaClass.simpleName}."
                         } finally {
-                            chatGptConnected = chatGptAuth.isConnected()
+                            chatGptConnected = withContext(Dispatchers.IO) { chatGptAuth.isConnected() }
+                            chatGptAccountLabel = withContext(Dispatchers.IO) { chatGptAuth.accountLabel() }
                             chatGptBusy = false
                         }
                     }
