@@ -137,6 +137,28 @@ class ImmuneSystemTest {
         assertFalse(events.any { it is CognitiveEvent.RecoveryStarted })
     }
 
+    @Test
+    fun `verified recovery outcome restores live immune state and memory`() {
+        val sys = system()
+        val failure = sys.surface.report(timeoutReport())
+        sys.observe(failure)
+        val recovery = sys.surface.recover(
+            aggregateKey = timeoutReport().dedupeKey,
+            result = ai.friday.assistant.failure.RecoveryResult.SUCCESS,
+            message = "health probe verified recovery",
+            action = RecoveryAction.RETRY
+        )!!
+
+        sys.observeRecovery(recovery)
+
+        assertEquals(ContainmentStatus.HEALTHY, sys.containment.statusOf("STT"))
+        assertEquals(DegradationLevel.FULL, sys.degradation.levelOf("stt"))
+        assertTrue(sys.memory.evidenceLedger().any {
+            it.result == ai.friday.assistant.failure.RecoveryResult.SUCCESS &&
+                it.failedOperation == "transcribe"
+        })
+    }
+
     // ────────────────────────────────────────────── circuit breaker
 
     @Test
