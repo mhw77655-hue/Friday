@@ -247,16 +247,11 @@ object FridayRuntimeController {
     fun enable(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putBoolean(KEY_ENABLED, true).remove(KEY_START_FAILURE).apply()
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
-            PackageManager.PERMISSION_GRANTED
-        ) {
-            // This method is called by the visible Settings screen after the
-            // owner explicitly enables persistence; preserve the app's current
-            // voice behavior under the foreground service.
-            startWithMicrophone(context)
-        } else {
-            startCore(context)
-        }
+        // "Keep Friday alive" authorizes background continuity, not microphone
+        // capture. Audio is started only by a separate, explicit voice action
+        // from a visible activity; notification permission and RECORD_AUDIO
+        // grants must never be interpreted as consent to continuous capture.
+        startCore(context)
     }
 
     fun startCore(context: Context) {
