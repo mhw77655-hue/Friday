@@ -21,10 +21,8 @@ class StreamingTtsChannelTest {
             drainAvailable(channel)
         }
 
-        assertFalse("drain must not close the producer channel", channel.isClosedForSend)
-        assertTrue("queued items must be consumed", channel.tryReceive().isFailure)
-
-        channel.send(4)
+        assertTrue("drain must leave the producer channel usable", channel.trySend(4).isSuccess)
+        assertTrue("queued items must be consumed", channel.tryReceive().isSuccess)
         assertEquals(4, channel.receive())
         channel.close()
     }
@@ -35,7 +33,8 @@ class StreamingTtsChannelTest {
         withTimeout(250) {
             drainAvailable(channel)
         }
-        assertFalse(channel.isClosedForSend)
+        assertTrue("an empty open channel remains writable", channel.trySend(5).isSuccess)
+        assertEquals(5, channel.receive())
         channel.close()
     }
 }
