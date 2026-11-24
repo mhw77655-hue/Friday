@@ -946,3 +946,55 @@ The loop system is itself subject to the immune system: it must be observable, b
 These requirements are shared by all objectives. Each objective must implement the relevant contracts in its own subsystem; no objective may defer a failure simply because it was not anticipated in its original checklist. Objective A establishes the minimum seed-level durable state, observability, freeze/crash evidence, safe recovery, resource-aware scheduling and reversible update foundation. Later objectives deepen recurrent cognition, learning, predictive intelligence, liquid computation and autonomous engineering as their dependencies allow. The cross-objective capability is not considered complete merely because a class, timer, worker, watchdog, agent loop or diagram exists.
 
 Acceptance requires fault-injection evidence and end-to-end scenarios: stall the UI while a separate monitor remains responsive; kill the process between checkpoint and commit; reboot during queued work; change wall clock and timezone; exhaust memory/storage; revoke a permission; hang a Binder/provider; corrupt a disposable cache; fail a candidate update; disable network; and interrupt an engineering loop mid-task. Friday must preserve the protected state, report what is known, resume or safely degrade, independently verify recovery and retain a regression test. Record device/OS, exact build, test method, expected/observed result and limitations. Emulator evidence and physical-host evidence remain distinct.
+
+
+## Cross-objective execution, evidence and architectural evolution
+
+This is a mandatory engineering and research standard for Objectives A–G, not a new objective, alternative architecture or competing roadmap. The full operating contract is in [FRIDAY_EXECUTION_AND_EVOLUTION_GOVERNANCE.md](../docs/FRIDAY_EXECUTION_AND_EVOLUTION_GOVERNANCE.md). If a shorter summary elsewhere conflicts with that standard or this plan, preserve the owner's latest authenticated intent and reconcile the documents; do not create a second product authority.
+
+### Evidence before architecture
+
+Every significant change begins with the original owner requirement, its observable intended outcome, current production entry points, known constraints and a falsifiable hypothesis. Distinguish FACT, INFERENCE, HYPOTHESIS, PROPOSAL, SPECULATION and UNKNOWN. Research must start from original papers, algorithms, reference implementations, datasets, technical documentation and licensing/provenance—not assistant summaries, technology rankings or already-digested architecture proposals.
+
+Friday's eventual cognitive architecture remains an open research problem. Candidate mechanisms may include developmental and multi-timescale learning, predictive/world models, associative and reconstructive memory, causal inference, recurrent and continuous-time computation, sparse/conditional computation, non-neural algorithms, program synthesis and evolutionary optimization. These are research directions, not permanent cognitive departments or mandatory modules. Use controlled comparisons, ablations, negative controls, differential/replay testing, property/fuzz testing, fault injection, held-out cross-domain tests, longitudinal evaluation and Pareto analysis. Record negative results and reject mechanisms that do not demonstrate benefit.
+
+### Whole-app source-to-runtime tracing
+
+A lexical symbol index is a navigation aid, not proof of an execution path. For significant defects and capabilities, combine Git provenance, Kotlin/Java compiler-aware symbol resolution, Gradle dependency/build evidence, native C/C++ and JNI analysis, manifest/lifecycle/permission analysis, runtime traces, Logcat, Perfetto, Compose UI Test, UIAutomator/Espresso, process-exit history and independent postcondition checks as appropriate. Trace the actual path from owner action or system event through UI/state, coroutine/service/IPC, implementation, storage/provider and observed effect. Identify unobserved edges and do not claim complete tracing where reflection, generated code, dynamic dispatch or device-only behaviour remains unresolved.
+
+Each accepted requirement must map to its original owner-authored source, observable acceptance criteria, production implementation, execution trace, verification result and retained artifact. A class existing is not a capability. A click callback is not a completed action. A selected inference provider is not a loaded model. A successful build is not release acceptance.
+
+### Architectural drift review
+
+Before accepting a material design or implementation, review whether it introduces permanent cognitive ownership, mandatory fixed pipelines, a closed capability taxonomy, a model/provider as Friday's identity, hardcoded personality or developmental outcomes, transcript replay presented as learning, an unchallengeable scheduler/registry, multiple local/cloud identities, resource optimization that sacrifices the intended outcome, or self-repair that certifies itself. These are review triggers, not automatic rejection rules: explain the actual conflict and choose the least constraining correction.
+
+### Development and repair authority
+
+Friday's eventual development loop is observe → explain → hypothesize → design → simulate → prototype → measure → adversarially validate → compare → promote or reject → monitor → roll back if regressed → retain the learning.
+
+Every source repair must reproduce the defect, identify the first failing production boundary, preserve the original behavioural requirement, produce a regression test, preserve a known-good version, run targeted and broad validation, and independently verify the postcondition. Candidate code and its authoring model cannot be the sole judge of their own change. Privileged, destructive, identity/signing, privacy-sensitive and irreversible changes require the relevant owner authorization. Promotion uses the trusted signed update path and has a tested rollback. The recovery core must be smaller and more protected than the mutable systems it supervises.
+
+### Independent evidence and claim labels
+
+Every material capability is classified as DESIGNED, IMPLEMENTED, UNIT-VERIFIED, INTEGRATION-VERIFIED, CI-VERIFIED, EMULATOR-VERIFIED, DEVICE-VERIFIED or LONGITUDINALLY-EVALUATED; missing or blocked evidence is UNKNOWN/BLOCKED. Record exact source revision, APK digest, environment, commands, test results and verifier. Cancelled, skipped, timed-out or unexecuted tests are not passes. CI, emulators and physical devices are separate evidence classes. Longitudinal developmental claims require restart, replay-blocked or mechanism-off controls and held-out generalization; no single benchmark defines Friday's individuality.
+
+### Application across the existing objectives
+
+- **Objective A:** prove the installed seed, protected floor, source-to-artifact provenance, update/rollback and real-device lifecycle. The seed is not accepted on a build alone.
+- **Objective B:** verify real microphone capture, streaming recognition, interruption/cancellation, synthesis and audible playback separately, including target-language quality and offline status.
+- **Objective C:** prove that lived experience causes persistent changes in later cognition/behaviour, survives restart and generalizes beyond the original episode; stored records alone do not pass.
+- **Objective D:** trace unfamiliar intent through discovered authorized affordances, execution, independently verified postconditions and fallback; distinguish attempted actions from successful outcomes.
+- **Objective E:** measure actual host constraints and compare model/runtime/algorithm configurations on the target host; a selected provider or advertised accelerator is not proof of loaded/usable compute.
+- **Objective F:** prove capability construction, acquisition or reconstitution with provenance, donor-independent tests, negative-transfer checks and independent evaluation; the Builder itself remains replaceable.
+- **Objective G:** preserve evidence, checkpoints, interrupted work, signed artifact lineage, rollback and physical-device acceptance; resilience is a whole-product property, not a diagnostic screen.
+
+Workstreams may proceed in parallel where dependencies and file ownership allow, but all converge on one canonical Friday and the real production composition.
+
+### Current physical-device baseline — owner-supplied evidence
+
+The owner-supplied `New folder (1).zip` in the repository is a diagnostic bundle, not an APK: it contains 35 screenshots, two self-testing text records and a JSON device report; no `.apk` file is present. Its report identifies Friday `1.0.510`, source revision prefix `24e6535`, Realme `RMX3472`, Android 14/API 34, arm64-v8a. It records a Shizuku UserService bind failure (`process name suffix must not be null`), runtime preference disabled/service stopped at report time, selected `LLAMA_CPP` with no model confirmed loaded, zero recorded individual experiences/associations, a bound voice process with zero completed scheduler tasks, an active ENGINE failure, and an identity-lineage warning. The screenshots also show low-contrast grey button labels on bright blue primary buttons in that historical installation.
+
+The repair candidate now contains a non-null Shizuku process-name suffix and a button typography correction, but those are not yet physical-device-verified. The later CI debug APK is a separate debug artifact, not the APK from the supplied ZIP and not a release-signed build. See the evidence record and required re-test sequence in [FRIDAY_EXECUTION_AND_EVOLUTION_GOVERNANCE.md](../docs/FRIDAY_EXECUTION_AND_EVOLUTION_GOVERNANCE.md).
+
+The next target-device acceptance must install an exact candidate build and record its version/revision/digest/signing identity; verify Shizuku's actual UserService UID; toggle Keep Friday alive and verify persisted preference plus service status; exercise both System diagnosis buttons; complete a real model load/inference round-trip or state the exact blocker; separately verify voice capture, recognition, synthesis and audible playback; and record an experience, restart, retrieve it and test changed behaviour in a new situation. Export a fresh privacy-filtered report and compare it with this baseline.
+
