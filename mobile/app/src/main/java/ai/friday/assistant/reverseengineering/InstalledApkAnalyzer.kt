@@ -203,20 +203,31 @@ class InstalledApkAnalyzer(private val context: Context) {
             }
         }
 
-        val packageInfo = pm.getPackageInfo(
-            target.packageName,
-            PackageManager.GET_SIGNING_CERTIFICATES or
-                PackageManager.GET_PERMISSIONS or
+        val componentFlags =
+            PackageManager.GET_PERMISSIONS or
                 PackageManager.GET_ACTIVITIES or
                 PackageManager.GET_SERVICES or
                 PackageManager.GET_RECEIVERS or
                 PackageManager.GET_PROVIDERS
+        val packageInfo = pm.getPackageInfo(
+            target.packageName,
+            componentFlags or if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                PackageManager.GET_SIGNING_CERTIFICATES
+            } else {
+                @Suppress("DEPRECATION")
+                PackageManager.GET_SIGNATURES
+            }
         )
         val signerDigests = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             packageInfo.signingInfo?.apkContentsSigners?.map { signer ->
                 MessageDigest.getInstance("SHA-256").digest(signer.toByteArray()).toHex()
             }.orEmpty()
-        } else emptyList()
+        } else {
+            @Suppress("DEPRECATION")
+            packageInfo.signatures?.map { signer ->
+                MessageDigest.getInstance("SHA-256").digest(signer.toByteArray()).toHex()
+            }.orEmpty()
+        }
 
         return ApkReverseEngineeringReport(
             packageName = target.packageName,
