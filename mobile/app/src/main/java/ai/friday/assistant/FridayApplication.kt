@@ -41,12 +41,14 @@ class FridayApplication : Application() {
         // Preserve a sanitized crash signature for the next user-exported report.
         // Install in every process so isolated voice/inference crashes are visible too.
         ai.friday.assistant.diagnostics.CrashJournal.install(this)
-        ai.friday.assistant.diagnostics.PhoneActionDiagnostics.install(this)
         // Android creates a separate Application instance in every declared
-        // process (:voice, :inference, assistant/session). Only the product
-        // process owns Friday's cognitive composition root and lifecycle.
-        // Secondary capability habitats construct only their own organs.
+        // process (:voice, :inference, assistant/session). CrashJournal is
+        // process-aware and must observe all of them. The phone-action trace
+        // journal is a single shared file and has one writer: the product
+        // process. Installing its executor in every process created needless
+        // cross-process file-lock contention and could starve Settings clears.
         if (currentProcessName() != packageName) return
+        ai.friday.assistant.diagnostics.PhoneActionDiagnostics.install(this)
         // The conversation journal is owned by the main process only; secondary
         // processes must not append to the same JSONL stream concurrently.
         LocalTurnJournal.initialize(this)
