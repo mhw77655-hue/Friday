@@ -198,6 +198,10 @@ object FridayEngine {
                 ai.friday.assistant.failure.MainThreadLivenessMonitor(failureSurface)
             }.getOrNull()
         }
+        // Start at construction as well as on Activity resume. The engine is
+        // bootstrapped asynchronously, so the first onResume may happen before
+        // this monitor exists; relying only on that callback can miss startup.
+        mainThreadLivenessMonitor?.start()
 
         // Synchronous section: pure object-graph construction (no network, no
         // disk beyond mkdirs, no coroutine launches beyond each store's lazy
