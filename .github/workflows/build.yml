@@ -399,7 +399,7 @@ jobs:
           args=()
           while IFS= read -r -d '' report; do
             args+=(--failure "$report")
-          done < <(find mobile/app/build/test-results mobile/app/build/reports/androidTests -type f \( -name '*.xml' -o -name '*.txt' -o -name '*.log' \) -print0 2>/dev/null || true)
+          done < <(find mobile/app/build/test-results mobile/app/build/reports/androidTests mobile/app/build/outputs/androidTest-results -type f \( -name '*.xml' -o -name '*.txt' -o -name '*.log' \) -print0 2>/dev/null || true)
           python3 .ralph/code_trace.py --repo . --out-dir "$RUNNER_TEMP/friday-runtime-code-trace" "${args[@]}"
 
       - name: Upload failure-to-source traces
