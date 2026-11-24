@@ -63,7 +63,8 @@ class SettingsScreenInteractionInstrumentedTest {
 
         compose.waitForIdle()
         compose.onNodeWithText("Clear local journal").performClick()
-        compose.waitForIdle()
+        // Do not wait for global idleness here: that can let the launched IO
+        // operation finish and erase the transient state this assertion targets.
         compose.onRoot().printToLog("FRIDAY_JOURNAL_IMMEDIATE_STATE")
         assertTrue(
             "Journal-clear tap must synchronously publish its in-progress state.",
@@ -127,7 +128,7 @@ class SettingsScreenInteractionInstrumentedTest {
 
         compose.waitForIdle()
         compose.onNodeWithText("Remove key").performClick()
-        compose.waitForIdle()
+        // Inspect dispatch state before waiting for the asynchronous store clear.
         compose.onRoot().printToLog("FRIDAY_JEV_IMMEDIATE_STATE")
         assertTrue(
             "Credential-removal tap must synchronously publish its in-progress state.",
