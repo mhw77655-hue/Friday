@@ -36,13 +36,11 @@ object CompanionCoreHolder {
     private val tickLane = newSingleThreadContext("CompanionTick")
     private val laneScope = CoroutineScope(SupervisorJob() + tickLane)
 
-    @Volatile
     @Volatile private var core: CompanionCore? = null
 
     /**
-     * Build (once) and start the Companion Core. Idempotent. Called from two
-     * threads (FridayEngine's init thread and MainActivity's main thread), so
-     * the build is synchronized — a double-init would leak a second tick loop.
+     * Build (once) and start the Companion Core on FridayEngine's background
+     * initialization lane. Synchronized construction prevents a duplicate tick loop.
      */
     @Synchronized
     fun init(context: Context): CompanionCore {
