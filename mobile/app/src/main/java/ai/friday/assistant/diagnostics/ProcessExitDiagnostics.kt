@@ -118,7 +118,7 @@ object ProcessExitDiagnostics {
             val bytes = ByteArray((input.length() - start).toInt())
             input.readFully(bytes)
             String(bytes, StandardCharsets.UTF_8).substringAfter('\n', "")
-        }.lineSequence().filter { it.isNotBlank() }.takeLast(MAX_HISTORY).toList()
+        }.lineSequence().filter { it.isNotBlank() }.toList().takeLast(MAX_HISTORY)
         file.writeText(
             retained.joinToString(separator = "\n", postfix = if (retained.isEmpty()) "" else "\n"),
             StandardCharsets.UTF_8
