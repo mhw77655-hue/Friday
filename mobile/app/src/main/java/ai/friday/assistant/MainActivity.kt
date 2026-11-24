@@ -83,6 +83,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        FridayEngine.startMainThreadWatchdog()
         ShizukuBridge.refresh()
         // Reattach the already-authorized capability service after Friday is reopened.
         if (ShizukuBridge.isGranted.value) {
@@ -99,6 +100,11 @@ class MainActivity : ComponentActivity() {
                 ai.friday.assistant.runtime.FridayRuntimeController.startCore(this)
             }
         }
+    }
+
+    override fun onPause() {
+        FridayEngine.stopMainThreadWatchdog()
+        super.onPause()
     }
 
     override fun onNewIntent(intent: Intent) {
