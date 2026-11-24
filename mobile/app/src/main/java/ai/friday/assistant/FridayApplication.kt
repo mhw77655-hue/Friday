@@ -1,7 +1,6 @@
 package ai.friday.assistant
 
 import android.app.Application
-import android.app.ActivityManager
 import android.os.Build
 import android.os.Process
 import android.util.Log
@@ -150,11 +149,10 @@ class FridayApplication : Application() {
 
     private fun currentProcessName(): String? {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return Application.getProcessName()
-        val pid = Process.myPid()
-        val manager = getSystemService(ACTIVITY_SERVICE) as ActivityManager
-        return manager.runningAppProcesses?.firstOrNull { it.pid == pid }?.processName
-            ?: runCatching {
-                File("/proc/self/cmdline").readText().substringBefore('\u0000').trim()
-            }.getOrNull()
+        // /proc/self/cmdline is a tiny kernel-provided value; avoid a
+        // PackageManager/ActivityManager Binder call during Application.onCreate.
+        return runCatching {
+            File("/proc/self/cmdline").readText().substringBefore('\u0000').trim()
+        }.getOrNull() ?: packageName
     }
 }
