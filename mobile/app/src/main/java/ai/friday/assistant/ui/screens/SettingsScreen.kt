@@ -156,6 +156,7 @@ fun SettingsScreen() {
     // refresh when the owner returns to Settings from Android system panels.
     var resumeSignal by remember { mutableIntStateOf(0) }
     var actionTraceCount by remember { mutableIntStateOf(0) }
+    var actionJournalStatus by remember { mutableStateOf("Local action journal status has not been changed.") }
     val lifecycleOwner = LocalLifecycleOwner.current
     var phoneControlConnected by remember { mutableStateOf(false) }
     DisposableEffect(lifecycleOwner) {
@@ -1102,14 +1103,21 @@ fun SettingsScreen() {
                     }
                     if (cleared.isSuccess) {
                         actionTraceCount = 0
-                        Toast.makeText(context, "Local action journal cleared.", Toast.LENGTH_SHORT).show()
+                        actionJournalStatus = "Local action journal cleared."
+                        Toast.makeText(context, actionJournalStatus, Toast.LENGTH_SHORT).show()
                     } else {
-                        Toast.makeText(context, "Could not clear the local journal. Existing evidence was preserved.", Toast.LENGTH_LONG).show()
+                        actionJournalStatus = "Could not clear the local journal. Existing evidence was preserved."
+                        Toast.makeText(context, actionJournalStatus, Toast.LENGTH_LONG).show()
                     }
                 }
             },
             modifier = Modifier.fillMaxWidth()
         ) { Text("Clear local journal") }
+        Text(
+            text = actionJournalStatus,
+            style = FridayType.Technical,
+            modifier = Modifier.padding(top = 4.dp)
+        )
 
         SectionLabel("MEMORY RULES")
         OutlinedTextField(
