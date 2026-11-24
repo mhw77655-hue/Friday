@@ -33,9 +33,9 @@ object ScreenBridge {
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-            bindingInProgress = false
             val candidate = IFridayShellService.Stub.asInterface(binder)
             if (candidate == null) {
+                bindingInProgress = false
                 service = null
                 verifiedUid = null
                 _status.value = "null service binder"
@@ -47,6 +47,7 @@ object ScreenBridge {
             val identity = runCatching { candidate.identity() }.getOrNull().orEmpty()
             val uid = Regex("(?:^|;)uid=(\\d+)(?:;|$)").find(identity)?.groupValues?.get(1)?.toIntOrNull()
             if (uid != 0 && uid != 2000) {
+                bindingInProgress = false
                 service = null
                 verifiedUid = null
                 _status.value = "rejected Shizuku identity: ${if (uid == null) "unverified" else "uid=$uid"}"
@@ -54,6 +55,7 @@ object ScreenBridge {
             }
             service = candidate
             verifiedUid = uid
+            bindingInProgress = false
             _status.value = "bound · verified Shizuku uid=$uid"
         }
         override fun onServiceDisconnected(name: ComponentName?) {
