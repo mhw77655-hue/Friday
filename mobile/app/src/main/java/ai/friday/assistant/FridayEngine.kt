@@ -126,6 +126,8 @@ object FridayEngine {
     @Volatile private var failureStore: ai.friday.assistant.failure.FailureStore? = null
     @Volatile private var recoveryController: ai.friday.assistant.failure.RecoveryController? = null
     @Volatile private var selfDiagnosis: ai.friday.assistant.failure.SelfDiagnosis? = null
+    @Volatile private var immuneSystem: ai.friday.assistant.cognitive.immune.ImmuneSystem? = null
+    @Volatile private var immuneFailureListener: ((ai.friday.assistant.failure.FailureEvent) -> Unit)? = null
 
     // Phase A subsystems — constructed in init() and passed into CognitiveEngine seams.
     @Volatile var graphStore: ai.friday.assistant.memory.MemoryGraphStore? = null
@@ -283,6 +285,18 @@ object FridayEngine {
         failureStore.attach(failureSurface)
         this.failureStore = failureStore
         this.recoveryController = recoveryController
+        // The immune system is part of the live runtime, not a test-only
+        // subsystem. It observes the canonical failure bus asynchronously;
+        // RecoveryController remains the single owner of retry execution.
+        val immuneSystem = ai.friday.assistant.cognitive.immune.ImmuneSystem(
+            surface = failureSurface
+        )
+        val immuneListener: (ai.friday.assistant.failure.FailureEvent) -> Unit = { event ->
+            scope.launch(Dispatchers.Default) { immuneSystem.observe(event) }
+        }
+        failureSurface.addFailureListener(replayExisting = false, listener = immuneListener)
+        this.immuneSystem = immuneSystem
+        this.immuneFailureListener = immuneListener
 
         // Register real, independent model recovery paths before any turn can
         // report a retryable MODEL incident. A fresh provider health probe is
@@ -892,6 +906,7 @@ object FridayEngine {
     fun failureStoreSlot(): EngineSlot<ai.friday.assistant.failure.FailureStore> = readinessGate.slot { failureStore }
     fun recoveryControllerSlot(): EngineSlot<ai.friday.assistant.failure.RecoveryController> = readinessGate.slot { recoveryController }
     fun selfDiagnosisSlot(): EngineSlot<ai.friday.assistant.failure.SelfDiagnosis> = readinessGate.slot { selfDiagnosis }
+    fun immuneSystemSlot(): EngineSlot<ai.friday.assistant.cognitive.immune.ImmuneSystem> = readinessGate.slot { immuneSystem }
     fun environmentManagerSlot(): EngineSlot<LiquidEnvironmentManager> = readinessGate.slot { environmentManager }
     fun modelManagerSlot(): EngineSlot<ModelManager> = readinessGate.slot { modelManager }
     fun fridayIndividualSlot(): EngineSlot<ai.friday.assistant.cognitive.seed.FridayIndividual> = readinessGate.slot { fridayIndividual }
@@ -903,6 +918,9 @@ object FridayEngine {
     fun appContextSlot(): EngineSlot<Context> = readinessGate.slot { appContext }
 
     internal fun resetForTesting() {
+        immuneFailureListener?.let { listener -> failureSurface?.removeFailureListener(listener) }
+        immuneFailureListener = null
+        immuneSystem = null
         mainThreadLivenessMonitor?.close()
         mainThreadLivenessMonitor = null
         mainThreadWatchdogRequested = false
@@ -965,6 +983,11 @@ object FridayEngine {
 
     /** Get the deterministic self-diagnosis engine. */
     fun getSelfDiagnosis(): ai.friday.assistant.failure.SelfDiagnosis = checkNotNull(selfDiagnosis) {
+        "FridayEngine.init() must run first"
+    }
+
+    /** Live immune coordinator observing every canonical runtime failure. */
+    fun getImmuneSystem(): ai.friday.assistant.cognitive.immune.ImmuneSystem = checkNotNull(immuneSystem) {
         "FridayEngine.init() must run first"
     }
 
