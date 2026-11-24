@@ -774,18 +774,20 @@ fun SettingsScreen() {
                     !shizukuAvailable -> {
                         shizukuRequestRunning = true
                         scope.launch(Dispatchers.IO) {
-                            try {
+                            val outcome = runCatching {
                                 ai.friday.assistant.ShizukuBridge.refresh()
-                                shizukuSnapshot = if (ai.friday.assistant.ShizukuBridge.isAvailable.value) {
+                                if (ai.friday.assistant.ShizukuBridge.isAvailable.value) {
                                     "Shizuku is running. Friday refreshed its binder availability."
                                 } else {
                                     "Shizuku is not running. Friday remains operational without it."
                                 }
-                            } catch (failure: Exception) {
-                                shizukuSnapshot = "Shizuku connection check failed: " +
+                            }.getOrElse { failure ->
+                                "Shizuku connection check failed: " +
                                     (failure.message ?: failure.javaClass.simpleName)
-                            } finally {
-                                withContext(Dispatchers.Main.immediate) { shizukuRequestRunning = false }
+                            }
+                            withContext(Dispatchers.Main.immediate) {
+                                shizukuSnapshot = outcome
+                                shizukuRequestRunning = false
                             }
                         }
                     }
