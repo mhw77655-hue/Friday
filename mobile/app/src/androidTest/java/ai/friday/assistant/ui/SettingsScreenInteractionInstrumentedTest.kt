@@ -68,7 +68,9 @@ class SettingsScreenInteractionInstrumentedTest {
         // This control is far below the initial viewport in Settings. Scroll it
         // into the visible viewport before injecting the tap; otherwise the
         // test can target a clipped semantics node without exercising the UI.
-        compose.onNodeWithText("Clear local journal").performScrollTo().assertIsDisplayed().performClick()
+        compose.onNodeWithText("Clear local journal").performScrollTo()
+        compose.waitForIdle()
+        compose.onNodeWithText("Clear local journal").assertIsDisplayed().performClick()
         compose.onNodeWithText("Clearing local action journal…", substring = true).assertIsDisplayed()
         compose.waitUntil(9_000) {
             compose.onAllNodesWithText("Local action journal cleared.", substring = true).fetchSemanticsNodes().isNotEmpty() ||
