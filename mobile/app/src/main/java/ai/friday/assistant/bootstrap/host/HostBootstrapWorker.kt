@@ -15,6 +15,7 @@ import android.provider.Settings
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import ai.friday.assistant.BuildConfig
+import ai.friday.assistant.model.adapters.LocalInferenceEngine
 import ai.friday.assistant.ShizukuBridge
 import rikka.shizuku.Shizuku
 import org.json.JSONArray
@@ -198,12 +199,13 @@ class HostBootstrapWorker(
             File(context.filesDir, "model"),
             File(context.noBackupFilesDir, "models")
         ))
-        val nativeDir = File(context.applicationInfo.nativeLibraryDir)
-        val nativeLibraries = nativeDir.listFiles()?.map { it.name }.orEmpty()
-        val hasInferenceLibrary = nativeLibraries.any {
-            it.contains("llama", ignoreCase = true) ||
-                it.contains("ggml", ignoreCase = true)
-        }
+        // Verify the actual JNI runtime, not nativeLibraryDir contents.
+        // With extractNativeLibs=false, loadable .so files may remain inside the
+        // APK and the extraction directory can legitimately be empty.
+        val hasInferenceLibrary = runCatching {
+            LocalInferenceEngine.loadNative()
+            LocalInferenceEngine.nativeVersion().isNotBlank()
+        }.getOrDefault(false)
         val abi = Build.SUPPORTED_ABIS.firstOrNull().orEmpty()
         val capacity = HostCapacity(
             apiLevel = Build.VERSION.SDK_INT,
