@@ -199,8 +199,10 @@ class SystemTTSEngine(
                 return@withContext SpeakResult.Failure("Language not supported: $language")
             }
 
-            engine.setPitch(params.pitch.coerceIn(0.1f, 2.0f))
+            val safePitch = params.pitch.takeIf { it.isFinite() && it > 0f }?.coerceIn(0.1f, 2.0f) ?: 1f
             val safeSpeechRate = params.speechRate.takeIf { it.isFinite() && it > 0f }?.coerceIn(0.1f, 4f) ?: 1f
+            val safeVolume = params.volume.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 1f
+            engine.setPitch(safePitch)
             engine.setSpeechRate(safeSpeechRate)
 
             val utteranceId = params.utteranceId
@@ -209,7 +211,7 @@ class SystemTTSEngine(
 
             val paramsBundle = android.os.Bundle().apply {
                 putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
-                putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, params.volume)
+                putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, safeVolume)
             }
 
             // Apply vocabulary hints via SSML if provided
