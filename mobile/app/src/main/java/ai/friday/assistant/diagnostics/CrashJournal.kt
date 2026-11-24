@@ -99,7 +99,6 @@ object CrashJournal {
             atomic.failWrite(stream)
             throw error
         }
-        runCatching { pruneOldRecords(application) }
     }
 
     private fun fileFor(application: Application): File =
@@ -109,6 +108,10 @@ object CrashJournal {
         ).apply {
             parentFile?.mkdirs()
         }
+
+    fun pruneHistory(application: Application) {
+        runCatching { pruneOldRecords(application) }
+    }
 
     private fun pruneOldRecords(application: Application) {
         val directory = File(application.filesDir, "diagnostics")
