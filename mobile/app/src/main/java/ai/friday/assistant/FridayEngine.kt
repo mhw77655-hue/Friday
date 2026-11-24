@@ -522,21 +522,31 @@ object FridayEngine {
             // explicit live feedback, by design.
             val memoryConsolidationLoop = ai.friday.assistant.memory.MemoryConsolidationLoop(
                 userProfile = userProfile,
-                recentExperience = {
-                    sessionManager.sessions.value.flatMap { session ->
-                        session.messages
-                            .filter { it.role == ai.friday.assistant.session.MessageRole.USER }
-                            .map {
-                                ai.friday.assistant.memory.RecentStatement(
+                recentExperience = { processedPositions ->
+                    val endPositions = linkedMapOf<String, Int>()
+                    val newStatements = mutableListOf<ai.friday.assistant.memory.RecentStatement>()
+                    sessionManager.sessions.value.forEach { session ->
+                        val messageCount = session.messages.size
+                        val savedPosition = processedPositions[session.id] ?: 0
+                        val startPosition = if (savedPosition > messageCount) 0 else savedPosition
+                        endPositions[session.id] = messageCount
+                        session.messages.asSequence()
+                            .withIndex()
+                            .drop(startPosition)
+                            .filter { it.value.role == ai.friday.assistant.session.MessageRole.USER }
+                            .forEach { indexed ->
+                                newStatements += ai.friday.assistant.memory.RecentStatement(
                                     sessionId = session.id,
-                                    text = it.content,
-                                    timestamp = it.timestamp
+                                    text = indexed.value.content,
+                                    timestamp = indexed.value.timestamp
                                 )
                             }
                     }
+                    ai.friday.assistant.memory.ConsolidationBatch(newStatements, endPositions)
                 },
                 scope = scope,
                 idleIntervalMs = ai.friday.assistant.memory.MemoryConsolidationLoop.DEFAULT_IDLE_INTERVAL_MS,
+                cursorStore = ai.friday.assistant.memory.AndroidConsolidationCursorStore(appContext),
                 onFailure = { failure ->
                     recoveryController.handle(
                         ai.friday.assistant.failure.FailureReport(
