@@ -140,7 +140,6 @@ fun SettingsScreen() {
     // refresh when the owner returns to Settings from Android system panels.
     var resumeSignal by remember { mutableIntStateOf(0) }
     var actionTraceCount by remember { mutableIntStateOf(0) }
-    var actionJournalStatus by remember { mutableStateOf("Local action journal status has not been changed.") }
     val lifecycleOwner = LocalLifecycleOwner.current
     var phoneControlConnected by remember { mutableStateOf(false) }
     DisposableEffect(lifecycleOwner) {
@@ -1217,14 +1216,12 @@ private fun MemoryRulesAndApplicationLabSection(context: Context) {
 private fun JevCredentialSection(context: Context) {
     val scope = rememberCoroutineScope()
     var jevApiKey by remember { mutableStateOf("") }
-    var jevConfigured by remember { mutableStateOf(false) }
     var jevStatus by remember { mutableStateOf("Checking Jev credential status…") }
 
     LaunchedEffect(context) {
         val configured = withContext(Dispatchers.IO) {
             ai.friday.assistant.voice.JevApiKeyStore(context).read() != null
         }
-        jevConfigured = configured
         jevStatus = if (configured) {
             "Jev credential stored securely; decision calls require internet."
         } else {
@@ -1260,11 +1257,9 @@ private fun JevCredentialSection(context: Context) {
                             runCatching { ai.friday.assistant.voice.JevApiKeyStore(context).save(key) }
                         }
                         result.onSuccess {
-                            jevConfigured = true
                             jevApiKey = ""
                             jevStatus = "Jev credential stored securely; decision calls require internet."
                         }.onFailure { failure ->
-                            jevConfigured = false
                             jevStatus = "Jev credential was not saved: " +
                                 (failure.message?.take(180) ?: failure.javaClass.simpleName)
                         }
@@ -1283,7 +1278,6 @@ private fun JevCredentialSection(context: Context) {
                         }
                     }
                     result.onSuccess {
-                        jevConfigured = false
                         jevApiKey = ""
                         jevStatus = "Jev credential removed. Friday continues with local deterministic command handling."
                     }.onFailure { failure ->
