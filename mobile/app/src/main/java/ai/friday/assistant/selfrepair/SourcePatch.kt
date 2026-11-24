@@ -82,8 +82,11 @@ data class SourcePatch(
         val stagedRestores = linkedMapOf<File, File>()
         try {
             targets.forEach { target ->
+                val parent = requireNotNull(target.parentFile) {
+                    "rollback target has no parent directory: $target"
+                }
                 val temporary = Files.createTempFile(
-                    target.parentFile.toPath(),
+                    parent.toPath(),
                     ".${target.name}.",
                     ".selfrepair.restore"
                 )
@@ -176,10 +179,14 @@ data class SourcePatch(
     }
 
     private fun backupFor(target: File): File =
-        File(target.parentFile, target.name + ".selfrepair.$transactionId.bak")
+        File(
+            requireNotNull(target.parentFile) { "patch target has no parent directory: $target" },
+            target.name + ".selfrepair.$transactionId.bak"
+        )
 
     private fun writeAtomically(target: File, content: String) {
-        val temporary = Files.createTempFile(target.parentFile.toPath(), ".${target.name}.", ".selfrepair.tmp")
+        val parent = requireNotNull(target.parentFile) { "patch target has no parent directory: $target" }
+        val temporary = Files.createTempFile(parent.toPath(), ".${target.name}.", ".selfrepair.tmp")
         try {
             Files.write(temporary, content.toByteArray(Charsets.UTF_8))
             try {
