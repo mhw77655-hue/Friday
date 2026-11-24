@@ -850,7 +850,7 @@ class BodyCoordinator(
         backgroundJob.cancel()
         eventQueue.close()
         micJob?.cancel()
-        FridayMic.stop()
+        FridayMic.stopAsync()
         speechRecognizer?.cancel()
         tts?.stop()
         presenceMonitor?.stop()
