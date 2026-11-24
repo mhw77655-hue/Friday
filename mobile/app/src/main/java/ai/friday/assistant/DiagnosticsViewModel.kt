@@ -458,6 +458,25 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 .put("error_type", error.javaClass.simpleName)
                 .put("schema_version", ai.friday.assistant.env.AndroidHostSnapshot.SCHEMA_VERSION)
         })
+        // Model bootstrap state is part of acceptance evidence: a selected
+        // provider is not proof that weights downloaded or loaded.
+        val developmentDir = java.io.File(app.filesDir, "friday-development")
+        report.put("model_bootstrap", runCatching {
+            val stateFile = java.io.File(developmentDir, "model-bootstrap.json")
+            if (stateFile.isFile) JSONObject(stateFile.readText(Charsets.UTF_8))
+            else JSONObject().put("state", "NOT_RECORDED")
+        }.getOrElse { JSONObject().put("state", "UNREADABLE").put("error_type", it.javaClass.simpleName) })
+        report.put("host_bootstrap", runCatching {
+            val hostFile = java.io.File(developmentDir, "host-bootstrap.json")
+            val host = if (hostFile.isFile) JSONObject(hostFile.readText(Charsets.UTF_8)) else JSONObject()
+            val capacity = host.optJSONObject("capacity") ?: JSONObject()
+            val config = host.optJSONObject("configuration") ?: JSONObject()
+            JSONObject()
+                .put("source_revision", host.optString("source_revision", "unknown"))
+                .put("native_inference_library_present", capacity.optBoolean("native_inference_library_present"))
+                .put("recommended_model_max_bytes", config.optLong("recommended_model_max_bytes", 0L))
+                .put("thermal_status_at_boot", capacity.optInt("thermal_status", -1))
+        }.getOrElse { JSONObject().put("state", "UNREADABLE").put("error_type", it.javaClass.simpleName) })
         report.put("app", JSONObject()
             .put("application_id", app.packageName)
             .put("version_name", runCatching {
@@ -707,9 +726,18 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 val diagnosisEngine = runCatching { FridayEngine.getSelfDiagnosis() }.getOrNull()
                 surface.recentFailures.value.take(3).forEach { event ->
                     val diagnosis = diagnosisEngine?.let { runCatching { it.diagnose(event) }.getOrNull() }
-                    val detail = diagnosis?.let {
-                        "${it.summary}. Changed before: ${it.changedBefore}. Fallback: ${it.fallbackAvailable ?: "none recorded"}; fallback succeeded: ${it.fallbackSucceeded ?: "not verified"}."
-                    } ?: "${event.subsystem}.${event.operation}: ${event.message}"
+                    val detail = buildString {
+                        append(diagnosis?.let {
+                            "${it.summary}. Changed before: ${it.changedBefore}. Fallback: ${it.fallbackAvailable ?: "none recorded"}; fallback succeeded: ${it.fallbackSucceeded ?: "not verified"}."
+                        } ?: "${event.subsystem}.${event.operation}: ${event.message}")
+                        event.metadata["stack_frames"]?.takeIf { it.isNotBlank() }?.let { append(" Stack: $it.") }
+                        event.dependency?.let { append(" Dependency: $it.") }
+                        event.state?.let { append(" State: $it.") }
+                        event.resourceState?.let { append(" Resources: $it.") }
+                        event.rootCauseHypothesis?.let { append(" Root-cause hypothesis: $it.") }
+                        event.recoveryAction.takeIf { it != ai.friday.assistant.failure.RecoveryAction.NONE }
+                            ?.let { append(" Recovery action: ${it.name}.") }
+                    }
                     val failureLevel = when {
                         diagnosis?.subsystemHealthyAfter == true -> DiagnosticLevel.WARNING
                         event.severity.rank >= ai.friday.assistant.failure.FailureSeverity.ERROR.rank -> DiagnosticLevel.FAILURE
