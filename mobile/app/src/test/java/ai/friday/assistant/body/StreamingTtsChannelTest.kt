@@ -21,8 +21,8 @@ class StreamingTtsChannelTest {
             drainAvailable(channel)
         }
 
+        assertTrue("queued items must be consumed", channel.tryReceive().isFailure)
         assertTrue("drain must leave the producer channel usable", channel.trySend(4).isSuccess)
-        assertTrue("queued items must be consumed", channel.tryReceive().isSuccess)
         assertEquals(4, channel.receive())
         channel.close()
     }
