@@ -73,6 +73,9 @@ class FridayApplication : Application() {
             }
             // Verify after durable workers have been enqueued so a slow package
             // manager query cannot prevent the background maintenance lanes.
+            startupTask("process-exit diagnostics") {
+                ai.friday.assistant.diagnostics.ProcessExitDiagnostics.capture(this)
+            }
             startupTask("update health verification") {
                 ai.friday.assistant.update.FridayUpdateStateStore(this).verifyPendingHealthCheck()
             }
