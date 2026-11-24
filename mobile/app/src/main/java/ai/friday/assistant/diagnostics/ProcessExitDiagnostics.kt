@@ -99,8 +99,8 @@ object ProcessExitDiagnostics {
     }
 
     private fun redact(value: String): String = value
-        .replace(Regex("(?i)(bearer\\s+)[A-Za-z0-9._~+/-]+=*"), "$1[REDACTED]")
-        .replace(Regex("(?i)(token|secret|password|api[_-]?key)(\\s*[:=]\\s*)[^\\s,;]+"), "$1$2[REDACTED]")
+        .replace(Regex("(?i)(bearer\\s+)[A-Za-z0-9._~+/-]+=*"), "\\$1[REDACTED]")
+        .replace(Regex("(?i)(token|secret|password|api[_-]?key)(\\s*[:=]\\s*)[^\\s,;]+"), "\\$1\\$2[REDACTED]")
 
     private fun appendBounded(file: File, records: List<JSONObject>) {
         val parent = requireNotNull(file.parentFile)
