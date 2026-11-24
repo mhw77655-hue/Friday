@@ -36,6 +36,36 @@ class SettingsScreenInteractionInstrumentedTest {
     }
 
     @Test
+    fun clearLocalDiagnosticJournalCompletesAndReportsItsOutcome() {
+        compose.setContent {
+            FridayTheme {
+                SettingsScreen()
+            }
+        }
+
+        compose.waitForIdle()
+        compose.onNodeWithText("Clear local journal").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Local action journal cleared.").assertExists()
+    }
+
+    @Test
+    fun shizukuConnectionCheckIsAnExecutableAction() {
+        compose.setContent {
+            FridayTheme {
+                SettingsScreen()
+            }
+        }
+
+        compose.waitForIdle()
+        compose.onNodeWithText("Check Shizuku connection").performClick()
+        compose.waitForIdle()
+        // The emulator may not have Shizuku installed; the important contract
+        // is that the check runs and the settings surface remains interactive.
+        compose.onNodeWithText("Friday Runtime").assertExists()
+    }
+
+    @Test
     fun removeCredentialControlExecutesWithoutCrashingSettings() {
         compose.setContent {
             FridayTheme {
