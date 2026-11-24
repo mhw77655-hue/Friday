@@ -193,10 +193,14 @@ fun SettingsScreen() {
             )
         }
         jevConfigured = settingsSnapshot.jevConfigured
-        jevStatus = if (settingsSnapshot.jevConfigured) {
-            "Jev credential stored securely; decision calls require internet."
-        } else {
-            "Jev not configured — Friday continues with local deterministic command handling."
+        // Do not let a slow first-load snapshot overwrite a newer result from
+        // an explicit Save/Remove action performed while that snapshot ran.
+        if (jevStatus.startsWith("Checking Jev credential status")) {
+            jevStatus = if (settingsSnapshot.jevConfigured) {
+                "Jev credential stored securely; decision calls require internet."
+            } else {
+                "Jev not configured — Friday continues with local deterministic command handling."
+            }
         }
         githubConfigured = settingsSnapshot.githubConfigured
         githubAutoReportConsent = settingsSnapshot.githubAutoReportConsent
