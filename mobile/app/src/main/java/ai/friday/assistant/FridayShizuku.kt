@@ -39,23 +39,25 @@ object ShizukuBridge {
     @Synchronized
     fun init() {
         if (initialized) return
-        initialized = true
-        Shizuku.addBinderReceivedListenerSticky(binderReceivedListener)
-        Shizuku.addBinderDeadListener(binderDeadListener)
-        Shizuku.addRequestPermissionResultListener(permissionResultListener)
-        refresh()
+        try {
+            Shizuku.addBinderReceivedListenerSticky(binderReceivedListener)
+            Shizuku.addBinderDeadListener(binderDeadListener)
+            Shizuku.addRequestPermissionResultListener(permissionResultListener)
+            refresh()
+            initialized = true
+        } catch (failure: Exception) {
+            initialized = false
+            _isAvailable.value = false
+            _isGranted.value = false
+            Log.e("ShizukuBridge", "Shizuku listener initialization failed; a later refresh may retry", failure)
+        }
     }
 
     private fun checkPermission() {
-        if (!Shizuku.pingBinder()) {
-            _isGranted.value = false
-            return
-        }
-        _isGranted.value = try {
-            Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
-        } catch (_: Exception) {
-            false
-        }
+        _isGranted.value = runCatching {
+            Shizuku.pingBinder() &&
+                Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
+        }.getOrDefault(false)
     }
 
     fun requestPermission() {
