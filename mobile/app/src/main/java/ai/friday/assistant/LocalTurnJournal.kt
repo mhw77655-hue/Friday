@@ -82,6 +82,7 @@ object LocalTurnJournal {
                         }
                         val retained = retainedText.lineSequence()
                             .filter { it.isNotBlank() }
+                            .toList()
                             .takeLast(MAX_ENTRIES)
                             .toList()
                         file.writeText(
