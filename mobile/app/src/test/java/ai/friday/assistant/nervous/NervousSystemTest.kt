@@ -219,7 +219,7 @@ class NervousSystemTest {
         val registry = MicroSystemRegistry()
         val lookup = promoteSpec(
             registry,
-            Behavior.Lookup(mapOf("hi" to "hello"), default = "unknown"),
+            Behavior.Lookup(mapOf("hi" to "hello world"), default = "unknown"),
             AlgorithmSpec.Strategy.DETERMINISTIC,
             "lookup"
         )
@@ -242,7 +242,7 @@ class NervousSystemTest {
         assertTrue("different adjacent port names must be wired correctly: $result", result.success)
         assertEquals(2, result.completedStages.size)
         val finalData = result.completedStages.last().data as Map<*, *>
-        assertEquals("olleh", finalData["result"])
+        assertEquals("world hello", finalData["result"])
     }
 
     @Test
