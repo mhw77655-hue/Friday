@@ -5,6 +5,7 @@ import android.os.Looper
 import android.os.SystemClock
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
@@ -28,8 +29,9 @@ class MainThreadLivenessMonitor(
     }
 ) : AutoCloseable {
 
-    private val started = AtomicBoolean(false)
+    private val running = AtomicBoolean(false)
     private val closed = AtomicBoolean(false)
+    @Volatile private var scheduledTask: ScheduledFuture<*>? = null
     private val pingPending = AtomicBoolean(false)
     private val recoveryObserved = AtomicBoolean(false)
     private val lastAcknowledgedAt = AtomicLong(elapsedRealtime())
@@ -46,9 +48,11 @@ class MainThreadLivenessMonitor(
         require(timeoutMs > intervalMs) { "timeoutMs must be greater than intervalMs" }
     }
 
+    @Synchronized
     fun start() {
-        if (closed.get() || !started.compareAndSet(false, true)) return
-        scheduler.scheduleAtFixedRate(
+        if (closed.get() || !running.compareAndSet(false, true)) return
+        lastAcknowledgedAt.set(elapsedRealtime())
+        scheduledTask = scheduler.scheduleAtFixedRate(
             ::tick,
             intervalMs,
             intervalMs,
@@ -56,8 +60,18 @@ class MainThreadLivenessMonitor(
         )
     }
 
+    /** Pause while Friday is backgrounded; restart on the next visible resume. */
+    @Synchronized
+    fun stop() {
+        if (!running.compareAndSet(true, false)) return
+        scheduledTask?.cancel(false)
+        scheduledTask = null
+        mainHandler.removeCallbacks(heartbeat)
+        pingPending.set(false)
+    }
+
     private fun tick() {
-        if (closed.get()) return
+        if (closed.get() || !running.get()) return
         val now = elapsedRealtime()
         val lastAck = lastAcknowledgedAt.get()
 
@@ -103,6 +117,7 @@ class MainThreadLivenessMonitor(
 
     override fun close() {
         if (!closed.compareAndSet(false, true)) return
+        stop()
         mainHandler.removeCallbacks(heartbeat)
         scheduler.shutdownNow()
     }
