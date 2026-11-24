@@ -1,5 +1,7 @@
 package ai.friday.assistant.inbox
 
+import android.util.Log
+
 import ai.friday.assistant.FridayEngine
 import ai.friday.assistant.humancore.store.FileStorage
 import kotlinx.coroutines.CoroutineScope
@@ -32,10 +34,6 @@ class LocalTaskInbox(
     private val tasksFile = inboxDir.resolve("tasks.jsonl")
     private val idCounter = AtomicLong(System.currentTimeMillis())
     private val mutationMutex = Mutex()
-    private val inboxExceptionHandler = CoroutineExceptionHandler { _, failure ->
-        Log.e("LocalTaskInbox", "Inbox background operation failed", failure)
-    }
-
     private val _tasks = MutableStateFlow<List<InboxTask>>(emptyList())
     val tasks = _tasks.asStateFlow()
 
@@ -301,6 +299,10 @@ class LocalTaskInbox(
     }
 
     companion object {
+        private val inboxExceptionHandler = CoroutineExceptionHandler { _, failure ->
+            Log.e("LocalTaskInbox", "Inbox background operation failed", failure)
+        }
+
         fun create(): LocalTaskInbox = LocalTaskInbox(
             fileStorage = FileStorage(FridayEngine.appContext().filesDir),
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + inboxExceptionHandler)
