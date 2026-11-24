@@ -214,9 +214,12 @@ class FailureSurface(
      * the subscribe/backfill race; listeners must enqueue quickly and never do
      * disk I/O on the reporting thread.
      */
+    internal fun addFailureListener(listener: (FailureEvent) -> Unit) =
+        addFailureListener(replayExisting = true, listener = listener)
+
     internal fun addFailureListener(
-        listener: (FailureEvent) -> Unit,
-        replayExisting: Boolean = true
+        replayExisting: Boolean,
+        listener: (FailureEvent) -> Unit
     ) {
         synchronized(lock) {
             failureListeners.add(listener)
