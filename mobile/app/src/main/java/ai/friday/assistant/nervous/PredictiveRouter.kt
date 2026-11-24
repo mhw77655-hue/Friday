@@ -45,7 +45,7 @@ class PredictiveRouter(private val registry: MicroSystemRegistry) {
         return Prediction(
             predictedCapability = best,
             confidence = count.toDouble() / total,
-            providerReady = registry.provides(best).any { it.isRoutable() }
+            providerReady = registry.provides(best).any { it.isCapabilityCallable() }
         )
     }
 
