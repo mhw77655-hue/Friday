@@ -65,24 +65,23 @@ class FridayUpdateStateStore(context: Context) {
      * The next main-process launch compares the installed package against this
      * record before declaring the update healthy.
      */
-    fun recordPendingHealthCheck(release: FridayUpdateClient.Release) {
+    /** Must commit before handing control to PackageInstaller, which can kill this process. */
+    fun recordPendingHealthCheck(release: FridayUpdateClient.Release): Boolean =
         prefs.edit()
             .putLong(KEY_PENDING_VERSION_CODE, release.versionCode)
             .putString(KEY_PENDING_VERSION_NAME, release.versionName)
             .putString(KEY_PENDING_SOURCE_COMMIT, release.sourceCommit)
             .putString(KEY_PENDING_CERTIFICATE, release.certificateSha256)
             .putString(KEY_STATUS, "Update installed by Android; awaiting first-launch continuity verification.")
-            .apply()
-    }
+            .commit()
 
-    fun clearPendingHealthCheck() {
+    fun clearPendingHealthCheck(): Boolean =
         prefs.edit()
             .remove(KEY_PENDING_VERSION_CODE)
             .remove(KEY_PENDING_VERSION_NAME)
             .remove(KEY_PENDING_SOURCE_COMMIT)
             .remove(KEY_PENDING_CERTIFICATE)
-            .apply()
-    }
+            .commit()
 
     @Suppress("DEPRECATION")
     fun verifyPendingHealthCheck(): String? {
