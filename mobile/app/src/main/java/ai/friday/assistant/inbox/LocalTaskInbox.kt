@@ -1,8 +1,12 @@
 package ai.friday.assistant.inbox
 
+import android.util.Log
+
 import ai.friday.assistant.FridayEngine
 import ai.friday.assistant.humancore.store.FileStorage
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -10,6 +14,8 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 import java.util.concurrent.atomic.AtomicLong
 import androidx.lifecycle.LiveData
@@ -27,7 +33,7 @@ class LocalTaskInbox(
     private val inboxDir = fileStorage.baseDir.resolve("inbox")
     private val tasksFile = inboxDir.resolve("tasks.jsonl")
     private val idCounter = AtomicLong(System.currentTimeMillis())
-
+    private val mutationMutex = Mutex()
     private val _tasks = MutableStateFlow<List<InboxTask>>(emptyList())
     val tasks = _tasks.asStateFlow()
 
@@ -117,19 +123,51 @@ class LocalTaskInbox(
 
     /** Process a task - called by worker */
     suspend fun claimNext(): InboxTask? = withContext(Dispatchers.IO) {
-        val pending = _tasks.value
-            .filter { it.status == InboxTaskStatus.PENDING }
-            .sortedBy { it.createdAt }
-            .firstOrNull()
+        mutationMutex.withLock {
+            val pending = _tasks.value
+                .filter { it.status == InboxTaskStatus.PENDING }
+                .sortedBy { it.createdAt }
+                .firstOrNull()
 
-        pending?.let { task ->
-            val updated = task.copy(
-                status = InboxTaskStatus.RUNNING,
-                startedAt = System.currentTimeMillis()
-            )
-            updateTask(updated)
-            updated
+            pending?.let { task ->
+                val updated = task.copy(
+                    status = InboxTaskStatus.RUNNING,
+                    startedAt = System.currentTimeMillis()
+                )
+                updateTaskLocked(updated)
+                updated
+            }
         }
+    }
+
+    /**
+     * Return an interrupted RUNNING task to the durable queue. Used when a
+     * worker is cancelled so the task is not stranded in RUNNING forever.
+     */
+    suspend fun requeueInterrupted(taskId: String, reason: String): Result<Unit> = withContext(Dispatchers.IO) {
+        val task = _tasks.value.find { it.id == taskId }
+            ?: return@withContext Result.failure(IllegalArgumentException("Task not found"))
+        if (task.status != InboxTaskStatus.RUNNING) {
+            return@withContext Result.failure(IllegalStateException("Only a running task can be requeued"))
+        }
+        val now = System.currentTimeMillis()
+        val nextAttempts = task.attempts + 1
+        val exhausted = nextAttempts >= MAX_INTERRUPTED_REQUEUES
+        val updated = task.copy(
+            status = if (exhausted) InboxTaskStatus.FAILED else InboxTaskStatus.PENDING,
+            startedAt = null,
+            completedAt = if (exhausted) now else null,
+            attempts = nextAttempts,
+            lastAttemptAt = now,
+            error = if (exhausted) "Interrupted execution retry budget exhausted" else null,
+            history = task.history + TaskHistoryEntry(
+                timestamp = now,
+                action = if (exhausted) "INTERRUPTED_RETRY_EXHAUSTED" else "INTERRUPTED_REQUEUED",
+                detail = reason.take(160)
+            )
+        )
+        updateTask(updated)
+        Result.success(Unit)
     }
 
     /** Complete a task with result */
@@ -187,13 +225,19 @@ class LocalTaskInbox(
     }
 
     private suspend fun addTask(task: InboxTask) = withContext(Dispatchers.IO) {
-        val current = _tasks.value
-        _tasks.value = current + task
-        persistTask(task)
-        refreshDerivedFlows()
+        mutationMutex.withLock {
+            val current = _tasks.value
+            _tasks.value = current + task
+            persistTask(task)
+            refreshDerivedFlows()
+        }
     }
 
     private suspend fun updateTask(task: InboxTask) = withContext(Dispatchers.IO) {
+        mutationMutex.withLock { updateTaskLocked(task) }
+    }
+
+    private fun updateTaskLocked(task: InboxTask) {
         val current = _tasks.value
         val index = current.indexOfFirst { it.id == task.id }
         if (index >= 0) {
@@ -213,22 +257,35 @@ class LocalTaskInbox(
     }
 
     private suspend fun loadTasks() = withContext(Dispatchers.IO) {
-        if (!tasksFile.exists()) return@withContext
-        val tasks = mutableListOf<InboxTask>()
-        tasksFile.readLines().forEach { line ->
-            if (line.isNotBlank()) {
-                try {
-                    tasks.add(InboxTask.fromJson(JSONObject(line)))
-                } catch (e: Exception) {
-                    // Skip corrupted lines
+        try {
+            mutationMutex.withLock {
+                if (!tasksFile.exists()) return@withLock
+                val tasks = mutableListOf<InboxTask>()
+                tasksFile.readLines().forEach { line ->
+                    if (line.isNotBlank()) {
+                        try {
+                            tasks.add(InboxTask.fromJson(JSONObject(line)))
+                        } catch (failure: Exception) {
+                            // Skip corrupted lines; later journal entries remain recoverable.
+                            Log.w("LocalTaskInbox", "Skipping one malformed task journal entry", failure)
+                        }
+                    }
                 }
+                // Merge rather than discard: a task may have been submitted while
+                // the initial disk read was in flight. Current in-memory records
+                // win for matching IDs; disk-only RUNNING tasks belonged to a
+                // previous process and are safely returned to PENDING.
+                val recovered = mergeAndRecoverInboxTasks(
+                    diskTasks = tasks,
+                    currentTasks = _tasks.value,
+                    now = System.currentTimeMillis()
+                )
+                _tasks.value = recovered
+                rewriteAllTasks()
+                refreshDerivedFlows()
             }
-        }
-        // Init-load races with the first writes: if anything landed in memory
-        // before this disk read finished, in-memory state is authoritative.
-        if (_tasks.value.isEmpty()) {
-            _tasks.value = tasks
-            refreshDerivedFlows()
+        } catch (failure: Exception) {
+            Log.e("LocalTaskInbox", "Could not load or reconcile the persisted task inbox", failure)
         }
     }
 
@@ -242,11 +299,48 @@ class LocalTaskInbox(
     }
 
     companion object {
+        private val inboxExceptionHandler = CoroutineExceptionHandler { _, failure ->
+            Log.e("LocalTaskInbox", "Inbox background operation failed", failure)
+        }
+
         fun create(): LocalTaskInbox = LocalTaskInbox(
             fileStorage = FileStorage(FridayEngine.appContext().filesDir),
-            scope = CoroutineScope(Dispatchers.Main)
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + inboxExceptionHandler)
         )
     }
+}
+
+internal fun mergeAndRecoverInboxTasks(
+    diskTasks: List<InboxTask>,
+    currentTasks: List<InboxTask>,
+    now: Long
+): List<InboxTask> {
+    val currentById = currentTasks.associateBy { it.id }
+    val merged = LinkedHashMap<String, InboxTask>()
+    diskTasks.forEach { disk ->
+        val current = currentById[disk.id]
+        merged[disk.id] = current ?: if (disk.status == InboxTaskStatus.RUNNING) {
+            val nextAttempts = disk.attempts + 1
+            val exhausted = nextAttempts >= MAX_INTERRUPTED_REQUEUES
+            disk.copy(
+                status = if (exhausted) InboxTaskStatus.FAILED else InboxTaskStatus.PENDING,
+                startedAt = null,
+                completedAt = if (exhausted) now else null,
+                attempts = nextAttempts,
+                lastAttemptAt = now,
+                error = if (exhausted) "Interrupted execution retry budget exhausted" else null,
+                history = disk.history + TaskHistoryEntry(
+                    timestamp = now,
+                    action = if (exhausted) "PROCESS_RESTART_RETRY_EXHAUSTED" else "PROCESS_RESTART_REQUEUED",
+                    detail = "Recovered a task left RUNNING by a previous Friday process."
+                )
+            )
+        } else {
+            disk
+        }
+    }
+    currentTasks.forEach { current -> merged[current.id] = current }
+    return merged.values.sortedBy { it.createdAt }
 }
 
 /** Inbox task entity */
@@ -382,10 +476,12 @@ data class TaskEntry(
 }
 
 /** Map value that JSONObject can store directly. */
-private fun jsonValue(v: Any): Any = when (v) {
+internal fun jsonValue(v: Any?): Any = when (v) {
     is Int, is Long, is Double, is Float, is Boolean, is String -> v
-    is Map<*, *> -> JSONObject(v.mapKeys { it.key.toString() }.mapValues { jsonValue(it.value!!) })
-    is List<*> -> org.json.JSONArray(v.map { jsonValue(it!!) })
+    is Map<*, *> -> JSONObject(v.mapKeys { it.key.toString() }.mapValues { jsonValue(it.value) })
+    is List<*> -> org.json.JSONArray(v.map { jsonValue(it) })
     null -> org.json.JSONObject.NULL
     else -> v.toString()
 }
+
+internal const val MAX_INTERRUPTED_REQUEUES = 5

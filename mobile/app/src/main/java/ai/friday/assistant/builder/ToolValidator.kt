@@ -1,7 +1,6 @@
 package ai.friday.assistant.builder
 
 import ai.friday.assistant.genome.GenomeValidator
-import ai.friday.assistant.mutant.AlgorithmSpec
 import ai.friday.assistant.mutant.CandidateImplementation
 
 /**
@@ -37,7 +36,7 @@ object ToolValidator {
     fun validateImplementation(impl: CandidateImplementation): Validation {
         val issues = mutableListOf<String>()
         if (impl.spec.capability.isBlank()) issues += "spec capability must not be blank"
-        if (impl.spec is AlgorithmSpec && impl.tests.isEmpty()) {
+        if (impl.tests.isEmpty()) {
             issues += "candidate has no generated tests (§12)"
         }
         if (impl.sourceCode.isBlank()) issues += "candidate has no source"

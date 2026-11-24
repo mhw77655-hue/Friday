@@ -46,6 +46,7 @@ object FridayEngine {
     }
 
     @Volatile private var bootstrapStarted = false
+    private val initRequestQueued = java.util.concurrent.atomic.AtomicBoolean(false)
     val readinessGate = EngineReadinessGate()
     val readinessState: kotlinx.coroutines.flow.StateFlow<EngineReadinessState> get() = readinessGate.state
     val currentReadiness: EngineReadinessState get() = readinessGate.current
@@ -120,6 +121,8 @@ object FridayEngine {
     @Volatile private var streamingTts: StreamingTts? = null
     @Volatile private var visualStateBridge: VisualStateBridge? = null
     @Volatile private var failureSurface: ai.friday.assistant.failure.FailureSurface? = null
+    @Volatile private var mainThreadLivenessMonitor: ai.friday.assistant.failure.MainThreadLivenessMonitor? = null
+    @Volatile private var mainThreadWatchdogRequested: Boolean = false
     @Volatile private var failureStore: ai.friday.assistant.failure.FailureStore? = null
     @Volatile private var recoveryController: ai.friday.assistant.failure.RecoveryController? = null
     @Volatile private var selfDiagnosis: ai.friday.assistant.failure.SelfDiagnosis? = null
@@ -177,6 +180,37 @@ object FridayEngine {
     @Volatile var phoneDecisionTool: ai.friday.assistant.voice.FridayPhoneDecisionTool? = null
         private set
 
+    /**
+     * Queue bootstrap away from Android's main thread. The synchronous setup
+     * creates stores and host adapters; doing that in Application.onCreate()
+     * can delay the first frame on slower phones. The existing engine Handler
+     * thread is also the serialization lane for the later wiring block.
+     *
+     * @return true when this call queued the first bootstrap attempt.
+     */
+    fun initAsync(context: Context): Boolean {
+        if (bootstrapStarted || !initRequestQueued.compareAndSet(false, true)) return false
+        return try {
+            val accepted = handler.post {
+                initRequestQueued.set(false)
+                init(context)
+            }
+            if (!accepted) {
+                initRequestQueued.set(false)
+                val failure = IllegalStateException("Friday engine bootstrap thread rejected initialization")
+                readinessGate.markFailed(failure)
+                Log.e("FridayEngine", failure.message ?: "Bootstrap thread rejected initialization")
+            }
+            accepted
+        } catch (failure: Throwable) {
+            initRequestQueued.set(false)
+            readinessGate.markFailed(failure)
+            Log.e("FridayEngine", "Could not schedule asynchronous bootstrap", failure)
+            false
+        }
+    }
+
+    @Synchronized
     fun init(context: Context) {
         if (bootstrapStarted) return
         bootstrapStarted = true
@@ -189,6 +223,14 @@ object FridayEngine {
         // even storage/backend construction failures can be recorded.
         val failureSurface = ai.friday.assistant.failure.FailureSurface()
         this.failureSurface = failureSurface
+        // Independent of EngineContainment.scope so it can still observe a
+        // blocked Android main looper while engine coroutines are stalled.
+        if (mainThreadLivenessMonitor == null) {
+            mainThreadLivenessMonitor = runCatching {
+                ai.friday.assistant.failure.MainThreadLivenessMonitor(failureSurface)
+            }.getOrNull()
+        }
+        if (mainThreadWatchdogRequested) mainThreadLivenessMonitor?.start()
 
         // Synchronous section: pure object-graph construction (no network, no
         // disk beyond mkdirs, no coroutine launches beyond each store's lazy
@@ -700,17 +742,21 @@ object FridayEngine {
             readinessGate.markReady()
             } catch (t: Throwable) {
                 readinessGate.markFailed(t)
-                failureSurface.report(
-                    ai.friday.assistant.failure.FailureReport(
-                        subsystem = "FridayEngine",
-                        operation = "init",
-                        severity = ai.friday.assistant.failure.FailureSeverity.CRITICAL,
-                        category = ai.friday.assistant.failure.FailureCategory.LIFECYCLE,
-                        message = "Engine wiring failed: ${t.message}",
-                        cause = "${t.javaClass.name}: ${t.message}",
-                        userMessage = "Failed to wake engine"
+                runCatching {
+                    failureSurface.report(
+                        ai.friday.assistant.failure.FailureReport(
+                            subsystem = "FridayEngine",
+                            operation = "init",
+                            severity = ai.friday.assistant.failure.FailureSeverity.CRITICAL,
+                            category = ai.friday.assistant.failure.FailureCategory.LIFECYCLE,
+                            message = "Engine wiring failed: ${t.message}",
+                            cause = "${t.javaClass.name}: ${t.message}",
+                            userMessage = "Failed to wake engine"
+                        )
                     )
-                )
+                }.onFailure { reportingFailure ->
+                    Log.e("FridayEngine", "Engine wiring failed and the failure surface could not record it", reportingFailure)
+                }
             }
         }
         if (!wiringPosted) {
@@ -832,6 +878,16 @@ object FridayEngine {
     fun voiceOrganismHostSlot(): EngineSlot<ai.friday.assistant.voice.VoiceOrganismHost> = readinessGate.slot { voiceOrganismHost }
     fun voiceOutputPathSlot(): EngineSlot<ai.friday.assistant.voice.VoiceOutputPath> = readinessGate.slot { voiceOutputPath }
     fun voiceMicroSystemSlot(): EngineSlot<ai.friday.assistant.voice.VoiceOrganismMicroSystem> = readinessGate.slot { voiceMicroSystem }
+    fun startMainThreadWatchdog() {
+        mainThreadWatchdogRequested = true
+        mainThreadLivenessMonitor?.start()
+    }
+
+    fun stopMainThreadWatchdog() {
+        mainThreadWatchdogRequested = false
+        mainThreadLivenessMonitor?.stop()
+    }
+
     fun failureSurfaceSlot(): EngineSlot<ai.friday.assistant.failure.FailureSurface> = readinessGate.slot { failureSurface }
     fun failureStoreSlot(): EngineSlot<ai.friday.assistant.failure.FailureStore> = readinessGate.slot { failureStore }
     fun recoveryControllerSlot(): EngineSlot<ai.friday.assistant.failure.RecoveryController> = readinessGate.slot { recoveryController }
@@ -847,6 +903,9 @@ object FridayEngine {
     fun appContextSlot(): EngineSlot<Context> = readinessGate.slot { appContext }
 
     internal fun resetForTesting() {
+        mainThreadLivenessMonitor?.close()
+        mainThreadLivenessMonitor = null
+        mainThreadWatchdogRequested = false
         bootstrapStarted = false
         readinessGate.resetForTesting()
         wiringLatchForTesting = null

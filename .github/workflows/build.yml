@@ -31,11 +31,13 @@ on:
   workflow_dispatch:
 
 concurrency:
-  # Give each exact source revision its own verification group. A long-running
-  # or queued build for an older commit must not block the final tested commit,
-  # and a newer commit must never cancel evidence for an earlier revision.
-  group: friday-build-${{ github.ref }}-${{ github.sha }}
-  cancel-in-progress: false
+  # A pull request is a moving candidate, not a sequence of release candidates.
+  # Cancel obsolete PR runs when a newer commit arrives so CI spends its time
+  # validating the latest coherent candidate instead of producing pages of
+  # failures for superseded intermediate commits. Main-branch and manually
+  # dispatched runs retain their evidence and are never cancelled by this rule.
+  group: friday-build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions: {}
 

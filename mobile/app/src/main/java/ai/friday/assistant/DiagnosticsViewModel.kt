@@ -26,6 +26,7 @@ import ai.friday.assistant.diagnostics.CrashJournal
 import ai.friday.assistant.diagnostics.EngineFailureHealthGate
 import ai.friday.assistant.FridayEngine
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -305,7 +306,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                     publishHealthText()
                 }
                 if (granted) {
-                    ScreenBridge.bind(getApplication())
+                    withContext(Dispatchers.IO) { ScreenBridge.bind(getApplication()) }
                 }
             }
         }
@@ -417,6 +418,19 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 diagnosticEvents.record("active_diagnostic",
                     "errors=${findings.count { it.severity == ai.friday.assistant.diagnostics.DiagnosticSeverity.ERROR }}; " +
                     "warnings=${findings.count { it.severity == ai.friday.assistant.diagnostics.DiagnosticSeverity.WARNING }}")
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                _diagnosticFindings.value = listOf(
+                    ai.friday.assistant.diagnostics.DiagnosticFinding(
+                        severity = ai.friday.assistant.diagnostics.DiagnosticSeverity.ERROR,
+                        title = "Diagnostic run failed",
+                        observed = "The diagnostic runner failed (${failure.javaClass.simpleName}); exception details were omitted.",
+                        likelyCause = "A platform probe or diagnostics dependency failed before evidence could be returned.",
+                        recommendedAction = "Retry the diagnostic. If it fails again, preserve the crash journal and inspect the first Friday-owned stack frame."
+                    )
+                )
+                diagnosticEvents.record("active_diagnostic", "failed; type=${failure.javaClass.simpleName}")
             } finally {
                 _diagnosticRunning.value = false
             }
@@ -444,6 +458,25 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 .put("error_type", error.javaClass.simpleName)
                 .put("schema_version", ai.friday.assistant.env.AndroidHostSnapshot.SCHEMA_VERSION)
         })
+        // Model bootstrap state is part of acceptance evidence: a selected
+        // provider is not proof that weights downloaded or loaded.
+        val developmentDir = java.io.File(app.filesDir, "friday-development")
+        report.put("model_bootstrap", runCatching {
+            val stateFile = java.io.File(developmentDir, "model-bootstrap.json")
+            if (stateFile.isFile) JSONObject(stateFile.readText(Charsets.UTF_8))
+            else JSONObject().put("state", "NOT_RECORDED")
+        }.getOrElse { JSONObject().put("state", "UNREADABLE").put("error_type", it.javaClass.simpleName) })
+        report.put("host_bootstrap", runCatching {
+            val hostFile = java.io.File(developmentDir, "host-bootstrap.json")
+            val host = if (hostFile.isFile) JSONObject(hostFile.readText(Charsets.UTF_8)) else JSONObject()
+            val capacity = host.optJSONObject("capacity") ?: JSONObject()
+            val config = host.optJSONObject("configuration") ?: JSONObject()
+            JSONObject()
+                .put("source_revision", host.optString("source_revision", "unknown"))
+                .put("native_inference_library_present", capacity.optBoolean("native_inference_library_present"))
+                .put("recommended_model_max_bytes", config.optLong("recommended_model_max_bytes", 0L))
+                .put("thermal_status_at_boot", capacity.optInt("thermal_status", -1))
+        }.getOrElse { JSONObject().put("state", "UNREADABLE").put("error_type", it.javaClass.simpleName) })
         report.put("app", JSONObject()
             .put("application_id", app.packageName)
             .put("version_name", runCatching {
@@ -529,6 +562,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
 
     fun runSelfDiagnosis() {
         viewModelScope.launch(Dispatchers.Default) {
+            try {
             val findings = mutableListOf<SelfDiagnosticFinding>()
             fun add(
                 id: String,
@@ -540,22 +574,30 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 findings += SelfDiagnosticFinding(id, title, level, detail, recommendation)
             }
 
-            val activeEngineIncident = runCatching {
+            val activeEngineIncident: Boolean? = runCatching {
                 val failureSurface = FridayEngine.getFailureSurface()
                 EngineFailureHealthGate.hasActiveEngineFailure(
                     failureSurface.currentFailures.value.filter { it.isActive }.map { it.subsystem }
                 )
-            }.getOrDefault(false)
+            }.getOrNull()
 
             when (val readiness = FridayEngine.currentReadiness) {
-                is EngineReadinessState.Ready -> if (activeEngineIncident) add(
-                    "engine", "Friday engine", DiagnosticLevel.FAILURE,
-                    "The composition root reached Ready, but the authoritative FailureSurface still records an active ENGINE incident.",
-                    "Inspect the active ENGINE diagnosis and verify recovery. Construction readiness must not override an unrecovered runtime failure."
-                ) else add(
-                    "engine", "Friday engine", DiagnosticLevel.PASS,
-                    "The production composition root reached Ready and no active ENGINE incident is recorded."
-                )
+                is EngineReadinessState.Ready -> when (activeEngineIncident) {
+                    true -> add(
+                        "engine", "Friday engine", DiagnosticLevel.FAILURE,
+                        "The composition root reached Ready, but the authoritative FailureSurface still records an active engine incident.",
+                        "Inspect the active engine diagnosis and verify recovery. Construction readiness must not override an unrecovered runtime failure."
+                    )
+                    false -> add(
+                        "engine", "Friday engine", DiagnosticLevel.PASS,
+                        "The production composition root reached Ready and the FailureSurface confirms no active engine incident."
+                    )
+                    null -> add(
+                        "engine", "Friday engine", DiagnosticLevel.WARNING,
+                        "The composition root reached Ready, but the FailureSurface could not be read; current engine health is unverified.",
+                        "Restore FailureSurface access before treating Friday as healthy."
+                    )
+                }
                 is EngineReadinessState.FailedToWake -> add(
                     "engine", "Friday engine", DiagnosticLevel.FAILURE,
                     "The production composition root failed: ${readiness.error.message ?: readiness.error.javaClass.simpleName}",
@@ -684,9 +726,19 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 val diagnosisEngine = runCatching { FridayEngine.getSelfDiagnosis() }.getOrNull()
                 surface.recentFailures.value.take(3).forEach { event ->
                     val diagnosis = diagnosisEngine?.let { runCatching { it.diagnose(event) }.getOrNull() }
-                    val detail = diagnosis?.let {
-                        "${it.summary}. Changed before: ${it.changedBefore}. Fallback: ${it.fallbackAvailable ?: "none recorded"}; fallback succeeded: ${it.fallbackSucceeded ?: "not verified"}."
-                    } ?: "${event.subsystem}.${event.operation}: ${event.message}"
+                    val detail = buildString {
+                        append(diagnosis?.let {
+                            "${it.summary}. Changed before: ${it.changedBefore}. Fallback: ${it.fallbackAvailable ?: "none recorded"}; fallback succeeded: ${it.fallbackSucceeded ?: "not verified"}."
+                        } ?: "${event.subsystem}.${event.operation}: ${event.message}")
+                        event.metadata["exception_chain"]?.takeIf { it.isNotBlank() }?.let { append(" Exception chain: $it.") }
+                        event.metadata["stack_frames"]?.takeIf { it.isNotBlank() }?.let { append(" Stack: $it.") }
+                        event.dependency?.let { append(" Dependency: $it.") }
+                        event.state?.let { append(" State: $it.") }
+                        event.resourceState?.let { append(" Resources: $it.") }
+                        event.rootCauseHypothesis?.let { append(" Root-cause hypothesis: $it.") }
+                        event.recoveryAction.takeIf { it != ai.friday.assistant.failure.RecoveryAction.NONE }
+                            ?.let { append(" Recovery action: ${it.name}.") }
+                    }
                     val failureLevel = when {
                         diagnosis?.subsystemHealthyAfter == true -> DiagnosticLevel.WARNING
                         event.severity.rank >= ai.friday.assistant.failure.FailureSeverity.ERROR.rank -> DiagnosticLevel.FAILURE
@@ -740,7 +792,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 if (!micGranted) "Grant microphone permission only if voice input is wanted." else null
             )
             val shizukuGranted = ShizukuBridge.isGranted.value
-            val shizukuBound = ScreenBridge.status.value == "bound"
+            val shizukuBound = ScreenBridge.isVerifiedBound
             add(
                 "shizuku", "Shizuku device bridge",
                 if (shizukuGranted && shizukuBound) DiagnosticLevel.PASS else DiagnosticLevel.WARNING,
@@ -770,7 +822,27 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             )
             _selfDiagnosticFindings.value = findings
             _selfDiagnosticAt.value = System.currentTimeMillis()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                _selfDiagnosticFindings.value = listOf(
+                    SelfDiagnosticFinding(
+                        id = "self-diagnosis-failed",
+                        title = "Self-diagnosis could not complete",
+                        level = DiagnosticLevel.FAILURE,
+                        detail = "A diagnostic probe failed (${failure.javaClass.simpleName}); exception details were omitted.",
+                        recommendation = "Retry self-diagnosis. If it fails again, inspect the corresponding diagnostic and crash-journal evidence."
+                    )
+                )
+                _selfDiagnosticAt.value = System.currentTimeMillis()
+            }
         }
+    }
+
+    override fun onCleared() {
+        runCatching { getApplication<Application>().unregisterReceiver(batteryReceiver) }
+        runCatching { connectivityManager.unregisterNetworkCallback(networkCallback) }
+        super.onCleared()
     }
 
 

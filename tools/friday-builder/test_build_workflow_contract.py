@@ -58,12 +58,12 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn("workflow_dispatch:", self.workflow)
 
 
-    def test_push_and_pull_request_builds_are_not_cancelled_by_followup_commits(self):
+    def test_pull_request_runs_cancel_only_superseded_pull_request_validation(self):
         self.assertIn("on:\n  push:\n    branches: [ main ]", self.workflow)
         self.assertIn("pull_request:", self.workflow)
         self.assertIn("concurrency:", self.workflow)
-        self.assertIn("group: friday-build-${{ github.ref }}", self.workflow)
-        self.assertIn("cancel-in-progress: false", self.workflow)
+        self.assertIn("group: friday-build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}", self.workflow)
+        self.assertIn("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", self.workflow)
         self.assertIn("workflow_dispatch:", self.workflow)
 
 

@@ -11,6 +11,12 @@ class EngineFailureHealthGateTest {
     }
 
     @Test
+    fun `FridayEngine bootstrap incident is recognized as an engine failure`() {
+        assertTrue(EngineFailureHealthGate.hasActiveEngineFailure(listOf("FridayEngine")))
+        assertTrue(EngineFailureHealthGate.hasActiveEngineFailure(listOf("FridayEngine_bootstrap")))
+    }
+
+    @Test
     fun `unrelated subsystem incident does not mark engine itself failed`() {
         assertFalse(EngineFailureHealthGate.hasActiveEngineFailure(listOf("VOICE", "STT")))
     }

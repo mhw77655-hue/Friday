@@ -5,6 +5,7 @@ import ai.friday.assistant.ui.theme.FridayTheme
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
@@ -36,6 +37,39 @@ class SettingsScreenInteractionInstrumentedTest {
     }
 
     @Test
+    fun clearLocalDiagnosticJournalCompletesAndReportsItsOutcome() {
+        compose.setContent {
+            FridayTheme {
+                SettingsScreen()
+            }
+        }
+
+        compose.waitForIdle()
+        compose.onNodeWithText("Clear local journal").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Local action journal cleared.", substring = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Local action journal cleared.", substring = true).assertExists()
+    }
+
+    @Test
+    fun shizukuConnectionCheckIsAnExecutableAction() {
+        compose.setContent {
+            FridayTheme {
+                SettingsScreen()
+            }
+        }
+
+        compose.waitForIdle()
+        compose.onNodeWithText("Check Shizuku connection").performClick()
+        compose.waitForIdle()
+        // The emulator may not have Shizuku installed; the important contract
+        // is that the check runs and the settings surface remains interactive.
+        compose.onNodeWithText("Friday Runtime", ignoreCase = true).assertExists()
+    }
+
+    @Test
     fun removeCredentialControlExecutesWithoutCrashingSettings() {
         compose.setContent {
             FridayTheme {
@@ -45,9 +79,15 @@ class SettingsScreenInteractionInstrumentedTest {
 
         compose.waitForIdle()
         compose.onNodeWithText("Remove key").performClick()
-        compose.waitForIdle()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText(
+                "Jev credential removed. Friday continues with local deterministic command handling.",
+                substring = true
+            ).fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithText(
-            "Jev not configured — Friday continues with local deterministic command handling."
+            "Jev credential removed. Friday continues with local deterministic command handling.",
+            substring = true
         ).assertExists()
     }
 }

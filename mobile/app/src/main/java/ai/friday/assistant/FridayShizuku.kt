@@ -1,9 +1,11 @@
 package ai.friday.assistant
 
 import android.content.pm.PackageManager
+import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.Executors
 import rikka.shizuku.Shizuku
 
 /**
@@ -57,11 +59,19 @@ object ShizukuBridge {
     }
 
     fun requestPermission() {
-        if (Shizuku.pingBinder() && !Shizuku.isPreV11()) {
-            Shizuku.requestPermission(REQUEST_CODE)
+        runCatching {
+            if (Shizuku.pingBinder() && !Shizuku.isPreV11()) {
+                Shizuku.requestPermission(REQUEST_CODE)
+            } else {
+                _isGranted.value = false
+            }
+        }.onFailure { failure ->
+            _isGranted.value = false
+            Log.e("ShizukuBridge", "Could not request Shizuku permission", failure)
         }
     }
 
+    @Synchronized
     fun refresh() {
         _isAvailable.value = runCatching { Shizuku.pingBinder() }.getOrDefault(false)
         checkPermission()

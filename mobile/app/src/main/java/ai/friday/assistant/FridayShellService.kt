@@ -3,12 +3,29 @@ package ai.friday.assistant
 import android.os.Process
 import org.json.JSONObject
 import java.io.File
+import java.io.ByteArrayOutputStream
+import java.nio.charset.StandardCharsets
 import java.util.concurrent.TimeUnit
 import java.security.MessageDigest
 import java.util.UUID
 import java.io.RandomAccessFile
 import java.io.FileInputStream
 import java.util.concurrent.ConcurrentHashMap
+
+internal fun summarizeWindowHierarchy(xml: String): String {
+    val nodeCount = Regex("<node\\b").findAll(xml).count()
+    return if (nodeCount == 0) {
+        "status=unavailable; reason=empty-hierarchy; text_omitted=true"
+    } else {
+        "status=captured; node_count=$nodeCount; text_omitted=true"
+    }
+}
+
+internal fun outputContainsExactToken(output: String, expected: String): Boolean =
+    output.lineSequence()
+        .flatMap { it.trim().split(Regex("[,\\s]+")).asSequence() }
+        .map { it.removePrefix("+").removePrefix("-").trim() }
+        .any { it == expected }
 
 /**
  * Shizuku UserService running with the explicitly granted shell/root identity.
@@ -41,17 +58,22 @@ class FridayShellService : IFridayShellService.Stub() {
     }
 
     override fun captureScreenSummary(): String {
-        // Keep the temporary hierarchy out of shared storage and remove it
-        // after reading. UI hierarchies can contain private on-screen text.
-        val path = "/data/local/tmp/friday-window-${Process.myPid()}.xml"
+        // The hierarchy contains private on-screen text. Keep it temporary,
+        // derive only a structural count, and never return the XML itself.
+        val path = "/data/local/tmp/friday-window-${UUID.randomUUID()}.xml"
         return try {
             val dump = runFixed("uiautomator", "dump", path)
             if (dump.startsWith("unavailable:") || dump == "timeout" ||
                 dump.contains("ERROR", ignoreCase = true)
             ) {
-                dump
+                "status=unavailable; reason=hierarchy-dump-failed"
             } else {
-                runFixed("cat", path).take(24_000)
+                val hierarchy = runFixed("cat", path).take(MAX_COMMAND_OUTPUT_CHARS)
+                if (hierarchy.startsWith("unavailable:") || hierarchy == "timeout") {
+                    "status=unavailable; reason=hierarchy-read-failed"
+                } else {
+                    summarizeWindowHierarchy(hierarchy)
+                }
             }
         } finally {
             runFixed("rm", "-f", path)
@@ -102,7 +124,7 @@ class FridayShellService : IFridayShellService.Stub() {
         if (listing.startsWith("unavailable:") || listing == "timeout") {
             return "status=unverified; command=$commandResult; readback=$listing"
         }
-        val present = listing.contains(packageName)
+        val present = outputContainsExactToken(listing, packageName)
         val verified = present == enabled
         return "status=${if (verified) "verified" else "not-verified"}; enabled=$present; command=$commandResult"
     }
@@ -113,7 +135,7 @@ class FridayShellService : IFridayShellService.Stub() {
         if (listing.startsWith("unavailable:") || listing == "timeout") {
             return "status=unsupported; readback=$listing"
         }
-        val present = listing.contains("ai.friday.assistant")
+        val present = outputContainsExactToken(listing, "ai.friday.assistant")
         return "status=verified; enabled=$present"
     }
 
@@ -136,15 +158,42 @@ class FridayShellService : IFridayShellService.Stub() {
         return digest.digest().joinToString("") { "%02x".format(it) }.uppercase()
     }
 
-    /** Runs only fixed executable/argument tuples authored in this class. */
+    /**
+     * Runs only fixed executable/argument tuples authored in this class.
+     * Drain output concurrently: waiting for process exit before reading a pipe
+     * can deadlock when commands such as dumpsys produce more than pipe capacity.
+     * Retain a strict output bound while continuing to drain excess bytes.
+     */
     private fun runFixed(vararg command: String): String = runCatching {
         val process = ProcessBuilder(*command).redirectErrorStream(true).start()
+        val output = ByteArrayOutputStream(MAX_COMMAND_OUTPUT_CHARS)
+        val reader = Thread({
+            process.inputStream.use { input ->
+                val buffer = ByteArray(2_048)
+                var retained = 0
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    val keep = minOf(count, MAX_COMMAND_OUTPUT_CHARS - retained)
+                    if (keep > 0) {
+                        output.write(buffer, 0, keep)
+                        retained += keep
+                    }
+                }
+            }
+        }, "FridayShellOutputReader").apply {
+            isDaemon = true
+            start()
+        }
         val finished = process.waitFor(3, TimeUnit.SECONDS)
         if (!finished) {
             process.destroyForcibly()
+            process.waitFor(500, TimeUnit.MILLISECONDS)
+            reader.join(500)
             return@runCatching "timeout"
         }
-        process.inputStream.bufferedReader().use { it.readText().take(12_000) }
+        reader.join(500)
+        String(output.toByteArray(), StandardCharsets.UTF_8).take(MAX_COMMAND_OUTPUT_CHARS)
     }.getOrElse { "unavailable: ${it.javaClass.simpleName}" }
 
     override fun beginApkInstall(expectedSize: Long, expectedSha256: String): String {
@@ -154,16 +203,27 @@ class FridayShellService : IFridayShellService.Stub() {
         if (expectedSize !in 1L..MAX_APK_BYTES || !SHA256.matches(expectedSha256)) {
             return "status=rejected; reason=invalid-size-or-digest"
         }
-        return runCatching {
-            val directory = File("/data/local/tmp")
-            if (!directory.isDirectory && !directory.mkdirs()) error("temporary-directory-unavailable")
-            val id = UUID.randomUUID().toString().replace("-", "")
-            val file = File(directory, "friday-update-$id.apk")
-            apkTransfers[id] = ApkTransfer(
-                file, RandomAccessFile(file, "rw"), expectedSize, expectedSha256.uppercase()
-            )
-            "status=ready; transfer_id=$id; max_chunk_bytes=$MAX_CHUNK_BYTES"
-        }.getOrElse { "status=error; reason=${it.javaClass.simpleName}" }
+        synchronized(apkTransfers) {
+            if (apkTransfers.size >= MAX_ACTIVE_TRANSFERS) {
+                return "status=rejected; reason=install-transfer-already-active"
+            }
+            var partialFile: File? = null
+            return runCatching {
+                val directory = File("/data/local/tmp")
+                if (!directory.isDirectory && !directory.mkdirs()) error("temporary-directory-unavailable")
+                val id = UUID.randomUUID().toString().replace("-", "")
+                val file = File(directory, "friday-update-$id.apk")
+                partialFile = file
+                val output = RandomAccessFile(file, "rw")
+                apkTransfers[id] = ApkTransfer(
+                    file, output, expectedSize, expectedSha256.uppercase()
+                )
+                "status=ready; transfer_id=$id; max_chunk_bytes=$MAX_CHUNK_BYTES"
+            }.getOrElse {
+                partialFile?.delete()
+                "status=error; reason=${it.javaClass.simpleName}"
+            }
+        }
     }
 
     override fun writeApkInstallChunk(transferId: String, offset: Long, chunk: ByteArray): String {
@@ -236,6 +296,8 @@ class FridayShellService : IFridayShellService.Stub() {
 
     private companion object {
         const val MAX_APK_BYTES = 200L * 1024L * 1024L
+        const val MAX_ACTIVE_TRANSFERS = 1
+        const val MAX_COMMAND_OUTPUT_CHARS = 12_000
         const val MAX_CHUNK_BYTES = 128 * 1024
         const val INSTALL_TIMEOUT_SECONDS = 180L
         val SHA256 = Regex("[0-9a-fA-F]{64}")

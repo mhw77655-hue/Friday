@@ -163,7 +163,7 @@ class FridayRuntimeService : Service() {
         // stop the microphone after it successfully took ownership during an
         // explicit visible ACTION_START_WITH_MICROPHONE handoff.
         if (microphoneOwned) {
-            FridayMic.stop()
+            FridayMic.stopAsync()
         }
         microphoneOwned = false
         FridayRuntimeController.setMicrophoneServiceActive(this, false)

@@ -15,6 +15,7 @@ import android.app.NotificationManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ForegroundInfo
 import androidx.work.CoroutineWorker
@@ -36,21 +37,27 @@ import java.util.concurrent.TimeUnit
  * First-run resident model acquisition.
  *
  * Friday first measures the actual host, then downloads only the pinned
- * resident asset when the live NAE budget admits it. WorkManager waits for
- * unmetered Wi-Fi, charging, adequate battery and non-low storage. A host that
- * cannot currently admit the model is recorded as waiting, not retried forever.
+ * resident asset when live NAE admission allows it. The one-time host report
+ * proves the native runtime exists; it is never reused as a live RAM/thermal
+ * budget. Blocked candidates retry with bounded WorkManager backoff until the
+ * phone cools or enough resources become available.
  */
 /**
  * Resident candidates ordered from highest capability to smallest safe fallback.
- * Only assets with a pinned digest and a host-budget-compatible minimum size
- * can enter the download queue.
+ * Only assets with a pinned digest and enough current private storage can enter
+ * the download queue; installed assets remain eligible when free storage is low.
  */
-internal fun residentBootstrapCandidates(modelBudgetBytes: Long): List<OfflineModelAsset> {
-    if (modelBudgetBytes <= 0L) return emptyList()
+internal fun residentBootstrapCandidates(
+    availableStorageBytes: Long,
+    installedAssetIds: Set<String> = emptySet(),
+    minimumFreeBytes: Long = 128L * 1024L * 1024L
+): List<OfflineModelAsset> {
+    if (availableStorageBytes < 0L || minimumFreeBytes < 0L) return emptyList()
+    val downloadableBudget = (availableStorageBytes - minimumFreeBytes).coerceAtLeast(0L)
     return listOf(OfflineModelCatalog.resident, OfflineModelCatalog.tinyFallback)
         .filter { asset ->
             !asset.sha256.isNullOrBlank() &&
-                asset.expectedMinimumBytes <= modelBudgetBytes
+                (asset.id in installedAssetIds || asset.expectedMinimumBytes <= downloadableBudget)
         }
 }
 
@@ -78,12 +85,25 @@ class ResidentModelBootstrapWorker(
             }
 
             val downloader = OfflineModelDownloader(applicationContext)
-            val modelBudgetBytes = hostReport.optJSONObject("configuration")
-                ?.optLong("recommended_model_max_bytes", 0L) ?: 0L
-            // Select the strongest verified resident candidate that the measured
-            // host budget and live NAE admission both allow. Never download an
-            // unpinned fallback or force the primary model onto a constrained phone.
-            val candidates = residentBootstrapCandidates(modelBudgetBytes)
+            // The one-time host-bootstrap report is an identity/runtime probe,
+            // not a live resource budget. Its recommendation becomes stale as
+            // soon as RAM or thermal conditions change. Use current free storage
+            // for download eligibility and let NAE re-measure RAM/CPU/thermal
+            // independently for every candidate.
+            val pinnedAssets = listOf(OfflineModelCatalog.resident, OfflineModelCatalog.tinyFallback)
+                .filter { !it.sha256.isNullOrBlank() }
+            val installedAssetIds = pinnedAssets.filter { downloader.isInstalled(it) }
+                .map { it.id }.toSet()
+            val candidates = residentBootstrapCandidates(
+                availableStorageBytes = downloader.availableStorageBytes(),
+                installedAssetIds = installedAssetIds,
+                minimumFreeBytes = MIN_FREE_BYTES
+            )
+            if (candidates.isEmpty()) {
+                val reason = "No pinned resident candidate fits the current private-storage budget; Friday will recheck automatically."
+                recordState("WAITING_FOR_STORAGE", reason)
+                return Result.retry()
+            }
             val selected = candidates.firstNotNullOfOrNull { candidate ->
                 val gate = resourceGovernor.admitModel(
                     modelBytes = candidate.expectedMinimumBytes,
@@ -92,24 +112,24 @@ class ResidentModelBootstrapWorker(
                 if (gate.allowed) candidate to gate else null
             }
             if (selected == null) {
-                val reason = "Friday's measured host budget cannot safely admit a pinned resident model. The Builder remains queued."
+                val reason = "Current live RAM, CPU or thermal conditions cannot safely admit a pinned resident model; Friday will remeasure automatically."
                 recordState("WAITING_FOR_HOST_CAPACITY", reason)
-                return Result.success(workDataOf("state" to "WAITING_FOR_HOST_CAPACITY", "reason" to reason))
+                return Result.retry()
             }
             val asset = selected.first
             val admission = selected.second
-            val alreadyInstalled = downloader.isInstalled(asset)
+            val alreadyInstalled = asset.id in installedAssetIds
             if (!alreadyInstalled) {
                 if (!isSafeToDownload()) {
                     val reason = "The selected verified resident model is queued until Friday has validated unmetered internet and the phone is charging."
                     recordState("WAITING_FOR_SAFE_DOWNLOAD_WINDOW", reason)
-                    return Result.success(workDataOf("state" to "WAITING_FOR_SAFE_DOWNLOAD_WINDOW", "reason" to reason))
+                    return Result.retry()
                 }
                 val requiredBytes = asset.expectedMinimumBytes + MIN_FREE_BYTES
                 if (downloader.availableStorageBytes() < requiredBytes) {
                     val reason = "Insufficient private storage for the selected pinned resident model plus the safety reserve."
                     recordState("WAITING_FOR_STORAGE", reason)
-                    return Result.success(workDataOf("state" to "WAITING_FOR_STORAGE", "reason" to reason))
+                    return Result.retry()
                 }
             }
 
@@ -232,6 +252,7 @@ class ResidentModelBootstrapWorker(
         private const val PERIODIC_WORK_NAME = "friday-resident-model-bootstrap-periodic"
         private const val RESIDENT_CONTEXT_TOKENS = 2048
         private const val MIN_FREE_BYTES = 128L * 1024L * 1024L
+        private const val RETRY_BACKOFF_MINUTES = 15L
         private const val NOTIFICATION_ID = 7401
 
         fun enqueue(context: Context) {
@@ -244,7 +265,13 @@ class ResidentModelBootstrapWorker(
                 .build()
             // First run is unconstrained so an already-installed model can load
             // offline. The worker itself refuses large downloads unless safe.
-            val initial = OneTimeWorkRequestBuilder<ResidentModelBootstrapWorker>().build()
+            val initial = OneTimeWorkRequestBuilder<ResidentModelBootstrapWorker>()
+                .setBackoffCriteria(
+                    BackoffPolicy.EXPONENTIAL,
+                    RETRY_BACKOFF_MINUTES,
+                    TimeUnit.MINUTES
+                )
+                .build()
             manager.enqueueUniqueWork(UNIQUE_WORK_NAME, ExistingWorkPolicy.KEEP, initial)
             val periodic = PeriodicWorkRequestBuilder<ResidentModelBootstrapWorker>(
                 12, TimeUnit.HOURS
