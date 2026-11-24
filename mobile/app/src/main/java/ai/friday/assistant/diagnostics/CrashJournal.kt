@@ -95,11 +95,11 @@ object CrashJournal {
             stream.write(record.toString().toByteArray(Charsets.UTF_8))
             stream.flush()
             atomic.finishWrite(stream)
-            pruneOldRecords(application)
         } catch (error: Throwable) {
             atomic.failWrite(stream)
             throw error
         }
+        runCatching { pruneOldRecords(application) }
     }
 
     private fun fileFor(application: Application): File =
