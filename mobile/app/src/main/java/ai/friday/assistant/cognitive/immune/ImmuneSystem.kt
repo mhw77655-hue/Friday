@@ -51,6 +51,7 @@ class ImmuneSystem(
     private val recoveryLocks = ConcurrentHashMap<String, java.util.concurrent.locks.ReentrantLock>()
     private val recoveryAttempts = ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>()
     private val relatedCapabilityByOperation = ConcurrentHashMap<String, String>()
+    private val observedFailureIds = ConcurrentHashMap.newKeySet<String>()
 
     fun breaker(subsystem: String, operation: String): CircuitBreaker =
         breakers.computeIfAbsent(key(subsystem, operation)) { breakerFactory(it) }
@@ -62,6 +63,7 @@ class ImmuneSystem(
      * thread. RecoveryController remains the sole async retry executor.
      */
     fun observe(event: FailureEvent) {
+        if (!observedFailureIds.add(event.id)) return
         val report = FailureReport(
             subsystem = event.subsystem,
             operation = event.operation,
@@ -135,6 +137,10 @@ class ImmuneSystem(
             relatedCapabilityByOperation[operationKey] = report.relatedCapability
         }
         val event = surface.report(report)
+        // The live FailureSurface listener may also observe this event. Claim
+        // it here so this direct path and the asynchronous bus path cannot
+        // increment breakers or memory twice for one incident.
+        observedFailureIds.add(event.id)
         emit(CognitiveEvent.FailureDetected(event, report.failureCause))
 
         // ── classify
