@@ -120,6 +120,7 @@ object FridayEngine {
     @Volatile private var streamingTts: StreamingTts? = null
     @Volatile private var visualStateBridge: VisualStateBridge? = null
     @Volatile private var failureSurface: ai.friday.assistant.failure.FailureSurface? = null
+    @Volatile private var mainThreadLivenessMonitor: ai.friday.assistant.failure.MainThreadLivenessMonitor? = null
     @Volatile private var failureStore: ai.friday.assistant.failure.FailureStore? = null
     @Volatile private var recoveryController: ai.friday.assistant.failure.RecoveryController? = null
     @Volatile private var selfDiagnosis: ai.friday.assistant.failure.SelfDiagnosis? = null
@@ -189,6 +190,14 @@ object FridayEngine {
         // even storage/backend construction failures can be recorded.
         val failureSurface = ai.friday.assistant.failure.FailureSurface()
         this.failureSurface = failureSurface
+        // This watchdog is intentionally independent of EngineContainment.scope:
+        // it must still report a blocked main looper if the engine's own scope
+        // or one of its organs is stalled.
+        if (mainThreadLivenessMonitor == null) {
+            mainThreadLivenessMonitor = runCatching {
+                ai.friday.assistant.failure.MainThreadLivenessMonitor(failureSurface).also { it.start() }
+            }.getOrNull()
+        }
 
         // Synchronous section: pure object-graph construction (no network, no
         // disk beyond mkdirs, no coroutine launches beyond each store's lazy
