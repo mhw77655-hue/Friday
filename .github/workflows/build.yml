@@ -199,7 +199,10 @@ jobs:
       # restores the source before the full test suite and uses only this
       # disposable CI checkout.
       - name: Prove authorization tests kill a deliberate mutant
-        if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
+        # The destructive mutation campaign deliberately rebuilds/reruns seven
+        # suites repeatedly. Keep it on explicit deep-validation runs rather
+        # than delaying every install-candidate APK and its normal test gates.
+        if: ${{ github.event_name == 'workflow_dispatch' && !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
         run: bash tools/friday-builder/verify_mutation_sensitivity.sh
 
       # Exercise the production release variant on every complete CI run.
