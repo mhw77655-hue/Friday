@@ -203,7 +203,15 @@ class ActionTraceStore(
 
     fun clear() = synchronized(monitor) {
         withFileLock {
-            if (journalFile.exists()) journalFile.delete()
+            if (journalFile.exists()) {
+                val deleted = journalFile.delete()
+                check(deleted || !journalFile.exists()) {
+                    "Could not delete the local action journal; existing evidence was preserved."
+                }
+            }
+            check(!journalFile.exists()) {
+                "The local action journal still exists after the clear operation."
+            }
         }
     }
 
