@@ -125,7 +125,7 @@ class MainThreadLivenessMonitor(
 
     companion object {
         const val DEFAULT_INTERVAL_MS = 1_000L
-        const val DEFAULT_TIMEOUT_MS = 5_000L
+        const val DEFAULT_TIMEOUT_MS = 3_500L // report before Android's common 5s input-dispatch ANR threshold
         const val SUBSYSTEM = "ANDROID_UI"
         const val OPERATION = "main-thread-liveness"
     }
