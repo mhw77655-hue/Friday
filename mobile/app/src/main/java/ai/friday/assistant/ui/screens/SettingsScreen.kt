@@ -294,7 +294,7 @@ fun SettingsScreen() {
                     }
                     when (result) {
                         is FridayUpdateClient.Result.UpToDate -> {
-                            updateStateStore.clearStaged()
+                            withContext(Dispatchers.IO) { updateStateStore.clearStaged() }
                             updateStatus = "Friday is up to date (version code ${result.installedVersionCode})."
                             updateStateStore.recordStatus(updateStatus)
                         }
@@ -761,24 +761,25 @@ fun SettingsScreen() {
 
         Button(
             onClick = {
-                val token = githubCredentialStore.read()
-                if (token == null) {
-                    githubDevelopmentStatus = "Save a GitHub credential first."
-                } else {
-                    githubBusy = true
-                    scope.launch {
-                        val result = runCatching {
-                            withContext(Dispatchers.IO) {
-                                ai.friday.assistant.github.reporting.GitHubDevelopmentRepositoryClient(token)
-                                    .verifyDevelopmentAccess()
-                            }
-                        }
-                        githubDevelopmentStatus = result.fold(
-                            onSuccess = { it },
-                            onFailure = { it.message ?: "GitHub development access check failed." }
-                        )
+                githubBusy = true
+                scope.launch {
+                    val token = withContext(Dispatchers.IO) { githubCredentialStore.read() }
+                    if (token == null) {
+                        githubDevelopmentStatus = "Save a GitHub credential first."
                         githubBusy = false
+                        return@launch
                     }
+                    val result = runCatching {
+                        withContext(Dispatchers.IO) {
+                            ai.friday.assistant.github.reporting.GitHubDevelopmentRepositoryClient(token)
+                                .verifyDevelopmentAccess()
+                        }
+                    }
+                    githubDevelopmentStatus = result.fold(
+                        onSuccess = { it },
+                        onFailure = { it.message ?: "GitHub development access check failed." }
+                    )
+                    githubBusy = false
                 }
             },
             enabled = githubConfigured && !githubBusy,
