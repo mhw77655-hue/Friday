@@ -1,5 +1,8 @@
 package ai.friday.assistant.diagnostics
 
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+
 import org.json.JSONArray
 import org.json.JSONObject
 import android.util.Log
@@ -460,22 +463,31 @@ object PhoneActionDiagnostics {
         }
     }
 
-    /** Suspendable clear for UI actions that must report the actual disk outcome. */
-    suspend fun clearAndAwait() = withContext(Dispatchers.IO) {
-        val activeStore = store ?: return@withContext
-        val completed = CountDownLatch(1)
-        var failure: Exception? = null
-        ioExecutor.execute {
+    /**
+     * Clear after all earlier journal writes, without blocking a Dispatchers.IO
+     * worker on a CountDownLatch. The serial executor preserves write ordering;
+     * the timeout is surfaced to Settings as an explicit failure.
+     */
+    suspend fun clearAndAwait() = kotlinx.coroutines.withTimeout(6_000) {
+        kotlinx.coroutines.suspendCancellableCoroutine<Unit> { continuation ->
+            val activeStore = store
+            if (activeStore == null) {
+                continuation.resume(Unit)
+                return@suspendCancellableCoroutine
+            }
             try {
-                activeStore.clear()
-                cachedEventCount.set(0)
-            } catch (error: Exception) {
-                failure = error
-            } finally {
-                completed.countDown()
+                ioExecutor.execute {
+                    try {
+                        activeStore.clear()
+                        cachedEventCount.set(0)
+                        if (continuation.isActive) continuation.resume(Unit)
+                    } catch (failure: Throwable) {
+                        if (continuation.isActive) continuation.resumeWithException(failure)
+                    }
+                }
+            } catch (failure: Throwable) {
+                if (continuation.isActive) continuation.resumeWithException(failure)
             }
         }
-        check(completed.await(5, TimeUnit.SECONDS)) { "local action journal clear timed out" }
-        failure?.let { throw it }
     }
 }
