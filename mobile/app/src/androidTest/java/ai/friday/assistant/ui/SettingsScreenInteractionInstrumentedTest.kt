@@ -47,7 +47,9 @@ class SettingsScreenInteractionInstrumentedTest {
 
         compose.waitForIdle()
         compose.onNodeWithText("Clear local journal").performClick()
-        compose.waitUntil(10_000) {
+        // Prove the click handler ran before waiting for the disk operation.
+        compose.onNodeWithText("Clearing local action journal…").assertExists()
+        compose.waitUntil(9_000) {
             compose.onAllNodesWithText("Local action journal cleared.", substring = true)
                 .fetchSemanticsNodes().isNotEmpty() ||
                 compose.onAllNodesWithText("Could not clear the local journal.", substring = true)
@@ -86,7 +88,9 @@ class SettingsScreenInteractionInstrumentedTest {
 
         compose.waitForIdle()
         compose.onNodeWithText("Remove key").performClick()
-        compose.waitUntil(10_000) {
+        // Distinguish a dead click handler from a storage operation that stalls.
+        compose.onNodeWithText("Removing Jev credential…").assertExists()
+        compose.waitUntil(9_000) {
             compose.onAllNodesWithText(
                 "Jev credential removed. Friday continues with local deterministic command handling.",
                 substring = true
