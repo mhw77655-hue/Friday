@@ -5,6 +5,7 @@ import ai.friday.assistant.microsystem.MicroSystemRegistry
 import ai.friday.assistant.microsystem.OperationResult
 import ai.friday.assistant.microsystem.SyncMessage
 import ai.friday.assistant.microsystem.isCapabilityCallable
+import ai.friday.assistant.microsystem.isRoutable
 import ai.friday.assistant.organism.manifests
 
 /**
