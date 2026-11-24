@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.CancellationException
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
@@ -135,6 +137,7 @@ class SystemTTSEngine(
     @Volatile private var currentUtteranceId: String? = null
     @Volatile private var _isSpeaking = false
     private var initialization: CompletableDeferred<Boolean>? = null
+    @Volatile private var currentSpeakCompletion: CompletableDeferred<Boolean>? = null
     private val initLock = Any()
 
     override suspend fun initialize(): Boolean {
@@ -206,6 +209,11 @@ class SystemTTSEngine(
             engine.setSpeechRate(safeSpeechRate)
 
             val utteranceId = params.utteranceId
+            val completion = CompletableDeferred<Boolean>()
+            synchronized(initLock) {
+                currentSpeakCompletion?.complete(false)
+                currentSpeakCompletion = completion
+            }
             currentUtteranceId = utteranceId
             _isSpeaking = true
 
@@ -222,17 +230,35 @@ class SystemTTSEngine(
             val resultCode = engine.speak(finalText, TextToSpeech.QUEUE_FLUSH, paramsBundle, utteranceId)
 
             if (resultCode != TextToSpeech.SUCCESS) {
+                completion.complete(false)
+                synchronized(initLock) {
+                    if (currentSpeakCompletion === completion) currentSpeakCompletion = null
+                }
                 _isSpeaking = false
+                currentUtteranceId = null
                 return@withContext SpeakResult.Failure("Speak failed with code: $resultCode")
             }
 
-            // Wait for completion (simplified - in production use UtteranceProgressListener)
-            // For now, estimate duration
-            val estimatedDuration = estimateSystemTtsDurationMs(text.length, safeSpeechRate)
-            Thread.sleep(estimatedDuration)
-            _isSpeaking = false
-
-            SpeakResult.Success(null, estimatedDuration)
+            // The platform callback is not wired in this fallback yet, so retain
+            // the conservative duration estimate without occupying an IO thread.
+            val estimatedDuration = estimateSystemTtsDurationMs(finalText.length, safeSpeechRate)
+            try {
+                val completedNormally = withTimeoutOrNull(estimatedDuration) { completion.await() } ?: true
+                if (completedNormally) {
+                    SpeakResult.Success(null, estimatedDuration)
+                } else {
+                    SpeakResult.Failure("TTS speech was interrupted")
+                }
+            } catch (cancelled: CancellationException) {
+                engine.stop()
+                throw cancelled
+            } finally {
+                synchronized(initLock) {
+                    if (currentSpeakCompletion === completion) currentSpeakCompletion = null
+                }
+                if (currentUtteranceId == utteranceId) currentUtteranceId = null
+                _isSpeaking = false
+            }
         } ?: SpeakResult.Failure("TTS not initialized")
     }
 
@@ -270,6 +296,8 @@ class SystemTTSEngine(
             initialized = false
             initialization?.cancel()
             initialization = null
+            currentSpeakCompletion?.complete(false)
+            currentSpeakCompletion = null
             tts?.stop()
             tts?.shutdown()
             tts = null
