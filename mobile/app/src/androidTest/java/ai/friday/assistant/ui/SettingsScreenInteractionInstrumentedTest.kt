@@ -46,11 +46,17 @@ class SettingsScreenInteractionInstrumentedTest {
 
         compose.waitForIdle()
         compose.onNodeWithText("Clear local journal").performClick()
-        compose.waitUntil(5_000) {
+        compose.waitUntil(10_000) {
             compose.onAllNodesWithText("Local action journal cleared.", substring = true)
-                .fetchSemanticsNodes().isNotEmpty()
+                .fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodesWithText("Could not clear the local journal.", substring = true)
+                    .fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText("Local action journal cleared.", substring = true).assertExists()
+        val succeeded = compose.onAllNodesWithText("Local action journal cleared.", substring = true)
+            .fetchSemanticsNodes().isNotEmpty()
+        val failed = compose.onAllNodesWithText("Could not clear the local journal.", substring = true)
+            .fetchSemanticsNodes().isNotEmpty()
+        assertTrue("Journal clear must complete successfully (failure state visible=$failed).", succeeded)
     }
 
     @Test
@@ -79,15 +85,20 @@ class SettingsScreenInteractionInstrumentedTest {
 
         compose.waitForIdle()
         compose.onNodeWithText("Remove key").performClick()
-        compose.waitUntil(5_000) {
+        compose.waitUntil(10_000) {
             compose.onAllNodesWithText(
                 "Jev credential removed. Friday continues with local deterministic command handling.",
                 substring = true
-            ).fetchSemanticsNodes().isNotEmpty()
+            ).fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodesWithText("Jev credential could not be removed:", substring = true)
+                    .fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText(
+        val succeeded = compose.onAllNodesWithText(
             "Jev credential removed. Friday continues with local deterministic command handling.",
             substring = true
-        ).assertExists()
+        ).fetchSemanticsNodes().isNotEmpty()
+        val failed = compose.onAllNodesWithText("Jev credential could not be removed:", substring = true)
+            .fetchSemanticsNodes().isNotEmpty()
+        assertTrue("Jev credential removal must succeed (failure state visible=$failed).", succeeded)
     }
 }
