@@ -7,7 +7,6 @@ import ai.friday.assistant.voice.JevApiKeyStore
 import androidx.test.core.app.ApplicationProvider
 import android.content.Context
 import androidx.compose.ui.test.assertHasClickAction
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -72,7 +71,7 @@ class SettingsScreenInteractionInstrumentedTest {
         compose.onNodeWithText("Clear local journal").performScrollTo()
         compose.waitForIdle()
         compose.onNodeWithText("Clear local journal").assertIsDisplayed().performClick()
-        compose.onNodeWithText("Clearing local action journal…", substring = true).assertExists()
+        compose.onNodeWithText("Clearing local action journal…", substring = true).assertIsDisplayed()
         compose.waitUntil(9_000) {
             compose.onAllNodesWithText("Local action journal cleared.", substring = true).fetchSemanticsNodes().isNotEmpty() ||
                 compose.onAllNodesWithText("Could not clear the local journal.", substring = true).fetchSemanticsNodes().isNotEmpty()
