@@ -259,10 +259,10 @@ object FridayEngine {
                         // Bound the probe itself. A hung provider must count as
                         // a failed recovery attempt, not pin the recovery worker.
                         kotlinx.coroutines.withTimeoutOrNull(7_000) {
-                            modelManager.health()
+                            FridayEngine.modelManager?.health()
                         } != null
                     },
-                    verify = { modelManager.providerHealth.value.isHealthy },
+                    verify = { FridayEngine.modelManager?.providerHealth?.value?.isHealthy == true },
                     verificationTimeoutMs = 5_000,
                     verificationPollMs = 100
                 )
