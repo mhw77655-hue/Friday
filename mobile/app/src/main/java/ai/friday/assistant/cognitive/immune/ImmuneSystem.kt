@@ -56,6 +56,70 @@ class ImmuneSystem(
         breakers.computeIfAbsent(key(subsystem, operation)) { breakerFactory(it) }
 
     /**
+     * Observe a failure that has ALREADY been published to the canonical
+     * FailureSurface. This is the live-runtime integration seam: it must not
+     * publish the event again or start synchronous recovery on the caller's
+     * thread. RecoveryController remains the sole async retry executor.
+     */
+    fun observe(event: FailureEvent) {
+        val report = FailureReport(
+            subsystem = event.subsystem,
+            operation = event.operation,
+            severity = event.severity,
+            category = event.category,
+            message = event.message,
+            source = event.source,
+            cause = event.cause,
+            state = event.state,
+            dependency = event.dependency,
+            recoverability = event.recoverability,
+            correlationId = event.correlationId,
+            attempt = event.attempt,
+            recoveryAction = event.recoveryAction,
+            metadata = event.metadata,
+            userMessage = event.userMessage,
+            failureCause = event.failureCause,
+            relatedStepId = event.relatedStepId,
+            relatedCapability = event.relatedCapability,
+            environment = event.environment,
+            rootCauseHypothesis = event.rootCauseHypothesis,
+            resourceState = event.resourceState
+        )
+        val operationKey = key(report.subsystem, report.operation)
+        if (report.relatedCapability == null) relatedCapabilityByOperation.remove(operationKey)
+        else relatedCapabilityByOperation[operationKey] = report.relatedCapability
+
+        emit(CognitiveEvent.FailureDetected(event, report.failureCause))
+        val cause = report.failureCause ?: FailureCause.UNKNOWN
+        emit(CognitiveEvent.FailureClassified(event, cause, backoffPolicy.isRetryable(cause)))
+
+        val dependents = dependencyGraph.affectedDependents(report.subsystem)
+        val isolated = containment.setStatus(report.subsystem, ContainmentStatus.ISOLATED)
+        dependents.forEach { dependent ->
+            if (containment.statusOf(dependent) == ContainmentStatus.HEALTHY) {
+                containment.setStatus(dependent, ContainmentStatus.DEGRADED)
+            }
+        }
+        if (isolated != null) {
+            emit(CognitiveEvent.ContainmentStarted(report.subsystem, ContainmentStatus.ISOLATED, dependents))
+        }
+        report.relatedCapability?.let { capability ->
+            degradation.enter(capability, DegradationLevel.DEGRADED)?.let { (_, level) ->
+                emit(CognitiveEvent.DegradedModeEntered(capability, level))
+            }
+        }
+        val circuit = breaker(report.subsystem, report.operation)
+        val wasClosed = circuit.isClosed
+        circuit.onFailure()
+        if (wasClosed && circuit.isOpen) {
+            emit(CognitiveEvent.CircuitOpened(operationKey, circuit.failureCount))
+        }
+        // The existing RecoveryController owns retries. This observer records
+        // the incident without attempting a second, competing recovery path.
+        remember(report, report.recoveryAction, RecoveryResult.NOT_ATTEMPTED)
+    }
+
+    /**
      * One failure through the pipeline.
      *
      * @param recoveryFn performs ONE recovery attempt; returns true when the
