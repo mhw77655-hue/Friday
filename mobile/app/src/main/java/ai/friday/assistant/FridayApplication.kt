@@ -2,7 +2,6 @@ package ai.friday.assistant
 
 import android.app.Application
 import android.os.Build
-import android.os.Process
 import android.util.Log
 import java.io.File
 import androidx.lifecycle.Lifecycle
