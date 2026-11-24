@@ -35,7 +35,6 @@ class FridayApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        LocalTurnJournal.initialize(this)
         // Preserve a sanitized crash signature for the next user-exported report.
         // Install in every process so isolated voice/inference crashes are visible too.
         ai.friday.assistant.diagnostics.CrashJournal.install(this)
@@ -45,6 +44,9 @@ class FridayApplication : Application() {
         // process owns Friday's cognitive composition root and lifecycle.
         // Secondary capability habitats construct only their own organs.
         if (currentProcessName() != packageName) return
+        // The conversation journal is owned by the main process only; secondary
+        // processes must not append to the same JSONL stream concurrently.
+        LocalTurnJournal.initialize(this)
         // Start the cognitive composition root without blocking Application.onCreate.
         FridayEngine.initAsync(this)
         // Binder checks, package-state reads and WorkManager scheduling can touch
