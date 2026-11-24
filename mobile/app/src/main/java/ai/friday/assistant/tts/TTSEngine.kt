@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
@@ -110,6 +111,11 @@ data class HealthStatus(
     val error: String? = null
 )
 
+internal fun estimateSystemTtsDurationMs(textLength: Int, speechRate: Float): Long {
+    val safeRate = speechRate.takeIf { it.isFinite() && it > 0f }?.coerceIn(0.1f, 4f) ?: 1f
+    return (textLength.coerceAtLeast(0) * 50f / safeRate).toLong().coerceAtLeast(500L)
+}
+
 /** System TTS Engine (Android TextToSpeech) */
 class SystemTTSEngine(
     private val context: Context,
@@ -124,48 +130,78 @@ class SystemTTSEngine(
     override val estimatedLatencyMs = 300L
     override val ramEstimateMb = 20L
 
-    private var tts: TextToSpeech? = null
-    private var currentUtteranceId: String? = null
-    private var _isSpeaking = false
+    @Volatile private var tts: TextToSpeech? = null
+    @Volatile private var initialized = false
+    @Volatile private var currentUtteranceId: String? = null
+    @Volatile private var _isSpeaking = false
+    private var initialization: CompletableDeferred<Boolean>? = null
     private val initLock = Any()
 
-    override suspend fun initialize(): Boolean = withContext(Dispatchers.IO) {
-        val alreadyInitialized = synchronized(initLock) {
-            if (tts != null) true else {
-                // TextToSpeech must be created on main thread for initialization
-                // We'll use a callback approach
-                val completer = kotlinx.coroutines.CompletableDeferred<Boolean>()
+    override suspend fun initialize(): Boolean {
+        val pending = withContext(Dispatchers.Main.immediate) {
+            synchronized(initLock) {
+                if (initialized) return@synchronized null
+                initialization?.let { return@synchronized it }
 
-                val ttsInstance = TextToSpeech(context.applicationContext) { status ->
-                    if (status == TextToSpeech.SUCCESS) {
-                        Log.i("SystemTTSEngine", "TTS initialized successfully")
-                        completer.complete(true)
-                    } else {
-                        Log.e("SystemTTSEngine", "TTS init failed: $status")
-                        completer.complete(false)
+                val completer = CompletableDeferred<Boolean>()
+                initialization = completer
+                val callbackResult = AtomicReference<Boolean?>(null)
+                val instanceRef = AtomicReference<TextToSpeech?>(null)
+
+                try {
+                    // TextToSpeech construction is performed on the main looper.
+                    val instance = TextToSpeech(context.applicationContext) { status ->
+                        val success = status == TextToSpeech.SUCCESS
+                        callbackResult.set(success)
+                        synchronized(initLock) {
+                            initialized = success
+                            if (!success) {
+                                tts = null
+                                initialization = null
+                            }
+                        }
+                        if (!success) instanceRef.get()?.shutdown()
+                        if (success) {
+                            Log.i("SystemTTSEngine", "TTS initialized successfully")
+                        } else {
+                            Log.e("SystemTTSEngine", "TTS init failed: $status")
+                        }
+                        completer.complete(success)
                     }
+                    instanceRef.set(instance)
+                    tts = instance
+                    callbackResult.get()?.let { success ->
+                        if (!success) {
+                            tts = null
+                            instance.shutdown()
+                        }
+                    }
+                } catch (failure: Exception) {
+                    initialized = false
+                    tts = null
+                    initialization = null
+                    Log.e("SystemTTSEngine", "TTS initialization could not start", failure)
+                    completer.complete(false)
                 }
-
-                tts = ttsInstance
                 completer
             }
         }
-
-        // Await outside the lock so the suspend point never holds the critical section.
-        (alreadyInitialized as? kotlinx.coroutines.CompletableDeferred<Boolean>)?.await()
-            ?: true
+        // Await outside the lock so concurrent callers share one initialization.
+        return pending?.await() ?: initialized
     }
 
     override suspend fun speak(text: String, language: String, params: SpeakParams): SpeakResult = withContext(Dispatchers.IO) {
         tts?.let { engine ->
             val locale = Locale.forLanguageTag(language)
+            if (!initialized) return@withContext SpeakResult.Failure("TTS initialization is still pending")
             val langResult = engine.setLanguage(locale)
             if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
                 return@withContext SpeakResult.Failure("Language not supported: $language")
             }
 
-            engine.setPitch(params.pitch)
-            engine.setSpeechRate(params.speechRate)
+            engine.setPitch(params.pitch.coerceIn(0.1f, 2.0f))
+            val safeSpeechRate = params.speechRate.takeIf { it.isFinite() && it > 0f }?.coerceIn(0.1f, 4f) ?: 1f
+            engine.setSpeechRate(safeSpeechRate)
 
             val utteranceId = params.utteranceId
             currentUtteranceId = utteranceId
@@ -190,7 +226,7 @@ class SystemTTSEngine(
 
             // Wait for completion (simplified - in production use UtteranceProgressListener)
             // For now, estimate duration
-            val estimatedDuration = (text.length * 50L / params.speechRate.toLong()).coerceAtLeast(500)
+            val estimatedDuration = estimateSystemTtsDurationMs(text.length, safeSpeechRate)
             Thread.sleep(estimatedDuration)
             _isSpeaking = false
 
@@ -221,21 +257,30 @@ class SystemTTSEngine(
         get() = _isSpeaking
 
     override fun getVoices(language: String): List<VoiceInfo> {
+        if (!initialized) return emptyList()
         return tts?.voices?.filter { it.locale.language == language.take(2) }
             ?.map { VoiceInfo(it.name, it.locale, TTSEngine.Quality.HIGH, it.isNetworkConnectionRequired) }
             ?.toList() ?: emptyList()
     }
 
     override fun shutdown() {
-        tts?.shutdown()
-        tts = null
+        synchronized(initLock) {
+            initialized = false
+            initialization?.cancel()
+            initialization = null
+            tts?.stop()
+            tts?.shutdown()
+            tts = null
+            _isSpeaking = false
+            currentUtteranceId = null
+        }
     }
 
     override suspend fun healthCheck(): HealthStatus = withContext(Dispatchers.IO) {
         HealthStatus(
-            isHealthy = tts != null,
+            isHealthy = initialized && tts != null,
             latencyMs = estimatedLatencyMs,
-            error = if (tts == null) "Not initialized" else null
+            error = if (!initialized || tts == null) "Not initialized" else null
         )
     }
 
