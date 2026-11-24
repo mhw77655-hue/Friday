@@ -116,7 +116,7 @@ class CameraPresenceController(context: Context) {
         executor.shutdown()
     }
 
-    @OptIn(ExperimentalGetImage::class)
+    @androidx.annotation.OptIn(markerClass = [ExperimentalGetImage::class])
     private fun analyze(proxy: androidx.camera.core.ImageProxy) {
         val now = android.os.SystemClock.elapsedRealtime()
         // Two observations per second are enough for presence/attention and
