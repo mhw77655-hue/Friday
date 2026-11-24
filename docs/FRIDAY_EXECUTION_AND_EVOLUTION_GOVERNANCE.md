@@ -253,6 +253,18 @@ The repair candidate has since added a non-null Shizuku UserService process-name
 
 A separate CI artifact named `app-debug.apk` was retrieved from workflow run `45476957875`. It is a debug build of the then-current repair candidate, not the owner's `1.0.510` installed APK and not a release-signed artifact. It must not be represented as the APK contained in `New folder (1).zip`.
 
+### Concrete defects now under repair
+
+The supplied report and subsequent CI evidence exposed additional verification gaps that are now represented in the candidate:
+
+- The active diagnostic classifier previously failed to classify the observed string `Failures: ERROR — ENGINE: ERROR x1` as an error because it only recognized numeric "down/degraded" counts. It could therefore report zero diagnostic errors while the FailureSurface reported an active ENGINE failure. A pure severity classifier and regression tests now cover explicit errors, warnings, down/degraded counts, clean and unknown states.
+- The journal-clear action showed a Toast after an asynchronous journal operation. The failing instrumented run exposed a Looper/thread crash on this feedback path. The candidate removes the redundant Toast and explicitly returns to Main before updating Compose state.
+- The Keep Friday alive setting used an asynchronous lifecycle snapshot and independent service polls without a revision guard. A stale read could overwrite a newer owner toggle in the visible UI. The candidate gates snapshot/poll updates by a local revision, exposes a stable test tag, catches Android foreground-service start/stop runtime exceptions without discarding the owner's persisted preference, and tests the preference through the real Settings switch.
+- The System screen diagnosis buttons previously had no visible completion identity for a manual rerun; self-diagnosis also had no running/disabled state. The candidate exposes completed run counters/timestamps, progress labels and instrumented tests that prove each button causes a new run.
+- The earlier Jev-removal and journal-clear instrumented tests scrolled controls and asserted visibility immediately. The candidate waits for Compose idle after scrolling before tapping. This corrects the test's viewport synchronization; only the subsequent instrumented result can establish whether the credential-removal production path itself is correct.
+
+These are candidate changes, not accepted repairs until the current workflow passes. The previous 32/34 instrumented result remains historical evidence and must not be overwritten by the newer candidate's claims.
+
 ### Required next physical-device checks
 
 1. Install the exact candidate build and record its version, source revision, digest and signing identity.
