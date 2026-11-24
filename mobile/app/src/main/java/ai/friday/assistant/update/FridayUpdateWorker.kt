@@ -90,17 +90,15 @@ class FridayUpdateWorker(
         ) return
 
         val manager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            manager.createNotificationChannel(
-                NotificationChannel(
-                    CHANNEL_ID,
-                    "Friday updates",
-                    NotificationManager.IMPORTANCE_DEFAULT
-                ).apply {
-                    description = "Verified Friday updates waiting for an authorized installer"
-                }
-            )
-        }
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_ID,
+                "Friday updates",
+                NotificationManager.IMPORTANCE_DEFAULT
+            ).apply {
+                description = "Verified Friday updates waiting for an authorized installer"
+            }
+        )
         val openFriday = Intent(applicationContext, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }

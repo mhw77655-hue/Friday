@@ -179,7 +179,7 @@ dependencies {
     implementation("org.apache.commons:commons-compress:1.26.2")
 
     // ONNX Runtime for Silero VAD
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.16.3")
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.32.0")
 
     // Human Core unit tests run as pure JVM tests (no device). The Android
     // platform org.json is only a stub under test, so the real org.json jar is

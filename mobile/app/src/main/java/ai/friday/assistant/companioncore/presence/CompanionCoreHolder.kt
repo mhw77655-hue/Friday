@@ -81,10 +81,10 @@ object CompanionCoreHolder {
         val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
         val bm = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
         return {
-            // API 29+ only; below that the frame-miss watchdog is the sole
+            // API 30+ only; below that the frame-miss watchdog is the sole
             // throttling signal (spec §2.31 failure handling).
             val thermal: Float? =
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) pm.getThermalHeadroom(0) else null
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) pm.getThermalHeadroom(0) else null
             val status = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_STATUS)
             val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
                 status == BatteryManager.BATTERY_STATUS_FULL

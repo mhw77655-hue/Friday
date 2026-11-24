@@ -14,6 +14,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -25,7 +26,6 @@ import ai.friday.assistant.inbox.LocalTaskInbox
 import ai.friday.assistant.inbox.TaskEntry
 import ai.friday.assistant.ui.theme.FridayColors
 import ai.friday.assistant.ui.theme.FridayType
-import kotlinx.coroutines.flow.map
 
 /**
  * Task Inbox Screen — displays queued tasks awaiting execution.
@@ -36,12 +36,14 @@ fun TaskInboxScreen(
     taskInbox: LocalTaskInbox,
     onNavigate: (String) -> Unit
 ) {
-    val tasks by taskInbox.tasks
-        .map { list ->
-            list.filter { it.status == InboxTaskStatus.PENDING || it.status == InboxTaskStatus.RUNNING || it.status == InboxTaskStatus.WAITING_APPROVAL }
-                .map { TaskEntry.from(it) }
-        }
-        .collectAsStateWithLifecycle(initialValue = emptyList())
+    val inboxTasks by taskInbox.tasks.collectAsStateWithLifecycle(initialValue = emptyList())
+    val tasks = remember(inboxTasks) {
+        inboxTasks.filter {
+            it.status == InboxTaskStatus.PENDING ||
+                it.status == InboxTaskStatus.RUNNING ||
+                it.status == InboxTaskStatus.WAITING_APPROVAL
+        }.map { TaskEntry.from(it) }
+    }
 
     Column(
         modifier = Modifier

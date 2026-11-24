@@ -106,9 +106,12 @@ class AndroidMemoryGraphStore(
     }
 
     override fun nodeCount(): Long {
-        db.rawQuery("SELECT COUNT(*) FROM nodes", null).use { c ->
-            c.moveToFirst()
-            return c.getLong(0)
+        val cursor = db.rawQuery("SELECT COUNT(*) FROM nodes", null)
+        return try {
+            cursor.moveToFirst()
+            cursor.getLong(0)
+        } finally {
+            cursor.close()
         }
     }
 
@@ -162,28 +165,31 @@ class AndroidMemoryGraphStore(
 
     private fun queryNodes(sql: String, args: Array<out Any>): List<MemoryNode> {
         val out = mutableListOf<MemoryNode>()
-        db.rawQuery(sql, args.map { it.toString() }.toTypedArray()).use { c ->
-            while (c.moveToNext()) {
+        val cursor = db.rawQuery(sql, args.map { it.toString() }.toTypedArray())
+        try {
+            while (cursor.moveToNext()) {
                 out.add(
                     MemoryNode(
-                        id = c.getString(c.getColumnIndexOrThrow("id")),
-                        subject = c.getString(c.getColumnIndexOrThrow("subject")),
-                        predicate = c.getString(c.getColumnIndexOrThrow("predicate")),
-                        `object` = c.getString(c.getColumnIndexOrThrow("object")),
-                        source = c.getString(c.getColumnIndexOrThrow("source")),
-                        validFrom = c.getLong(c.getColumnIndexOrThrow("validFrom")),
-                        validUntil = c.longOrNull("validUntil"),
-                        supersededBy = c.stringOrNull("supersededBy"),
-                        accessibility = c.floatOrNull("accessibility"),
-                        relevance = c.floatOrNull("relevance"),
-                        importance = c.floatOrNull("importance"),
-                        uncertainty = c.floatOrNull("uncertainty"),
-                        novelty = c.floatOrNull("novelty"),
-                        consent = c.floatOrNull("consent"),
-                        cost = c.floatOrNull("cost")
+                        id = cursor.getString(cursor.getColumnIndexOrThrow("id")),
+                        subject = cursor.getString(cursor.getColumnIndexOrThrow("subject")),
+                        predicate = cursor.getString(cursor.getColumnIndexOrThrow("predicate")),
+                        `object` = cursor.getString(cursor.getColumnIndexOrThrow("object")),
+                        source = cursor.getString(cursor.getColumnIndexOrThrow("source")),
+                        validFrom = cursor.getLong(cursor.getColumnIndexOrThrow("validFrom")),
+                        validUntil = cursor.longOrNull("validUntil"),
+                        supersededBy = cursor.stringOrNull("supersededBy"),
+                        accessibility = cursor.floatOrNull("accessibility"),
+                        relevance = cursor.floatOrNull("relevance"),
+                        importance = cursor.floatOrNull("importance"),
+                        uncertainty = cursor.floatOrNull("uncertainty"),
+                        novelty = cursor.floatOrNull("novelty"),
+                        consent = cursor.floatOrNull("consent"),
+                        cost = cursor.floatOrNull("cost")
                     )
                 )
             }
+        } finally {
+            cursor.close()
         }
         return out
     }
@@ -217,13 +223,17 @@ class AndroidMemoryGraphStore(
          * database, so a v1 -> v2 upgrade adds only the columns that are truly
          * missing instead of relying on ALTER throwing for the ones that are not.
          */
-        private fun existingColumnNames(db: SQLiteDatabase): Set<String> =
-            db.rawQuery("PRAGMA table_info(nodes)", null).use { c ->
-                val nameIdx = c.getColumnIndexOrThrow("name")
+        private fun existingColumnNames(db: SQLiteDatabase): Set<String> {
+            val cursor = db.rawQuery("PRAGMA table_info(nodes)", null)
+            return try {
+                val nameIdx = cursor.getColumnIndexOrThrow("name")
                 val names = mutableSetOf<String>()
-                while (c.moveToNext()) names.add(c.getString(nameIdx))
+                while (cursor.moveToNext()) names.add(cursor.getString(nameIdx))
                 names
+            } finally {
+                cursor.close()
             }
+        }
 
         /**
          * v2 = v1 + the forward supersession pointer, the accessibility axis and

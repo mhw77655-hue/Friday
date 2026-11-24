@@ -279,15 +279,27 @@ class VideoIntakeRepository(context: Context) {
         status = optString("status")
     )
 
-    private fun queryDisplayName(uri: Uri): String? =
-        app.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
-            if (c.moveToFirst()) c.getString(c.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME)) else null
+    private fun queryDisplayName(uri: Uri): String? {
+        val cursor = app.contentResolver.query(
+            uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null
+        ) ?: return null
+        return try {
+            if (cursor.moveToFirst()) cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME)) else null
+        } finally {
+            cursor.close()
         }
+    }
 
-    private fun querySize(uri: Uri): Long =
-        app.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { c ->
-            if (c.moveToFirst()) c.getLong(c.getColumnIndexOrThrow(OpenableColumns.SIZE)) else -1L
-        } ?: -1L
+    private fun querySize(uri: Uri): Long {
+        val cursor = app.contentResolver.query(
+            uri, arrayOf(OpenableColumns.SIZE), null, null, null
+        ) ?: return -1L
+        return try {
+            if (cursor.moveToFirst()) cursor.getLong(cursor.getColumnIndexOrThrow(OpenableColumns.SIZE)) else -1L
+        } finally {
+            cursor.close()
+        }
+    }
 
     private fun readMetadata(file: File): Triple<Long, Int, Int> {
         val retriever = MediaMetadataRetriever()

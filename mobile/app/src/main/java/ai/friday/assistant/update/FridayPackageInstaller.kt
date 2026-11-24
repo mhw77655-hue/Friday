@@ -38,9 +38,7 @@ class FridayPackageInstaller(context: Context) {
         }
         val integrityProblem = FridayUpdateClient(appContext).verifyStagedArtifact(staged)
         if (integrityProblem != null) return Result.Rejected(integrityProblem)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-            !appContext.packageManager.canRequestPackageInstalls()
-        ) {
+        if (!appContext.packageManager.canRequestPackageInstalls()) {
             return Result.PermissionRequired(
                 Intent(
                     Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,

@@ -148,7 +148,7 @@ class DiagnosticRunner(private val app: Application) {
     private fun probePermissions(): List<DiagnosticFinding> {
         val required = listOf(
             android.Manifest.permission.RECORD_AUDIO to "Microphone permission",
-            android.Manifest.permission.POST_NOTIFICATIONS to "Notification permission"
+            "android.permission.POST_NOTIFICATIONS" to "Notification permission"
         )
         return required.map { (permission, title) ->
             val granted = app.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED

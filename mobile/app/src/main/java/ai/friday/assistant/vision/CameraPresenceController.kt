@@ -3,6 +3,7 @@ package ai.friday.assistant.vision
 import android.content.Context
 import android.util.Size
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -115,6 +116,7 @@ class CameraPresenceController(context: Context) {
         executor.shutdown()
     }
 
+    @androidx.annotation.OptIn(markerClass = [ExperimentalGetImage::class])
     private fun analyze(proxy: androidx.camera.core.ImageProxy) {
         val now = android.os.SystemClock.elapsedRealtime()
         // Two observations per second are enough for presence/attention and

@@ -19,7 +19,7 @@ object LanguageDetection {
                 c >= 'ݐ' && c <= 'ݿ' || // Arabic Supplement
                 c >= 'ࢠ' && c <= 'ࣿ' || // Arabic Extended-A
                 c >= 'ﭐ' && c <= '﷿' || // Arabic Presentation Forms-A
-                c >= 'ﹰ' && c <= '﻿'   // Arabic Presentation Forms-B
+                c >= 'ﹰ' && c <= '\uFEFF'   // Arabic Presentation Forms-B
         }
 
         return if (hasArabic) LanguageRouter.Language.EGYPTIAN_ARABIC else LanguageRouter.Language.ENGLISH

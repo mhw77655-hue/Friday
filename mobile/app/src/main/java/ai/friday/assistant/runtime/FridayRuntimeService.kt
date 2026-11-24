@@ -200,19 +200,17 @@ class FridayRuntimeService : Service() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val manager = getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(
-                NotificationChannel(
-                    CHANNEL_ID,
-                    "Friday runtime",
-                    NotificationManager.IMPORTANCE_LOW
-                ).apply {
-                    description = "Shows when Friday's persistent runtime is enabled."
-                    setShowBadge(false)
-                }
-            )
-        }
+        val manager = getSystemService(NotificationManager::class.java)
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_ID,
+                "Friday runtime",
+                NotificationManager.IMPORTANCE_LOW
+            ).apply {
+                description = "Shows when Friday's persistent runtime is enabled."
+                setShowBadge(false)
+            }
+        )
     }
 
     companion object {
@@ -304,7 +302,6 @@ object FridayRuntimeController {
     }
 
     fun batteryOptimizationIgnored(context: Context): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return true
         val power = context.getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
         return power.isIgnoringBatteryOptimizations(context.packageName)
     }

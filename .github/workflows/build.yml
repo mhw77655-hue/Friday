@@ -162,6 +162,20 @@ jobs:
         id: assemble-apk
         run: ./gradlew :mobile:app:assembleDebug
 
+      # Android Lint is a separate source/API/resource/accessibility gate.
+      - name: Run Android Lint on the debug variant
+        if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
+        run: ./gradlew :mobile:app:lintDebug
+
+      - name: Upload Android Lint report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-android-lint-report
+          path: mobile/app/build/reports/lint-results-debug.*
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Verify Friday launcher icon is packaged
         run: |
           set -euo pipefail

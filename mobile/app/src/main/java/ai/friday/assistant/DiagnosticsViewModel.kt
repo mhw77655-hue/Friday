@@ -450,7 +450,9 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 app.packageManager.getPackageInfo(app.packageName, 0).versionName
             }.getOrNull() ?: "unknown")
             .put("version_code", runCatching {
-                app.packageManager.getPackageInfo(app.packageName, 0).longVersionCode
+                androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(
+                    app.packageManager.getPackageInfo(app.packageName, 0)
+                )
             }.getOrDefault(-1L)))
         report.put("device", JSONObject()
             .put("manufacturer", Build.MANUFACTURER)
