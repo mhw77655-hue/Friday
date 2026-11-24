@@ -189,14 +189,15 @@ fun SettingsScreen() {
                 chatGptAccountLabel = chatGptAuth.accountLabel(),
                 updateStatus = updateStateStore.lastStatus(),
                 stagedUpdate = updateStateStore.loadStaged(),
-                actionTraceCount = ai.friday.assistant.diagnostics.PhoneActionDiagnostics.eventCountAfterFlush(),
+                // Settings must never wait on the journal's disk executor just to paint a count.
+                actionTraceCount = ai.friday.assistant.diagnostics.PhoneActionDiagnostics.eventCount(),
                 phoneControlConnected = ai.friday.assistant.voice.FridayAccessibilityService.isEnabled()
             )
         }
-        jevConfigured = settingsSnapshot.jevConfigured
         // Do not let a slow first-load snapshot overwrite a newer result from
         // an explicit Save/Remove action performed while that snapshot ran.
         if (jevStatus.startsWith("Checking Jev credential status")) {
+            jevConfigured = settingsSnapshot.jevConfigured
             jevStatus = if (settingsSnapshot.jevConfigured) {
                 "Jev credential stored securely; decision calls require internet."
             } else {
