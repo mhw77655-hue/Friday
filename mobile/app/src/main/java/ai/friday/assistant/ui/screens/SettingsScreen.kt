@@ -67,6 +67,7 @@ import ai.friday.assistant.ui.theme.FridayType
 import ai.friday.assistant.reverseengineering.InstalledApplicationCatalog
 import ai.friday.assistant.reverseengineering.InstalledApplicationTarget
 import ai.friday.assistant.reverseengineering.InstalledApkAnalyzer
+import ai.friday.assistant.reverseengineering.ApplicationKnowledgeStore
 
 private const val PREFS_NAME = "friday_settings"
 private const val KEY_PERSONA = "persona_text"
@@ -1191,11 +1192,15 @@ fun SettingsScreen() {
                             applicationLabStatus = "Analyzing ${target.label}…"
                             applicationLabReport = ""
                             val result = withContext(Dispatchers.IO) {
-                                runCatching { InstalledApkAnalyzer(context).analyze(target) }
+                                runCatching {
+                                    val report = InstalledApkAnalyzer(context).analyze(target)
+                                    val saved = ApplicationKnowledgeStore(context).persist(report)
+                                    report to saved
+                                }
                             }
-                            result.onSuccess { report ->
+                            result.onSuccess { (report, savedFile) ->
                                 applicationLabReport = report.toJson().toString(2)
-                                applicationLabStatus = "Structural analysis completed for ${target.label}. No target code was executed."
+                                applicationLabStatus = "Analysis saved as ${savedFile.name}. No target code was executed."
                             }.onFailure { failure ->
                                 applicationLabStatus = "Analysis failed for ${target.label}: ${failure.message?.take(180) ?: failure.javaClass.simpleName}"
                             }
