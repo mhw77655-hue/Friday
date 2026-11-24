@@ -42,6 +42,7 @@ object ProcessExitDiagnostics {
             val file = File(app.filesDir, "diagnostics/$FILE_NAME")
             appendBounded(file, fresh)
             val updatedSeen = (seen + fresh.map { it.optString("id") })
+                .sortedBy { it.substringBefore('_').toLongOrNull() ?: 0L }
                 .takeLast(MAX_SEEN_IDS)
                 .toSet()
             check(prefs.edit().putStringSet(KEY_SEEN_IDS, updatedSeen).commit()) {
