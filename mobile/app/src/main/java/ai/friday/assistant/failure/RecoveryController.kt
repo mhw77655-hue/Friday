@@ -137,6 +137,28 @@ class RecoveryController(
             }
             return
         }
+
+        // A zero-attempt policy is a deliberate fail-closed configuration.
+        // Disable synchronously on the reporting path instead of scheduling a
+        // coroutine that has no permitted attempt to execute.
+        if (entry.spec.maxAttempts == 0) {
+            val key = keyFor(base.subsystem, base.operation)
+            if (!running.add(key)) return
+            try {
+                entry.breaker.onFailure()
+                surface.recover(
+                    base.dedupeKey,
+                    RecoveryResult.FAILED,
+                    "retry budget is zero; dependency disabled without an attempt",
+                    RecoveryAction.DEGRADE,
+                    base.correlationId
+                )
+                runCatching { entry.spec.onDisabled?.invoke() }
+            } finally {
+                running.remove(key)
+            }
+            return
+        }
         scheduleRetry(entry, base, countFailure = true)
     }
 
