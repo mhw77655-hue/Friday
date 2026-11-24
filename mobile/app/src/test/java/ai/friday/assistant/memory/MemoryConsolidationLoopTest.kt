@@ -88,16 +88,25 @@ class MemoryConsolidationLoopTest {
         val personaTuner = PersonaTuner(worldModel)
         val statements = mutableListOf<RecentStatement>()
 
-        fun loop(scope: CoroutineScope = CoroutineScope(Dispatchers.Default)): MemoryConsolidationLoop =
+        fun loop(
+            scope: CoroutineScope = CoroutineScope(Dispatchers.Default),
+            cursorStore: ConsolidationCursorStore? = null
+        ): MemoryConsolidationLoop =
             MemoryConsolidationLoop(
                 userProfile = userProfile,
                 recentExperience = { positions ->
-                    ConsolidationBatch(
-                        statements.withIndex().drop(positions["session-a"] ?: 0).map { it.value },
-                        mapOf("session-a" to statements.size)
-                    )
+                    val endPositions = linkedMapOf<String, Int>()
+                    val unseen = mutableListOf<RecentStatement>()
+                    statements.groupBy { it.sessionId }.forEach { (sessionId, sessionStatements) ->
+                        val saved = positions[sessionId] ?: 0
+                        val start = if (saved > sessionStatements.size) 0 else saved
+                        endPositions[sessionId] = sessionStatements.size
+                        unseen += sessionStatements.drop(start)
+                    }
+                    ConsolidationBatch(unseen, endPositions)
                 },
-                scope = scope
+                scope = scope,
+                cursorStore = cursorStore
             )
     }
 
@@ -265,5 +274,28 @@ class MemoryConsolidationLoopTest {
             uiDispatcher.close()
             uiExecutor.shutdownNow()
         }
+    }
+
+    @Test
+    fun durableCursorPreventsHistoricalRescanAfterLoopReconstruction() {
+        val h = Harness()
+        val persistedPositions = linkedMapOf<String, Int>()
+        val cursorStore = object : ConsolidationCursorStore {
+            override fun load(): Map<String, Int> = persistedPositions.toMap()
+            override fun save(positions: Map<String, Int>) {
+                persistedPositions.clear()
+                persistedPositions.putAll(positions)
+            }
+        }
+        h.statements += RecentStatement(sessionId = "session-a", text = "I prefer concise answers", timestamp = 1)
+        val first = h.loop(cursorStore = cursorStore).runConsolidationPass()
+        assertEquals(1, first.scanned)
+        assertEquals(1, persistedPositions["session-a"])
+
+        // A reconstructed loop represents a new app process. The cursor store
+        // prevents old statements from being re-read and re-ingested.
+        val reconstructed = h.loop(cursorStore = cursorStore).runConsolidationPass()
+        assertEquals(0, reconstructed.scanned)
+        assertEquals(1, h.graph.nodeCount())
     }
 }
