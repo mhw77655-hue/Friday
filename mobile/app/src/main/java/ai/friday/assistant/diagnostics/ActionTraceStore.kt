@@ -445,7 +445,7 @@ object PhoneActionDiagnostics {
             .put("notification_listener_enabled", enabledNotificationListeners.split(':').any { it.equals(expectedNotificationListener, ignoreCase = true) })
             .put("shizuku_status", shizukuStatus)
             .put("last_crash", crashSummary)
-            .put("crash_history", CrashJournal.readAll(context))
+            .put("crash_history", application?.let { CrashJournal.readAll(it) } ?: JSONArray())
             .put("process_exit_history", ProcessExitDiagnostics.readSummary(context))
     }
 
