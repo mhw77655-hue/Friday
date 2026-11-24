@@ -11,6 +11,14 @@ import org.junit.Test
 class StreamingTtsChannelTest {
 
     @Test
+    fun ssmlEscapingPreventsMarkupInjectionFromSpokenText() {
+        assertEquals(
+            "A &amp; B &lt; C &gt; D",
+            escapeStreamingTtsText("A & B < C > D")
+        )
+    }
+
+    @Test
     fun drainConsumesQueuedItemsButReturnsForAnOpenEmptyChannel() = runBlocking {
         val channel = Channel<Int>(capacity = Channel.UNLIMITED)
         channel.send(1)
