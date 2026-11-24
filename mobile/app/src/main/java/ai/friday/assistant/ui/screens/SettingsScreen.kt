@@ -46,6 +46,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -590,8 +591,12 @@ fun SettingsScreen() {
             TextButton(onClick = {
                 jevStatus = "Removing Jev credential…"
                 scope.launch {
-                    val result = withContext(Dispatchers.IO) {
-                        runCatching { ai.friday.assistant.voice.JevApiKeyStore(context).clear() }
+                    val result = runCatching {
+                        withTimeout(6_000) {
+                            withContext(Dispatchers.IO) {
+                                ai.friday.assistant.voice.JevApiKeyStore(context).clear()
+                            }
+                        }
                     }
                     result.onSuccess {
                         jevConfigured = false
