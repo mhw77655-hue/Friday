@@ -64,6 +64,9 @@ import ai.friday.assistant.github.reporting.GitHubCredentialStore
 import ai.friday.assistant.github.reporting.FridayGitHubReportClient
 import ai.friday.assistant.ui.theme.FridayColors
 import ai.friday.assistant.ui.theme.FridayType
+import ai.friday.assistant.reverseengineering.InstalledApplicationCatalog
+import ai.friday.assistant.reverseengineering.InstalledApplicationTarget
+import ai.friday.assistant.reverseengineering.InstalledApkAnalyzer
 
 private const val PREFS_NAME = "friday_settings"
 private const val KEY_PERSONA = "persona_text"
@@ -159,6 +162,10 @@ fun SettingsScreen() {
     var actionJournalStatus by remember { mutableStateOf("Local action journal status has not been changed.") }
     val lifecycleOwner = LocalLifecycleOwner.current
     var phoneControlConnected by remember { mutableStateOf(false) }
+    var installedApps by remember { mutableStateOf<List<InstalledApplicationTarget>>(emptyList()) }
+    var applicationLabStatus by remember { mutableStateOf("No application has been analyzed yet.") }
+    var applicationLabReport by remember { mutableStateOf("") }
+    var analyzingPackage by remember { mutableStateOf<String?>(null) }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -1133,6 +1140,70 @@ fun SettingsScreen() {
                 unfocusedBorderColor = FridayColors.SurfaceHairline
             )
         )
+
+        SectionLabel("APPLICATION INTELLIGENCE LAB")
+        Text(
+            text = "Choose an installed launcher app. Friday performs a read-only APK structure analysis; it does not access the app's private data or modify the selected app.",
+            style = FridayType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Button(
+            onClick = {
+                scope.launch {
+                    applicationLabStatus = "Discovering installed launcher applications…"
+                    val result = withContext(Dispatchers.IO) {
+                        runCatching { InstalledApplicationCatalog.list(context) }
+                    }
+                    result.onSuccess { apps ->
+                        installedApps = apps
+                        applicationLabStatus = if (apps.isEmpty()) {
+                            "Android did not expose any other launcher applications to Friday."
+                        } else {
+                            "Found ${apps.size} selectable applications."
+                        }
+                    }.onFailure { failure ->
+                        applicationLabStatus = "Application discovery failed: ${failure.message?.take(160) ?: failure.javaClass.simpleName}"
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Scan installed applications") }
+        Text(applicationLabStatus, style = FridayType.Technical, modifier = Modifier.padding(vertical = 6.dp))
+        installedApps.forEach { target ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(target.label, style = FridayType.Body)
+                    Text(target.packageName, style = FridayType.Technical)
+                }
+                TextButton(
+                    enabled = analyzingPackage == null,
+                    onClick = {
+                        scope.launch {
+                            analyzingPackage = target.packageName
+                            applicationLabStatus = "Analyzing ${target.label}…"
+                            applicationLabReport = ""
+                            val result = withContext(Dispatchers.IO) {
+                                runCatching { InstalledApkAnalyzer(context).analyze(target) }
+                            }
+                            result.onSuccess { report ->
+                                applicationLabReport = report.toJson().toString(2)
+                                applicationLabStatus = "Structural analysis completed for ${target.label}. No target code was executed."
+                            }.onFailure { failure ->
+                                applicationLabStatus = "Analysis failed for ${target.label}: ${failure.message?.take(180) ?: failure.javaClass.simpleName}"
+                            }
+                            analyzingPackage = null
+                        }
+                    }
+                ) { Text(if (analyzingPackage == target.packageName) "Analyzing…" else "Analyze") }
+            }
+        }
+        if (applicationLabReport.isNotBlank()) {
+            Text(applicationLabReport, style = FridayType.Technical, modifier = Modifier.padding(top = 8.dp))
+        }
     }
 }
 
