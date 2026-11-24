@@ -22,7 +22,7 @@ class MainThreadLivenessMonitor(
     private val surface: FailureSurface,
     private val intervalMs: Long = DEFAULT_INTERVAL_MS,
     private val timeoutMs: Long = DEFAULT_TIMEOUT_MS,
-    private val elapsedRealtime: () -> Long = { SystemClock.uptimeMillis() },
+    private val uptimeMillis: () -> Long = { SystemClock.uptimeMillis() },
     private val mainHandler: Handler = Handler(Looper.getMainLooper()),
     private val scheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor { task ->
         Thread(task, "Friday-MainThread-Watchdog").apply { isDaemon = true }
@@ -34,7 +34,7 @@ class MainThreadLivenessMonitor(
     @Volatile private var scheduledTask: ScheduledFuture<*>? = null
     private val pingPending = AtomicBoolean(false)
     private val recoveryObserved = AtomicBoolean(false)
-    private val lastAcknowledgedAt = AtomicLong(elapsedRealtime())
+    private val lastAcknowledgedAt = AtomicLong(uptimeMillis())
     private val incidentKey = AtomicReference<String?>(null)
 
     private val heartbeat = Runnable {
