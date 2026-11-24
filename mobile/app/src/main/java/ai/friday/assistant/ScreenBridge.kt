@@ -227,7 +227,7 @@ object ScreenBridge {
     suspend fun commitApkInstall(transferId: String): String? =
         withContext(Dispatchers.IO) {
             val svc = service ?: return@withContext null
-            withTimeoutOrNull(60_000) {
+            withTimeoutOrNull(210_000) {
                 runCatching { svc.commitApkInstall(transferId) }
                     .onFailure { _status.value = "Privileged APK install failed: ${it.javaClass.simpleName}" }
                     .getOrNull()
