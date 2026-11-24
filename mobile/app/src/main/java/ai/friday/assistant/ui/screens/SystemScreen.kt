@@ -72,8 +72,12 @@ fun SystemScreen() {
     val individualMemoryText by diagnosticsViewModel.individualMemoryText.collectAsStateWithLifecycle()
     val diagnosticFindings by diagnosticsViewModel.diagnosticFindings.collectAsStateWithLifecycle()
     val diagnosticRunning by diagnosticsViewModel.diagnosticRunning.collectAsStateWithLifecycle()
+    val diagnosticAt by diagnosticsViewModel.diagnosticAt.collectAsStateWithLifecycle()
+    val diagnosticRunCount by diagnosticsViewModel.diagnosticRunCount.collectAsStateWithLifecycle()
     val selfDiagnosticFindings by diagnosticsViewModel.selfDiagnosticFindings.collectAsStateWithLifecycle()
     val selfDiagnosticAt by diagnosticsViewModel.selfDiagnosticAt.collectAsStateWithLifecycle()
+    val selfDiagnosticRunning by diagnosticsViewModel.selfDiagnosticRunning.collectAsStateWithLifecycle()
+    val selfDiagnosticRunCount by diagnosticsViewModel.selfDiagnosticRunCount.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { diagnosticsViewModel.runSelfDiagnosis() }
 
     val rows = listOf(
@@ -126,15 +130,27 @@ fun SystemScreen() {
         ) {
             Text(if (diagnosticRunning) "Running active diagnostics..." else "Run full system diagnosis")
         }
+        Text(
+            text = if (diagnosticRunning) {
+                "Active diagnosis is running against live device and subsystem probes."
+            } else if (diagnosticAt != null) {
+                "Active diagnosis run #$diagnosticRunCount completed · ${diagnosticFindings.size} findings · ${java.text.DateFormat.getTimeInstance().format(java.util.Date(diagnosticAt!!))}"
+            } else {
+                "No active system diagnosis has completed yet."
+            },
+            style = FridayType.Technical,
+            modifier = Modifier.padding(vertical = 4.dp)
+        )
         Button(
             onClick = { diagnosticsViewModel.runSelfDiagnosis() },
+            enabled = !selfDiagnosticRunning,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Run Friday architecture and autonomy diagnosis")
+            Text(if (selfDiagnosticRunning) "Checking Friday's architecture..." else "Run Friday architecture and autonomy diagnosis")
         }
         selfDiagnosticAt?.let { checkedAt ->
             Text(
-                "Self-diagnosis: ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(checkedAt))} · ${selfDiagnosticFindings.count { it.level == DiagnosticLevel.FAILURE }} failures · ${selfDiagnosticFindings.count { it.level == DiagnosticLevel.WARNING }} warnings",
+                "Self-diagnosis run #$selfDiagnosticRunCount: ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(checkedAt))} · ${selfDiagnosticFindings.count { it.level == DiagnosticLevel.FAILURE }} failures · ${selfDiagnosticFindings.count { it.level == DiagnosticLevel.WARNING }} warnings",
                 style = FridayType.Technical,
                 modifier = Modifier.padding(vertical = 6.dp)
             )
