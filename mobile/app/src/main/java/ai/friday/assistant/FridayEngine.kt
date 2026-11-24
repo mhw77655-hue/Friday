@@ -297,6 +297,11 @@ object FridayEngine {
         failureSurface.addFailureListener(replayExisting = false, listener = immuneListener)
         this.immuneSystem = immuneSystem
         this.immuneFailureListener = immuneListener
+        scope.launch(Dispatchers.Default) {
+            failureSurface.recoveryEvents.collect { recovery ->
+                immuneSystem.observeRecovery(recovery)
+            }
+        }
 
         // Register real, independent model recovery paths before any turn can
         // report a retryable MODEL incident. A fresh provider health probe is
