@@ -47,8 +47,16 @@ class SettingsScreenInteractionInstrumentedTest {
 
         compose.waitForIdle()
         compose.onNodeWithText("Clear local journal").performClick()
-        // Prove the click handler ran before waiting for the disk operation.
-        compose.onNodeWithText("Clearing local action journal…").assertExists()
+        // Compose publishes the state change on a subsequent frame. Accept a
+        // fast terminal result too, rather than racing an immediate assertion.
+        compose.waitUntil(2_000) {
+            compose.onAllNodesWithText("Clearing local action journal…", substring = true)
+                .fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodesWithText("Local action journal cleared.", substring = true)
+                    .fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodesWithText("Could not clear the local journal.", substring = true)
+                    .fetchSemanticsNodes().isNotEmpty()
+        }
         compose.waitUntil(9_000) {
             compose.onAllNodesWithText("Local action journal cleared.", substring = true)
                 .fetchSemanticsNodes().isNotEmpty() ||
@@ -75,7 +83,7 @@ class SettingsScreenInteractionInstrumentedTest {
         compose.waitForIdle()
         // The emulator may not have Shizuku installed; the important contract
         // is that the check runs and the settings surface remains interactive.
-        compose.onNodeWithText("Friday Runtime", ignoreCase = true).assertExists()
+        compose.onNodeWithText("FRIDAY RUNTIME").assertExists()
     }
 
     @Test
@@ -88,8 +96,18 @@ class SettingsScreenInteractionInstrumentedTest {
 
         compose.waitForIdle()
         compose.onNodeWithText("Remove key").performClick()
-        // Distinguish a dead click handler from a storage operation that stalls.
-        compose.onNodeWithText("Removing Jev credential…").assertExists()
+        // Compose publishes the state change on a subsequent frame. Accept a
+        // fast terminal result too, rather than racing an immediate assertion.
+        compose.waitUntil(2_000) {
+            compose.onAllNodesWithText("Removing Jev credential…", substring = true)
+                .fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodesWithText(
+                    "Jev credential removed. Friday continues with local deterministic command handling.",
+                    substring = true
+                ).fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodesWithText("Jev credential could not be removed:", substring = true)
+                    .fetchSemanticsNodes().isNotEmpty()
+        }
         compose.waitUntil(9_000) {
             compose.onAllNodesWithText(
                 "Jev credential removed. Friday continues with local deterministic command handling.",
