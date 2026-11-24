@@ -152,6 +152,6 @@ class FridayApplication : Application() {
         // PackageManager/ActivityManager Binder call during Application.onCreate.
         return runCatching {
             File("/proc/self/cmdline").readText().substringBefore('\u0000').trim()
-        }.getOrNull() ?: packageName
+        }.getOrNull()
     }
 }
