@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.content.Context
 import android.content.ServiceConnection
 import android.os.IBinder
+import android.util.Log
 import android.util.Xml
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -87,12 +88,26 @@ object ScreenBridge {
 
     @Synchronized
     fun bind(context: Context) {
-        if (!Shizuku.pingBinder()) {
+        val binderAvailable = runCatching { Shizuku.pingBinder() }.getOrElse { failure ->
+            bindingInProgress = false
+            _status.value = "Shizuku availability check failed: ${failure.javaClass.simpleName}"
+            Log.w("ScreenBridge", "Could not query Shizuku binder availability", failure)
+            return
+        }
+        if (!binderAvailable) {
             bindingInProgress = false
             _status.value = "Shizuku not running"
             return
         }
-        if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
+        val permissionGranted = runCatching {
+            Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
+        }.getOrElse { failure ->
+            bindingInProgress = false
+            _status.value = "Shizuku permission check failed: ${failure.javaClass.simpleName}"
+            Log.w("ScreenBridge", "Could not query Shizuku permission", failure)
+            return
+        }
+        if (!permissionGranted) {
             bindingInProgress = false
             _status.value = "Shizuku permission not granted"
             return
