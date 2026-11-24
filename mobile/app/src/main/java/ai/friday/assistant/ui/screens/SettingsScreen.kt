@@ -510,17 +510,23 @@ fun SettingsScreen() {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Button(
                 onClick = {
-                    if (jevApiKey.isNotBlank()) {
-                        runCatching { ai.friday.assistant.voice.JevApiKeyStore(context).save(jevApiKey) }
-                            .onSuccess { jevConfigured = true; jevApiKey = "" }
+                    val key = jevApiKey
+                    if (key.isNotBlank()) scope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            runCatching { ai.friday.assistant.voice.JevApiKeyStore(context).save(key) }
+                        }
+                        result.onSuccess { jevConfigured = true; jevApiKey = "" }
+                            .onFailure { jevConfigured = false }
                     }
                 },
                 enabled = jevApiKey.isNotBlank()
             ) { Text("Save Jev key") }
             TextButton(onClick = {
-                ai.friday.assistant.voice.JevApiKeyStore(context).clear()
-                jevConfigured = false
-                jevApiKey = ""
+                scope.launch {
+                    withContext(Dispatchers.IO) { ai.friday.assistant.voice.JevApiKeyStore(context).clear() }
+                    jevConfigured = false
+                    jevApiKey = ""
+                }
             }) { Text("Remove key") }
         }
         Text(
@@ -723,7 +729,9 @@ fun SettingsScreen() {
                 shizukuAcceptanceReport = "Running remote identity, diagnostics, Doze add/remove/restore and harmless app-launch checks. Android Settings may open during the final check."
                 scope.launch {
                     val result = runCatching {
-                        ai.friday.assistant.android.ShizukuDeviceAcceptanceRunner().run(context)
+                        withContext(Dispatchers.IO) {
+                            ai.friday.assistant.android.ShizukuDeviceAcceptanceRunner().run(context)
+                        }
                     }
                     shizukuAcceptanceReport = result.fold(
                         onSuccess = { it },
@@ -850,8 +858,12 @@ fun SettingsScreen() {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Button(
                 onClick = {
-                    runCatching { githubCredentialStore.save(githubToken) }
-                        .onSuccess {
+                    val tokenToSave = githubToken
+                    if (tokenToSave.isNotBlank()) scope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            runCatching { githubCredentialStore.save(tokenToSave) }
+                        }
+                        result.onSuccess {
                             githubConfigured = true
                             githubToken = ""
                             githubReportStatus = "Credential encrypted locally. Friday's Builder queue has been started."
@@ -861,20 +873,22 @@ fun SettingsScreen() {
                             if (githubAutoReportConsent) {
                                 ai.friday.assistant.github.reporting.GitHubDeviceReportWorker.enqueue(context, "credential-saved")
                             }
-                        }
-                        .onFailure {
+                        }.onFailure {
                             githubReportStatus = it.message ?: "Credential could not be stored securely."
                         }
+                    }
                 },
                 enabled = githubToken.isNotBlank()
             ) { Text("Save GitHub credential") }
             TextButton(onClick = {
-                githubCredentialStore.clear()
-                githubDeviceReportConsentStore.setEnabled(false)
-                githubAutoReportConsent = false
-                githubConfigured = false
-                githubToken = ""
-                githubReportStatus = "GitHub credential and automatic-reporting consent removed from this phone. Pending evidence remains local."
+                scope.launch {
+                    withContext(Dispatchers.IO) { githubCredentialStore.clear() }
+                    githubDeviceReportConsentStore.setEnabled(false)
+                    githubAutoReportConsent = false
+                    githubConfigured = false
+                    githubToken = ""
+                    githubReportStatus = "GitHub credential and automatic-reporting consent removed from this phone. Pending evidence remains local."
+                }
             }) { Text("Remove") }
         }
         Row(
@@ -883,37 +897,40 @@ fun SettingsScreen() {
         ) {
             Button(
                 onClick = {
-                    val token = githubCredentialStore.read()
-                    if (token == null) {
-                        githubReportStatus = "Save a GitHub credential first."
-                    } else {
-                        githubBusy = true
-                        scope.launch {
-                            val result = runCatching {
-                                withContext(Dispatchers.IO) {
-                                    FridayGitHubReportClient(token).verifyRepositoryAccess()
-                                }
-                            }
-                            githubReportStatus = result.fold(
-                                onSuccess = { it },
-                                onFailure = { it.message ?: "GitHub access verification failed." }
-                            )
+                    githubBusy = true
+                    scope.launch {
+                        val token = withContext(Dispatchers.IO) { githubCredentialStore.read() }
+                        if (token == null) {
+                            githubReportStatus = "Save a GitHub credential first."
                             githubBusy = false
+                            return@launch
                         }
+                        val result = runCatching {
+                            withContext(Dispatchers.IO) {
+                                FridayGitHubReportClient(token).verifyRepositoryAccess()
+                            }
+                        }
+                        githubReportStatus = result.fold(
+                            onSuccess = { it },
+                            onFailure = { it.message ?: "GitHub access verification failed." }
+                        )
+                        githubBusy = false
                     }
                 },
                 enabled = githubConfigured && !githubBusy
             ) { Text("Verify access") }
             Button(
                 onClick = {
-                    val token = githubCredentialStore.read()
-                    if (token == null) {
-                        githubReportStatus = "Save a GitHub credential first."
-                    } else {
-                        githubBusy = true
-                        githubReportStatus = "Preparing and uploading the sanitized device report…"
-                        scope.launch {
-                            val result = runCatching {
+                    githubBusy = true
+                    githubReportStatus = "Preparing and uploading the sanitized device report…"
+                    scope.launch {
+                        val token = withContext(Dispatchers.IO) { githubCredentialStore.read() }
+                        if (token == null) {
+                            githubReportStatus = "Save a GitHub credential first."
+                            githubBusy = false
+                            return@launch
+                        }
+                        val result = runCatching {
                                 withContext(Dispatchers.IO) {
                                     val report = githubPendingReportStore.read()
                                         ?: ai.friday.assistant.diagnostics.PhoneActionDiagnostics.exportJson(context)
@@ -928,8 +945,7 @@ fun SettingsScreen() {
                                 onSuccess = { "Report uploaded successfully: $it" },
                                 onFailure = { it.message ?: "GitHub report upload failed. If a report was prepared, Friday kept the exact payload for retry." }
                             )
-                            githubBusy = false
-                        }
+                        githubBusy = false
                     }
                 },
                 enabled = githubConfigured && !githubBusy
