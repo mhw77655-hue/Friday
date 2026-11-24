@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -12,7 +13,7 @@ import org.junit.Test
 
 class EngineContainmentEvidenceTest {
     @Test
-    fun uncaughtEngineFailureExportsBoundedStackEvidenceWithoutRawMessage() {
+    fun uncaughtEngineFailureExportsBoundedStackEvidenceWithoutRawMessage() = runBlocking {
         val surface = FailureSurface()
         val scope = EngineContainment.scope("evidence-test", surface, Dispatchers.Default)
         scope.launch { throw IllegalStateException("sensitive test message") }
