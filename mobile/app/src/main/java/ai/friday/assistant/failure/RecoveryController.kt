@@ -133,7 +133,7 @@ class RecoveryController(
             resourceState = event.resourceState
         )
         if (entry.breaker.isOpen) {
-            notifyDisabledOnce(entry)
+            markDisabled(entry, base, "circuit is already open")
             return
         }
 
@@ -145,14 +145,7 @@ class RecoveryController(
             if (!running.add(key)) return
             try {
                 entry.breaker.onFailure()
-                surface.recover(
-                    base.dedupeKey,
-                    RecoveryResult.FAILED,
-                    "retry budget is zero; dependency disabled without an attempt",
-                    RecoveryAction.DEGRADE,
-                    base.correlationId
-                )
-                notifyDisabledOnce(entry)
+                markDisabled(entry, base, "retry budget is zero; dependency disabled without an attempt")
             } finally {
                 running.remove(key)
             }
@@ -182,7 +175,7 @@ class RecoveryController(
         if (countFailure) entry.breaker.onFailure()
         if (entry.breaker.isOpen) {
             running.remove(key)
-            notifyDisabledOnce(entry)
+            markDisabled(entry, base, "circuit opened after repeated failures")
             return
         }
 
@@ -190,14 +183,7 @@ class RecoveryController(
         val spec = entry.spec
         if (attempt > spec.maxAttempts) {
             running.remove(key)
-            surface.recover(
-                base.dedupeKey,
-                RecoveryResult.FAILED,
-                "retry budget exhausted ($attempt)",
-                RecoveryAction.DEGRADE,
-                base.correlationId
-            )
-            notifyDisabledOnce(entry)
+            markDisabled(entry, base, "retry budget exhausted ($attempt)")
             return
         }
 
@@ -246,7 +232,7 @@ class RecoveryController(
                         attemptFailureMessage, specActionOf(spec), base.correlationId
                     )
                     if (entry.breaker.isOpen) {
-                        notifyDisabledOnce(entry)
+                        markDisabled(entry, base, "circuit opened after repeated retry failures")
                     } else {
                         // Defer scheduling until after this coroutine releases
                         // its running marker. Removing it early lets another
@@ -268,6 +254,28 @@ class RecoveryController(
             }
             nextAttempt?.let { scheduleRetry(entry, it, countFailure = false) }
         }
+    }
+
+    private fun markDisabled(entry: Entry, base: FailureReport, reason: String) {
+        // Preserve the original dedupe key while escalating the existing
+        // aggregate. recoverability=NONE prevents the central failure listener
+        // from recursively scheduling another retry for this terminal state.
+        surface.report(
+            base.copy(
+                severity = FailureSeverity.max(base.severity, FailureSeverity.DEGRADED),
+                recoverability = Recoverability.NONE,
+                recoveryAction = RecoveryAction.DISABLE_COMPONENT,
+                metadata = base.metadata + ("disabledReason" to reason)
+            )
+        )
+        surface.recover(
+            base.dedupeKey,
+            RecoveryResult.FAILED,
+            reason,
+            RecoveryAction.DISABLE_COMPONENT,
+            base.correlationId
+        )
+        notifyDisabledOnce(entry)
     }
 
     private fun notifyDisabledOnce(entry: Entry) {
