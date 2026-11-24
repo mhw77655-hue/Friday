@@ -247,11 +247,18 @@ object FridayRuntimeController {
     fun enable(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putBoolean(KEY_ENABLED, true).remove(KEY_START_FAILURE).apply()
-        // "Keep Friday alive" authorizes background continuity, not microphone
-        // capture. Audio is started only by a separate, explicit voice action
-        // from a visible activity; notification permission and RECORD_AUDIO
-        // grants must never be interpreted as consent to continuous capture.
-        startCore(context)
+        // Persist the owner's intent independently of Android's ability to
+        // start the service right now. A blocked start is reported, not allowed
+        // to crash Settings or silently revert the requested setting.
+        try {
+            startCore(context)
+        } catch (failure: RuntimeException) {
+            recordStartFailure(
+                context,
+                "Android blocked foreground runtime startup: ${failure.message ?: failure.javaClass.simpleName}"
+            )
+            Log.w("FridayRuntime", "Foreground runtime start was blocked; owner setting remains enabled", failure)
+        }
     }
 
     fun startCore(context: Context) {
@@ -266,16 +273,32 @@ object FridayRuntimeController {
             .edit().putBoolean(KEY_ENABLED, true).remove(KEY_START_FAILURE).apply()
         val intent = Intent(context, FridayRuntimeService::class.java)
             .setAction(FridayRuntimeService.ACTION_START_WITH_MICROPHONE)
-        ContextCompat.startForegroundService(context, intent)
+        try {
+            ContextCompat.startForegroundService(context, intent)
+        } catch (failure: RuntimeException) {
+            recordStartFailure(
+                context,
+                "Android blocked microphone runtime startup: ${failure.message ?: failure.javaClass.simpleName}"
+            )
+            Log.w("FridayRuntime", "Microphone runtime start was blocked", failure)
+        }
     }
 
     fun disable(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putBoolean(KEY_ENABLED, false).apply()
-        context.startService(
-            Intent(context, FridayRuntimeService::class.java)
-                .setAction(FridayRuntimeService.ACTION_STOP)
-        )
+        try {
+            context.startService(
+                Intent(context, FridayRuntimeService::class.java)
+                    .setAction(FridayRuntimeService.ACTION_STOP)
+            )
+        } catch (failure: RuntimeException) {
+            recordStartFailure(
+                context,
+                "Android blocked runtime shutdown request: ${failure.message ?: failure.javaClass.simpleName}"
+            )
+            Log.w("FridayRuntime", "Runtime stop request was blocked; owner setting remains disabled", failure)
+        }
     }
 
     fun isMicrophoneServiceActive(context: Context): Boolean =
