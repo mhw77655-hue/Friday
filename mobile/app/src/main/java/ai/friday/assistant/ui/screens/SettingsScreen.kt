@@ -83,7 +83,6 @@ private data class RuntimeSnapshot(
 )
 
 private data class SettingsSnapshot(
-    val jevConfigured: Boolean,
     val chatGptConnected: Boolean,
     val chatGptBackgroundConsent: Boolean,
     val chatGptAccountLabel: String,
@@ -105,9 +104,6 @@ fun SettingsScreen() {
     val prefs = remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
 
     var personaText by remember { mutableStateOf(prefs.getString(KEY_PERSONA, "") ?: "") }
-    var jevApiKey by remember { mutableStateOf("") }
-    var jevConfigured by remember { mutableStateOf(false) }
-    var jevStatus by remember { mutableStateOf("Checking Jev credential status…") }
     val scope = rememberCoroutineScope()
     val chatGptAuth = remember(context) { ChatGPTPlanAuth(context) }
     val chatGptConsentStore = remember(context) { ChatGPTPlanBackgroundConsentStore(context) }
@@ -160,7 +156,6 @@ fun SettingsScreen() {
     LaunchedEffect(resumeSignal) {
         val settingsSnapshot = withContext(Dispatchers.IO) {
             SettingsSnapshot(
-                jevConfigured = ai.friday.assistant.voice.JevApiKeyStore(context).read() != null,
                 chatGptConnected = chatGptAuth.isConnected(),
                 chatGptBackgroundConsent = chatGptConsentStore.isEnabled(),
                 chatGptAccountLabel = chatGptAuth.accountLabel(),
@@ -173,14 +168,7 @@ fun SettingsScreen() {
         }
         // Do not let a slow first-load snapshot overwrite a newer result from
         // an explicit Save/Remove action performed while that snapshot ran.
-        if (jevStatus.startsWith("Checking Jev credential status")) {
-            jevConfigured = settingsSnapshot.jevConfigured
-            jevStatus = if (settingsSnapshot.jevConfigured) {
-                "Jev credential stored securely; decision calls require internet."
-            } else {
-                "Jev not configured — Friday continues with local deterministic command handling."
-            }
-        }
+
         chatGptConnected = settingsSnapshot.chatGptConnected
         chatGptBackgroundConsent = settingsSnapshot.chatGptBackgroundConsent
         chatGptAccountLabel = settingsSnapshot.chatGptAccountLabel
@@ -522,67 +510,7 @@ fun SettingsScreen() {
         SectionLabel("VOICE")
         Text(text = "TTS voice: en-GB (system)", style = FridayType.Technical)
 
-        SectionLabel("JEV DEVICE-DECISION ENGINE")
-        Text(
-            text = "Optional TypeSafe Jev cloud decision support. Friday's local command layer handles bounded actions; an optional local model may help form more complex phone-action plans. A redacted proposed action and risk tier may be sent to Jev for review. Screen snapshots and literal text-entry payloads stay on-device. Jev cannot execute actions or grant permissions; consequential actions still require Friday's confirmation. The key is encrypted with Android Keystore.",
-            style = FridayType.Label,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        OutlinedTextField(
-            value = jevApiKey,
-            onValueChange = { jevApiKey = it },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("TypeSafe API key", style = FridayType.Body) },
-            visualTransformation = PasswordVisualTransformation(),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = FridayColors.SurfaceHairline,
-                unfocusedBorderColor = FridayColors.SurfaceHairline
-            )
-        )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Button(
-                onClick = {
-                    val key = jevApiKey
-                    if (key.isNotBlank()) scope.launch {
-                        val result = withContext(Dispatchers.IO) {
-                            runCatching { ai.friday.assistant.voice.JevApiKeyStore(context).save(key) }
-                        }
-                        result.onSuccess {
-                            jevConfigured = true
-                            jevApiKey = ""
-                            jevStatus = "Jev credential stored securely; decision calls require internet."
-                        }.onFailure { failure ->
-                            jevConfigured = false
-                            jevStatus = "Jev credential was not saved: " +
-                                (failure.message?.take(180) ?: failure.javaClass.simpleName)
-                        }
-                    }
-                },
-                enabled = jevApiKey.isNotBlank()
-            ) { Text("Save Jev key") }
-            TextButton(onClick = {
-                jevStatus = "Removing Jev credential…"
-                scope.launch {
-                    val result = runCatching {
-                        withTimeout(6_000) {
-                            withContext(Dispatchers.IO) {
-                                ai.friday.assistant.voice.JevApiKeyStore(context).clear()
-                            }
-                        }
-                    }
-                    result.onSuccess {
-                        jevConfigured = false
-                        jevApiKey = ""
-                        jevStatus = "Jev credential removed. Friday continues with local deterministic command handling."
-                    }.onFailure { failure ->
-                        jevStatus = "Jev credential could not be removed: " +
-                            (failure.message?.take(180) ?: failure.javaClass.simpleName)
-                    }
-                }
-            }) { Text("Remove key") }
-        }
-        Text(text = jevStatus, style = FridayType.Technical)
+        JevCredentialSection(context)
 
         SectionLabel("PHONE CONTROL")
         Text(
@@ -1281,5 +1209,90 @@ private fun MemoryRulesAndApplicationLabSection(context: Context) {
         if (applicationLabReport.isNotBlank()) {
             Text(applicationLabReport, style = FridayType.Technical, modifier = Modifier.padding(top = 8.dp))
         }
+    }
+}
+
+
+@Composable
+private fun JevCredentialSection(context: Context) {
+    val scope = rememberCoroutineScope()
+    var jevApiKey by remember { mutableStateOf("") }
+    var jevConfigured by remember { mutableStateOf(false) }
+    var jevStatus by remember { mutableStateOf("Checking Jev credential status…") }
+
+    LaunchedEffect(context) {
+        val configured = withContext(Dispatchers.IO) {
+            ai.friday.assistant.voice.JevApiKeyStore(context).read() != null
+        }
+        jevConfigured = configured
+        jevStatus = if (configured) {
+            "Jev credential stored securely; decision calls require internet."
+        } else {
+            "Jev not configured — Friday continues with local deterministic command handling."
+        }
+    }
+
+    Column {
+        SectionLabel("JEV DEVICE-DECISION ENGINE")
+        Text(
+            text = "Optional TypeSafe Jev cloud decision support. Friday's local command layer handles bounded actions; an optional local model may help form more complex phone-action plans. A redacted proposed action and risk tier may be sent to Jev for review. Screen snapshots and literal text-entry payloads stay on-device. Jev cannot execute actions or grant permissions; consequential actions still require Friday's confirmation. The key is encrypted with Android Keystore.",
+            style = FridayType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        OutlinedTextField(
+            value = jevApiKey,
+            onValueChange = { jevApiKey = it },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("TypeSafe API key", style = FridayType.Body) },
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = FridayColors.SurfaceHairline,
+                unfocusedBorderColor = FridayColors.SurfaceHairline
+            )
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Button(
+                onClick = {
+                    val key = jevApiKey
+                    if (key.isNotBlank()) scope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            runCatching { ai.friday.assistant.voice.JevApiKeyStore(context).save(key) }
+                        }
+                        result.onSuccess {
+                            jevConfigured = true
+                            jevApiKey = ""
+                            jevStatus = "Jev credential stored securely; decision calls require internet."
+                        }.onFailure { failure ->
+                            jevConfigured = false
+                            jevStatus = "Jev credential was not saved: " +
+                                (failure.message?.take(180) ?: failure.javaClass.simpleName)
+                        }
+                    }
+                },
+                enabled = jevApiKey.isNotBlank()
+            ) { Text("Save Jev key") }
+            TextButton(onClick = {
+                jevStatus = "Removing Jev credential…"
+                scope.launch {
+                    val result = runCatching {
+                        withTimeout(6_000) {
+                            withContext(Dispatchers.IO) {
+                                ai.friday.assistant.voice.JevApiKeyStore(context).clear()
+                            }
+                        }
+                    }
+                    result.onSuccess {
+                        jevConfigured = false
+                        jevApiKey = ""
+                        jevStatus = "Jev credential removed. Friday continues with local deterministic command handling."
+                    }.onFailure { failure ->
+                        jevStatus = "Jev credential could not be removed: " +
+                            (failure.message?.take(180) ?: failure.javaClass.simpleName)
+                    }
+                }
+            }) { Text("Remove key") }
+        }
+        Text(text = jevStatus, style = FridayType.Technical)
     }
 }
