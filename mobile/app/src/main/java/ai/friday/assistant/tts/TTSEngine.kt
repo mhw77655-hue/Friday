@@ -2,6 +2,7 @@ package ai.friday.assistant.tts
 
 import android.content.Context
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
 import android.util.Log
 import ai.friday.assistant.FridayTts
@@ -17,12 +18,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.CancellationException
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+
+private const val SYSTEM_TTS_INITIALIZATION_TIMEOUT_MS = 15_000L
+private const val SYSTEM_TTS_MAX_SPEECH_TIMEOUT_MS = 120_000L
 
 /**
  * TTSEngine - Abstraction for TTS engines
@@ -139,6 +144,7 @@ class SystemTTSEngine(
     private var initialization: CompletableDeferred<Boolean>? = null
     @Volatile private var currentSpeakCompletion: CompletableDeferred<Boolean>? = null
     private val initLock = Any()
+    private val initializationGeneration = AtomicLong(0L)
 
     override suspend fun initialize(): Boolean {
         val pending = withContext(Dispatchers.Main.immediate) {
@@ -148,6 +154,7 @@ class SystemTTSEngine(
 
                 val completer = CompletableDeferred<Boolean>()
                 initialization = completer
+                val generation = initializationGeneration.incrementAndGet()
                 val callbackResult = AtomicReference<Boolean?>(null)
                 val instanceRef = AtomicReference<TextToSpeech?>(null)
 
@@ -156,12 +163,20 @@ class SystemTTSEngine(
                     val instance = TextToSpeech(context.applicationContext) { status ->
                         val success = status == TextToSpeech.SUCCESS
                         callbackResult.set(success)
-                        synchronized(initLock) {
-                            initialized = success
-                            if (!success) {
-                                tts = null
+                        val stale = synchronized(initLock) {
+                            if (generation != initializationGeneration.get()) {
+                                true
+                            } else {
+                                initialized = success
                                 initialization = null
+                                if (!success) tts = null
+                                false
                             }
+                        }
+                        if (stale) {
+                            instanceRef.get()?.shutdown()
+                            completer.complete(false)
+                            return@TextToSpeech
                         }
                         if (!success) instanceRef.get()?.shutdown()
                         if (success) {
@@ -172,6 +187,7 @@ class SystemTTSEngine(
                         completer.complete(success)
                     }
                     instanceRef.set(instance)
+                    installUtteranceProgressListener(instance)
                     tts = instance
                     callbackResult.get()?.let { success ->
                         if (!success) {
@@ -183,14 +199,66 @@ class SystemTTSEngine(
                     initialized = false
                     tts = null
                     initialization = null
+                    initializationGeneration.incrementAndGet()
                     Log.e("SystemTTSEngine", "TTS initialization could not start", failure)
                     completer.complete(false)
                 }
                 completer
             }
         }
-        // Await outside the lock so concurrent callers share one initialization.
-        return pending?.await() ?: initialized
+        if (pending == null) return initialized
+
+        // Never let a missing Android TTS callback suspend Friday indefinitely.
+        val result = withTimeoutOrNull(SYSTEM_TTS_INITIALIZATION_TIMEOUT_MS) { pending.await() }
+        if (result != null) return result
+
+        // Invalidate a late callback before shutting down the timed-out engine.
+        withContext(Dispatchers.Main.immediate) {
+            synchronized(initLock) {
+                if (initialization === pending) {
+                    initializationGeneration.incrementAndGet()
+                    initialization = null
+                    initialized = false
+                    tts?.shutdown()
+                    tts = null
+                }
+            }
+        }
+        Log.e("SystemTTSEngine", "TTS initialization callback timed out")
+        return false
+    }
+
+    private fun installUtteranceProgressListener(engine: TextToSpeech) {
+        engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String) {
+                if (currentUtteranceId == utteranceId) _isSpeaking = true
+            }
+
+            override fun onDone(utteranceId: String) {
+                completeUtterance(utteranceId, success = true)
+            }
+
+            override fun onError(utteranceId: String) {
+                completeUtterance(utteranceId, success = false)
+            }
+
+            override fun onError(utteranceId: String, errorCode: Int) {
+                completeUtterance(utteranceId, success = false)
+            }
+
+            override fun onStop(utteranceId: String, interrupted: Boolean) {
+                completeUtterance(utteranceId, success = false)
+            }
+        })
+    }
+
+    private fun completeUtterance(utteranceId: String, success: Boolean) {
+        synchronized(initLock) {
+            if (currentUtteranceId == utteranceId) {
+                _isSpeaking = false
+                currentSpeakCompletion?.complete(success)
+            }
+        }
     }
 
     override suspend fun speak(text: String, language: String, params: SpeakParams): SpeakResult = withContext(Dispatchers.IO) {
@@ -242,12 +310,15 @@ class SystemTTSEngine(
             // The platform callback is not wired in this fallback yet, so retain
             // the conservative duration estimate without occupying an IO thread.
             val estimatedDuration = estimateSystemTtsDurationMs(finalText.length, safeSpeechRate)
+            val completionTimeout = (estimatedDuration * 2L + 5_000L).coerceAtMost(SYSTEM_TTS_MAX_SPEECH_TIMEOUT_MS)
             try {
-                val completedNormally = withTimeoutOrNull(estimatedDuration) { completion.await() } ?: true
-                if (completedNormally) {
-                    SpeakResult.Success(null, estimatedDuration)
-                } else {
-                    SpeakResult.Failure("TTS speech was interrupted")
+                when (withTimeoutOrNull(completionTimeout) { completion.await() }) {
+                    true -> SpeakResult.Success(null, estimatedDuration)
+                    false -> SpeakResult.Failure("TTS speech was interrupted or the platform reported an error")
+                    null -> {
+                        engine.stop()
+                        SpeakResult.Failure("TTS did not report completion before the bounded timeout")
+                    }
                 }
             } catch (cancelled: CancellationException) {
                 engine.stop()
@@ -256,8 +327,10 @@ class SystemTTSEngine(
                 synchronized(initLock) {
                     if (currentSpeakCompletion === completion) currentSpeakCompletion = null
                 }
-                if (currentUtteranceId == utteranceId) currentUtteranceId = null
-                _isSpeaking = false
+                if (currentUtteranceId == utteranceId) {
+                    currentUtteranceId = null
+                    _isSpeaking = false
+                }
             }
         } ?: SpeakResult.Failure("TTS not initialized")
     }
@@ -278,7 +351,12 @@ class SystemTTSEngine(
 
     override fun interrupt() {
         tts?.stop()
-        _isSpeaking = false
+        synchronized(initLock) {
+            currentSpeakCompletion?.complete(false)
+            currentSpeakCompletion = null
+            currentUtteranceId = null
+            _isSpeaking = false
+        }
     }
 
     override val isSpeaking: Boolean
@@ -294,6 +372,7 @@ class SystemTTSEngine(
     override fun shutdown() {
         synchronized(initLock) {
             initialized = false
+            initializationGeneration.incrementAndGet()
             initialization?.cancel()
             initialization = null
             currentSpeakCompletion?.complete(false)
