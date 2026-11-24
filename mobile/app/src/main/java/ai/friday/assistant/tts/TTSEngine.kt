@@ -178,7 +178,13 @@ class SystemTTSEngine(
                             completer.complete(false)
                             return@TextToSpeech
                         }
-                        if (!success) instanceRef.get()?.shutdown()
+                        // The platform may invoke the callback synchronously
+                        // from the constructor. In that case defer completion
+                        // until the returned engine is stored and its listener
+                        // has been installed below.
+                        val instanceReady = instanceRef.get()
+                        if (instanceReady == null) return@TextToSpeech
+                        if (!success) instanceReady.shutdown()
                         if (success) {
                             Log.i("SystemTTSEngine", "TTS initialized successfully")
                         } else {
@@ -194,6 +200,7 @@ class SystemTTSEngine(
                             tts = null
                             instance.shutdown()
                         }
+                        completer.complete(success)
                     }
                 } catch (failure: Exception) {
                     initialized = false
