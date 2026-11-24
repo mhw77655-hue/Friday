@@ -66,25 +66,24 @@ class MainThreadLivenessMonitor(
         }
 
         if (pingPending.get() && now - lastAck >= timeoutMs && incidentKey.get() == null) {
-            val event = runCatching {
-                surface.report(
-                    FailureReport(
-                        subsystem = SUBSYSTEM,
-                        operation = OPERATION,
-                        severity = FailureSeverity.CRITICAL,
-                        category = FailureCategory.LIFECYCLE,
-                        message = "Android main looper did not acknowledge a watchdog heartbeat within ${timeoutMs}ms.",
-                        recoverability = Recoverability.RECOVERABLE,
-                        recoveryAction = RecoveryAction.WAIT_FOR_RECOVERY,
-                        metadata = mapOf(
-                            "timeoutMs" to timeoutMs.toString(),
-                            "elapsedSinceAckMs" to (now - lastAck).coerceAtLeast(0L).toString()
-                        ),
-                        userMessage = "Friday's interface is temporarily unresponsive. Recovery evidence is being preserved."
-                    )
-                )
-            }.getOrNull()
-            event?.let { incidentKey.compareAndSet(null, it.key) }
+            val message = "Android main looper did not acknowledge a watchdog heartbeat within ${timeoutMs}ms."
+            val report = FailureReport(
+                subsystem = SUBSYSTEM,
+                operation = OPERATION,
+                severity = FailureSeverity.CRITICAL,
+                category = FailureCategory.LIFECYCLE,
+                message = message,
+                recoverability = Recoverability.RECOVERABLE,
+                recoveryAction = RecoveryAction.WAIT_FOR_RECOVERY,
+                metadata = mapOf(
+                    "timeoutMs" to timeoutMs.toString(),
+                    "elapsedSinceAckMs" to (now - lastAck).coerceAtLeast(0L).toString()
+                ),
+                userMessage = "Friday's interface is temporarily unresponsive. Recovery evidence is being preserved."
+            )
+            if (runCatching { surface.report(report) }.isSuccess) {
+                incidentKey.compareAndSet(null, report.dedupeKey)
+            }
         }
 
         if (recoveryObserved.compareAndSet(true, false)) {
