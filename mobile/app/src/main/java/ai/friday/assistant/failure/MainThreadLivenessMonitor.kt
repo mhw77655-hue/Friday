@@ -21,7 +21,7 @@ class MainThreadLivenessMonitor(
     private val surface: FailureSurface,
     private val intervalMs: Long = DEFAULT_INTERVAL_MS,
     private val timeoutMs: Long = DEFAULT_TIMEOUT_MS,
-    private val elapsedRealtime: () -> Long = { SystemClock.elapsedRealtime() },
+    private val elapsedRealtime: () -> Long = { SystemClock.uptimeMillis() },
     private val mainHandler: Handler = Handler(Looper.getMainLooper()),
     private val scheduler: ScheduledExecutorService = Executors.newSingleThreadScheduledExecutor { task ->
         Thread(task, "Friday-MainThread-Watchdog").apply { isDaemon = true }
