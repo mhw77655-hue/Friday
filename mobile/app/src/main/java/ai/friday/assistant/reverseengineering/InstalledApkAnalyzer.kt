@@ -133,7 +133,7 @@ class InstalledApkAnalyzer(private val context: Context) {
                 val name = entry.name
                 when {
                     name == "AndroidManifest.xml" -> manifestBytes = entry.size.coerceAtLeast(0)
-                    name.matches(Regex("""classes(\\d*)\\.dex""")) -> {
+                    name.matches(Regex("""classes(\d*)\.dex""")) -> {
                         val header = zip.getInputStream(entry).use { input ->
                             val bytes = ByteArray(DEX_HEADER_BYTES)
                             var offset = 0
