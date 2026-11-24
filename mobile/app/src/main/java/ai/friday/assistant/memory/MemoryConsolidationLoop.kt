@@ -160,7 +160,11 @@ class MemoryConsolidationLoop(
     @Synchronized
     fun runConsolidationPass(): ConsolidationPassReport {
         if (!cursorsLoaded) {
-            cursorStore?.let { processedPositions.putAll(runCatching { it.load() }.getOrDefault(emptyMap())) }
+            cursorStore?.let { store ->
+                val loaded = runCatching { store.load() }
+                loaded.onFailure { failure -> runCatching { onFailure(failure) } }
+                processedPositions.putAll(loaded.getOrDefault(emptyMap()))
+            }
             cursorsLoaded = true
         }
         val batch = recentExperience(processedPositions.toMap())
