@@ -404,6 +404,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         if (_diagnosticRunning.value) return
         _diagnosticRunning.value = true
         viewModelScope.launch {
+            var completed = false
             try {
                 val signals = mapOf(
                     "battery" to batteryText.value,
@@ -423,6 +424,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                     diagnosticRunner.run(signals, CrashJournal.read(getApplication()))
                 }
                 _diagnosticFindings.value = findings
+                completed = true
                 diagnosticEvents.record("active_diagnostic",
                     "errors=${findings.count { it.severity == ai.friday.assistant.diagnostics.DiagnosticSeverity.ERROR }}; " +
                     "warnings=${findings.count { it.severity == ai.friday.assistant.diagnostics.DiagnosticSeverity.WARNING }}")
@@ -439,9 +441,12 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                     )
                 )
                 diagnosticEvents.record("active_diagnostic", "failed; type=${failure.javaClass.simpleName}")
+                completed = true
             } finally {
-                _diagnosticAt.value = System.currentTimeMillis()
-                _diagnosticRunCount.value += 1
+                if (completed) {
+                    _diagnosticAt.value = System.currentTimeMillis()
+                    _diagnosticRunCount.value += 1
+                }
                 _diagnosticRunning.value = false
             }
         }
@@ -574,6 +579,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         if (_selfDiagnosticRunning.value) return
         _selfDiagnosticRunning.value = true
         viewModelScope.launch(Dispatchers.Default) {
+            var completed = false
             try {
             val findings = mutableListOf<SelfDiagnosticFinding>()
             fun add(
@@ -834,6 +840,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             )
             _selfDiagnosticFindings.value = findings
             _selfDiagnosticAt.value = System.currentTimeMillis()
+            completed = true
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
@@ -847,9 +854,12 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                     )
                 )
                 _selfDiagnosticAt.value = System.currentTimeMillis()
+                completed = true
             } finally {
-                _selfDiagnosticAt.value = System.currentTimeMillis()
-                _selfDiagnosticRunCount.value += 1
+                if (completed) {
+                    _selfDiagnosticAt.value = System.currentTimeMillis()
+                    _selfDiagnosticRunCount.value += 1
+                }
                 _selfDiagnosticRunning.value = false
             }
         }
