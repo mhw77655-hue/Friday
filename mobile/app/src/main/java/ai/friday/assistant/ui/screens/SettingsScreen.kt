@@ -84,9 +84,6 @@ private data class RuntimeSnapshot(
 
 private data class SettingsSnapshot(
     val jevConfigured: Boolean,
-    val githubConfigured: Boolean,
-    val githubAutoReportConsent: Boolean,
-    val githubPendingReport: Boolean,
     val chatGptConnected: Boolean,
     val chatGptBackgroundConsent: Boolean,
     val chatGptAccountLabel: String,
@@ -108,23 +105,9 @@ fun SettingsScreen() {
     val prefs = remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
 
     var personaText by remember { mutableStateOf(prefs.getString(KEY_PERSONA, "") ?: "") }
-    var recallLimit by remember { mutableStateOf(prefs.getString(KEY_RECALL_LIMIT, "") ?: "") }
     var jevApiKey by remember { mutableStateOf("") }
     var jevConfigured by remember { mutableStateOf(false) }
     var jevStatus by remember { mutableStateOf("Checking Jev credential status…") }
-    var githubToken by remember { mutableStateOf("") }
-    val githubCredentialStore = remember { GitHubCredentialStore(context) }
-    var githubConfigured by remember { mutableStateOf(false) }
-    val githubPendingReportStore = remember { ai.friday.assistant.github.reporting.GitHubPendingReportStore(context) }
-    val githubDeviceReportConsentStore = remember { ai.friday.assistant.github.reporting.GitHubDeviceReportConsentStore(context) }
-    var githubAutoReportConsent by remember { mutableStateOf(false) }
-    var githubConsentSaving by remember { mutableStateOf(false) }
-    var githubPendingReport by remember { mutableStateOf(false) }
-    var githubDevelopmentStatus by remember { mutableStateOf("Development repository access has not been checked.") }
-    var githubReportStatus by remember {
-        mutableStateOf(if (githubConfigured) "GitHub credential is encrypted on this phone." else "GitHub reporting is not connected.")
-    }
-    var githubBusy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val chatGptAuth = remember(context) { ChatGPTPlanAuth(context) }
     val chatGptConsentStore = remember(context) { ChatGPTPlanBackgroundConsentStore(context) }
@@ -164,10 +147,6 @@ fun SettingsScreen() {
     var actionJournalStatus by remember { mutableStateOf("Local action journal status has not been changed.") }
     val lifecycleOwner = LocalLifecycleOwner.current
     var phoneControlConnected by remember { mutableStateOf(false) }
-    var installedApps by remember { mutableStateOf<List<InstalledApplicationTarget>>(emptyList()) }
-    var applicationLabStatus by remember { mutableStateOf("No application has been analyzed yet.") }
-    var applicationLabReport by remember { mutableStateOf("") }
-    var analyzingPackage by remember { mutableStateOf<String?>(null) }
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
@@ -182,9 +161,6 @@ fun SettingsScreen() {
         val settingsSnapshot = withContext(Dispatchers.IO) {
             SettingsSnapshot(
                 jevConfigured = ai.friday.assistant.voice.JevApiKeyStore(context).read() != null,
-                githubConfigured = githubCredentialStore.isConfigured(),
-                githubAutoReportConsent = githubDeviceReportConsentStore.isEnabled(),
-                githubPendingReport = githubPendingReportStore.read() != null,
                 chatGptConnected = chatGptAuth.isConnected(),
                 chatGptBackgroundConsent = chatGptConsentStore.isEnabled(),
                 chatGptAccountLabel = chatGptAuth.accountLabel(),
@@ -205,9 +181,6 @@ fun SettingsScreen() {
                 "Jev not configured — Friday continues with local deterministic command handling."
             }
         }
-        githubConfigured = settingsSnapshot.githubConfigured
-        githubAutoReportConsent = settingsSnapshot.githubAutoReportConsent
-        githubPendingReport = settingsSnapshot.githubPendingReport
         chatGptConnected = settingsSnapshot.chatGptConnected
         chatGptBackgroundConsent = settingsSnapshot.chatGptBackgroundConsent
         chatGptAccountLabel = settingsSnapshot.chatGptAccountLabel
@@ -872,6 +845,66 @@ fun SettingsScreen() {
             Text(text = shizukuAcceptanceReport, style = FridayType.Technical, modifier = Modifier.padding(vertical = 6.dp))
         }
 
+        GitHubDeviceReportingSection(context, actionTraceCount)
+
+        MemoryRulesAndApplicationLabSection(context)
+
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(text = text, style = FridayType.Label, modifier = Modifier.padding(top = 24.dp, bottom = 4.dp))
+}
+
+private fun android.content.Context.findActivity(): Activity? {
+    var current: android.content.Context = this
+    while (current is ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return current as? Activity
+}
+
+
+@Composable
+private fun GitHubDeviceReportingSection(context: Context, actionTraceCount: Int) {
+    val scope = rememberCoroutineScope()
+    val githubCredentialStore = remember(context) { GitHubCredentialStore(context) }
+    val githubPendingReportStore = remember(context) {
+        ai.friday.assistant.github.reporting.GitHubPendingReportStore(context)
+    }
+    val githubDeviceReportConsentStore = remember(context) {
+        ai.friday.assistant.github.reporting.GitHubDeviceReportConsentStore(context)
+    }
+    var githubToken by remember { mutableStateOf("") }
+    var githubConfigured by remember { mutableStateOf(false) }
+    var githubAutoReportConsent by remember { mutableStateOf(false) }
+    var githubConsentSaving by remember { mutableStateOf(false) }
+    var githubPendingReport by remember { mutableStateOf(false) }
+    var githubDevelopmentStatus by remember { mutableStateOf("Development repository access has not been checked.") }
+    var githubReportStatus by remember { mutableStateOf("GitHub reporting is not connected.") }
+    var githubBusy by remember { mutableStateOf(false) }
+
+    LaunchedEffect(context) {
+        val snapshot = withContext(Dispatchers.IO) {
+            Triple(
+                githubCredentialStore.isConfigured(),
+                githubDeviceReportConsentStore.isEnabled(),
+                githubPendingReportStore.read() != null
+            )
+        }
+        githubConfigured = snapshot.first
+        githubAutoReportConsent = snapshot.second
+        githubPendingReport = snapshot.third
+        githubReportStatus = if (snapshot.first) {
+            "GitHub credential is encrypted on this phone."
+        } else {
+            "GitHub reporting is not connected."
+        }
+    }
+
+    Column {
         SectionLabel("LIVE TEST ACTION JOURNAL")
         Text(
             text = "Friday records bounded phone-control attempts locally. The journal stores action categories, execution routes, outcomes and durations—not spoken requests, typed text, tap labels, screen contents or credentials.",
@@ -1151,7 +1184,19 @@ fun SettingsScreen() {
             style = FridayType.Technical,
             modifier = Modifier.padding(top = 4.dp)
         )
+    }
+}
 
+@Composable
+private fun MemoryRulesAndApplicationLabSection(context: Context) {
+    val prefs = remember(context) { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
+    var recallLimit by remember { mutableStateOf(prefs.getString(KEY_RECALL_LIMIT, "") ?: "") }
+    var installedApps by remember { mutableStateOf<List<InstalledApplicationTarget>>(emptyList()) }
+    var applicationLabStatus by remember { mutableStateOf("No application has been analyzed yet.") }
+    var applicationLabReport by remember { mutableStateOf("") }
+    var analyzingPackage by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    Column {
         SectionLabel("MEMORY RULES")
         OutlinedTextField(
             value = recallLimit,
@@ -1235,18 +1280,4 @@ fun SettingsScreen() {
             Text(applicationLabReport, style = FridayType.Technical, modifier = Modifier.padding(top = 8.dp))
         }
     }
-}
-
-@Composable
-private fun SectionLabel(text: String) {
-    Text(text = text, style = FridayType.Label, modifier = Modifier.padding(top = 24.dp, bottom = 4.dp))
-}
-
-private fun android.content.Context.findActivity(): Activity? {
-    var current: android.content.Context = this
-    while (current is ContextWrapper) {
-        if (current is Activity) return current
-        current = current.baseContext
-    }
-    return current as? Activity
 }
