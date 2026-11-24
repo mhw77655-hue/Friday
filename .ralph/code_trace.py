@@ -90,6 +90,8 @@ def main():
     for v in by_path.values(): v.sort(key=lambda x:(x["start"],x["end"]))
     forward=defaultdict(set); reverse=defaultdict(set); edges=[]
     for s in symbols:
+        if s["kind"] in {"type", "class"}:
+            continue
         body="\n".join(contents[s["path"]].splitlines()[s["start"]-1:s["end"]])
         for name in sorted(set(CALL.findall(body))-KEYWORDS-{s["name"].split(".")[-1]}):
             candidates=by_name.get(name,[])
