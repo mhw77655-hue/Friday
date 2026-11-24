@@ -1,6 +1,8 @@
 package ai.friday.assistant.memory
 
 import ai.friday.assistant.identity.UserProfile
+import android.content.Context
+import org.json.JSONObject
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -21,6 +23,46 @@ data class RecentStatement(
     val text: String,
     val timestamp: Long = System.currentTimeMillis()
 )
+
+/** A batch contains only statements after each session's durable message cursor. */
+data class ConsolidationBatch(
+    val statements: List<RecentStatement>,
+    /** End-exclusive message positions, including non-user messages, per session. */
+    val endPositions: Map<String, Int>
+)
+
+interface ConsolidationCursorStore {
+    fun load(): Map<String, Int>
+    fun save(positions: Map<String, Int>)
+}
+
+/** Commit-backed private cursor storage; callers access it from the IO work lane. */
+class AndroidConsolidationCursorStore(context: Context) : ConsolidationCursorStore {
+    private val prefs = context.applicationContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+
+    override fun load(): Map<String, Int> {
+        val json = JSONObject(prefs.getString(KEY_POSITIONS, "{}") ?: "{}")
+        return buildMap {
+            json.keys().forEach { sessionId ->
+                val position = json.optInt(sessionId, -1)
+                if (position >= 0) put(sessionId, position)
+            }
+        }
+    }
+
+    override fun save(positions: Map<String, Int>) {
+        val json = JSONObject()
+        positions.forEach { (sessionId, position) -> if (position >= 0) json.put(sessionId, position) }
+        check(prefs.edit().putString(KEY_POSITIONS, json.toString()).commit()) {
+            "Memory consolidation cursor could not be persisted."
+        }
+    }
+
+    companion object {
+        private const val PREFERENCES = "friday_memory_consolidation"
+        private const val KEY_POSITIONS = "processed_message_positions"
+    }
+}
 
 /** Report of one background consolidation pass. */
 data class ConsolidationPassReport(
@@ -56,13 +98,14 @@ data class ConsolidationPassReport(
 class MemoryConsolidationLoop(
     private val userProfile: UserProfile,
     /** Source of recent per-session user statements (production: the real SessionManager). */
-    private val recentExperience: () -> List<RecentStatement>,
+    private val recentExperience: (Map<String, Int>) -> ConsolidationBatch,
     private val scope: CoroutineScope,
     private val idleIntervalMs: Long = DEFAULT_IDLE_INTERVAL_MS,
     /** Consolidation can scan many sessions and write durable memory; never inherit the UI dispatcher. */
     private val workDispatcher: CoroutineDispatcher = Dispatchers.IO,
     /** Reports a failed pass while the loop remains alive for a bounded retry. */
-    private val onFailure: (Throwable) -> Unit = {}
+    private val onFailure: (Throwable) -> Unit = {},
+    private val cursorStore: ConsolidationCursorStore? = null
 ) {
     init {
         require(idleIntervalMs > 0) { "idleIntervalMs must be positive" }
@@ -70,6 +113,9 @@ class MemoryConsolidationLoop(
 
     @Volatile
     private var idleLoopRunning = false
+
+    private var cursorsLoaded = false
+    private val processedPositions = linkedMapOf<String, Int>()
 
     fun isIdleLoopRunning(): Boolean = idleLoopRunning
 
@@ -110,7 +156,16 @@ class MemoryConsolidationLoop(
      */
     @Synchronized
     fun runConsolidationPass(): ConsolidationPassReport {
-        val statements = recentExperience().sortedBy { it.timestamp }
+        if (!cursorsLoaded) {
+            cursorStore?.let { store ->
+                val loaded = runCatching { store.load() }
+                loaded.onFailure { failure -> runCatching { onFailure(failure) } }
+                processedPositions.putAll(loaded.getOrDefault(emptyMap()))
+            }
+            cursorsLoaded = true
+        }
+        val batch = recentExperience(processedPositions.toMap())
+        val statements = batch.statements.sortedBy { it.timestamp }
         var promoted = 0
         val promotions = mutableListOf<UserProfile.ProfileUpdate>()
         for (statement in statements) {
@@ -120,11 +175,16 @@ class MemoryConsolidationLoop(
                 promotions.add(update)
             }
         }
-        return ConsolidationPassReport(
-            scanned = statements.size,
-            promoted = promoted,
-            promotions = promotions
-        )
+        // Advance only after every statement is ingested and the cursor is durable.
+        // Failed passes replay safely through UserProfile's idempotent durability gate.
+        val nextPositions = processedPositions.toMutableMap()
+        batch.endPositions.forEach { (sessionId, endExclusive) ->
+            if (endExclusive >= 0) nextPositions[sessionId] = endExclusive
+        }
+        cursorStore?.save(nextPositions)
+        processedPositions.clear()
+        processedPositions.putAll(nextPositions)
+        return ConsolidationPassReport(statements.size, promoted, promotions)
     }
 
     companion object {
