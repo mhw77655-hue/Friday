@@ -76,6 +76,9 @@ class FridayApplication : Application() {
             startupTask("process-exit diagnostics") {
                 ai.friday.assistant.diagnostics.ProcessExitDiagnostics.capture(this)
             }
+            startupTask("crash history retention") {
+                ai.friday.assistant.diagnostics.CrashJournal.pruneHistory(this)
+            }
             startupTask("update health verification") {
                 ai.friday.assistant.update.FridayUpdateStateStore(this).verifyPendingHealthCheck()
             }
