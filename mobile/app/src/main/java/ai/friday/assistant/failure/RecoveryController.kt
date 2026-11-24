@@ -68,7 +68,7 @@ class RecoveryController(
     private val failureListener: (FailureEvent) -> Unit = ::handleReportedFailure
 
     init {
-        surface.addFailureListener(failureListener, replayExisting = false)
+        surface.addFailureListener(replayExisting = false, listener = failureListener)
         scope.coroutineContext[Job]?.invokeOnCompletion {
             surface.removeFailureListener(failureListener)
         }
