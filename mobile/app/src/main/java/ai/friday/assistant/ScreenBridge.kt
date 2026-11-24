@@ -18,9 +18,12 @@ import rikka.shizuku.Shizuku
 import java.io.StringReader
 
 object ScreenBridge {
-    private var service: IFridayShellService? = null
+    // Binder callbacks publish this reference from a Binder-managed thread;
+    // UI and IO callers consume it from different dispatchers.
+    @Volatile private var service: IFridayShellService? = null
     private var userServiceArgs: Shizuku.UserServiceArgs? = null
     @Volatile private var verifiedUid: Int? = null
+    @Volatile private var bindingInProgress: Boolean = false
 
     private val _status = MutableStateFlow("not bound")
     val status: StateFlow<String> = _status.asStateFlow()
@@ -30,6 +33,7 @@ object ScreenBridge {
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+            bindingInProgress = false
             val candidate = IFridayShellService.Stub.asInterface(binder)
             if (candidate == null) {
                 service = null
@@ -53,28 +57,34 @@ object ScreenBridge {
             _status.value = "bound · verified Shizuku uid=$uid"
         }
         override fun onServiceDisconnected(name: ComponentName?) {
+            bindingInProgress = false
             service = null
             verifiedUid = null
             _status.value = "disconnected"
         }
         override fun onBindingDied(name: ComponentName?) {
+            bindingInProgress = false
             service = null
             verifiedUid = null
             _status.value = "binding died"
         }
         override fun onNullBinding(name: ComponentName?) {
+            bindingInProgress = false
             service = null
             verifiedUid = null
             _status.value = "empty binding"
         }
     }
 
+    @Synchronized
     fun bind(context: Context) {
         if (!Shizuku.pingBinder()) {
+            bindingInProgress = false
             _status.value = "Shizuku not running"
             return
         }
         if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
+            bindingInProgress = false
             _status.value = "Shizuku permission not granted"
             return
         }
@@ -82,6 +92,7 @@ object ScreenBridge {
             _status.value = verifiedUid?.let { "bound · verified Shizuku uid=$it" } ?: "bound · identity unverified"
             return
         }
+        if (bindingInProgress) return
         val args = Shizuku.UserServiceArgs(ComponentName(context, FridayShellService::class.java))
             .processNameSuffix("device-capability")
             .daemon(true)
@@ -89,14 +100,17 @@ object ScreenBridge {
             .version(6)
         userServiceArgs = args
         try {
+            bindingInProgress = true
             _status.value = "binding..."
             Shizuku.bindUserService(args, connection)
         } catch (e: Exception) {
+            bindingInProgress = false
             _status.value = "bind failed: ${e.message}"
         }
     }
 
     fun onShizukuUnavailable() {
+        bindingInProgress = false
         service = null
         verifiedUid = null
         _status.value = "Shizuku unavailable"
@@ -157,7 +171,7 @@ object ScreenBridge {
         withContext(Dispatchers.Main.immediate) {
             if (service == null) bind(context)
         }
-        return withTimeoutOrNull(timeoutMillis) {
+        val result = withTimeoutOrNull(timeoutMillis) {
             _status.first { status ->
                 status.startsWith("bound · verified Shizuku uid=") ||
                     status.startsWith("Shizuku not running") ||
@@ -166,7 +180,13 @@ object ScreenBridge {
                     status.startsWith("bind failed") ||
                     status == "binding died" || status == "empty binding"
             }
-        } ?: "Shizuku binding verification timed out"
+        }
+        if (result != null) return result
+        synchronized(this) {
+            bindingInProgress = false
+            _status.value = "Shizuku binding verification timed out"
+        }
+        return _status.value
     }
 
     /** Actual UID proved by the connected UserService, not inferred from a running server. */
