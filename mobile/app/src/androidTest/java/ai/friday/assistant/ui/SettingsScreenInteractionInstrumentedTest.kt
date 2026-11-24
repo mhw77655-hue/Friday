@@ -63,6 +63,13 @@ class SettingsScreenInteractionInstrumentedTest {
 
         compose.waitForIdle()
         compose.onNodeWithText("Clear local journal").performClick()
+        compose.waitForIdle()
+        compose.onRoot().printToLog("FRIDAY_JOURNAL_IMMEDIATE_STATE")
+        assertTrue(
+            "Journal-clear tap must synchronously publish its in-progress state.",
+            compose.onAllNodesWithText("Clearing local action journal…", substring = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        )
         compose.waitUntil(9_000) {
             compose.onAllNodesWithText("Local action journal cleared.", substring = true).fetchSemanticsNodes().isNotEmpty() ||
                 compose.onAllNodesWithText("Could not clear the local journal.", substring = true).fetchSemanticsNodes().isNotEmpty()
@@ -120,6 +127,13 @@ class SettingsScreenInteractionInstrumentedTest {
 
         compose.waitForIdle()
         compose.onNodeWithText("Remove key").performClick()
+        compose.waitForIdle()
+        compose.onRoot().printToLog("FRIDAY_JEV_IMMEDIATE_STATE")
+        assertTrue(
+            "Credential-removal tap must synchronously publish its in-progress state.",
+            compose.onAllNodesWithText("Removing Jev credential…", substring = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        )
         compose.waitUntil(9_000) {
             compose.onAllNodesWithText(
                 "Jev credential removed. Friday continues with local deterministic command handling.",
