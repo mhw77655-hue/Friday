@@ -134,6 +134,7 @@ fun SettingsScreen() {
     val shizukuGranted by ai.friday.assistant.ShizukuBridge.isGranted.collectAsState()
     val shizukuStatus by ai.friday.assistant.ScreenBridge.status.collectAsState()
     var shizukuSnapshot by remember { mutableStateOf("") }
+    var shizukuDiagnosticsRunning by remember { mutableStateOf(false) }
     var shizukuAcceptanceReport by remember { mutableStateOf("") }
     var shizukuAcceptanceRunning by remember { mutableStateOf(false) }
     var objectiveExecutionStatus by remember { mutableStateOf("Friday is loading the canonical objectives ledger…") }
@@ -712,14 +713,22 @@ fun SettingsScreen() {
         Text(text = shizukuStatus, style = FridayType.Technical, modifier = Modifier.padding(vertical = 6.dp))
         Button(
             onClick = {
+                shizukuDiagnosticsRunning = true
+                shizukuSnapshot = "Reading bounded diagnostics from Friday's verified Shizuku service…"
                 scope.launch {
-                    shizukuSnapshot = ai.friday.assistant.ScreenBridge.diagnosticsSnapshot()
-                        ?: "Device service is not connected."
+                    try {
+                        shizukuSnapshot = ai.friday.assistant.ScreenBridge.diagnosticsSnapshot()
+                            ?: "Device diagnostics timed out or the service is not connected. Check the Shizuku connection and retry."
+                    } catch (failure: Exception) {
+                        shizukuSnapshot = "Device diagnostics failed: ${failure.message ?: failure.javaClass.simpleName}"
+                    } finally {
+                        shizukuDiagnosticsRunning = false
+                    }
                 }
             },
-            enabled = shizukuStatus.startsWith("bound · verified Shizuku uid="),
+            enabled = shizukuStatus.startsWith("bound · verified Shizuku uid=") && !shizukuDiagnosticsRunning,
             modifier = Modifier.fillMaxWidth()
-        ) { Text("Read live device diagnostics") }
+        ) { Text(if (shizukuDiagnosticsRunning) "Reading device diagnostics…" else "Read live device diagnostics") }
         if (shizukuSnapshot.isNotBlank()) {
             Text(text = shizukuSnapshot, style = FridayType.Technical, modifier = Modifier.padding(top = 6.dp))
         }
