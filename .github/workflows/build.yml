@@ -398,14 +398,14 @@ jobs:
           while IFS= read -r -d '' report; do
             args+=(--failure "$report")
           done < <(find mobile/app/build/test-results mobile/app/build/reports/androidTests -type f \( -name '*.xml' -o -name '*.txt' -o -name '*.log' \) -print0 2>/dev/null || true)
-          python3 .ralph/code_trace.py --repo . --out-dir "$RUNNER_TEMP/friday-runtime-code-trace" "\${args[@]}"
+          python3 .ralph/code_trace.py --repo . --out-dir "$RUNNER_TEMP/friday-runtime-code-trace" "${args[@]}"
 
       - name: Upload failure-to-source traces
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: friday-failure-to-source-traces
-          path: \${{ runner.temp }}/friday-runtime-code-trace/
+          path: ${{ runner.temp }}/friday-runtime-code-trace/
           if-no-files-found: warn
           retention-days: 14
 
