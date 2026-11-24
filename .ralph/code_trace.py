@@ -14,7 +14,7 @@ import subprocess
 from collections import defaultdict, deque
 from pathlib import Path
 
-EXTS = {".kt",".kts",".java",".py",".go",".js",".jsx",".ts",".tsx",".swift",".rs",".c",".cc",".cpp",".h",".hpp",".gradle"}
+EXTS = {".kt",".kts",".java",".py",".go",".js",".jsx",".ts",".tsx",".swift",".rs",".c",".cc",".cpp",".h",".hpp",".gradle",".xml",".yml",".yaml",".toml",".properties",".json",".sh"}
 SKIP = {".git",".gradle","build","out","generated","node_modules",".idea"}
 DECL = re.compile(r"^\s*(?:(?:public|private|protected|internal|static|final|open|override|suspend|inline|tailrec|operator|infix|external|async|export|default|abstract|data|sealed|enum|annotation)\s+)*(?:fun\s+(?:<[^>]+>\s*)?(?:[\w?.<>]+\.)?([A-Za-z_]\w*)\s*(?:<[^>]+>\s*)?\(|(?:function\s+|def\s+|func\s+|fn\s+)([A-Za-z_]\w*)\s*\(|(?:class|interface|object|struct|enum|trait)\s+([A-Za-z_]\w*))")
 CALL = re.compile(r"\b([A-Za-z_]\w*)\s*\(")
@@ -66,6 +66,8 @@ def main():
     ap.add_argument("--repo",default=".")
     ap.add_argument("--out-dir",default="build/friday-code-trace")
     ap.add_argument("--failure",action="append",default=[])
+    ap.add_argument("--location",action="append",default=[],help="Trace a source location as path:line; repeatable")
+    ap.add_argument("--symbol",action="append",default=[],help="Trace a function by exact or unqualified name; repeatable")
     ap.add_argument("--depth",type=int,default=3)
     a=ap.parse_args(); root=Path(a.repo).resolve(); out=Path(a.out_dir).resolve(); out.mkdir(parents=True,exist_ok=True)
     try:
@@ -131,6 +133,31 @@ def main():
             item={"input":fp,"path":path,"line":line,"resolution":"symbol_found" if s else "line_outside_indexed_symbol","symbol":s}
             if s: item["callers"]=walk(reverse,s["id"]); item["callees"]=walk(forward,s["id"])
             failures.append(item)
+    def trace_at(path, line, origin):
+        normalized=path.replace("\\\\","/")
+        if normalized not in by_path:
+            matches=[x for x in by_path if x.endswith("/"+normalized.split("/")[-1])]
+            normalized=matches[0] if len(matches)==1 else normalized
+        found=[s for s in by_path.get(normalized,[]) if s["start"]<=line<=s["end"]]
+        found.sort(key=lambda s:(s["end"]-s["start"],-s["start"]))
+        symbol=found[0] if found else None
+        item={"input":origin,"path":normalized,"line":line,
+              "resolution":"symbol_found" if symbol else "line_outside_indexed_symbol","symbol":symbol}
+        if symbol:
+            item["callers"]=walk(reverse,symbol["id"]); item["callees"]=walk(forward,symbol["id"])
+        return item
+    for location in a.location:
+        try: loc_path, loc_line=location.rsplit(":",1); failures.append(trace_at(loc_path,int(loc_line),"--location"))
+        except (ValueError,TypeError): failures.append({"input":location,"resolution":"invalid_location_expected_path_colon_line"})
+    for query in a.symbol:
+        matches=[s for s in symbols if s["name"]==query or s["name"].endswith("."+query) or s["id"]==query]
+        if not matches:
+            failures.append({"input":query,"resolution":"symbol_not_found"})
+        else:
+            for s in matches:
+                item={"input":"--symbol","path":s["path"],"line":s["start"],"resolution":"symbol_found","symbol":s,
+                      "callers":walk(reverse,s["id"]),"callees":walk(forward,s["id"])}
+                failures.append(item)
     data={"schema":1,"source_files":len(contents),"source_lines":sum(len(x.splitlines()) for x in contents.values()),
         "symbols":symbols,"call_edges":edges,"failures":failures,"syntax_errors":syntax,
         "limits":["lexical call graph, not compiler-resolved","overloads and dynamic dispatch","reflection and dependency injection",
