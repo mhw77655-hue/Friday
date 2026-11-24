@@ -6,6 +6,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.json.JSONObject
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -24,5 +25,19 @@ class InstalledApkAnalyzerInstrumentedTest {
         assertTrue("APK should contain a binary Android manifest", report.manifestBytes > 0)
         assertTrue("APK should contain at least one DEX file", report.dexFiles > 0)
         assertEquals(report.packageName, targets.first().packageName)
+        assertTrue("Component inventory must not be negative",
+            report.activityCount >= 0 && report.serviceCount >= 0 &&
+                report.receiverCount >= 0 && report.providerCount >= 0)
+
+        val saved = ApplicationKnowledgeStore(context).persist(report)
+        try {
+            assertTrue("Analysis must be persisted in Friday's private workspace", saved.isFile)
+            val persisted = JSONObject(saved.readText())
+            assertEquals(report.apkSha256, persisted.getString("apk_sha256"))
+            assertTrue(persisted.has("requested_permissions"))
+            assertTrue(persisted.has("exported_components"))
+        } finally {
+            saved.delete()
+        }
     }
 }
