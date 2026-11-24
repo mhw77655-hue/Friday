@@ -3,6 +3,7 @@ package ai.friday.assistant.diagnostics
 import android.app.ActivityManager
 import android.app.ApplicationExitInfo
 import android.content.Context
+import androidx.annotation.RequiresApi
 import android.os.Build
 import android.util.Log
 import org.json.JSONObject
@@ -67,6 +68,7 @@ object ProcessExitDiagnostics {
         }.getOrElse { org.json.JSONArray() }
     }
 
+    @RequiresApi(Build.VERSION_CODES.R)
     private fun ApplicationExitInfo.toSafeRecord(id: String): JSONObject =
         JSONObject()
             .put("id", id)
@@ -80,6 +82,7 @@ object ProcessExitDiagnostics {
             .put("rssKb", rss)
             .put("description", redact(description.orEmpty()).take(240))
 
+    @RequiresApi(Build.VERSION_CODES.R)
     private fun reasonName(reason: Int): String = when (reason) {
         ApplicationExitInfo.REASON_ANR -> "ANR"
         ApplicationExitInfo.REASON_CRASH -> "CRASH"
