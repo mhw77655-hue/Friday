@@ -198,33 +198,41 @@ object ScreenBridge {
     suspend fun beginApkInstall(expectedSize: Long, expectedSha256: String): String? =
         withContext(Dispatchers.IO) {
             val svc = service ?: return@withContext null
-            runCatching { svc.beginApkInstall(expectedSize, expectedSha256) }
-                .onFailure { _status.value = "APK transfer start failed: ${it.javaClass.simpleName}" }
-                .getOrNull()
+            withTimeoutOrNull(10_000) {
+                runCatching { svc.beginApkInstall(expectedSize, expectedSha256) }
+                    .onFailure { _status.value = "APK transfer start failed: ${it.javaClass.simpleName}" }
+                    .getOrNull()
+            } ?: run { _status.value = "APK transfer start timed out"; null }
         }
 
     /** Send one sequential chunk; callers must use chunks no larger than 128 KiB. */
     suspend fun writeApkInstallChunk(transferId: String, offset: Long, chunk: ByteArray): String? =
         withContext(Dispatchers.IO) {
             val svc = service ?: return@withContext null
-            runCatching { svc.writeApkInstallChunk(transferId, offset, chunk) }
-                .onFailure { _status.value = "APK transfer chunk failed: ${it.javaClass.simpleName}" }
-                .getOrNull()
+            withTimeoutOrNull(8_000) {
+                runCatching { svc.writeApkInstallChunk(transferId, offset, chunk) }
+                    .onFailure { _status.value = "APK transfer chunk failed: ${it.javaClass.simpleName}" }
+                    .getOrNull()
+            } ?: run { _status.value = "APK transfer chunk timed out"; null }
         }
 
     /** Commit only a complete, digest-verified Friday APK through the fixed package-manager operation. */
     suspend fun commitApkInstall(transferId: String): String? =
         withContext(Dispatchers.IO) {
             val svc = service ?: return@withContext null
-            runCatching { svc.commitApkInstall(transferId) }
-                .onFailure { _status.value = "Privileged APK install failed: ${it.javaClass.simpleName}" }
-                .getOrNull()
+            withTimeoutOrNull(60_000) {
+                runCatching { svc.commitApkInstall(transferId) }
+                    .onFailure { _status.value = "Privileged APK install failed: ${it.javaClass.simpleName}" }
+                    .getOrNull()
+            } ?: run { _status.value = "Privileged APK install timed out"; null }
         }
 
     suspend fun cancelApkInstall(transferId: String): String? =
         withContext(Dispatchers.IO) {
             val svc = service ?: return@withContext null
-            runCatching { svc.cancelApkInstall(transferId) }.getOrNull()
+            withTimeoutOrNull(8_000) {
+                runCatching { svc.cancelApkInstall(transferId) }.getOrNull()
+            } ?: run { _status.value = "APK transfer cancellation timed out"; null }
         }
 
     /** Launches an installed app by package name through a typed Shizuku operation. */
@@ -238,9 +246,11 @@ object ScreenBridge {
     /** Reads bounded device diagnostics through the same privileged UserService. */
     suspend fun diagnosticsSnapshot(): String? = withContext(Dispatchers.IO) {
         val svc = service ?: return@withContext null
-        runCatching { svc.diagnosticsSnapshot() }
-            .onFailure { _status.value = "diagnostics failed: ${it.message}" }
-            .getOrNull()
+        withTimeoutOrNull(15_000) {
+                runCatching { svc.diagnosticsSnapshot() }
+                    .onFailure { _status.value = "diagnostics failed: ${it.message}" }
+                    .getOrNull()
+            } ?: run { _status.value = "diagnostics timed out"; null }
     }
 
     /**
@@ -250,17 +260,21 @@ object ScreenBridge {
      */
     suspend fun setDozeWhitelist(enabled: Boolean): String? = withContext(Dispatchers.IO) {
         val svc = service ?: return@withContext null
-        runCatching { svc.setDozeWhitelist(enabled) }
-            .onFailure { _status.value = "Doze whitelist update failed: ${it.message}" }
-            .getOrNull()
+        withTimeoutOrNull(10_000) {
+                runCatching { svc.setDozeWhitelist(enabled) }
+                    .onFailure { _status.value = "Doze whitelist update failed: ${it.message}" }
+                    .getOrNull()
+            } ?: run { _status.value = "Doze whitelist update timed out"; null }
     }
 
     /** Read the current Friday-only Doze exemption without changing device state. */
     suspend fun isDozeWhitelisted(): String? = withContext(Dispatchers.IO) {
         val svc = service ?: return@withContext null
-        runCatching { svc.isDozeWhitelisted() }
-            .onFailure { _status.value = "Doze whitelist read failed: ${it.message}" }
-            .getOrNull()
+        withTimeoutOrNull(8_000) {
+                runCatching { svc.isDozeWhitelisted() }
+                    .onFailure { _status.value = "Doze whitelist read failed: ${it.message}" }
+                    .getOrNull()
+            } ?: run { _status.value = "Doze whitelist read timed out"; null }
     }
 
     /**
