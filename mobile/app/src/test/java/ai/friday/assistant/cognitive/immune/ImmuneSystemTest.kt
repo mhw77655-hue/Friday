@@ -129,7 +129,7 @@ class ImmuneSystemTest {
 
         sys.observe(event)
 
-        assertEquals(1, sys.surface.totalFailureCount)
+        assertEquals(1L, sys.surface.totalFailureCount)
         assertEquals(ContainmentStatus.ISOLATED, sys.containment.statusOf("STT"))
         assertEquals(DegradationLevel.DEGRADED, sys.degradation.levelOf("stt"))
         assertEquals(1, sys.memory.resembles(ai.friday.assistant.failure.failureSignatureOf(timeoutReport()))!!.previousFailures)
