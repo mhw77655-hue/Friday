@@ -730,6 +730,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                         append(diagnosis?.let {
                             "${it.summary}. Changed before: ${it.changedBefore}. Fallback: ${it.fallbackAvailable ?: "none recorded"}; fallback succeeded: ${it.fallbackSucceeded ?: "not verified"}."
                         } ?: "${event.subsystem}.${event.operation}: ${event.message}")
+                        event.metadata["exception_chain"]?.takeIf { it.isNotBlank() }?.let { append(" Exception chain: $it.") }
                         event.metadata["stack_frames"]?.takeIf { it.isNotBlank() }?.let { append(" Stack: $it.") }
                         event.dependency?.let { append(" Dependency: $it.") }
                         event.state?.let { append(" State: $it.") }
