@@ -10,7 +10,7 @@ python3 .ralph/code_trace.py --repo . --out-dir build/friday-code-trace \
   --failure mobile/app/build/test-results/testDebugUnitTest/TEST-example.xml
 ```
 
-The JSON index includes source paths, declaration line ranges, unique lexical caller/callee edges, ambiguous name matches, syntax errors and mapped failure locations. Each failure location is mapped to the smallest containing indexed function when possible; the report then includes its caller and callee neighborhood.
+The index covers tracked Kotlin/Java, native, Python, JavaScript-family, shell, Gradle and app configuration/resource files. It includes source paths, declaration line ranges, unique lexical caller/callee edges, ambiguous name matches, syntax errors and mapped failure locations. Use --location path:line or --symbol FunctionName to trace an arbitrary source location or function, not only stack traces. Each failure location is mapped to the smallest containing indexed function when possible; the report then includes its caller and callee neighborhood.
 
 ## Repair loop
 
