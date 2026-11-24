@@ -18,9 +18,12 @@ import rikka.shizuku.Shizuku
 import java.io.StringReader
 
 object ScreenBridge {
-    private var service: IFridayShellService? = null
+    // Binder callbacks publish this reference from a Binder-managed thread;
+    // UI and IO callers consume it from different dispatchers.
+    @Volatile private var service: IFridayShellService? = null
     private var userServiceArgs: Shizuku.UserServiceArgs? = null
     @Volatile private var verifiedUid: Int? = null
+    @Volatile private var bindingInProgress: Boolean = false
 
     private val _status = MutableStateFlow("not bound")
     val status: StateFlow<String> = _status.asStateFlow()
@@ -32,6 +35,7 @@ object ScreenBridge {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
             val candidate = IFridayShellService.Stub.asInterface(binder)
             if (candidate == null) {
+                bindingInProgress = false
                 service = null
                 verifiedUid = null
                 _status.value = "null service binder"
@@ -43,6 +47,7 @@ object ScreenBridge {
             val identity = runCatching { candidate.identity() }.getOrNull().orEmpty()
             val uid = Regex("(?:^|;)uid=(\\d+)(?:;|$)").find(identity)?.groupValues?.get(1)?.toIntOrNull()
             if (uid != 0 && uid != 2000) {
+                bindingInProgress = false
                 service = null
                 verifiedUid = null
                 _status.value = "rejected Shizuku identity: ${if (uid == null) "unverified" else "uid=$uid"}"
@@ -50,31 +55,38 @@ object ScreenBridge {
             }
             service = candidate
             verifiedUid = uid
+            bindingInProgress = false
             _status.value = "bound · verified Shizuku uid=$uid"
         }
         override fun onServiceDisconnected(name: ComponentName?) {
+            bindingInProgress = false
             service = null
             verifiedUid = null
             _status.value = "disconnected"
         }
         override fun onBindingDied(name: ComponentName?) {
+            bindingInProgress = false
             service = null
             verifiedUid = null
             _status.value = "binding died"
         }
         override fun onNullBinding(name: ComponentName?) {
+            bindingInProgress = false
             service = null
             verifiedUid = null
             _status.value = "empty binding"
         }
     }
 
+    @Synchronized
     fun bind(context: Context) {
         if (!Shizuku.pingBinder()) {
+            bindingInProgress = false
             _status.value = "Shizuku not running"
             return
         }
         if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
+            bindingInProgress = false
             _status.value = "Shizuku permission not granted"
             return
         }
@@ -82,6 +94,7 @@ object ScreenBridge {
             _status.value = verifiedUid?.let { "bound · verified Shizuku uid=$it" } ?: "bound · identity unverified"
             return
         }
+        if (bindingInProgress) return
         val args = Shizuku.UserServiceArgs(ComponentName(context, FridayShellService::class.java))
             .processNameSuffix("device-capability")
             .daemon(true)
@@ -89,14 +102,17 @@ object ScreenBridge {
             .version(6)
         userServiceArgs = args
         try {
+            bindingInProgress = true
             _status.value = "binding..."
             Shizuku.bindUserService(args, connection)
         } catch (e: Exception) {
+            bindingInProgress = false
             _status.value = "bind failed: ${e.message}"
         }
     }
 
     fun onShizukuUnavailable() {
+        bindingInProgress = false
         service = null
         verifiedUid = null
         _status.value = "Shizuku unavailable"
@@ -157,7 +173,7 @@ object ScreenBridge {
         withContext(Dispatchers.Main.immediate) {
             if (service == null) bind(context)
         }
-        return withTimeoutOrNull(timeoutMillis) {
+        val result = withTimeoutOrNull(timeoutMillis) {
             _status.first { status ->
                 status.startsWith("bound · verified Shizuku uid=") ||
                     status.startsWith("Shizuku not running") ||
@@ -166,7 +182,13 @@ object ScreenBridge {
                     status.startsWith("bind failed") ||
                     status == "binding died" || status == "empty binding"
             }
-        } ?: "Shizuku binding verification timed out"
+        }
+        if (result != null) return result
+        synchronized(this) {
+            bindingInProgress = false
+            _status.value = "Shizuku binding verification timed out"
+        }
+        return _status.value
     }
 
     /** Actual UID proved by the connected UserService, not inferred from a running server. */
@@ -176,33 +198,41 @@ object ScreenBridge {
     suspend fun beginApkInstall(expectedSize: Long, expectedSha256: String): String? =
         withContext(Dispatchers.IO) {
             val svc = service ?: return@withContext null
-            runCatching { svc.beginApkInstall(expectedSize, expectedSha256) }
-                .onFailure { _status.value = "APK transfer start failed: ${it.javaClass.simpleName}" }
-                .getOrNull()
+            withTimeoutOrNull(10_000) {
+                runCatching { svc.beginApkInstall(expectedSize, expectedSha256) }
+                    .onFailure { _status.value = "APK transfer start failed: ${it.javaClass.simpleName}" }
+                    .getOrNull()
+            } ?: run { _status.value = "APK transfer start timed out"; null }
         }
 
     /** Send one sequential chunk; callers must use chunks no larger than 128 KiB. */
     suspend fun writeApkInstallChunk(transferId: String, offset: Long, chunk: ByteArray): String? =
         withContext(Dispatchers.IO) {
             val svc = service ?: return@withContext null
-            runCatching { svc.writeApkInstallChunk(transferId, offset, chunk) }
-                .onFailure { _status.value = "APK transfer chunk failed: ${it.javaClass.simpleName}" }
-                .getOrNull()
+            withTimeoutOrNull(8_000) {
+                runCatching { svc.writeApkInstallChunk(transferId, offset, chunk) }
+                    .onFailure { _status.value = "APK transfer chunk failed: ${it.javaClass.simpleName}" }
+                    .getOrNull()
+            } ?: run { _status.value = "APK transfer chunk timed out"; null }
         }
 
     /** Commit only a complete, digest-verified Friday APK through the fixed package-manager operation. */
     suspend fun commitApkInstall(transferId: String): String? =
         withContext(Dispatchers.IO) {
             val svc = service ?: return@withContext null
-            runCatching { svc.commitApkInstall(transferId) }
-                .onFailure { _status.value = "Privileged APK install failed: ${it.javaClass.simpleName}" }
-                .getOrNull()
+            withTimeoutOrNull(60_000) {
+                runCatching { svc.commitApkInstall(transferId) }
+                    .onFailure { _status.value = "Privileged APK install failed: ${it.javaClass.simpleName}" }
+                    .getOrNull()
+            } ?: run { _status.value = "Privileged APK install timed out"; null }
         }
 
     suspend fun cancelApkInstall(transferId: String): String? =
         withContext(Dispatchers.IO) {
             val svc = service ?: return@withContext null
-            runCatching { svc.cancelApkInstall(transferId) }.getOrNull()
+            withTimeoutOrNull(8_000) {
+                runCatching { svc.cancelApkInstall(transferId) }.getOrNull()
+            } ?: run { _status.value = "APK transfer cancellation timed out"; null }
         }
 
     /** Launches an installed app by package name through a typed Shizuku operation. */
@@ -216,9 +246,11 @@ object ScreenBridge {
     /** Reads bounded device diagnostics through the same privileged UserService. */
     suspend fun diagnosticsSnapshot(): String? = withContext(Dispatchers.IO) {
         val svc = service ?: return@withContext null
-        runCatching { svc.diagnosticsSnapshot() }
-            .onFailure { _status.value = "diagnostics failed: ${it.message}" }
-            .getOrNull()
+        withTimeoutOrNull(15_000) {
+                runCatching { svc.diagnosticsSnapshot() }
+                    .onFailure { _status.value = "diagnostics failed: ${it.message}" }
+                    .getOrNull()
+            } ?: run { _status.value = "diagnostics timed out"; null }
     }
 
     /**
@@ -228,17 +260,21 @@ object ScreenBridge {
      */
     suspend fun setDozeWhitelist(enabled: Boolean): String? = withContext(Dispatchers.IO) {
         val svc = service ?: return@withContext null
-        runCatching { svc.setDozeWhitelist(enabled) }
-            .onFailure { _status.value = "Doze whitelist update failed: ${it.message}" }
-            .getOrNull()
+        withTimeoutOrNull(10_000) {
+                runCatching { svc.setDozeWhitelist(enabled) }
+                    .onFailure { _status.value = "Doze whitelist update failed: ${it.message}" }
+                    .getOrNull()
+            } ?: run { _status.value = "Doze whitelist update timed out"; null }
     }
 
     /** Read the current Friday-only Doze exemption without changing device state. */
     suspend fun isDozeWhitelisted(): String? = withContext(Dispatchers.IO) {
         val svc = service ?: return@withContext null
-        runCatching { svc.isDozeWhitelisted() }
-            .onFailure { _status.value = "Doze whitelist read failed: ${it.message}" }
-            .getOrNull()
+        withTimeoutOrNull(8_000) {
+                runCatching { svc.isDozeWhitelisted() }
+                    .onFailure { _status.value = "Doze whitelist read failed: ${it.message}" }
+                    .getOrNull()
+            } ?: run { _status.value = "Doze whitelist read timed out"; null }
     }
 
     /**
