@@ -390,7 +390,9 @@ jobs:
           script: bash tools/friday-builder/run_virtual_phone_tests.sh
 
       - name: Trace instrumented failures to source functions
-        if: always()
+        # Preserve diagnostics after test failures, but do not run against an
+        # empty workspace when the whole job was cancelled during checkout.
+        if: ${{ always() && !cancelled() && hashFiles('.ralph/code_trace.py') != '' }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/friday-runtime-code-trace"
