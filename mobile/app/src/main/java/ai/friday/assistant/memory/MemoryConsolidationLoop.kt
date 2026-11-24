@@ -1,8 +1,13 @@
 package ai.friday.assistant.memory
 
 import ai.friday.assistant.identity.UserProfile
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
@@ -53,8 +58,15 @@ class MemoryConsolidationLoop(
     /** Source of recent per-session user statements (production: the real SessionManager). */
     private val recentExperience: () -> List<RecentStatement>,
     private val scope: CoroutineScope,
-    private val idleIntervalMs: Long = DEFAULT_IDLE_INTERVAL_MS
+    private val idleIntervalMs: Long = DEFAULT_IDLE_INTERVAL_MS,
+    /** Consolidation can scan many sessions and write durable memory; never inherit the UI dispatcher. */
+    private val workDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    /** Reports a failed pass while the loop remains alive for a bounded retry. */
+    private val onFailure: (Throwable) -> Unit = {}
 ) {
+    init {
+        require(idleIntervalMs > 0) { "idleIntervalMs must be positive" }
+    }
 
     @Volatile
     private var idleLoopRunning = false
@@ -66,15 +78,28 @@ class MemoryConsolidationLoop(
     fun startIdleLoop() {
         if (idleLoopRunning) return
         idleLoopRunning = true
-        scope.launch {
-            try {
-                while (true) {
-                    delay(idleIntervalMs)
+        val job = scope.launch(workDispatcher) {
+            var consecutiveFailures = 0
+            while (isActive) {
+                delay(idleIntervalMs)
+                try {
                     runConsolidationPass()
+                    consecutiveFailures = 0
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    consecutiveFailures = (consecutiveFailures + 1).coerceAtMost(8)
+                    runCatching { onFailure(failure) }
+                    // Keep the loop alive without creating a hot retry cycle.
+                    val multiplier = 1L shl (consecutiveFailures - 1)
+                    delay((idleIntervalMs * multiplier).coerceAtMost(MAX_FAILURE_BACKOFF_MS))
                 }
-            } finally {
-                idleLoopRunning = false
             }
+        }
+        // invokeOnCompletion also resets the flag when the parent scope was
+        // already cancelled and the coroutine body never began execution.
+        job.invokeOnCompletion {
+            synchronized(this) { idleLoopRunning = false }
         }
     }
 
@@ -104,5 +129,6 @@ class MemoryConsolidationLoop(
 
     companion object {
         const val DEFAULT_IDLE_INTERVAL_MS: Long = 5 * 60_000L
+        const val MAX_FAILURE_BACKOFF_MS: Long = 30 * 60_000L
     }
 }

@@ -536,7 +536,21 @@ object FridayEngine {
                     }
                 },
                 scope = scope,
-                idleIntervalMs = ai.friday.assistant.memory.MemoryConsolidationLoop.DEFAULT_IDLE_INTERVAL_MS
+                idleIntervalMs = ai.friday.assistant.memory.MemoryConsolidationLoop.DEFAULT_IDLE_INTERVAL_MS,
+                onFailure = { failure ->
+                    recoveryController.handle(
+                        ai.friday.assistant.failure.FailureReport(
+                            subsystem = "MEMORY",
+                            operation = "consolidate",
+                            severity = ai.friday.assistant.failure.FailureSeverity.DEGRADED,
+                            category = ai.friday.assistant.failure.FailureCategory.MEMORY,
+                            message = "Background memory consolidation failed: ${failure.javaClass.simpleName}",
+                            cause = failure.message?.take(240),
+                            recoverability = ai.friday.assistant.failure.Recoverability.RETRYABLE,
+                            recoveryAction = ai.friday.assistant.failure.RecoveryAction.RETRY_WITH_BACKOFF
+                        )
+                    )
+                }
             )
             memoryConsolidationLoop.startIdleLoop()
             FridayEngine.memoryConsolidationLoop = memoryConsolidationLoop

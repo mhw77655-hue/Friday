@@ -7,6 +7,7 @@ import ai.friday.assistant.memory.MemoryGraphStore
 import ai.friday.assistant.memory.MemoryNode
 import ai.friday.assistant.memory.RecentStatement
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
@@ -214,4 +215,46 @@ class MemoryConsolidationLoopTest {
             assertEquals("manual pass scans the same recent experience", 1, manual.scanned)
             assertEquals("manual replay does not append a duplicate durable fact", 1L, h.graph.nodeCount())
         }
+
+    @Test
+    fun idleWorkRunsOffTheParentUiDispatcherAndReportsFailuresWithoutDying() = runBlocking {
+        val h = Harness()
+        val uiExecutor = java.util.concurrent.Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "test-ui-dispatcher")
+        }
+        val uiDispatcher = uiExecutor.asCoroutineDispatcher()
+        val scope = CoroutineScope(Job() + uiDispatcher)
+        val workerThread = kotlinx.coroutines.CompletableDeferred<String>()
+        val failureCalls = java.util.concurrent.atomic.AtomicInteger(0)
+        val statements = mutableListOf<RecentStatement>()
+        var firstRead = true
+        val loop = MemoryConsolidationLoop(
+            userProfile = h.userProfile,
+            recentExperience = {
+                if (firstRead) {
+                    firstRead = false
+                    throw IllegalStateException("simulated transient store failure")
+                }
+                workerThread.complete(Thread.currentThread().name)
+                statements.toList()
+            },
+            scope = scope,
+            idleIntervalMs = 5,
+            onFailure = { failureCalls.incrementAndGet() }
+        )
+        try {
+            loop.startIdleLoop()
+            withTimeout(2_000) {
+                while (failureCalls.get() == 0) delay(5)
+            }
+            withTimeout(2_000) { workerThread.await() }
+            assertTrue("consolidation must not run on the UI dispatcher", !workerThread.await().contains("test-ui-dispatcher"))
+            assertTrue("one failed pass is surfaced and the loop continues", failureCalls.get() >= 1)
+            assertTrue("loop remains running after a transient failure", loop.isIdleLoopRunning())
+        } finally {
+            scope.cancel()
+            uiDispatcher.close()
+            uiExecutor.shutdownNow()
+        }
+    }
 }
