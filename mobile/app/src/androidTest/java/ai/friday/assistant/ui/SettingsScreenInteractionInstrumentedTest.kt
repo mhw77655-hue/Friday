@@ -7,6 +7,8 @@ import ai.friday.assistant.voice.JevApiKeyStore
 import androidx.test.core.app.ApplicationProvider
 import android.content.Context
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onAllNodesWithText
@@ -62,15 +64,11 @@ class SettingsScreenInteractionInstrumentedTest {
         }
 
         compose.waitForIdle()
-        compose.onNodeWithText("Clear local journal").performClick()
-        // Do not wait for global idleness here: that can let the launched IO
-        // operation finish and erase the transient state this assertion targets.
-        compose.onRoot().printToLog("FRIDAY_JOURNAL_IMMEDIATE_STATE")
-        assertTrue(
-            "Journal-clear tap must synchronously publish its in-progress state.",
-            compose.onAllNodesWithText("Clearing local action journal…", substring = true)
-                .fetchSemanticsNodes().isNotEmpty()
-        )
+        // This control is far below the initial viewport in Settings. Scroll it
+        // into the visible viewport before injecting the tap; otherwise the
+        // test can target a clipped semantics node without exercising the UI.
+        compose.onNodeWithText("Clear local journal").performScrollTo().assertIsDisplayed().performClick()
+        compose.onNodeWithText("Clearing local action journal…", substring = true).assertIsDisplayed()
         compose.waitUntil(9_000) {
             compose.onAllNodesWithText("Local action journal cleared.", substring = true).fetchSemanticsNodes().isNotEmpty() ||
                 compose.onAllNodesWithText("Could not clear the local journal.", substring = true).fetchSemanticsNodes().isNotEmpty()
@@ -127,14 +125,10 @@ class SettingsScreenInteractionInstrumentedTest {
         }
 
         compose.waitForIdle()
-        compose.onNodeWithText("Remove key").performClick()
-        // Inspect dispatch state before waiting for the asynchronous store clear.
-        compose.onRoot().printToLog("FRIDAY_JEV_IMMEDIATE_STATE")
-        assertTrue(
-            "Credential-removal tap must synchronously publish its in-progress state.",
-            compose.onAllNodesWithText("Removing Jev credential…", substring = true)
-                .fetchSemanticsNodes().isNotEmpty()
-        )
+        // Jev controls are also below the initial viewport; scroll the actual
+        // button into view before performing the user action.
+        compose.onNodeWithText("Remove key").performScrollTo().assertIsDisplayed().performClick()
+        compose.onNodeWithText("Removing Jev credential…", substring = true).assertIsDisplayed()
         compose.waitUntil(9_000) {
             compose.onAllNodesWithText(
                 "Jev credential removed. Friday continues with local deterministic command handling.",
