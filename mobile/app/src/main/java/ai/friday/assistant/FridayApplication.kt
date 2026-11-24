@@ -4,6 +4,7 @@ import android.app.Application
 import android.app.ActivityManager
 import android.os.Build
 import android.os.Process
+import android.util.Log
 import java.io.File
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -18,8 +19,20 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import ai.friday.assistant.update.FridayUpdateWorker
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.Executors
 
 class FridayApplication : Application() {
+    private val startupExecutor by lazy {
+        Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "FridayStartupIO").apply { isDaemon = true }
+        }
+    }
+    private val shizukuExecutor by lazy {
+        Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "FridayShizukuInit").apply { isDaemon = true }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         LocalTurnJournal.initialize(this)
@@ -32,26 +45,38 @@ class FridayApplication : Application() {
         // process owns Friday's cognitive composition root and lifecycle.
         // Secondary capability habitats construct only their own organs.
         if (currentProcessName() != packageName) return
-        // Keep Shizuku capability state alive for scheduled background update
-        // work as well as foreground Settings interactions.
-        ShizukuBridge.init()
-        ShizukuBridge.refresh()
-        FridayEngine.init(this)
-        // If Android completed an APK replacement, verify the newly installed
-        // package before the app reports the update as healthy.
-        ai.friday.assistant.update.FridayUpdateStateStore(this).verifyPendingHealthCheck()
-        scheduleFridayUpdates()
-        // Study this exact Android host and prepare Friday's private development
-        // workspace once. Unique work keeps retries/resumes idempotent across launches.
-        ai.friday.assistant.bootstrap.host.HostBootstrapWorker.enqueue(this)
-        // Acquire the pinned resident model only after host measurement, on unmetered Wi-Fi while charging.
-        ai.friday.assistant.model.storage.ResidentModelBootstrapWorker.enqueue(this)
-        // Import and periodically refresh the canonical objectives locally;
-        // the plan remains readable from app-private storage while offline.
-        ai.friday.assistant.bootstrap.plan.ObjectivePlanSyncWorker.enqueue(this)
-        // Reconcile the canonical plan into durable Objective 1 evidence tasks.
-        // This local-first worker never claims a phase complete without proof.
-        ai.friday.assistant.bootstrap.plan.ObjectiveExecutionWorker.enqueue(this)
+        // Start the cognitive composition root without blocking Application.onCreate.
+        FridayEngine.initAsync(this)
+        // Binder checks, package-state reads and WorkManager scheduling can touch
+        // system services or persistent storage. Keep them off the first-frame lane.
+        // A slow or unavailable Shizuku binder must not block plan/update scheduling.
+        shizukuExecutor.execute {
+            startupTask("Shizuku initialization") {
+                ShizukuBridge.init()
+                ShizukuBridge.refresh()
+            }
+        }
+        startupExecutor.execute {
+            startupTask("update scheduling") { scheduleFridayUpdates() }
+            // Unique work keeps retries/resumes idempotent across launches.
+            startupTask("host bootstrap scheduling") {
+                ai.friday.assistant.bootstrap.host.HostBootstrapWorker.enqueue(this)
+            }
+            startupTask("resident model scheduling") {
+                ai.friday.assistant.model.storage.ResidentModelBootstrapWorker.enqueue(this)
+            }
+            startupTask("objective plan synchronization scheduling") {
+                ai.friday.assistant.bootstrap.plan.ObjectivePlanSyncWorker.enqueue(this)
+            }
+            startupTask("objective execution scheduling") {
+                ai.friday.assistant.bootstrap.plan.ObjectiveExecutionWorker.enqueue(this)
+            }
+            // Verify after durable workers have been enqueued so a slow package
+            // manager query cannot prevent the background maintenance lanes.
+            startupTask("update health verification") {
+                ai.friday.assistant.update.FridayUpdateStateStore(this).verifyPendingHealthCheck()
+            }
+        }
         // Process-scoped background/foreground for the Companion Core (plan
         // §4.3, audit R-A3). ProcessLifecycleOwner fires ON_STOP only when the
         // LAST activity stops — i.e. the whole process backgrounds — so a
@@ -72,6 +97,12 @@ class FridayApplication : Application() {
         })
     }
 
+
+    private fun startupTask(name: String, action: () -> Unit) {
+        runCatching(action).onFailure { failure ->
+            Log.e("FridayApplication", "Background startup task failed: $name", failure)
+        }
+    }
 
     /**
      * Keep the signed-release discovery lane alive without Termux or a manual

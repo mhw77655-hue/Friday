@@ -5,6 +5,7 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.sqrt
+import java.util.concurrent.Executors
 
 /**
  * Raw microphone capture. Also keeps a rolling buffer of raw samples so the
@@ -55,6 +57,9 @@ object FridayMic {
     val speechEnded: SharedFlow<Unit> = _speechEnded.asSharedFlow()
 
     private var job: Job? = null
+    private val releaseExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "FridayMicRelease").apply { isDaemon = true }
+    }
     private var audioRecord: AudioRecord? = null
 
     private val bufferLock = Any()
@@ -124,7 +129,7 @@ object FridayMic {
         audioRecord = record
         _isRecording.value = true
 
-        job = scope.launch(Dispatchers.Default) {
+        job = scope.launch(Dispatchers.Default, start = CoroutineStart.ATOMIC) {
             try {
                 val buffer = ShortArray(minBufSize)
                 while (isActive) {
@@ -132,7 +137,7 @@ object FridayMic {
                         record.read(buffer, 0, buffer.size)
                     } catch (cancelled: kotlinx.coroutines.CancellationException) {
                         throw cancelled
-                    } catch (_: Throwable) {
+                    } catch (_: Exception) {
                         -1
                     }
                     if (read < 0) {
@@ -216,6 +221,11 @@ object FridayMic {
             out[i] = ringBuffer[(start + i) % ringBuffer.size]
         }
         out
+    }
+
+    /** Non-blocking lifecycle hook for callers on Android's main thread. */
+    fun stopAsync() {
+        releaseExecutor.execute { stop() }
     }
 
     @Synchronized

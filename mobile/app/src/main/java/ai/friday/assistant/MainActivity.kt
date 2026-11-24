@@ -12,7 +12,8 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import ai.friday.assistant.video.VideoIntakeRepository
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import ai.friday.assistant.ui.navigation.FridayNavHost
 import ai.friday.assistant.ui.theme.FridayTheme
 
@@ -24,7 +25,7 @@ class MainActivity : ComponentActivity() {
             if (ai.friday.assistant.runtime.FridayRuntimeController.isEnabled(this)) {
                 ai.friday.assistant.runtime.FridayRuntimeController.startWithMicrophone(this)
             } else {
-                FridayMic.start(lifecycleScope)
+                lifecycleScope.launch(Dispatchers.IO) { FridayMic.start(lifecycleScope) }
             }
             if (intent.getBooleanExtra(
                     ai.friday.assistant.voice.FridayVoiceInteractionSession.EXTRA_FRIDAY_VOICE_INVOCATION,
@@ -49,7 +50,6 @@ class MainActivity : ComponentActivity() {
             isAppearanceLightNavigationBars = false
         }
         handleSharedContentIntent(intent)
-        ShizukuBridge.init()
         // KWS/Vosk/TTS are owned by FridayEngine, started once in
         // FridayApplication.onCreate() — never re-initialized or released
         // here. That per-Activity churn was itself a crash source.
@@ -63,11 +63,7 @@ class MainActivity : ComponentActivity() {
             )
         ) beginAssistantListening()
 
-        // Ensure the Companion Core is built before the first composition
-        // renders the presence orb. FridayEngine.init runs async on its engine
-        // thread; this is idempotent (no-op if already built) and cheap (pure
-        // object-graph construction + a lane thread start, no I/O).
-        ai.friday.assistant.companioncore.presence.CompanionCoreHolder.init(applicationContext)
+        // Companion Core is constructed once by FridayEngine on its background init lane.
 
         val setupPreferences = getSharedPreferences("friday_first_launch", MODE_PRIVATE)
         val showSetup = !setupPreferences.getBoolean("completed", false)
@@ -83,10 +79,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        ShizukuBridge.refresh()
-        // Reattach the already-authorized capability service after Friday is reopened.
-        if (ShizukuBridge.isGranted.value) {
-            ScreenBridge.bind(applicationContext)
+        FridayEngine.startMainThreadWatchdog()
+        // Refresh permission state first, then reattach. Reading isGranted
+        // before the asynchronous refresh races the return from Shizuku Settings.
+        lifecycleScope.launch(Dispatchers.IO) {
+            ShizukuBridge.refresh()
+            if (ShizukuBridge.isGranted.value) {
+                ScreenBridge.bind(applicationContext)
+            }
         }
         if (ai.friday.assistant.runtime.FridayRuntimeController.isEnabled(this)) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
@@ -101,6 +101,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onPause() {
+        FridayEngine.stopMainThreadWatchdog()
+        super.onPause()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -112,6 +117,9 @@ class MainActivity : ComponentActivity() {
         ) beginAssistantListening()
     }
 
+    private suspend fun awaitEngineReadiness(): EngineReadinessState? =
+        FridayEngine.readinessGate.awaitTerminal(30_000)
+
     private fun beginAssistantListening() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) !=
             PackageManager.PERMISSION_GRANTED
@@ -120,9 +128,7 @@ class MainActivity : ComponentActivity() {
             return
         }
         lifecycleScope.launch {
-            val readiness = FridayEngine.readinessState.first {
-                it is EngineReadinessState.Ready || it is EngineReadinessState.FailedToWake
-            }
+            val readiness = awaitEngineReadiness()
             if (readiness is EngineReadinessState.Ready) {
                 FridayEngine.getBodyCoordinator().apply {
                     emitEvent(ai.friday.assistant.body.BodyEvent.WakeDetected(1.0f))
@@ -131,7 +137,11 @@ class MainActivity : ComponentActivity() {
             } else {
                 Toast.makeText(
                     this@MainActivity,
-                    "Friday's voice system is not ready yet.",
+                    if (readiness == null) {
+                        "Friday is taking longer than expected to initialise. You can keep using Settings and retry voice shortly."
+                    } else {
+                        "Friday's voice system is not ready yet."
+                    },
                     Toast.LENGTH_LONG
                 ).show()
             }
@@ -152,8 +162,10 @@ class MainActivity : ComponentActivity() {
             } else {
                 ""
             }
-            val imported = runCatching {
-                VideoIntakeRepository(applicationContext).importSharedIntent(intent)
+            val imported = withContext(Dispatchers.IO) {
+                runCatching {
+                    VideoIntakeRepository(applicationContext).importSharedIntent(intent)
+                }
             }
             imported.onFailure {
                 Toast.makeText(
@@ -183,16 +195,18 @@ class MainActivity : ComponentActivity() {
                     ).show()
                     return@launch
                 }
-                val readiness = FridayEngine.readinessState.first {
-                    it is EngineReadinessState.Ready || it is EngineReadinessState.FailedToWake
-                }
+                val readiness = awaitEngineReadiness()
                 if (readiness is EngineReadinessState.Ready) {
                     FridayEngine.getBodyCoordinator().submitText(sharedText)
                     Toast.makeText(this@MainActivity, "Shared text sent to Friday.", Toast.LENGTH_SHORT).show()
                 } else {
                     Toast.makeText(
                         this@MainActivity,
-                        "Friday is not ready to receive shared text yet.",
+                        if (readiness == null) {
+                            "Friday is still initialising. Reopen Friday and share the text again shortly."
+                        } else {
+                            "Friday is not ready to receive shared text yet."
+                        },
                         Toast.LENGTH_LONG
                     ).show()
                 }
@@ -215,7 +229,7 @@ class MainActivity : ComponentActivity() {
         if (!ai.friday.assistant.runtime.FridayRuntimeController.isEnabled(this) ||
             !ai.friday.assistant.runtime.FridayRuntimeController.isMicrophoneServiceActive(this)
         ) {
-            FridayMic.stop()
+            FridayMic.stopAsync()
         }
         // KWS/Vosk/TTS intentionally NOT released here — they belong to
         // FridayEngine for the life of the process, not this Activity.

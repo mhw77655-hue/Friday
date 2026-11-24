@@ -28,6 +28,13 @@ object ScreenBridge {
     private val _status = MutableStateFlow("not bound")
     val status: StateFlow<String> = _status.asStateFlow()
 
+    /** True only for a connected UserService whose shell/root UID was verified. */
+    val isVerifiedBound: Boolean
+        get() = service != null && (verifiedUid == 0 || verifiedUid == 2000) && isVerifiedShizukuStatus(_status.value)
+
+    internal fun isVerifiedShizukuStatus(status: String): Boolean =
+        status.startsWith("bound · verified Shizuku uid=")
+
     private val _lastScreenText = MutableStateFlow("")
     val lastScreenText: StateFlow<String> = _lastScreenText.asStateFlow()
 
@@ -170,7 +177,7 @@ object ScreenBridge {
      * a granted permission alone never satisfies this contract.
      */
     suspend fun ensureVerifiedBinding(context: Context, timeoutMillis: Long = 12_000): String {
-        withContext(Dispatchers.Main.immediate) {
+        withContext(Dispatchers.IO) {
             if (service == null) bind(context)
         }
         val result = withTimeoutOrNull(timeoutMillis) {

@@ -3,6 +3,9 @@ package ai.friday.assistant.launchsurvival
 import ai.friday.assistant.EngineReadinessGate
 import ai.friday.assistant.EngineReadinessState
 import ai.friday.assistant.EngineSlot
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -137,6 +140,32 @@ class EngineReadinessTest {
         assertNull(slot.value)
         assertTrue(slot.readiness is EngineReadinessState.FailedToWake)
         assertEquals(expected, (slot.readiness as EngineReadinessState.FailedToWake).error)
+    }
+
+    @Test
+    fun `terminal readiness wait times out instead of suspending forever`() = runBlocking {
+        val gate = EngineReadinessGate()
+        gate.markWaking()
+
+        val result = gate.awaitTerminal(40)
+
+        assertNull("A stalled bootstrap is a timeout, not a fabricated failure", result)
+        assertEquals(EngineReadinessState.Waking, gate.current)
+    }
+
+    @Test
+    fun `terminal readiness wait returns the real failure state`() = runBlocking {
+        val gate = EngineReadinessGate()
+        gate.markWaking()
+        val expected = IllegalStateException("simulated bootstrap failure")
+
+        val waiter = async { gate.awaitTerminal(1_000) }
+        delay(20)
+        gate.markFailed(expected)
+
+        val result = waiter.await()
+        assertTrue(result is EngineReadinessState.FailedToWake)
+        assertEquals(expected, (result as EngineReadinessState.FailedToWake).error)
     }
 
     @Test

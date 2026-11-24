@@ -10,5 +10,11 @@ package ai.friday.assistant.diagnostics
 object EngineFailureHealthGate {
     fun hasActiveEngineFailure(
         activeSubsystems: Iterable<String>
-    ): Boolean = activeSubsystems.any { it.equals("ENGINE", ignoreCase = true) }
+    ): Boolean = activeSubsystems.any { subsystem ->
+        val normalized = subsystem.trim().replace('-', '_').uppercase()
+        normalized == "ENGINE" ||
+            normalized == "FRIDAYENGINE" ||
+            normalized.startsWith("ENGINE_") ||
+            normalized.startsWith("FRIDAYENGINE_")
+    }
 }

@@ -350,6 +350,7 @@ class ChatGPTPlanAuth(
         val audienceMatches = when (audience) {
             is String -> audience == clientId
             is JSONArray -> (0 until audience.length()).any { audience.optString(it) == clientId }
+            null -> false
             else -> false
         }
         require(audienceMatches) { "OpenAI ID token audience does not match Friday's issued client ID." }
