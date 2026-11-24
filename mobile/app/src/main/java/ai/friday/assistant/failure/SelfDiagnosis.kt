@@ -34,6 +34,8 @@ class SelfDiagnosis(private val surface: FailureSurface) {
         val summary: String
             get() = buildString {
                 append("${event.subsystem}.${event.operation} failed (${event.severity.name}): ${event.message}")
+                event.metadata["exception_chain"]?.takeIf { it.isNotBlank() }?.let { append(" | exception=$it") }
+                event.failureCause?.let { append(" | failureCause=${it.name}") }
                 dependency?.let { append(" | dep=$it") }
                 lastSuccessfulStage?.let { append(" | lastOk=$it") }
                 append(" | isolated=$isolated recoverable=$recoverable")
