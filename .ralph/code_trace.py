@@ -134,7 +134,7 @@ def main():
             if s: item["callers"]=walk(reverse,s["id"]); item["callees"]=walk(forward,s["id"])
             failures.append(item)
     def trace_at(path, line, origin):
-        normalized=path.replace("\\\\","/")
+        normalized=path
         if normalized not in by_path:
             matches=[x for x in by_path if x.endswith("/"+normalized.split("/")[-1])]
             normalized=matches[0] if len(matches)==1 else normalized
