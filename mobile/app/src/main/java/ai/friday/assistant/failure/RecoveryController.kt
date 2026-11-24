@@ -57,6 +57,7 @@ class RecoveryController(
 
     private class Entry(val spec: RetrySpec, val breaker: CircuitBreaker) {
         val attempts = java.util.concurrent.atomic.AtomicInteger(0)
+        val disabledNotified = java.util.concurrent.atomic.AtomicBoolean(false)
     }
 
     private val entries = ConcurrentHashMap<String, Entry>() // key = subsystem|operation
@@ -132,9 +133,7 @@ class RecoveryController(
             resourceState = event.resourceState
         )
         if (entry.breaker.isOpen) {
-            if (entry.breaker.lastProbeSucceeded == false) {
-                runCatching { entry.spec.onDisabled?.invoke() }
-            }
+            notifyDisabledOnce(entry)
             return
         }
 
@@ -153,7 +152,7 @@ class RecoveryController(
                     RecoveryAction.DEGRADE,
                     base.correlationId
                 )
-                runCatching { entry.spec.onDisabled?.invoke() }
+                notifyDisabledOnce(entry)
             } finally {
                 running.remove(key)
             }
@@ -167,6 +166,7 @@ class RecoveryController(
         val entry = entries[keyFor(subsystem, operation)] ?: return
         entry.breaker.onSuccess()
         entry.attempts.set(0)
+        entry.disabledNotified.set(false)
         // Surface a recovery for any open aggregate on this dependency.
         surface.currentFailures.value
             .filter { it.subsystem == subsystem && it.operation == operation }
@@ -182,7 +182,7 @@ class RecoveryController(
         if (countFailure) entry.breaker.onFailure()
         if (entry.breaker.isOpen) {
             running.remove(key)
-            runCatching { entry.spec.onDisabled?.invoke() }
+            notifyDisabledOnce(entry)
             return
         }
 
@@ -197,7 +197,7 @@ class RecoveryController(
                 RecoveryAction.DEGRADE,
                 base.correlationId
             )
-            runCatching { spec.onDisabled?.invoke() }
+            notifyDisabledOnce(entry)
             return
         }
 
@@ -230,6 +230,7 @@ class RecoveryController(
                 if (ok) {
                     entry.breaker.onSuccess()
                     entry.attempts.set(0)
+                    entry.disabledNotified.set(false)
                     surface.recover(
                         base.dedupeKey, RecoveryResult.SUCCESS,
                         "recovered on attempt $attempt", specActionOf(spec), base.correlationId
@@ -245,7 +246,7 @@ class RecoveryController(
                         attemptFailureMessage, specActionOf(spec), base.correlationId
                     )
                     if (entry.breaker.isOpen) {
-                        runCatching { spec.onDisabled?.invoke() }
+                        notifyDisabledOnce(entry)
                     } else {
                         // Defer scheduling until after this coroutine releases
                         // its running marker. Removing it early lets another
@@ -266,6 +267,12 @@ class RecoveryController(
                 running.remove(key)
             }
             nextAttempt?.let { scheduleRetry(entry, it, countFailure = false) }
+        }
+    }
+
+    private fun notifyDisabledOnce(entry: Entry) {
+        if (entry.disabledNotified.compareAndSet(false, true)) {
+            runCatching { entry.spec.onDisabled?.invoke() }
         }
     }
 
