@@ -37,7 +37,6 @@ object ShizukuBridge {
     @Volatile private var initialized = false
 
     @Synchronized
-    @Synchronized
     fun init() {
         if (initialized) return
         initialized = true
