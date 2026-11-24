@@ -382,10 +382,10 @@ data class TaskEntry(
 }
 
 /** Map value that JSONObject can store directly. */
-private fun jsonValue(v: Any): Any = when (v) {
+internal fun jsonValue(v: Any?): Any = when (v) {
     is Int, is Long, is Double, is Float, is Boolean, is String -> v
-    is Map<*, *> -> JSONObject(v.mapKeys { it.key.toString() }.mapValues { jsonValue(it.value!!) })
-    is List<*> -> org.json.JSONArray(v.map { jsonValue(it!!) })
+    is Map<*, *> -> JSONObject(v.mapKeys { it.key.toString() }.mapValues { jsonValue(it.value) })
+    is List<*> -> org.json.JSONArray(v.map { jsonValue(it) })
     null -> org.json.JSONObject.NULL
     else -> v.toString()
 }
