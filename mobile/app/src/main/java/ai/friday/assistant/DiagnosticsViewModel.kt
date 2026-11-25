@@ -597,7 +597,8 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                     .put("root_cause_hypothesis", safeFailureText(event.rootCauseHypothesis))
                     .put("resource_state", safeFailureText(event.resourceState))
                     .put("exception_chain", safeFailureText(event.metadata["exception_chain"]))
-                    .put("stack_frames", safeFailureText(event.metadata["stack_frames"])))
+                    .put("stack_frames", safeFailureText(event.metadata["stack_frames"]))
+                    .put("stack_top", safeFailureText(event.metadata[ai.friday.assistant.failure.FailureEvidence.STACK_TOP_KEY])))
             }
         })
         val individual = FridayEngine.fridayIndividual
