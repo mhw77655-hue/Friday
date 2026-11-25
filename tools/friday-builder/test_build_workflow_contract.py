@@ -73,12 +73,15 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn("workflow_dispatch:", self.workflow)
 
 
-    def test_pull_request_runs_cancel_only_superseded_pull_request_validation(self):
-        self.assertIn("on:\n  push:\n    branches: [ main ]", self.workflow)
+    def test_active_pull_request_validation_is_not_cancelled_by_new_commits(self):
+        self.assertIn("on:\\n  push:\\n    branches: [ main ]", self.workflow)
         self.assertIn("pull_request:", self.workflow)
         self.assertIn("concurrency:", self.workflow)
         self.assertIn("group: friday-build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}", self.workflow)
-        self.assertIn("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", self.workflow)
+        # Preserve the running emulator/build evidence. New commits replace
+        # obsolete pending candidates without cancelling the active run.
+        self.assertIn("cancel-in-progress: false", self.workflow)
+        self.assertNotIn("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", self.workflow)
         self.assertIn("workflow_dispatch:", self.workflow)
 
 
