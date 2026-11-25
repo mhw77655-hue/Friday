@@ -33,7 +33,10 @@ class FailureStore(
     private val persistMinSeverity: FailureSeverity = FailureSeverity.RECOVERABLE,
     private val maxPersistedIdsInMemory: Int = 512,
     private val onStorageFailure: (String, Throwable) -> Unit = { message, failure ->
-        android.util.Log.w("FailureStore", message, failure)
+        // Android's Log implementation is a stub in local JVM tests. Logging
+        // is best-effort and must not replace the storage failure being reported.
+        runCatching { android.util.Log.w("FailureStore", message, failure) }
+        Unit
     }
 ) {
     private val seenIds = LinkedHashMap<String, Unit>()
