@@ -179,6 +179,7 @@ class WallClockAllowlistTest {
         put("continuity/ContinuityGate.kt", 1)
         put("failure/CircuitBreaker.kt", 1)
         put("failure/FailureSurface.kt", 1)
+        put("failure/MainThreadLivenessMonitor.kt", 1)
         put("failure/RecoveryController.kt", 2)
         put("humancore/HumanCore.kt", 3)
 
@@ -203,6 +204,7 @@ class WallClockAllowlistTest {
         put("memory/provenance/ForgetTombstone.kt", 1)
 
         // ── model ─────────────────────────────────────────────────────────────
+        put("model/storage/ResidentModelBootstrapWorker.kt", 1)
         put("model/ModelManager.kt", 1)
         put("model/InAppLlamaModelBackend.kt", 5)
         put("model/ModelProvider.kt", 1)
@@ -274,6 +276,10 @@ class WallClockAllowlistTest {
         put("continuity/ContinuityGate.kt", "default retrieval instant on the per-turn gate; the ONE root's clock reaches the gate's own consumers")
         put("failure/CircuitBreaker.kt", "injected nowMs default for the breaker window")
         put("failure/FailureSurface.kt", "injected nowMs default for turn-id and dedup windows")
+        put(
+            "failure/MainThreadLivenessMonitor.kt",
+            "the injected uptime provider defaults to Android's monotonic clock for watchdog heartbeat age, not wall-clock time"
+        )
         put("failure/RecoveryController.kt", "two System.nanoTime reads measure a monotonic deadline and remaining verification time; they are elapsed-time controls, not wall-clock timestamps")
         put("humancore/HumanCore.kt", "injected clock default, session-end instant default and the legacy session-gap observation")
 
@@ -294,6 +300,10 @@ class WallClockAllowlistTest {
         put("memory/provenance/AdapterManifest.kt", "registry-state read and the JSONL line's own timestamp")
         put("memory/provenance/ForgetTombstone.kt", "tombstone forgotten-at stamp")
 
+        put(
+            "model/storage/ResidentModelBootstrapWorker.kt",
+            "the persisted updatedAtEpochMs value timestamps bootstrap-state transitions for diagnostics and restart recovery"
+        )
         put("model/ModelManager.kt", "the injected clock default; the ONE root passes the host clock, so the tier cooldown is host-time")
         put("model/InAppLlamaModelBackend.kt", "monotonic elapsed-time measurements around native model load and generation; these are performance durations, not turn timestamps")
         put("model/ModelProvider.kt", "provider health check timestamp")

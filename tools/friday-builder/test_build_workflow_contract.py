@@ -18,9 +18,32 @@ class BuildWorkflowContractTests(unittest.TestCase):
         ids = self.job_ids()
         self.assertEqual(
             ids,
-            ["debug-apk", "android-emulator", "full-source-audit", "report-failure", "verified-debug-apk"],
+            ["cancel-stale-runs", "debug-apk", "jvm-unit-tests", "jvm-test-results", "android-emulator", "full-source-audit", "report-failure", "verified-debug-apk"],
         )
         self.assertEqual(len(ids), len(set(ids)))
+
+    def test_jvm_unit_tests_are_sharded_and_each_shard_must_execute_tests(self):
+        self.assertIn("shard: [0, 1, 2, 3, 4, 5]", self.workflow)
+        self.assertIn("run_jvm_test_shard.py", self.workflow)
+        self.assertIn("timeout-minutes: 20", self.workflow)
+        app_gradle = (ROOT / "mobile" / "app" / "build.gradle.kts").read_text(encoding="utf-8")
+        shard_script = (ROOT / "tools" / "friday-builder" / "run_jvm_test_shard.py").read_text(encoding="utf-8")
+        self.assertIn("forkEvery = 1", app_gradle)
+        self.assertIn("class_patterns_for_sources", shard_script)
+        self.assertNotIn('f"{source.package}.*"', shard_script)
+        self.assertIn("Verify this shard executed tests and retained JUnit evidence", self.workflow)
+        self.assertIn("This JVM shard matched zero tests.", self.workflow)
+        self.assertIn("Aggregate JVM test evidence", self.workflow)
+        gate = self.workflow.split("  verified-debug-apk:", 1)[1]
+        self.assertIn("- jvm-unit-tests", gate)
+        self.assertIn("- jvm-test-results", gate)
+
+    def test_new_pr_run_cancels_stale_runs_before_expensive_jobs(self):
+        self.assertIn("cancel-stale-runs:", self.workflow)
+        self.assertIn("github.rest.actions.listWorkflowRuns", self.workflow)
+        self.assertIn("github.rest.actions.cancelWorkflowRun", self.workflow)
+        self.assertGreaterEqual(self.workflow.count("needs: cancel-stale-runs"), 4)
+        self.assertIn("actions: write", self.workflow)
 
     def test_apk_bundled_delivery_plan_matches_canonical_source(self):
         canonical = ROOT / ".ralph" / "FRIDAY_DELIVERY_PLAN.md"
@@ -31,7 +54,7 @@ class BuildWorkflowContractTests(unittest.TestCase):
     def test_installable_apk_is_promoted_only_after_all_required_gates(self):
         self.assertIn("name: unverified-debug-apk-candidate", self.workflow)
         gate = self.workflow.split("  verified-debug-apk:", 1)[1]
-        for job in ("debug-apk", "android-emulator", "full-source-audit"):
+        for job in ("debug-apk", "android-emulator", "full-source-audit", "jvm-unit-tests", "jvm-test-results"):
             self.assertIn(f"- {job}", gate)
         self.assertIn("name: friday-verified-debug-apk", gate)
         self.assertIn("unzip -t", gate)
@@ -60,7 +83,7 @@ class BuildWorkflowContractTests(unittest.TestCase):
 
     def test_emulator_and_source_audit_are_required_failure_report_dependencies(self):
         reporter = self.workflow.split("  report-failure:", 1)[1]
-        for job in ("debug-apk", "android-emulator", "full-source-audit"):
+        for job in ("debug-apk", "android-emulator", "full-source-audit", "jvm-unit-tests", "jvm-test-results"):
             self.assertIn(f"- {job}", reporter)
             self.assertIn(f"needs.{job}.result != 'success'", reporter)
 
@@ -99,17 +122,17 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn("workflow_dispatch:", self.workflow)
 
 
-    def test_active_pull_request_validation_is_not_cancelled_by_new_commits(self):
-        self.assertIn("on:\n  push:\n    branches: [ main ]", self.workflow)
+    def test_obsolete_pull_request_validation_is_cancelled_by_new_commits(self):
+        self.assertIn("branches: [ main ]", self.workflow)
         self.assertIn("pull_request:", self.workflow)
         self.assertIn("concurrency:", self.workflow)
         self.assertIn("group: friday-build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}", self.workflow)
-        # Preserve the running emulator/build evidence. New commits replace
-        # obsolete pending candidates without cancelling the active run.
-        self.assertIn("cancel-in-progress: false", self.workflow)
-        self.assertNotIn("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", self.workflow)
+        # A newer commit supersedes the old candidate; stale runs must not hold
+        # the only validation slot while the repaired commit waits in pending.
+        self.assertIn("cancel-in-progress: true", self.workflow)
+        self.assertIn("-${{ github.sha }}", self.workflow)
+        self.assertNotIn("cancel-in-progress: false", self.workflow)
         self.assertIn("workflow_dispatch:", self.workflow)
-
 
 if __name__ == "__main__":
     unittest.main()

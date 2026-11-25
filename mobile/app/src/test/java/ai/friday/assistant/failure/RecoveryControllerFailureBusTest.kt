@@ -44,7 +44,13 @@ class RecoveryControllerFailureBusTest {
                 )
             )
             withTimeout(2_000) {
-                while (verifyCalls.get() == 0) delay(10)
+                while (
+                    actionCalls.get() != 1 ||
+                    verifyCalls.get() != 1 ||
+                    surface.currentFailures.value.any {
+                        it.subsystem == "VOICE" && it.operation == "transcribe"
+                    }
+                ) delay(10)
             }
             assertEquals(1, actionCalls.get())
             assertEquals(1, verifyCalls.get())

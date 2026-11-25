@@ -9,6 +9,8 @@ import androidx.test.core.app.ApplicationProvider
 import android.content.Context
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -195,18 +197,26 @@ class SettingsScreenInteractionInstrumentedTest {
         }
         compose.waitForIdle()
 
-        val toggle = compose.onNodeWithTag("friday_runtime_toggle")
-        toggle.performScrollTo()
+        compose.onNodeWithTag("friday_runtime_toggle").performScrollTo()
         compose.waitForIdle()
-        toggle.assertIsDisplayed().performClick()
-        compose.waitUntil(5_000) { prefs.getBoolean("keep_alive_enabled", false) }
+        compose.onNodeWithTag("friday_runtime_toggle")
+            .assertIsDisplayed()
+            .assertIsOff()
+            .performClick()
+        compose.waitUntil(10_000) { prefs.getBoolean("keep_alive_enabled", false) }
         assertTrue(
             "Enabling Keep Friday alive must persist the owner setting even if Android blocks service startup.",
             prefs.getBoolean("keep_alive_enabled", false)
         )
 
-        toggle.performClick()
-        compose.waitUntil(5_000) { !prefs.getBoolean("keep_alive_enabled", true) }
+        // Re-query after recomposition and assert the actual switch state before
+        // toggling back. This prevents a stale semantics handle from making the
+        // second click a no-op on slower/emulator-backed Compose test runners.
+        compose.onNodeWithTag("friday_runtime_toggle")
+            .assertIsOn()
+            .performClick()
+        compose.onNodeWithTag("friday_runtime_toggle").assertIsOff()
+        compose.waitUntil(10_000) { !prefs.getBoolean("keep_alive_enabled", true) }
         assertTrue(
             "Disabling Keep Friday alive must persist the owner setting.",
             !prefs.getBoolean("keep_alive_enabled", true)

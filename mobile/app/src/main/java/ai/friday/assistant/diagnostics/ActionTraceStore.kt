@@ -245,10 +245,14 @@ class ActionTraceStore(
             check(journalFile.renameTo(quarantine)) {
                 "The action journal is unreadable and could not be preserved for recovery."
             }
-            Log.e(
-                "PhoneActionDiagnostics",
-                "Unreadable action journal preserved as ${quarantine.name}; starting a fresh journal."
-            )
+            // android.util.Log is an Android runtime stub in plain JVM tests.
+            // Diagnostics must never make journal recovery fail on its own.
+            runCatching {
+                Log.e(
+                    "PhoneActionDiagnostics",
+                    "Unreadable action journal preserved as ${quarantine.name}; starting a fresh journal."
+                )
+            }
             JSONObject()
         }
     }
@@ -385,14 +389,19 @@ object PhoneActionDiagnostics {
         parentTraceId: String? = null
     ) {
         val activeStore = store ?: run {
-            Log.w("PhoneActionDiagnostics", "Dropped action trace because the diagnostics store is not initialized.")
+            // The store is intentionally absent in isolated JVM tests and
+            // before Application installs it. Dropping this optional trace
+            // must not crash the operation being diagnosed.
+            runCatching {
+                Log.w("PhoneActionDiagnostics", "Dropped action trace because the diagnostics store is not initialized.")
+            }
             return
         }
         ioExecutor.execute {
             runCatching {
                 activeStore.record(action, route, outcome, durationMs, verificationState, verificationStage, failureStage, parentTraceId)
             }.onFailure { failure ->
-                Log.w("PhoneActionDiagnostics", "Could not persist action trace", failure)
+                runCatching { Log.w("PhoneActionDiagnostics", "Could not persist action trace", failure) }
             }
             cachedEventCount.set(runCatching { activeStore.eventCount() }.getOrDefault(cachedEventCount.get()))
         }
@@ -486,7 +495,7 @@ object PhoneActionDiagnostics {
         val activeStore = store ?: return
         ioExecutor.execute {
             runCatching { activeStore.clear() }.onFailure { failure ->
-                Log.w("PhoneActionDiagnostics", "Could not clear local action traces", failure)
+                runCatching { Log.w("PhoneActionDiagnostics", "Could not clear local action traces", failure) }
             }.onSuccess {
                 cachedEventCount.set(0)
             }
