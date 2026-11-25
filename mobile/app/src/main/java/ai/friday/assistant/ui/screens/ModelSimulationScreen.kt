@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.LinearProgressIndicator
@@ -177,10 +178,15 @@ fun ModelSimulationScreen() {
         Text("Candidate context", style = FridayType.Label)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(1024, 2048, 4096).forEach { tokens ->
-                Button(onClick = {
+                val onSelect = {
                     contextTokens = tokens
                     snapshot?.let { simulations = simulator.simulate(it, tokens, discoveredCandidates.ifEmpty { ModelFreeDeviceSimulator.CANDIDATES }) }
-                }) { Text("${tokens / 1024}K") }
+                }
+                if (contextTokens == tokens) {
+                    Button(onClick = onSelect) { Text("${tokens / 1024}K") }
+                } else {
+                    OutlinedButton(onClick = onSelect) { Text("${tokens / 1024}K") }
+                }
             }
         }
 
