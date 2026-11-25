@@ -1,6 +1,7 @@
 package ai.friday.assistant.android
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -11,7 +12,8 @@ class DeviceControlRouterTest {
     private class FakeBackend(
         override val id: String,
         val succeeds: Boolean,
-        val available: Boolean = true
+        val available: Boolean = true,
+        val evidenceBackendId: String = id
     ) : ControlBackend {
         var callCount: Int = 0
         override fun available(): Boolean = available
@@ -19,7 +21,7 @@ class DeviceControlRouterTest {
         override fun execute(action: ControlAction): VerificationEvidence {
             callCount++
             return if (succeeds) {
-                VerificationEvidence(VerificationStage.VERIFIED, id, "verified by $id")
+                VerificationEvidence(VerificationStage.VERIFIED, evidenceBackendId, "verified by $id")
             } else {
                 VerificationEvidence(VerificationStage.LAUNCHED, id, "launched but not verified")
             }
@@ -71,6 +73,25 @@ class DeviceControlRouterTest {
         assertEquals(1, intent.callCount)
         assertEquals(0, mediaSession.callCount)
         assertTrue(router.lastSuccessfulBackends() == listOf("intent"))
+    }
+
+    @Test
+    fun `verified evidence must identify the backend that produced it`() {
+        val spoofed = FakeBackend(
+            id = "intent",
+            succeeds = true,
+            evidenceBackendId = "adb"
+        )
+        val router = routerWith(spoofed)
+
+        val winner = router.execute(action)
+
+        assertNull("mismatched evidence must not produce a winner", winner)
+        val attempt = router.attempts.single()
+        assertFalse(attempt.succeeded)
+        assertEquals(VerificationStage.VERIFIED, attempt.evidence.stage)
+        assertEquals("adb", attempt.evidence.backendId)
+        assertEquals("verification_identity", attempt.failureStage)
     }
 
     @Test

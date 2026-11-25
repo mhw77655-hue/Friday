@@ -1062,20 +1062,7 @@ object FridayEngine {
         return when (admitted) {
             is ai.friday.assistant.android.RiskGate.GateOutcome.Allowed -> {
                 val execution = router.executeWithEvidence(action)
-                val backend = execution.winner
-                if (backend != null) {
-                    val attempt = execution.attempts.lastOrNull { it.backendId == backend.id }
-                    DeviceControlOutcome.Executed(
-                        backend.id,
-                        attempt?.evidence ?: ai.friday.assistant.android.VerificationEvidence(
-                            ai.friday.assistant.android.VerificationStage.VERIFIED, backend.id
-                        )
-                    )
-                } else {
-                    DeviceControlOutcome.Unverified(
-                        execution.attempts.map { "${it.backendId}=${it.error ?: "not verified"}" }
-                    )
-                }
+                deviceControlOutcomeFromExecution(execution)
             }
             is ai.friday.assistant.android.RiskGate.GateOutcome.Blocked ->
                 DeviceControlOutcome.Blocked(admitted.tier, admitted.reason)
@@ -1152,3 +1139,35 @@ object FridayEngine {
     private const val OLLAMA_LOCAL_PATH_8080 = "127.0.0.1:8080"
     private const val OLLAMA_RESIDENT_MODEL = "friday-resident:latest"
 }
+
+/**
+ * Convert router output into a public outcome without manufacturing evidence.
+ * A winner is only meaningful when its own attempt is present, successful,
+ * and carries VERIFIED evidence for the same backend. Any invariant break
+ * fails closed rather than being repaired by a synthetic success record.
+ */
+internal fun deviceControlOutcomeFromExecution(
+    execution: ai.friday.assistant.android.DeviceControlExecution
+): FridayEngine.DeviceControlOutcome {
+    val backend = execution.winner
+        ?: return FridayEngine.DeviceControlOutcome.Unverified(
+            execution.attempts.map { "${it.backendId}=${it.error ?: "not verified"}" }
+        )
+    val attempt = execution.attempts.lastOrNull { it.backendId == backend.id }
+        ?: return FridayEngine.DeviceControlOutcome.Unverified(
+            execution.attempts.map { "${it.backendId}=${it.error ?: "not verified"}" } +
+                "${backend.id}=winner_without_attempt"
+        )
+    val evidence = attempt.evidence
+    if (!attempt.succeeded ||
+        !evidence.isComplete ||
+        evidence.backendId != backend.id
+    ) {
+        return FridayEngine.DeviceControlOutcome.Unverified(
+            execution.attempts.map { "${it.backendId}=${it.error ?: "not verified"}" } +
+                "${backend.id}=winner_evidence_invariant_failed"
+        )
+    }
+    return FridayEngine.DeviceControlOutcome.Executed(backend.id, evidence)
+}
+
