@@ -31,13 +31,13 @@ on:
   workflow_dispatch:
 
 concurrency:
-  # A pull request is a moving candidate, not a sequence of release candidates.
-  # Cancel obsolete PR runs when a newer commit arrives so CI spends its time
-  # validating the latest coherent candidate instead of producing pages of
-  # failures for superseded intermediate commits. Main-branch and manually
-  # dispatched runs retain their evidence and are never cancelled by this rule.
+  # Keep the active validation run alive. Cancelling a long Android emulator
+  # run whenever a new commit is pushed discards the only runtime evidence and
+  # creates a repair/CI cancellation loop. GitHub retains one pending run per
+  # group, so newer commits replace obsolete pending candidates without
+  # terminating the currently executing validation.
   group: friday-build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: false
 
 permissions: {}
 
