@@ -22,6 +22,12 @@ class BuildWorkflowContractTests(unittest.TestCase):
         )
         self.assertEqual(len(ids), len(set(ids)))
 
+    def test_apk_bundled_delivery_plan_matches_canonical_source(self):
+        canonical = ROOT / ".ralph" / "FRIDAY_DELIVERY_PLAN.md"
+        bundled = ROOT / "mobile" / "app" / "src" / "main" / "assets" / "friday" / "FRIDAY_DELIVERY_PLAN.md"
+        self.assertEqual(canonical.read_bytes(), bundled.read_bytes())
+        self.assertIn("Verify APK-bundled delivery plan matches canonical source", self.workflow)
+
     def test_installable_apk_is_promoted_only_after_all_required_gates(self):
         self.assertIn("name: unverified-debug-apk-candidate", self.workflow)
         gate = self.workflow.split("  verified-debug-apk:", 1)[1]
