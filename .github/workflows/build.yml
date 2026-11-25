@@ -61,6 +61,15 @@ jobs:
       - name: Verify Friday's canonical vision and repository authority
         run: bash .ralph/owner_vision_check.sh
 
+      - name: Verify APK-bundled delivery plan matches canonical source
+        run: |
+          set -euo pipefail
+          if ! cmp -s .ralph/FRIDAY_DELIVERY_PLAN.md mobile/app/src/main/assets/friday/FRIDAY_DELIVERY_PLAN.md; then
+            echo "::error::The APK-bundled delivery plan diverges from the canonical plan."
+            diff -u .ralph/FRIDAY_DELIVERY_PLAN.md mobile/app/src/main/assets/friday/FRIDAY_DELIVERY_PLAN.md || true
+            exit 1
+          fi
+
       - name: Set up Python for Android harness contract tests
         uses: actions/setup-python@v5
         with:
