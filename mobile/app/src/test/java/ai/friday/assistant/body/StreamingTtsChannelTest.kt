@@ -19,7 +19,7 @@ class StreamingTtsChannelTest {
     }
 
     @Test
-    fun drainConsumesQueuedItemsButReturnsForAnOpenEmptyChannel() = runBlocking {
+    fun drainConsumesQueuedItemsButReturnsForAnOpenEmptyChannel(): Unit = runBlocking {
         val channel = Channel<Int>(capacity = Channel.UNLIMITED)
         channel.send(1)
         channel.send(2)
@@ -36,7 +36,7 @@ class StreamingTtsChannelTest {
     }
 
     @Test
-    fun drainReturnsImmediatelyWhenChannelIsAlreadyEmpty() = runBlocking {
+    fun drainReturnsImmediatelyWhenChannelIsAlreadyEmpty(): Unit = runBlocking {
         val channel = Channel<Int>(capacity = Channel.UNLIMITED)
         withTimeout(250) {
             drainAvailable(channel)
