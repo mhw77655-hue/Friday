@@ -350,7 +350,7 @@ jobs:
     name: JVM unit tests (shard ${{ matrix.shard }})
     needs: cancel-stale-runs
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:

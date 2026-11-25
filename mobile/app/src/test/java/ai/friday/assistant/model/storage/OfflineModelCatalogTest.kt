@@ -39,7 +39,12 @@ class OfflineModelCatalogTest {
     }
 
     @Test fun bootstrapSelectsTheLargestPinnedModelWithinMeasuredHostBudget() {
-        val tinyBudget = 600L * 1024L * 1024L
+        val reserveBytes = 128L * 1024L * 1024L
+        val tinyBudget = OfflineModelCatalog.tinyFallback.expectedMinimumBytes + reserveBytes
+        assertTrue(
+            residentBootstrapCandidates(tinyBudget - 1L).isEmpty(),
+            "The tiny model must not consume the reserved free-space floor"
+        )
         assertEquals(
             listOf(OfflineModelCatalog.tinyFallback.id),
             residentBootstrapCandidates(tinyBudget).map { it.id }

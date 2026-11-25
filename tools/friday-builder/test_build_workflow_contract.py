@@ -25,6 +25,12 @@ class BuildWorkflowContractTests(unittest.TestCase):
     def test_jvm_unit_tests_are_sharded_and_each_shard_must_execute_tests(self):
         self.assertIn("shard: [0, 1, 2, 3, 4, 5]", self.workflow)
         self.assertIn("run_jvm_test_shard.py", self.workflow)
+        self.assertIn("timeout-minutes: 20", self.workflow)
+        app_gradle = (ROOT / "mobile" / "app" / "build.gradle.kts").read_text(encoding="utf-8")
+        shard_script = (ROOT / "tools" / "friday-builder" / "run_jvm_test_shard.py").read_text(encoding="utf-8")
+        self.assertIn("forkEvery = 1", app_gradle)
+        self.assertIn("class_patterns_for_sources", shard_script)
+        self.assertNotIn('f"{source.package}.*"', shard_script)
         self.assertIn("Verify this shard executed tests and retained JUnit evidence", self.workflow)
         self.assertIn("This JVM shard matched zero tests.", self.workflow)
         self.assertIn("Aggregate JVM test evidence", self.workflow)

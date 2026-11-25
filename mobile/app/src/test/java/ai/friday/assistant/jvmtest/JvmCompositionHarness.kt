@@ -24,6 +24,8 @@ import ai.friday.assistant.onefriday.JvmPlatformPorts
 import ai.friday.assistant.onefriday.JvmPlatformStores
 import ai.friday.assistant.onefriday.TurnPathAssembly
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -68,13 +70,12 @@ class JvmCompositionHarness(
     private val ollamaHost: String = "127.0.0.1:8080",
     private val modelId: String = "friday-resident:latest",
     private val backendOverride: ModelBackend? = null,
-    // CONTINUITY-LAW (Gate 3c): the durable local data directory is a constructor
-    // param and is PUBLIC, because the durable change log under
-    // <dataDir>/identity/change_log.jsonl has to be pointable at a real directory
-    // that survives a restart — a test proves that by starting a second server
-    // over the same one. The default is byte-for-byte the pre-CONTINUITY-LAW
-    // value, so a normal JVM test harness run and every existing caller are unchanged.
-    val dataDir: java.io.File = java.io.File(System.getProperty("java.io.tmpdir"), "friday-jvm-test"),
+    // Each harness gets an isolated root so parallel test JVMs cannot overwrite
+    // one another. Continuity/restart tests pass the same dataDir explicitly.
+    val dataDir: java.io.File = java.io.File(
+        System.getProperty("java.io.tmpdir"),
+        "friday-jvm-test-" + java.util.UUID.randomUUID()
+    ),
 
     // TURN-TRACE (Gate 3a): optional append-only local trace store. Null ⇒ no
     // tracing (negative control: the trace file provably does not grow). Tests
@@ -116,7 +117,7 @@ class JvmCompositionHarness(
     private var serverSocket: ServerSocket? = null
     private var acceptThread: Thread? = null
     private var workers: ExecutorService? = null
-    private val scope = CoroutineScope(Dispatchers.IO)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     // ── JVM-safe doubles (disclosed, main-source, never Android-bound) ──
 
@@ -376,6 +377,7 @@ class JvmCompositionHarness(
             t.interrupt()
         }
         workers?.shutdownNow()
+        scope.cancel()
         acceptThread = null
         workers = null
         serverSocket = null

@@ -145,6 +145,7 @@ plugins {
                 // entire repository suite. Log completion as well as starts so
                 // a stalled test can be identified from the last completed case.
                 it.maxParallelForks = 2
+            it.forkEvery = 1
                 it.testLogging.events("started", "passed", "failed", "skipped")
             }
         }

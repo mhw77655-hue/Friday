@@ -29,6 +29,16 @@ import java.util.concurrent.TimeUnit
 class NervousSystemFailureTest {
 
     private val tempDirs = mutableListOf<File>()
+    private val ownedTestScopes = mutableListOf<CoroutineScope>()
+
+    @After
+    fun cancelOwnedTestScopes() {
+        ownedTestScopes.forEach { it.cancel() }
+        ownedTestScopes.clear()
+    }
+
+    private fun newRecoveryScope(): CoroutineScope =
+        CoroutineScope(SupervisorJob() + Dispatchers.Default).also(ownedTestScopes::add)
 
     private fun tmpDir(): File = File.createTempFile("friday-failure-test", "").apply {
         delete()
@@ -232,7 +242,7 @@ class NervousSystemFailureTest {
     @Test
     fun `handle surfaces failure even without a registered spec`() {
         val s = FailureSurface(nowMs = { 1000 })
-        val rc = RecoveryController(s, CoroutineScope(Dispatchers.Default))
+        val rc = RecoveryController(s, newRecoveryScope())
         val e = rc.handle(
             FailureReport(
                 subsystem = "TTS", operation = "init", severity = FailureSeverity.RECOVERABLE,
@@ -267,7 +277,7 @@ class NervousSystemFailureTest {
     @Test
     fun `exhausted retries degrade the dependency and call onDisabled`() {
         val s = FailureSurface(nowMs = { 1000 })
-        val rc = RecoveryController(s, CoroutineScope(Dispatchers.Default))
+        val rc = RecoveryController(s, newRecoveryScope())
         val disabled = AtomicBoolean(false)
         // maxAttempts = 0 → the very first handle exhausts the budget.
         rc.register(retrySpec(maxAttempts = 0, action = { false }, onDisabled = { disabled.set(true) }))
