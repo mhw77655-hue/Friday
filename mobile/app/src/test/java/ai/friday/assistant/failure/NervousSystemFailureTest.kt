@@ -258,7 +258,7 @@ class NervousSystemFailureTest {
     @Test
     fun `succeeding retry recovers the aggregate`() = runBlocking {
         val s = FailureSurface(nowMs = { 1000 })
-        val rc = RecoveryController(s, this)
+        val rc = RecoveryController(s, newRecoveryScope())
         rc.register(retrySpec(action = { true }))
         rc.handle(
             FailureReport(
