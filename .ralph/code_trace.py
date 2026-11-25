@@ -77,7 +77,7 @@ def resolve_stack_location(raw, line, stack_line, by_path):
         path = matches[0] if len(matches) == 1 else None
     if not path:
         # Keep unresolved Friday frames, but omit unrelated JDK/Android frames.
-        if re.search(r"\\bat\\s+ai\\.friday\\.", stack_line):
+        if re.search(r"\bat\s+ai\.friday\.", stack_line):
             return {"path": normalized, "line": line, "resolution": "friday_source_file_not_found"}
         return None
     return {"path": path, "line": line, "resolution": "source_resolved"}
