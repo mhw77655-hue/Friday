@@ -40,17 +40,19 @@ class JevApiKeyStore(context: Context) {
             .takeIf { it.isNotBlank() }
     }.getOrNull() }
 
-    fun clear() = synchronized(credentialLock) {
-        // Avoid waking Android Keystore when no credential was ever stored.
-        // This is the common first-run path and must remain a fast, reliable
-        // Settings action. Once ciphertext is durably removed, it is no longer
-        // decryptable even if best-effort key cleanup later fails.
-        val hadCredential = prefs.contains(KEY_CIPHERTEXT) || prefs.contains(KEY_IV)
-        check(prefs.edit().clear().commit()) { "Could not durably clear the Jev credential." }
-        if (!hadCredential) return
-        runCatching {
-            val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
-            keyStore.deleteEntry(KEY_ALIAS)
+    fun clear() {
+        synchronized(credentialLock) {
+            // Avoid waking Android Keystore when no credential was ever stored.
+            // This is the common first-run path and must remain a fast, reliable
+            // Settings action. Once ciphertext is durably removed, it is no longer
+            // decryptable even if best-effort key cleanup later fails.
+            val hadCredential = prefs.contains(KEY_CIPHERTEXT) || prefs.contains(KEY_IV)
+            check(prefs.edit().clear().commit()) { "Could not durably clear the Jev credential." }
+            if (!hadCredential) return
+            runCatching {
+                val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+                keyStore.deleteEntry(KEY_ALIAS)
+            }
         }
     }
 
