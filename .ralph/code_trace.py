@@ -61,6 +61,28 @@ def lexical_symbols(rel, source):
                     "start":i+1,"end":end,"language":Path(rel).suffix.lower().lstrip(".")})
     return out
 
+def resolve_stack_location(raw, line, stack_line, by_path):
+    """Resolve repository-owned frames and ignore platform/runtime frames."""
+    normalized = raw.replace("\\", "/")
+    candidates = [normalized]
+    if "/" not in normalized:
+        candidates += [
+            "mobile/app/src/main/java/" + normalized,
+            "mobile/app/src/test/java/" + normalized,
+            "mobile/app/src/androidTest/java/" + normalized,
+        ]
+    path = next((candidate for candidate in candidates if candidate in by_path), None)
+    if not path:
+        matches = [candidate for candidate in by_path if candidate.endswith("/" + normalized.split("/")[-1])]
+        path = matches[0] if len(matches) == 1 else None
+    if not path:
+        # Keep unresolved Friday frames, but omit unrelated JDK/Android frames.
+        if re.search(r"\\bat\\s+ai\\.friday\\.", stack_line):
+            return {"path": normalized, "line": line, "resolution": "friday_source_file_not_found"}
+        return None
+    return {"path": path, "line": line, "resolution": "source_resolved"}
+
+
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--repo",default=".")
@@ -119,14 +141,13 @@ def main():
         except OSError as e: failures.append({"input":fp,"error":type(e).__name__}); continue
         for m in STACK.finditer(log):
             raw=m.group(1) or m.group(3); line=int(m.group(2) or m.group(4))
-            candidates=[raw.replace("\\","/")]
-            if "/" not in candidates[0]:
-                candidates += ["mobile/app/src/main/java/"+raw,"mobile/app/src/test/java/"+raw,"mobile/app/src/androidTest/java/"+raw]
-            path=next((x for x in candidates if x in by_path),None)
-            if not path:
-                matches=[x for x in by_path if x.endswith("/"+raw.split("/")[-1])]
-                path=matches[0] if len(matches)==1 else None
-            if not path: failures.append({"input":fp,"path":raw,"line":line,"resolution":"source_file_not_found"}); continue
+            resolved = resolve_stack_location(raw, line, m.group(0), by_path)
+            if resolved is None:
+                continue
+            path = resolved["path"]
+            if resolved["resolution"] == "friday_source_file_not_found":
+                failures.append({"input": fp, **resolved})
+                continue
             found=[s for s in by_path[path] if s["start"]<=line<=s["end"]]
             found.sort(key=lambda s:(s["end"]-s["start"],-s["start"]))
             s=found[0] if found else None
