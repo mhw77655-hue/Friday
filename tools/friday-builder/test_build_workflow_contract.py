@@ -22,6 +22,16 @@ class BuildWorkflowContractTests(unittest.TestCase):
         )
         self.assertEqual(len(ids), len(set(ids)))
 
+    def test_jvm_unit_tests_are_sharded_and_each_shard_must_execute_tests(self):
+        self.assertIn("shard: [0, 1, 2, 3, 4, 5]", self.workflow)
+        self.assertIn("run_jvm_test_shard.py", self.workflow)
+        self.assertIn("Verify this shard executed tests and retained JUnit evidence", self.workflow)
+        self.assertIn("This JVM shard matched zero tests.", self.workflow)
+        self.assertIn("Aggregate JVM test evidence", self.workflow)
+        gate = self.workflow.split("  verified-debug-apk:", 1)[1]
+        self.assertIn("- jvm-unit-tests", gate)
+        self.assertIn("- jvm-test-results", gate)
+
     def test_apk_bundled_delivery_plan_matches_canonical_source(self):
         canonical = ROOT / ".ralph" / "FRIDAY_DELIVERY_PLAN.md"
         bundled = ROOT / "mobile" / "app" / "src" / "main" / "assets" / "friday" / "FRIDAY_DELIVERY_PLAN.md"
