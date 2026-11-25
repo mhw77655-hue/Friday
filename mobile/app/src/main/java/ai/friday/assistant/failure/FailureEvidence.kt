@@ -38,7 +38,7 @@ object FailureEvidence {
             .filterNot { frame -> NOISE_PREFIXES.any { prefix -> frame.className.startsWith(prefix) } }
             .take(maxFrames.coerceAtLeast(1))
             .joinToString(" < ") { frame ->
-                "${frame.className.substringAfterLast('.') }.${frame.methodName}(${frame.fileName ?: "?"}:${frame.lineNumber})"
+                "${frame.className.substringAfterLast('.')}.${frame.methodName}(${frame.fileName ?: "?"}:${frame.lineNumber})"
             }
         val root = rootOf(throwable)
         val rootText = if (root !== throwable) {
