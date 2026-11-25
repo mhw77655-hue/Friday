@@ -36,7 +36,7 @@ concurrency:
   # creates a repair/CI cancellation loop. GitHub retains one pending run per
   # group, so newer commits replace obsolete pending candidates without
   # terminating the currently executing validation.
-  group: friday-build-${{ github.ref }}-${{ github.sha }}
+  group: friday-build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: false
 
 permissions: {}
@@ -123,7 +123,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
+
+      - name: Configure Gradle dependency and build-output cache
+        uses: gradle/actions/setup-gradle@v6
 
       # Writable SDK root for this job. MUST be exported inside a step (not in
       # a job-level env block): the runner context is not allowed there and
@@ -135,6 +137,14 @@ jobs:
         run: |
           echo "ANDROID_HOME=${{ runner.temp }}/android-sdk" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=${{ runner.temp }}/android-sdk" >> "$GITHUB_ENV"
+
+      - name: Restore pinned Android build SDK
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/android-sdk
+          key: friday-android-sdk-${{ runner.os }}-api36-bt35-ndk27d-cmake3221-${{ hashFiles('mobile/app/build.gradle.kts') }}
+          restore-keys: |
+            friday-android-sdk-${{ runner.os }}-api36-bt35-ndk27d-cmake3221-
 
       # SDK versions pinned by mobile/app/build.gradle.kts: compileSdk = 36,
       # ndkVersion = 27.3.13750724, externalNativeBuild cmake version 3.22.1,
@@ -188,7 +198,7 @@ jobs:
       # trace. This is build-graph evidence, not a compiler call graph.
       - name: Capture Gradle project and dependency structure
         id: gradle-structure
-        if: ${{ !cancelled() && steps.setup-java.outcome == 'success' }}
+        if: ${{ github.event_name == 'workflow_dispatch' && !cancelled() && steps.setup-java.outcome == 'success' }}
         run: |
           set -euo pipefail
           OUT="$RUNNER_TEMP/friday-gradle-structure"
@@ -369,7 +379,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
+
+      - name: Configure Gradle dependency and build-output cache
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Create isolated writable Android SDK
         run: |
@@ -379,6 +391,15 @@ jobs:
           cp -a /usr/local/lib/android/sdk/cmdline-tools/latest "$SDK_ROOT/cmdline-tools/latest"
           echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+
+      - name: Restore pinned Android emulator SDK
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/android-sdk
+          key: friday-android-emulator-sdk-${{ runner.os }}-api35-systemimage35-${{ hashFiles('mobile/app/build.gradle.kts') }}
+          restore-keys: |
+            friday-android-emulator-sdk-${{ runner.os }}-api35-systemimage35-
+            friday-android-sdk-${{ runner.os }}-
 
       - name: Install emulator and pinned native build components
         run: |
