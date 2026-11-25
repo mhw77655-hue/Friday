@@ -423,6 +423,19 @@ object FridayOrganGraph {
             qualifiedClassName = "ai.friday.assistant.android.DeviceControlRouter"
         ))
         g.registerNode(SystemGraph.SystemNode(
+            id = "android.mediaControlCapability",
+            name = "AndroidMediaControlCapability",
+            organType = SystemGraph.OrganType.ANDROID,
+            qualifiedClassName = "ai.friday.assistant.android.AndroidMediaControlCapability"
+        ))
+        g.registerNode(SystemGraph.SystemNode(
+            id = "android.appLaunchCapability",
+            name = "AndroidAppLaunchCapability",
+            organType = SystemGraph.OrganType.ANDROID,
+            qualifiedClassName = "ai.friday.assistant.android.AndroidAppLaunchCapability",
+            description = "Typed app launch capability registered in AndroidPlatformPorts; requires installed-launcher visibility, Shizuku launch evidence and independent foreground readback."
+        ))
+        g.registerNode(SystemGraph.SystemNode(
             id = "android.mediaSessionBackend",
             name = "MediaSessionControlBackend",
             organType = SystemGraph.OrganType.ANDROID,
@@ -657,6 +670,12 @@ object FridayOrganGraph {
         g.addEdge("android.deviceControlRouter", "android.riskGate", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("android.deviceControlRouter", "android.mediaSessionBackend", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
         g.addEdge("android.deviceControlRouter", "android.screenBridgeBackend", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        g.addEdge("capability.capabilityFabric", "android.mediaControlCapability", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
+        g.addEdge("capability.capabilityFabric", "android.appLaunchCapability", SystemGraph.DependencyEdge.EdgeKind.SENDS_TO)
+        g.addEdge("android.mediaControlCapability", "android.deviceControlRouter", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        g.addEdge("android.mediaControlCapability", "android.riskGate", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        g.addEdge("android.appLaunchCapability", "android.deviceControlRouter", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
+        g.addEdge("android.appLaunchCapability", "android.riskGate", SystemGraph.DependencyEdge.EdgeKind.DEPENDS_ON)
 
         // CONTINUITY-GATE-ENFORCED-SEAM (AC6): every contributor organ feeds ITS
         // contribution INTO the gate (SENDS_TO) — nothing writes the payload
