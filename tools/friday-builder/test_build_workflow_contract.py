@@ -18,9 +18,18 @@ class BuildWorkflowContractTests(unittest.TestCase):
         ids = self.job_ids()
         self.assertEqual(
             ids,
-            ["debug-apk", "android-emulator", "full-source-audit", "report-failure"],
+            ["debug-apk", "android-emulator", "full-source-audit", "report-failure", "verified-debug-apk"],
         )
         self.assertEqual(len(ids), len(set(ids)))
+
+    def test_installable_apk_is_promoted_only_after_all_required_gates(self):
+        self.assertIn("name: unverified-debug-apk-candidate", self.workflow)
+        gate = self.workflow.split("  verified-debug-apk:", 1)[1]
+        for job in ("debug-apk", "android-emulator", "full-source-audit"):
+            self.assertIn(f"- {job}", gate)
+        self.assertIn("name: friday-verified-debug-apk", gate)
+        self.assertIn("unzip -t", gate)
+        self.assertIn("sha256sum", gate)
 
     def test_release_signing_smoke_runs_on_every_full_validation(self):
         debug = self.workflow.split("  debug-apk:", 1)[1].split("  android-emulator:", 1)[0]
