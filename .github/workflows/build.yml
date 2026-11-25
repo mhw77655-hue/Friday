@@ -590,6 +590,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+      # This ZIP contains owner-provided device evidence, not the Git source tree or an APK.
       - name: Upload owner-provided device evidence archive
         if: always() && hashFiles('New folder (1).zip') != ''
         uses: actions/upload-artifact@v4
