@@ -42,8 +42,8 @@ class OfflineModelCatalogTest {
         val reserveBytes = 128L * 1024L * 1024L
         val tinyBudget = OfflineModelCatalog.tinyFallback.expectedMinimumBytes + reserveBytes
         assertTrue(
-            residentBootstrapCandidates(tinyBudget - 1L).isEmpty(),
-            "The tiny model must not consume the reserved free-space floor"
+            "The tiny model must not consume the reserved free-space floor",
+            residentBootstrapCandidates(tinyBudget - 1L).isEmpty()
         )
         assertEquals(
             listOf(OfflineModelCatalog.tinyFallback.id),
