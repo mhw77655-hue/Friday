@@ -35,9 +35,9 @@ class SystemScreenInteractionInstrumentedTest {
 
         compose.waitForIdle()
         compose.waitUntil(timeoutMillis = 20_000) {
-            compose.onAllNodes(hasText("Completed:", substring = true))
+            compose.onAllNodes(hasText("findings ·", substring = true))
                 .fetchSemanticsNodes().isNotEmpty() ||
-                compose.onAllNodes(hasText("Failed:", substring = true))
+                compose.onAllNodes(hasText("Active diagnostics failed:", substring = true))
                     .fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText("Run full system diagnosis").assertHasClickAction()
