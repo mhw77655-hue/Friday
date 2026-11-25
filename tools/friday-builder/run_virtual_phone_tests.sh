@@ -55,7 +55,7 @@ if ! python3 tools/friday-builder/install_apk_with_retry.py \
 fi
 
 python3 tools/friday-builder/apply_device_state_capsule.py .github/android-emulator/default-state-capsule.json
-./gradlew :mobile:app:createDebugAndroidTestCoverageReport
+./gradlew --no-configuration-cache :mobile:app:createDebugAndroidTestCoverageReport
 COVERAGE_REPORT="mobile/app/build/reports/coverage/androidTest/debug/connected/index.html"
 if [[ ! -s "$COVERAGE_REPORT" ]]; then
   echo "ANDROID_COVERAGE_MISSING: instrumentation completed without a non-empty JaCoCo report." >&2
