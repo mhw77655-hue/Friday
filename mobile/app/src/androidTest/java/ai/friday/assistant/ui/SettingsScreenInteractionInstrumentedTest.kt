@@ -71,7 +71,9 @@ class SettingsScreenInteractionInstrumentedTest {
         compose.onNodeWithText("Clear local journal").performScrollTo()
         compose.waitForIdle()
         compose.onNodeWithText("Clear local journal").assertIsDisplayed().performClick()
-        compose.onNodeWithText("Clearing local action journal…", substring = true).assertIsDisplayed()
+        // performClick synchronizes with Compose idleness; the IO clear can finish
+        // before this call returns. Assert the durable terminal outcome below,
+        // not a transient progress label that may correctly disappear quickly.
         compose.waitUntil(9_000) {
             compose.onAllNodesWithText("Local action journal cleared.", substring = true).fetchSemanticsNodes().isNotEmpty() ||
                 compose.onAllNodesWithText("Could not clear the local journal.", substring = true).fetchSemanticsNodes().isNotEmpty()
@@ -170,7 +172,9 @@ class SettingsScreenInteractionInstrumentedTest {
         compose.onNodeWithText("Remove key").performScrollTo()
         compose.waitForIdle()
         compose.onNodeWithText("Remove key").assertIsDisplayed().performClick()
-        compose.onNodeWithText("Removing Jev credential…", substring = true).assertExists()
+        // The removal may complete before performClick returns. Verify the
+        // terminal UI state and encrypted-store contents below instead of
+        // requiring a transient progress label to remain on screen.
         compose.waitUntil(9_000) {
             compose.onAllNodesWithText(
                 "Jev credential removed. Friday continues with local deterministic command handling.",
