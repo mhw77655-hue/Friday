@@ -359,6 +359,48 @@ class TurnPathAssemblyTest {
         )
     }
 
+
+    @Test
+    fun `real user turns create durable individual experiences through the production pipeline`() {
+        val directory = compositionDir("individual-experience-continuity")
+        val first = TurnPathAssembly.assemble(
+            Fixture().ports(
+                snapshot = { ResourceSnapshot.alwaysHealthy() },
+                clock = { 1_000L },
+                directory = directory
+            )
+        )
+        assertEquals(0, first.individual.experience.experienceCount())
+
+        first.pipeline.onUserInput("I prefer careful reasoning and clear explanations")
+        first.pipeline.onUserInput("Careful reasoning should guide every repair")
+
+        val recordedCount = first.individual.experience.experienceCount()
+        assertTrue(
+            "the production turn pipeline must record user experiences and received outcomes",
+            recordedCount >= 2
+        )
+        assertTrue(
+            "consecutive real experiences should update revisable associations",
+            first.individual.experience.associationCount() > 0
+        )
+
+        val restarted = TurnPathAssembly.assemble(
+            Fixture().ports(
+                snapshot = { ResourceSnapshot.alwaysHealthy() },
+                clock = { 2_000L },
+                directory = directory
+            )
+        )
+        assertEquals(
+            "experience records must survive reconstruction of the production composition",
+            recordedCount,
+            restarted.individual.experience.experienceCount()
+        )
+        assertTrue(restarted.individual.experience.associationCount() > 0)
+        directory.deleteRecursively()
+    }
+
     @Test
     fun `capability evidence survives reconstruction of the production composition`() {
         val directory = compositionDir("capability-evidence-continuity")
