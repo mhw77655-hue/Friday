@@ -35,8 +35,7 @@ def collect_groups() -> dict[str, list[Path]]:
         prefix = "ai.friday.assistant"
         if package != prefix and not package.startswith(prefix + "."):
             raise SystemExit(f"Unexpected test package {package!r} in {path}")
-        group = package[len(prefix):].lstrip(".").split(".", 1)[0] or "(root)"
-        groups[group].append(path)
+        groups[package].append(path)
     if not groups:
         raise SystemExit("No JVM test source files were discovered")
     return groups
@@ -62,19 +61,12 @@ def main() -> int:
     shards = assign_shards(groups)
     selected = sorted(shards[args.shard])
     patterns: list[str] = []
-    for group in selected:
-        if group == "(root)":
-            for path in groups[group]:
-                patterns.append(f"ai.friday.assistant.{path.stem}")
+    for package in selected:
+        if package == "ai.friday.assistant":
+            for path in groups[package]:
+                patterns.append(f"{package}.{path.stem}")
         else:
-            # Emit one filter per actual package. This includes nested packages
-            # even on Gradle versions where '*' is scoped to one package level.
-            packages = set()
-            for path in groups[group]:
-                match = PACKAGE_RE.search(path.read_text(encoding="utf-8"))
-                if match:
-                    packages.add(match.group(1))
-            patterns.extend(f"{package}.*" for package in sorted(packages))
+            patterns.append(f"{package}.*")
     if not patterns:
         raise SystemExit(f"Shard {args.shard} has no assigned packages")
 
