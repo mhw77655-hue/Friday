@@ -28,3 +28,9 @@
 - Optimize verified task outcomes and time to first useful action.
 - Preserve Laya as a distinct decision capability, not ASR or TTS.
 - Protect owner authorization, permissions, signing trust, provenance, isolation, recovery and rollback.
+
+
+## Structure and local-station boundaries
+- Follow [repository structure and migration](docs/FRIDAY_REPOSITORY_STRUCTURE_AND_MIGRATION.md); no mass source relocation or Gradle module split without a compiler-aware dependency map, baseline tests and rollback plan.
+- Follow [local station and cloud development architecture](docs/FRIDAY_LOCAL_STATION_AND_CLOUD_DEVELOPMENT_ARCHITECTURE.md); the Android app is not a generic GitHub Actions runner and must never execute arbitrary remote commands or code.
+- Keep phone enrollment credentials, GitHub authorization and APK signing keys in separate trust domains. Do not upload private user content as default diagnostics.
