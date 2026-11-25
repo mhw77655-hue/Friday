@@ -341,6 +341,31 @@ class FailureStoreTest {
     }
 
     @Test
+    fun `self diagnosis summary includes captured exception and root cause evidence`() {
+        val surface = FailureSurface()
+        val event = surface.report(FailureReport(
+            subsystem = "ENGINE",
+            operation = "environment_init",
+            severity = FailureSeverity.ERROR,
+            category = FailureCategory.ENVIRONMENT,
+            message = "environment initialization failed",
+            cause = "IllegalStateException: invalid environment state",
+            failureCause = FailureCause.NATIVE_FAILURE,
+            rootCauseHypothesis = "native environment bridge rejected the state",
+            metadata = mapOf(
+                "exception_chain" to "IllegalStateException -> IOException",
+                "stack_frames" to "EnvironmentFactory.create(EnvironmentFactory.kt:42)"
+            )
+        ))
+
+        val summary = SelfDiagnosis(surface).diagnose(event).summary
+        assertTrue(summary.contains("IllegalStateException: invalid environment state"))
+        assertTrue(summary.contains("failureCause=NATIVE_FAILURE"))
+        assertTrue(summary.contains("native environment bridge rejected the state"))
+        assertTrue(summary.contains("EnvironmentFactory.create"))
+    }
+
+    @Test
     fun `nonpositive load limits return an empty result`() {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         try {
