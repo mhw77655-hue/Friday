@@ -106,4 +106,24 @@ class ActionTraceStoreTest {
         assertEquals(0, store.eventCount())
         assertTrue(store.exportText().contains("No phone-control actions"))
     }
+
+    @Test
+    fun `corrupt journal is quarantined before a fresh journal is written`() {
+        val directory = Files.createTempDirectory("friday-corrupt-action-journal").toFile()
+        val journal = java.io.File(directory, "phone-action-traces.json")
+        val damagedEvidence = """{"events":[broken-private-evidence"""
+        journal.writeText(damagedEvidence)
+
+        val store = ActionTraceStore(directory, "test", 35)
+        assertEquals(0, store.eventCount())
+        val quarantined = directory.listFiles()
+            ?.firstOrNull { it.name.startsWith("phone-action-traces.json.corrupt-") }
+        assertTrue("The original damaged journal must be preserved.", quarantined?.isFile == true)
+        assertEquals(damagedEvidence, quarantined?.readText())
+
+        store.record("RecoveryProbe", "diagnostics", "success_reported", 1)
+        assertEquals(1, store.eventCount())
+        assertTrue(store.exportJson().contains("RecoveryProbe"))
+        assertTrue("A new valid journal must be created after quarantine.", journal.isFile)
+    }
 }
