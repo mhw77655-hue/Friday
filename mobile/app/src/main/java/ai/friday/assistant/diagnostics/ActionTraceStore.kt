@@ -229,10 +229,30 @@ class ActionTraceStore(
             .put("events", root.optJSONArray("events") ?: JSONArray())
             .toString(2)
 
-    private fun readRoot(): JSONObject = runCatching {
-        if (!journalFile.isFile) JSONObject()
-        else JSONObject(journalFile.readText(Charsets.UTF_8))
-    }.getOrElse { JSONObject() }
+    private fun readRoot(): JSONObject {
+        if (!journalFile.isFile) return JSONObject()
+        return try {
+            JSONObject(journalFile.readText(Charsets.UTF_8))
+        } catch (failure: Throwable) {
+            // Never silently replace a damaged journal with an empty object:
+            // the next record would otherwise overwrite the only copy of the
+            // owner's diagnostic evidence. Quarantine the exact bytes first,
+            // then let the live journal recover as an empty, writable journal.
+            val quarantine = File(
+                directory,
+                "$FILE_NAME.corrupt-${System.currentTimeMillis()}-${UUID.randomUUID()}"
+            )
+            check(journalFile.renameTo(quarantine)) {
+                "The action journal is unreadable and could not be preserved for recovery."
+            }
+            Log.e(
+                "PhoneActionDiagnostics",
+                "Unreadable action journal preserved as ${quarantine.name}; starting a fresh journal.",
+                failure
+            )
+            JSONObject()
+        }
+    }
 
     private fun writeRoot(root: JSONObject) {
         directory.mkdirs()
