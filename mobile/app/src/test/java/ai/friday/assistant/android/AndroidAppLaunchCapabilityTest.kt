@@ -86,4 +86,21 @@ class AndroidAppLaunchCapabilityTest {
         assertTrue(capability.verifyPostcondition(request, result))
         assertEquals("shizuku", result.output["backend_id"])
     }
+
+    @Test
+    fun appLaunchCapabilityIsVisibleInTheProductionOrganGraph() {
+        val graph = ai.friday.assistant.selfreconfig.FridayOrganGraph.build()
+        assertTrue(graph.node("android.appLaunchCapability") != null)
+        assertTrue(
+            graph.edgesFrom("capability.capabilityFabric").any {
+                it.toId == "android.appLaunchCapability"
+            }
+        )
+        assertTrue(
+            graph.edgesFrom("android.appLaunchCapability").any {
+                it.toId == "android.deviceControlRouter"
+            }
+        )
+    }
+
 }
