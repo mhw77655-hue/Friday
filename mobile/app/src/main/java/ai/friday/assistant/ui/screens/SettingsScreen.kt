@@ -1298,10 +1298,11 @@ private fun JevCredentialSection(context: Context) {
                 jevStatus = "Removing Jev credential…"
                 scope.launch {
                     val result = runCatching {
-                        withTimeout(6_000) {
-                            withContext(Dispatchers.IO) {
-                                ai.friday.assistant.voice.JevApiKeyStore(context).clear()
-                            }
+                        // Keystore deletion is a local blocking operation. Do
+                        // not time it out and then report failure while the
+                        // underlying IO operation continues and removes the key.
+                        withContext(Dispatchers.IO) {
+                            ai.friday.assistant.voice.JevApiKeyStore(context).clear()
                         }
                     }
                     if (operationRevision == jevStatusRevision) {
