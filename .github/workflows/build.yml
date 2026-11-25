@@ -402,7 +402,6 @@ jobs:
           pattern: friday-jvm-junit-*
           path: junit-results
           merge-multiple: true
-          continue-on-error: true
 
       - name: Enforce complete passing JVM test evidence
         env:
