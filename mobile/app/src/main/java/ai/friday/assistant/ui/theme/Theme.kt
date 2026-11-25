@@ -119,6 +119,15 @@ private val FridayDarkScheme = darkColorScheme(
     onSurface = FridayColors.TextPrimary,
     surfaceVariant = FridayColors.SurfacePanel,
     onSurfaceVariant = FridayColors.TextSecondary,
+    // Material 3 Cards and other default containers read these roles.
+    // Set them explicitly so the AMOLED palette does not fall back to stock grey.
+    surfaceDim = FridayColors.SurfaceBase,
+    surfaceBright = Color(0xFF16203A),
+    surfaceContainerLowest = FridayColors.SurfaceBase,
+    surfaceContainerLow = Color(0xFF04070F),
+    surfaceContainer = FridayColors.SurfacePanel,
+    surfaceContainerHigh = Color(0xFF0C1322),
+    surfaceContainerHighest = Color(0xFF101829),
     outline = Color(0xFF465267),
     outlineVariant = Color(0xFF293448),
     error = FridayColors.CoreWarning,
