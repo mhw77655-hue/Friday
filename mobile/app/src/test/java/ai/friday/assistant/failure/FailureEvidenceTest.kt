@@ -48,6 +48,19 @@ class FailureEvidenceTest {
     }
 
     @Test
+    fun describeRedactsCommonCredentialPatterns() {
+        val text = FailureEvidence.describe(
+            event(cause = "Bearer secret-value api_key=private-value password:also-private")
+        )
+        assertTrue(text.contains("Bearer [REDACTED]"))
+        assertTrue(text.contains("api_key=[REDACTED]"))
+        assertTrue(text.contains("password:[REDACTED]"))
+        assertTrue(!text.contains("secret-value"))
+        assertTrue(!text.contains("private-value"))
+        assertTrue(!text.contains("also-private"))
+    }
+
+    @Test
     fun describeStaysOnOneBoundedLine() {
         val text = FailureEvidence.describe(event(cause = "X: " + "a\nb ".repeat(2_000)))
         assertTrue(text.length <= FailureEvidence.MAX_LENGTH)
