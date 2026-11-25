@@ -257,11 +257,8 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' && !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
         run: bash tools/friday-builder/verify_mutation_sensitivity.sh
 
-      # Run tests even when APK assembly fails. A failed packaging step must
-      # not erase independent evidence about source/test health.
-      # JVM tests run in a separate six-way matrix below. This lets the
-      # release smoke build proceed in parallel rather than waiting behind a
-      # monolithic test task.
+      # Release signing is verified independently while the six JVM test
+      # shards execute in parallel. Neither lane masks the other's failures.
       - name: Build and verify release variant with a disposable CI key
         run: |
           set -euo pipefail
@@ -382,7 +379,7 @@ jobs:
           pattern: friday-jvm-junit-*
           path: junit-results
           merge-multiple: true
-          if-no-artifact-found: warn
+          continue-on-error: true
 
       - name: Enforce complete passing JVM test evidence
         env:
