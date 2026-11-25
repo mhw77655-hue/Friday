@@ -40,16 +40,14 @@ class AndroidResourceSnapshot(private val context: Context) : ResourceSnapshot {
         get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             try {
                 val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-                when {
-                    pm.currentThermalStatus >= PowerManager.THERMAL_STATUS_CRITICAL -> 2
-                    pm.currentThermalStatus >= PowerManager.THERMAL_STATUS_MODERATE -> 1
-                    else -> 0
-                }
-            } catch (e: Exception) {
-                0
+                mapAndroidThermalStatus(pm.currentThermalStatus)
+            } catch (_: Exception) {
+                // An unavailable thermal sensor is unknown pressure, not an all-clear.
+                2
             }
         } else {
-            0
+            // This Android version cannot provide the thermal API.
+            1
         }
 
     override val batteryPercent: Int
@@ -74,13 +72,13 @@ class AndroidResourceSnapshot(private val context: Context) : ResourceSnapshot {
 
     @Synchronized
     private fun readCpuLoad(): Double {
-        val current = readProcStat() ?: return 0.0
+        val current = readProcStat() ?: return 100.0
         val previous = previousCpuSample
         previousCpuSample = current
         if (previous == null) return 0.0
         val idleDelta = current.idle - previous.idle
         val totalDelta = current.total - previous.total
-        if (totalDelta <= 0 || idleDelta < 0) return 0.0
+        if (totalDelta <= 0 || idleDelta < 0) return 100.0
         return (((totalDelta - idleDelta) * 100.0) / totalDelta).coerceIn(0.0, 100.0)
     }
 
@@ -95,4 +93,15 @@ class AndroidResourceSnapshot(private val context: Context) : ResourceSnapshot {
     } catch (e: Exception) {
         null
     }
+}
+
+/**
+ * Android thermal status: NONE=0, LIGHT=1, MODERATE=2, SEVERE=3,
+ * CRITICAL=4, EMERGENCY=5, SHUTDOWN=6. Friday uses three buckets.
+ */
+internal fun mapAndroidThermalStatus(status: Int): Int = when (status) {
+    0 -> 0
+    1, 2 -> 1
+    in 3..6 -> 2
+    else -> 2 // Unknown values fail closed.
 }

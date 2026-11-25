@@ -211,6 +211,67 @@ class GitHubDevelopmentRepositoryClientTest {
         }
     }
 
+    @Test fun `candidate remains pending while a legacy commit status context is pending`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"total_count":1,"check_runs":[{"name":"android-emulator","status":"completed","conclusion":"success"}]}"""
+        ))
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"state":"pending","statuses":[{"context":"required-external-check","state":"pending"}]}"""
+        ))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val checks = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+                .inspectCandidateChecks(sha1)
+            assertEquals("PENDING", checks.state)
+            assertEquals(1, checks.total)
+            assertEquals(1, checks.completed)
+            assertEquals(0, checks.failed)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `completed check runs can pass when GitHub has no legacy status contexts`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"total_count":1,"check_runs":[{"name":"android-emulator","status":"completed","conclusion":"success"}]}"""
+        ))
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"state":"pending","statuses":[]}"""
+        ))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val checks = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+                .inspectCandidateChecks(sha1)
+            assertEquals("SUCCESS", checks.state)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `failed check run blocks candidate promotion even if combined status is green`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"total_count":1,"check_runs":[{"name":"android-emulator","status":"completed","conclusion":"failure"}]}"""
+        ))
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"state":"success","statuses":[]}"""
+        ))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val checks = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+                .inspectCandidateChecks(sha1)
+            assertEquals("FAILURE", checks.state)
+            assertEquals(1, checks.failed)
+        } finally {
+            server.shutdown()
+        }
+    }
+
     @Test fun `publisher refuses unsafe paths and credential-like source before network access`() {
         val server = MockWebServer()
         server.start()

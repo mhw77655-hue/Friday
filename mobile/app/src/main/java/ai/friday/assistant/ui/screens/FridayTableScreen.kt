@@ -80,18 +80,21 @@ fun FridayTableScreen() {
             "Friday is the conductor. Guest Seats are advisory voices; their text never authorizes phone actions or protected changes.",
             style = MaterialTheme.typography.bodyMedium
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             if (view == FridayTableView.ROUNDTABLE) {
-                Button(onClick = { view = FridayTableView.ROUNDTABLE }) { Text("Roundtable") }
+                Button(modifier = Modifier.weight(1f), onClick = { view = FridayTableView.ROUNDTABLE }) { Text("Roundtable") }
             } else {
-                OutlinedButton(onClick = { view = FridayTableView.ROUNDTABLE }) { Text("Roundtable") }
+                OutlinedButton(modifier = Modifier.weight(1f), onClick = { view = FridayTableView.ROUNDTABLE }) { Text("Roundtable") }
             }
             if (view == FridayTableView.VISION) {
-                Button(onClick = { view = FridayTableView.VISION }) { Text("Vision") }
+                Button(modifier = Modifier.weight(1f), onClick = { view = FridayTableView.VISION }) { Text("Vision") }
             } else {
-                OutlinedButton(onClick = { view = FridayTableView.VISION }) { Text("Vision") }
+                OutlinedButton(modifier = Modifier.weight(1f), onClick = { view = FridayTableView.VISION }) { Text("Vision") }
             }
-            OutlinedButton(onClick = { refreshKey++ }) { Text("Refresh") }
+            OutlinedButton(modifier = Modifier.weight(1f), onClick = { refreshKey++ }) { Text("Refresh") }
         }
         Text(
             if (view == FridayTableView.ROUNDTABLE) {

@@ -33,7 +33,10 @@ class FailureStore(
     private val persistMinSeverity: FailureSeverity = FailureSeverity.RECOVERABLE,
     private val maxPersistedIdsInMemory: Int = 512,
     private val onStorageFailure: (String, Throwable) -> Unit = { message, failure ->
-        android.util.Log.w("FailureStore", message, failure)
+        // Android's Log implementation is a stub in local JVM tests. Logging
+        // is best-effort and must not replace the storage failure being reported.
+        runCatching { android.util.Log.w("FailureStore", message, failure) }
+        Unit
     }
 ) {
     private val seenIds = LinkedHashMap<String, Unit>()
@@ -217,6 +220,12 @@ class FailureStore(
         put("attempt", e.attempt)
         put("recoveryAction", e.recoveryAction.name)
         put("userMessage", e.userMessage ?: JSONObject.NULL)
+        put("failureCause", e.failureCause?.name ?: JSONObject.NULL)
+        put("relatedStepId", e.relatedStepId ?: JSONObject.NULL)
+        put("relatedCapability", e.relatedCapability ?: JSONObject.NULL)
+        put("environment", e.environment ?: JSONObject.NULL)
+        put("rootCauseHypothesis", e.rootCauseHypothesis ?: JSONObject.NULL)
+        put("resourceState", e.resourceState ?: JSONObject.NULL)
         if (e.metadata.isNotEmpty()) {
             val metadataJson = JSONObject()
             e.metadata.forEach { (key, value) -> metadataJson.put(key, value) }
@@ -238,6 +247,8 @@ class FailureStore(
             Recoverability.entries.firstOrNull { it.name == name } ?: Recoverability.NONE
         fun action(name: String) =
             RecoveryAction.entries.firstOrNull { it.name == name } ?: RecoveryAction.NONE
+        fun failureCause(name: String?) =
+            name?.let { value -> FailureCause.entries.firstOrNull { it.name == value } }
 
         return FailureEvent(
             id = j.optString("id"),
@@ -256,7 +267,13 @@ class FailureStore(
             attempt = j.optInt("attempt", 1),
             recoveryAction = action(j.optString("recoveryAction")),
             metadata = metadata,
-            userMessage = optString("userMessage")
+            userMessage = optString("userMessage"),
+            failureCause = failureCause(optString("failureCause")),
+            relatedStepId = optString("relatedStepId"),
+            relatedCapability = optString("relatedCapability"),
+            environment = optString("environment"),
+            rootCauseHypothesis = optString("rootCauseHypothesis"),
+            resourceState = optString("resourceState")
         )
     }
 

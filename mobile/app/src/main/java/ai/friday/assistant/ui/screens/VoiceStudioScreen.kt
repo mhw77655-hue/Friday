@@ -129,8 +129,11 @@ fun VoiceStudioScreen() {
                 Text(if (referenceAvailable) "Provider: Pocket TTS · your reference voice" else "Provider: Piper VITS / English US (Amy · Low)")
                 Text("Voice process: ${host?.state?.value?.state ?: "not ready"}")
                 Text(if (referenceAvailable) "Friday uses your locally saved voice sample. The Pocket TTS pack is downloaded on first synthesis." else "Piper is active. No reference sample is selected, so voice cloning is not active.")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(enabled = !busy && host != null, onClick = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(modifier = Modifier.weight(1f), enabled = !busy && host != null, onClick = {
                         scope.launch {
                             busy = true
                             status = "Generating preview…"
@@ -151,7 +154,7 @@ fun VoiceStudioScreen() {
                             }
                         }
                     }) { Text("Preview Friday") }
-                    OutlinedButton(enabled = !busy && referenceAvailable, onClick = {
+                    OutlinedButton(modifier = Modifier.weight(1f), enabled = !busy && referenceAvailable, onClick = {
                         val file = referencePath?.let(::File)
                         if (file != null && file.exists()) playFile(file)
                     }) { Text("Play reference") }

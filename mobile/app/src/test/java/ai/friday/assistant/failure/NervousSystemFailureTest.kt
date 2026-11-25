@@ -10,6 +10,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -29,6 +30,16 @@ import java.util.concurrent.TimeUnit
 class NervousSystemFailureTest {
 
     private val tempDirs = mutableListOf<File>()
+    private val ownedTestScopes = mutableListOf<CoroutineScope>()
+
+    @After
+    fun cancelOwnedTestScopes() {
+        ownedTestScopes.forEach { it.cancel() }
+        ownedTestScopes.clear()
+    }
+
+    private fun newRecoveryScope(): CoroutineScope =
+        CoroutineScope(SupervisorJob() + Dispatchers.Default).also(ownedTestScopes::add)
 
     private fun tmpDir(): File = File.createTempFile("friday-failure-test", "").apply {
         delete()
@@ -232,7 +243,7 @@ class NervousSystemFailureTest {
     @Test
     fun `handle surfaces failure even without a registered spec`() {
         val s = FailureSurface(nowMs = { 1000 })
-        val rc = RecoveryController(s, CoroutineScope(Dispatchers.Default))
+        val rc = RecoveryController(s, newRecoveryScope())
         val e = rc.handle(
             FailureReport(
                 subsystem = "TTS", operation = "init", severity = FailureSeverity.RECOVERABLE,
@@ -248,7 +259,7 @@ class NervousSystemFailureTest {
     @Test
     fun `succeeding retry recovers the aggregate`() = runBlocking {
         val s = FailureSurface(nowMs = { 1000 })
-        val rc = RecoveryController(s, this)
+        val rc = RecoveryController(s, newRecoveryScope())
         rc.register(retrySpec(action = { true }))
         rc.handle(
             FailureReport(
@@ -265,11 +276,13 @@ class NervousSystemFailureTest {
     }
 
     @Test
-    fun `exhausted retries degrade the dependency and call onDisabled`() {
+    fun `exhausted retries degrade the dependency and call onDisabled`() = runBlocking {
         val s = FailureSurface(nowMs = { 1000 })
-        val rc = RecoveryController(s, CoroutineScope(Dispatchers.Default))
+        val rc = RecoveryController(s, newRecoveryScope())
         val disabled = AtomicBoolean(false)
-        // maxAttempts = 0 → the very first handle exhausts the budget.
+        // maxAttempts = 0 → the first reported failure is disabled without a retry.
+        // FailureSurface listeners are dispatched asynchronously, so await the
+        // controller's observable outcome instead of asserting on the reporter thread.
         rc.register(retrySpec(maxAttempts = 0, action = { false }, onDisabled = { disabled.set(true) }))
         rc.handle(
             FailureReport(
@@ -277,6 +290,9 @@ class NervousSystemFailureTest {
                 category = FailureCategory.STT, message = "decoder returned empty"
             )
         )
+        withTimeout(2_000) {
+            while (!disabled.get()) delay(10)
+        }
         assertTrue(disabled.get())
         // The dependency surfaced as degraded, and the capability is flagged.
         assertTrue(s.currentFailures.value.any { it.currentSeverity.rank >= FailureSeverity.DEGRADED.rank })

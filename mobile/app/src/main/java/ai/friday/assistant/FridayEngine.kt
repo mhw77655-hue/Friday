@@ -46,6 +46,7 @@ object FridayEngine {
     }
 
     @Volatile private var bootstrapStarted = false
+    private val initRequestQueued = java.util.concurrent.atomic.AtomicBoolean(false)
     val readinessGate = EngineReadinessGate()
     val readinessState: kotlinx.coroutines.flow.StateFlow<EngineReadinessState> get() = readinessGate.state
     val currentReadiness: EngineReadinessState get() = readinessGate.current
@@ -120,9 +121,13 @@ object FridayEngine {
     @Volatile private var streamingTts: StreamingTts? = null
     @Volatile private var visualStateBridge: VisualStateBridge? = null
     @Volatile private var failureSurface: ai.friday.assistant.failure.FailureSurface? = null
+    @Volatile private var mainThreadLivenessMonitor: ai.friday.assistant.failure.MainThreadLivenessMonitor? = null
+    @Volatile private var mainThreadWatchdogRequested: Boolean = false
     @Volatile private var failureStore: ai.friday.assistant.failure.FailureStore? = null
     @Volatile private var recoveryController: ai.friday.assistant.failure.RecoveryController? = null
     @Volatile private var selfDiagnosis: ai.friday.assistant.failure.SelfDiagnosis? = null
+    @Volatile private var immuneSystem: ai.friday.assistant.cognitive.immune.ImmuneSystem? = null
+    @Volatile private var immuneFailureListener: ((ai.friday.assistant.failure.FailureEvent) -> Unit)? = null
 
     // Phase A subsystems — constructed in init() and passed into CognitiveEngine seams.
     @Volatile var graphStore: ai.friday.assistant.memory.MemoryGraphStore? = null
@@ -177,6 +182,37 @@ object FridayEngine {
     @Volatile var phoneDecisionTool: ai.friday.assistant.voice.FridayPhoneDecisionTool? = null
         private set
 
+    /**
+     * Queue bootstrap away from Android's main thread. The synchronous setup
+     * creates stores and host adapters; doing that in Application.onCreate()
+     * can delay the first frame on slower phones. The existing engine Handler
+     * thread is also the serialization lane for the later wiring block.
+     *
+     * @return true when this call queued the first bootstrap attempt.
+     */
+    fun initAsync(context: Context): Boolean {
+        if (bootstrapStarted || !initRequestQueued.compareAndSet(false, true)) return false
+        return try {
+            val accepted = handler.post {
+                initRequestQueued.set(false)
+                init(context)
+            }
+            if (!accepted) {
+                initRequestQueued.set(false)
+                val failure = IllegalStateException("Friday engine bootstrap thread rejected initialization")
+                readinessGate.markFailed(failure)
+                Log.e("FridayEngine", failure.message ?: "Bootstrap thread rejected initialization")
+            }
+            accepted
+        } catch (failure: Throwable) {
+            initRequestQueued.set(false)
+            readinessGate.markFailed(failure)
+            Log.e("FridayEngine", "Could not schedule asynchronous bootstrap", failure)
+            false
+        }
+    }
+
+    @Synchronized
     fun init(context: Context) {
         if (bootstrapStarted) return
         bootstrapStarted = true
@@ -189,6 +225,14 @@ object FridayEngine {
         // even storage/backend construction failures can be recorded.
         val failureSurface = ai.friday.assistant.failure.FailureSurface()
         this.failureSurface = failureSurface
+        // Independent of EngineContainment.scope so it can still observe a
+        // blocked Android main looper while engine coroutines are stalled.
+        if (mainThreadLivenessMonitor == null) {
+            mainThreadLivenessMonitor = runCatching {
+                ai.friday.assistant.failure.MainThreadLivenessMonitor(failureSurface)
+            }.getOrNull()
+        }
+        if (mainThreadWatchdogRequested) mainThreadLivenessMonitor?.start()
 
         // Synchronous section: pure object-graph construction (no network, no
         // disk beyond mkdirs, no coroutine launches beyond each store's lazy
@@ -241,6 +285,23 @@ object FridayEngine {
         failureStore.attach(failureSurface)
         this.failureStore = failureStore
         this.recoveryController = recoveryController
+        // The immune system is part of the live runtime, not a test-only
+        // subsystem. It observes the canonical failure bus asynchronously;
+        // RecoveryController remains the single owner of retry execution.
+        val immuneSystem = ai.friday.assistant.cognitive.immune.ImmuneSystem(
+            surface = failureSurface
+        )
+        val immuneListener: (ai.friday.assistant.failure.FailureEvent) -> Unit = { event ->
+            scope.launch(Dispatchers.Default) { immuneSystem.observe(event) }
+        }
+        failureSurface.addFailureListener(replayExisting = false, listener = immuneListener)
+        this.immuneSystem = immuneSystem
+        this.immuneFailureListener = immuneListener
+        scope.launch(Dispatchers.Default) {
+            failureSurface.recoveryEvents.collect { recovery ->
+                immuneSystem.observeRecovery(recovery)
+            }
+        }
 
         // Register real, independent model recovery paths before any turn can
         // report a retryable MODEL incident. A fresh provider health probe is
@@ -695,22 +756,33 @@ object FridayEngine {
             // boot (honest: the active provider becomes whatever the profile
             // selects; health is reported, never faked).
             scope.launch { environmentManager.initialize() }
-            scheduleResidentModelBootstrap(appContext)
             scheduleFridayUpdateDiscovery(appContext)
             readinessGate.markReady()
+            // Enqueue only after the complete composition root is published.
+            // The worker also waits on readiness as a defensive guard for any
+            // other enqueue path (e.g. Settings or recovery).
+            runCatching {
+                ai.friday.assistant.model.storage.ResidentModelBootstrapWorker.enqueue(appContext)
+            }.onFailure { failure ->
+                Log.e("FridayEngine", "Could not schedule resident model bootstrap", failure)
+            }
             } catch (t: Throwable) {
                 readinessGate.markFailed(t)
-                failureSurface.report(
-                    ai.friday.assistant.failure.FailureReport(
-                        subsystem = "FridayEngine",
-                        operation = "init",
-                        severity = ai.friday.assistant.failure.FailureSeverity.CRITICAL,
-                        category = ai.friday.assistant.failure.FailureCategory.LIFECYCLE,
-                        message = "Engine wiring failed: ${t.message}",
-                        cause = "${t.javaClass.name}: ${t.message}",
-                        userMessage = "Failed to wake engine"
+                runCatching {
+                    failureSurface.report(
+                        ai.friday.assistant.failure.FailureReport(
+                            subsystem = "FridayEngine",
+                            operation = "init",
+                            severity = ai.friday.assistant.failure.FailureSeverity.CRITICAL,
+                            category = ai.friday.assistant.failure.FailureCategory.LIFECYCLE,
+                            message = "Engine wiring failed: ${t.message}",
+                            cause = "${t.javaClass.name}: ${t.message}",
+                            userMessage = "Failed to wake engine"
+                        )
                     )
-                )
+                }.onFailure { reportingFailure ->
+                    Log.e("FridayEngine", "Engine wiring failed and the failure surface could not record it", reportingFailure)
+                }
             }
         }
         if (!wiringPosted) {
@@ -832,10 +904,21 @@ object FridayEngine {
     fun voiceOrganismHostSlot(): EngineSlot<ai.friday.assistant.voice.VoiceOrganismHost> = readinessGate.slot { voiceOrganismHost }
     fun voiceOutputPathSlot(): EngineSlot<ai.friday.assistant.voice.VoiceOutputPath> = readinessGate.slot { voiceOutputPath }
     fun voiceMicroSystemSlot(): EngineSlot<ai.friday.assistant.voice.VoiceOrganismMicroSystem> = readinessGate.slot { voiceMicroSystem }
+    fun startMainThreadWatchdog() {
+        mainThreadWatchdogRequested = true
+        mainThreadLivenessMonitor?.start()
+    }
+
+    fun stopMainThreadWatchdog() {
+        mainThreadWatchdogRequested = false
+        mainThreadLivenessMonitor?.stop()
+    }
+
     fun failureSurfaceSlot(): EngineSlot<ai.friday.assistant.failure.FailureSurface> = readinessGate.slot { failureSurface }
     fun failureStoreSlot(): EngineSlot<ai.friday.assistant.failure.FailureStore> = readinessGate.slot { failureStore }
     fun recoveryControllerSlot(): EngineSlot<ai.friday.assistant.failure.RecoveryController> = readinessGate.slot { recoveryController }
     fun selfDiagnosisSlot(): EngineSlot<ai.friday.assistant.failure.SelfDiagnosis> = readinessGate.slot { selfDiagnosis }
+    fun immuneSystemSlot(): EngineSlot<ai.friday.assistant.cognitive.immune.ImmuneSystem> = readinessGate.slot { immuneSystem }
     fun environmentManagerSlot(): EngineSlot<LiquidEnvironmentManager> = readinessGate.slot { environmentManager }
     fun modelManagerSlot(): EngineSlot<ModelManager> = readinessGate.slot { modelManager }
     fun fridayIndividualSlot(): EngineSlot<ai.friday.assistant.cognitive.seed.FridayIndividual> = readinessGate.slot { fridayIndividual }
@@ -847,6 +930,12 @@ object FridayEngine {
     fun appContextSlot(): EngineSlot<Context> = readinessGate.slot { appContext }
 
     internal fun resetForTesting() {
+        immuneFailureListener?.let { listener -> failureSurface?.removeFailureListener(listener) }
+        immuneFailureListener = null
+        immuneSystem = null
+        mainThreadLivenessMonitor?.close()
+        mainThreadLivenessMonitor = null
+        mainThreadWatchdogRequested = false
         bootstrapStarted = false
         readinessGate.resetForTesting()
         wiringLatchForTesting = null
@@ -906,6 +995,11 @@ object FridayEngine {
 
     /** Get the deterministic self-diagnosis engine. */
     fun getSelfDiagnosis(): ai.friday.assistant.failure.SelfDiagnosis = checkNotNull(selfDiagnosis) {
+        "FridayEngine.init() must run first"
+    }
+
+    /** Live immune coordinator observing every canonical runtime failure. */
+    fun getImmuneSystem(): ai.friday.assistant.cognitive.immune.ImmuneSystem = checkNotNull(immuneSystem) {
         "FridayEngine.init() must run first"
     }
 
@@ -1009,35 +1103,6 @@ object FridayEngine {
     ): ai.friday.assistant.anchor.AnchorServeOutcome {
         val engine = checkNotNull(anchorEngine) { "FridayEngine.init() must run first" }
         return engine.serve(uncertainty)
-    }
-
-    /**
-     * Acquire the first resident model in the background without spending
-     * metered mobile data or blocking Friday's first launch. The worker checks
-     * live memory/storage, verifies the pinned model digest, and loads through
-     * the same process-isolated backend used by normal turns.
-     */
-    private fun scheduleResidentModelBootstrap(context: Context) {
-        val constraints = androidx.work.Constraints.Builder()
-            .setRequiredNetworkType(androidx.work.NetworkType.UNMETERED)
-            .setRequiresBatteryNotLow(true)
-            .setRequiresStorageNotLow(true)
-            .build()
-        val request = androidx.work.OneTimeWorkRequestBuilder<
-            ai.friday.assistant.model.storage.ResidentModelBootstrapWorker
-        >()
-            .setConstraints(constraints)
-            .setBackoffCriteria(
-                androidx.work.BackoffPolicy.EXPONENTIAL,
-                30,
-                java.util.concurrent.TimeUnit.MINUTES
-            )
-            .build()
-        androidx.work.WorkManager.getInstance(context).enqueueUniqueWork(
-            ai.friday.assistant.model.storage.ResidentModelBootstrapWorker.UNIQUE_WORK_NAME,
-            androidx.work.ExistingWorkPolicy.KEEP,
-            request
-        )
     }
 
     /**

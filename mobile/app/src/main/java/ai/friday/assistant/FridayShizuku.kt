@@ -1,9 +1,11 @@
 package ai.friday.assistant
 
 import android.content.pm.PackageManager
+import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.Executors
 import rikka.shizuku.Shizuku
 
 /**
@@ -37,31 +39,41 @@ object ShizukuBridge {
     @Synchronized
     fun init() {
         if (initialized) return
-        initialized = true
-        Shizuku.addBinderReceivedListenerSticky(binderReceivedListener)
-        Shizuku.addBinderDeadListener(binderDeadListener)
-        Shizuku.addRequestPermissionResultListener(permissionResultListener)
-        refresh()
+        try {
+            Shizuku.addBinderReceivedListenerSticky(binderReceivedListener)
+            Shizuku.addBinderDeadListener(binderDeadListener)
+            Shizuku.addRequestPermissionResultListener(permissionResultListener)
+            refresh()
+            initialized = true
+        } catch (failure: Exception) {
+            initialized = false
+            _isAvailable.value = false
+            _isGranted.value = false
+            Log.e("ShizukuBridge", "Shizuku listener initialization failed; a later refresh may retry", failure)
+        }
     }
 
     private fun checkPermission() {
-        if (!Shizuku.pingBinder()) {
-            _isGranted.value = false
-            return
-        }
-        _isGranted.value = try {
-            Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
-        } catch (_: Exception) {
-            false
-        }
+        _isGranted.value = runCatching {
+            Shizuku.pingBinder() &&
+                Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
+        }.getOrDefault(false)
     }
 
     fun requestPermission() {
-        if (Shizuku.pingBinder() && !Shizuku.isPreV11()) {
-            Shizuku.requestPermission(REQUEST_CODE)
+        runCatching {
+            if (Shizuku.pingBinder() && !Shizuku.isPreV11()) {
+                Shizuku.requestPermission(REQUEST_CODE)
+            } else {
+                _isGranted.value = false
+            }
+        }.onFailure { failure ->
+            _isGranted.value = false
+            Log.e("ShizukuBridge", "Could not request Shizuku permission", failure)
         }
     }
 
+    @Synchronized
     fun refresh() {
         _isAvailable.value = runCatching { Shizuku.pingBinder() }.getOrDefault(false)
         checkPermission()

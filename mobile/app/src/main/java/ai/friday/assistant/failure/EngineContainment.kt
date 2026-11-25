@@ -39,6 +39,12 @@ object EngineContainment {
     ): CoroutineScope {
         val handler = CoroutineExceptionHandler { _, throwable ->
             if (throwable is kotlinx.coroutines.CancellationException) return@CoroutineExceptionHandler
+            val exceptionChain = generateSequence(throwable) { it.cause }
+                .take(4)
+                .joinToString(" <- ") { it.javaClass.name.take(160) }
+            val stackFrames = throwable.stackTrace.take(8).joinToString(" | ") { frame ->
+                "${frame.className}.${frame.methodName}(${frame.fileName ?: "?"}:${frame.lineNumber})"
+            }
             failureSurface?.report(
                 FailureReport(
                     subsystem = "ENGINE",
@@ -50,6 +56,11 @@ object EngineContainment {
                     cause = "${throwable.javaClass.simpleName}: ${throwable.message}",
                     recoverability = Recoverability.RETRYABLE,
                     recoveryAction = RecoveryAction.NONE,
+                    metadata = mapOf(
+                        FailureEvidence.STACK_TOP_KEY to FailureEvidence.stackTop(throwable),
+                        "exception_chain" to exceptionChain,
+                        "stack_frames" to stackFrames
+                    ),
                     userMessage = "One of my internal systems had a problem, but I am still running."
                 )
             )
