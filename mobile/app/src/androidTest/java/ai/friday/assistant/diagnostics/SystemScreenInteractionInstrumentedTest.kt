@@ -2,10 +2,9 @@ package ai.friday.assistant.diagnostics
 
 import ai.friday.assistant.ui.screens.SystemScreen
 import ai.friday.assistant.ui.theme.FridayTheme
+import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -34,10 +33,11 @@ class SystemScreenInteractionInstrumentedTest {
 
         compose.waitForIdle()
         compose.waitUntil(timeoutMillis = 20_000) {
-            compose.onAllNodes(hasText("checks ·", substring = true))
-                .fetchSemanticsNodes().isNotEmpty() ||
-                compose.onAllNodes(hasText("Architecture diagnosis failed:", substring = true))
-                    .fetchSemanticsNodes().isNotEmpty()
+            runCatching {
+                compose.onNodeWithText("checks ·", substring = true).assertExists()
+            }.isSuccess || runCatching {
+                compose.onNodeWithText("Architecture diagnosis failed:", substring = true).assertExists()
+            }.isSuccess
         }
         compose.onNodeWithText("Run full system diagnosis").assertHasClickAction()
         compose.onNodeWithText("Run Friday architecture and autonomy diagnosis").assertHasClickAction()
@@ -54,10 +54,11 @@ class SystemScreenInteractionInstrumentedTest {
         compose.waitForIdle()
         compose.onNodeWithText("Run full system diagnosis").performClick()
         compose.waitUntil(timeoutMillis = 20_000) {
-            compose.onAllNodes(hasText("findings ·", substring = true))
-                .fetchSemanticsNodes().isNotEmpty() ||
-                compose.onAllNodes(hasText("Active diagnostics failed:", substring = true))
-                    .fetchSemanticsNodes().isNotEmpty()
+            runCatching {
+                compose.onNodeWithText("findings ·", substring = true).assertExists()
+            }.isSuccess || runCatching {
+                compose.onNodeWithText("Active diagnostics failed:", substring = true).assertExists()
+            }.isSuccess
         }
     }
 }
