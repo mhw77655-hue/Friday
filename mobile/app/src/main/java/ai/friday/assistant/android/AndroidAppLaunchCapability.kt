@@ -29,7 +29,7 @@ class AndroidAppLaunchCapability(
     override val descriptor = CapabilityDescriptor(
         id = "android.app_launch",
         name = "Android app launch",
-        description = "Launch an installed launcher application and independently verify its foreground activity.",
+        description = "Operation app.launch: set context argument arg:package_name to an installed launcher package ID. Launch that app and independently verify its foreground activity.",
         category = "device.app",
         riskLevel = RiskLevel.LOW,
         supportedOperations = setOf(OPERATION),
