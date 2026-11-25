@@ -28,6 +28,10 @@ object FailureEvidence {
     )
 
     private val WHITESPACE = Regex("\\s+")
+    private val BEARER_SECRET = Regex("(?i)Bearer\\s+[^\\s,;]+")
+    private val NAMED_SECRET = Regex(
+        "(?i)(authorization|access[_-]?token|refresh[_-]?token|api[_-]?key|password)(\\s*[:=]\\s*)[^\\s,;]+"
+    )
 
     /**
      * The exception type, the first few application frames, and the root cause
@@ -74,5 +78,11 @@ object FailureEvidence {
         throwable.javaClass.simpleName.ifEmpty { throwable.javaClass.name }
 
     private fun singleLine(text: String, max: Int): String =
-        text.replace(WHITESPACE, " ").trim().take(max)
+        text.replace(BEARER_SECRET, "Bearer [REDACTED]")
+            .replace(NAMED_SECRET) { match ->
+                match.groupValues[1] + match.groupValues[2] + "[REDACTED]"
+            }
+            .replace(WHITESPACE, " ")
+            .trim()
+            .take(max)
 }
