@@ -129,3 +129,10 @@ Do not create one Gradle module per "organ", screen, class or research idea. Mod
 The first packet is **not** a mass move. It is to build a trustworthy compiler-aware dependency and ownership map for the current 1,084-entry Android app subtree, reconcile it with manifest/Gradle/JNI/runtime entry points, identify cycles and overlapping implementations, then select the smallest boundary with the highest reduction in coupling. The first actual source migration should target a pure contract or deterministic algorithm with no Android dependency and have JVM contract tests plus a build gate.
 
 Success is measured by fewer cross-domain dependencies, clearer production reachability, faster and more reliable targeted builds, stronger test isolation, fewer duplicate authorities and simpler safe replacement—not by fewer directories or a prettier tree.
+
+
+## Wave 0 execution status — 2026-11-25
+
+The current candidate CI workflow now captures the Gradle project graph plus `debugCompileClasspath`, `debugRuntimeClasspath` and `releaseRuntimeClasspath` dependency reports as the `friday-gradle-structure` artifact. The existing whole-app audit also retains a source inventory, heuristic source-to-test map and explicitly lexical cross-file trace artifact. This creates the first reproducible baseline for the build graph and source navigation.
+
+**Limit:** Gradle dependency reports describe configured module/external dependency resolution; the lexical trace does not resolve Kotlin overloads, DI, reflection, generated code, coroutine callbacks, JNI or runtime reachability. Neither is yet a compiler-proven internal class/method dependency graph. Wave 0 remains open until those edges are mapped and reconciled with manifest, composition roots and runtime traces. No source relocation or module split is authorized merely by these reports.
