@@ -108,6 +108,18 @@ class FridayShellService : IFridayShellService.Stub() {
         return "status=${if (resumed) "verified" else "not-verified"}; package=$packageName; launch=${launch.take(500)}"
     }
 
+    /** Independent foreground-state readback for a previously launched package. */
+    override fun isPackageForeground(packageName: String): Boolean {
+        if (!PACKAGE_NAME.matches(packageName)) return false
+        val activities = runFixed("dumpsys", "activity", "activities")
+        if (activities.startsWith("unavailable:") || activities == "timeout") return false
+        return activities.lineSequence().any { line ->
+            line.contains(packageName) &&
+                (line.contains("mResumedActivity", ignoreCase = true) ||
+                 line.contains("topResumedActivity", ignoreCase = true))
+        }
+    }
+
     /**
      * Shizuku-backed Doze exemption for Friday only. The package name and
      * command shape are fixed in code; the Binder caller supplies only a
