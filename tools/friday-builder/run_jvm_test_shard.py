@@ -67,7 +67,14 @@ def main() -> int:
             for path in groups[group]:
                 patterns.append(f"ai.friday.assistant.{path.stem}")
         else:
-            patterns.append(f"ai.friday.assistant.{group}.*")
+            # Emit one filter per actual package. This includes nested packages
+            # even on Gradle versions where '*' is scoped to one package level.
+            packages = set()
+            for path in groups[group]:
+                match = PACKAGE_RE.search(path.read_text(encoding="utf-8"))
+                if match:
+                    packages.add(match.group(1))
+            patterns.extend(f"{package}.*" for package in sorted(packages))
     if not patterns:
         raise SystemExit(f"Shard {args.shard} has no assigned packages")
 
