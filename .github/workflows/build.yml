@@ -84,6 +84,11 @@ jobs:
         run: python3 -m unittest discover -s tools/friday-builder -p 'test_*.py' -v
 
       - name: Measure Python line and branch coverage
+        id: python-coverage
+        # This repeats the fast harness suite under coverage. Keep independent
+        # Android compilation running if either invocation exposes a test bug;
+        # the enforcement step below still fails the job and blocks promotion.
+        continue-on-error: true
         run: |
           python3 -m pip install coverage==7.6.12
           python3 -m coverage run --branch --source=.ralph,tools/friday-builder -m unittest discover -s tools/friday-builder -p 'test_*.py' -v
@@ -280,8 +285,8 @@ jobs:
       - name: Enforce Android harness and build contract results
         if: ${{ !cancelled() }}
         run: |
-          if [[ "${{ steps.harness-contracts.outcome }}" != "success" ]]; then
-            echo "::error::Android harness/build contract tests failed. APK and emulator evidence may be collected, but this candidate is not releasable."
+          if [[ "${{ steps.harness-contracts.outcome }}" != "success" || "${{ steps.python-coverage.outcome }}" != "success" ]]; then
+            echo "::error::Android harness/build contract or covered Python tests failed. APK and emulator evidence may be collected, but this candidate is not releasable."
             exit 1
           fi
 
