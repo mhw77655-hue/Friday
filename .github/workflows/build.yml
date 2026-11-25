@@ -36,7 +36,7 @@ concurrency:
   # creates a repair/CI cancellation loop. GitHub retains one pending run per
   # group, so newer commits replace obsolete pending candidates without
   # terminating the currently executing validation.
-  group: friday-build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: friday-build-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: false
 
 permissions: {}
