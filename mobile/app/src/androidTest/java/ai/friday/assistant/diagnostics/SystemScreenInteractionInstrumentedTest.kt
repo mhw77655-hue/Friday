@@ -9,6 +9,7 @@ import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -33,6 +34,12 @@ class SystemScreenInteractionInstrumentedTest {
         }
 
         compose.waitForIdle()
+        compose.waitUntil(timeoutMillis = 20_000) {
+            compose.onAllNodes(hasText("Completed:", substring = true))
+                .fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodes(hasText("Failed:", substring = true))
+                    .fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithText("Run full system diagnosis").assertHasClickAction()
         compose.onNodeWithText("Run Friday architecture and autonomy diagnosis").assertHasClickAction()
     }
@@ -53,7 +60,9 @@ class SystemScreenInteractionInstrumentedTest {
                 compose.onAllNodes(hasText("Failed:", substring = true))
                     .fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onAllNodes(hasText("DIAGNOSTIC FINDINGS", substring = true))
-            .fetchSemanticsNodes().also { nodes -> assert(nodes.isNotEmpty()) }
+        assertTrue(
+            compose.onAllNodes(hasText("DIAGNOSTIC FINDINGS", substring = true))
+                .fetchSemanticsNodes().isNotEmpty()
+        )
     }
 }
