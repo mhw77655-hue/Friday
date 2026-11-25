@@ -262,7 +262,7 @@ class ResidentModelBootstrapWorker(
                 .put("schema_version", 1)
                 .put("state", state)
                 .put("reason", reason.take(500))
-                .put("updated_at_epoch_ms", FridayEngine.nowMs())
+                .put("updated_at_epoch_ms", System.currentTimeMillis())
             val target = File(directory, "model-bootstrap.json")
             val temp = File(directory, "model-bootstrap.json.tmp")
             temp.writeText(report.toString(2), Charsets.UTF_8)
