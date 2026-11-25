@@ -80,6 +80,6 @@ class ShizukuInstallBinderContractTest {
         val unsupportedBinder = object : Binder() {
             override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean = false
         }
-        assertFalse(IFFridayShellService.Proxy(unsupportedBinder).isPackageForeground("com.example.app"))
+        assertFalse(IFridayShellService.Proxy(unsupportedBinder).isPackageForeground("com.example.app"))
     }
 }
