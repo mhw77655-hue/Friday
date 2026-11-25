@@ -826,7 +826,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                     )
                 )
                 _selfDiagnosticAt.value = System.currentTimeMillis()
-                _selfDiagnosticStatus.value = "Failed: $safeType. An error finding was added below."
+                _selfDiagnosticStatus.value = "Architecture diagnosis failed: $safeType. An error finding was added below."
             } finally {
                 _selfDiagnosticRunning.value = false
             }
