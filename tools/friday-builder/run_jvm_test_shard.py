@@ -16,7 +16,7 @@ from collections import defaultdict
 from pathlib import Path
 
 SOURCE_ROOT = Path("mobile/app/src/test/java/ai/friday/assistant")
-PACKAGE_RE = re.compile(r"^\s*package\\s+([A-Za-z_][A-Za-z0-9_.]*)", re.MULTILINE)
+PACKAGE_RE = re.compile(r"^\s*package\s+([A-Za-z_][A-Za-z0-9_.]*)", re.MULTILINE)
 SHARD_COUNT = 6
 
 
