@@ -18,7 +18,7 @@ class BuildWorkflowContractTests(unittest.TestCase):
         ids = self.job_ids()
         self.assertEqual(
             ids,
-            ["debug-apk", "android-emulator", "full-source-audit", "report-failure", "verified-debug-apk"],
+            ["debug-apk", "jvm-unit-tests", "jvm-test-results", "android-emulator", "full-source-audit", "report-failure", "verified-debug-apk"],
         )
         self.assertEqual(len(ids), len(set(ids)))
 
@@ -31,7 +31,7 @@ class BuildWorkflowContractTests(unittest.TestCase):
     def test_installable_apk_is_promoted_only_after_all_required_gates(self):
         self.assertIn("name: unverified-debug-apk-candidate", self.workflow)
         gate = self.workflow.split("  verified-debug-apk:", 1)[1]
-        for job in ("debug-apk", "android-emulator", "full-source-audit"):
+        for job in ("debug-apk", "android-emulator", "full-source-audit", "jvm-unit-tests", "jvm-test-results"):
             self.assertIn(f"- {job}", gate)
         self.assertIn("name: friday-verified-debug-apk", gate)
         self.assertIn("unzip -t", gate)
@@ -60,7 +60,7 @@ class BuildWorkflowContractTests(unittest.TestCase):
 
     def test_emulator_and_source_audit_are_required_failure_report_dependencies(self):
         reporter = self.workflow.split("  report-failure:", 1)[1]
-        for job in ("debug-apk", "android-emulator", "full-source-audit"):
+        for job in ("debug-apk", "android-emulator", "full-source-audit", "jvm-unit-tests", "jvm-test-results"):
             self.assertIn(f"- {job}", reporter)
             self.assertIn(f"needs.{job}.result != 'success'", reporter)
 
