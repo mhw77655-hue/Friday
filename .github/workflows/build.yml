@@ -353,6 +353,29 @@ jobs:
       - name: Run deterministic JVM test shard
         run: python3 tools/friday-builder/run_jvm_test_shard.py --shard ${{ matrix.shard }} --gradle ./gradlew
 
+      - name: Verify this shard executed tests and retained JUnit evidence
+        run: |
+          python3 - <<'PY'
+          import glob
+          import xml.etree.ElementTree as ET
+
+          paths = sorted(glob.glob("mobile/app/build/test-results/testDebugUnitTest/TEST-*.xml"))
+          if not paths:
+              raise SystemExit("This JVM shard produced no JUnit XML reports.")
+          totals = {"tests": 0, "failures": 0, "errors": 0}
+          for path in paths:
+              root = ET.parse(path).getroot()
+              suites = [root] if root.tag == "testsuite" else list(root.iter("testsuite"))
+              for suite in suites:
+                  for key in totals:
+                      totals[key] += int(suite.attrib.get(key, "0"))
+          print(f"Shard JUnit totals: {totals}")
+          if totals["tests"] <= 0:
+              raise SystemExit("This JVM shard matched zero tests.")
+          if totals["failures"] or totals["errors"]:
+              raise SystemExit("This JVM shard reported failures or errors.")
+          PY
+
       - name: Upload shard JUnit results
         if: always()
         uses: actions/upload-artifact@v4
