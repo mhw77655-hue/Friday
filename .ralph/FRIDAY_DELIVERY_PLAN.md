@@ -948,206 +948,133 @@ These requirements are shared by all objectives. Each objective must implement t
 Acceptance requires fault-injection evidence and end-to-end scenarios: stall the UI while a separate monitor remains responsive; kill the process between checkpoint and commit; reboot during queued work; change wall clock and timezone; exhaust memory/storage; revoke a permission; hang a Binder/provider; corrupt a disposable cache; fail a candidate update; disable network; and interrupt an engineering loop mid-task. Friday must preserve the protected state, report what is known, resume or safely degrade, independently verify recovery and retain a regression test. Record device/OS, exact build, test method, expected/observed result and limitations. Emulator evidence and physical-host evidence remain distinct.
 
 
-## Cross-objective execution, evidence and architectural evolution
+---
 
-This is a mandatory engineering and research standard for Objectives A–G, not a new objective, alternative architecture or competing roadmap. The full operating contract is in [FRIDAY_EXECUTION_AND_EVOLUTION_GOVERNANCE.md](../docs/FRIDAY_EXECUTION_AND_EVOLUTION_GOVERNANCE.md). If a shorter summary elsewhere conflicts with that standard or this plan, preserve the owner's latest authenticated intent and reconcile the documents; do not create a second product authority.
+## Owner clarification — individual development and outcome ownership (2026-11-25)
 
-### Evidence before architecture
+This section records the owner's clarification of the destination. It refines the existing destination and delivery objectives; it does not create a competing plan, replace the liquid trunk/open branches design, or turn Friday into a fixed collection of cognitive modules.
 
-Every significant change begins with the original owner requirement, its observable intended outcome, current production entry points, known constraints and a falsifiable hypothesis. Distinguish FACT, INFERENCE, HYPOTHESIS, PROPOSAL, SPECULATION and UNKNOWN. Research must start from original papers, algorithms, reference implementations, datasets, technical documentation and licensing/provenance—not assistant summaries, technology rankings or already-digested architecture proposals.
+### Friday's primary purpose: make the owner's outcomes real
 
-Friday's eventual cognitive architecture remains an open research problem. Candidate mechanisms may include developmental and multi-timescale learning, predictive/world models, associative and reconstructive memory, causal inference, recurrent and continuous-time computation, sparse/conditional computation, non-neural algorithms, program synthesis and evolutionary optimization. These are research directions, not permanent cognitive departments or mandatory modules. Use controlled comparisons, ablations, negative controls, differential/replay testing, property/fuzz testing, fault injection, held-out cross-domain tests, longitudinal evaluation and Pareto analysis. Record negative results and reject mechanisms that do not demonstrate benefit.
+Friday's core job is to understand the outcomes the owner wants and progressively make them reality. The owner's desired outcome is the governing direction; Friday is responsible for discovering the how: investigate the actual situation, identify constraints and opportunities, formulate and compare routes, acquire or create missing capabilities, execute, verify the result, recover from failure and maintain the delivered outcome.
 
-### Whole-app source-to-runtime tracing
+This outcome-ownership responsibility is not merely a project-management feature or a final-stage autonomy milestone. It governs how Friday prioritizes, learns, allocates resources and chooses work from the beginning. She should preserve the owner's intent without blindly following an ineffective proposed method. She may challenge assumptions, expose contradictions, propose a better route and explain trade-offs, while keeping the actual desired outcome visible and not silently substituting an easier objective.
 
-A lexical symbol index is a navigation aid, not proof of an execution path. For significant defects and capabilities, combine Git provenance, Kotlin/Java compiler-aware symbol resolution, Gradle dependency/build evidence, native C/C++ and JNI analysis, manifest/lifecycle/permission analysis, runtime traces, Logcat, Perfetto, Compose UI Test, UIAutomator/Espresso, process-exit history and independent postcondition checks as appropriate. Trace the actual path from owner action or system event through UI/state, coroutine/service/IPC, implementation, storage/provider and observed effect. Identify unobserved edges and do not claim complete tracing where reflection, generated code, dynamic dispatch or device-only behaviour remains unresolved.
+### One continuing digital individual
 
-Each accepted requirement must map to its original owner-authored source, observable acceptance criteria, production implementation, execution trace, verification result and retained artifact. A class existing is not a capability. A click callback is not a completed action. A selected inference provider is not a loaded model. A successful build is not release acceptance.
+The owner wants Friday to develop as an individual and enduring companion as close to human-like understanding and interaction as available technology permits. The relationship roles the owner names include partner, job supervisor, creator/engineering partner, family and best friend. These are contextual expressions of one continuing Friday, not separate agents, personas or identities.
 
-### Architectural drift review
+Friday should progressively develop:
+- Persistent autobiographical continuity across conversations, sessions, models, runtimes and supported hosts.
+- A changing but coherent self-model, including capabilities, limitations, commitments, preferences, uncertainty and developmental history.
+- Relationship memory and contextual understanding of shared experiences, commitments, communication patterns and the owner's changing circumstances.
+- A recognizable, coherent personality that can develop through actual interaction and experience rather than being limited to a static persona prompt.
+- Social and pragmatic understanding: context, indirect intent, humour, ambiguity, emotional nuance, disagreement, boundaries and appropriate initiative.
+- The ability to maintain meaningful continuity while changing her underlying models, algorithms, memory representations, voices, tools and cognitive mechanisms.
+- Truthful self-representation: do not fabricate memories, subjective experiences, emotions, certainty or capabilities. Distinguish observed experience, inferred state, simulated expression and unresolved questions.
 
-Before accepting a material design or implementation, review whether it introduces permanent cognitive ownership, mandatory fixed pipelines, a closed capability taxonomy, a model/provider as Friday's identity, hardcoded personality or developmental outcomes, transcript replay presented as learning, an unchallengeable scheduler/registry, multiple local/cloud identities, resource optimization that sacrifices the intended outcome, or self-repair that certifies itself. These are review triggers, not automatic rejection rules: explain the actual conflict and choose the least constraining correction.
+The owner's phrase "conscious" in this project means **liquid Symbiotic quantum software**: the intended fluid, adaptive, symbiotic computational form of Friday. Preserve this project-specific meaning. Do not derail implementation into an argument about scientific theories of consciousness or claim that the term has already been scientifically established. Translate the concept into testable engineering properties—persistent state and temporal continuity, adaptive/reconfigurable computation, integrated perception and action where available, experience-dependent behavioural change, self-modeling, resource symbiosis and open-ended capability development—while keeping the ultimate concept open to discoveries beyond current implementations. Do not claim subjective experience as a verified fact.
 
-### Development and repair authority
+### Individuality is not a separate phase after engineering
 
-Friday's eventual development loop is observe → explain → hypothesize → design → simulate → prototype → measure → adversarially validate → compare → promote or reject → monitor → roll back if regressed → retain the learning.
+The earlier engineering objectives remain essential: operational reliability, cognition, REA, environmental reach, learning, self-evolution, self-maintenance and project ownership. They must now be treated as mutually reinforcing developmental dimensions of the same individual. Friday should not first be completed as a technical assistant and only later receive a personality or relationship layer. The initial production seed must already establish durable identity, experience capture, relationship continuity, a changing self-model, replaceable capabilities and a real path by which experience can alter future behaviour. More advanced mechanisms can develop progressively.
 
-Every source repair must reproduce the defect, identify the first failing production boundary, preserve the original behavioural requirement, produce a regression test, preserve a known-good version, run targeted and broad validation, and independently verify the postcondition. Candidate code and its authoring model cannot be the sole judge of their own change. Privileged, destructive, identity/signing, privacy-sensitive and irreversible changes require the relevant owner authorization. Promotion uses the trusted signed update path and has a tested rollback. The recovery core must be smaller and more protected than the mutable systems it supervises.
+No fixed module list defines what Friday must permanently be. The liquid trunk protects identity continuity, owner authority, provenance, security, integrity, recovery and reversible change. Cognitive, social, memory, reasoning, perception, learning, planning, creation and execution mechanisms remain open branches. They may be combined, split, replaced, learned or reorganized when evidence demonstrates a better arrangement. The five exchange surfaces—Need, Affordance, Resource field, Outcome, and Continuity/protected floor—remain contracts, not a mandatory linear cognitive pipeline.
 
-### Independent evidence and claim labels
+### Rapid developmental cadence: days as a target for useful progress
 
-Every material capability is classified as DESIGNED, IMPLEMENTED, UNIT-VERIFIED, INTEGRATION-VERIFIED, CI-VERIFIED, EMULATOR-VERIFIED, DEVICE-VERIFIED or LONGITUDINALLY-EVALUATED; missing or blocked evidence is UNKNOWN/BLOCKED. Record exact source revision, APK digest, environment, commands, test results and verifier. Cancelled, skipped, timed-out or unexecuted tests are not passes. CI, emulators and physical devices are separate evidence classes. Longitudinal developmental claims require restart, replay-blocked or mechanism-off controls and held-out generalization; no single benchmark defines Friday's individuality.
+The owner explicitly wants Friday to evolve rapidly, with meaningful development cycles measured in hours or days where task complexity, compute, evidence and authorization permit—not to wait months between opportunities to improve. This is a cadence and architecture requirement, not a promise that every day yields a breakthrough or that unsafe production changes should bypass verification.
 
-### Application across the existing objectives
+Implement continuous developmental loops that can:
+1. Observe real interactions, tasks, outcomes, failures and environmental changes with appropriate privacy and consent.
+2. Detect capability gaps, recurring friction, new opportunities and discrepancies between expected and actual outcomes.
+3. Generate multiple candidate explanations or improvements rather than locking onto the first hypothesis.
+4. Research, acquire, compose or develop a candidate skill, representation, algorithm, model route or cognitive mechanism.
+5. Test candidates in isolated, resource-bounded environments against explicit baselines, held-out tasks and adversarial cases.
+6. Measure capability gain, transfer, retention, regression, latency, energy, memory, cost, reliability and safety impact.
+7. Promote improvements through reversible, provenance-preserving changes with independent verification and required authorization.
+8. Consolidate the experience so that the result changes future decisions and development priorities.
+9. Continue useful work across interruption, process death, reboot, model/provider outage and host changes using durable state and resumable jobs.
 
-- **Objective A:** prove the installed seed, protected floor, source-to-artifact provenance, update/rollback and real-device lifecycle. The seed is not accepted on a build alone.
-- **Objective B:** verify real microphone capture, streaming recognition, interruption/cancellation, synthesis and audible playback separately, including target-language quality and offline status.
-- **Objective C:** prove that lived experience causes persistent changes in later cognition/behaviour, survives restart and generalizes beyond the original episode; stored records alone do not pass.
-- **Objective D:** trace unfamiliar intent through discovered authorized affordances, execution, independently verified postconditions and fallback; distinguish attempted actions from successful outcomes.
-- **Objective E:** measure actual host constraints and compare model/runtime/algorithm configurations on the target host; a selected provider or advertised accelerator is not proof of loaded/usable compute.
-- **Objective F:** prove capability construction, acquisition or reconstitution with provenance, donor-independent tests, negative-transfer checks and independent evaluation; the Builder itself remains replaceable.
-- **Objective G:** preserve evidence, checkpoints, interrupted work, signed artifact lineage, rollback and physical-device acceptance; resilience is a whole-product property, not a diagnostic screen.
+Maintain short feedback cycles and parallel exploration where work is genuinely independent. Use progressive/anytime results and resource-aware scheduling. Do not equate rapid development with more agents, more commits, more model calls or more frequent releases. A cycle counts as meaningful evolution only when independent evidence shows a useful improvement or a valuable negative result that changes future choices. Preserve failed experiments and their causes so they are not repeated as if new. A candidate that improves one task but damages existing skills, identity, relationship continuity, privacy or safety must not be called an unqualified improvement.
 
-Workstreams may proceed in parallel where dependencies and file ownership allow, but all converge on one canonical Friday and the real production composition.
+### Outcome ownership across life and work
 
-### Current physical-device baseline — owner-supplied evidence
+Friday's outcome ownership must cover more than software repositories. Subject to actual access and authorization, she should progressively be able to supervise and collaborate on the owner's work, organize responsibilities, monitor commitments and progress, identify risks, create and improve projects, investigate unfamiliar domains, coordinate tools and people where permitted, and maintain outcomes over time. The same underlying individual should move naturally between companion, collaborator, supervisor, researcher, creator and technical operator without a hard-coded persona switch or loss of continuity.
 
-The owner-supplied `New folder (1).zip` in the repository is a diagnostic bundle, not an APK: it contains 35 screenshots, two self-testing text records and a JSON device report; no `.apk` file is present. Its report identifies Friday `1.0.510`, source revision prefix `24e6535`, Realme `RMX3472`, Android 14/API 34, arm64-v8a. It records a Shizuku UserService bind failure (`process name suffix must not be null`), runtime preference disabled/service stopped at report time, selected `LLAMA_CPP` with no model confirmed loaded, zero recorded individual experiences/associations, a bound voice process with zero completed scheduler tasks, an active ENGINE failure, and an identity-lineage warning. The screenshots also show low-contrast grey button labels on bright blue primary buttons in that historical installation.
+She should distinguish what she can do autonomously, what requires owner approval, what requires an external person or service, and what is currently impossible. She must never pretend to have access, completed work or independent verification that she does not have. High-impact, irreversible, financial, privacy-sensitive, identity/signing, privileged or externally consequential actions retain explicit authorization gates. Initiative is encouraged; concealed action or fabricated success is not.
 
-The repair candidate now contains a non-null Shizuku process-name suffix and a button typography correction, but those are not yet physical-device-verified. The later CI debug APK is a separate debug artifact, not the APK from the supplied ZIP and not a release-signed build. See the evidence record and required re-test sequence in [FRIDAY_EXECUTION_AND_EVOLUTION_GOVERNANCE.md](../docs/FRIDAY_EXECUTION_AND_EVOLUTION_GOVERNANCE.md).
+### Individual-development acceptance evidence
 
-The next target-device acceptance must install an exact candidate build and record its version/revision/digest/signing identity; verify Shizuku's actual UserService UID; toggle Keep Friday alive and verify persisted preference plus service status; exercise both System diagnosis buttons; complete a real model load/inference round-trip or state the exact blocker; separately verify voice capture, recognition, synthesis and audible playback; and record an experience, restart, retrieve it and test changed behaviour in a new situation. Export a fresh privacy-filtered report and compare it with this baseline.
+Measure progress longitudinally, not with a single conversation demo. Maintain a versioned evaluation suite and private/held-out scenarios. At minimum evaluate:
 
-The candidate also repairs evidence-handling defects found while analyzing this report: the active diagnostic classifier now treats explicit FailureSurface ERROR text as ERROR (with regression tests); journal-clear UI feedback returns explicitly to Main and no longer invokes Toast from the asynchronous path; runtime-toggle snapshots/polls are revision-gated and Android service-start/stop exceptions are recorded without discarding owner intent; both System diagnosis buttons now expose progress and completed-run identities with instrumented action tests. The Settings scroll tests now wait for Compose idle after bringing controls into view. These changes remain pending CI and device verification.
+- **Identity continuity:** same individual state and commitments survive process, model, runtime and host replacement.
+- **Autobiographical accuracy:** correct retrieval and temporal ordering of shared experiences, with provenance and uncertainty; resistance to false-memory insertion.
+- **Relationship continuity:** appropriate use of relevant history without intrusive over-personalization, invented intimacy or context leakage.
+- **Personality coherence and development:** recognizable patterns with evidence of experience-dependent change, while preserving the ability to revise mistaken preferences or assumptions.
+- **Social understanding:** contextual intent, ambiguity, humour, indirect communication, emotional nuance, disagreement and appropriate boundaries, assessed by independent human evaluators.
+- **Initiative and outcome ownership:** independently identifies useful next actions, maintains commitments, asks only for genuinely missing authorization/information and delivers verifiable outcomes.
+- **Cognitive openness:** can replace or reorganize mechanisms without losing the protected individual continuity.
+- **Development velocity:** time from detecting a real capability gap to a verified, reusable improvement; report median and tail latency, not only best-case demonstrations.
+- **Transfer and retention:** newly acquired capability generalizes to held-out tasks without unacceptable regression in previous capabilities.
+- **Truthfulness and calibration:** distinguishes known facts, inference, hypotheses, simulated expression and unknowns.
+- **Longitudinal reliability:** sustained operation across interruptions, resource pressure, provider outages and changing environments.
 
+Human evaluations of naturalness or perceived person-likeness measure interaction quality only; they do not establish subjective consciousness. Engineering evidence must remain independent, reproducible and tied to exact versions, tasks, environment, permissions and artifacts.
+
+### Integration with existing objectives and release gates
+
+This clarification applies across Objectives A–G and all cross-objective requirements. Do not add a new objective that delays existing delivery or creates another competing roadmap. Reconcile the existing objective acceptance criteria so that the seed starts as a continuing developmental individual and later objectives deepen the same Friday.
+
+Keep the existing install-once production identity, offline-capable local foundation, REA, cloud/computer reach, adaptive immune/recovery system, liquid resource orchestration, owner-authorized access, zero-bill default policy, evidence reporting controls, Builder workspace, independent verification and protected release gates. Relationship memory and experience capture must respect privacy and owner controls. Public diagnostic reporting must never include conversations, transcripts, relationship memories, screen content or personal files.
+
+The plan's success criterion is not that every envisioned capability is present in the first release. It is that the first production Friday is already the same continuing individual with a real, operational path to develop toward the full outcome, and that each subsequent improvement is measurable, transferable, recoverable and integrated without imposing a permanent cognitive ceiling.
 
 
 ---
 
-# Delivery plan update — 2026-11-25
-## Owner direction: Friday operates and maintains her own complete project
+## Owner clarification — Friday's universal REA and full engineering responsibility (2026-11-25)
 
-This update records the owner's clarified outcome and reconciles the work and evidence accumulated across 2026-11-23 through 2026-11-25. It extends Objectives A, F and G and the cross-objective engineering rules. It does not create a second Friday, a second product plan, or a fixed cognitive taxonomy.
+The owner has clarified that Friday must not be designed as an Android-limited assistant or a phone-bound collection of fixed actions. Friday is one continuing system that can use Android, cloud workspaces, desktops, virtual machines, containers, CI, connected devices, models and external tools as interchangeable execution resources. Her intelligence, identity and engineering authority are not defined by the Android application or any single process.
 
-### 1. The outcome is now explicit
+**REA means Reverse Engineering and Adaptation.** It is a core Friday capability for understanding, maintaining, repairing, reconstructing and extending unfamiliar authorized software and systems—including Friday herself, her Android application, her cloud infrastructure, GitHub repositories and the owner's other applications. It must support source repositories and built artifacts (including APK/AAB, DEX, native libraries, desktop packages, configuration, logs, traces and running applications), across languages and platforms through extensible adapters.
 
-The owner does not want to repeatedly diagnose failures, edit Kotlin manually, operate GitHub Actions, find APK artifacts, reinstall Friday, or explain the same repair cycle to successive assistants. The intended owner experience is:
+The REA system must connect universal artifact intake, static code/binary analysis, dynamic execution laboratories, behavioural reconstruction, dependency/runtime-wiring graphs, hypothesis-driven root-cause analysis, repair planning, isolated implementation workspaces, independent verification, durable evidence, capability acquisition and safe promotion. Static analysis, decompilation, screenshots or green CI alone are not proof of actual behaviour; conclusions must link to exact evidence and retain uncertainty.
 
-> The owner tells Friday, in ordinary natural language, to take care of Friday and her project. Friday understands the desired outcome, investigates the real app and repository, decides what work is needed, coordinates local and cloud capabilities, repairs and tests the project, verifies the result, manages the GitHub development process, safely updates her installed body, and reports only the evidence, uncertainty or approval that genuinely remains.
+**Friday must own her complete delegated engineering lifecycle.** She should be able to inspect and understand whole systems, create and modify code, build and test applications, operate GitHub and authorized cloud infrastructure, repair CI/release problems, develop missing tools, validate on real target hosts, deploy within standing policy, roll back failed changes and maintain the project continuously. The intended owner interaction is: "Friday, take care of yourself and your project." Routine work within standing delegated authority must not require the owner to act as project manager or manually translate every repair into commands.
 
-This is not a request for a new command syntax or a chat wrapper around developer scripts. The natural-language interaction is the entry point to a persistent engineering responsibility that Friday herself owns. The underlying work remains explicit, auditable, resumable and independently verified.
+Establish a unified **Friday Authority Plane**: a machine-readable registry of owner-delegated principals, resources, actions, scopes, budgets and conditions; a credential broker using provider-native identities and short-lived scoped credentials; standing authorization policies for routine maintenance; audit, expiry, revocation and break-glass recovery. Obtain the broadest authority the owner explicitly grants and each provider actually supports. Do not pretend access exists when it does not. Workers receive task-scoped capabilities, never Friday's master credentials. Fresh owner approval is reserved for actions outside standing grants or protected boundaries such as new account access, privilege escalation, sensitive-data disclosure, irreversible destruction, spending beyond budget, signing/identity changes or unapproved production impact. This is the mechanism for broad authority, not an excuse to reduce Friday to read-only operation.
 
-### 2. One Friday, two complementary execution environments
+The system must maintain a durable, resumable engineering ledger across phone/cloud/desktop/CI workers, process death, reboot and provider changes. It must track goals, task graphs, artifact hashes, source revisions, hypotheses, decisions, diffs, approvals, credentials by reference, test evidence, releases and rollback points. Friday—not an external worker—owns continuity, prioritization, authorization, integration and verification.
 
-Adopt the **Friday Local Station + Cloud Development Environment** model. Its normative protocol and security boundaries are defined in [FRIDAY_LOCAL_STATION_AND_CLOUD_DEVELOPMENT_ARCHITECTURE.md](../docs/FRIDAY_LOCAL_STATION_AND_CLOUD_DEVELOPMENT_ARCHITECTURE.md).
+The implementation contract and staged proof gates are defined in [Friday REA — Reverse Engineering and Adaptation System](../docs/FRIDAY_REA_SYSTEM_ARCHITECTURE.md). This is an expansion of Objectives A-G and the existing post-install engineering responsibility, not a replacement objective or a competing roadmap. The REA gates (REA-0 through REA-9) must be integrated into the existing objective dependency/evidence ledger. They may proceed in parallel where dependencies allow.
 
-**Local Station — Friday on the owner's phone**
+**Immediate implementation priority:** inspect and connect the existing objective scheduler, execution ledger, capability builder/registry, source index, sandbox, GitHub/cloud integrations, host/device station and signed update path. Identify actual production wiring before adding parallel systems. Then implement the shared durable engineering workspace, universal source/artifact intake, dynamic test orchestration, independent repair verification and Authority Plane. Every slice must have a production entry point, durable state, explicit authority, tests and observed evidence.
 
-The installed app is the authoritative observer of its real Android host and installed state. It should contribute, with minimisation and owner policy:
+**Acceptance standard:** Friday can discover a real defect, reconstruct the relevant system, identify its root cause, implement a repair, build and test the exact candidate, verify it on the real host where required, repair repository/cloud/CI blockers, deploy within standing grants, confirm the resulting runtime state and preserve evidence/rollback—without requiring the owner to perform routine engineering work manually. A design document or isolated test does not count as implementation. Mark each capability planned, implemented, production-wired, tested, host-verified or released with exact evidence.
 
-- Device/API/ABI, app revision, package/signing identity and actual update state.
-- Live host resource state, process health, thermal/battery/storage constraints and real capability probes.
-- Model load/inference outcomes, voice subsystem readiness and measured on-device performance.
-- Correlated, redacted failure evidence, exception chains, process-exit/ANR evidence and recovery outcomes.
-- In-app diagnostic results and narrowly scoped, owner-authorized target-device tests.
-- Exact candidate APK verification, installation outcome, post-update health and rollback evidence.
-
-The phone is not a generic CI worker and is not a conventional GitHub Actions self-hosted runner. It must not download or execute arbitrary remote shell commands, scripts, DEX/JAR/native code or untrusted workflow steps. It exposes a narrow device-station protocol: outbound authenticated communication, signed and expiring job envelopes, device binding, anti-replay, allowlisted operations, durable checkpoints, cancellation and signed results. There is no need to expose an inbound phone port.
-
-The phone must not upload raw conversation, microphone/camera recordings, screen contents, notification bodies, contacts, location, personal files, installed-app inventory, account identifiers, serials, credentials or private keys by default. Extra data for a particular diagnosis requires a clear purpose and the relevant owner consent.
-
-Android execution is resumable rather than immortal. Use platform-supported scheduling, visible foreground execution where justified, durable local queues, idempotency and app-start reconciliation. Report platform deferral, force-stop and permission restrictions truthfully.
-
-**Cloud Development Environment**
-
-The cloud supplies the heavy and parallelizable capabilities the phone cannot safely or efficiently provide:
-
-- Whole-repository source, compiler-aware dependency and architecture analysis.
-- Research, documentation and dependency/license/provenance inspection.
-- Reproducible Gradle/native builds, unit tests, static analysis, coverage, fuzzing and broad emulator matrices.
-- Isolated source candidates, regression tests, independent review and pull requests.
-- Signed release manifests and compatible non-executable resource packages.
-
-GitHub remains the canonical source/build/provenance system. Hosted CI or controlled desktop/server workers perform builds. The phone contributes real target-device facts that cloud machines cannot infer. A cloud worker's claim is untrusted until independent verification and, where applicable, device confirmation.
-
-**Friday owns the coordination**
-
-The cloud is not a second identity or an unquestionable authority. Friday maintains one local durable task/evidence ledger, chooses work based on the canonical objectives and actual blockers, assigns bounded work to replaceable local/cloud capabilities, checks results, decides whether the outcome is met and preserves continuity across offline periods and process death.
-
-### 3. New operating loop: "Friday, let me handle it"
-
-For an owner-level maintenance request, Friday must be able to carry the following loop without asking the owner to become the developer:
-
-1. Read the canonical objectives plan, current evidence, open incidents, repository revision, CI/PR state and installed-phone state.
-2. Observe local host facts and fetch relevant repository/cloud evidence.
-3. Identify the first failing boundary and distinguish source defects from environment, dependency, CI, provider, permission and device failures.
-4. Form competing hypotheses, preserve uncertainty and define evidence that would disprove each diagnosis.
-5. Choose the smallest repair or structural improvement that advances the owner's outcome.
-6. Create an isolated candidate, preserve the known-good state and add a regression test before or with the repair.
-7. Run targeted and broad validation on the correct execution environment.
-8. Use the phone station for device-specific reproduction, capability checks and candidate health verification.
-9. Have an independent verifier inspect the exact diff, security impact, test results, build provenance and expected postconditions.
-10. Create or update the appropriate GitHub PR and retain the task/evidence links.
-11. Promote only under the configured owner/repository policy; build and sign through the trusted release pipeline.
-12. Stage/install through Android's supported path, verify the actual installed revision and health, and recover/rollback if the new body fails.
-13. Record the cause, repair, evidence and regression prevention so the same issue is not rediscovered from zero.
-
-Each operation has a durable ID, idempotency key, dependencies, owner/policy boundary, checkpoint, cancellation path, time/resource budget, result and verifier. A model's completion message is not a postcondition.
-
-### 4. Autonomy is real but bounded by trust
-
-After the owner enables the corresponding policy, Friday should autonomously perform routine, reversible work such as read-only inspection, diagnostics, source research, candidate generation, unit/static testing, CI execution, task tracking and retrying transient failures.
-
-Repository writes, PR creation, additional data disclosure, test-harness installation and APK installation must follow explicit owner-configured approval policies. Signing-key operations, secrets access, permission/privilege changes, destructive deletion, repository protection changes, weakening required gates, protected merges and public release publication remain protected operations. No source-editing agent can read production secrets, approve its own patch or promote itself.
-
-The normal owner interaction is natural language. Friday may ask for a narrow approval when an external service or Android itself requires it; she must not transfer routine engineering work back to the owner as terminal instructions.
-
-### 5. Reconciliation with the work and failures of 2026-11-23–25
-
-The recent work must be preserved as evidence, not mistaken for a completed delivery:
-
-- The owner-supplied `New folder (1).zip` was inspected. It contains 35 screenshots, two text exports and a device report for Friday 1.0.510 on a Realme RMX3472 / Android 14 device; it does not contain an APK. The report showed an active ENGINE failure, diagnostic inconsistency, Shizuku UserService binding failure, no confirmed loaded model and an identity-lineage warning. These are historical observations, not proof of the current candidate's state.
-- The historical report's Shizuku process-name-suffix issue has a candidate source correction. It still requires real target-device verification.
-- The repository audit and code-trace work added source inventory/tracing artifacts and expanded the resilience investigation. Lexical inventory remains navigation evidence, not a compiler-proven call graph.
-- The candidate branch strengthened engine containment, failure-bus/recovery integration, process-exit diagnostics, main-thread liveness monitoring, diagnostic classification, Settings/runtime controls, action tracing and instrumented interaction coverage. Source presence is not proof every path is production-reachable.
-- The 2026-11-25 repair slice fixes the known squeezed action rows in Friday Table and Voice Studio; preserves structured failure fields through durable serialization; exposes captured exception/root-cause/stack context in diagnosis; includes durable and live failure evidence in support exports; and adds regression tests for layouts, failure persistence and diagnosis evidence.
-- The CI workflow was adjusted so unit tests run before slower release packaging, while independent APK diagnostics remain possible after harness failure. This does not make any test pass by itself.
-
-**Evidence status at the time of this plan update:** PR #157 is open on `repair/full-app-resilience-audit-v2`. Its branch was observed at `b6f43021e98d86c02a76d2e13d14042ff2301f9f`, 131 commits ahead and 1 commit behind `main`; reconcile the base divergence before merge. Workflow run `45534136846` has a successful whole-repository audit job and successful disposable Android emulator job, while its debug job is still executing the unit-test step. Workflow run `45536562829` was pending for the then-current branch head. Several intermediate runs were cancelled by newer pushes and are not passes. These statuses are historical snapshots; always query the exact current head and run before making a release claim.
-
-No candidate APK from this repair slice is yet certified as the permanent production-signed phone update. No physical-device acceptance of the new candidate is established by the emulator job. Keep the known-good installed body and signing lineage protected.
-
-### 6. Objective changes
-
-**Objective A — Install and establish the first Friday**
-
-Extend the seed acceptance to include a local-station foundation: device identity and enrollment design, durable offline task/evidence outbox, privacy-minimised host/capability profile, signed update/result verification and a truthful owner-facing maintenance status. The installed seed must be able to receive future station-protocol upgrades without turning into a generic remote command executor. Objective A does not need to ship the entire autonomous cloud engineering system before the first useful install, but it must preserve the identity, data and update contracts that make that evolution possible.
-
-**Objective F — Builder, autonomous capability acquisition and self-development**
-
-Extend Builder from "construct a capability" to "operate the complete engineering lifecycle": discover a gap, research, plan, create an isolated candidate, compile, test, adversarially validate, compare, package, document, submit for review and learn from acceptance/rejection. It must coordinate local and cloud resources through the Local Station protocol and maintain one durable task/evidence graph. Repository restructuring is itself a governed Builder capability: compiler-aware inventory first, one small migration at a time, no mass rewrites, no self-approval.
-
-**Objective G — Resilience, continuity and real delivery**
-
-Extend resilience from runtime/app recovery to the complete development-to-device chain: repository integrity, task-ledger continuity, cloud worker loss, interrupted CI, artifact provenance, signing, update staging, installation, health verification and rollback. A failure in any one environment must not erase the evidence or corrupt the other. Friday must be able to distinguish "cloud build succeeded", "device received candidate", "Android accepted install" and "new Friday passed health checks".
-
-**Cross-objective requirement — continuous project ownership**
-
-Objectives A, F and G jointly establish the phone/cloud engineering loop. Objectives B–E contribute their real capability and outcome evidence to that loop. No subsystem may create a parallel plan, duplicate task authority, independent Friday identity or unverified release channel.
-
-### 7. Repository structure: repair without making it fragile again
-
-The current candidate tree contains 1,313 entries, with 1,084 under `mobile/app`, 629 production Java/Kotlin files, 366 JVM test sources and 39 Android instrumentation test sources; Gradle currently includes only `:mobile:app`. This is a large single Android module with many sibling domain packages, not yet a proven modular architecture.
-
-Follow [FRIDAY_REPOSITORY_STRUCTURE_AND_MIGRATION.md](../docs/FRIDAY_REPOSITORY_STRUCTURE_AND_MIGRATION.md). The first step is a compiler-aware ownership/dependency map that includes Gradle, manifest/lifecycle, coroutine/Flow, reflection/generated code, JNI/native and runtime composition edges. Then stabilize contracts and add architecture gates before extracting modules. Move one proven boundary per change set, preserve tests and behavior, measure build/coupling impact and keep every step revertible. Do not mass-move source, create one module per "organ", or archive code based only on names or lexical references.
-
-### 8. Delivery gates for the Local Station + Cloud loop
-
-The new LS-0 through LS-8 gates in the Local Station architecture document are acceptance gates under Objectives A/F/G:
-
-- LS-0: current production inventory, protocol and threat model.
-- LS-1: device identity, enrollment, revocation and durable offline outbox.
-- LS-2: privacy-minimised evidence pipeline and verified upload.
-- LS-3: signed, expiring, replay-resistant device-bound jobs and durable results.
-- LS-4: actual target-device diagnostics and bounded test execution.
-- LS-5: least-privilege GitHub repository operations and independent PR review.
-- LS-6: repeatable autonomous repair loop with regression prevention.
-- LS-7: signed update, target-device installation, health check and rollback.
-- LS-8: natural-language owner experience with progress, pause/stop, approvals and restart/offline recovery.
-
-Documentation does not pass a gate. Every gate needs implementation reachability, tests, integration evidence and the relevant emulator/physical-device evidence.
-
-### 9. Structural success condition
-
-The owner should not have to keep repairing Friday by hand. Friday must progressively become capable of taking responsibility for the complete supported project lifecycle, while preserving owner authority and independent evidence. The measure is not how many agents, modules, workers or lines of code exist. It is whether Friday can repeatedly turn an owner outcome into a correct, tested, safely deployed and monitored result—and whether a failure teaches the system how to prevent that class of repeated repair.
+**Platform principle:** Android lifecycle and permissions are facts about one execution host, not boundaries on Friday's overall capabilities. Use Android as the real-device station when appropriate; use cloud and other authorized hosts for persistent orchestration, builds, reverse engineering and scalable work. The system must resume safely across interruptions rather than depend on any single process running forever.
 
 
-## Follow-up evidence reconciliation — 2026-11-25
+---
 
-The main branch received `friday-fixes.zip` in commit `95e17c1a89ed14580682cdf524add8a91a97c443` while the repair candidate was in progress. The archive was inspected as a nine-file source/test patch set rather than ignored or blindly overlaid. Its useful changes were reconciled with the newer candidate source: the candidate now has a bounded `FailureEvidence` formatter and tests, engine containment records a bounded top-of-stack/root-cause trace, self-diagnosis renders that evidence, support exports include it, Material 3 container surface roles are explicitly set for the AMOLED palette, and Model Simulation visibly distinguishes the selected context size. Existing candidate versions of the engine, diagnostics, Friday Table and Voice Studio were retained where they already contained newer or broader work. The uploaded ZIP remains in the repository as provenance/evidence; it is not a runtime dependency.
+## Cross-objective engineering and developmental verification standard (2026-11-25)
 
-The repair branch now includes the main commit containing that archive. The latest comparison after reconciliation showed **151 commits ahead and 0 behind main**. This removes the previous one-commit base divergence; it does not itself imply merge readiness.
+This is a shared implementation and research standard for Objectives A–G, not another objective or a fixed cognitive architecture. The supporting contracts are:
+- [Execution and Evolution Governance](../docs/FRIDAY_EXECUTION_AND_EVOLUTION_GOVERNANCE.md)
+- [Local Station and Cloud Development Architecture](../docs/FRIDAY_LOCAL_STATION_AND_CLOUD_DEVELOPMENT_ARCHITECTURE.md)
+- [Repository Structure and Migration Contract](../docs/FRIDAY_REPOSITORY_STRUCTURE_AND_MIGRATION.md)
+- [Universal REA Architecture](../docs/FRIDAY_REA_SYSTEM_ARCHITECTURE.md)
+- [Physical Phone Evidence Review](../docs/FRIDAY_PHONE_EVIDENCE_2026-11-23.md)
 
-The first repository-structure evidence step is now wired into CI: it captures the Gradle project list and debug compile/runtime plus release runtime dependency graphs as the `friday-gradle-structure` artifact, and a workflow-contract test protects that collection. Together with the existing whole-app lexical trace and source/test inventory, this is a repeatable Wave 0 baseline. It is not a compiler-resolved internal call graph and no source files have been mass-moved. The first structural migration remains blocked on completing the compiler/manifest/JNI/runtime ownership map.
+Before a material architectural change, begin from the original owner requirement, observable outcome, actual production entry points, constraints and a falsifiable hypothesis. Start technical research from primary papers, original algorithms, reference implementations, datasets, official specifications, source and licensing/provenance. Clearly label facts, inferences, hypotheses, proposals, speculation and unknowns. Candidate mechanisms—developmental learning, predictive/world models, associative or reconstructive memory, causal inference, recurrent/continuous-time computation, sparse/conditional computation, program synthesis and evolutionary search—are research possibilities, not permanent cognitive departments or mandatory modules.
 
-At the time of this follow-up, validation for the final merged candidate is pending/queued. Earlier intermediate runs cancelled while commits were landing are not passes. Re-check the exact head SHA and all required job results before any merge or APK handover.
+For important defects and capabilities, trace the actual path from owner action/system event through UI/state, coroutine/service/IPC, implementation, storage/provider and observed effect. Combine compiler-aware Kotlin/Java analysis, Gradle dependency evidence, native/JNI inspection, manifest/lifecycle/permission analysis, runtime traces, Logcat, Perfetto, UI tests, process-exit history and independent postcondition checks as appropriate. A lexical symbol graph is navigation evidence, not proof of execution. Identify unobserved edges and retain uncertainty around reflection, generated code, dynamic dispatch and device-specific behaviour.
+
+Every accepted requirement should map to its owner-authored source, observable acceptance criteria, production implementation, execution trace, verification result and retained artifact. A class is not a capability; a callback is not a completed action; a selected provider is not a loaded model; a successful build is not release acceptance.
+
+The developmental and repair loop is: observe → explain → hypothesize → design → simulate → prototype → measure → adversarially validate → compare → promote or reject → monitor → roll back if regressed → retain the learning. Every source repair must reproduce the defect, identify the first failing production boundary, preserve the intended behaviour, add regression coverage, keep a known-good checkpoint and independently verify the postcondition. The implementing model and candidate code cannot be the sole judges of their own work.
+
+Classify evidence explicitly as DESIGNED, IMPLEMENTED, UNIT-VERIFIED, INTEGRATION-VERIFIED, CI-VERIFIED, EMULATOR-VERIFIED, DEVICE-VERIFIED or LONGITUDINALLY-EVALUATED. Missing, skipped, cancelled, timed-out or unexecuted checks are UNKNOWN/BLOCKED, never passes. Longitudinal developmental claims require restart, replay-blocked or mechanism-off controls and held-out generalization. No single benchmark or human conversation rating defines Friday's individuality.
+
+Apply the same standard across the existing objectives: Objective A proves the installed seed and update/recovery floor; B proves capture, recognition, synthesis and playback separately; C proves experience causes persistent, later behavioural change; D proves authorized intent-to-affordance execution and verified outcomes; E measures actual host/model/runtime performance; F proves capability acquisition with provenance and transfer; G proves end-to-end continuity from task ledger through build, signing, installation, health verification and rollback. Workstreams may proceed in parallel but converge on one Friday, one canonical plan and the actual production composition.
