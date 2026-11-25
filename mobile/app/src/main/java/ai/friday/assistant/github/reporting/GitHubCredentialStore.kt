@@ -18,20 +18,20 @@ import javax.crypto.spec.GCMParameterSpec
 class GitHubCredentialStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    @Synchronized
-    fun save(token: String) {
+    fun save(token: String) = synchronized(credentialLock) {
         require(isPlausibleToken(token)) { "GitHub token is blank or malformed." }
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
         val encrypted = cipher.doFinal(token.trim().toByteArray(Charsets.UTF_8))
-        prefs.edit()
-            .putString(KEY_CIPHERTEXT, Base64.encodeToString(encrypted, Base64.NO_WRAP))
-            .putString(KEY_IV, Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
-            .apply()
+        check(
+            prefs.edit()
+                .putString(KEY_CIPHERTEXT, Base64.encodeToString(encrypted, Base64.NO_WRAP))
+                .putString(KEY_IV, Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
+                .commit()
+        ) { "Could not durably save the GitHub credential." }
     }
 
-    @Synchronized
-    fun read(): String? = runCatching {
+    fun read(): String? = synchronized(credentialLock) { runCatching {
         val encrypted = prefs.getString(KEY_CIPHERTEXT, null) ?: return null
         val iv = prefs.getString(KEY_IV, null) ?: return null
         val cipher = Cipher.getInstance(TRANSFORMATION)
@@ -42,17 +42,19 @@ class GitHubCredentialStore(context: Context) {
         )
         String(cipher.doFinal(Base64.decode(encrypted, Base64.NO_WRAP)), Charsets.UTF_8)
             .takeIf(::isPlausibleToken)
-    }.getOrNull()
+    }.getOrNull() }
 
-    @Synchronized
     fun isConfigured(): Boolean = read() != null
 
-    @Synchronized
     fun clear() {
-        prefs.edit().remove(KEY_CIPHERTEXT).remove(KEY_IV).apply()
-        runCatching {
-            val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
-            keyStore.deleteEntry(KEY_ALIAS)
+        synchronized(credentialLock) {
+            check(
+                prefs.edit().remove(KEY_CIPHERTEXT).remove(KEY_IV).commit()
+            ) { "Could not durably clear the GitHub credential." }
+            runCatching {
+                val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+                keyStore.deleteEntry(KEY_ALIAS)
+            }
         }
     }
 
@@ -74,6 +76,9 @@ class GitHubCredentialStore(context: Context) {
     }
 
     companion object {
+        // Synchronize all instances: UI, workers and report clients construct
+        // independent wrappers over one SharedPreferences file and Keystore key.
+        private val credentialLock = Any()
         private const val ANDROID_KEYSTORE = "AndroidKeyStore"
         private const val KEY_ALIAS = "friday.github.device-report"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
