@@ -97,11 +97,29 @@ class ResidentModelBootstrapWorker(
         }
         return try {
             val hostReportFile = File(applicationContext.filesDir, "friday-development/host-bootstrap.json")
-            if (!hostReportFile.isFile) return Result.retry()
-            val hostReport = runCatching {
-                JSONObject(hostReportFile.readText(Charsets.UTF_8))
-            }.getOrElse { return Result.retry() }
-            if (hostReport.optString("source_revision") != BuildConfig.SOURCE_REVISION) return Result.retry()
+            // Host discovery is a separate WorkManager task. It is normally
+            // enqueued first, but WorkManager does not guarantee execution
+            // order across independent unique-work chains. Wait for the exact
+            // current-build report instead of failing immediately and entering
+            // the long model-download retry backoff.
+            val hostReport = kotlinx.coroutines.withTimeoutOrNull(60_000L) {
+                var currentReport: JSONObject? = null
+                while (currentReport == null) {
+                    currentReport = runCatching {
+                        if (!hostReportFile.isFile) null
+                        else JSONObject(hostReportFile.readText(Charsets.UTF_8))
+                    }.getOrNull()?.takeIf {
+                        it.optString("source_revision") == BuildConfig.SOURCE_REVISION
+                    }
+                    if (currentReport == null) kotlinx.coroutines.delay(500L)
+                }
+                currentReport
+            }
+            if (hostReport == null) {
+                val reason = "The host capability report for this APK was not ready within 60 seconds; model setup will retry."
+                recordState("WAITING_FOR_HOST_REPORT", reason)
+                return Result.retry()
+            }
             val nativeInferencePresent = hostReport.optJSONObject("capacity")
                 ?.optBoolean("native_inference_library_present") == true
             if (!nativeInferencePresent) {
