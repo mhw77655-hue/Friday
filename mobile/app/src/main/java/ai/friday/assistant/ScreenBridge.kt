@@ -265,6 +265,15 @@ object ScreenBridge {
             .getOrNull()
     }
 
+    /** Independent readback used by the capability postcondition verifier. */
+    suspend fun isPackageForeground(packageName: String): Boolean = withContext(Dispatchers.IO) {
+        if (!packageName.matches(Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+"))) return@withContext false
+        val svc = service ?: return@withContext false
+        withTimeoutOrNull(8_000) {
+            runCatching { svc.isPackageForeground(packageName) }.getOrDefault(false)
+        } ?: false
+    }
+
     /** Reads bounded device diagnostics through the same privileged UserService. */
     suspend fun diagnosticsSnapshot(): String? = withContext(Dispatchers.IO) {
         val svc = service ?: return@withContext null
