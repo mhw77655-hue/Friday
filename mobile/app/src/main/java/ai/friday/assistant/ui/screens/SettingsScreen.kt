@@ -243,8 +243,8 @@ fun SettingsScreen() {
     val batteryOptimizationIgnored = remember(resumeSignal) {
         ai.friday.assistant.runtime.FridayRuntimeController.batteryOptimizationIgnored(context)
     }
-    val runtimeStartFailure = remember(resumeSignal) {
-        ai.friday.assistant.runtime.FridayRuntimeController.lastStartFailure(context)
+    var runtimeStartFailure by remember(resumeSignal) {
+        mutableStateOf(ai.friday.assistant.runtime.FridayRuntimeController.lastStartFailure(context))
     }
     fun refreshRuntimeStatus(expectedRunning: Boolean) {
         scope.launch {
@@ -255,6 +255,9 @@ fun SettingsScreen() {
                 }
                 runtimeServiceRunning = snapshot.first
                 runtimeMicrophoneActive = snapshot.second
+                runtimeStartFailure = withContext(Dispatchers.IO) {
+                    ai.friday.assistant.runtime.FridayRuntimeController.lastStartFailure(context)
+                }
                 if (snapshot.first == expectedRunning) return@launch
                 delay(250L)
             }
