@@ -69,9 +69,6 @@ class FridayApplication : Application() {
             startupTask("host bootstrap scheduling") {
                 ai.friday.assistant.bootstrap.host.HostBootstrapWorker.enqueue(this)
             }
-            startupTask("resident model scheduling") {
-                ai.friday.assistant.model.storage.ResidentModelBootstrapWorker.enqueue(this)
-            }
             startupTask("objective plan synchronization scheduling") {
                 ai.friday.assistant.bootstrap.plan.ObjectivePlanSyncWorker.enqueue(this)
             }
