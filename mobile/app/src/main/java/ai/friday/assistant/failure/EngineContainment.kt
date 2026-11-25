@@ -57,6 +57,7 @@ object EngineContainment {
                     recoverability = Recoverability.RETRYABLE,
                     recoveryAction = RecoveryAction.NONE,
                     metadata = mapOf(
+                        FailureEvidence.STACK_TOP_KEY to FailureEvidence.stackTop(throwable),
                         "exception_chain" to exceptionChain,
                         "stack_frames" to stackFrames
                     ),
