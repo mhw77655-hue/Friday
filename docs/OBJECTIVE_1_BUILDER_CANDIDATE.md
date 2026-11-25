@@ -25,3 +25,12 @@
 - Permanent signing and same-key update continuity on the physical handset remain outstanding.
 
 The candidate has a green exact-head CI run, but it remains unmerged. The debug APK artifact is not a production release. Production signing follows integration into main; physical-host acceptance, same-key update continuity, fault-injection evidence and the first installed Builder cycle are still required. A candidate PR, generated patch, passing emulator, or CI run alone is not Objective 1 acceptance.
+
+
+## Status correction — 2026-11-23
+
+This file began as a historical candidate record. Its older statements that the ChatGPT Seat was not implemented and that the Builder had only one external Seat are superseded by merged PR #123: the official ChatGPT plan Seat now joins the Builder Table only after the owner explicitly enables background use, and only PUBLIC/shareable digests can be sent. PR #125 is extending that same consented Seat to the independent post-CI exact-diff review, with OVH anonymous fallback; it remains unmerged pending exact-head CI.
+
+PR #121 is also merged and adds the Shizuku-backed privileged updater. PR #124 aligns first-launch guidance with Shizuku-Next. Neither merge proves a real device's Shizuku authorization or a successful physical silent update.
+
+The Builder still is not accepted as a complete autonomous development environment. It currently creates isolated candidate PRs and records CI/review evidence; it does not autonomously merge protected code or release it. Local app-managed source-build capability, durable fault/retry recovery, physical-host first mission, same-key update continuity and rollback remain acceptance gates. The owner is not to be used as the routine log courier or QA operator.
