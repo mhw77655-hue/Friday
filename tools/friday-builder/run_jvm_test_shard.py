@@ -16,7 +16,7 @@ from collections import defaultdict
 from pathlib import Path
 
 SOURCE_ROOT = Path("mobile/app/src/test/java/ai/friday/assistant")
-PACKAGE_RE = re.compile(r"^\\s*package\\s+([A-Za-z_][A-Za-z0-9_.]*)", re.MULTILINE)
+PACKAGE_RE = re.compile(r"^\s*package\\s+([A-Za-z_][A-Za-z0-9_.]*)", re.MULTILINE)
 SHARD_COUNT = 6
 
 
@@ -77,7 +77,7 @@ def main() -> int:
         f"{len(selected)} package groups",
         flush=True,
     )
-    print("Included Gradle test patterns:", *patterns, sep="\\n  ", flush=True)
+    print("Included Gradle test patterns:", *patterns, sep="\n  ", flush=True)
     command = [args.gradle, "--console=plain", ":mobile:app:testDebugUnitTest"]
     for pattern in patterns:
         command.extend(["--tests", pattern])
