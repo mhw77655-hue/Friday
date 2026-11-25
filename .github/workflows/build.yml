@@ -191,7 +191,8 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: debug-apk
+          # Internal candidate only; never present it as installable before all gates pass.
+          name: unverified-debug-apk-candidate
           path: mobile/app/build/outputs/apk/debug/app-debug.apk
 
       # Mutation probe: prove the exhaustive authorization truth-table tests
@@ -641,3 +642,41 @@ jobs:
                 body
               });
             }
+
+  # Promote only when all mandatory validation lanes pass for this exact commit.
+  verified-debug-apk:
+    name: Promote verified debug APK
+    if: ${{ success() }}
+    needs:
+      - debug-apk
+      - android-emulator
+      - full-source-audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download internal debug candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: unverified-debug-apk-candidate
+          path: candidate
+
+      - name: Verify APK archive and compute immutable identity
+        run: |
+          set -euo pipefail
+          APK=candidate/app-debug.apk
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
+          sha256sum "$APK" | tee candidate/SHA256SUMS
+          echo "VERIFIED_SOURCE_COMMIT=$GITHUB_SHA" | tee candidate/SOURCE_COMMIT.txt
+
+      - name: Publish verified install candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-verified-debug-apk
+          path: |
+            candidate/app-debug.apk
+            candidate/SHA256SUMS
+            candidate/SOURCE_COMMIT.txt
+          if-no-files-found: error
+          retention-days: 30
