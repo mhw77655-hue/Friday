@@ -439,7 +439,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                     )
                 )
                 diagnosticEvents.record("active_diagnostic", "execution_failed:$safeType")
-                _diagnosticRunStatus.value = "Failed: $safeType. An error finding was added below."
+                _diagnosticRunStatus.value = "Active diagnostics failed: $safeType. An error finding was added below."
             } finally {
                 _diagnosticRunning.value = false
             }
