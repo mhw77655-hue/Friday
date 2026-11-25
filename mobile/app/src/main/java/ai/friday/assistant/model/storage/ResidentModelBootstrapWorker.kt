@@ -67,8 +67,34 @@ class ResidentModelBootstrapWorker(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
-        val manager = FridayEngine.modelManager ?: return Result.retry()
-        val resourceGovernor = FridayEngine.nanoSymbiosis ?: return Result.retry()
+        // WorkManager can launch this worker while Application.onCreate has
+        // only queued FridayEngine.initAsync. Do not turn that normal startup
+        // race into a 15-minute backoff before the first resident-model attempt.
+        val readiness = FridayEngine.readinessGate.awaitTerminal(90_000L)
+        when (readiness) {
+            is ai.friday.assistant.EngineReadinessState.Ready -> Unit
+            is ai.friday.assistant.EngineReadinessState.FailedToWake -> {
+                val reason = "Friday engine failed to initialize; resident model loading cannot start (" +
+                    readiness.error.javaClass.simpleName + ")."
+                recordState("ENGINE_INITIALIZATION_FAILED", reason)
+                return Result.failure(workDataOf("state" to "ENGINE_INITIALIZATION_FAILED", "reason" to reason))
+            }
+            else -> {
+                val reason = "Friday engine did not become ready within 90 seconds; resident model setup will retry."
+                recordState("WAITING_FOR_ENGINE", reason)
+                return Result.retry()
+            }
+        }
+        val manager = FridayEngine.modelManager ?: run {
+            val reason = "Friday reported readiness without publishing its ModelManager."
+            recordState("ENGINE_COMPOSITION_INCOMPLETE", reason)
+            return Result.retry()
+        }
+        val resourceGovernor = FridayEngine.nanoSymbiosis ?: run {
+            val reason = "Friday reported readiness without publishing its live resource governor."
+            recordState("ENGINE_COMPOSITION_INCOMPLETE", reason)
+            return Result.retry()
+        }
         return try {
             val hostReportFile = File(applicationContext.filesDir, "friday-development/host-bootstrap.json")
             if (!hostReportFile.isFile) return Result.retry()
