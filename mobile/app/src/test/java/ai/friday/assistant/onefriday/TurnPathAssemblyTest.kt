@@ -398,6 +398,11 @@ class TurnPathAssemblyTest {
             restarted.individual.experience.experienceCount()
         )
         assertTrue(restarted.individual.experience.associationCount() > 0)
+        val learnedReply = restarted.individual.expression.respond("careful reasoning")
+        assertTrue(
+            "the real production turn observer must change later model-free expression after restart without replay",
+            listOf("should", "guide", "every", "repair").any { learnedReply.contains(it, ignoreCase = true) }
+        )
         directory.deleteRecursively()
     }
 
