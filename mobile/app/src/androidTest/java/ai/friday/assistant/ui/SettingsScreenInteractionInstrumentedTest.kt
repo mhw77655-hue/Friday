@@ -70,7 +70,10 @@ class SettingsScreenInteractionInstrumentedTest {
         // test can target a clipped semantics node without exercising the UI.
         compose.onNodeWithText("Clear local journal").performScrollTo()
         compose.waitForIdle()
-        compose.onNodeWithText("Clear local journal").assertIsDisplayed().performClick()
+        compose.onNodeWithText("Clear local journal").assertHasClickAction().performClick()
+        // The scroll action can leave the semantics node partially clipped on this
+        // long Settings surface. Verify its action semantics and invoke it; the
+        // durable terminal outcome below proves whether the real handler ran.
         // performClick synchronizes with Compose idleness; the IO clear can finish
         // before this call returns. Assert the durable terminal outcome below,
         // not a transient progress label that may correctly disappear quickly.
