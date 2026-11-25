@@ -225,6 +225,34 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' && !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
         run: bash tools/friday-builder/verify_mutation_sensitivity.sh
 
+      # Run tests even when APK assembly fails. A failed packaging step must
+      # not erase independent evidence about source/test health.
+      - name: Run unit tests independently of APK assembly
+        if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
+        run: ./gradlew :mobile:app:testDebugUnitTest
+
+      - name: Generate JaCoCo unit-test coverage report
+        if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
+        run: |
+          ./gradlew :mobile:app:createDebugUnitTestCoverageReport
+          test -s mobile/app/build/reports/coverage/test/debug/index.html
+
+      - name: Upload unit-test coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-unit-test-coverage
+          path: mobile/app/build/reports/coverage/test/debug/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload JUnit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-results
+          path: mobile/app/build/test-results/**/TEST-*.xml
+
       # Exercise the production release variant on every complete CI run.
       # This disposable CI key proves packaging/signing mechanics only; it is
       # never published and is never confused with the permanent owner key.
@@ -253,34 +281,6 @@ jobs:
               -PfridayAbiFilters=arm64-v8a
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose \
             mobile/app/build/outputs/apk/release/app-release.apk
-
-      # Run tests even when APK assembly fails. A failed packaging step must
-      # not erase independent evidence about source/test health.
-      - name: Run unit tests independently of APK assembly
-        if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
-        run: ./gradlew :mobile:app:testDebugUnitTest
-
-      - name: Generate JaCoCo unit-test coverage report
-        if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
-        run: |
-          ./gradlew :mobile:app:createDebugUnitTestCoverageReport
-          test -s mobile/app/build/reports/coverage/test/debug/index.html
-
-      - name: Upload unit-test coverage
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: friday-unit-test-coverage
-          path: mobile/app/build/reports/coverage/test/debug/
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Upload JUnit results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: junit-results
-          path: mobile/app/build/test-results/**/TEST-*.xml
 
       - name: Enforce Android harness and build contract results
         if: ${{ !cancelled() }}
