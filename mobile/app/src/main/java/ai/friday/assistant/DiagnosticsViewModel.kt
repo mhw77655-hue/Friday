@@ -556,9 +556,19 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             ) { match -> match.groupValues[1] + match.groupValues[2] + "[REDACTED]" }
             ?.take(4_000)
             ?: JSONObject.NULL
-        val failureEvents = runCatching {
+        // Merge durable history with the current in-memory surface. A report
+        // exported after a process restart must still contain the incident that
+        // caused that restart, not only failures observed in this process.
+        val persistedFailureEvents = runCatching {
+            FridayEngine.getFailureStore().loadRecent(50)
+        }.getOrDefault(emptyList())
+        val liveFailureEvents = runCatching {
             FridayEngine.getFailureSurface().recentFailures.value
         }.getOrDefault(emptyList())
+        val failureEvents = (persistedFailureEvents + liveFailureEvents)
+            .distinctBy { it.id }
+            .sortedByDescending { it.timestamp }
+            .take(50)
         report.put("failure_evidence_complete", false)
         report.put("failure_evidence_limit", 50)
         report.put("failure_evidence", org.json.JSONArray().apply {
