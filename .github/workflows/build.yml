@@ -76,6 +76,11 @@ jobs:
           python-version: "3.12"
 
       - name: Test Android harness and build contracts
+        id: harness-contracts
+        # Keep APK compilation and device validation running even when a
+        # fast harness contract test fails. The failure is re-enforced below,
+        # so this never turns a red test into a passing candidate.
+        continue-on-error: true
         run: python3 -m unittest discover -s tools/friday-builder -p 'test_*.py' -v
 
       - name: Measure Python line and branch coverage
@@ -271,6 +276,14 @@ jobs:
         with:
           name: junit-results
           path: mobile/app/build/test-results/**/TEST-*.xml
+
+      - name: Enforce Android harness and build contract results
+        if: ${{ !cancelled() }}
+        run: |
+          if [[ "${{ steps.harness-contracts.outcome }}" != "success" ]]; then
+            echo "::error::Android harness/build contract tests failed. APK and emulator evidence may be collected, but this candidate is not releasable."
+            exit 1
+          fi
 
       - name: Summarize test results
         if: always()
