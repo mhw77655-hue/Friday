@@ -385,7 +385,10 @@ object PhoneActionDiagnostics {
         failureStage: String? = null,
         parentTraceId: String? = null
     ) {
-        val activeStore = store ?: return
+        val activeStore = store ?: run {
+            Log.w("PhoneActionDiagnostics", "Dropped action trace because the diagnostics store is not initialized.")
+            return
+        }
         ioExecutor.execute {
             runCatching {
                 activeStore.record(action, route, outcome, durationMs, verificationState, verificationStage, failureStage, parentTraceId)
@@ -500,7 +503,9 @@ object PhoneActionDiagnostics {
         kotlinx.coroutines.suspendCancellableCoroutine<Unit> { continuation ->
             val activeStore = store
             if (activeStore == null) {
-                continuation.resume(Unit)
+                continuation.resumeWithException(
+                    IllegalStateException("Phone-action diagnostics are not initialized; the journal was not cleared.")
+                )
                 return@suspendCancellableCoroutine
             }
             try {
