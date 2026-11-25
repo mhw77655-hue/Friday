@@ -33,14 +33,62 @@ on:
 concurrency:
   # Only the newest commit for a PR is a valid release candidate. Cancel
   # obsolete candidates so a slow stale test run cannot block its repair.
-  group: friday-build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  # A per-commit group lets the newest run start immediately. The first job
+  # explicitly cancels older runs for the same PR before expensive validation.
+  group: friday-build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}-${{ github.sha }}
   cancel-in-progress: true
 
 permissions: {}
 
 jobs:
+  # Concurrency groups are per commit so a fresh candidate never waits behind
+  # a stale run. Cancel older runs for this same PR before launching build work.
+  cancel-stale-runs:
+    name: Cancel obsolete PR validation runs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: Cancel older runs for this pull request
+        continue-on-error: true
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            if (!pr) {
+              core.info("No pull request context; nothing to supersede.");
+              return;
+            }
+            const response = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: "build.yml",
+              per_page: 100
+            });
+            const stale = response.data.workflow_runs.filter(run =>
+              run.id !== context.runId &&
+              run.event === "pull_request" &&
+              run.status !== "completed" &&
+              (run.pull_requests || []).some(item => item.number === pr.number)
+            );
+            for (const run of stale) {
+              try {
+                await github.rest.actions.cancelWorkflowRun({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  run_id: run.id
+                });
+                core.info(`Cancelled stale run ${run.id} for PR #${pr.number} at ${run.head_sha}`);
+              } catch (error) {
+                core.warning(`Could not cancel stale run ${run.id}: ${error.message}`);
+              }
+            }
+
   # Validate the canonical main commit; never treat a skipped check as success.
   debug-apk:
+    needs: cancel-stale-runs
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -300,6 +348,7 @@ jobs:
   # and execute six disjoint Gradle test-filter shards on separate runners.
   jvm-unit-tests:
     name: JVM unit tests (shard ${{ matrix.shard }})
+    needs: cancel-stale-runs
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
@@ -436,6 +485,7 @@ jobs:
 
   android-emulator:
     name: Disposable Android phone twin (instrumented)
+    needs: cancel-stale-runs
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -573,6 +623,7 @@ jobs:
 
   full-source-audit:
     name: Whole-repository source inventory and Kotlin vision audit
+    needs: cancel-stale-runs
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
