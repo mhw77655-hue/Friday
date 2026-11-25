@@ -4,6 +4,7 @@ import ai.friday.assistant.aiworkforce.table.FridayTableLog
 import android.content.Context
 import org.json.JSONObject
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -85,16 +86,36 @@ fun FridayTableScreen() {
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             if (view == FridayTableView.ROUNDTABLE) {
-                Button(modifier = Modifier.weight(1f), onClick = { view = FridayTableView.ROUNDTABLE }) { Text("Roundtable") }
+                Button(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp),
+                    onClick = { view = FridayTableView.ROUNDTABLE }
+                ) { Text("Roundtable", maxLines = 1) }
             } else {
-                OutlinedButton(modifier = Modifier.weight(1f), onClick = { view = FridayTableView.ROUNDTABLE }) { Text("Roundtable") }
+                OutlinedButton(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp),
+                    onClick = { view = FridayTableView.ROUNDTABLE }
+                ) { Text("Roundtable", maxLines = 1) }
             }
             if (view == FridayTableView.VISION) {
-                Button(modifier = Modifier.weight(1f), onClick = { view = FridayTableView.VISION }) { Text("Vision") }
+                Button(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp),
+                    onClick = { view = FridayTableView.VISION }
+                ) { Text("Vision", maxLines = 1) }
             } else {
-                OutlinedButton(modifier = Modifier.weight(1f), onClick = { view = FridayTableView.VISION }) { Text("Vision") }
+                OutlinedButton(
+                    modifier = Modifier.weight(1f),
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp),
+                    onClick = { view = FridayTableView.VISION }
+                ) { Text("Vision", maxLines = 1) }
             }
-            OutlinedButton(modifier = Modifier.weight(1f), onClick = { refreshKey++ }) { Text("Refresh") }
+            OutlinedButton(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 10.dp),
+                onClick = { refreshKey++ }
+            ) { Text("Refresh", maxLines = 1) }
         }
         Text(
             if (view == FridayTableView.ROUNDTABLE) {

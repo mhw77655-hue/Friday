@@ -17,14 +17,16 @@ class FridayModelFreeMindTest {
     }
 
     @Test
-    fun `earlier experience changes later model-free expression after restart`() {
+    fun `earlier experience changes later model-free expression after restart without replay`() {
         val file = File.createTempFile("friday-mind-learning-", ".bin").apply { delete() }
         val first = FridayModelFreeMind(FridaySeedSubstrate(file))
         first.observe("the bell echoes near the window")
         first.observe("the bell rings in the hall")
 
+        // Do not replay or re-observe the original episode after restart.
+        // The later probe shares only the cue "bell"; Friday must retrieve
+        // learned associations from the durable substrate itself.
         val restarted = FridayModelFreeMind(FridaySeedSubstrate(file))
-        restarted.observe("the bell sounds again")
         val reply = restarted.respond("the bell sounds again")
 
         assertTrue("later response should expose a learned association", reply.contains("window") || reply.contains("hall") || reply.contains("echoes"))

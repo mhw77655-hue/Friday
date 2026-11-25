@@ -26,6 +26,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.unit.dp
 import ai.friday.assistant.modelsim.DeviceSnapshot
 import ai.friday.assistant.modelsim.FitVerdict
@@ -190,9 +192,15 @@ fun ModelSimulationScreen() {
                     Unit
                 }
                 if (contextTokens == tokens) {
-                    Button(onClick = onSelect) { Text("${tokens / 1024}K") }
+                    Button(
+                        modifier = Modifier.semantics { selected = contextTokens == tokens },
+                        onClick = onSelect
+                    ) { Text("${tokens / 1024}K") }
                 } else {
-                    OutlinedButton(onClick = onSelect) { Text("${tokens / 1024}K") }
+                    OutlinedButton(
+                        modifier = Modifier.semantics { selected = contextTokens == tokens },
+                        onClick = onSelect
+                    ) { Text("${tokens / 1024}K") }
                 }
             }
         }
