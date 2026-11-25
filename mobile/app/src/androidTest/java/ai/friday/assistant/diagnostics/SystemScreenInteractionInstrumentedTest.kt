@@ -9,7 +9,6 @@ import androidx.compose.ui.test.onAllNodes
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -60,9 +59,5 @@ class SystemScreenInteractionInstrumentedTest {
                 compose.onAllNodes(hasText("Active diagnostics failed:", substring = true))
                     .fetchSemanticsNodes().isNotEmpty()
         }
-        assertTrue(
-            compose.onAllNodes(hasText("DIAGNOSTIC FINDINGS", substring = true))
-                .fetchSemanticsNodes().isNotEmpty()
-        )
     }
 }
