@@ -2,6 +2,9 @@ package ai.friday.assistant
 
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import android.os.Binder
+import android.os.Parcel
 import org.junit.Test
 
 /** Verifies the typed APK-transfer Binder wire contract without requiring Shizuku on the emulator. */
@@ -14,6 +17,7 @@ class ShizukuInstallBinderContractTest {
         var observedId = ""
         var observedOffset = -1L
         var observedBytes = ByteArray(0)
+        var observedForegroundPackage = ""
         val service = object : IFridayShellService.Stub() {
             override fun identity() = "uid=2000;pid=1"
             override fun diagnosticsSnapshot() = "{}"
@@ -21,6 +25,10 @@ class ShizukuInstallBinderContractTest {
             override fun setDozeWhitelist(enabled: Boolean) = "status=verified"
             override fun isDozeWhitelisted() = "status=verified; enabled=false"
             override fun launchApp(packageName: String) = "status=verified"
+            override fun isPackageForeground(packageName: String): Boolean {
+                observedForegroundPackage = packageName
+                return packageName == "com.example.app"
+            }
             override fun beginApkInstall(expectedSize: Long, expectedSha256: String): String {
                 observedSize = expectedSize
                 observedDigest = expectedSha256
@@ -40,6 +48,9 @@ class ShizukuInstallBinderContractTest {
         // Force the Proxy path so this test exercises Parcel encoding/decoding,
         // not only the local-interface shortcut.
         val client = IFridayShellService.Proxy(service.asBinder())
+        assertEquals(true, client.isPackageForeground("com.example.app"))
+        assertEquals("com.example.app", observedForegroundPackage)
+
         assertEquals(
             "status=ready; transfer_id=0123456789abcdef0123456789abcdef",
             client.beginApkInstall(123456L, "A".repeat(64))
@@ -63,5 +74,12 @@ class ShizukuInstallBinderContractTest {
             "status=cancelled; deleted=true",
             client.cancelApkInstall("0123456789abcdef0123456789abcdef")
         )
+    }
+    @Test
+    fun unsupportedForegroundTransactionFailsClosed() {
+        val unsupportedBinder = object : Binder() {
+            override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean = false
+        }
+        assertFalse(IFridayShellService.Proxy(unsupportedBinder).isPackageForeground("com.example.app"))
     }
 }

@@ -53,6 +53,25 @@ class AndroidPlatformPorts(
         check(result is ai.friday.assistant.cognitive.capability.CapabilityRegistry.RegisterResult.Ok) {
             "Android media capability registration failed: $result"
         }
+
+        val appLaunchResult = fabric.register(
+            ai.friday.assistant.android.AndroidAppLaunchCapability(
+                packageIsLaunchable = { packageName ->
+                    runCatching {
+                        ai.friday.assistant.reverseengineering.InstalledApplicationCatalog
+                            .list(context).any { it.packageName == packageName }
+                    }.getOrDefault(false)
+                },
+                foregroundVerifier = { packageName ->
+                    ai.friday.assistant.ScreenBridge.isPackageForeground(packageName)
+                },
+                routerProvider = deviceControlRouterProvider,
+                riskGateProvider = riskGateProvider
+            )
+        )
+        check(appLaunchResult is ai.friday.assistant.cognitive.capability.CapabilityRegistry.RegisterResult.Ok) {
+            "Android app-launch capability registration failed: $appLaunchResult"
+        }
     }
 
     override fun modelScope(): CoroutineScope = scope
