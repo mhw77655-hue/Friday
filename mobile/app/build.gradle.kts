@@ -140,12 +140,12 @@ plugins {
                 it.filter.excludeTestsMatching("ai.friday.assistant.latency.OllamaModelBackendLiveWiringTest")
                 it.filter.excludeTestsMatching("ai.friday.assistant.model.OllamaModelBackendTest")
 
-                // The repository's JVM suite exceeded the 120-minute CI job
-                // timeout when every test class ran in a single fork. Use two
-                // isolated JVM workers and emit test-start events so a stalled
-                // class is identifiable from CI logs instead of appearing silent.
+                // Six CI shards run independently; two test JVMs per runner
+                // use the available CPU without letting one fork serialize the
+                // entire repository suite. Log completion as well as starts so
+                // a stalled test can be identified from the last completed case.
                 it.maxParallelForks = 2
-                it.testLogging.events("started", "failed")
+                it.testLogging.events("started", "passed", "failed", "skipped")
             }
         }
     }
