@@ -84,6 +84,15 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn("steps.python-coverage.outcome", enforcement)
         self.assertIn("exit 1", enforcement)
 
+    def test_gradle_structure_reports_are_retained_for_incremental_repository_migration(self):
+        debug = self.workflow.split("  debug-apk:", 1)[1].split("  android-emulator:", 1)[0]
+        self.assertIn("Capture Gradle project and dependency structure", debug)
+        self.assertIn(":mobile:app:dependencies --configuration debugCompileClasspath", debug)
+        self.assertIn(":mobile:app:dependencies --configuration debugRuntimeClasspath", debug)
+        self.assertIn(":mobile:app:dependencies --configuration releaseRuntimeClasspath", debug)
+        self.assertIn("name: friday-gradle-structure", debug)
+        self.assertIn("Upload Gradle structure evidence", debug)
+
     def test_manual_workflow_dispatch_is_available_for_recovery(self):
         self.assertIn("workflow_dispatch:", self.workflow)
 
