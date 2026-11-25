@@ -281,3 +281,16 @@ These are candidate changes, not accepted repairs until the current workflow pas
 This standard does not authorize a rewrite or automatic scope expansion. It requires evidence before architectural commitments, targeted repair of confirmed defects, and incremental evolution against the existing Objectives A–G.
 
 Update the one active delivery plan when owner intent or evidence justifies a change. Keep research proposals, historical plans and assistant-generated summaries subordinate to that plan. Preserve the original evidence and record why any requirement or implementation changed.
+
+
+## 14. Local Station and cloud engineering boundary
+
+The phone/cloud operating contract is defined in [FRIDAY_LOCAL_STATION_AND_CLOUD_DEVELOPMENT_ARCHITECTURE.md](FRIDAY_LOCAL_STATION_AND_CLOUD_DEVELOPMENT_ARCHITECTURE.md). The repository migration contract is defined in [FRIDAY_REPOSITORY_STRUCTURE_AND_MIGRATION.md](FRIDAY_REPOSITORY_STRUCTURE_AND_MIGRATION.md). Both are subordinate to the canonical delivery plan.
+
+A phone is a target-device station, not a generic GitHub Actions runner. The installed Android process may execute only authenticated, signed, device-bound and allowlisted diagnostic/test operations. It does not execute arbitrary remote shell, scripts, DEX/JAR/native code or untrusted workflow steps. Heavy builds and broad test suites run on reproducible CI/desktop workers. Device-specific observations flow outward through an authenticated, privacy-minimised durable channel; the station has no inbound open port requirement.
+
+Cloud workers produce untrusted candidate changes in isolated branches/workspaces. A separate verifier checks the exact diff and evidence. GitHub writes, merge, release, signing, secrets and protected repository settings obey least-privilege authorization and owner policy. The code author is never the sole verifier. Phone enrollment keys, GitHub authorization and APK signing keys are separate trust domains.
+
+Do not claim the cloud/phone loop exists because a payload builder, GitHub API client, local task inbox or plan sync worker exists. Prove enrollment, signed task delivery, replay protection, durable execution, result upload, candidate verification and physical-device outcomes separately. See LS-0 through LS-8 in the architecture contract.
+
+Android execution is opportunistic and resumable, not immortal. Use platform-supported scheduling, visible foreground work only where justified, durable checkpoints, idempotency and app-start reconciliation. The system must report when Android defers or prevents work rather than promise uninterrupted execution.
