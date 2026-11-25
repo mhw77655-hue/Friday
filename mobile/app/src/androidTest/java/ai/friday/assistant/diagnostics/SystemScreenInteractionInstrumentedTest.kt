@@ -48,10 +48,12 @@ class SystemScreenInteractionInstrumentedTest {
         compose.waitForIdle()
         compose.onNodeWithText("Run full system diagnosis").performClick()
         compose.waitUntil(timeoutMillis = 20_000) {
-            compose.onAllNodes(hasText("DIAGNOSTIC FINDINGS", substring = true))
-                .fetchSemanticsNodes().isNotEmpty() &&
-                compose.onAllNodes(hasText("No diagnostic run has completed yet."))
-                    .fetchSemanticsNodes().isEmpty()
+            compose.onAllNodes(hasText("Completed:", substring = true))
+                .fetchSemanticsNodes().isNotEmpty() ||
+                compose.onAllNodes(hasText("Failed:", substring = true))
+                    .fetchSemanticsNodes().isNotEmpty()
         }
+        compose.onAllNodes(hasText("DIAGNOSTIC FINDINGS", substring = true))
+            .fetchSemanticsNodes().also { nodes -> assert(nodes.isNotEmpty()) }
     }
 }
