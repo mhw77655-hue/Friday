@@ -36,6 +36,22 @@ class SettingsScreenInteractionInstrumentedTest {
     }
 
     @Test
+    fun settingsActionsBeyondExportExposeClickSemantics() {
+        compose.setContent {
+            FridayTheme {
+                SettingsScreen()
+            }
+        }
+
+        compose.waitForIdle()
+        compose.onNodeWithText("Check for Friday updates").assertHasClickAction()
+        compose.onNodeWithText("Open battery optimization settings").assertHasClickAction()
+        compose.onNodeWithText("Create fine-grained GitHub token").assertHasClickAction()
+        compose.onNodeWithText("Clear local journal").assertHasClickAction()
+        compose.onNodeWithText("Remove key").assertHasClickAction()
+    }
+
+    @Test
     fun removeCredentialControlExecutesWithoutCrashingSettings() {
         compose.setContent {
             FridayTheme {

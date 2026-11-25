@@ -72,6 +72,9 @@ fun SystemScreen() {
     val individualMemoryText by diagnosticsViewModel.individualMemoryText.collectAsStateWithLifecycle()
     val diagnosticFindings by diagnosticsViewModel.diagnosticFindings.collectAsStateWithLifecycle()
     val diagnosticRunning by diagnosticsViewModel.diagnosticRunning.collectAsStateWithLifecycle()
+    val diagnosticRunStatus by diagnosticsViewModel.diagnosticRunStatus.collectAsStateWithLifecycle()
+    val selfDiagnosticRunning by diagnosticsViewModel.selfDiagnosticRunning.collectAsStateWithLifecycle()
+    val selfDiagnosticStatus by diagnosticsViewModel.selfDiagnosticStatus.collectAsStateWithLifecycle()
     val selfDiagnosticFindings by diagnosticsViewModel.selfDiagnosticFindings.collectAsStateWithLifecycle()
     val selfDiagnosticAt by diagnosticsViewModel.selfDiagnosticAt.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { diagnosticsViewModel.runSelfDiagnosis() }
@@ -126,12 +129,26 @@ fun SystemScreen() {
         ) {
             Text(if (diagnosticRunning) "Running active diagnostics..." else "Run full system diagnosis")
         }
+        Text(
+            diagnosticRunStatus,
+            style = FridayType.Technical,
+            modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)
+        )
         Button(
             onClick = { diagnosticsViewModel.runSelfDiagnosis() },
+            enabled = !selfDiagnosticRunning,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Run Friday architecture and autonomy diagnosis")
+            Text(
+                if (selfDiagnosticRunning) "Running architecture and autonomy diagnosis…"
+                else "Run Friday architecture and autonomy diagnosis"
+            )
         }
+        Text(
+            selfDiagnosticStatus,
+            style = FridayType.Technical,
+            modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)
+        )
         selfDiagnosticAt?.let { checkedAt ->
             Text(
                 "Self-diagnosis: ${java.text.DateFormat.getDateTimeInstance().format(java.util.Date(checkedAt))} · ${selfDiagnosticFindings.count { it.level == DiagnosticLevel.FAILURE }} failures · ${selfDiagnosticFindings.count { it.level == DiagnosticLevel.WARNING }} warnings",

@@ -244,10 +244,10 @@ object FridayRuntimeController {
         }
     }
 
-    fun enable(context: Context) {
+    fun enable(context: Context): Boolean {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putBoolean(KEY_ENABLED, true).remove(KEY_START_FAILURE).apply()
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
+        return if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
         ) {
             // This method is called by the visible Settings screen after the
@@ -259,19 +259,42 @@ object FridayRuntimeController {
         }
     }
 
-    fun startCore(context: Context) {
+    fun startCore(context: Context): Boolean {
         val intent = Intent(context, FridayRuntimeService::class.java)
             .setAction(FridayRuntimeService.ACTION_START_CORE)
-        ContextCompat.startForegroundService(context, intent)
+        return startForegroundServiceSafely(context, intent, "core runtime")
     }
 
     /** Call only from a visible activity after RECORD_AUDIO is granted. */
-    fun startWithMicrophone(context: Context) {
+    fun startWithMicrophone(context: Context): Boolean {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putBoolean(KEY_ENABLED, true).remove(KEY_START_FAILURE).apply()
         val intent = Intent(context, FridayRuntimeService::class.java)
             .setAction(FridayRuntimeService.ACTION_START_WITH_MICROPHONE)
+        return startForegroundServiceSafely(context, intent, "microphone runtime")
+    }
+
+    /**
+     * Android/OEM foreground-service policy can reject a start synchronously.
+     * Persist that result instead of letting a Settings click crash or appear
+     * to do nothing. The owner preference remains enabled so the next visible
+     * launch can retry and diagnostics can distinguish policy rejection from
+     * the owner having disabled persistence.
+     */
+    private fun startForegroundServiceSafely(
+        context: Context,
+        intent: Intent,
+        operation: String
+    ): Boolean = try {
         ContextCompat.startForegroundService(context, intent)
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit().remove(KEY_START_FAILURE).apply()
+        true
+    } catch (failure: RuntimeException) {
+        val detail = "$operation start blocked: ${failure.javaClass.simpleName}: ${failure.message ?: "no platform detail"}"
+        recordStartFailure(context, detail)
+        Log.e("FridayRuntime", detail, failure)
+        false
     }
 
     fun disable(context: Context) {

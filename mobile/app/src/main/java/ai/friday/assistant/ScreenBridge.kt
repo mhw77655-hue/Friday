@@ -170,7 +170,10 @@ object ScreenBridge {
      * a granted permission alone never satisfies this contract.
      */
     suspend fun ensureVerifiedBinding(context: Context, timeoutMillis: Long = 12_000): String {
-        withContext(Dispatchers.Main.immediate) {
+        // Shizuku binding is a Binder operation. Keep it off the UI
+        // dispatcher; verification arrives asynchronously through the
+        // service-connection callback and the StateFlow below.
+        withContext(Dispatchers.IO) {
             if (service == null) bind(context)
         }
         val result = withTimeoutOrNull(timeoutMillis) {
