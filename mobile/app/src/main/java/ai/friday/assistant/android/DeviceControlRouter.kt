@@ -131,17 +131,27 @@ class DeviceControlRouter(
                 )
                 continue
             }
+            val backendEvidenceVerified =
+                evidence.isComplete && evidence.backendId == backend.id
             localAttempts.add(
                 BackendAttempt(
                     backendId = backend.id,
-                    succeeded = evidence.isComplete,
+                    succeeded = backendEvidenceVerified,
                     evidence = evidence,
-                    error = if (evidence.isComplete) null else "not verified",
+                    error = when {
+                        backendEvidenceVerified -> null
+                        evidence.backendId != backend.id -> "evidence backend mismatch"
+                        else -> "not verified"
+                    },
                     durationMs = elapsedMs(attemptStartedAt),
-                    failureStage = if (evidence.isComplete) null else "verification"
+                    failureStage = when {
+                        backendEvidenceVerified -> null
+                        evidence.backendId != backend.id -> "verification_identity"
+                        else -> "verification"
+                    }
                 )
             )
-            if (evidence.isComplete) {
+            if (backendEvidenceVerified) {
                 winner = backend
                 break
             }
