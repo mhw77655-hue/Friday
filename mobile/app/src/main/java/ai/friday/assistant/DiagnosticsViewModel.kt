@@ -89,11 +89,17 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     val diagnosticFindings: StateFlow<List<ai.friday.assistant.diagnostics.DiagnosticFinding>> = _diagnosticFindings.asStateFlow()
     private val _diagnosticRunning = MutableStateFlow(false)
     val diagnosticRunning: StateFlow<Boolean> = _diagnosticRunning.asStateFlow()
+    private val _diagnosticRunStatus = MutableStateFlow("Active diagnostics have not run in this session.")
+    val diagnosticRunStatus: StateFlow<String> = _diagnosticRunStatus.asStateFlow()
     private val diagnosticRunner = ai.friday.assistant.diagnostics.DiagnosticRunner(application)
     private val _selfDiagnosticFindings = MutableStateFlow<List<SelfDiagnosticFinding>>(emptyList())
     val selfDiagnosticFindings: StateFlow<List<SelfDiagnosticFinding>> = _selfDiagnosticFindings.asStateFlow()
     private val _selfDiagnosticAt = MutableStateFlow<Long?>(null)
     val selfDiagnosticAt: StateFlow<Long?> = _selfDiagnosticAt.asStateFlow()
+    private val _selfDiagnosticRunning = MutableStateFlow(false)
+    val selfDiagnosticRunning: StateFlow<Boolean> = _selfDiagnosticRunning.asStateFlow()
+    private val _selfDiagnosticStatus = MutableStateFlow("Friday architecture diagnosis has not run in this session.")
+    val selfDiagnosticStatus: StateFlow<String> = _selfDiagnosticStatus.asStateFlow()
 
     private var lastBatteryText = ""
     private var lastNetworkText = "Net: checking..."
@@ -394,6 +400,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     fun runFullDiagnostic() {
         if (_diagnosticRunning.value) return
         _diagnosticRunning.value = true
+        _diagnosticRunStatus.value = "Running active device and subsystem diagnostics…"
         viewModelScope.launch {
             try {
                 val signals = mapOf(
@@ -414,9 +421,12 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                     diagnosticRunner.run(signals, CrashJournal.read(getApplication()))
                 }
                 _diagnosticFindings.value = findings
-                diagnosticEvents.record("active_diagnostic",
-                    "errors=${findings.count { it.severity == ai.friday.assistant.diagnostics.DiagnosticSeverity.ERROR }}; " +
-                    "warnings=${findings.count { it.severity == ai.friday.assistant.diagnostics.DiagnosticSeverity.WARNING }}")
+                val errors = findings.count { it.severity == ai.friday.assistant.diagnostics.DiagnosticSeverity.ERROR }
+                val warnings = findings.count { it.severity == ai.friday.assistant.diagnostics.DiagnosticSeverity.WARNING }
+                diagnosticEvents.record("active_diagnostic", "errors=$errors; warnings=$warnings")
+                _diagnosticRunStatus.value = "Completed: ${findings.size} findings · $errors errors · $warnings warnings."
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
             } catch (failure: Exception) {
                 val safeType = failure.javaClass.simpleName.ifBlank { "UnknownError" }
                 _diagnosticFindings.value = listOf(
@@ -429,6 +439,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                     )
                 )
                 diagnosticEvents.record("active_diagnostic", "execution_failed:$safeType")
+                _diagnosticRunStatus.value = "Failed: $safeType. An error finding was added below."
             } finally {
                 _diagnosticRunning.value = false
             }
@@ -540,7 +551,11 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun runSelfDiagnosis() {
+        if (_selfDiagnosticRunning.value) return
+        _selfDiagnosticRunning.value = true
+        _selfDiagnosticStatus.value = "Running Friday architecture and autonomy diagnosis…"
         viewModelScope.launch(Dispatchers.Default) {
+            try {
             val findings = mutableListOf<SelfDiagnosticFinding>()
             fun add(
                 id: String,
@@ -794,6 +809,27 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             )
             _selfDiagnosticFindings.value = findings
             _selfDiagnosticAt.value = System.currentTimeMillis()
+            val failures = findings.count { it.level == DiagnosticLevel.FAILURE }
+            val warnings = findings.count { it.level == DiagnosticLevel.WARNING }
+            _selfDiagnosticStatus.value = "Completed: ${findings.size} checks · $failures failures · $warnings warnings."
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                val safeType = failure.javaClass.simpleName.ifBlank { "UnknownError" }
+                _selfDiagnosticFindings.value = listOf(
+                    SelfDiagnosticFinding(
+                        id = "self-diagnosis-execution",
+                        title = "Self-diagnosis execution",
+                        level = DiagnosticLevel.FAILURE,
+                        detail = "The architecture diagnosis action failed before completing: $safeType.",
+                        recommendation = "Export the diagnostic report and inspect the self-diagnosis execution path."
+                    )
+                )
+                _selfDiagnosticAt.value = System.currentTimeMillis()
+                _selfDiagnosticStatus.value = "Failed: $safeType. An error finding was added below."
+            } finally {
+                _selfDiagnosticRunning.value = false
+            }
         }
     }
 
