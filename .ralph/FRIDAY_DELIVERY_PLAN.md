@@ -1140,3 +1140,14 @@ Documentation does not pass a gate. Every gate needs implementation reachability
 ### 9. Structural success condition
 
 The owner should not have to keep repairing Friday by hand. Friday must progressively become capable of taking responsibility for the complete supported project lifecycle, while preserving owner authority and independent evidence. The measure is not how many agents, modules, workers or lines of code exist. It is whether Friday can repeatedly turn an owner outcome into a correct, tested, safely deployed and monitored result—and whether a failure teaches the system how to prevent that class of repeated repair.
+
+
+## Follow-up evidence reconciliation — 2026-11-25
+
+The main branch received `friday-fixes.zip` in commit `95e17c1a89ed14580682cdf524add8a91a97c443` while the repair candidate was in progress. The archive was inspected as a nine-file source/test patch set rather than ignored or blindly overlaid. Its useful changes were reconciled with the newer candidate source: the candidate now has a bounded `FailureEvidence` formatter and tests, engine containment records a bounded top-of-stack/root-cause trace, self-diagnosis renders that evidence, support exports include it, Material 3 container surface roles are explicitly set for the AMOLED palette, and Model Simulation visibly distinguishes the selected context size. Existing candidate versions of the engine, diagnostics, Friday Table and Voice Studio were retained where they already contained newer or broader work. The uploaded ZIP remains in the repository as provenance/evidence; it is not a runtime dependency.
+
+The repair branch now includes the main commit containing that archive. The latest comparison after reconciliation showed **151 commits ahead and 0 behind main**. This removes the previous one-commit base divergence; it does not itself imply merge readiness.
+
+The first repository-structure evidence step is now wired into CI: it captures the Gradle project list and debug compile/runtime plus release runtime dependency graphs as the `friday-gradle-structure` artifact, and a workflow-contract test protects that collection. Together with the existing whole-app lexical trace and source/test inventory, this is a repeatable Wave 0 baseline. It is not a compiler-resolved internal call graph and no source files have been mass-moved. The first structural migration remains blocked on completing the compiler/manifest/JNI/runtime ownership map.
+
+At the time of this follow-up, validation for the final merged candidate is pending/queued. Earlier intermediate runs cancelled while commits were landing are not passes. Re-check the exact head SHA and all required job results before any merge or APK handover.
