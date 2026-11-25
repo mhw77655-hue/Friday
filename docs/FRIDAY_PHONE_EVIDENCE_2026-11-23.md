@@ -63,3 +63,10 @@ The settings screen already had click handlers for its main controls, but the pr
 7. Re-check the actual phone after installation; emulator/instrumentation results are not a substitute for this host-specific acceptance.
 
 **Truth rule:** this document records evidence and code changes. It does not claim the new APK has been installed on the phone or that physical-device acceptance has passed.
+
+
+## 5. Runtime-toggle failure visibility added after evidence review
+
+The report recorded `Owner enabled=false; Android service running=false`, but did not reveal whether the owner had left the setting off or whether a previous foreground-service start attempt had been rejected. The runtime start path previously allowed a synchronous Android/OEM `RuntimeException` from `startForegroundService` to escape the Settings click without a durable explanation. The updated controller catches that platform rejection, records the exception type/message in the existing runtime start-failure field, preserves the owner's enabled preference for a later retry, and returns a success/failure result. Settings now refreshes that failure field during its service-state poll so a rejected start is visible immediately. This does not bypass Android policy or claim the service is always startable; it makes the failure observable and recoverable.
+
+The new Settings instrumentation coverage also checks actionable controls beyond report export. These tests prove UI semantics on the emulator, not the actual owner's touch panel or OEM-specific foreground-service acceptance.
