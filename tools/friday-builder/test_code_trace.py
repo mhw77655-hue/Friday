@@ -21,6 +21,23 @@ class CodeTraceTests(unittest.TestCase):
                          [("Engine","type"),("runTask","function")])
         self.assertEqual((symbols[1]["start"],symbols[1]["end"]),(2,4))
 
+    def test_stack_resolution_ignores_android_and_jdk_frames(self):
+        by_path = {"mobile/app/src/main/java/ai/friday/VoiceService.kt": []}
+        self.assertIsNone(MODULE.resolve_stack_location(
+            "ThreadPoolExecutor.java", 1145,
+            "at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1145)",
+            by_path
+        ))
+
+    def test_stack_resolution_preserves_unresolved_friday_frames(self):
+        result = MODULE.resolve_stack_location(
+            "MissingFridayService.kt", 12,
+            "at ai.friday.assistant.MissingFridayService.run(MissingFridayService.kt:12)",
+            {}
+        )
+        self.assertEqual(result["resolution"], "friday_source_file_not_found")
+        self.assertEqual(result["line"], 12)
+
     def test_stack_trace_resolves_kotlin_file_and_line(self):
         match = MODULE.STACK.search("at ai.friday.Engine.run(Engine.kt:42)")
         self.assertIsNotNone(match)
