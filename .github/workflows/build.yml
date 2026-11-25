@@ -590,14 +590,14 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Upload exact repository source archive for binary inspection
+      - name: Upload owner-provided device evidence archive
         if: always() && hashFiles('New folder (1).zip') != ''
         uses: actions/upload-artifact@v4
         with:
-          name: friday-exact-source-archive
+          name: friday-owner-device-evidence
           path: New folder (1).zip
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 14
 
   report-failure:
     # Inspect every required validation lane. A skipped/failed lane is not success;
