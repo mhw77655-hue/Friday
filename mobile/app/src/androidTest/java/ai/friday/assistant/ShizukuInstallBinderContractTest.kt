@@ -2,6 +2,9 @@ package ai.friday.assistant
 
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import android.os.Binder
+import android.os.Parcel
 import org.junit.Test
 
 /** Verifies the typed APK-transfer Binder wire contract without requiring Shizuku on the emulator. */
@@ -71,5 +74,12 @@ class ShizukuInstallBinderContractTest {
             "status=cancelled; deleted=true",
             client.cancelApkInstall("0123456789abcdef0123456789abcdef")
         )
+    }
+    @Test
+    fun unsupportedForegroundTransactionFailsClosed() {
+        val unsupportedBinder = object : Binder() {
+            override fun onTransact(code: Int, data: Parcel, reply: Parcel?, flags: Int): Boolean = false
+        }
+        assertFalse(IFFridayShellService.Proxy(unsupportedBinder).isPackageForeground("com.example.app"))
     }
 }

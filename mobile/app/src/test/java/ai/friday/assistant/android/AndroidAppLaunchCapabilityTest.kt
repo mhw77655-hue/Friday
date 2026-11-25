@@ -49,6 +49,15 @@ class AndroidAppLaunchCapabilityTest {
     }
 
     @Test
+    fun malformedPackageIsRejectedBeforeBackendExecution() = runBlocking {
+        val backend = FakeBackend()
+        val result = capability(backend).invoke(request("com.example/invalid"))
+        assertFalse(result.success)
+        assertEquals("APP_PACKAGE_INVALID", (result.failure as ai.friday.assistant.cognitive.execution.ActionFailure.Error).code)
+        assertEquals(null, backend.launchedPackage)
+    }
+
+    @Test
     fun uninstalledOrInvisiblePackageIsRejected() = runBlocking {
         val backend = FakeBackend()
         val result = capability(backend, launchable = { false }).invoke(request())
