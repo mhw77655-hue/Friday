@@ -52,6 +52,16 @@ jobs:
         with:
           persist-credentials: false
 
+      # Temporary evidence transport for the owner-provided phone diagnostics archive.
+      # The archive is already committed in this public repository; this exposes no new source.
+      - name: Stage phone evidence archive for authorized analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-phone-evidence-archive
+          path: New folder (1).zip
+          if-no-files-found: error
+          retention-days: 1
+
       # JDK 17: the repo's Gradle/AGP configuration requires it. Read from
       # mobile/app/build.gradle.kts (compileOptions source/targetCompatibility =
       # VERSION_17, kotlin compilerOptions jvmTarget = JVM_17) and the root
