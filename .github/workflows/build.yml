@@ -31,9 +31,11 @@ on:
   workflow_dispatch:
 
 concurrency:
-  # Give each exact source revision its own verification group. A long-running
-  # or queued build for an older commit must not block the final tested commit,
-  # and a newer commit must never cancel evidence for an earlier revision.
+  # Keep the active validation run alive. Cancelling a long Android emulator
+  # run whenever a new commit is pushed discards the only runtime evidence and
+  # creates a repair/CI cancellation loop. GitHub retains one pending run per
+  # group, so newer commits replace obsolete pending candidates without
+  # terminating the currently executing validation.
   group: friday-build-${{ github.ref }}-${{ github.sha }}
   cancel-in-progress: false
 
@@ -52,7 +54,6 @@ jobs:
         with:
           persist-credentials: false
 
-
       # JDK 17: the repo's Gradle/AGP configuration requires it. Read from
       # mobile/app/build.gradle.kts (compileOptions source/targetCompatibility =
       # VERSION_17, kotlin compilerOptions jvmTarget = JVM_17) and the root
@@ -60,15 +61,34 @@ jobs:
       - name: Verify Friday's canonical vision and repository authority
         run: bash .ralph/owner_vision_check.sh
 
+      - name: Verify APK-bundled delivery plan matches canonical source
+        run: |
+          set -euo pipefail
+          if ! cmp -s .ralph/FRIDAY_DELIVERY_PLAN.md mobile/app/src/main/assets/friday/FRIDAY_DELIVERY_PLAN.md; then
+            echo "::error::The APK-bundled delivery plan diverges from the canonical plan."
+            diff -u .ralph/FRIDAY_DELIVERY_PLAN.md mobile/app/src/main/assets/friday/FRIDAY_DELIVERY_PLAN.md || true
+            exit 1
+          fi
+
       - name: Set up Python for Android harness contract tests
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Test Android harness and build contracts
+        id: harness-contracts
+        # Keep APK compilation and device validation running even when a
+        # fast harness contract test fails. The failure is re-enforced below,
+        # so this never turns a red test into a passing candidate.
+        continue-on-error: true
         run: python3 -m unittest discover -s tools/friday-builder -p 'test_*.py' -v
 
       - name: Measure Python line and branch coverage
+        id: python-coverage
+        # This repeats the fast harness suite under coverage. Keep independent
+        # Android compilation running if either invocation exposes a test bug;
+        # the enforcement step below still fails the job and blocks promotion.
+        continue-on-error: true
         run: |
           python3 -m pip install coverage==7.6.12
           python3 -m coverage run --branch --source=.ralph,tools/friday-builder -m unittest discover -s tools/friday-builder -p 'test_*.py' -v
@@ -163,6 +183,31 @@ jobs:
         id: assemble-apk
         run: ./gradlew :mobile:app:assembleDebug
 
+      # Wave 0 of the repository-structure repair: retain the actual Gradle
+      # project and resolved dependency graphs alongside the lexical source
+      # trace. This is build-graph evidence, not a compiler call graph.
+      - name: Capture Gradle project and dependency structure
+        id: gradle-structure
+        if: ${{ !cancelled() && steps.setup-java.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/friday-gradle-structure"
+          mkdir -p "$OUT"
+          ./gradlew --console=plain projects > "$OUT/projects.txt"
+          ./gradlew --console=plain :mobile:app:dependencies --configuration debugCompileClasspath > "$OUT/debug-compile-dependencies.txt"
+          ./gradlew --console=plain :mobile:app:dependencies --configuration debugRuntimeClasspath > "$OUT/debug-runtime-dependencies.txt"
+          ./gradlew --console=plain :mobile:app:dependencies --configuration releaseRuntimeClasspath > "$OUT/release-runtime-dependencies.txt"
+          printf 'Gradle project/dependency reports captured. These describe configured build dependencies, not source-level runtime reachability.\n' > "$OUT/README.txt"
+
+      - name: Upload Gradle structure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-gradle-structure
+          path: ${{ runner.temp }}/friday-gradle-structure/
+          if-no-files-found: warn
+          retention-days: 30
+
       # Android Lint is a separate source/API/resource/accessibility gate.
       - name: Run Android Lint on the debug variant
         if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
@@ -190,7 +235,8 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: debug-apk
+          # Internal candidate only; never present it as installable before all gates pass.
+          name: unverified-debug-apk-candidate
           path: mobile/app/build/outputs/apk/debug/app-debug.apk
 
       # Mutation probe: prove the exhaustive authorization truth-table tests
@@ -198,8 +244,39 @@ jobs:
       # restores the source before the full test suite and uses only this
       # disposable CI checkout.
       - name: Prove authorization tests kill a deliberate mutant
-        if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
+        # The destructive mutation campaign deliberately rebuilds/reruns seven
+        # suites repeatedly. Keep it on explicit deep-validation runs rather
+        # than delaying every install-candidate APK and its normal test gates.
+        if: ${{ github.event_name == 'workflow_dispatch' && !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
         run: bash tools/friday-builder/verify_mutation_sensitivity.sh
+
+      # Run tests even when APK assembly fails. A failed packaging step must
+      # not erase independent evidence about source/test health.
+      - name: Run unit tests independently of APK assembly
+        if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
+        run: ./gradlew :mobile:app:testDebugUnitTest
+
+      - name: Generate JaCoCo unit-test coverage report
+        if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
+        run: |
+          ./gradlew :mobile:app:createDebugUnitTestCoverageReport
+          test -s mobile/app/build/reports/coverage/test/debug/index.html
+
+      - name: Upload unit-test coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-unit-test-coverage
+          path: mobile/app/build/reports/coverage/test/debug/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload JUnit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-results
+          path: mobile/app/build/test-results/**/TEST-*.xml
 
       # Exercise the production release variant on every complete CI run.
       # This disposable CI key proves packaging/signing mechanics only; it is
@@ -230,33 +307,13 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose \
             mobile/app/build/outputs/apk/release/app-release.apk
 
-      # Run tests even when APK assembly fails. A failed packaging step must
-      # not erase independent evidence about source/test health.
-      - name: Run unit tests independently of APK assembly
-        if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
-        run: ./gradlew :mobile:app:testDebugUnitTest
-
-      - name: Generate JaCoCo unit-test coverage report
-        if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
+      - name: Enforce Android harness and build contract results
+        if: ${{ !cancelled() }}
         run: |
-          ./gradlew :mobile:app:createDebugUnitTestCoverageReport
-          test -s mobile/app/build/reports/coverage/test/debug/index.html
-
-      - name: Upload unit-test coverage
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: friday-unit-test-coverage
-          path: mobile/app/build/reports/coverage/test/debug/
-          if-no-files-found: warn
-          retention-days: 14
-
-      - name: Upload JUnit results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: junit-results
-          path: mobile/app/build/test-results/**/TEST-*.xml
+          if [[ "${{ steps.harness-contracts.outcome }}" != "success" || "${{ steps.python-coverage.outcome }}" != "success" ]]; then
+            echo "::error::Android harness/build contract or covered Python tests failed. APK and emulator evidence may be collected, but this candidate is not releasable."
+            exit 1
+          fi
 
       - name: Summarize test results
         if: always()
@@ -385,6 +442,28 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -camera-front none -gpu swiftshader_indirect -memory 3072 -cores 2 -no-snapshot -wipe-data -timezone Etc/UTC
           script: bash tools/friday-builder/run_virtual_phone_tests.sh
 
+      - name: Trace instrumented failures to source functions
+        # Preserve diagnostics after test failures, but do not run against an
+        # empty workspace when the whole job was cancelled during checkout.
+        if: ${{ always() && !cancelled() && hashFiles('.ralph/code_trace.py') != '' }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/friday-runtime-code-trace"
+          args=()
+          while IFS= read -r -d '' report; do
+            args+=(--failure "$report")
+          done < <(find mobile/app/build/test-results mobile/app/build/reports/androidTests mobile/app/build/outputs/androidTest-results -type f \( -name '*.xml' -o -name '*.txt' -o -name '*.log' \) -print0 2>/dev/null || true)
+          python3 .ralph/code_trace.py --repo . --out-dir "$RUNNER_TEMP/friday-runtime-code-trace" "${args[@]}"
+
+      - name: Upload failure-to-source traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-failure-to-source-traces
+          path: ${{ runner.temp }}/friday-runtime-code-trace/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Upload emulator evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -510,6 +589,32 @@ jobs:
           print("\n".join(summary))
           PY
 
+      - name: Test whole-app source tracer
+        run: python3 -m unittest discover -s tools/friday-builder -p 'test_code_trace.py' -v
+
+      - name: Index source symbols and cross-file call relationships
+        run: |
+          set -euo pipefail
+          python3 .ralph/code_trace.py --repo . --out-dir "$RUNNER_TEMP/friday-code-trace"
+
+      - name: Publish code-trace summary
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/friday-code-trace/trace-summary.md" ]; then
+            cat "$RUNNER_TEMP/friday-code-trace/trace-summary.md" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Whole-app code trace did not produce a summary." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload whole-app code trace index
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-whole-app-code-trace
+          path: ${{ runner.temp }}/friday-code-trace/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Publish source-audit summary
         if: always()
         run: |
@@ -526,6 +631,16 @@ jobs:
           name: friday-whole-repository-source-audit
           path: ${{ runner.temp }}/friday-source-audit/
           if-no-files-found: warn
+          retention-days: 14
+
+      # This ZIP contains owner-provided device evidence, not the Git source tree or an APK.
+      - name: Upload owner-provided device evidence archive
+        if: always() && hashFiles('New folder (1).zip') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-owner-device-evidence
+          path: New folder (1).zip
+          if-no-files-found: error
           retention-days: 14
 
   report-failure:
@@ -580,3 +695,41 @@ jobs:
                 body
               });
             }
+
+  # Promote only when all mandatory validation lanes pass for this exact commit.
+  verified-debug-apk:
+    name: Promote verified debug APK
+    if: ${{ success() }}
+    needs:
+      - debug-apk
+      - android-emulator
+      - full-source-audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download internal debug candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: unverified-debug-apk-candidate
+          path: candidate
+
+      - name: Verify APK archive and compute immutable identity
+        run: |
+          set -euo pipefail
+          APK=candidate/app-debug.apk
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
+          sha256sum "$APK" | tee candidate/SHA256SUMS
+          echo "VERIFIED_SOURCE_COMMIT=$GITHUB_SHA" | tee candidate/SOURCE_COMMIT.txt
+
+      - name: Publish verified install candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-verified-debug-apk
+          path: |
+            candidate/app-debug.apk
+            candidate/SHA256SUMS
+            candidate/SOURCE_COMMIT.txt
+          if-no-files-found: error
+          retention-days: 30

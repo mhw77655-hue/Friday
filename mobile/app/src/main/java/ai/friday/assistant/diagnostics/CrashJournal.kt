@@ -15,7 +15,9 @@ import kotlin.system.exitProcess
  * speech, screen contents, local variables, or arbitrary process memory.
  */
 object CrashJournal {
-    private const val FILE_NAME = "last-crash.json"
+    private const val FILE_PREFIX = "last-crash-"
+    private const val FILE_SUFFIX = ".json"
+    private const val MAX_CRASH_RECORDS = 10
     @Volatile private var installed = false
 
     fun install(application: Application) {
@@ -35,10 +37,23 @@ object CrashJournal {
         }
     }
 
-    fun read(application: Application): JSONObject? = runCatching {
-        val atomic = AtomicFile(fileFor(application))
-        atomic.openRead().bufferedReader(Charsets.UTF_8).use { JSONObject(it.readText()) }
-    }.getOrNull()
+    fun read(application: Application): JSONObject? =
+        readAll(application).optJSONObject(0)
+
+    fun readAll(application: Application): JSONArray = runCatching {
+        val directory = File(application.filesDir, "diagnostics")
+        val files = directory.listFiles { file ->
+            file.isFile && file.name.startsWith(FILE_PREFIX) && file.name.endsWith(FILE_SUFFIX)
+        }.orEmpty().sortedByDescending { it.lastModified() }.take(MAX_CRASH_RECORDS)
+        JSONArray().apply {
+            files.forEach { file ->
+                runCatching {
+                    val atomic = AtomicFile(file)
+                    put(atomic.openRead().bufferedReader(Charsets.UTF_8).use { JSONObject(it.readText()) })
+                }
+            }
+        }
+    }.getOrElse { JSONArray() }
 
     internal fun createRecord(
         threadName: String,
@@ -87,9 +102,25 @@ object CrashJournal {
     }
 
     private fun fileFor(application: Application): File =
-        File(File(application.filesDir, "diagnostics"), FILE_NAME).apply {
+        File(
+            File(application.filesDir, "diagnostics"),
+            "$FILE_PREFIX${Process.myPid()}$FILE_SUFFIX"
+        ).apply {
             parentFile?.mkdirs()
         }
+
+    fun pruneHistory(application: Application) {
+        runCatching { pruneOldRecords(application) }
+    }
+
+    private fun pruneOldRecords(application: Application) {
+        val directory = File(application.filesDir, "diagnostics")
+        directory.listFiles { file ->
+            file.isFile && file.name.startsWith(FILE_PREFIX) && file.name.endsWith(FILE_SUFFIX)
+        }.orEmpty().sortedByDescending { it.lastModified() }
+            .drop(MAX_CRASH_RECORDS)
+            .forEach { it.delete() }
+    }
 
     private fun redact(value: String): String {
         val assignments = Regex(

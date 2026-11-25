@@ -1,9 +1,8 @@
 package ai.friday.assistant
 
 import android.app.Application
-import android.app.ActivityManager
 import android.os.Build
-import android.os.Process
+import android.util.Log
 import java.io.File
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -18,40 +17,78 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import ai.friday.assistant.update.FridayUpdateWorker
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.Executors
 
 class FridayApplication : Application() {
+    private val startupExecutor by lazy {
+        Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "FridayStartupIO").apply { isDaemon = true }
+        }
+    }
+    private val maintenanceExecutor by lazy {
+        Executors.newFixedThreadPool(2) { runnable ->
+            Thread(runnable, "FridayMaintenanceIO").apply { isDaemon = true }
+        }
+    }
+    private val shizukuExecutor by lazy {
+        Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "FridayShizukuInit").apply { isDaemon = true }
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
-        LocalTurnJournal.initialize(this)
         // Preserve a sanitized crash signature for the next user-exported report.
         // Install in every process so isolated voice/inference crashes are visible too.
         ai.friday.assistant.diagnostics.CrashJournal.install(this)
-        ai.friday.assistant.diagnostics.PhoneActionDiagnostics.install(this)
         // Android creates a separate Application instance in every declared
-        // process (:voice, :inference, assistant/session). Only the product
-        // process owns Friday's cognitive composition root and lifecycle.
-        // Secondary capability habitats construct only their own organs.
+        // process (:voice, :inference, assistant/session). CrashJournal is
+        // process-aware and must observe all of them. The phone-action trace
+        // journal is a single shared file and has one writer: the product
+        // process. Installing its executor in every process created needless
+        // cross-process file-lock contention and could starve Settings clears.
         if (currentProcessName() != packageName) return
-        // Keep Shizuku capability state alive for scheduled background update
-        // work as well as foreground Settings interactions.
-        ShizukuBridge.init()
-        ShizukuBridge.refresh()
-        FridayEngine.init(this)
-        // If Android completed an APK replacement, verify the newly installed
-        // package before the app reports the update as healthy.
-        ai.friday.assistant.update.FridayUpdateStateStore(this).verifyPendingHealthCheck()
-        scheduleFridayUpdates()
-        // Study this exact Android host and prepare Friday's private development
-        // workspace once. Unique work keeps retries/resumes idempotent across launches.
-        ai.friday.assistant.bootstrap.host.HostBootstrapWorker.enqueue(this)
-        // Acquire the pinned resident model only after host measurement, on unmetered Wi-Fi while charging.
-        ai.friday.assistant.model.storage.ResidentModelBootstrapWorker.enqueue(this)
-        // Import and periodically refresh the canonical objectives locally;
-        // the plan remains readable from app-private storage while offline.
-        ai.friday.assistant.bootstrap.plan.ObjectivePlanSyncWorker.enqueue(this)
-        // Reconcile the canonical plan into durable Objective 1 evidence tasks.
-        // This local-first worker never claims a phase complete without proof.
-        ai.friday.assistant.bootstrap.plan.ObjectiveExecutionWorker.enqueue(this)
+        ai.friday.assistant.diagnostics.PhoneActionDiagnostics.install(this)
+        // The conversation journal is owned by the main process only; secondary
+        // processes must not append to the same JSONL stream concurrently.
+        LocalTurnJournal.initialize(this)
+        // Start the cognitive composition root without blocking Application.onCreate.
+        FridayEngine.initAsync(this)
+        // Binder checks, package-state reads and WorkManager scheduling can touch
+        // system services or persistent storage. Keep them off the first-frame lane.
+        // A slow or unavailable Shizuku binder must not block plan/update scheduling.
+        shizukuExecutor.execute {
+            startupTask("Shizuku initialization") {
+                ShizukuBridge.init()
+                ShizukuBridge.refresh()
+            }
+        }
+        startupExecutor.execute {
+            startupTask("update scheduling") { scheduleFridayUpdates() }
+            // Unique work keeps retries/resumes idempotent across launches.
+            startupTask("host bootstrap scheduling") {
+                ai.friday.assistant.bootstrap.host.HostBootstrapWorker.enqueue(this)
+            }
+            startupTask("objective plan synchronization scheduling") {
+                ai.friday.assistant.bootstrap.plan.ObjectivePlanSyncWorker.enqueue(this)
+            }
+            startupTask("objective execution scheduling") {
+                ai.friday.assistant.bootstrap.plan.ObjectiveExecutionWorker.enqueue(this)
+            }
+            startupTask("update health verification") {
+                ai.friday.assistant.update.FridayUpdateStateStore(this).verifyPendingHealthCheck()
+            }
+        }
+        // Best-effort diagnostics use a separate lane so a stuck system-history
+        // Binder call cannot delay durable work scheduling or update verification.
+        maintenanceExecutor.execute {
+            maintenanceTask("process-exit diagnostics") {
+                ai.friday.assistant.diagnostics.ProcessExitDiagnostics.capture(this)
+            }
+            maintenanceTask("crash history retention") {
+                ai.friday.assistant.diagnostics.CrashJournal.pruneHistory(this)
+            }
+        }
         // Process-scoped background/foreground for the Companion Core (plan
         // §4.3, audit R-A3). ProcessLifecycleOwner fires ON_STOP only when the
         // LAST activity stops — i.e. the whole process backgrounds — so a
@@ -72,6 +109,18 @@ class FridayApplication : Application() {
         })
     }
 
+
+    private fun startupTask(name: String, action: () -> Unit) {
+        runCatching(action).onFailure { failure ->
+            Log.e("FridayApplication", "Background startup task failed: $name", failure)
+        }
+    }
+
+    private fun maintenanceTask(name: String, action: () -> Unit) {
+        runCatching(action).onFailure { failure ->
+            Log.w("FridayApplication", "Best-effort maintenance task failed: $name", failure)
+        }
+    }
 
     /**
      * Keep the signed-release discovery lane alive without Termux or a manual
@@ -114,11 +163,10 @@ class FridayApplication : Application() {
 
     private fun currentProcessName(): String? {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) return Application.getProcessName()
-        val pid = Process.myPid()
-        val manager = getSystemService(ACTIVITY_SERVICE) as ActivityManager
-        return manager.runningAppProcesses?.firstOrNull { it.pid == pid }?.processName
-            ?: runCatching {
-                File("/proc/self/cmdline").readText().substringBefore('\u0000').trim()
-            }.getOrNull()
+        // /proc/self/cmdline is a tiny kernel-provided value; avoid a
+        // PackageManager/ActivityManager Binder call during Application.onCreate.
+        return runCatching {
+            File("/proc/self/cmdline").readText().substringBefore('\u0000').trim()
+        }.getOrNull()
     }
 }

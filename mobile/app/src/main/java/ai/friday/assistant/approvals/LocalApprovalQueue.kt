@@ -322,10 +322,10 @@ data class ApprovalEntry(
 }
 
 /** Map value that JSONObject can store directly. */
-private fun jsonApprovalValue(v: Any): Any = when (v) {
+internal fun jsonApprovalValue(v: Any?): Any = when (v) {
     is Int, is Long, is Double, is Float, is Boolean, is String -> v
-    is Map<*, *> -> JSONObject(v.mapKeys { it.key.toString() }.mapValues { jsonApprovalValue(it.value!!) })
-    is List<*> -> org.json.JSONArray(v.map { jsonApprovalValue(it!!) })
+    is Map<*, *> -> JSONObject(v.mapKeys { it.key.toString() }.mapValues { jsonApprovalValue(it.value) })
+    is List<*> -> org.json.JSONArray(v.map { jsonApprovalValue(it) })
     null -> org.json.JSONObject.NULL
     else -> v.toString()
 }

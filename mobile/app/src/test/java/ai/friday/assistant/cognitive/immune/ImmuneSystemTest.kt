@@ -122,6 +122,43 @@ class ImmuneSystemTest {
         assertTrue(hit.previousFailures == 1)
     }
 
+    @Test
+    fun `observe consumes an already published live failure without duplicating it`() {
+        val sys = system()
+        val event = sys.surface.report(timeoutReport())
+
+        sys.observe(event)
+
+        assertEquals(1L, sys.surface.totalFailureCount)
+        assertEquals(ContainmentStatus.ISOLATED, sys.containment.statusOf("STT"))
+        assertEquals(DegradationLevel.DEGRADED, sys.degradation.levelOf("stt"))
+        assertEquals(1, sys.memory.resembles(ai.friday.assistant.failure.failureSignatureOf(timeoutReport()))!!.previousFailures)
+        assertTrue(events.any { it is CognitiveEvent.FailureDetected })
+        assertFalse(events.any { it is CognitiveEvent.RecoveryStarted })
+    }
+
+    @Test
+    fun `verified recovery outcome restores live immune state and memory`() {
+        val sys = system()
+        val failure = sys.surface.report(timeoutReport())
+        sys.observe(failure)
+        val recovery = sys.surface.recover(
+            aggregateKey = timeoutReport().dedupeKey,
+            result = ai.friday.assistant.failure.RecoveryResult.SUCCESS,
+            message = "health probe verified recovery",
+            action = RecoveryAction.RETRY
+        )!!
+
+        sys.observeRecovery(recovery)
+
+        assertEquals(ContainmentStatus.HEALTHY, sys.containment.statusOf("STT"))
+        assertEquals(DegradationLevel.FULL, sys.degradation.levelOf("stt"))
+        assertTrue(sys.memory.evidenceLedger().any {
+            it.result == ai.friday.assistant.failure.RecoveryResult.SUCCESS &&
+                it.failedOperation == "transcribe"
+        })
+    }
+
     // ────────────────────────────────────────────── circuit breaker
 
     @Test

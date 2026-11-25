@@ -289,6 +289,83 @@ class FailureStoreTest {
     }
 
     @Test
+    fun `structured exception evidence survives durable failure round trip`() = runBlocking {
+        val storage = MemoryStorage()
+        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        try {
+            val store = FailureStore(storage, scope)
+            val surface = FailureSurface()
+            store.attach(surface)
+            val event = surface.report(FailureReport(
+                subsystem = "ENGINE",
+                operation = "environment_init",
+                severity = FailureSeverity.ERROR,
+                category = FailureCategory.ENVIRONMENT,
+                message = "environment initialization failed",
+                source = "FridayEngine",
+                cause = "IllegalStateException: invalid environment state",
+                state = "WAKING",
+                dependency = "environment-runtime",
+                recoverability = Recoverability.RECOVERABLE,
+                correlationId = "boot-correlation-1",
+                attempt = 2,
+                recoveryAction = RecoveryAction.REINITIALIZE,
+                metadata = mapOf(
+                    "exception_chain" to "IllegalStateException -> IOException",
+                    "stack_frames" to "EnvironmentFactory.create(EnvironmentFactory.kt:42)"
+                ),
+                failureCause = FailureCause.NATIVE_FAILURE,
+                relatedStepId = "boot-environment",
+                relatedCapability = "isolated-environment",
+                environment = "android-main-process",
+                rootCauseHypothesis = "native environment bridge rejected the state",
+                resourceState = "available_memory_bytes=734003200"
+            ))
+
+            withTimeout(3_000) {
+                while (store.loadRecent().none { it.id == event.id }) delay(10)
+            }
+            val loaded = store.loadRecent().single { it.id == event.id }
+            assertEquals(event.cause, loaded.cause)
+            assertEquals(event.failureCause, loaded.failureCause)
+            assertEquals(event.relatedStepId, loaded.relatedStepId)
+            assertEquals(event.relatedCapability, loaded.relatedCapability)
+            assertEquals(event.environment, loaded.environment)
+            assertEquals(event.rootCauseHypothesis, loaded.rootCauseHypothesis)
+            assertEquals(event.resourceState, loaded.resourceState)
+            assertEquals(event.metadata, loaded.metadata)
+            assertEquals(event.recoveryAction, loaded.recoveryAction)
+        } finally {
+            scope.cancel()
+        }
+    }
+
+    @Test
+    fun `self diagnosis summary includes captured exception and root cause evidence`() {
+        val surface = FailureSurface()
+        val event = surface.report(FailureReport(
+            subsystem = "ENGINE",
+            operation = "environment_init",
+            severity = FailureSeverity.ERROR,
+            category = FailureCategory.ENVIRONMENT,
+            message = "environment initialization failed",
+            cause = "IllegalStateException: invalid environment state",
+            failureCause = FailureCause.NATIVE_FAILURE,
+            rootCauseHypothesis = "native environment bridge rejected the state",
+            metadata = mapOf(
+                "exception_chain" to "IllegalStateException -> IOException",
+                "stack_frames" to "EnvironmentFactory.create(EnvironmentFactory.kt:42)"
+            )
+        ))
+
+        val summary = SelfDiagnosis(surface).diagnose(event).summary
+        assertTrue(summary.contains("IllegalStateException: invalid environment state"))
+        assertTrue(summary.contains("failureCause=NATIVE_FAILURE"))
+        assertTrue(summary.contains("native environment bridge rejected the state"))
+        assertTrue(summary.contains("EnvironmentFactory.create"))
+    }
+
+    @Test
     fun `nonpositive load limits return an empty result`() {
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         try {

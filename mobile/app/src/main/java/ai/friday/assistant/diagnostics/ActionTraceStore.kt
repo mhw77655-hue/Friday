@@ -1,7 +1,14 @@
 package ai.friday.assistant.diagnostics
 
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+
 import org.json.JSONArray
 import org.json.JSONObject
+import android.util.Log
+import androidx.annotation.WorkerThread
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.io.RandomAccessFile
@@ -10,6 +17,10 @@ import java.nio.file.Files
 import java.nio.file.StandardCopyOption
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Bounded, local-only journal for phone-control attempts.
@@ -192,7 +203,15 @@ class ActionTraceStore(
 
     fun clear() = synchronized(monitor) {
         withFileLock {
-            if (journalFile.exists()) journalFile.delete()
+            if (journalFile.exists()) {
+                val deleted = journalFile.delete()
+                check(deleted || !journalFile.exists()) {
+                    "Could not delete the local action journal; existing evidence was preserved."
+                }
+            }
+            check(!journalFile.exists()) {
+                "The local action journal still exists after the clear operation."
+            }
         }
     }
 
@@ -210,10 +229,29 @@ class ActionTraceStore(
             .put("events", root.optJSONArray("events") ?: JSONArray())
             .toString(2)
 
-    private fun readRoot(): JSONObject = runCatching {
-        if (!journalFile.isFile) JSONObject()
-        else JSONObject(journalFile.readText(Charsets.UTF_8))
-    }.getOrElse { JSONObject() }
+    private fun readRoot(): JSONObject {
+        if (!journalFile.isFile) return JSONObject()
+        return try {
+            JSONObject(journalFile.readText(Charsets.UTF_8))
+        } catch (failure: Exception) {
+            // Never silently replace a damaged journal with an empty object:
+            // the next record would otherwise overwrite the only copy of the
+            // owner's diagnostic evidence. Quarantine the exact bytes first,
+            // then let the live journal recover as an empty, writable journal.
+            val quarantine = File(
+                directory,
+                "$FILE_NAME.corrupt-${System.currentTimeMillis()}-${UUID.randomUUID()}"
+            )
+            check(journalFile.renameTo(quarantine)) {
+                "The action journal is unreadable and could not be preserved for recovery."
+            }
+            Log.e(
+                "PhoneActionDiagnostics",
+                "Unreadable action journal preserved as ${quarantine.name}; starting a fresh journal."
+            )
+            JSONObject()
+        }
+    }
 
     private fun writeRoot(root: JSONObject) {
         directory.mkdirs()
@@ -316,18 +354,24 @@ internal fun sanitizedCrashSummary(previousCrash: JSONObject?): JSONObject {
 /** Android-facing process singleton; initialized by FridayApplication. */
 object PhoneActionDiagnostics {
     @Volatile private var store: ActionTraceStore? = null
+    private val cachedEventCount = AtomicInteger(0)
+    private val ioExecutor = Executors.newSingleThreadExecutor { runnable ->
+        Thread(runnable, "FridayActionTraceIO").apply { isDaemon = true }
+    }
 
     fun install(context: android.content.Context) {
         val app = context.applicationContext
-        val version = runCatching {
-            app.packageManager.getPackageInfo(app.packageName, 0).versionName ?: "unknown"
-        }.getOrDefault("unknown")
-        store = ActionTraceStore(
+        // BuildConfig avoids a PackageManager Binder call during Application.onCreate.
+        val installed = ActionTraceStore(
             directory = File(app.filesDir, "diagnostics"),
-            appVersion = version,
+            appVersion = ai.friday.assistant.BuildConfig.VERSION_NAME,
             androidApi = android.os.Build.VERSION.SDK_INT,
             sourceRevision = ai.friday.assistant.BuildConfig.SOURCE_REVISION
         )
+        store = installed
+        ioExecutor.execute {
+            cachedEventCount.set(runCatching { installed.eventCount() }.getOrDefault(0))
+        }
     }
 
     fun record(
@@ -340,20 +384,46 @@ object PhoneActionDiagnostics {
         failureStage: String? = null,
         parentTraceId: String? = null
     ) {
-        runCatching {
-            store?.record(action, route, outcome, durationMs, verificationState, verificationStage, failureStage, parentTraceId)
+        val activeStore = store ?: run {
+            Log.w("PhoneActionDiagnostics", "Dropped action trace because the diagnostics store is not initialized.")
+            return
+        }
+        ioExecutor.execute {
+            runCatching {
+                activeStore.record(action, route, outcome, durationMs, verificationState, verificationStage, failureStage, parentTraceId)
+            }.onFailure { failure ->
+                Log.w("PhoneActionDiagnostics", "Could not persist action trace", failure)
+            }
+            cachedEventCount.set(runCatching { activeStore.eventCount() }.getOrDefault(cachedEventCount.get()))
         }
     }
 
-    fun eventCount(): Int = runCatching { store?.eventCount() ?: 0 }.getOrDefault(0)
+    /** Non-blocking count for immediate UI use. */
+    fun eventCount(): Int = cachedEventCount.get()
 
+    /** Wait for initial disk load and queued records before showing an exact count. */
+    suspend fun eventCountAfterFlush(): Int = withContext(Dispatchers.IO) {
+        awaitJournalBarrier()
+        cachedEventCount.get()
+    }
+
+    private fun awaitJournalBarrier() {
+        val barrier = CountDownLatch(1)
+        ioExecutor.execute { barrier.countDown() }
+        check(barrier.await(5, TimeUnit.SECONDS)) { "action trace journal did not flush before export" }
+    }
+
+    @WorkerThread
     fun exportText(context: android.content.Context): String = runCatching {
+        awaitJournalBarrier()
         store?.exportText(capabilitySnapshot(context.applicationContext))
             ?: "FRIDAY LIVE TEST REPORT\nDiagnostics are not initialized in this process."
     }.getOrDefault("FRIDAY LIVE TEST REPORT\nThe local action journal could not be read.")
 
     /** Structured, privacy-filtered report for direct owner-authorized GitHub upload. */
+    @WorkerThread
     fun exportJson(context: android.content.Context): String = runCatching {
+        awaitJournalBarrier()
         store?.exportJson(capabilitySnapshot(context.applicationContext))
             ?: JSONObject().put("report_type", "FRIDAY_LIVE_TEST_REPORT")
                 .put("schema_version", 1)
@@ -408,9 +478,53 @@ object PhoneActionDiagnostics {
             .put("notification_listener_enabled", enabledNotificationListeners.split(':').any { it.equals(expectedNotificationListener, ignoreCase = true) })
             .put("shizuku_status", shizukuStatus)
             .put("last_crash", crashSummary)
+            .put("crash_history", application?.let { CrashJournal.readAll(it) } ?: JSONArray())
+            .put("process_exit_history", ProcessExitDiagnostics.readSummary(context))
     }
 
     fun clear() {
-        runCatching { store?.clear() }
+        val activeStore = store ?: return
+        ioExecutor.execute {
+            runCatching { activeStore.clear() }.onFailure { failure ->
+                Log.w("PhoneActionDiagnostics", "Could not clear local action traces", failure)
+            }.onSuccess {
+                cachedEventCount.set(0)
+            }
+        }
     }
+
+    /**
+     * Clear after all earlier journal writes, without blocking a Dispatchers.IO
+     * worker on a CountDownLatch. The serial executor preserves write ordering;
+     * the timeout is surfaced to Settings as an explicit failure.
+     */
+    suspend fun clearAndAwait() =
+        kotlinx.coroutines.suspendCancellableCoroutine<Unit> { continuation ->
+            val activeStore = store
+            if (activeStore == null) {
+                continuation.resumeWithException(
+                    IllegalStateException("Phone-action diagnostics are not initialized; the journal was not cleared.")
+                )
+                return@suspendCancellableCoroutine
+            }
+            try {
+                ioExecutor.execute {
+                    // A cancelled caller must not leave a queued destructive
+                    // operation behind. Once the local delete starts it runs
+                    // to completion and reports its actual result; an arbitrary
+                    // timeout must not tell Settings that evidence was preserved
+                    // while a queued delete can still execute later.
+                    if (!continuation.isActive) return@execute
+                    try {
+                        activeStore.clear()
+                        cachedEventCount.set(0)
+                        if (continuation.isActive) continuation.resume(Unit)
+                    } catch (failure: Throwable) {
+                        if (continuation.isActive) continuation.resumeWithException(failure)
+                    }
+                }
+            } catch (failure: Throwable) {
+                if (continuation.isActive) continuation.resumeWithException(failure)
+            }
+        }
 }

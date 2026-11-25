@@ -33,6 +33,17 @@ private const val CACHE_DIR = "friday_tts_stream_cache"
 private const val MAX_CACHE_SIZE = 50
 
 /**
+ * Drain currently queued items without closing the producer channel.
+ * isClosedForSend is not a queue-empty condition: an open empty channel would
+ * make a loop on !isClosedForSend spin forever.
+ */
+internal fun <T> drainAvailable(channel: Channel<T>) {
+    while (channel.tryReceive().isSuccess) {
+        // Consume only values already available; return as soon as the queue is empty.
+    }
+}
+
+/**
  * Streaming TTS with interruption support and sentence-level generation.
  *
  * Features:
@@ -422,9 +433,7 @@ class StreamingTts(
         activePlayer.set(false)
         _isSpeaking.value = false
         // Clear pending synthesis
-        while (!pendingSynthesis.isClosedForSend) {
-            pendingSynthesis.tryReceive()
-        }
+        drainAvailable(pendingSynthesis)
         currentPlayer?.stop()
         currentPlayer?.release()
         currentPlayer = null
@@ -698,10 +707,7 @@ class StreamingTts(
     }
 
     private fun toSsml(text: String): String {
-        val escaped = text
-            .replace("&", "&")
-            .replace("<", "<")
-            .replace(">", ">")
+        val escaped = escapeStreamingTtsText(text)
         val paced = escaped
             .replace(Regex("([.!?])(\\s+)"), "$1<break time=\"350ms\"/>$2")
             .replace(Regex(",(\\s+)"), ",<break time=\"150ms\"/>$1")
@@ -735,3 +741,8 @@ class StreamingTts(
         pendingSynthesis.close()
     }
 }
+
+internal fun escapeStreamingTtsText(text: String): String = text
+    .replace("&", "&amp;")
+    .replace("<", "&lt;")
+    .replace(">", "&gt;")

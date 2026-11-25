@@ -8,7 +8,6 @@ import android.content.pm.PackageManager
 import android.content.Intent
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.widget.Toast
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -45,7 +44,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -64,16 +65,24 @@ import ai.friday.assistant.github.reporting.GitHubCredentialStore
 import ai.friday.assistant.github.reporting.FridayGitHubReportClient
 import ai.friday.assistant.ui.theme.FridayColors
 import ai.friday.assistant.ui.theme.FridayType
+import ai.friday.assistant.reverseengineering.InstalledApplicationCatalog
+import ai.friday.assistant.reverseengineering.InstalledApplicationTarget
+import ai.friday.assistant.reverseengineering.InstalledApkAnalyzer
+import ai.friday.assistant.reverseengineering.ApplicationKnowledgeStore
 
 private const val PREFS_NAME = "friday_settings"
 private const val KEY_PERSONA = "persona_text"
 private const val KEY_RECALL_LIMIT = "recall_limit"
 
+private data class RuntimeSnapshot(
+    val enabled: Boolean,
+    val serviceRunning: Boolean,
+    val microphoneActive: Boolean,
+    val batteryOptimizationIgnored: Boolean,
+    val startFailure: String
+)
+
 private data class SettingsSnapshot(
-    val jevConfigured: Boolean,
-    val githubConfigured: Boolean,
-    val githubAutoReportConsent: Boolean,
-    val githubPendingReport: Boolean,
     val chatGptConnected: Boolean,
     val chatGptBackgroundConsent: Boolean,
     val chatGptAccountLabel: String,
@@ -95,26 +104,12 @@ fun SettingsScreen() {
     val prefs = remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
 
     var personaText by remember { mutableStateOf(prefs.getString(KEY_PERSONA, "") ?: "") }
-    var recallLimit by remember { mutableStateOf(prefs.getString(KEY_RECALL_LIMIT, "") ?: "") }
-    var jevApiKey by remember { mutableStateOf("") }
-    var jevConfigured by remember { mutableStateOf(false) }
-    var githubToken by remember { mutableStateOf("") }
-    val githubCredentialStore = remember { GitHubCredentialStore(context) }
-    var githubConfigured by remember { mutableStateOf(false) }
-    val githubPendingReportStore = remember { ai.friday.assistant.github.reporting.GitHubPendingReportStore(context) }
-    val githubDeviceReportConsentStore = remember { ai.friday.assistant.github.reporting.GitHubDeviceReportConsentStore(context) }
-    var githubAutoReportConsent by remember { mutableStateOf(false) }
-    var githubPendingReport by remember { mutableStateOf(false) }
-    var githubDevelopmentStatus by remember { mutableStateOf("Development repository access has not been checked.") }
-    var githubReportStatus by remember {
-        mutableStateOf(if (githubConfigured) "GitHub credential is encrypted on this phone." else "GitHub reporting is not connected.")
-    }
-    var githubBusy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val chatGptAuth = remember(context) { ChatGPTPlanAuth(context) }
     val chatGptConsentStore = remember(context) { ChatGPTPlanBackgroundConsentStore(context) }
     var chatGptConnected by remember { mutableStateOf(false) }
     var chatGptBackgroundConsent by remember { mutableStateOf(false) }
+    var chatGptConsentSaving by remember { mutableStateOf(false) }
     var chatGptAccountLabel by remember { mutableStateOf("") }
     var chatGptStatus by remember { mutableStateOf("Checking ChatGPT connection…") }
     var chatGptBusy by remember { mutableStateOf(false) }
@@ -136,6 +131,7 @@ fun SettingsScreen() {
     var shizukuSnapshot by remember { mutableStateOf("") }
     var shizukuDiagnosticsRunning by remember { mutableStateOf(false) }
     var shizukuBindingRunning by remember { mutableStateOf(false) }
+    var shizukuRequestRunning by remember { mutableStateOf(false) }
     var shizukuAcceptanceReport by remember { mutableStateOf("") }
     var shizukuAcceptanceRunning by remember { mutableStateOf(false) }
     var objectiveExecutionStatus by remember { mutableStateOf("Friday is loading the canonical objectives ledger…") }
@@ -159,23 +155,19 @@ fun SettingsScreen() {
     LaunchedEffect(resumeSignal) {
         val settingsSnapshot = withContext(Dispatchers.IO) {
             SettingsSnapshot(
-                jevConfigured = ai.friday.assistant.voice.JevApiKeyStore(context).read() != null,
-                githubConfigured = githubCredentialStore.isConfigured(),
-                githubAutoReportConsent = githubDeviceReportConsentStore.isEnabled(),
-                githubPendingReport = githubPendingReportStore.read() != null,
                 chatGptConnected = chatGptAuth.isConnected(),
                 chatGptBackgroundConsent = chatGptConsentStore.isEnabled(),
                 chatGptAccountLabel = chatGptAuth.accountLabel(),
                 updateStatus = updateStateStore.lastStatus(),
                 stagedUpdate = updateStateStore.loadStaged(),
+                // Settings must never wait on the journal's disk executor just to paint a count.
                 actionTraceCount = ai.friday.assistant.diagnostics.PhoneActionDiagnostics.eventCount(),
                 phoneControlConnected = ai.friday.assistant.voice.FridayAccessibilityService.isEnabled()
             )
         }
-        jevConfigured = settingsSnapshot.jevConfigured
-        githubConfigured = settingsSnapshot.githubConfigured
-        githubAutoReportConsent = settingsSnapshot.githubAutoReportConsent
-        githubPendingReport = settingsSnapshot.githubPendingReport
+        // Do not let a slow first-load snapshot overwrite a newer result from
+        // an explicit Save/Remove action performed while that snapshot ran.
+
         chatGptConnected = settingsSnapshot.chatGptConnected
         chatGptBackgroundConsent = settingsSnapshot.chatGptBackgroundConsent
         chatGptAccountLabel = settingsSnapshot.chatGptAccountLabel
@@ -232,28 +224,45 @@ fun SettingsScreen() {
     }
 
     var shizukuDozeStatus by remember { mutableStateOf("Not checked.") }
-    var keepFridayAlive by remember(resumeSignal) {
-        mutableStateOf(ai.friday.assistant.runtime.FridayRuntimeController.isEnabled(context))
+    var keepFridayAlive by remember { mutableStateOf(false) }
+    var runtimeServiceRunning by remember { mutableStateOf(false) }
+    var runtimeMicrophoneActive by remember { mutableStateOf(false) }
+    var batteryOptimizationIgnored by remember { mutableStateOf(false) }
+    var runtimeStartFailure by remember { mutableStateOf("") }
+    // A slow lifecycle snapshot or an older service poll must not overwrite a
+    // newer owner toggle. This revision is local to this Settings composition.
+    var runtimeStateRevision by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(resumeSignal) {
+        val revisionAtStart = runtimeStateRevision
+        val snapshot = withContext(Dispatchers.IO) {
+            RuntimeSnapshot(
+                enabled = ai.friday.assistant.runtime.FridayRuntimeController.isEnabled(context),
+                serviceRunning = ai.friday.assistant.runtime.FridayRuntimeController.isServiceRunning(context),
+                microphoneActive = ai.friday.assistant.runtime.FridayRuntimeController.isMicrophoneServiceActive(context),
+                batteryOptimizationIgnored = ai.friday.assistant.runtime.FridayRuntimeController.batteryOptimizationIgnored(context),
+                startFailure = ai.friday.assistant.runtime.FridayRuntimeController.lastStartFailure(context)
+            )
+        }
+        if (revisionAtStart == runtimeStateRevision) {
+            keepFridayAlive = snapshot.enabled
+            runtimeServiceRunning = snapshot.serviceRunning
+            runtimeMicrophoneActive = snapshot.microphoneActive
+            batteryOptimizationIgnored = snapshot.batteryOptimizationIgnored
+            runtimeStartFailure = snapshot.startFailure
+        }
     }
-    var runtimeServiceRunning by remember(resumeSignal) {
-        mutableStateOf(ai.friday.assistant.runtime.FridayRuntimeController.isServiceRunning(context))
-    }
-    var runtimeMicrophoneActive by remember(resumeSignal) {
-        mutableStateOf(ai.friday.assistant.runtime.FridayRuntimeController.isMicrophoneServiceActive(context))
-    }
-    val batteryOptimizationIgnored = remember(resumeSignal) {
-        ai.friday.assistant.runtime.FridayRuntimeController.batteryOptimizationIgnored(context)
-    }
-    var runtimeStartFailure by remember(resumeSignal) {
-        mutableStateOf(ai.friday.assistant.runtime.FridayRuntimeController.lastStartFailure(context))
-    }
+
     fun refreshRuntimeStatus(expectedRunning: Boolean) {
+        val revisionAtStart = runtimeStateRevision
         scope.launch {
             repeat(20) {
+                if (revisionAtStart != runtimeStateRevision) return@launch
                 val snapshot = withContext(Dispatchers.IO) {
                     ai.friday.assistant.runtime.FridayRuntimeController.isServiceRunning(context) to
                         ai.friday.assistant.runtime.FridayRuntimeController.isMicrophoneServiceActive(context)
                 }
+                if (revisionAtStart != runtimeStateRevision) return@launch
                 runtimeServiceRunning = snapshot.first
                 runtimeMicrophoneActive = snapshot.second
                 runtimeStartFailure = withContext(Dispatchers.IO) {
@@ -267,6 +276,7 @@ fun SettingsScreen() {
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
+        runtimeStateRevision++
         if (granted) {
             keepFridayAlive = true
             ai.friday.assistant.runtime.FridayRuntimeController.enable(context)
@@ -430,14 +440,24 @@ fun SettingsScreen() {
             }
             Switch(
                 checked = chatGptBackgroundConsent,
-                enabled = chatGptConnected,
-                onCheckedChange = {
-                    chatGptConsentStore.setEnabled(it)
-                    chatGptBackgroundConsent = it
-                    chatGptStatus = if (it) {
-                        "Background ChatGPT plan use is enabled for explicitly shareable Builder digests."
-                    } else {
-                        "Background ChatGPT plan use is disabled."
+                enabled = chatGptConnected && !chatGptConsentSaving && !chatGptBusy,
+                onCheckedChange = { enabled ->
+                    chatGptConsentSaving = true
+                    scope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            runCatching { chatGptConsentStore.setEnabled(enabled) }
+                        }
+                        result.onSuccess {
+                            chatGptBackgroundConsent = enabled
+                            chatGptStatus = if (enabled) {
+                                "Background ChatGPT plan use is enabled for explicitly shareable Builder digests."
+                            } else {
+                                "Background ChatGPT plan use is disabled."
+                            }
+                        }.onFailure { failure ->
+                            chatGptStatus = "Background-use consent could not be saved: ${failure.javaClass.simpleName}."
+                        }
+                        chatGptConsentSaving = false
                     }
                 }
             )
@@ -451,13 +471,18 @@ fun SettingsScreen() {
             TextButton(
                 enabled = !chatGptBusy,
                 onClick = {
-                    chatGptConsentStore.setEnabled(false)
                     chatGptBackgroundConsent = false
                     chatGptBusy = true
-                    chatGptStatus = "Revoking the ChatGPT renewable session…"
+                    chatGptStatus = "Revoking background consent and the ChatGPT renewable session…"
                     scope.launch {
+                        val consentResult = withContext(Dispatchers.IO) {
+                            runCatching { chatGptConsentStore.setEnabled(false) }
+                        }
                         try {
                             chatGptStatus = chatGptAuth.disconnect()
+                            if (consentResult.isFailure) {
+                                chatGptStatus += " Background consent revocation could not be persisted; retry before reconnecting."
+                            }
                         } catch (failure: Exception) {
                             chatGptStatus = "Local sign-out failed: ${failure.javaClass.simpleName}."
                         } finally {
@@ -494,50 +519,7 @@ fun SettingsScreen() {
         SectionLabel("VOICE")
         Text(text = "TTS voice: en-GB (system)", style = FridayType.Technical)
 
-        SectionLabel("JEV DEVICE-DECISION ENGINE")
-        Text(
-            text = "Optional TypeSafe Jev cloud decision support. Friday's local command layer handles bounded actions; an optional local model may help form more complex phone-action plans. A redacted proposed action and risk tier may be sent to Jev for review. Screen snapshots and literal text-entry payloads stay on-device. Jev cannot execute actions or grant permissions; consequential actions still require Friday's confirmation. The key is encrypted with Android Keystore.",
-            style = FridayType.Label,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        OutlinedTextField(
-            value = jevApiKey,
-            onValueChange = { jevApiKey = it },
-            modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("TypeSafe API key", style = FridayType.Body) },
-            visualTransformation = PasswordVisualTransformation(),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = FridayColors.SurfaceHairline,
-                unfocusedBorderColor = FridayColors.SurfaceHairline
-            )
-        )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Button(
-                onClick = {
-                    val key = jevApiKey
-                    if (key.isNotBlank()) scope.launch {
-                        val result = withContext(Dispatchers.IO) {
-                            runCatching { ai.friday.assistant.voice.JevApiKeyStore(context).save(key) }
-                        }
-                        result.onSuccess { jevConfigured = true; jevApiKey = "" }
-                            .onFailure { jevConfigured = false }
-                    }
-                },
-                enabled = jevApiKey.isNotBlank()
-            ) { Text("Save Jev key") }
-            TextButton(onClick = {
-                scope.launch {
-                    withContext(Dispatchers.IO) { ai.friday.assistant.voice.JevApiKeyStore(context).clear() }
-                    jevConfigured = false
-                    jevApiKey = ""
-                }
-            }) { Text("Remove key") }
-        }
-        Text(
-            text = if (jevConfigured) "Jev credential stored securely; decision calls require internet." else "Jev not configured — Friday continues with local deterministic command handling.",
-            style = FridayType.Technical
-        )
+        JevCredentialSection(context)
 
         SectionLabel("PHONE CONTROL")
         Text(
@@ -611,7 +593,9 @@ fun SettingsScreen() {
             }
             Switch(
                 checked = keepFridayAlive,
+                modifier = Modifier.testTag("friday_runtime_toggle"),
                 onCheckedChange = { enabled ->
+                    runtimeStateRevision++
                     if (enabled) {
                         if (Build.VERSION.SDK_INT >= 33 &&
                             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
@@ -699,8 +683,33 @@ fun SettingsScreen() {
         Button(
             onClick = {
                 when {
-                    !shizukuAvailable -> ai.friday.assistant.ShizukuBridge.refresh()
-                    !shizukuGranted -> ai.friday.assistant.ShizukuBridge.requestPermission()
+                    !shizukuAvailable -> {
+                        shizukuRequestRunning = true
+                        scope.launch(Dispatchers.IO) {
+                            val outcome = runCatching {
+                                ai.friday.assistant.ShizukuBridge.refresh()
+                                if (ai.friday.assistant.ShizukuBridge.isAvailable.value) {
+                                    "Shizuku is running. Friday refreshed its binder availability."
+                                } else {
+                                    "Shizuku is not running. Friday remains operational without it."
+                                }
+                            }.getOrElse { failure ->
+                                "Shizuku connection check failed: " +
+                                    (failure.message ?: failure.javaClass.simpleName)
+                            }
+                            withContext(Dispatchers.Main.immediate) {
+                                shizukuSnapshot = outcome
+                                shizukuRequestRunning = false
+                            }
+                        }
+                    }
+                    !shizukuGranted -> {
+                        shizukuRequestRunning = true
+                        scope.launch(Dispatchers.IO) {
+                            try { ai.friday.assistant.ShizukuBridge.requestPermission() }
+                            finally { shizukuRequestRunning = false }
+                        }
+                    }
                     else -> {
                         shizukuBindingRunning = true
                         shizukuSnapshot = "Connecting to Friday's verified Shizuku service…"
@@ -716,12 +725,13 @@ fun SettingsScreen() {
                     }
                 }
             },
-            enabled = !shizukuBindingRunning,
+            enabled = !shizukuBindingRunning && !shizukuRequestRunning,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text(
                 when {
                     shizukuBindingRunning -> "Connecting…"
+                    shizukuRequestRunning -> "Checking Shizuku…"
                     !shizukuAvailable -> "Check Shizuku connection"
                     !shizukuGranted -> "Grant Friday Shizuku access"
                     else -> "Connect Friday to the phone"
@@ -774,6 +784,68 @@ fun SettingsScreen() {
             Text(text = shizukuAcceptanceReport, style = FridayType.Technical, modifier = Modifier.padding(vertical = 6.dp))
         }
 
+        GitHubDeviceReportingSection(context, actionTraceCount)
+
+        MemoryRulesAndApplicationLabSection(context)
+
+    }
+}
+
+@Composable
+private fun SectionLabel(text: String) {
+    Text(text = text, style = FridayType.Label, modifier = Modifier.padding(top = 24.dp, bottom = 4.dp))
+}
+
+private fun android.content.Context.findActivity(): Activity? {
+    var current: android.content.Context = this
+    while (current is ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return current as? Activity
+}
+
+
+@Composable
+private fun GitHubDeviceReportingSection(context: Context, actionTraceCount: Int) {
+    val scope = rememberCoroutineScope()
+    val githubCredentialStore = remember(context) { GitHubCredentialStore(context) }
+    val githubPendingReportStore = remember(context) {
+        ai.friday.assistant.github.reporting.GitHubPendingReportStore(context)
+    }
+    val githubDeviceReportConsentStore = remember(context) {
+        ai.friday.assistant.github.reporting.GitHubDeviceReportConsentStore(context)
+    }
+    var githubToken by remember { mutableStateOf("") }
+    var githubConfigured by remember { mutableStateOf(false) }
+    var githubAutoReportConsent by remember { mutableStateOf(false) }
+    var githubConsentSaving by remember { mutableStateOf(false) }
+    var githubPendingReport by remember { mutableStateOf(false) }
+    var githubDevelopmentStatus by remember { mutableStateOf("Development repository access has not been checked.") }
+    var githubReportStatus by remember { mutableStateOf("GitHub reporting is not connected.") }
+    var githubBusy by remember { mutableStateOf(false) }
+    var displayedActionTraceCount by remember { mutableIntStateOf(actionTraceCount) }
+    var actionJournalStatus by remember { mutableStateOf("Local action journal status has not been changed.") }
+
+    LaunchedEffect(context) {
+        val snapshot = withContext(Dispatchers.IO) {
+            Triple(
+                githubCredentialStore.isConfigured(),
+                githubDeviceReportConsentStore.isEnabled(),
+                githubPendingReportStore.read() != null
+            )
+        }
+        githubConfigured = snapshot.first
+        githubAutoReportConsent = snapshot.second
+        githubPendingReport = snapshot.third
+        githubReportStatus = if (snapshot.first) {
+            "GitHub credential is encrypted on this phone."
+        } else {
+            "GitHub reporting is not connected."
+        }
+    }
+
+    Column {
         SectionLabel("LIVE TEST ACTION JOURNAL")
         Text(
             text = "Friday records bounded phone-control attempts locally. The journal stores action categories, execution routes, outcomes and durations—not spoken requests, typed text, tap labels, screen contents or credentials.",
@@ -781,7 +853,7 @@ fun SettingsScreen() {
             modifier = Modifier.padding(bottom = 8.dp)
         )
         Text(
-            text = "$actionTraceCount action events currently stored on this phone.",
+            text = "$displayedActionTraceCount action events currently stored on this phone.",
             style = FridayType.Technical,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -820,7 +892,7 @@ fun SettingsScreen() {
 
         SectionLabel("GITHUB DEVICE REPORTING")
         Text(
-            text = "Create a fine-grained token limited to the mhw77655-hue/Friday repository, with Contents read/write, Pull requests read/write, Actions read, and Issues read/write (Metadata read is automatic). These permissions let Friday inspect the canonical plan, publish isolated candidate branches/PRs, check CI, and submit sanitized device acceptance reports. Paste it here once. Friday encrypts it with Android Keystore. Automatic reporting is OFF by default and requires the separate consent switch below. If enabled, Friday submits bounded app/build identity, host capability states, sanitized crash frames and action categories after defined milestones. It never includes conversations, speech transcripts, typed content, screen text, notifications or the token. Reports create public GitHub issues/artifacts. Anyone can read them. Enable automatic reporting only if you accept this public disclosure.",
+            text = "Create a fine-grained token limited to the mhw77655-hue/Friday repository, with Contents read/write, Pull requests read/write, Checks read, Commit statuses read, and Issues read/write (Metadata read is automatic). These permissions let Friday inspect the canonical plan, publish isolated candidate branches/PRs, check CI, and submit sanitized device acceptance reports. Paste it here once. Friday encrypts it with Android Keystore. Automatic reporting is OFF by default and requires the separate consent switch below. If enabled, Friday submits bounded app/build identity, host capability states, sanitized crash frames and action categories after defined milestones. It never includes conversations, speech transcripts, typed content, screen text, notifications or the token. Reports create public GitHub issues/artifacts. Anyone can read them. Enable automatic reporting only if you accept this public disclosure.",
             style = FridayType.Label,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -839,24 +911,32 @@ fun SettingsScreen() {
             }
             Switch(
                 checked = githubAutoReportConsent,
+                enabled = !githubConsentSaving,
                 onCheckedChange = { enabled ->
-                    runCatching { githubDeviceReportConsentStore.setEnabled(enabled) }
-                        .onSuccess {
+                    githubConsentSaving = true
+                    scope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            runCatching {
+                                githubDeviceReportConsentStore.setEnabled(enabled)
+                                if (enabled && githubConfigured) {
+                                    ai.friday.assistant.github.reporting.GitHubDeviceReportWorker.enqueue(
+                                        context, "owner-consent-enabled"
+                                    )
+                                }
+                            }
+                        }
+                        result.onSuccess {
                             githubAutoReportConsent = enabled
                             githubReportStatus = if (enabled) {
                                 "Automatic sanitized reporting enabled by your consent."
                             } else {
                                 "Automatic device reporting disabled. Existing local pending reports remain local."
                             }
-                            if (enabled && githubConfigured) {
-                                ai.friday.assistant.github.reporting.GitHubDeviceReportWorker.enqueue(
-                                    context, "owner-consent-enabled"
-                                )
-                            }
+                        }.onFailure { failure ->
+                            githubReportStatus = failure.message ?: "Reporting consent could not be saved."
                         }
-                        .onFailure {
-                            githubReportStatus = it.message ?: "Reporting consent could not be saved."
-                        }
+                        githubConsentSaving = false
+                    }
                 }
             )
         }
@@ -894,12 +974,21 @@ fun SettingsScreen() {
                         result.onSuccess {
                             githubConfigured = true
                             githubToken = ""
-                            githubReportStatus = "Credential encrypted locally. Friday's Builder queue has been started."
-                            ai.friday.assistant.bootstrap.host.HostBootstrapWorker.enqueue(context)
-                            ai.friday.assistant.model.storage.ResidentModelBootstrapWorker.enqueue(context)
-                            ai.friday.assistant.bootstrap.plan.ObjectiveExecutionWorker.enqueue(context)
-                            if (githubAutoReportConsent) {
-                                ai.friday.assistant.github.reporting.GitHubDeviceReportWorker.enqueue(context, "credential-saved")
+                            githubReportStatus = "Credential encrypted locally. Starting Friday's Builder queue…"
+                            val queued = withContext(Dispatchers.IO) {
+                                runCatching {
+                                    ai.friday.assistant.bootstrap.host.HostBootstrapWorker.enqueue(context)
+                                    ai.friday.assistant.model.storage.ResidentModelBootstrapWorker.enqueue(context)
+                                    ai.friday.assistant.bootstrap.plan.ObjectiveExecutionWorker.enqueue(context)
+                                    if (githubAutoReportConsent) {
+                                        ai.friday.assistant.github.reporting.GitHubDeviceReportWorker.enqueue(context, "credential-saved")
+                                    }
+                                }
+                            }
+                            githubReportStatus = if (queued.isSuccess) {
+                                "Credential encrypted locally. Friday's Builder queue has been started."
+                            } else {
+                                "Credential saved, but Builder scheduling failed: ${queued.exceptionOrNull()?.javaClass?.simpleName ?: "unknown error"}."
                             }
                         }.onFailure {
                             githubReportStatus = it.message ?: "Credential could not be stored securely."
@@ -908,16 +997,27 @@ fun SettingsScreen() {
                 },
                 enabled = githubToken.isNotBlank()
             ) { Text("Save GitHub credential") }
-            TextButton(onClick = {
-                scope.launch {
-                    withContext(Dispatchers.IO) { githubCredentialStore.clear() }
-                    githubDeviceReportConsentStore.setEnabled(false)
-                    githubAutoReportConsent = false
-                    githubConfigured = false
-                    githubToken = ""
-                    githubReportStatus = "GitHub credential and automatic-reporting consent removed from this phone. Pending evidence remains local."
+            TextButton(
+                enabled = !githubConsentSaving && !githubBusy,
+                onClick = {
+                    scope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            runCatching {
+                                githubDeviceReportConsentStore.setEnabled(false)
+                                githubCredentialStore.clear()
+                            }
+                        }
+                        result.onSuccess {
+                            githubAutoReportConsent = false
+                            githubConfigured = false
+                            githubToken = ""
+                            githubReportStatus = "GitHub credential and automatic-reporting consent removed from this phone. Pending evidence remains local."
+                        }.onFailure { failure ->
+                            githubReportStatus = "Credential removal failed: ${failure.javaClass.simpleName}. Existing credentials were not intentionally discarded."
+                        }
+                    }
                 }
-            }) { Text("Remove") }
+            ) { Text("Remove") }
         }
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -982,9 +1082,17 @@ fun SettingsScreen() {
         if (githubPendingReport && !githubBusy) {
             TextButton(
                 onClick = {
-                    githubPendingReportStore.clear()
-                    githubPendingReport = false
-                    githubReportStatus = "Pending report discarded. The next upload will capture a fresh snapshot."
+                    scope.launch {
+                        val result = withContext(Dispatchers.IO) {
+                            runCatching { githubPendingReportStore.clear() }
+                        }
+                        result.onSuccess {
+                            githubPendingReport = false
+                            githubReportStatus = "Pending report discarded. The next upload will capture a fresh snapshot."
+                        }.onFailure { failure ->
+                            githubReportStatus = "Pending report could not be discarded: ${failure.javaClass.simpleName}."
+                        }
+                    }
                 }
             ) { Text("Discard pending report and capture a fresh one") }
         }
@@ -995,13 +1103,45 @@ fun SettingsScreen() {
         )
         TextButton(
             onClick = {
-                ai.friday.assistant.diagnostics.PhoneActionDiagnostics.clear()
-                actionTraceCount = 0
-                Toast.makeText(context, "Local action journal cleared.", Toast.LENGTH_SHORT).show()
+                actionJournalStatus = "Clearing local action journal…"
+                scope.launch {
+                    val cleared = withContext(Dispatchers.IO) {
+                        runCatching {
+                            ai.friday.assistant.diagnostics.PhoneActionDiagnostics.clearAndAwait()
+                        }
+                    }
+                    // Compose state and Android UI feedback are always updated
+                    // on Main after the journal's background executor completes.
+                    withContext(Dispatchers.Main.immediate) {
+                        if (cleared.isSuccess) {
+                            displayedActionTraceCount = 0
+                            actionJournalStatus = "Local action journal cleared."
+                        } else {
+                            actionJournalStatus = "Could not clear the local journal. Existing evidence was preserved."
+                        }
+                    }
+                }
             },
             modifier = Modifier.fillMaxWidth()
         ) { Text("Clear local journal") }
+        Text(
+            text = actionJournalStatus,
+            style = FridayType.Technical,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+    }
+}
 
+@Composable
+private fun MemoryRulesAndApplicationLabSection(context: Context) {
+    val prefs = remember(context) { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
+    var recallLimit by remember { mutableStateOf(prefs.getString(KEY_RECALL_LIMIT, "") ?: "") }
+    var installedApps by remember { mutableStateOf<List<InstalledApplicationTarget>>(emptyList()) }
+    var applicationLabStatus by remember { mutableStateOf("No application has been analyzed yet.") }
+    var applicationLabReport by remember { mutableStateOf("") }
+    var analyzingPackage by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    Column {
         SectionLabel("MEMORY RULES")
         OutlinedTextField(
             value = recallLimit,
@@ -1016,19 +1156,167 @@ fun SettingsScreen() {
                 unfocusedBorderColor = FridayColors.SurfaceHairline
             )
         )
+
+        SectionLabel("APPLICATION INTELLIGENCE LAB")
+        Text(
+            text = "Choose an installed launcher app. Friday performs a read-only APK structure analysis; it does not access the app's private data or modify the selected app.",
+            style = FridayType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        Button(
+            onClick = {
+                scope.launch {
+                    applicationLabStatus = "Discovering installed launcher applications…"
+                    val result = withContext(Dispatchers.IO) {
+                        runCatching { InstalledApplicationCatalog.list(context) }
+                    }
+                    result.onSuccess { apps ->
+                        installedApps = apps
+                        applicationLabStatus = if (apps.isEmpty()) {
+                            "Android did not expose any other launcher applications to Friday."
+                        } else {
+                            "Found ${apps.size} selectable applications."
+                        }
+                    }.onFailure { failure ->
+                        applicationLabStatus = "Application discovery failed: ${failure.message?.take(160) ?: failure.javaClass.simpleName}"
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("Scan installed applications") }
+        Text(applicationLabStatus, style = FridayType.Technical, modifier = Modifier.padding(vertical = 6.dp))
+        installedApps.forEach { target ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(target.label, style = FridayType.Body)
+                    Text(target.packageName, style = FridayType.Technical)
+                }
+                TextButton(
+                    enabled = analyzingPackage == null,
+                    onClick = {
+                        scope.launch {
+                            analyzingPackage = target.packageName
+                            applicationLabStatus = "Analyzing ${target.label}…"
+                            applicationLabReport = ""
+                            val result = withContext(Dispatchers.IO) {
+                                runCatching {
+                                    val report = InstalledApkAnalyzer(context).analyze(target)
+                                    val saved = ApplicationKnowledgeStore(context).persist(report)
+                                    report to saved
+                                }
+                            }
+                            result.onSuccess { (report, savedFile) ->
+                                applicationLabReport = report.toJson().toString(2)
+                                applicationLabStatus = "Analysis saved as ${savedFile.name}. No target code was executed."
+                            }.onFailure { failure ->
+                                applicationLabStatus = "Analysis failed for ${target.label}: ${failure.message?.take(180) ?: failure.javaClass.simpleName}"
+                            }
+                            analyzingPackage = null
+                        }
+                    }
+                ) { Text(if (analyzingPackage == target.packageName) "Analyzing…" else "Analyze") }
+            }
+        }
+        if (applicationLabReport.isNotBlank()) {
+            Text(applicationLabReport, style = FridayType.Technical, modifier = Modifier.padding(top = 8.dp))
+        }
     }
 }
+
 
 @Composable
-private fun SectionLabel(text: String) {
-    Text(text = text, style = FridayType.Label, modifier = Modifier.padding(top = 24.dp, bottom = 4.dp))
-}
+private fun JevCredentialSection(context: Context) {
+    val scope = rememberCoroutineScope()
+    var jevApiKey by remember { mutableStateOf("") }
+    var jevStatus by remember { mutableStateOf("Checking Jev credential status…") }
+    var jevStatusRevision by remember { mutableIntStateOf(0) }
 
-private fun android.content.Context.findActivity(): Activity? {
-    var current: android.content.Context = this
-    while (current is ContextWrapper) {
-        if (current is Activity) return current
-        current = current.baseContext
+    LaunchedEffect(context) {
+        val revisionAtStart = jevStatusRevision
+        val configured = withContext(Dispatchers.IO) {
+            ai.friday.assistant.voice.JevApiKeyStore(context).read() != null
+        }
+        // An initial disk read must never overwrite a newer owner action.
+        if (revisionAtStart == jevStatusRevision) {
+            jevStatus = if (configured) {
+                "Jev credential stored securely; decision calls require internet."
+            } else {
+                "Jev not configured — Friday continues with local deterministic command handling."
+            }
+        }
     }
-    return current as? Activity
+
+    Column {
+        SectionLabel("JEV DEVICE-DECISION ENGINE")
+        Text(
+            text = "Optional TypeSafe Jev cloud decision support. Friday's local command layer handles bounded actions; an optional local model may help form more complex phone-action plans. A redacted proposed action and risk tier may be sent to Jev for review. Screen snapshots and literal text-entry payloads stay on-device. Jev cannot execute actions or grant permissions; consequential actions still require Friday's confirmation. The key is encrypted with Android Keystore.",
+            style = FridayType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        OutlinedTextField(
+            value = jevApiKey,
+            onValueChange = { jevApiKey = it },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("TypeSafe API key", style = FridayType.Body) },
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = FridayColors.SurfaceHairline,
+                unfocusedBorderColor = FridayColors.SurfaceHairline
+            )
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Button(
+                onClick = {
+                    val key = jevApiKey
+                    if (key.isNotBlank()) {
+                        val operationRevision = ++jevStatusRevision
+                        scope.launch {
+                            val result = withContext(Dispatchers.IO) {
+                                runCatching { ai.friday.assistant.voice.JevApiKeyStore(context).save(key) }
+                            }
+                            if (operationRevision == jevStatusRevision) {
+                                result.onSuccess {
+                                    jevApiKey = ""
+                                    jevStatus = "Jev credential stored securely; decision calls require internet."
+                                }.onFailure { failure ->
+                                    jevStatus = "Jev credential was not saved: " +
+                                        (failure.message?.take(180) ?: failure.javaClass.simpleName)
+                                }
+                            }
+                        }
+                    }
+                },
+                enabled = jevApiKey.isNotBlank()
+            ) { Text("Save Jev key") }
+            TextButton(onClick = {
+                val operationRevision = ++jevStatusRevision
+                jevStatus = "Removing Jev credential…"
+                scope.launch {
+                    val result = runCatching {
+                        // Keystore deletion is a local blocking operation. Do
+                        // not time it out and then report failure while the
+                        // underlying IO operation continues and removes the key.
+                        withContext(Dispatchers.IO) {
+                            ai.friday.assistant.voice.JevApiKeyStore(context).clear()
+                        }
+                    }
+                    if (operationRevision == jevStatusRevision) {
+                        result.onSuccess {
+                            jevApiKey = ""
+                            jevStatus = "Jev credential removed. Friday continues with local deterministic command handling."
+                        }.onFailure { failure ->
+                            jevStatus = "Jev credential could not be removed: " +
+                                (failure.message?.take(180) ?: failure.javaClass.simpleName)
+                        }
+                    }
+                }
+            }) { Text("Remove key") }
+        }
+        Text(text = jevStatus, style = FridayType.Technical)
+    }
 }

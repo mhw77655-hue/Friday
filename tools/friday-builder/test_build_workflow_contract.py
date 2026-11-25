@@ -18,15 +18,32 @@ class BuildWorkflowContractTests(unittest.TestCase):
         ids = self.job_ids()
         self.assertEqual(
             ids,
-            ["debug-apk", "android-emulator", "full-source-audit", "report-failure"],
+            ["debug-apk", "android-emulator", "full-source-audit", "report-failure", "verified-debug-apk"],
         )
         self.assertEqual(len(ids), len(set(ids)))
+
+    def test_apk_bundled_delivery_plan_matches_canonical_source(self):
+        canonical = ROOT / ".ralph" / "FRIDAY_DELIVERY_PLAN.md"
+        bundled = ROOT / "mobile" / "app" / "src" / "main" / "assets" / "friday" / "FRIDAY_DELIVERY_PLAN.md"
+        self.assertEqual(canonical.read_bytes(), bundled.read_bytes())
+        self.assertIn("Verify APK-bundled delivery plan matches canonical source", self.workflow)
+
+    def test_installable_apk_is_promoted_only_after_all_required_gates(self):
+        self.assertIn("name: unverified-debug-apk-candidate", self.workflow)
+        gate = self.workflow.split("  verified-debug-apk:", 1)[1]
+        for job in ("debug-apk", "android-emulator", "full-source-audit"):
+            self.assertIn(f"- {job}", gate)
+        self.assertIn("name: friday-verified-debug-apk", gate)
+        self.assertIn("unzip -t", gate)
+        self.assertIn("sha256sum", gate)
 
     def test_release_signing_smoke_runs_on_every_full_validation(self):
         debug = self.workflow.split("  debug-apk:", 1)[1].split("  android-emulator:", 1)[0]
         self.assertEqual(debug.count("Build and verify release variant with a disposable CI key"), 1)
         smoke = debug.split("      - name: Build and verify release variant with a disposable CI key", 1)[1]
-        smoke = smoke.split("      # Run tests even when APK assembly fails.", 1)[0]
+        # Inspect only this step. Later workflow steps legitimately have their
+        # own "if:" conditions and must not make the signing smoke look gated.
+        smoke = smoke.split("\n      - name:", 1)[0]
         self.assertIn("friday-ci-smoke.p12", smoke)
         self.assertIn("keytool -genkeypair", smoke)
         self.assertIn("apksigner\" verify --verbose", smoke)
@@ -54,16 +71,43 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn("x86_64 software emulation is too slow and unreliable", self.workflow)
         self.assertIn("-memory 3072 -cores 2", self.workflow)
 
+    def test_harness_failure_does_not_short_circuit_apk_validation_or_release(self):
+        self.assertIn("id: harness-contracts", self.workflow)
+        harness = self.workflow.split("      - name: Test Android harness and build contracts", 1)[1]
+        harness = harness.split("      - name: Measure Python line and branch coverage", 1)[0]
+        self.assertIn("continue-on-error: true", harness)
+        coverage = self.workflow.split("      - name: Measure Python line and branch coverage", 1)[1]
+        coverage = coverage.split("      - name: Upload Python coverage", 1)[0]
+        self.assertIn("id: python-coverage", coverage)
+        self.assertIn("continue-on-error: true", coverage)
+        enforcement = self.workflow.split("      - name: Enforce Android harness and build contract results", 1)[1]
+        enforcement = enforcement.split("      - name: Summarize test results", 1)[0]
+        self.assertIn("steps.harness-contracts.outcome", enforcement)
+        self.assertIn("steps.python-coverage.outcome", enforcement)
+        self.assertIn("exit 1", enforcement)
+
+    def test_gradle_structure_reports_are_retained_for_incremental_repository_migration(self):
+        debug = self.workflow.split("  debug-apk:", 1)[1].split("  android-emulator:", 1)[0]
+        self.assertIn("Capture Gradle project and dependency structure", debug)
+        self.assertIn(":mobile:app:dependencies --configuration debugCompileClasspath", debug)
+        self.assertIn(":mobile:app:dependencies --configuration debugRuntimeClasspath", debug)
+        self.assertIn(":mobile:app:dependencies --configuration releaseRuntimeClasspath", debug)
+        self.assertIn("name: friday-gradle-structure", debug)
+        self.assertIn("Upload Gradle structure evidence", debug)
+
     def test_manual_workflow_dispatch_is_available_for_recovery(self):
         self.assertIn("workflow_dispatch:", self.workflow)
 
 
-    def test_push_and_pull_request_builds_are_not_cancelled_by_followup_commits(self):
+    def test_active_pull_request_validation_is_not_cancelled_by_new_commits(self):
         self.assertIn("on:\n  push:\n    branches: [ main ]", self.workflow)
         self.assertIn("pull_request:", self.workflow)
         self.assertIn("concurrency:", self.workflow)
-        self.assertIn("group: friday-build-${{ github.ref }}", self.workflow)
+        self.assertIn("group: friday-build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}", self.workflow)
+        # Preserve the running emulator/build evidence. New commits replace
+        # obsolete pending candidates without cancelling the active run.
         self.assertIn("cancel-in-progress: false", self.workflow)
+        self.assertNotIn("cancel-in-progress: ${{ github.event_name == 'pull_request' }}", self.workflow)
         self.assertIn("workflow_dispatch:", self.workflow)
 
 

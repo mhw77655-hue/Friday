@@ -13,6 +13,7 @@ class LocalTurnJournalTest {
             LocalTurnJournal.initialize(directory)
             LocalTurnJournal.logTurn(false, "hello\nFriday")
             LocalTurnJournal.logTurn(true, "Hello back")
+            assertTrue("queued journal writes should flush", LocalTurnJournal.flushForTesting())
 
             val journal = File(directory, "turns.jsonl")
             val content = journal.readText()

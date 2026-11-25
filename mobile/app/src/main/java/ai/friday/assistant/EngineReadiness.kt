@@ -3,6 +3,8 @@ package ai.friday.assistant
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * LAUNCH-WAKE-ORDER AC2: Engine readiness state.
@@ -57,6 +59,18 @@ class EngineReadinessGate {
     val state: StateFlow<EngineReadinessState> = _state.asStateFlow()
 
     val current: EngineReadinessState get() = _state.value
+
+    /**
+     * Wait for a terminal bootstrap result without allowing callers to suspend
+     * forever if the bootstrap lane stalls or dies. A timeout is deliberately
+     * represented as null; it is not misreported as a failed engine.
+     */
+    suspend fun awaitTerminal(timeoutMs: Long): EngineReadinessState? {
+        require(timeoutMs > 0) { "timeoutMs must be positive" }
+        return withTimeoutOrNull(timeoutMs) {
+            state.first { it is EngineReadinessState.Ready || it is EngineReadinessState.FailedToWake }
+        }
+    }
 
     fun markWaking() {
         _state.value = EngineReadinessState.Waking

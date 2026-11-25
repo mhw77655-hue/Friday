@@ -51,9 +51,75 @@ class ImmuneSystem(
     private val recoveryLocks = ConcurrentHashMap<String, java.util.concurrent.locks.ReentrantLock>()
     private val recoveryAttempts = ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>()
     private val relatedCapabilityByOperation = ConcurrentHashMap<String, String>()
+    private val observedFailureIds = LinkedHashMap<String, Unit>()
 
     fun breaker(subsystem: String, operation: String): CircuitBreaker =
         breakers.computeIfAbsent(key(subsystem, operation)) { breakerFactory(it) }
+
+    /**
+     * Observe a failure that has ALREADY been published to the canonical
+     * FailureSurface. This is the live-runtime integration seam: it must not
+     * publish the event again or start synchronous recovery on the caller's
+     * thread. RecoveryController remains the sole async retry executor.
+     */
+    fun observe(event: FailureEvent) {
+        if (!claimObservedFailure(event.id)) return
+        val report = FailureReport(
+            subsystem = event.subsystem,
+            operation = event.operation,
+            severity = event.severity,
+            category = event.category,
+            message = event.message,
+            source = event.source,
+            cause = event.cause,
+            state = event.state,
+            dependency = event.dependency,
+            recoverability = event.recoverability,
+            correlationId = event.correlationId,
+            attempt = event.attempt,
+            recoveryAction = event.recoveryAction,
+            metadata = event.metadata,
+            userMessage = event.userMessage,
+            failureCause = event.failureCause,
+            relatedStepId = event.relatedStepId,
+            relatedCapability = event.relatedCapability,
+            environment = event.environment,
+            rootCauseHypothesis = event.rootCauseHypothesis,
+            resourceState = event.resourceState
+        )
+        val operationKey = key(report.subsystem, report.operation)
+        if (report.relatedCapability == null) relatedCapabilityByOperation.remove(operationKey)
+        else relatedCapabilityByOperation[operationKey] = report.relatedCapability
+
+        emit(CognitiveEvent.FailureDetected(event, report.failureCause))
+        val cause = report.failureCause ?: FailureCause.UNKNOWN
+        emit(CognitiveEvent.FailureClassified(event, cause, backoffPolicy.isRetryable(cause)))
+
+        val dependents = dependencyGraph.affectedDependents(report.subsystem)
+        val isolated = containment.setStatus(report.subsystem, ContainmentStatus.ISOLATED)
+        dependents.forEach { dependent ->
+            if (containment.statusOf(dependent) == ContainmentStatus.HEALTHY) {
+                containment.setStatus(dependent, ContainmentStatus.DEGRADED)
+            }
+        }
+        if (isolated != null) {
+            emit(CognitiveEvent.ContainmentStarted(report.subsystem, ContainmentStatus.ISOLATED, dependents))
+        }
+        report.relatedCapability?.let { capability ->
+            degradation.enter(capability, DegradationLevel.DEGRADED)?.let { (_, level) ->
+                emit(CognitiveEvent.DegradedModeEntered(capability, level))
+            }
+        }
+        val circuit = breaker(report.subsystem, report.operation)
+        val wasClosed = circuit.isClosed
+        circuit.onFailure()
+        if (wasClosed && circuit.isOpen) {
+            emit(CognitiveEvent.CircuitOpened(operationKey, circuit.failureCount))
+        }
+        // The existing RecoveryController owns retries. This observer records
+        // the incident without attempting a second, competing recovery path.
+        remember(report, report.recoveryAction, RecoveryResult.NOT_ATTEMPTED)
+    }
 
     /**
      * One failure through the pipeline.
@@ -71,6 +137,10 @@ class ImmuneSystem(
             relatedCapabilityByOperation[operationKey] = report.relatedCapability
         }
         val event = surface.report(report)
+        // The live FailureSurface listener may also observe this event. Claim
+        // it here so this direct path and the asynchronous bus path cannot
+        // increment breakers or memory twice for one incident.
+        claimObservedFailure(event.id)
         emit(CognitiveEvent.FailureDetected(event, report.failureCause))
 
         // ── classify
@@ -112,6 +182,46 @@ class ImmuneSystem(
             remember(report, report.recoveryAction, RecoveryResult.NOT_ATTEMPTED)
         }
         return event
+    }
+
+    /** Consume the canonical recovery outcome and close immune state only
+     * after the existing recovery authority has independently reported success. */
+    fun observeRecovery(event: ai.friday.assistant.failure.RecoveryEvent) {
+        val original = surface.recentFailures.value.firstOrNull {
+            it.subsystem == event.subsystem && it.operation == event.operation
+        }
+        if (original != null) {
+            val report = FailureReport(
+                subsystem = original.subsystem,
+                operation = original.operation,
+                severity = original.severity,
+                category = original.category,
+                message = original.message,
+                source = original.source,
+                cause = original.cause,
+                state = original.state,
+                dependency = original.dependency,
+                recoverability = original.recoverability,
+                correlationId = original.correlationId,
+                attempt = original.attempt,
+                recoveryAction = event.action,
+                metadata = original.metadata,
+                userMessage = original.userMessage,
+                failureCause = original.failureCause,
+                relatedStepId = original.relatedStepId,
+                relatedCapability = original.relatedCapability,
+                environment = original.environment,
+                rootCauseHypothesis = original.rootCauseHypothesis,
+                resourceState = original.resourceState
+            )
+            memory.record(
+                signature = failureSignatureOf(report),
+                attemptedAction = event.action,
+                result = event.result,
+                metadata = mapOf("verified" to "recovery-surface-outcome", "attempt" to event.attempt.toString())
+            )
+        }
+        if (event.result == RecoveryResult.SUCCESS) onSuccess(event.subsystem, event.operation)
     }
 
     /**
@@ -332,6 +442,15 @@ class ImmuneSystem(
                 "cause" to (report.failureCause?.name ?: "UNKNOWN")
             )
         )
+    }
+
+    private fun claimObservedFailure(id: String): Boolean = synchronized(observedFailureIds) {
+        if (observedFailureIds.containsKey(id)) return@synchronized false
+        observedFailureIds[id] = Unit
+        while (observedFailureIds.size > 2_048) {
+            observedFailureIds.remove(observedFailureIds.entries.first().key)
+        }
+        true
     }
 
     private fun key(subsystem: String, operation: String): String = "$subsystem|$operation"

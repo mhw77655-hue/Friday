@@ -41,23 +41,27 @@ class FridayUpdateWorker(
                     if (ai.friday.assistant.ShizukuBridge.isAvailable.value &&
                         ai.friday.assistant.ShizukuBridge.isGranted.value
                     ) {
-                        state.recordPendingHealthCheck(result.release)
-                        when (val install = FridayShizukuPackageInstaller(applicationContext).install(result)) {
-                            is FridayShizukuPackageInstaller.Result.Installed -> {
-                                state.recordStatus(
-                                    "Friday update installed automatically through Shizuku UID ${install.uid}; post-update version/signer health check is pending process restart."
-                                )
-                            }
-                            is FridayShizukuPackageInstaller.Result.Unavailable -> {
-                                state.clearPendingHealthCheck()
-                                state.recordStatus(
-                                    "Verified update staged; privileged installer became unavailable and the update remains queued: ${install.reason}"
-                                )
-                                notifyUpdateReady(result.release.versionName)
-                            }
-                            is FridayShizukuPackageInstaller.Result.Rejected -> {
-                                state.clearPendingHealthCheck()
-                                state.recordStatus("Privileged update rejected; installed Friday remains unchanged: ${install.reason}")
+                        if (!state.recordPendingHealthCheck(result.release)) {
+                            state.recordStatus("Verified update staged, but the post-install health marker could not be committed; installation was not attempted.")
+                            notifyUpdateReady(result.release.versionName)
+                        } else {
+                            when (val install = FridayShizukuPackageInstaller(applicationContext).install(result)) {
+                                is FridayShizukuPackageInstaller.Result.Installed -> {
+                                    state.recordStatus(
+                                        "Friday update installed automatically through Shizuku UID ${install.uid}; post-update version/signer health check is pending process restart."
+                                    )
+                                }
+                                is FridayShizukuPackageInstaller.Result.Unavailable -> {
+                                    state.clearPendingHealthCheck()
+                                    state.recordStatus(
+                                        "Verified update staged; privileged installer became unavailable and the update remains queued: ${install.reason}"
+                                    )
+                                    notifyUpdateReady(result.release.versionName)
+                                }
+                                is FridayShizukuPackageInstaller.Result.Rejected -> {
+                                    state.clearPendingHealthCheck()
+                                    state.recordStatus("Privileged update rejected; installed Friday remains unchanged: ${install.reason}")
+                                }
                             }
                         }
                     } else {

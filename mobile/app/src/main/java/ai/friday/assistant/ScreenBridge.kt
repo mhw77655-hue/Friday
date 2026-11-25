@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.content.Context
 import android.content.ServiceConnection
 import android.os.IBinder
+import android.util.Log
 import android.util.Xml
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -27,6 +28,13 @@ object ScreenBridge {
 
     private val _status = MutableStateFlow("not bound")
     val status: StateFlow<String> = _status.asStateFlow()
+
+    /** True only for a connected UserService whose shell/root UID was verified. */
+    val isVerifiedBound: Boolean
+        get() = service != null && (verifiedUid == 0 || verifiedUid == 2000) && isVerifiedShizukuStatus(_status.value)
+
+    internal fun isVerifiedShizukuStatus(status: String): Boolean =
+        status.startsWith("bound · verified Shizuku uid=")
 
     private val _lastScreenText = MutableStateFlow("")
     val lastScreenText: StateFlow<String> = _lastScreenText.asStateFlow()
@@ -80,12 +88,26 @@ object ScreenBridge {
 
     @Synchronized
     fun bind(context: Context) {
-        if (!Shizuku.pingBinder()) {
+        val binderAvailable = runCatching { Shizuku.pingBinder() }.getOrElse { failure ->
+            bindingInProgress = false
+            _status.value = "Shizuku availability check failed: ${failure.javaClass.simpleName}"
+            Log.w("ScreenBridge", "Could not query Shizuku binder availability", failure)
+            return
+        }
+        if (!binderAvailable) {
             bindingInProgress = false
             _status.value = "Shizuku not running"
             return
         }
-        if (Shizuku.checkSelfPermission() != PackageManager.PERMISSION_GRANTED) {
+        val permissionGranted = runCatching {
+            Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
+        }.getOrElse { failure ->
+            bindingInProgress = false
+            _status.value = "Shizuku permission check failed: ${failure.javaClass.simpleName}"
+            Log.w("ScreenBridge", "Could not query Shizuku permission", failure)
+            return
+        }
+        if (!permissionGranted) {
             bindingInProgress = false
             _status.value = "Shizuku permission not granted"
             return
@@ -170,9 +192,6 @@ object ScreenBridge {
      * a granted permission alone never satisfies this contract.
      */
     suspend fun ensureVerifiedBinding(context: Context, timeoutMillis: Long = 12_000): String {
-        // Shizuku binding is a Binder operation. Keep it off the UI
-        // dispatcher; verification arrives asynchronously through the
-        // service-connection callback and the StateFlow below.
         withContext(Dispatchers.IO) {
             if (service == null) bind(context)
         }
@@ -223,7 +242,7 @@ object ScreenBridge {
     suspend fun commitApkInstall(transferId: String): String? =
         withContext(Dispatchers.IO) {
             val svc = service ?: return@withContext null
-            withTimeoutOrNull(60_000) {
+            withTimeoutOrNull(210_000) {
                 runCatching { svc.commitApkInstall(transferId) }
                     .onFailure { _status.value = "Privileged APK install failed: ${it.javaClass.simpleName}" }
                     .getOrNull()

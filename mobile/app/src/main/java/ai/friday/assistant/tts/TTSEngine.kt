@@ -2,6 +2,7 @@ package ai.friday.assistant.tts
 
 import android.content.Context
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
 import android.util.Log
 import ai.friday.assistant.FridayTts
@@ -16,10 +17,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.CancellationException
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+
+private const val SYSTEM_TTS_INITIALIZATION_TIMEOUT_MS = 15_000L
+private const val SYSTEM_TTS_MAX_SPEECH_TIMEOUT_MS = 120_000L
 
 /**
  * TTSEngine - Abstraction for TTS engines
@@ -110,6 +118,11 @@ data class HealthStatus(
     val error: String? = null
 )
 
+internal fun estimateSystemTtsDurationMs(textLength: Int, speechRate: Float): Long {
+    val safeRate = speechRate.takeIf { it.isFinite() && it > 0f }?.coerceIn(0.1f, 4f) ?: 1f
+    return (textLength.coerceAtLeast(0) * 50f / safeRate).toLong().coerceAtLeast(500L)
+}
+
 /** System TTS Engine (Android TextToSpeech) */
 class SystemTTSEngine(
     private val context: Context,
@@ -124,78 +137,239 @@ class SystemTTSEngine(
     override val estimatedLatencyMs = 300L
     override val ramEstimateMb = 20L
 
-    private var tts: TextToSpeech? = null
-    private var currentUtteranceId: String? = null
-    private var _isSpeaking = false
+    @Volatile private var tts: TextToSpeech? = null
+    @Volatile private var initialized = false
+    @Volatile private var currentUtteranceId: String? = null
+    @Volatile private var _isSpeaking = false
+    private var initialization: CompletableDeferred<Boolean>? = null
+    @Volatile private var currentSpeakCompletion: CompletableDeferred<Boolean>? = null
     private val initLock = Any()
+    private val speechStartLock = Any()
+    private val initializationGeneration = AtomicLong(0L)
+    private val utteranceSequence = AtomicLong(0L)
 
-    override suspend fun initialize(): Boolean = withContext(Dispatchers.IO) {
-        val alreadyInitialized = synchronized(initLock) {
-            if (tts != null) true else {
-                // TextToSpeech must be created on main thread for initialization
-                // We'll use a callback approach
-                val completer = kotlinx.coroutines.CompletableDeferred<Boolean>()
+    override suspend fun initialize(): Boolean {
+        val pending = withContext(Dispatchers.Main.immediate) {
+            synchronized(initLock) {
+                if (initialized) return@synchronized null
+                initialization?.let { return@synchronized it }
 
-                val ttsInstance = TextToSpeech(context.applicationContext) { status ->
-                    if (status == TextToSpeech.SUCCESS) {
-                        Log.i("SystemTTSEngine", "TTS initialized successfully")
-                        completer.complete(true)
-                    } else {
-                        Log.e("SystemTTSEngine", "TTS init failed: $status")
-                        completer.complete(false)
+                val completer = CompletableDeferred<Boolean>()
+                initialization = completer
+                val generation = initializationGeneration.incrementAndGet()
+                val callbackResult = AtomicReference<Boolean?>(null)
+                val instanceRef = AtomicReference<TextToSpeech?>(null)
+
+                try {
+                    // TextToSpeech construction is performed on the main looper.
+                    val instance = TextToSpeech(context.applicationContext) { status ->
+                        val success = status == TextToSpeech.SUCCESS
+                        callbackResult.set(success)
+                        val stale = synchronized(initLock) {
+                            if (generation != initializationGeneration.get()) {
+                                true
+                            } else {
+                                initialized = success
+                                initialization = null
+                                if (!success) tts = null
+                                false
+                            }
+                        }
+                        if (stale) {
+                            instanceRef.get()?.shutdown()
+                            completer.complete(false)
+                            return@TextToSpeech
+                        }
+                        // The platform may invoke the callback synchronously
+                        // from the constructor. In that case defer completion
+                        // until the returned engine is stored and its listener
+                        // has been installed below.
+                        val instanceReady = instanceRef.get()
+                        if (instanceReady == null) return@TextToSpeech
+                        if (!success) instanceReady.shutdown()
+                        if (success) {
+                            Log.i("SystemTTSEngine", "TTS initialized successfully")
+                        } else {
+                            Log.e("SystemTTSEngine", "TTS init failed: $status")
+                        }
+                        completer.complete(success)
                     }
+                    instanceRef.set(instance)
+                    installUtteranceProgressListener(instance)
+                    tts = instance
+                    callbackResult.get()?.let { success ->
+                        if (!success) {
+                            tts = null
+                            instance.shutdown()
+                        }
+                        completer.complete(success)
+                    }
+                } catch (failure: Exception) {
+                    initialized = false
+                    tts = null
+                    initialization = null
+                    initializationGeneration.incrementAndGet()
+                    Log.e("SystemTTSEngine", "TTS initialization could not start", failure)
+                    completer.complete(false)
                 }
-
-                tts = ttsInstance
                 completer
             }
         }
+        if (pending == null) return true
 
-        // Await outside the lock so the suspend point never holds the critical section.
-        (alreadyInitialized as? kotlinx.coroutines.CompletableDeferred<Boolean>)?.await()
-            ?: true
+        // Never let a missing Android TTS callback suspend Friday indefinitely.
+        val result = withTimeoutOrNull(SYSTEM_TTS_INITIALIZATION_TIMEOUT_MS) { pending.await() }
+        if (result != null) return result
+
+        // Invalidate a late callback before shutting down the timed-out engine.
+        val readyAfterTimeoutCheck = withContext(Dispatchers.Main.immediate) {
+            synchronized(initLock) {
+                if (initialization === pending) {
+                    initializationGeneration.incrementAndGet()
+                    initialization = null
+                    initialized = false
+                    tts?.shutdown()
+                    tts = null
+                    false
+                } else {
+                    // The callback may have won the race with timeout delivery.
+                    initialized
+                }
+            }
+        }
+        if (readyAfterTimeoutCheck) return true
+        Log.e("SystemTTSEngine", "TTS initialization callback timed out")
+        return false
+    }
+
+    private fun installUtteranceProgressListener(engine: TextToSpeech) {
+        engine.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+            override fun onStart(utteranceId: String) {
+                if (currentUtteranceId == utteranceId) _isSpeaking = true
+            }
+
+            override fun onDone(utteranceId: String) {
+                completeUtterance(utteranceId, success = true)
+            }
+
+            override fun onError(utteranceId: String) {
+                completeUtterance(utteranceId, success = false)
+            }
+
+            override fun onError(utteranceId: String, errorCode: Int) {
+                completeUtterance(utteranceId, success = false)
+            }
+
+            override fun onStop(utteranceId: String, interrupted: Boolean) {
+                completeUtterance(utteranceId, success = false)
+            }
+        })
+    }
+
+    private fun completeUtterance(utteranceId: String, success: Boolean) {
+        synchronized(initLock) {
+            if (currentUtteranceId == utteranceId) {
+                _isSpeaking = false
+                currentSpeakCompletion?.complete(success)
+            }
+        }
     }
 
     override suspend fun speak(text: String, language: String, params: SpeakParams): SpeakResult = withContext(Dispatchers.IO) {
-        tts?.let { engine ->
-            val locale = Locale.forLanguageTag(language)
-            val langResult = engine.setLanguage(locale)
-            if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
-                return@withContext SpeakResult.Failure("Language not supported: $language")
+        val engine = tts ?: return@withContext SpeakResult.Failure("TTS not initialized")
+        if (!initialized) return@withContext SpeakResult.Failure("TTS initialization is still pending")
+
+        val safePitch = params.pitch.takeIf { it.isFinite() && it > 0f }?.coerceIn(0.1f, 2.0f) ?: 1f
+        val safeSpeechRate = params.speechRate.takeIf { it.isFinite() && it > 0f }?.coerceIn(0.1f, 4f) ?: 1f
+        val safeVolume = params.volume.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 1f
+        val utteranceId = "${params.utteranceId}_${utteranceSequence.incrementAndGet()}"
+        val completion = CompletableDeferred<Boolean>()
+        val finalText = if (params.vocabularyHints.isNotEmpty() && params.useSsml) {
+            applyVocabularyHints(text, params.vocabularyHints)
+        } else text
+
+        // Serialize only the short engine-command section, not the wait for
+        // speech completion. A newer utterance can therefore flush and cancel
+        // the old one without two callers racing the global TTS language/rate/id.
+        val resultCode = try {
+            synchronized(speechStartLock) {
+                if (tts !== engine || !initialized) {
+                    return@withContext SpeakResult.Failure("TTS engine changed before speech could start")
+                }
+                val locale = Locale.forLanguageTag(language)
+                val langResult = engine.setLanguage(locale)
+                if (langResult == TextToSpeech.LANG_MISSING_DATA || langResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    return@withContext SpeakResult.Failure("Language not supported: $language")
+                }
+                engine.setPitch(safePitch)
+                engine.setSpeechRate(safeSpeechRate)
+
+                synchronized(initLock) {
+                    currentSpeakCompletion?.complete(false)
+                    currentSpeakCompletion = completion
+                    currentUtteranceId = utteranceId
+                    _isSpeaking = true
+                }
+
+                val paramsBundle = android.os.Bundle().apply {
+                    putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
+                    putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, safeVolume)
+                }
+                val code = engine.speak(finalText, TextToSpeech.QUEUE_FLUSH, paramsBundle, utteranceId)
+                if (code != TextToSpeech.SUCCESS) {
+                    synchronized(initLock) {
+                        if (currentSpeakCompletion === completion) {
+                            currentSpeakCompletion = null
+                            currentUtteranceId = null
+                            _isSpeaking = false
+                        }
+                    }
+                }
+                code
             }
-
-            engine.setPitch(params.pitch)
-            engine.setSpeechRate(params.speechRate)
-
-            val utteranceId = params.utteranceId
-            currentUtteranceId = utteranceId
-            _isSpeaking = true
-
-            val paramsBundle = android.os.Bundle().apply {
-                putString(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID, utteranceId)
-                putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, params.volume)
+        } catch (failure: Exception) {
+            synchronized(initLock) {
+                if (currentSpeakCompletion === completion) {
+                    currentSpeakCompletion = null
+                    currentUtteranceId = null
+                    _isSpeaking = false
+                }
             }
+            return@withContext SpeakResult.Failure("TTS command failed: ${failure.javaClass.simpleName}")
+        }
 
-            // Apply vocabulary hints via SSML if provided
-            val finalText = if (params.vocabularyHints.isNotEmpty() && params.useSsml) {
-                applyVocabularyHints(text, params.vocabularyHints)
-            } else text
+        if (resultCode != TextToSpeech.SUCCESS) {
+            completion.complete(false)
+            return@withContext SpeakResult.Failure("Speak failed with code: $resultCode")
+        }
 
-            val resultCode = engine.speak(finalText, TextToSpeech.QUEUE_FLUSH, paramsBundle, utteranceId)
-
-            if (resultCode != TextToSpeech.SUCCESS) {
-                _isSpeaking = false
-                return@withContext SpeakResult.Failure("Speak failed with code: $resultCode")
+        val estimatedDuration = estimateSystemTtsDurationMs(finalText.length, safeSpeechRate)
+        val completionTimeout = (estimatedDuration * 2L + 5_000L).coerceAtMost(SYSTEM_TTS_MAX_SPEECH_TIMEOUT_MS)
+        try {
+            when (withTimeoutOrNull(completionTimeout) { completion.await() }) {
+                true -> SpeakResult.Success(null, estimatedDuration)
+                false -> SpeakResult.Failure("TTS speech was interrupted or the platform reported an error")
+                null -> {
+                    synchronized(speechStartLock) {
+                        if (currentUtteranceId == utteranceId) engine.stop()
+                    }
+                    SpeakResult.Failure("TTS did not report completion before the bounded timeout")
+                }
             }
-
-            // Wait for completion (simplified - in production use UtteranceProgressListener)
-            // For now, estimate duration
-            val estimatedDuration = (text.length * 50L / params.speechRate.toLong()).coerceAtLeast(500)
-            Thread.sleep(estimatedDuration)
-            _isSpeaking = false
-
-            SpeakResult.Success(null, estimatedDuration)
-        } ?: SpeakResult.Failure("TTS not initialized")
+        } catch (cancelled: CancellationException) {
+            synchronized(speechStartLock) {
+                if (currentUtteranceId == utteranceId) engine.stop()
+            }
+            throw cancelled
+        } finally {
+            synchronized(initLock) {
+                if (currentSpeakCompletion === completion) currentSpeakCompletion = null
+                if (currentUtteranceId == utteranceId) {
+                    currentUtteranceId = null
+                    _isSpeaking = false
+                }
+            }
+        }
     }
 
     override fun stream(text: String, language: String, params: SpeakParams): TtsStream {
@@ -213,38 +387,73 @@ class SystemTTSEngine(
     }
 
     override fun interrupt() {
-        tts?.stop()
-        _isSpeaking = false
+        synchronized(speechStartLock) {
+            tts?.stop()
+            synchronized(initLock) {
+                currentSpeakCompletion?.complete(false)
+                currentSpeakCompletion = null
+                currentUtteranceId = null
+                _isSpeaking = false
+            }
+        }
     }
 
     override val isSpeaking: Boolean
         get() = _isSpeaking
 
     override fun getVoices(language: String): List<VoiceInfo> {
+        if (!initialized) return emptyList()
         return tts?.voices?.filter { it.locale.language == language.take(2) }
             ?.map { VoiceInfo(it.name, it.locale, TTSEngine.Quality.HIGH, it.isNetworkConnectionRequired) }
             ?.toList() ?: emptyList()
     }
 
     override fun shutdown() {
-        tts?.shutdown()
-        tts = null
+        synchronized(speechStartLock) {
+            val oldEngine = synchronized(initLock) {
+                initialized = false
+                initializationGeneration.incrementAndGet()
+                initialization?.cancel()
+                initialization = null
+                currentSpeakCompletion?.complete(false)
+                currentSpeakCompletion = null
+                val previous = tts
+                tts = null
+                _isSpeaking = false
+                currentUtteranceId = null
+                previous
+            }
+            // Do not hold initLock across platform Binder calls: callbacks may
+            // need that lock to finish an already-dispatched utterance.
+            oldEngine?.stop()
+            oldEngine?.shutdown()
+        }
     }
 
     override suspend fun healthCheck(): HealthStatus = withContext(Dispatchers.IO) {
         HealthStatus(
-            isHealthy = tts != null,
+            isHealthy = initialized && tts != null,
             latencyMs = estimatedLatencyMs,
-            error = if (tts == null) "Not initialized" else null
+            error = if (!initialized || tts == null) "Not initialized" else null
         )
     }
 
     private fun applyVocabularyHints(text: String, hints: Map<String, String>): String {
-        var result = text
+        fun escapeText(value: String): String = value
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+        fun escapeAttribute(value: String): String = escapeText(value)
+            .replace("\"", "&quot;")
+            .replace("'", "&apos;")
+
+        var result = escapeText(text)
         for ((word, pronunciation) in hints) {
-            // Wrap in SSML phoneme tag
-            val pattern = Regex("\\b${Regex.escape(word)}\\b", RegexOption.IGNORE_CASE)
-            result = pattern.replace(result, "<phoneme alphabet=\"ipa\" ph=\"$pronunciation\">$word</phoneme>")
+            val escapedWord = escapeText(word)
+            val pattern = Regex("\\b${Regex.escape(escapedWord)}\\b", RegexOption.IGNORE_CASE)
+            result = pattern.replace(result) { match ->
+                "<phoneme alphabet=\"ipa\" ph=\"${escapeAttribute(pronunciation)}\">${match.value}</phoneme>"
+            }
         }
         return "<speak>$result</speak>"
     }
