@@ -34,9 +34,8 @@ class SelfDiagnosis(private val surface: FailureSurface) {
         val summary: String
             get() = buildString {
                 append("${event.subsystem}.${event.operation} failed (${event.severity.name}): ${event.message}")
-                event.cause?.takeIf { it.isNotBlank() }?.let { append(" | cause=$it") }
+                append(FailureEvidence.describe(event))
                 event.metadata["exception_chain"]?.takeIf { it.isNotBlank() }?.let { append(" | exception=$it") }
-                event.metadata["stack_frames"]?.takeIf { it.isNotBlank() }?.let { append(" | stack=$it") }
                 event.failureCause?.let { append(" | failureCause=${it.name}") }
                 event.rootCauseHypothesis?.takeIf { it.isNotBlank() }?.let { append(" | rootCauseHypothesis=$it") }
                 event.relatedStepId?.let { append(" | step=$it") }
