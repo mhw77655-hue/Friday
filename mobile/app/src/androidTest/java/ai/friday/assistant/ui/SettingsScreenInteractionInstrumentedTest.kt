@@ -4,6 +4,7 @@ import ai.friday.assistant.ui.screens.SettingsScreen
 import ai.friday.assistant.ui.theme.FridayTheme
 import ai.friday.assistant.diagnostics.PhoneActionDiagnostics
 import ai.friday.assistant.voice.JevApiKeyStore
+import ai.friday.assistant.github.reporting.GitHubCredentialStore
 import androidx.test.core.app.ApplicationProvider
 import android.content.Context
 import androidx.compose.ui.test.assertHasClickAction
@@ -79,6 +80,48 @@ class SettingsScreenInteractionInstrumentedTest {
                 assertTrue(
                     "Only a complete fixture credential may be readable; iteration=$iteration",
                     readable == null || readable == "friday-concurrent-fixture-$iteration"
+                )
+            } finally {
+                workers.shutdownNow()
+            }
+            observer.clear()
+        }
+    }
+
+    @Test
+    fun independentGitHubStoreInstancesCannotLeaveUndecryptableCredentialState() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val preferences = context.getSharedPreferences("friday_github_secure", Context.MODE_PRIVATE)
+        val observer = GitHubCredentialStore(context)
+        observer.clear()
+
+        repeat(30) { iteration ->
+            val start = java.util.concurrent.CountDownLatch(1)
+            val workers = java.util.concurrent.Executors.newFixedThreadPool(2)
+            try {
+                val token = "github_pat_friday_concurrency_fixture_$iteration"
+                val save = workers.submit {
+                    start.await()
+                    GitHubCredentialStore(context).save(token)
+                }
+                val clear = workers.submit {
+                    start.await()
+                    GitHubCredentialStore(context).clear()
+                }
+                start.countDown()
+                save.get(10, java.util.concurrent.TimeUnit.SECONDS)
+                clear.get(10, java.util.concurrent.TimeUnit.SECONDS)
+
+                val ciphertextPresent = preferences.contains("token_ciphertext") ||
+                    preferences.contains("token_iv")
+                val readable = observer.read()
+                assertTrue(
+                    "Persisted GitHub ciphertext must remain decryptable after concurrent save/clear; iteration=$iteration",
+                    !ciphertextPresent || readable != null
+                )
+                assertTrue(
+                    "Only the complete fixture token may be readable; iteration=$iteration",
+                    readable == null || readable == token
                 )
             } finally {
                 workers.shutdownNow()
