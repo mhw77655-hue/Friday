@@ -183,6 +183,31 @@ jobs:
         id: assemble-apk
         run: ./gradlew :mobile:app:assembleDebug
 
+      # Wave 0 of the repository-structure repair: retain the actual Gradle
+      # project and resolved dependency graphs alongside the lexical source
+      # trace. This is build-graph evidence, not a compiler call graph.
+      - name: Capture Gradle project and dependency structure
+        id: gradle-structure
+        if: ${{ !cancelled() && steps.setup-java.outcome == 'success' }}
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/friday-gradle-structure"
+          mkdir -p "$OUT"
+          ./gradlew --console=plain projects > "$OUT/projects.txt"
+          ./gradlew --console=plain :mobile:app:dependencies --configuration debugCompileClasspath > "$OUT/debug-compile-dependencies.txt"
+          ./gradlew --console=plain :mobile:app:dependencies --configuration debugRuntimeClasspath > "$OUT/debug-runtime-dependencies.txt"
+          ./gradlew --console=plain :mobile:app:dependencies --configuration releaseRuntimeClasspath > "$OUT/release-runtime-dependencies.txt"
+          printf 'Gradle project/dependency reports captured. These describe configured build dependencies, not source-level runtime reachability.\n' > "$OUT/README.txt"
+
+      - name: Upload Gradle structure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-gradle-structure
+          path: ${{ runner.temp }}/friday-gradle-structure/
+          if-no-files-found: warn
+          retention-days: 30
+
       # Android Lint is a separate source/API/resource/accessibility gate.
       - name: Run Android Lint on the debug variant
         if: ${{ !cancelled() && steps.setup-java.outcome == 'success' && steps.android-home.outcome == 'success' && steps.install-sdk.outcome == 'success' }}
