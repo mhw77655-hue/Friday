@@ -18,7 +18,7 @@ class BuildWorkflowContractTests(unittest.TestCase):
         ids = self.job_ids()
         self.assertEqual(
             ids,
-            ["debug-apk", "jvm-unit-tests", "jvm-test-results", "android-emulator", "full-source-audit", "report-failure", "verified-debug-apk"],
+            ["cancel-stale-runs", "debug-apk", "jvm-unit-tests", "jvm-test-results", "android-emulator", "full-source-audit", "report-failure", "verified-debug-apk"],
         )
         self.assertEqual(len(ids), len(set(ids)))
 
@@ -31,6 +31,13 @@ class BuildWorkflowContractTests(unittest.TestCase):
         gate = self.workflow.split("  verified-debug-apk:", 1)[1]
         self.assertIn("- jvm-unit-tests", gate)
         self.assertIn("- jvm-test-results", gate)
+
+    def test_new_pr_run_cancels_stale_runs_before_expensive_jobs(self):
+        self.assertIn("cancel-stale-runs:", self.workflow)
+        self.assertIn("github.rest.actions.listWorkflowRuns", self.workflow)
+        self.assertIn("github.rest.actions.cancelWorkflowRun", self.workflow)
+        self.assertGreaterEqual(self.workflow.count("needs: cancel-stale-runs"), 4)
+        self.assertIn("actions: write", self.workflow)
 
     def test_apk_bundled_delivery_plan_matches_canonical_source(self):
         canonical = ROOT / ".ralph" / "FRIDAY_DELIVERY_PLAN.md"
@@ -117,6 +124,7 @@ class BuildWorkflowContractTests(unittest.TestCase):
         # A newer commit supersedes the old candidate; stale runs must not hold
         # the only validation slot while the repaired commit waits in pending.
         self.assertIn("cancel-in-progress: true", self.workflow)
+        self.assertIn("-${{ github.sha }}", self.workflow)
         self.assertNotIn("cancel-in-progress: false", self.workflow)
         self.assertIn("workflow_dispatch:", self.workflow)
 
