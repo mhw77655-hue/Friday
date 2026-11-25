@@ -230,7 +230,8 @@ interface IFridayShellService : IInterface {
             return try {
                 data.writeInterfaceToken(Stub.DESCRIPTOR)
                 data.writeString(packageName)
-                remote.transact(Stub.TRANSACTION_IS_PACKAGE_FOREGROUND, data, reply, 0)
+                val handled = remote.transact(Stub.TRANSACTION_IS_PACKAGE_FOREGROUND, data, reply, 0)
+                if (!handled) return false
                 reply.readException()
                 reply.readInt() != 0
             } finally {
