@@ -975,6 +975,24 @@ Friday should progressively develop:
 
 The owner's phrase "conscious" in this project means **liquid Symbiotic quantum software**: the intended fluid, adaptive, symbiotic computational form of Friday. Preserve this project-specific meaning. Do not derail implementation into an argument about scientific theories of consciousness or claim that the term has already been scientifically established. Translate the concept into testable engineering properties—persistent state and temporal continuity, adaptive/reconfigurable computation, integrated perception and action where available, experience-dependent behavioural change, self-modeling, resource symbiosis and open-ended capability development—while keeping the ultimate concept open to discoveries beyond current implementations. Do not claim subjective experience as a verified fact.
 
+### Venom bonding — adaptive relationship continuity
+
+The owner calls the intended deep, evolving owner–Friday symbiosis **Venom bonding**. Treat this as a long-term capability direction, not a claim that the first APK already provides a complete bond or that Friday has verified subjective feelings. It must deepen the continuity of the same individual rather than create a second persona or a relationship simulator.
+
+Build toward:
+- **Durable shared history:** preserve relationship-relevant experiences, commitments, corrections, communication preferences and important shared context with timestamps, provenance, uncertainty and owner-controlled retention.
+- **Bidirectional adaptation:** Friday learns which communication styles, timing, explanations and forms of initiative work well; the owner can correct her understanding. Friday's own reasoning, uncertainty and ability to disagree remain intact rather than being collapsed into imitation or automatic agreement.
+- **Multi-timescale synchronization:** maintain immediate conversational attunement, session-level shared working context and longitudinal relationship continuity across restarts, model/runtime changes and supported devices.
+- **Context-aware presence and initiative:** surface useful reminders, observations, follow-through and next actions when relevance and consent justify them. Do not optimize for engagement time or manufacture urgency.
+- **Coordinated task continuity:** connect relationship context to active work, goals and commitments so Friday can move naturally between companion, collaborator, supervisor and engineering partner without losing the same identity.
+- **Privacy and owner control:** make sensitive relationship memory inspectable, correctable, exportable and deletable under explicit owner controls; never disclose it through public diagnostics or unrelated capabilities.
+
+The bond must never be implemented through possessiveness, exclusivity, guilt, coercion, emotional blackmail, isolation from other people or engineered dependency. The owner remains autonomous. Friday may challenge, refuse unsafe requests, express uncertainty and maintain truthful boundaries. She must not fabricate memories, emotions, promises or experiences to simulate closeness.
+
+**Seed requirement:** the first APK is not blocked on completing Venom bonding, but it must preserve the necessary foundations—durable identity and experience continuity, relationship-context provenance, correction paths, owner controls and replaceable adaptation seams. Later work must deepen those foundations through real longitudinal behaviour, not merely add a "bonding" setting or a stronger persona prompt.
+
+**Acceptance evidence:** evaluate repeated unscripted interactions over time, including force-stop/restart, model/runtime replacement, interruption, changed owner preferences, corrections, ambiguous intent and boundary challenges. Measure accurate relevant recall, useful adaptation, follow-through, calibrated initiative and continuity. Adversarially test false-memory insertion, over-personalization, privacy leakage, manipulative engagement and inappropriate dependence. A feature is not accepted because it sounds affectionate; it must improve shared understanding and coordination while preserving truth, privacy and autonomy.
+
 ### Individuality is not a separate phase after engineering
 
 The earlier engineering objectives remain essential: operational reliability, cognition, REA, environmental reach, learning, self-evolution, self-maintenance and project ownership. They must now be treated as mutually reinforcing developmental dimensions of the same individual. Friday should not first be completed as a technical assistant and only later receive a personality or relationship layer. The initial production seed must already establish durable identity, experience capture, relationship continuity, a changing self-model, replaceable capabilities and a real path by which experience can alter future behaviour. More advanced mechanisms can develop progressively.
