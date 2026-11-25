@@ -73,8 +73,10 @@ fun SystemScreen() {
     val diagnosticFindings by diagnosticsViewModel.diagnosticFindings.collectAsStateWithLifecycle()
     val diagnosticRunning by diagnosticsViewModel.diagnosticRunning.collectAsStateWithLifecycle()
     val diagnosticRunStatus by diagnosticsViewModel.diagnosticRunStatus.collectAsStateWithLifecycle()
+    val diagnosticRunCount by diagnosticsViewModel.diagnosticRunCount.collectAsStateWithLifecycle()
     val selfDiagnosticRunning by diagnosticsViewModel.selfDiagnosticRunning.collectAsStateWithLifecycle()
     val selfDiagnosticStatus by diagnosticsViewModel.selfDiagnosticStatus.collectAsStateWithLifecycle()
+    val selfDiagnosticRunCount by diagnosticsViewModel.selfDiagnosticRunCount.collectAsStateWithLifecycle()
     val selfDiagnosticFindings by diagnosticsViewModel.selfDiagnosticFindings.collectAsStateWithLifecycle()
     val selfDiagnosticAt by diagnosticsViewModel.selfDiagnosticAt.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { diagnosticsViewModel.runSelfDiagnosis() }
@@ -130,7 +132,9 @@ fun SystemScreen() {
             Text(if (diagnosticRunning) "Running active diagnostics..." else "Run full system diagnosis")
         }
         Text(
-            diagnosticRunStatus,
+            if (diagnosticRunning) "Active diagnosis run #$diagnosticRunCount running. $diagnosticRunStatus"
+            else if (diagnosticRunCount > 0) "Active diagnosis run #$diagnosticRunCount completed. $diagnosticRunStatus"
+            else diagnosticRunStatus,
             style = FridayType.Technical,
             modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)
         )
@@ -145,7 +149,9 @@ fun SystemScreen() {
             )
         }
         Text(
-            selfDiagnosticStatus,
+            if (selfDiagnosticRunning) "Self-diagnosis run #$selfDiagnosticRunCount running: $selfDiagnosticStatus"
+            else if (selfDiagnosticRunCount > 0) "Self-diagnosis run #$selfDiagnosticRunCount: $selfDiagnosticStatus"
+            else selfDiagnosticStatus,
             style = FridayType.Technical,
             modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)
         )
