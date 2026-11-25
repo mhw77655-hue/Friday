@@ -169,11 +169,16 @@ class GitHubDevelopmentRepositoryClient(
         }
         val combined = getJson(apiRoot + "/commits/" + commitSha + "/status")
         val combinedState = combined.optString("state", "pending")
+        val pendingStatuses = combined.optJSONArray("statuses") ?: JSONArray()
         val total = runs.length()
         val state = when {
             failed > 0 || combinedState == "failure" || combinedState == "error" -> "FAILURE"
             total > 0 && completed == total && combinedState == "success" -> "SUCCESS"
-            total > 0 && completed == total && combinedState == "pending" -> "SUCCESS"
+            // GitHub reports "pending" when there are no legacy commit
+            // statuses as well as when one or more status contexts are still
+            // pending. Only the empty-status case may rely solely on completed
+            // Check Runs; never promote a genuinely pending context to green.
+            total > 0 && completed == total && combinedState == "pending" && pendingStatuses.length() == 0 -> "SUCCESS"
             else -> "PENDING"
         }
         return CandidateChecks(state, total, completed, failed, details)
