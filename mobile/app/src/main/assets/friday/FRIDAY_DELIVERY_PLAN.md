@@ -1000,3 +1000,143 @@ The next target-device acceptance must install an exact candidate build and reco
 
 The candidate also repairs evidence-handling defects found while analyzing this report: the active diagnostic classifier now treats explicit FailureSurface ERROR text as ERROR (with regression tests); journal-clear UI feedback returns explicitly to Main and no longer invokes Toast from the asynchronous path; runtime-toggle snapshots/polls are revision-gated and Android service-start/stop exceptions are recorded without discarding owner intent; both System diagnosis buttons now expose progress and completed-run identities with instrumented action tests. The Settings scroll tests now wait for Compose idle after bringing controls into view. These changes remain pending CI and device verification.
 
+
+
+---
+
+# Delivery plan update — 2026-11-25
+## Owner direction: Friday operates and maintains her own complete project
+
+This update records the owner's clarified outcome and reconciles the work and evidence accumulated across 2026-11-23 through 2026-11-25. It extends Objectives A, F and G and the cross-objective engineering rules. It does not create a second Friday, a second product plan, or a fixed cognitive taxonomy.
+
+### 1. The outcome is now explicit
+
+The owner does not want to repeatedly diagnose failures, edit Kotlin manually, operate GitHub Actions, find APK artifacts, reinstall Friday, or explain the same repair cycle to successive assistants. The intended owner experience is:
+
+> The owner tells Friday, in ordinary natural language, to take care of Friday and her project. Friday understands the desired outcome, investigates the real app and repository, decides what work is needed, coordinates local and cloud capabilities, repairs and tests the project, verifies the result, manages the GitHub development process, safely updates her installed body, and reports only the evidence, uncertainty or approval that genuinely remains.
+
+This is not a request for a new command syntax or a chat wrapper around developer scripts. The natural-language interaction is the entry point to a persistent engineering responsibility that Friday herself owns. The underlying work remains explicit, auditable, resumable and independently verified.
+
+### 2. One Friday, two complementary execution environments
+
+Adopt the **Friday Local Station + Cloud Development Environment** model. Its normative protocol and security boundaries are defined in [FRIDAY_LOCAL_STATION_AND_CLOUD_DEVELOPMENT_ARCHITECTURE.md](../docs/FRIDAY_LOCAL_STATION_AND_CLOUD_DEVELOPMENT_ARCHITECTURE.md).
+
+**Local Station — Friday on the owner's phone**
+
+The installed app is the authoritative observer of its real Android host and installed state. It should contribute, with minimisation and owner policy:
+
+- Device/API/ABI, app revision, package/signing identity and actual update state.
+- Live host resource state, process health, thermal/battery/storage constraints and real capability probes.
+- Model load/inference outcomes, voice subsystem readiness and measured on-device performance.
+- Correlated, redacted failure evidence, exception chains, process-exit/ANR evidence and recovery outcomes.
+- In-app diagnostic results and narrowly scoped, owner-authorized target-device tests.
+- Exact candidate APK verification, installation outcome, post-update health and rollback evidence.
+
+The phone is not a generic CI worker and is not a conventional GitHub Actions self-hosted runner. It must not download or execute arbitrary remote shell commands, scripts, DEX/JAR/native code or untrusted workflow steps. It exposes a narrow device-station protocol: outbound authenticated communication, signed and expiring job envelopes, device binding, anti-replay, allowlisted operations, durable checkpoints, cancellation and signed results. There is no need to expose an inbound phone port.
+
+The phone must not upload raw conversation, microphone/camera recordings, screen contents, notification bodies, contacts, location, personal files, installed-app inventory, account identifiers, serials, credentials or private keys by default. Extra data for a particular diagnosis requires a clear purpose and the relevant owner consent.
+
+Android execution is resumable rather than immortal. Use platform-supported scheduling, visible foreground execution where justified, durable local queues, idempotency and app-start reconciliation. Report platform deferral, force-stop and permission restrictions truthfully.
+
+**Cloud Development Environment**
+
+The cloud supplies the heavy and parallelizable capabilities the phone cannot safely or efficiently provide:
+
+- Whole-repository source, compiler-aware dependency and architecture analysis.
+- Research, documentation and dependency/license/provenance inspection.
+- Reproducible Gradle/native builds, unit tests, static analysis, coverage, fuzzing and broad emulator matrices.
+- Isolated source candidates, regression tests, independent review and pull requests.
+- Signed release manifests and compatible non-executable resource packages.
+
+GitHub remains the canonical source/build/provenance system. Hosted CI or controlled desktop/server workers perform builds. The phone contributes real target-device facts that cloud machines cannot infer. A cloud worker's claim is untrusted until independent verification and, where applicable, device confirmation.
+
+**Friday owns the coordination**
+
+The cloud is not a second identity or an unquestionable authority. Friday maintains one local durable task/evidence ledger, chooses work based on the canonical objectives and actual blockers, assigns bounded work to replaceable local/cloud capabilities, checks results, decides whether the outcome is met and preserves continuity across offline periods and process death.
+
+### 3. New operating loop: "Friday, let me handle it"
+
+For an owner-level maintenance request, Friday must be able to carry the following loop without asking the owner to become the developer:
+
+1. Read the canonical objectives plan, current evidence, open incidents, repository revision, CI/PR state and installed-phone state.
+2. Observe local host facts and fetch relevant repository/cloud evidence.
+3. Identify the first failing boundary and distinguish source defects from environment, dependency, CI, provider, permission and device failures.
+4. Form competing hypotheses, preserve uncertainty and define evidence that would disprove each diagnosis.
+5. Choose the smallest repair or structural improvement that advances the owner's outcome.
+6. Create an isolated candidate, preserve the known-good state and add a regression test before or with the repair.
+7. Run targeted and broad validation on the correct execution environment.
+8. Use the phone station for device-specific reproduction, capability checks and candidate health verification.
+9. Have an independent verifier inspect the exact diff, security impact, test results, build provenance and expected postconditions.
+10. Create or update the appropriate GitHub PR and retain the task/evidence links.
+11. Promote only under the configured owner/repository policy; build and sign through the trusted release pipeline.
+12. Stage/install through Android's supported path, verify the actual installed revision and health, and recover/rollback if the new body fails.
+13. Record the cause, repair, evidence and regression prevention so the same issue is not rediscovered from zero.
+
+Each operation has a durable ID, idempotency key, dependencies, owner/policy boundary, checkpoint, cancellation path, time/resource budget, result and verifier. A model's completion message is not a postcondition.
+
+### 4. Autonomy is real but bounded by trust
+
+After the owner enables the corresponding policy, Friday should autonomously perform routine, reversible work such as read-only inspection, diagnostics, source research, candidate generation, unit/static testing, CI execution, task tracking and retrying transient failures.
+
+Repository writes, PR creation, additional data disclosure, test-harness installation and APK installation must follow explicit owner-configured approval policies. Signing-key operations, secrets access, permission/privilege changes, destructive deletion, repository protection changes, weakening required gates, protected merges and public release publication remain protected operations. No source-editing agent can read production secrets, approve its own patch or promote itself.
+
+The normal owner interaction is natural language. Friday may ask for a narrow approval when an external service or Android itself requires it; she must not transfer routine engineering work back to the owner as terminal instructions.
+
+### 5. Reconciliation with the work and failures of 2026-11-23–25
+
+The recent work must be preserved as evidence, not mistaken for a completed delivery:
+
+- The owner-supplied `New folder (1).zip` was inspected. It contains 35 screenshots, two text exports and a device report for Friday 1.0.510 on a Realme RMX3472 / Android 14 device; it does not contain an APK. The report showed an active ENGINE failure, diagnostic inconsistency, Shizuku UserService binding failure, no confirmed loaded model and an identity-lineage warning. These are historical observations, not proof of the current candidate's state.
+- The historical report's Shizuku process-name-suffix issue has a candidate source correction. It still requires real target-device verification.
+- The repository audit and code-trace work added source inventory/tracing artifacts and expanded the resilience investigation. Lexical inventory remains navigation evidence, not a compiler-proven call graph.
+- The candidate branch strengthened engine containment, failure-bus/recovery integration, process-exit diagnostics, main-thread liveness monitoring, diagnostic classification, Settings/runtime controls, action tracing and instrumented interaction coverage. Source presence is not proof every path is production-reachable.
+- The 2026-11-25 repair slice fixes the known squeezed action rows in Friday Table and Voice Studio; preserves structured failure fields through durable serialization; exposes captured exception/root-cause/stack context in diagnosis; includes durable and live failure evidence in support exports; and adds regression tests for layouts, failure persistence and diagnosis evidence.
+- The CI workflow was adjusted so unit tests run before slower release packaging, while independent APK diagnostics remain possible after harness failure. This does not make any test pass by itself.
+
+**Evidence status at the time of this plan update:** PR #157 is open on `repair/full-app-resilience-audit-v2`. Its branch was observed at `b6f43021e98d86c02a76d2e13d14042ff2301f9f`, 131 commits ahead and 1 commit behind `main`; reconcile the base divergence before merge. Workflow run `45534136846` has a successful whole-repository audit job and successful disposable Android emulator job, while its debug job is still executing the unit-test step. Workflow run `45536562829` was pending for the then-current branch head. Several intermediate runs were cancelled by newer pushes and are not passes. These statuses are historical snapshots; always query the exact current head and run before making a release claim.
+
+No candidate APK from this repair slice is yet certified as the permanent production-signed phone update. No physical-device acceptance of the new candidate is established by the emulator job. Keep the known-good installed body and signing lineage protected.
+
+### 6. Objective changes
+
+**Objective A — Install and establish the first Friday**
+
+Extend the seed acceptance to include a local-station foundation: device identity and enrollment design, durable offline task/evidence outbox, privacy-minimised host/capability profile, signed update/result verification and a truthful owner-facing maintenance status. The installed seed must be able to receive future station-protocol upgrades without turning into a generic remote command executor. Objective A does not need to ship the entire autonomous cloud engineering system before the first useful install, but it must preserve the identity, data and update contracts that make that evolution possible.
+
+**Objective F — Builder, autonomous capability acquisition and self-development**
+
+Extend Builder from "construct a capability" to "operate the complete engineering lifecycle": discover a gap, research, plan, create an isolated candidate, compile, test, adversarially validate, compare, package, document, submit for review and learn from acceptance/rejection. It must coordinate local and cloud resources through the Local Station protocol and maintain one durable task/evidence graph. Repository restructuring is itself a governed Builder capability: compiler-aware inventory first, one small migration at a time, no mass rewrites, no self-approval.
+
+**Objective G — Resilience, continuity and real delivery**
+
+Extend resilience from runtime/app recovery to the complete development-to-device chain: repository integrity, task-ledger continuity, cloud worker loss, interrupted CI, artifact provenance, signing, update staging, installation, health verification and rollback. A failure in any one environment must not erase the evidence or corrupt the other. Friday must be able to distinguish "cloud build succeeded", "device received candidate", "Android accepted install" and "new Friday passed health checks".
+
+**Cross-objective requirement — continuous project ownership**
+
+Objectives A, F and G jointly establish the phone/cloud engineering loop. Objectives B–E contribute their real capability and outcome evidence to that loop. No subsystem may create a parallel plan, duplicate task authority, independent Friday identity or unverified release channel.
+
+### 7. Repository structure: repair without making it fragile again
+
+The current candidate tree contains 1,313 entries, with 1,084 under `mobile/app`, 629 production Java/Kotlin files, 366 JVM test sources and 39 Android instrumentation test sources; Gradle currently includes only `:mobile:app`. This is a large single Android module with many sibling domain packages, not yet a proven modular architecture.
+
+Follow [FRIDAY_REPOSITORY_STRUCTURE_AND_MIGRATION.md](../docs/FRIDAY_REPOSITORY_STRUCTURE_AND_MIGRATION.md). The first step is a compiler-aware ownership/dependency map that includes Gradle, manifest/lifecycle, coroutine/Flow, reflection/generated code, JNI/native and runtime composition edges. Then stabilize contracts and add architecture gates before extracting modules. Move one proven boundary per change set, preserve tests and behavior, measure build/coupling impact and keep every step revertible. Do not mass-move source, create one module per "organ", or archive code based only on names or lexical references.
+
+### 8. Delivery gates for the Local Station + Cloud loop
+
+The new LS-0 through LS-8 gates in the Local Station architecture document are acceptance gates under Objectives A/F/G:
+
+- LS-0: current production inventory, protocol and threat model.
+- LS-1: device identity, enrollment, revocation and durable offline outbox.
+- LS-2: privacy-minimised evidence pipeline and verified upload.
+- LS-3: signed, expiring, replay-resistant device-bound jobs and durable results.
+- LS-4: actual target-device diagnostics and bounded test execution.
+- LS-5: least-privilege GitHub repository operations and independent PR review.
+- LS-6: repeatable autonomous repair loop with regression prevention.
+- LS-7: signed update, target-device installation, health check and rollback.
+- LS-8: natural-language owner experience with progress, pause/stop, approvals and restart/offline recovery.
+
+Documentation does not pass a gate. Every gate needs implementation reachability, tests, integration evidence and the relevant emulator/physical-device evidence.
+
+### 9. Structural success condition
+
+The owner should not have to keep repairing Friday by hand. Friday must progressively become capable of taking responsibility for the complete supported project lifecycle, while preserving owner authority and independent evidence. The measure is not how many agents, modules, workers or lines of code exist. It is whether Friday can repeatedly turn an owner outcome into a correct, tested, safely deployed and monitored result—and whether a failure teaches the system how to prevent that class of repeated repair.
