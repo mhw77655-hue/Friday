@@ -47,6 +47,47 @@ class SettingsScreenInteractionInstrumentedTest {
     }
 
     @Test
+    fun independentJevStoreInstancesCannotLeaveUndecryptableCredentialState() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val preferences = context.getSharedPreferences("jev_secure", Context.MODE_PRIVATE)
+        val observer = JevApiKeyStore(context)
+        observer.clear()
+
+        repeat(30) { iteration ->
+            val start = java.util.concurrent.CountDownLatch(1)
+            val workers = java.util.concurrent.Executors.newFixedThreadPool(2)
+            try {
+                val save = workers.submit {
+                    start.await()
+                    JevApiKeyStore(context).save("friday-concurrent-fixture-$iteration")
+                }
+                val clear = workers.submit {
+                    start.await()
+                    JevApiKeyStore(context).clear()
+                }
+                start.countDown()
+                save.get(10, java.util.concurrent.TimeUnit.SECONDS)
+                clear.get(10, java.util.concurrent.TimeUnit.SECONDS)
+
+                val ciphertextPresent = preferences.contains("api_ciphertext") ||
+                    preferences.contains("api_iv")
+                val readable = observer.read()
+                assertTrue(
+                    "A persisted encrypted credential must remain decryptable after concurrent save/clear; iteration=$iteration",
+                    !ciphertextPresent || readable != null
+                )
+                assertTrue(
+                    "Only a complete fixture credential may be readable; iteration=$iteration",
+                    readable == null || readable == "friday-concurrent-fixture-$iteration"
+                )
+            } finally {
+                workers.shutdownNow()
+            }
+            observer.clear()
+        }
+    }
+
+    @Test
     fun clearLocalDiagnosticJournalCompletesAndReportsItsOutcome() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         PhoneActionDiagnostics.install(context)
