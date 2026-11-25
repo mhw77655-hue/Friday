@@ -74,9 +74,14 @@ class BuildWorkflowContractTests(unittest.TestCase):
         harness = self.workflow.split("      - name: Test Android harness and build contracts", 1)[1]
         harness = harness.split("      - name: Measure Python line and branch coverage", 1)[0]
         self.assertIn("continue-on-error: true", harness)
+        coverage = self.workflow.split("      - name: Measure Python line and branch coverage", 1)[1]
+        coverage = coverage.split("      - name: Upload Python coverage", 1)[0]
+        self.assertIn("id: python-coverage", coverage)
+        self.assertIn("continue-on-error: true", coverage)
         enforcement = self.workflow.split("      - name: Enforce Android harness and build contract results", 1)[1]
         enforcement = enforcement.split("      - name: Summarize test results", 1)[0]
         self.assertIn("steps.harness-contracts.outcome", enforcement)
+        self.assertIn("steps.python-coverage.outcome", enforcement)
         self.assertIn("exit 1", enforcement)
 
     def test_manual_workflow_dispatch_is_available_for_recovery(self):
