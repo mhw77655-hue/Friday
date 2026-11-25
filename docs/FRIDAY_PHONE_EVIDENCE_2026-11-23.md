@@ -1,7 +1,8 @@
 # Physical-phone evidence review — 2026-11-23
 
 **Evidence source:** repository archive `New folder (1).zip`, retrieved from the public repository and unpacked without modifying the original.  
-**Archive SHA-256:** `396917ab1b9665c4336c88b9b7a99cc3e8e9017007a319a550695b19b8ab51bb` (the GitHub Actions transport artifact; the inner ZIP bytes were preserved).  
+**Inner phone-evidence ZIP SHA-256:** `1d95b848f9c5a0bc16e361f5885901dda460c9035306fa9948ce0fe27d3a0094`.  
+**Outer GitHub Actions transport-artifact SHA-256:** `396917ab1b9665c4336c88b9b7a99cc3e8e9017007a319a550695b19b8ab51bb`.  
 **Evidence inventory:** 39 entries: two text records, 37 screenshots and one `friday-device-report-v2` JSON report.  
 **Installed app:** Friday 1.0.510, source revision `24e653589fa623ce5819387a9179dfe878a0a720`.  
 **Host:** Android 14 / API 34. Device-specific identifiers are intentionally omitted here.
