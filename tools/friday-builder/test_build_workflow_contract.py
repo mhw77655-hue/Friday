@@ -69,6 +69,16 @@ class BuildWorkflowContractTests(unittest.TestCase):
         self.assertIn("x86_64 software emulation is too slow and unreliable", self.workflow)
         self.assertIn("-memory 3072 -cores 2", self.workflow)
 
+    def test_harness_failure_does_not_short_circuit_apk_validation_or_release(self):
+        self.assertIn("id: harness-contracts", self.workflow)
+        harness = self.workflow.split("      - name: Test Android harness and build contracts", 1)[1]
+        harness = harness.split("      - name: Measure Python line and branch coverage", 1)[0]
+        self.assertIn("continue-on-error: true", harness)
+        enforcement = self.workflow.split("      - name: Enforce Android harness and build contract results", 1)[1]
+        enforcement = enforcement.split("      - name: Summarize test results", 1)[0]
+        self.assertIn("steps.harness-contracts.outcome", enforcement)
+        self.assertIn("exit 1", enforcement)
+
     def test_manual_workflow_dispatch_is_available_for_recovery(self):
         self.assertIn("workflow_dispatch:", self.workflow)
 
