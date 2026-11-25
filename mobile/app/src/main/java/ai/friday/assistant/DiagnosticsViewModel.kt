@@ -544,6 +544,52 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                     .put("state", event.state))
             }
         })
+        // Export the actual bounded FailureSurface event evidence, not only
+        // the human-readable summary. This preserves the first exception,
+        // stack, structured classification and recovery context for remote
+        // diagnosis after the app has been closed or reinstalled.
+        fun safeFailureText(value: String?): Any = value
+            ?.takeIf { it.isNotBlank() }
+            ?.replace(Regex("(?i)Bearer\\s+[^\\s,;]+"), "Bearer [REDACTED]")
+            ?.replace(
+                Regex("(?i)(authorization|access[_-]?token|refresh[_-]?token|api[_-]?key|password)(\\s*[:=]\\s*)[^\\s,;]+")
+            ) { match -> match.groupValues[1] + match.groupValues[2] + "[REDACTED]" }
+            ?.take(4_000)
+            ?: JSONObject.NULL
+        val failureEvents = runCatching {
+            FridayEngine.getFailureSurface().recentFailures.value
+        }.getOrDefault(emptyList())
+        report.put("failure_evidence_complete", false)
+        report.put("failure_evidence_limit", 50)
+        report.put("failure_evidence", org.json.JSONArray().apply {
+            failureEvents.take(50).forEach { event ->
+                put(JSONObject()
+                    .put("id", safeFailureText(event.id))
+                    .put("timestamp_ms", event.timestamp)
+                    .put("source", safeFailureText(event.source))
+                    .put("subsystem", safeFailureText(event.subsystem))
+                    .put("operation", safeFailureText(event.operation))
+                    .put("severity", event.severity.name)
+                    .put("category", event.category.name)
+                    .put("message", safeFailureText(event.message))
+                    .put("cause", safeFailureText(event.cause))
+                    .put("state", safeFailureText(event.state))
+                    .put("dependency", safeFailureText(event.dependency))
+                    .put("recoverability", event.recoverability.name)
+                    .put("correlation_id", safeFailureText(event.correlationId))
+                    .put("attempt", event.attempt)
+                    .put("recovery_action", event.recoveryAction.name)
+                    .put("user_message", safeFailureText(event.userMessage))
+                    .put("failure_cause", event.failureCause?.name ?: JSONObject.NULL)
+                    .put("related_step_id", safeFailureText(event.relatedStepId))
+                    .put("related_capability", safeFailureText(event.relatedCapability))
+                    .put("environment", safeFailureText(event.environment))
+                    .put("root_cause_hypothesis", safeFailureText(event.rootCauseHypothesis))
+                    .put("resource_state", safeFailureText(event.resourceState))
+                    .put("exception_chain", safeFailureText(event.metadata["exception_chain"]))
+                    .put("stack_frames", safeFailureText(event.metadata["stack_frames"])))
+            }
+        })
         val individual = FridayEngine.fridayIndividual
         report.put("individual", individual?.let {
             JSONObject()
