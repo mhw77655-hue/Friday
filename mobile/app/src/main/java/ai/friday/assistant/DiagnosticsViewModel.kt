@@ -417,6 +417,18 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 diagnosticEvents.record("active_diagnostic",
                     "errors=${findings.count { it.severity == ai.friday.assistant.diagnostics.DiagnosticSeverity.ERROR }}; " +
                     "warnings=${findings.count { it.severity == ai.friday.assistant.diagnostics.DiagnosticSeverity.WARNING }}")
+            } catch (failure: Exception) {
+                val safeType = failure.javaClass.simpleName.ifBlank { "UnknownError" }
+                _diagnosticFindings.value = listOf(
+                    ai.friday.assistant.diagnostics.DiagnosticFinding(
+                        severity = ai.friday.assistant.diagnostics.DiagnosticSeverity.ERROR,
+                        title = "Diagnostic execution failed",
+                        observed = safeType,
+                        likelyCause = "The diagnostic action was invoked but an internal probe failed before producing its result set.",
+                        recommendedAction = "Retry once; if it fails again, export the report and inspect the named diagnostic execution path."
+                    )
+                )
+                diagnosticEvents.record("active_diagnostic", "execution_failed:$safeType")
             } finally {
                 _diagnosticRunning.value = false
             }
@@ -684,9 +696,17 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 val diagnosisEngine = runCatching { FridayEngine.getSelfDiagnosis() }.getOrNull()
                 surface.recentFailures.value.take(3).forEach { event ->
                     val diagnosis = diagnosisEngine?.let { runCatching { it.diagnose(event) }.getOrNull() }
-                    val detail = diagnosis?.let {
+                    // Include the exception class/cause retained by FailureSurface.
+                    // The previous report exposed only the generic containment message,
+                    // which made a real engine failure impossible to root-cause from the phone.
+                    val causeType = event.cause
+                        ?.substringBefore(':')
+                        ?.trim()
+                        ?.takeIf { it.matches(Regex("[A-Za-z0-9_.$]+")) }
+                    val causeDetail = causeType?.let { " Cause type: $it." }.orEmpty()
+                    val detail = (diagnosis?.let {
                         "${it.summary}. Changed before: ${it.changedBefore}. Fallback: ${it.fallbackAvailable ?: "none recorded"}; fallback succeeded: ${it.fallbackSucceeded ?: "not verified"}."
-                    } ?: "${event.subsystem}.${event.operation}: ${event.message}"
+                    } ?: "${event.subsystem}.${event.operation}: ${event.message}") + causeDetail
                     val failureLevel = when {
                         diagnosis?.subsystemHealthyAfter == true -> DiagnosticLevel.WARNING
                         event.severity.rank >= ai.friday.assistant.failure.FailureSeverity.ERROR.rank -> DiagnosticLevel.FAILURE
@@ -740,7 +760,11 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 if (!micGranted) "Grant microphone permission only if voice input is wanted." else null
             )
             val shizukuGranted = ShizukuBridge.isGranted.value
-            val shizukuBound = ScreenBridge.status.value == "bound"
+            val shizukuStatus = ScreenBridge.status.value
+            val shizukuBound = ai.friday.assistant.diagnostics.ShizukuBindingHealthGate.isVerifiedBound(
+                status = shizukuStatus,
+                uid = ScreenBridge.verifiedShizukuUid()
+            )
             add(
                 "shizuku", "Shizuku device bridge",
                 if (shizukuGranted && shizukuBound) DiagnosticLevel.PASS else DiagnosticLevel.WARNING,
