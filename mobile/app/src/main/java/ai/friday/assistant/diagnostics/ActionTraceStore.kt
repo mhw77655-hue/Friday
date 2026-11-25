@@ -233,7 +233,7 @@ class ActionTraceStore(
         if (!journalFile.isFile) return JSONObject()
         return try {
             JSONObject(journalFile.readText(Charsets.UTF_8))
-        } catch (failure: Throwable) {
+        } catch (failure: Exception) {
             // Never silently replace a damaged journal with an empty object:
             // the next record would otherwise overwrite the only copy of the
             // owner's diagnostic evidence. Quarantine the exact bytes first,
@@ -247,8 +247,7 @@ class ActionTraceStore(
             }
             Log.e(
                 "PhoneActionDiagnostics",
-                "Unreadable action journal preserved as ${quarantine.name}; starting a fresh journal.",
-                failure
+                "Unreadable action journal preserved as ${quarantine.name}; starting a fresh journal."
             )
             JSONObject()
         }
@@ -499,7 +498,7 @@ object PhoneActionDiagnostics {
      * worker on a CountDownLatch. The serial executor preserves write ordering;
      * the timeout is surfaced to Settings as an explicit failure.
      */
-    suspend fun clearAndAwait() = kotlinx.coroutines.withTimeout(6_000) {
+    suspend fun clearAndAwait() =
         kotlinx.coroutines.suspendCancellableCoroutine<Unit> { continuation ->
             val activeStore = store
             if (activeStore == null) {
@@ -510,6 +509,12 @@ object PhoneActionDiagnostics {
             }
             try {
                 ioExecutor.execute {
+                    // A cancelled caller must not leave a queued destructive
+                    // operation behind. Once the local delete starts it runs
+                    // to completion and reports its actual result; an arbitrary
+                    // timeout must not tell Settings that evidence was preserved
+                    // while a queued delete can still execute later.
+                    if (!continuation.isActive) return@execute
                     try {
                         activeStore.clear()
                         cachedEventCount.set(0)
@@ -522,5 +527,4 @@ object PhoneActionDiagnostics {
                 if (continuation.isActive) continuation.resumeWithException(failure)
             }
         }
-    }
 }
