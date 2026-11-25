@@ -1054,3 +1054,27 @@ The implementation contract and staged proof gates are defined in [Friday REA �
 **Acceptance standard:** Friday can discover a real defect, reconstruct the relevant system, identify its root cause, implement a repair, build and test the exact candidate, verify it on the real host where required, repair repository/cloud/CI blockers, deploy within standing grants, confirm the resulting runtime state and preserve evidence/rollback—without requiring the owner to perform routine engineering work manually. A design document or isolated test does not count as implementation. Mark each capability planned, implemented, production-wired, tested, host-verified or released with exact evidence.
 
 **Platform principle:** Android lifecycle and permissions are facts about one execution host, not boundaries on Friday's overall capabilities. Use Android as the real-device station when appropriate; use cloud and other authorized hosts for persistent orchestration, builds, reverse engineering and scalable work. The system must resume safely across interruptions rather than depend on any single process running forever.
+
+
+---
+
+## Cross-objective engineering and developmental verification standard (2026-11-25)
+
+This is a shared implementation and research standard for Objectives A–G, not another objective or a fixed cognitive architecture. The supporting contracts are:
+- [Execution and Evolution Governance](../docs/FRIDAY_EXECUTION_AND_EVOLUTION_GOVERNANCE.md)
+- [Local Station and Cloud Development Architecture](../docs/FRIDAY_LOCAL_STATION_AND_CLOUD_DEVELOPMENT_ARCHITECTURE.md)
+- [Repository Structure and Migration Contract](../docs/FRIDAY_REPOSITORY_STRUCTURE_AND_MIGRATION.md)
+- [Universal REA Architecture](../docs/FRIDAY_REA_SYSTEM_ARCHITECTURE.md)
+- [Physical Phone Evidence Review](../docs/FRIDAY_PHONE_EVIDENCE_2026-11-23.md)
+
+Before a material architectural change, begin from the original owner requirement, observable outcome, actual production entry points, constraints and a falsifiable hypothesis. Start technical research from primary papers, original algorithms, reference implementations, datasets, official specifications, source and licensing/provenance. Clearly label facts, inferences, hypotheses, proposals, speculation and unknowns. Candidate mechanisms—developmental learning, predictive/world models, associative or reconstructive memory, causal inference, recurrent/continuous-time computation, sparse/conditional computation, program synthesis and evolutionary search—are research possibilities, not permanent cognitive departments or mandatory modules.
+
+For important defects and capabilities, trace the actual path from owner action/system event through UI/state, coroutine/service/IPC, implementation, storage/provider and observed effect. Combine compiler-aware Kotlin/Java analysis, Gradle dependency evidence, native/JNI inspection, manifest/lifecycle/permission analysis, runtime traces, Logcat, Perfetto, UI tests, process-exit history and independent postcondition checks as appropriate. A lexical symbol graph is navigation evidence, not proof of execution. Identify unobserved edges and retain uncertainty around reflection, generated code, dynamic dispatch and device-specific behaviour.
+
+Every accepted requirement should map to its owner-authored source, observable acceptance criteria, production implementation, execution trace, verification result and retained artifact. A class is not a capability; a callback is not a completed action; a selected provider is not a loaded model; a successful build is not release acceptance.
+
+The developmental and repair loop is: observe → explain → hypothesize → design → simulate → prototype → measure → adversarially validate → compare → promote or reject → monitor → roll back if regressed → retain the learning. Every source repair must reproduce the defect, identify the first failing production boundary, preserve the intended behaviour, add regression coverage, keep a known-good checkpoint and independently verify the postcondition. The implementing model and candidate code cannot be the sole judges of their own work.
+
+Classify evidence explicitly as DESIGNED, IMPLEMENTED, UNIT-VERIFIED, INTEGRATION-VERIFIED, CI-VERIFIED, EMULATOR-VERIFIED, DEVICE-VERIFIED or LONGITUDINALLY-EVALUATED. Missing, skipped, cancelled, timed-out or unexecuted checks are UNKNOWN/BLOCKED, never passes. Longitudinal developmental claims require restart, replay-blocked or mechanism-off controls and held-out generalization. No single benchmark or human conversation rating defines Friday's individuality.
+
+Apply the same standard across the existing objectives: Objective A proves the installed seed and update/recovery floor; B proves capture, recognition, synthesis and playback separately; C proves experience causes persistent, later behavioural change; D proves authorized intent-to-affordance execution and verified outcomes; E measures actual host/model/runtime performance; F proves capability acquisition with provenance and transfer; G proves end-to-end continuity from task ledger through build, signing, installation, health verification and rollback. Workstreams may proceed in parallel but converge on one Friday, one canonical plan and the actual production composition.
