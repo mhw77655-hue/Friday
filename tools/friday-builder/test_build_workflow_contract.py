@@ -84,7 +84,7 @@ class BuildWorkflowContractTests(unittest.TestCase):
 
 
     def test_active_pull_request_validation_is_not_cancelled_by_new_commits(self):
-        self.assertIn("on:\\n  push:\\n    branches: [ main ]", self.workflow)
+        self.assertIn("on:\n  push:\n    branches: [ main ]", self.workflow)
         self.assertIn("pull_request:", self.workflow)
         self.assertIn("concurrency:", self.workflow)
         self.assertIn("group: friday-build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}", self.workflow)
