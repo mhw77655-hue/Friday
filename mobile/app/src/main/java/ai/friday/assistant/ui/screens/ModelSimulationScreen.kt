@@ -178,9 +178,16 @@ fun ModelSimulationScreen() {
         Text("Candidate context", style = FridayType.Label)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(1024, 2048, 4096).forEach { tokens ->
-                val onSelect = {
+                val onSelect: () -> Unit = {
                     contextTokens = tokens
-                    snapshot?.let { simulations = simulator.simulate(it, tokens, discoveredCandidates.ifEmpty { ModelFreeDeviceSimulator.CANDIDATES }) }
+                    snapshot?.let {
+                        simulations = simulator.simulate(
+                            it,
+                            tokens,
+                            discoveredCandidates.ifEmpty { ModelFreeDeviceSimulator.CANDIDATES }
+                        )
+                    }
+                    Unit
                 }
                 if (contextTokens == tokens) {
                     Button(onClick = onSelect) { Text("${tokens / 1024}K") }
