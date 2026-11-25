@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -55,7 +56,7 @@ class MoreSheetNavigationInstrumentedTest {
         )
 
         destinations.forEach { (label, route) ->
-            compose.onNodeWithText(label).assertHasClickAction().performClick()
+            compose.onNodeWithText(label).performScrollTo().assertHasClickAction().performClick()
             compose.runOnIdle { assertEquals("Wrong route for $label", route, selectedRoute) }
         }
     }
