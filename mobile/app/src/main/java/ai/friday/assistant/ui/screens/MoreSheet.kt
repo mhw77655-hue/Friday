@@ -3,6 +3,8 @@ package ai.friday.assistant.ui.screens
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
@@ -26,7 +28,7 @@ fun MoreSheet(
         sheetState = sheetState,
         containerColor = FridayColors.SurfacePanel
     ) {
-        Column(modifier = Modifier.padding(bottom = 24.dp)) {
+        Column(modifier = Modifier.padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
             listOf(
                 "Task Inbox" to "task_inbox",
                 "Approvals" to "approvals",
