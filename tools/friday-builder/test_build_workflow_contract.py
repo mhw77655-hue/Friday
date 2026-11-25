@@ -41,7 +41,9 @@ class BuildWorkflowContractTests(unittest.TestCase):
         debug = self.workflow.split("  debug-apk:", 1)[1].split("  android-emulator:", 1)[0]
         self.assertEqual(debug.count("Build and verify release variant with a disposable CI key"), 1)
         smoke = debug.split("      - name: Build and verify release variant with a disposable CI key", 1)[1]
-        smoke = smoke.split("      # Run tests even when APK assembly fails.", 1)[0]
+        # Inspect only this step. Later workflow steps legitimately have their
+        # own "if:" conditions and must not make the signing smoke look gated.
+        smoke = smoke.split("\n      - name:", 1)[0]
         self.assertIn("friday-ci-smoke.p12", smoke)
         self.assertIn("keytool -genkeypair", smoke)
         self.assertIn("apksigner\" verify --verbose", smoke)
