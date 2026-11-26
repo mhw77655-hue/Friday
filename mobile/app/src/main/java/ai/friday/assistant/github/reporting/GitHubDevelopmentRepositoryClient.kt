@@ -323,17 +323,21 @@ class GitHubDevelopmentRepositoryClient(
     fun dispatchCandidateSandbox(
         taskId: String,
         candidateSha: String,
-        ciFailed: Boolean = false
+        ciFailed: Boolean = false,
+        testProfile: String = "android-debug"
     ): Long? {
         require(taskId.matches(Regex("[A-Za-z0-9._-]{3,80}"))) { "Sandbox task id is malformed." }
         require(candidateSha.matches(Regex("[0-9a-f]{40}"))) { "Sandbox candidate SHA is invalid." }
+        require(testProfile in setOf("android-debug", "android-instrumented")) {
+            "Sandbox test profile is not an approved fixed profile."
+        }
         val payload = JSONObject()
             .put("ref", "main")
             .put("inputs", JSONObject()
                 .put("task_id", taskId)
                 .put("candidate_sha", candidateSha)
                 .put("ci_failed", ciFailed)
-                .put("test_profile", "android-debug"))
+                .put("test_profile", testProfile))
         val response = request(
             apiRoot + "/actions/workflows/candidate-sandbox.yml/dispatches",
             "POST",
@@ -350,6 +354,16 @@ class GitHubDevelopmentRepositoryClient(
             }
             throw IOException(apiError(it.code, "dispatch the isolated candidate sandbox"))
         }
+    }
+
+    /** Select the narrowest isolated profile that can reproduce the failed repository check. */
+    fun selectCandidateSandboxProfile(checkDetails: List<String>): String {
+        val requiresInstrumentation = checkDetails.any { detail ->
+            val checkName = detail.substringBefore(':')
+            checkName.contains("instrument", ignoreCase = true) ||
+                checkName.contains("emulator", ignoreCase = true)
+        }
+        return if (requiresInstrumentation) "android-instrumented" else "android-debug"
     }
 
     /** Match only the run-name generated from Friday's task identifier. */
