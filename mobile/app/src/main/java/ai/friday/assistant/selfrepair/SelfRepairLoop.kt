@@ -122,7 +122,7 @@ class SelfRepairLoop(
         log.add("observe: ${target.failures.size} failing test(s) in ${target.suiteName}")
         val reaEvidence = reaEvidenceProvider?.let { provider ->
             try {
-                provider.investigate(requirement, target).also { evidence ->
+                provider.investigate(repoRoot, requirement, target).also { evidence ->
                     log.add("REA: ${evidence.toolName} ${evidence.toolVersion}; target revision=${evidence.targetRevision}; findings=${evidence.findings.size}")
                     evidence.limitations.forEach { log.add("REA limitation: ${it.take(180)}") }
                 }
