@@ -23,12 +23,20 @@ class CandidateRepairPlannerTest {
         .put("acceptance_criteria", JSONArray().put("Original behavior remains correct."))
         .put("evidence_needed", JSONArray().put("Unit test report."))
 
+    private fun failureEvidence() = JSONObject()
+        .put("trigger", "candidate_sandbox")
+        .put("sandbox", JSONObject().put("status", "FAIL").put("summary", JSONObject()
+            .put("verification_step", "failure")
+            .put("failure_excerpt", "testDebugUnitTest failed")))
+
     @Test
     fun createsBoundedRepairTaskWithExactCandidateAndEvidence() {
         val evidence = JSONObject().put("status", "FAIL")
             .put("rea_status", "COMPLETED")
             .put("sandbox", JSONObject().put("summary", JSONObject()
                 .put("rea_status", "COMPLETED")
+                .put("verification_step", "failure")
+                .put("failure_excerpt", "testDebugUnitTest failed")
                 .put("rea_evidence_excerpt", "ev_" + "b".repeat(64))))
         val repair = CandidateRepairPlanner.createRepairTask(failedTask(), evidence, 1234L)!!
 
@@ -45,23 +53,33 @@ class CandidateRepairPlannerTest {
     @Test
     fun refusesHighRiskOrOwnerApprovedTasks() {
         assertNull(CandidateRepairPlanner.createRepairTask(
-            failedTask().put("risk", "HIGH"), JSONObject()
+            failedTask().put("risk", "HIGH"), failureEvidence()
         ))
         assertNull(CandidateRepairPlanner.createRepairTask(
-            failedTask().put("requires_owner_approval", true), JSONObject()
+            failedTask().put("requires_owner_approval", true), failureEvidence()
         ))
     }
 
     @Test
     fun refusesMalformedCandidateIdentity() {
         assertNull(CandidateRepairPlanner.createRepairTask(
-            failedTask().put("candidate", JSONObject().put("commit_sha", "not-a-sha")), JSONObject()
+            failedTask().put("candidate", JSONObject().put("commit_sha", "not-a-sha")), failureEvidence()
         ))
     }
 
     @Test
     fun stopsAfterTwoRepairAttempts() {
-        assertNull(CandidateRepairPlanner.createRepairTask(failedTask(attempt = 2), JSONObject()))
+        assertNull(CandidateRepairPlanner.createRepairTask(failedTask(attempt = 2), failureEvidence()))
+    }
+
+    @Test
+    fun refusesInfrastructureOnlyFailureWithoutAObservedCandidateDefect() {
+        val infrastructureFailure = JSONObject()
+            .put("ci", JSONObject().put("state", "SUCCESS"))
+            .put("sandbox", JSONObject().put("status", "FAIL")
+                .put("reason", "Evidence artifact could not be downloaded.")
+                .put("summary", JSONObject().put("verification_step", "success")))
+        assertNull(CandidateRepairPlanner.createRepairTask(failedTask(), infrastructureFailure))
     }
 
     @Test
