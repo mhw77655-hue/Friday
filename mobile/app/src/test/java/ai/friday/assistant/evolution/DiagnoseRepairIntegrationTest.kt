@@ -297,6 +297,8 @@ class DiagnoseRepairIntegrationTest {
         )
         assertEquals(1, invocations)
         assertNotNull(result.diagnosis)
+        assertTrue(result.reaEvidence!!.canonicalEvidenceJson.contains(result.reaEvidence.evidenceId))
+        assertTrue(result.reaEvidence.canonicalEvidenceJson.contains(result.reaEvidence.targetSha256))
         assertTrue(diagnoser.lastPrompt!!.contains("source:GoalPlanner.replan"))
         assertTrue(diagnoser.lastPrompt!!.contains("ev_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"))
         assertTrue(result.log.any { it.contains("REA: REA integration-test") })
