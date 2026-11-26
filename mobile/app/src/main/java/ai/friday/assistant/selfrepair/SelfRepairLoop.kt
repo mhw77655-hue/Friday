@@ -64,7 +64,9 @@ class SelfRepairLoop(
      * is mandatory: an unavailable executor or execution failure must never
      * bypass this gate and leave a candidate eligible for verification.
      */
-    private val sandboxExecutor: SandboxExecutor
+    private val sandboxExecutor: SandboxExecutor,
+    /** Optional adapter to the real upstream REA MCP/CLI host. */
+    private val reaEvidenceProvider: ReaRepairEvidenceProvider? = null
 ) {
 
     /** Return candidate tests, independent baseline regressions, and measured resource evidence. */
@@ -116,7 +118,23 @@ class SelfRepairLoop(
         }
         val target = failingSuites.first()
         log.add("observe: ${target.failures.size} failing test(s) in ${target.suiteName}")
-        val diagnosis = diagnoser.diagnose(requirement, target)
+        val reaEvidence = reaEvidenceProvider?.let { provider ->
+            try {
+                provider.investigate(requirement, target).also { evidence ->
+                    log.add("REA: ${evidence.toolName} ${evidence.toolVersion}; target revision=${evidence.targetRevision}; findings=${evidence.findings.size}")
+                    evidence.limitations.forEach { log.add("REA limitation: ${it.take(180)}") }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                log.add("REA unavailable; diagnosis continues from test evidence only: ${failure.message?.take(180)}")
+                null
+            }
+        }
+        if (reaEvidenceProvider == null) {
+            log.add("REA not connected: no ReaRepairEvidenceProvider was configured")
+        }
+        val diagnosis = diagnoser.diagnose(requirement, target, reaEvidence)
         log.add("diagnose: ${diagnosis.faultyUnit} — ${diagnosis.rootCause.take(160)}")
         return Observation(suites, target, diagnosis, log)
     }
