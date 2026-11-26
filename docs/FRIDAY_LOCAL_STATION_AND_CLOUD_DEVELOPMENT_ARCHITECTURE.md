@@ -122,3 +122,103 @@ No gate is passed by documentation or class existence alone. Each requires integ
 The owner can express an outcome in ordinary language and Friday can take responsibility for the whole supported maintenance cycle: understand the objective, inspect the actual project and phone, diagnose, research, change, test, verify, coordinate GitHub, stage/deploy safely, observe the result, recover when necessary and remember what happened. The owner is not asked to repeat manual source edits, terminal commands, APK hunting or routine debugging.
 
 The owner remains in control of authorization, risk and protected data. "Let me handle it" means Friday owns the engineering work—not that security, platform limits or evidence can be ignored.
+
+
+## 10. Target-device recovery execution: Shizuku + ADB + Termux
+
+This section makes the owner's existing target-device capabilities first-class parts of the Local Station. It does not introduce another Friday application or assistant.
+
+### 10.1 Shizuku is an execution interface, not merely a health probe
+
+The Local Station must integrate the official Shizuku API in the production Friday application and expose a typed capability broker to the immune core.
+
+At runtime the broker must:
+- Detect Shizuku binder availability and binder death.
+- Request and track the owner's Shizuku authorization.
+- Read the effective server UID and distinguish ADB shell (2000) from root (0).
+- Maintain a versioned capability matrix for the actual Android build.
+- Route only typed, allowlisted operations through Shizuku; never accept arbitrary shell strings from cloud/model output.
+- Record command/API, arguments schema, caller, authorization, result, exit/error and evidence correlation ID.
+- Fail closed when authorization disappears or a requested operation exceeds the observed privilege.
+
+The first operation set to validate on the owner's device is: package enabled/stopped/version/signature inspection; process and service diagnostics; permitted log collection; app-op/permission state inspection; Friday process/component restart; package install-session initiation and result inspection; storage availability; and reboot/reconnect state. Do not infer that every operation is available simply because Shizuku is connected.
+
+Shizuku ADB mode provides the Android shell identity, not root. Its actual permissions vary by Android version. It does not generally grant access to Friday's private app data directory. Root-only operations must be explicitly detected and reported as unavailable unless the device actually supplies root.
+
+### 10.2 ADB and Wireless Debugging
+
+ADB is the recovery control plane used to bootstrap/restart the Shizuku server and execute the narrow device operations that the shell identity is authorized to perform. Wireless Debugging pairing and authorization remain explicit Android security boundaries. Friday may detect and guide an expired/missing pairing, and may resume after the owner authorizes it; it must not claim it can silently turn Wireless Debugging on or bypass pairing.
+
+The Local Station must persist the last successful Shizuku/ADB capability profile, detect drift after reboot or OS update, and request only the missing owner action. It must not block unrelated cloud-side diagnosis and source repair while the device control plane is unavailable.
+
+### 10.3 Termux as the independent phone-side worker
+
+Where the owner's existing Termux installation is available, integrate it as an independent execution host for the Friday recovery worker. It is not a separate Friday product. The worker may:
+- Start through Termux:Boot after boot, once the add-on has been initialized.
+- Acquire a Termux wake lock when the owner has enabled the persistent-recovery operating mode.
+- Maintain a durable, append-only incident/outbox queue independent of Friday's app data.
+- Poll or receive authenticated recovery tasks over outbound TLS.
+- Check Friday package/process health and coordinate with the Shizuku control plane.
+- Download recovery artifacts, verify signed manifests/digests and stage approved package-install operations.
+- Preserve diagnostic evidence and retry cloud connectivity after network interruption.
+
+Use a narrow authenticated local protocol between Termux and Friday's device station. Bind requests to device identity, nonce, expiry, operation enum and bounded parameters. Do not expose a generic shell endpoint or trust unverified broadcasts, deep links or filesystem drop-ins.
+
+Termux is a stronger independent failure domain than Friday Core, not an immortal process. Android/OEM battery management can kill it, and a user force-stop prevents its boot receiver from restarting it until it is manually reopened. Monitor and report this state. If Termux is unavailable, preserve the embedded Shizuku-capable immune path and any other already-running authorized execution host.
+
+### 10.4 Recovery behavior by failure class
+
+| Failure | Expected recovery path |
+|---|---|
+| Friday Activity/process crashes | Termux watchdog or embedded immune process detects and restarts Friday; collect crash evidence |
+| Friday enters a crash loop | Termux/Shizuku captures permitted diagnostics, requests cloud repair, stages a verified higher-version package |
+| Friday package is force-stopped | External Termux worker may use verified shell-authorized package controls to inspect and explicitly start Friday; acceptance must prove this on the target OS/OEM |
+| Friday package code is corrupted | Worker fetches a signed known-good/repaired APK, verifies identity/signer/digest, then invokes the supported install path |
+| Friday private data is corrupted | Restore from an independent encrypted/versioned continuity backup; Shizuku ADB mode alone cannot read private app data |
+| Shizuku server dies or authorization is revoked | Termux retains the incident and guides/retries authorized Shizuku/ADB startup; no privilege escalation |
+| Termux is killed | Embedded immune process, if still viable, continues its tier; otherwise recovery waits for another authorized host or owner action |
+| Termux is force-stopped | Termux cannot self-start; use another already-running authorized host if present, otherwise owner must reopen it |
+| Friday is uninstalled/disabled | Independent worker may verify package absence and prepare reinstall; install/enable actions follow actual shell/device-owner permissions and may require owner confirmation |
+| Device reboots | Termux:Boot starts the worker if initialized and not stopped/restricted; Shizuku ADB-mode server restart may require Wireless Debugging/ADB authorization |
+| Device/OS or all recovery hosts fail | Phone-side recovery is unavailable; cloud preserves the source repair and waits for a restored device/control plane |
+
+The system must not collapse process death, package force-stop, package disablement, uninstall, Shizuku loss, Termux force-stop and device reboot into one generic "app died" condition. They have different Android semantics and require separate tests.
+
+### 10.5 Cloud-to-device repair package
+
+The cloud returns a signed recovery manifest containing: target package ID, version/versionCode, signing certificate lineage, source commit, artifact SHA-256, supported SDK/ABI, minimum immune protocol version, required migration ID, continuity backup compatibility, post-install health contract, expiry/anti-replay nonce, and rollback/known-good reference.
+
+The device worker verifies the manifest signature and APK digest before invoking installation. The installer path must be selected from measured capabilities: Shizuku shell APIs/commands, Android PackageInstaller session, user-mediated package installer, or a device-owner/OEM/root route if actually provisioned. Never infer silent installation authority from Shizuku connectivity alone.
+
+The cloud-generated patch/build is a candidate, not an authorized release. Source repair, independent verification, signing authorization and device installation remain distinct trust decisions.
+
+### 10.6 Required physical-device acceptance matrix
+
+On the owner's actual phone, capture reproducible evidence for:
+1. Shizuku connected in ADB mode; effective UID and per-operation capability probes.
+2. Shizuku binder death and reconnection.
+3. Friday Core process kill while Termux remains alive; detection, cloud request, restart.
+4. Friday package force-stop while Termux remains alive; whether shell-authorized start/clear-stopped-state succeeds on this exact OS/OEM.
+5. Friday crash-loop; repair artifact verification and installation outcome.
+6. Higher-version same-signature update; package data, identity, memory, settings and databases remain intact.
+7. Corrupted test data restore from the independent continuity backup.
+8. Termux process kill versus Termux force-stop; accurately distinguish recoverable from owner-intervention cases.
+9. Device reboot; Termux:Boot worker start and Shizuku server availability/restart requirements.
+10. Network unavailable during diagnosis/download; durable queue and safe resume.
+11. Shizuku permission revocation and reauthorization.
+12. Package disabled/uninstalled cases; record exactly which actions require user or device-owner authority.
+
+Each result must include device build/API, app version/commit, Shizuku UID, Termux state, operation, observed result and evidence digest. Emulator CI is not a substitute for this matrix.
+
+### 10.7 Implementation order
+
+1. Inspect the current production Shizuku integration and existing host/capability probes; do not create duplicate clients.
+2. Implement the typed Shizuku capability broker and binder lifecycle.
+3. Add a Termux worker protocol and durable outbox, with Termux:Boot instructions/integration.
+4. Implement package/process health probes and force-stop recovery experiments.
+5. Connect the device worker to the authenticated cloud recovery job protocol.
+6. Implement signed repair manifest verification and the measured package installation path.
+7. Prove continuity backup/restore and post-install health invariants.
+8. Run the full physical-device failure matrix and convert every failure into an immune regression test.
+
+No feature is marked implemented or device-verified until its exact code path and test evidence exist.
