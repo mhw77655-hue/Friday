@@ -35,6 +35,10 @@ class ReaInvestigationCoordinator(context: Context) {
 
     /** Dispatch the fixed Friday REA workflow; never accepts a workflow name or shell command. */
     fun start(): Snapshot {
+        val active = current()
+        check(active == null || active.status !in setOf("dispatched", "queued", "in_progress")) {
+            "A Friday REA investigation is already queued or running; refresh its status first."
+        }
         val token = GitHubCredentialStore(appContext).read()
             ?: throw IllegalStateException("Save Friday's GitHub token before starting REA.")
         val id = UUID.randomUUID().toString().replace("-", "")
