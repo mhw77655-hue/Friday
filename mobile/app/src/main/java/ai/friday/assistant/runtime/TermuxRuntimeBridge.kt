@@ -117,12 +117,306 @@ object TermuxRuntimeBridge {
         LOG="$TERMUX_HOME/.friday-guardian.log"
         PAUSE="$TERMUX_HOME/.friday-guardian.pause"
         PIDFILE="$TERMUX_HOME/.friday-guardian.pid"
-        if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
-            echo "$(date -Iseconds) guardian-already-running" >> "$LOG"
+        if [ -f "${'        printf '%s guardian-started %s\n' "$(date -Iseconds)" "$$" >> "${'$'}LOG"
+        command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock
+        while [ ! -f "${'$'}PAUSE" ]; do
+            if [ ! -x "${'$'}RISH" ] || [ ! -r "$TERMUX_HOME/rish_shizuku.dex" ]; then
+                echo "$(date -Iseconds) missing-rish-files" >> "${'$'}LOG"
+                sleep 30
+                continue
+            fi
+            ID_OUTPUT=$("${'$'}RISH" -c id 2>>"${'$'}LOG" || true)
+            if ! printf '%s' "${'$'}ID_OUTPUT" | grep -Eq 'uid=(2000\(shell\)|0\(root\))'; then
+                echo "$(date -Iseconds) shizuku-unavailable-or-unauthorized" >> "${'$'}LOG"
+                sleep 30
+                continue
+            fi
+            PACKAGE_STATE=$("${'$'}RISH" -c 'dumpsys package ai.friday.assistant' 2>>"${'$'}LOG" || true)
+            if printf '%s\n' "${'$'}PACKAGE_STATE" | grep -Eq 'stopped=true'; then
+                echo "$(date -Iseconds) friday-stopped-recovery-attempt" >> "${'$'}LOG"
+                "${'$'}RISH" -c 'am start -n ai.friday.assistant/.MainActivity' >> "${'$'}LOG" 2>&1 || true
+                sleep 8
+                VERIFY=$("${'$'}RISH" -c 'dumpsys activity activities' 2>>"${'$'}LOG" || true)
+                if printf '%s\n' "${'$'}VERIFY" | grep -E 'mResumedActivity|topResumedActivity' | grep -Fq 'ai.friday.assistant'; then
+                    echo "$(date -Iseconds) friday-foreground-verified" >> "${'$'}LOG"
+                else
+                    echo "$(date -Iseconds) friday-launch-unverified" >> "${'$'}LOG"
+                fi
+            fi
+            sleep 20
+        done
+        echo "$(date -Iseconds) guardian-paused" >> "${'$'}LOG"
+        FRIDAY_GUARDIAN_EOF
+        chmod 700 "$BOOT_SCRIPT"
+        exec "$BOOT_SCRIPT" >> "$TERMUX_HOME/.friday-guardian.log" 2>&1
+
+    """.trimIndent()
+
+    private val PAUSE_AND_REMOVE_SCRIPT = """
+        set -eu
+        touch "$TERMUX_HOME/.friday-guardian.pause"
+        rm -f "$BOOT_SCRIPT"
+        echo "Friday guardian paused and boot entry removed."
+    """.trimIndent()
+}
+}PIDFILE" ] && kill -0 "$(cat "${'        printf '%s guardian-started %s\n' "$(date -Iseconds)" "$$" >> "${'$'}LOG"
+        command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock
+        while [ ! -f "${'$'}PAUSE" ]; do
+            if [ ! -x "${'$'}RISH" ] || [ ! -r "$TERMUX_HOME/rish_shizuku.dex" ]; then
+                echo "$(date -Iseconds) missing-rish-files" >> "${'$'}LOG"
+                sleep 30
+                continue
+            fi
+            ID_OUTPUT=$("${'$'}RISH" -c id 2>>"${'$'}LOG" || true)
+            if ! printf '%s' "${'$'}ID_OUTPUT" | grep -Eq 'uid=(2000\(shell\)|0\(root\))'; then
+                echo "$(date -Iseconds) shizuku-unavailable-or-unauthorized" >> "${'$'}LOG"
+                sleep 30
+                continue
+            fi
+            PACKAGE_STATE=$("${'$'}RISH" -c 'dumpsys package ai.friday.assistant' 2>>"${'$'}LOG" || true)
+            if printf '%s\n' "${'$'}PACKAGE_STATE" | grep -Eq 'stopped=true'; then
+                echo "$(date -Iseconds) friday-stopped-recovery-attempt" >> "${'$'}LOG"
+                "${'$'}RISH" -c 'am start -n ai.friday.assistant/.MainActivity' >> "${'$'}LOG" 2>&1 || true
+                sleep 8
+                VERIFY=$("${'$'}RISH" -c 'dumpsys activity activities' 2>>"${'$'}LOG" || true)
+                if printf '%s\n' "${'$'}VERIFY" | grep -E 'mResumedActivity|topResumedActivity' | grep -Fq 'ai.friday.assistant'; then
+                    echo "$(date -Iseconds) friday-foreground-verified" >> "${'$'}LOG"
+                else
+                    echo "$(date -Iseconds) friday-launch-unverified" >> "${'$'}LOG"
+                fi
+            fi
+            sleep 20
+        done
+        echo "$(date -Iseconds) guardian-paused" >> "${'$'}LOG"
+        FRIDAY_GUARDIAN_EOF
+        chmod 700 "$BOOT_SCRIPT"
+        exec "$BOOT_SCRIPT" >> "$TERMUX_HOME/.friday-guardian.log" 2>&1
+
+    """.trimIndent()
+
+    private val PAUSE_AND_REMOVE_SCRIPT = """
+        set -eu
+        touch "$TERMUX_HOME/.friday-guardian.pause"
+        rm -f "$BOOT_SCRIPT"
+        echo "Friday guardian paused and boot entry removed."
+    """.trimIndent()
+}
+}PIDFILE")" 2>/dev/null; then
+            echo "$(date -Iseconds) guardian-already-running" >> "${'        printf '%s guardian-started %s\n' "$(date -Iseconds)" "$$" >> "${'$'}LOG"
+        command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock
+        while [ ! -f "${'$'}PAUSE" ]; do
+            if [ ! -x "${'$'}RISH" ] || [ ! -r "$TERMUX_HOME/rish_shizuku.dex" ]; then
+                echo "$(date -Iseconds) missing-rish-files" >> "${'$'}LOG"
+                sleep 30
+                continue
+            fi
+            ID_OUTPUT=$("${'$'}RISH" -c id 2>>"${'$'}LOG" || true)
+            if ! printf '%s' "${'$'}ID_OUTPUT" | grep -Eq 'uid=(2000\(shell\)|0\(root\))'; then
+                echo "$(date -Iseconds) shizuku-unavailable-or-unauthorized" >> "${'$'}LOG"
+                sleep 30
+                continue
+            fi
+            PACKAGE_STATE=$("${'$'}RISH" -c 'dumpsys package ai.friday.assistant' 2>>"${'$'}LOG" || true)
+            if printf '%s\n' "${'$'}PACKAGE_STATE" | grep -Eq 'stopped=true'; then
+                echo "$(date -Iseconds) friday-stopped-recovery-attempt" >> "${'$'}LOG"
+                "${'$'}RISH" -c 'am start -n ai.friday.assistant/.MainActivity' >> "${'$'}LOG" 2>&1 || true
+                sleep 8
+                VERIFY=$("${'$'}RISH" -c 'dumpsys activity activities' 2>>"${'$'}LOG" || true)
+                if printf '%s\n' "${'$'}VERIFY" | grep -E 'mResumedActivity|topResumedActivity' | grep -Fq 'ai.friday.assistant'; then
+                    echo "$(date -Iseconds) friday-foreground-verified" >> "${'$'}LOG"
+                else
+                    echo "$(date -Iseconds) friday-launch-unverified" >> "${'$'}LOG"
+                fi
+            fi
+            sleep 20
+        done
+        echo "$(date -Iseconds) guardian-paused" >> "${'$'}LOG"
+        FRIDAY_GUARDIAN_EOF
+        chmod 700 "$BOOT_SCRIPT"
+        exec "$BOOT_SCRIPT" >> "$TERMUX_HOME/.friday-guardian.log" 2>&1
+
+    """.trimIndent()
+
+    private val PAUSE_AND_REMOVE_SCRIPT = """
+        set -eu
+        touch "$TERMUX_HOME/.friday-guardian.pause"
+        rm -f "$BOOT_SCRIPT"
+        echo "Friday guardian paused and boot entry removed."
+    """.trimIndent()
+}
+}LOG"
             exit 0
         fi
-        echo "$" > "$PIDFILE"
-        trap 'rm -f "$PIDFILE"' EXIT HUP INT TERM
+        echo "${'        printf '%s guardian-started %s\n' "$(date -Iseconds)" "$$" >> "${'$'}LOG"
+        command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock
+        while [ ! -f "${'$'}PAUSE" ]; do
+            if [ ! -x "${'$'}RISH" ] || [ ! -r "$TERMUX_HOME/rish_shizuku.dex" ]; then
+                echo "$(date -Iseconds) missing-rish-files" >> "${'$'}LOG"
+                sleep 30
+                continue
+            fi
+            ID_OUTPUT=$("${'$'}RISH" -c id 2>>"${'$'}LOG" || true)
+            if ! printf '%s' "${'$'}ID_OUTPUT" | grep -Eq 'uid=(2000\(shell\)|0\(root\))'; then
+                echo "$(date -Iseconds) shizuku-unavailable-or-unauthorized" >> "${'$'}LOG"
+                sleep 30
+                continue
+            fi
+            PACKAGE_STATE=$("${'$'}RISH" -c 'dumpsys package ai.friday.assistant' 2>>"${'$'}LOG" || true)
+            if printf '%s\n' "${'$'}PACKAGE_STATE" | grep -Eq 'stopped=true'; then
+                echo "$(date -Iseconds) friday-stopped-recovery-attempt" >> "${'$'}LOG"
+                "${'$'}RISH" -c 'am start -n ai.friday.assistant/.MainActivity' >> "${'$'}LOG" 2>&1 || true
+                sleep 8
+                VERIFY=$("${'$'}RISH" -c 'dumpsys activity activities' 2>>"${'$'}LOG" || true)
+                if printf '%s\n' "${'$'}VERIFY" | grep -E 'mResumedActivity|topResumedActivity' | grep -Fq 'ai.friday.assistant'; then
+                    echo "$(date -Iseconds) friday-foreground-verified" >> "${'$'}LOG"
+                else
+                    echo "$(date -Iseconds) friday-launch-unverified" >> "${'$'}LOG"
+                fi
+            fi
+            sleep 20
+        done
+        echo "$(date -Iseconds) guardian-paused" >> "${'$'}LOG"
+        FRIDAY_GUARDIAN_EOF
+        chmod 700 "$BOOT_SCRIPT"
+        exec "$BOOT_SCRIPT" >> "$TERMUX_HOME/.friday-guardian.log" 2>&1
+
+    """.trimIndent()
+
+    private val PAUSE_AND_REMOVE_SCRIPT = """
+        set -eu
+        touch "$TERMUX_HOME/.friday-guardian.pause"
+        rm -f "$BOOT_SCRIPT"
+        echo "Friday guardian paused and boot entry removed."
+    """.trimIndent()
+}
+}${'        printf '%s guardian-started %s\n' "$(date -Iseconds)" "$$" >> "${'$'}LOG"
+        command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock
+        while [ ! -f "${'$'}PAUSE" ]; do
+            if [ ! -x "${'$'}RISH" ] || [ ! -r "$TERMUX_HOME/rish_shizuku.dex" ]; then
+                echo "$(date -Iseconds) missing-rish-files" >> "${'$'}LOG"
+                sleep 30
+                continue
+            fi
+            ID_OUTPUT=$("${'$'}RISH" -c id 2>>"${'$'}LOG" || true)
+            if ! printf '%s' "${'$'}ID_OUTPUT" | grep -Eq 'uid=(2000\(shell\)|0\(root\))'; then
+                echo "$(date -Iseconds) shizuku-unavailable-or-unauthorized" >> "${'$'}LOG"
+                sleep 30
+                continue
+            fi
+            PACKAGE_STATE=$("${'$'}RISH" -c 'dumpsys package ai.friday.assistant' 2>>"${'$'}LOG" || true)
+            if printf '%s\n' "${'$'}PACKAGE_STATE" | grep -Eq 'stopped=true'; then
+                echo "$(date -Iseconds) friday-stopped-recovery-attempt" >> "${'$'}LOG"
+                "${'$'}RISH" -c 'am start -n ai.friday.assistant/.MainActivity' >> "${'$'}LOG" 2>&1 || true
+                sleep 8
+                VERIFY=$("${'$'}RISH" -c 'dumpsys activity activities' 2>>"${'$'}LOG" || true)
+                if printf '%s\n' "${'$'}VERIFY" | grep -E 'mResumedActivity|topResumedActivity' | grep -Fq 'ai.friday.assistant'; then
+                    echo "$(date -Iseconds) friday-foreground-verified" >> "${'$'}LOG"
+                else
+                    echo "$(date -Iseconds) friday-launch-unverified" >> "${'$'}LOG"
+                fi
+            fi
+            sleep 20
+        done
+        echo "$(date -Iseconds) guardian-paused" >> "${'$'}LOG"
+        FRIDAY_GUARDIAN_EOF
+        chmod 700 "$BOOT_SCRIPT"
+        exec "$BOOT_SCRIPT" >> "$TERMUX_HOME/.friday-guardian.log" 2>&1
+
+    """.trimIndent()
+
+    private val PAUSE_AND_REMOVE_SCRIPT = """
+        set -eu
+        touch "$TERMUX_HOME/.friday-guardian.pause"
+        rm -f "$BOOT_SCRIPT"
+        echo "Friday guardian paused and boot entry removed."
+    """.trimIndent()
+}
+}" > "${'        printf '%s guardian-started %s\n' "$(date -Iseconds)" "$$" >> "${'$'}LOG"
+        command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock
+        while [ ! -f "${'$'}PAUSE" ]; do
+            if [ ! -x "${'$'}RISH" ] || [ ! -r "$TERMUX_HOME/rish_shizuku.dex" ]; then
+                echo "$(date -Iseconds) missing-rish-files" >> "${'$'}LOG"
+                sleep 30
+                continue
+            fi
+            ID_OUTPUT=$("${'$'}RISH" -c id 2>>"${'$'}LOG" || true)
+            if ! printf '%s' "${'$'}ID_OUTPUT" | grep -Eq 'uid=(2000\(shell\)|0\(root\))'; then
+                echo "$(date -Iseconds) shizuku-unavailable-or-unauthorized" >> "${'$'}LOG"
+                sleep 30
+                continue
+            fi
+            PACKAGE_STATE=$("${'$'}RISH" -c 'dumpsys package ai.friday.assistant' 2>>"${'$'}LOG" || true)
+            if printf '%s\n' "${'$'}PACKAGE_STATE" | grep -Eq 'stopped=true'; then
+                echo "$(date -Iseconds) friday-stopped-recovery-attempt" >> "${'$'}LOG"
+                "${'$'}RISH" -c 'am start -n ai.friday.assistant/.MainActivity' >> "${'$'}LOG" 2>&1 || true
+                sleep 8
+                VERIFY=$("${'$'}RISH" -c 'dumpsys activity activities' 2>>"${'$'}LOG" || true)
+                if printf '%s\n' "${'$'}VERIFY" | grep -E 'mResumedActivity|topResumedActivity' | grep -Fq 'ai.friday.assistant'; then
+                    echo "$(date -Iseconds) friday-foreground-verified" >> "${'$'}LOG"
+                else
+                    echo "$(date -Iseconds) friday-launch-unverified" >> "${'$'}LOG"
+                fi
+            fi
+            sleep 20
+        done
+        echo "$(date -Iseconds) guardian-paused" >> "${'$'}LOG"
+        FRIDAY_GUARDIAN_EOF
+        chmod 700 "$BOOT_SCRIPT"
+        exec "$BOOT_SCRIPT" >> "$TERMUX_HOME/.friday-guardian.log" 2>&1
+
+    """.trimIndent()
+
+    private val PAUSE_AND_REMOVE_SCRIPT = """
+        set -eu
+        touch "$TERMUX_HOME/.friday-guardian.pause"
+        rm -f "$BOOT_SCRIPT"
+        echo "Friday guardian paused and boot entry removed."
+    """.trimIndent()
+}
+}PIDFILE"
+        trap 'rm -f "${'        printf '%s guardian-started %s\n' "$(date -Iseconds)" "$$" >> "${'$'}LOG"
+        command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock
+        while [ ! -f "${'$'}PAUSE" ]; do
+            if [ ! -x "${'$'}RISH" ] || [ ! -r "$TERMUX_HOME/rish_shizuku.dex" ]; then
+                echo "$(date -Iseconds) missing-rish-files" >> "${'$'}LOG"
+                sleep 30
+                continue
+            fi
+            ID_OUTPUT=$("${'$'}RISH" -c id 2>>"${'$'}LOG" || true)
+            if ! printf '%s' "${'$'}ID_OUTPUT" | grep -Eq 'uid=(2000\(shell\)|0\(root\))'; then
+                echo "$(date -Iseconds) shizuku-unavailable-or-unauthorized" >> "${'$'}LOG"
+                sleep 30
+                continue
+            fi
+            PACKAGE_STATE=$("${'$'}RISH" -c 'dumpsys package ai.friday.assistant' 2>>"${'$'}LOG" || true)
+            if printf '%s\n' "${'$'}PACKAGE_STATE" | grep -Eq 'stopped=true'; then
+                echo "$(date -Iseconds) friday-stopped-recovery-attempt" >> "${'$'}LOG"
+                "${'$'}RISH" -c 'am start -n ai.friday.assistant/.MainActivity' >> "${'$'}LOG" 2>&1 || true
+                sleep 8
+                VERIFY=$("${'$'}RISH" -c 'dumpsys activity activities' 2>>"${'$'}LOG" || true)
+                if printf '%s\n' "${'$'}VERIFY" | grep -E 'mResumedActivity|topResumedActivity' | grep -Fq 'ai.friday.assistant'; then
+                    echo "$(date -Iseconds) friday-foreground-verified" >> "${'$'}LOG"
+                else
+                    echo "$(date -Iseconds) friday-launch-unverified" >> "${'$'}LOG"
+                fi
+            fi
+            sleep 20
+        done
+        echo "$(date -Iseconds) guardian-paused" >> "${'$'}LOG"
+        FRIDAY_GUARDIAN_EOF
+        chmod 700 "$BOOT_SCRIPT"
+        exec "$BOOT_SCRIPT" >> "$TERMUX_HOME/.friday-guardian.log" 2>&1
+
+    """.trimIndent()
+
+    private val PAUSE_AND_REMOVE_SCRIPT = """
+        set -eu
+        touch "$TERMUX_HOME/.friday-guardian.pause"
+        rm -f "$BOOT_SCRIPT"
+        echo "Friday guardian paused and boot entry removed."
+    """.trimIndent()
+}
+}PIDFILE"' EXIT HUP INT TERM
         printf '%s guardian-started %s\n' "$(date -Iseconds)" "$$" >> "${'$'}LOG"
         command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock
         while [ ! -f "${'$'}PAUSE" ]; do
