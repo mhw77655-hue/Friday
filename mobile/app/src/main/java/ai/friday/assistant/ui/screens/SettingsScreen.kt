@@ -611,7 +611,7 @@ fun SettingsScreen() {
 
         SectionLabel("FRIDAY RUNTIME")
         Text(
-            text = "Keep Friday's local continuity and background presence alive with an Android foreground service. Android still controls process scheduling; this is a persistence aid, not a way around force-stop or system policy.",
+            text = "Keep Friday's ordinary runtime alive with an Android foreground service. For app-process death or force-stop, Friday can also run a separate Shizuku daemon recovery supervisor, with a Termux-owned worker as a second recovery path. Android/OEM policy still controls whether those independent anchors remain alive.",
             style = FridayType.Label,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -716,7 +716,7 @@ fun SettingsScreen() {
             )
         }
         Text(
-            text = "After reboot Friday restores her non-microphone core where Android permits. Microphone capture is resumed only after Friday is opened in the foreground with RECORD_AUDIO granted. Force-stop, some manufacturer task killers, permission revocation and thermal shutdown cannot be defeated by an app.",
+            text = "After reboot Friday restores her non-microphone core where Android permits. Microphone capture is resumed only after Friday is opened in the foreground with RECORD_AUDIO granted. The Shizuku daemon can recover Friday's ordinary process while Shizuku remains running; Termux can provide a second path after Shizuku restarts. Neither can guarantee recovery if Android/OEM kills both anchors, permissions are revoked, or the device shuts down.",
             style = FridayType.Label,
             modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
         )
