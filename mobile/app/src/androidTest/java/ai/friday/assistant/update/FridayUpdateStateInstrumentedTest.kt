@@ -249,6 +249,68 @@ class FridayUpdateStateInstrumentedTest {
     }
 
     @Test
+    fun damagedFailureLedgerStillBlocksTheFailedVersionButAllowsANewerRepair() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val info = context.packageManager.getPackageInfo(
+            context.packageName,
+            android.content.pm.PackageManager.PackageInfoFlags.of(
+                android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES.toLong()
+            )
+        )
+        val store = FridayUpdateStateStore(context)
+        store.clearStaged()
+        store.clearPendingHealthCheck()
+        store.clearFailedRecoveryEvidence()
+        val failedVersion = info.longVersionCode + 1L
+        val prefs = context.getSharedPreferences("friday_update_state", Context.MODE_PRIVATE)
+        prefs.edit()
+            .putString("failed_artifacts_json", "{damaged")
+            .putLong("highest_failed_version_code", failedVersion)
+            .commit()
+        val staging = File(context.noBackupFilesDir, "friday-update-staging").apply { mkdirs() }
+        val sameVersionApk = File(staging, "damaged-ledger-same-version.apk").apply {
+            writeBytes(byteArrayOf(1, 1, 1))
+        }
+        val newerApk = File(staging, "damaged-ledger-newer.apk").apply {
+            writeBytes(byteArrayOf(2, 2, 2))
+        }
+        fun release(version: Long, name: String) = FridayUpdateClient.Release(
+            packageId = context.packageName,
+            versionCode = version,
+            versionName = name,
+            sourceCommit = "a".repeat(40),
+            certificateSha256 = "B".repeat(64),
+            apkSha256 = "c".repeat(64),
+            apkUrl = "https://example.invalid/$name.apk"
+        )
+        try {
+            assertTrue(
+                "A damaged but non-empty failed-release ledger must fail closed.",
+                store.hasFailedRecoveryEvidence()
+            )
+            assertFalse(
+                "A damaged ledger must still block retrying the failed version.",
+                store.saveStagedUnlessRecoveryRequired(
+                    FridayUpdateClient.Result.Staged(release(failedVersion, "failed"), sameVersionApk)
+                )
+            )
+            assertTrue(
+                "A higher-version signed repair may still be staged despite damaged detailed evidence.",
+                store.saveStagedUnlessRecoveryRequired(
+                    FridayUpdateClient.Result.Staged(release(failedVersion + 1L, "repair"), newerApk)
+                )
+            )
+            assertEquals(newerApk.canonicalPath, store.loadStaged()?.apk?.canonicalPath)
+        } finally {
+            store.clearStaged()
+            store.clearPendingHealthCheck()
+            store.clearFailedRecoveryEvidence()
+            sameVersionApk.delete()
+            newerApk.delete()
+        }
+    }
+
+    @Test
     fun postInstallHealthCheckConfirmsCurrentVersionSourceAndSigner() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val flags = android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES
