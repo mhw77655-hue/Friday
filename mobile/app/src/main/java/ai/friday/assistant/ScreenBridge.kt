@@ -37,11 +37,17 @@ object ScreenBridge {
     internal fun isVerifiedShizukuStatus(status: String): Boolean =
         status.startsWith("bound · verified Shizuku uid=")
 
+    private const val USER_SERVICE_VERSION = 7
     private const val DAEMON_PROBE_PREFS = "friday_shizuku_daemon_probe"
     private const val KEY_LAST_DAEMON_IDENTITY = "last_verified_daemon_identity"
 
     private val _lastScreenText = MutableStateFlow("")
     val lastScreenText: StateFlow<String> = _lastScreenText.asStateFlow()
+
+    private val probeConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) = Unit
+        override fun onServiceDisconnected(name: ComponentName?) = Unit
+    }
 
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
@@ -130,22 +136,8 @@ object ScreenBridge {
         val args = createUserServiceArgs(context)
         userServiceArgs = args
         try {
-            // Do not create a replacement before checking whether the daemon
-            // from Friday's previous process is still alive. This is the key
-            // observation needed to prove survival across package force-stop.
             bindingInProgress = true
-            _status.value = "checking existing Shizuku daemon..."
-            val existingVersion = runCatching {
-                Shizuku.peekUserService(args, connection)
-            }.getOrNull()
-            if (existingVersion != null && existingVersion >= 0) {
-                _status.value = "connecting to existing Shizuku daemon version=$existingVersion"
-                return
-            }
-
-            bindingInProgress = false
-            bindingInProgress = true
-            _status.value = "starting Shizuku daemon..."
+            _status.value = "binding Shizuku daemon..."
             Shizuku.bindUserService(args, connection)
         } catch (e: Exception) {
             bindingInProgress = false
@@ -158,30 +150,30 @@ object ScreenBridge {
             .processNameSuffix("device-capability")
             .daemon(true)
             .tag("friday-device-capability-core")
-            .version(6)
+            .version(USER_SERVICE_VERSION)
 
     /**
-     * Query the existing daemon without starting one. Returns the remote
-     * UserService version, -1 when absent, or null when the query is unsupported
-     * or Shizuku is unavailable. This is intentionally separate from bind().
+     * Query the existing daemon without starting one or attaching the main
+     * ScreenBridge connection. Returns the running version, -1 when absent,
+     * or null when unsupported/unavailable. The probe callback is detached
+     * immediately so this diagnostic cannot create a lasting client binding.
      */
+    @Synchronized
     fun peekExistingUserServiceVersion(context: Context): Int? {
         if (!runCatching { Shizuku.pingBinder() }.getOrDefault(false)) return null
         if (runCatching { Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED }.getOrDefault(false).not()) {
             return null
         }
         val args = createUserServiceArgs(context)
-        userServiceArgs = args
-        bindingInProgress = true
-        _status.value = "checking existing Shizuku daemon..."
-        val version = runCatching { Shizuku.peekUserService(args, connection) }.getOrNull()
-        if (version == null || version < 0) {
-            bindingInProgress = false
-            if (service == null) _status.value = "no existing Shizuku daemon"
-        } else {
-            _status.value = "connecting to existing Shizuku daemon version=$version"
+        return try {
+            val version = Shizuku.peekUserService(args, probeConnection)
+            runCatching { Shizuku.unbindUserService(args, probeConnection, false) }
+            version
+        } catch (failure: Exception) {
+            runCatching { Shizuku.unbindUserService(args, probeConnection, false) }
+            Log.w("ScreenBridge", "Could not peek existing Shizuku UserService", failure)
+            null
         }
-        return version
     }
 
     /** Full identity reported by the remote daemon after UID verification. */
