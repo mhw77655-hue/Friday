@@ -250,17 +250,28 @@ class GitHubDevelopmentRepositoryClient(
             }
         }
         ZipInputStream(ByteArrayInputStream(archive)).use { zip ->
+            var totalUncompressed = 0
             while (true) {
                 val entry = zip.nextEntry ?: break
-                if (!entry.isDirectory && entry.name == "investigation-summary.json") {
+                if (entry.isDirectory) {
+                    zip.closeEntry()
+                    continue
+                }
+                if (entry.name == "investigation-summary.json") {
                     val output = ByteArrayOutputStream()
                     val buffer = ByteArray(4_096)
-                    var total = 0
+                    var summaryBytes = 0
                     while (true) {
                         val count = zip.read(buffer)
                         if (count < 0) break
-                        total += count
-                        require(total <= MAX_REA_SUMMARY_BYTES) { "REA investigation summary exceeds the size limit." }
+                        summaryBytes += count
+                        totalUncompressed += count
+                        require(summaryBytes <= MAX_REA_SUMMARY_BYTES) {
+                            "REA investigation summary exceeds the size limit."
+                        }
+                        require(totalUncompressed <= MAX_REA_UNCOMPRESSED_BYTES) {
+                            "REA evidence archive exceeds the uncompressed size limit."
+                        }
                         output.write(buffer, 0, count)
                     }
                     val summary = output.toString(StandardCharsets.UTF_8.name())
@@ -270,6 +281,18 @@ class GitHubDevelopmentRepositoryClient(
                         "REA evidence summary schema is unsupported."
                     }
                     return summary
+                }
+
+                // Drain non-summary entries with a total decompression cap. A
+                // ZipInputStream otherwise drains skipped entries on nextEntry.
+                val skipBuffer = ByteArray(8_192)
+                while (true) {
+                    val count = zip.read(skipBuffer)
+                    if (count < 0) break
+                    totalUncompressed += count
+                    require(totalUncompressed <= MAX_REA_UNCOMPRESSED_BYTES) {
+                        "REA evidence archive exceeds the uncompressed size limit."
+                    }
                 }
                 zip.closeEntry()
             }
@@ -534,6 +557,7 @@ class GitHubDevelopmentRepositoryClient(
         private const val MAX_REVIEW_DIFF_CHARS = 256_000
         private const val MAX_REA_ARCHIVE_BYTES = 20 * 1024 * 1024
         private const val MAX_REA_SUMMARY_BYTES = 2 * 1024 * 1024
+        private const val MAX_REA_UNCOMPRESSED_BYTES = 50 * 1024 * 1024
         private val SECRET_PATTERN = Regex(
             "(?i)(github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{30,}|xox[baprs]-[A-Za-z0-9-]{20,}|bearer\\s+[A-Za-z0-9._-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)"
         )
