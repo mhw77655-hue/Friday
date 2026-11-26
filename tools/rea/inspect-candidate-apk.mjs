@@ -129,6 +129,16 @@ class Mcp {
   }
 }
 
+function collectEvidenceIds(value, found = new Set()) {
+  if (!value || typeof value !== "object") return [...found];
+  for (const [key, child] of Object.entries(value)) {
+    if ((key === "evidence_id" || key === "id") &&
+        typeof child === "string" && /^ev_[0-9a-f]{64}$/.test(child)) found.add(child);
+    if (child && typeof child === "object") collectEvidenceIds(child, found);
+  }
+  return [...found];
+}
+
 async function main() {
   if (!version || !/^6\.10\.1$/.test(version)) throw new Error("REA_PACKAGE_VERSION must be the reviewed 6.10.1 pin.");
   if (!/^[0-9a-f]{40}$/.test(candidateSha)) throw new Error("CANDIDATE_SHA must be a full lowercase Git SHA.");
@@ -177,13 +187,26 @@ async function main() {
       class_search_evidence: searches,
     };
     const output = resolve(outputDir, "candidate-rea-evidence.json");
-    await writeFile(output, JSON.stringify(record, null, 2) + "\n");
+    const reportText = JSON.stringify(record, null, 2) + "\n";
+    await writeFile(output, reportText);
+    const summary = {
+      schema_version: 1,
+      candidate_commit_sha: candidateSha,
+      apk_sha256: apkSha256,
+      rea_version: version,
+      report_sha256: digest(Buffer.from(reportText)),
+      evidence_ids: collectEvidenceIds(record),
+      package_evidence_excerpt: JSON.stringify(record.package_evidence ?? record.package_text).slice(0, 5000),
+      class_search_evidence_excerpt: JSON.stringify(record.class_search_evidence).slice(0, 5000),
+    };
+    await writeFile(resolve(outputDir, "candidate-rea-summary.json"), JSON.stringify(summary, null, 2) + "\n");
     process.stdout.write(JSON.stringify({
       status: "COMPLETED",
       candidate_commit_sha: candidateSha,
       apk_sha256: apkSha256,
       report: basename(output),
       rea_version: version,
+      evidence_ids: summary.evidence_ids.length,
       class_searches: searches.length,
     }) + "\n");
   } finally {
