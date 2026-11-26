@@ -73,8 +73,9 @@ class DiagnosisEngineTest {
             ReaRepairEvidence(
                 toolName = "REA",
                 toolVersion = "test-version",
-                target = "Friday source tree",
-                targetRevision = "abc123",
+                target = "ai.friday.assistant",
+                targetRevision = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                targetSha256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                 evidenceId = "ev_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 findings = listOf(
                     ReaFinding(
@@ -84,7 +85,7 @@ class DiagnosisEngineTest {
                         confidence = 0.94
                     )
                 ),
-                limitations = listOf("Runtime behavior was not exercised by this static trace.")
+                limitations = listOf("APK decompilation does not establish runtime behavior.")
             )
         )
         assertTrue(prompt.contains("UPSTREAM REA INVESTIGATION"))
