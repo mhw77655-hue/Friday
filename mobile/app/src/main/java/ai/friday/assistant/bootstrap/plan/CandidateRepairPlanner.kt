@@ -47,10 +47,7 @@ internal object CandidateRepairPlanner {
                 .put("url", candidate.optString("url"))
                 .put("branch", candidate.optString("branch")))
             .put("failure_evidence", compactFailureEvidence(failureEvidence))
-        val boundedContext = repairContext.toString()
-        require(boundedContext.length <= MAX_REPAIR_CONTEXT_CHARS) {
-            "Bounded repair evidence exceeded its persistence budget."
-        }
+        val boundedContext = boundRepairContext(repairContext)
 
         val acceptance = JSONArray(
             failedTask.optJSONArray("acceptance_criteria")?.toString() ?: "[]"
@@ -91,6 +88,37 @@ internal object CandidateRepairPlanner {
                 .put("updated_at_epoch_ms", nowEpochMs))
             .put("created_at_epoch_ms", nowEpochMs)
             .put("updated_at_epoch_ms", nowEpochMs)
+    }
+
+    private fun boundRepairContext(context: JSONObject): String {
+        val evidence = context.getJSONObject("failure_evidence")
+        val sandbox = evidence.getJSONObject("sandbox")
+        val review = evidence.getJSONObject("review")
+        val candidates = listOf(
+            sandbox to "failure_excerpt",
+            sandbox to "rea_evidence_excerpt",
+            evidence to "candidate_diff",
+            sandbox to "reason",
+            review to "stance_reason"
+        )
+        var encoded = context.toString()
+        while (encoded.length > MAX_REPAIR_CONTEXT_CHARS) {
+            val largest = candidates
+                .mapNotNull { (objectValue, key) ->
+                    val value = objectValue.optString(key)
+                    if (value.isBlank()) null else Triple(objectValue, key, value)
+                }
+                .maxByOrNull { it.third.length }
+                ?: break
+            val reduction = maxOf(256, encoded.length - MAX_REPAIR_CONTEXT_CHARS)
+            val retained = (largest.third.length - reduction).coerceAtLeast(0)
+            largest.first.put(largest.second, largest.third.take(retained))
+            encoded = context.toString()
+        }
+        require(encoded.length <= MAX_REPAIR_CONTEXT_CHARS) {
+            "Repair evidence metadata exceeds its persistence budget."
+        }
+        return encoded
     }
 
     private fun compactFailureEvidence(source: JSONObject): JSONObject {
