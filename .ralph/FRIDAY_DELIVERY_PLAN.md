@@ -761,12 +761,12 @@ Objective 1 is complete only when Phase 7 passes and every mandatory phase exit 
 
 **Historical repository audit snapshot (superseded for signing status):** commit `b39fd1d69e022519ade57b5a3f3b47c20a768f11` has a successful Android build workflow (debug APK, disposable-key release variant, unit tests, source audit and emulator instrumentation APK preparation) and a successful Lean formal-contract workflow. The corresponding signed-release workflow completed its job but skipped checkout, keystore decoding, production APK build, signature verification and publication because permanent signing secrets were not configured; it produced no release artifact. The emulator job built the app and instrumentation APK and booted a disposable emulator, but this is not evidence of the owner's physical handset behavior.
 
-**Known implementation gaps at this snapshot:** MainActivity starts the existing app navigation and initializes Shizuku, but no integrated first-launch permission/configuration wizard is wired as the start experience. ShizukuBridge tracks Binder/permission state and ScreenBridge verifies a UserService UID of shell/root; the documented operation set remains limited and handset authorization/lifecycle cases are not physically verified. The update channel documentation itself records that same-key upgrade continuity and last-known-good rollback are not yet fully accepted. The release workflow cannot publish until the owner-controlled signing identity and required secrets exist. The old public GitHub Issues bridge is retired; any app-centred development control plane must use a private authenticated owner-authorized path, not reintroduce public telemetry or public command channels.
+**Historical implementation gaps at the b39fd1d snapshot (superseded where noted below):** MainActivity starts the existing app navigation and initializes Shizuku, but no integrated first-launch permission/configuration wizard is wired as the start experience. ShizukuBridge tracks Binder/permission state and ScreenBridge verifies a UserService UID of shell/root; the documented operation set remains limited and handset authorization/lifecycle cases are not physically verified. The update channel documentation itself records that same-key upgrade continuity and last-known-good rollback are not yet fully accepted. At that historical snapshot, the release workflow could not publish because the owner-controlled signing identity and required secrets were not yet configured. The old public GitHub Issues bridge is retired; any app-centred development control plane must use a private authenticated owner-authorized path, not reintroduce public telemetry or public command channels.
 
 This register is an evidence snapshot, not a declaration of completion. Update each status only when the corresponding artifact, test report or device evidence exists.
 
 
-### Objective 1 implementation delta (2026-11-22, after the b39fd1d audit snapshot)
+### Historical Objective 1 implementation delta (2026-11-22, after the b39fd1d audit snapshot)
 
 The first-launch guided configuration slice is now implemented in the Android source, pending CI and handset verification:
 
@@ -782,6 +782,20 @@ Relevant source changes are on main after the audit snapshot: `FirstLaunchSetupS
 
 The following Objective 1 blockers remain unchanged: permanent signing credentials and a signed production APK; same-key in-place update proof and last-known-good recovery acceptance; owner-phone first-launch and Shizuku verification; completion of the in-app operations/development control plane; and the full adversarial/recovery campaign. Do not call Objective 1 complete until each has evidence.
 
+
+### Current Objective 1 delivery status (2026-11-26)
+
+The later main commit `27a712b097d29523335939ab321313a82bcdc587` passes the Android build workflow, and its signed production APK was published as Friday v1.0.547. The release job passed the permanent signing-secret check, keystore decode, production build, APK signature verification, metadata generation and publication. The first-launch setup implementation described in the historical delta is included in the current main source and has CI/emulator coverage. The old claim that release signing is still unconfigured is no longer current.
+
+**Still open and not to be represented as complete:**
+- Install v1.0.547 on the owner's physical phone and capture first-launch/typed interaction evidence.
+- Verify Shizuku manager/server/authorization/effective UID and actual supported operations on that handset.
+- Prove an in-place upgrade from the currently installed package using the permanent signer, preserving Friday's identity, settings and experience.
+- Prove staged update verification, install result, post-update health checks and rollback/last-known-good recovery on the target phone.
+- Complete the Friday-native operations/development control plane and the adversarial/immune recovery campaign.
+- Integrate the real upstream REA MCP/CLI into Friday's engineering workflow and complete the Shizuku/Termux investigation. This is tracked in [issue #172](https://github.com/mhw77655-hue/Friday/issues/172); documentation changes alone do not mean REA is connected.
+
+**Current deliverable:** a CI-verified, production-signed APK is available as [Friday v1.0.547](https://github.com/mhw77655-hue/Friday/releases/tag/friday-v1.0.547). It is a real installable release artifact, not yet an owner-phone accepted seed. The next critical proof is physical installation and continuity/update verification, not another claim of successful compilation.
 
 ### Owner correction — Friday is the control centre; Android/Shizuku are guided setup steps
 
