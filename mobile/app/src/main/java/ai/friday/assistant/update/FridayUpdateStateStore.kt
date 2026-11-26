@@ -151,6 +151,21 @@ class FridayUpdateStateStore(context: Context) {
     fun lastStatus(): String = prefs.getString(KEY_STATUS, "No update check has been run.")
         ?: "No update check has been run."
 
+    /**
+     * A routine up-to-date poll must never erase the only recovery artifact
+     * while a failed post-install identity check is still pending.
+     *
+     * Returns false when recovery is required and staged bytes are retained.
+     */
+    fun clearStagedUnlessRecoveryRequired(): Boolean {
+        val pendingStatus = verifyPendingHealthCheck()
+        if (pendingStatus?.startsWith("Post-update health check failed:") == true) {
+            return false
+        }
+        clearStaged()
+        return true
+    }
+
     fun clearStaged() {
         val staged = loadStaged()
         staged?.apk?.delete()
