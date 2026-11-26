@@ -1,0 +1,164 @@
+name: Friday isolated candidate sandbox
+run-name: Friday sandbox task ${{ inputs.task_id || github.run_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_id:
+        description: Friday Builder task identifier
+        required: true
+        type: string
+      candidate_sha:
+        description: Exact 40-character candidate commit SHA
+        required: true
+        type: string
+      test_profile:
+        description: Fixed verification profile
+        required: true
+        type: choice
+        options:
+          - android-debug
+
+permissions:
+  contents: read
+
+concurrency:
+  group: friday-candidate-sandbox-${{ inputs.task_id }}
+  cancel-in-progress: false
+
+jobs:
+  isolated-candidate-verification:
+    name: Isolated Android candidate verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - name: Validate typed task and commit inputs
+        env:
+          TASK_ID: ${{ inputs.task_id }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          TEST_PROFILE: ${{ inputs.test_profile }}
+        run: |
+          set -euo pipefail
+          [[ "$TASK_ID" =~ ^[A-Za-z0-9._-]{3,80}$ ]]
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$TEST_PROFILE" == "android-debug" ]]
+
+      - name: Checkout exact candidate commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Verify exact candidate identity
+        id: identity
+        env:
+          EXPECTED_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          echo "actual_sha=$ACTUAL_SHA" >> "$GITHUB_OUTPUT"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Configure Gradle dependency cache
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Create isolated writable Android SDK
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${RUNNER_TEMP}/friday-sandbox-android-sdk"
+          mkdir -p "$SDK_ROOT/cmdline-tools"
+          cp -a /usr/local/lib/android/sdk/cmdline-tools/latest "$SDK_ROOT/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+
+      - name: Install pinned Android build components
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;35.0.0" \
+            "ndk;27.3.13750724" \
+            "cmake;3.22.1"
+
+      - name: Run isolated candidate verification profile
+        id: verify
+        shell: bash
+        run: |
+          set +e
+          mkdir -p "$RUNNER_TEMP/friday-sandbox-evidence"
+          ./gradlew --no-daemon --console=plain \
+            :mobile:app:testDebugUnitTest \
+            :mobile:app:lintDebug \
+            :mobile:app:assembleDebug \
+            2>&1 | tee "$RUNNER_TEMP/friday-sandbox-evidence/gradle.log"
+          RESULT=${PIPESTATUS[0]}
+          echo "exit_code=$RESULT" >> "$GITHUB_OUTPUT"
+          exit "$RESULT"
+
+      - name: Assemble machine-readable sandbox evidence
+        if: always()
+        env:
+          TASK_ID: ${{ inputs.task_id }}
+          EXPECTED_SHA: ${{ inputs.candidate_sha }}
+          ACTUAL_SHA: ${{ steps.identity.outputs.actual_sha }}
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+          VERIFY_EXIT_CODE: ${{ steps.verify.outputs.exit_code }}
+          JAVA_VERSION: ${{ steps.setup-java.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/friday-sandbox-evidence"
+          APK="mobile/app/build/outputs/apk/debug/app-debug.apk"
+          APK_SHA=""
+          if [[ -f "$APK" ]]; then APK_SHA="$(sha256sum "$APK" | awk '{print $1}')"; fi
+          python3 - <<'PY'
+          import json, os, pathlib, platform, subprocess
+          out = pathlib.Path(os.environ["RUNNER_TEMP"]) / "friday-sandbox-evidence" / "summary.json"
+          expected = os.environ.get("EXPECTED_SHA", "")
+          actual = os.environ.get("ACTUAL_SHA", "")
+          outcome = os.environ.get("VERIFY_OUTCOME", "unknown")
+          passed = outcome == "success" and expected == actual and len(actual) == 40
+          data = {
+              "schema_version": 1,
+              "task_id": os.environ.get("TASK_ID", ""),
+              "expected_commit_sha": expected,
+              "checked_out_commit_sha": actual,
+              "test_profile": "android-debug",
+              "status": "PASS" if passed else "FAIL",
+              "verification_step": outcome,
+              "gradle_exit_code": os.environ.get("VERIFY_EXIT_CODE", ""),
+              "java_version": os.environ.get("JAVA_VERSION", ""),
+              "runner_os": platform.platform(),
+              "apk_sha256": os.environ.get("APK_SHA", ""),
+              "signing": "debug-only; no production signing secrets are available to this runner"
+          }
+          out.write_text(json.dumps(data, indent=2) + "\n")
+          print(out.read_text())
+          PY
+        env:
+          APK_SHA: ${{ steps.verify.outcome == 'success' && 'built' || '' }}
+
+      - name: Upload isolated sandbox evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-candidate-sandbox-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/friday-sandbox-evidence/
+            mobile/app/build/reports/tests/testDebugUnitTest/
+            mobile/app/build/reports/lint-results-debug.*
+            mobile/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: warn
+          retention-days: 30
