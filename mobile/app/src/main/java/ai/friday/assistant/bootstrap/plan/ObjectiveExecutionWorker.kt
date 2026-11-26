@@ -138,7 +138,8 @@ class ObjectiveExecutionWorker(
                     val priorSandbox = pendingSandbox.optJSONObject("sandbox")
                     var run = repository.findCandidateSandboxRun(sandboxTaskId)
                     if (priorSandbox?.optString("state") != "DISPATCHED" && run == null) {
-                        val runId = repository.dispatchCandidateSandbox(sandboxTaskId, candidateSha)
+                        val ciFailed = pendingSandbox.optJSONObject("ci")?.optString("state") == "FAILURE"
+                        val runId = repository.dispatchCandidateSandbox(sandboxTaskId, candidateSha, ciFailed)
                         store.recordCandidateSandboxDispatched(sandboxTaskId, runId)
                         enqueueFollowUp(applicationContext, sandboxTaskId, initialDelaySeconds = 600)
                         android.util.Log.i(TAG, "Dispatched isolated cloud sandbox for Builder task " + sandboxTaskId)
