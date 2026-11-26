@@ -66,7 +66,13 @@ class FridayPackageInstallStatusActivity : Activity() {
                     ?.take(160)
                     .orEmpty()
                 val message = if (detail.isBlank()) "Android rejected the Friday update." else "Friday update failed: $detail"
-                FridayUpdateStateStore(this).recordStatus(message)
+                val state = FridayUpdateStateStore(this)
+                // PackageInstaller failure means the new package was not
+                // committed. Keep the verified candidate available for retry,
+                // but do not misclassify an install rejection as a failed
+                // post-install health check.
+                state.clearPendingHealthCheck()
+                state.recordStatus(message)
                 Toast.makeText(this, message, Toast.LENGTH_LONG).show()
                 finish()
             }
