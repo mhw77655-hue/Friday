@@ -148,7 +148,7 @@ class DiagnoseRepairIntegrationTest {
         ) = SandboxExecutor.StressResult(passed = true, log = listOf("explicit test-only sandbox stub"))
     }
 
-    private fun buildLoop(root: File, h: Harness, diagText: String = scriptedDiagnosis, repairText: String = scriptedRepair): Pair<SelfRepairLoop, DiagnosisEngine> {
+    private fun buildLoop(root: File, h: Harness, diagText: String = scriptedDiagnosis, repairText: String = scriptedRepair, reaProvider: ReaRepairEvidenceProvider? = null): Pair<SelfRepairLoop, DiagnosisEngine> {
         val diagnoser = DiagnosisEngine(
             complete = { _ ->
                 GenerateResult(content = diagText, finishReason = FinishReason.STOP,
@@ -168,7 +168,8 @@ class DiagnoseRepairIntegrationTest {
             synthesizer = synth,
             gate = h.gate,
             failureSurface = h.surface,
-            sandboxExecutor = passingSandbox
+            sandboxExecutor = passingSandbox,
+            reaEvidenceProvider = reaProvider
         )
         return loop to diagnoser
     }
@@ -244,6 +245,44 @@ class DiagnoseRepairIntegrationTest {
         assertTrue(result.log.any { it.contains("sourcePatch: VERIFIED") })
         assertTrue("source patch should remain applied for trusted repository publication",
             File(root, "com/example/planner/GoalPlanner.kt").readText().contains("FAILED"))
+    }
+
+    @Test
+    fun `failed candidate diagnosis invokes REA and carries its evidence into the model prompt`() = runBlocking {
+        scope = CoroutineScope(Dispatchers.IO)
+        val root = tmpDir()
+        writePlannerFixture(root)
+        copyXmlFixture(root)
+        val h = harness()
+        var invocations = 0
+        val provider = ReaRepairEvidenceProvider { requirement, observation ->
+            invocations++
+            assertEquals("GoalPlanner", requirement.component)
+            assertEquals("CapabilityExecutorTest", observation.suiteName)
+            ReaRepairEvidence(
+                toolName = "REA",
+                toolVersion = "integration-test",
+                target = "Friday repository",
+                targetRevision = "test-revision",
+                findings = listOf(
+                    ReaFinding(
+                        title = "Failed node removed before downstream lookup",
+                        finding = "The inspected replan path filters the failed node.",
+                        evidenceRefs = listOf("source:GoalPlanner.replan", "trace:failed-node-lookup"),
+                        confidence = 0.97
+                    )
+                )
+            )
+        }
+        val (loop, diagnoser) = buildLoop(root, h, reaProvider = provider)
+        val result = loop.observeAndDiagnose(
+            RepairRequirement("GoalPlanner", "retain failed nodes", emptyList()),
+            "CapabilityExecutorTest"
+        )
+        assertEquals(1, invocations)
+        assertNotNull(result.diagnosis)
+        assertTrue(diagnoser.lastPrompt!!.contains("source:GoalPlanner.replan"))
+        assertTrue(result.log.any { it.contains("REA: REA integration-test") })
     }
 
     @Test
