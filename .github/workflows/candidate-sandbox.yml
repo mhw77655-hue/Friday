@@ -228,7 +228,7 @@ jobs:
           outcome = os.environ.get("VERIFY_OUTCOME", "unknown")
           apk_sha = os.environ.get("APK_SHA", "")
           log_path = pathlib.Path("friday-sandbox-evidence/gradle.log")
-          failure_excerpt = "\\n".join(log_path.read_text(errors="replace").splitlines()[-100:])[-12000:] if log_path.exists() else ""
+          failure_excerpt = "\n".join(log_path.read_text(errors="replace").splitlines()[-100:])[-12000:] if log_path.exists() else ""
           rea_path = pathlib.Path("friday-sandbox-evidence/candidate-rea-evidence.json")
           rea_text = rea_path.read_text(errors="replace") if rea_path.exists() else ""
           rea_sha = hashlib.sha256(rea_text.encode()).hexdigest() if rea_text else ""
