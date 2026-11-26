@@ -1,4 +1,5 @@
 name: Friday REA Android investigation
+run-name: Friday REA investigation ${{ inputs.investigation_id || github.run_id }}
 
 on:
   pull_request:
@@ -11,6 +12,11 @@ on:
       - "tools/rea/**"
       - ".github/workflows/rea-investigation.yml"
   workflow_dispatch:
+    inputs:
+      investigation_id:
+        description: Friday-generated unique investigation identifier
+        required: true
+        type: string
 
 permissions:
   contents: read
