@@ -24,6 +24,8 @@ internal object CandidateRepairPlanner {
             !candidateSha.matches(Regex("[0-9a-f]{40}"))
         ) return null
 
+        if (!hasActionableFailureEvidence(failureEvidence)) return null
+
         // Never silently widen the authority of a candidate that required
         // owner approval or was not originally classified as low-risk.
         if (failedTask.optString("risk") != "LOW" ||
@@ -88,6 +90,17 @@ internal object CandidateRepairPlanner {
                 .put("updated_at_epoch_ms", nowEpochMs))
             .put("created_at_epoch_ms", nowEpochMs)
             .put("updated_at_epoch_ms", nowEpochMs)
+    }
+
+    private fun hasActionableFailureEvidence(source: JSONObject): Boolean {
+        val ciFailed = source.optJSONObject("ci")?.optString("state") == "FAILURE"
+        val sandbox = source.optJSONObject("sandbox") ?: JSONObject()
+        val summary = sandbox.optJSONObject("summary") ?: JSONObject()
+        val sandboxFailureObserved =
+            summary.optString("verification_step") == "failure" ||
+                summary.optString("failure_excerpt").isNotBlank()
+        val reviewDisputed = source.optJSONObject("review")?.optString("stance") in setOf("DISPUTE", "ADD")
+        return ciFailed || sandboxFailureObserved || reviewDisputed
     }
 
     private fun boundRepairContext(context: JSONObject): String {
