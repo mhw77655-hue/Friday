@@ -116,6 +116,13 @@ object TermuxRuntimeBridge {
         RISH="$TERMUX_HOME/rish"
         LOG="$TERMUX_HOME/.friday-guardian.log"
         PAUSE="$TERMUX_HOME/.friday-guardian.pause"
+        PIDFILE="$TERMUX_HOME/.friday-guardian.pid"
+        if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+            echo "$(date -Iseconds) guardian-already-running" >> "$LOG"
+            exit 0
+        fi
+        echo "$" > "$PIDFILE"
+        trap 'rm -f "$PIDFILE"' EXIT HUP INT TERM
         printf '%s guardian-started %s\n' "$(date -Iseconds)" "$$" >> "${'$'}LOG"
         command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock
         while [ ! -f "${'$'}PAUSE" ]; do
@@ -147,8 +154,8 @@ object TermuxRuntimeBridge {
         echo "$(date -Iseconds) guardian-paused" >> "${'$'}LOG"
         FRIDAY_GUARDIAN_EOF
         chmod 700 "$BOOT_SCRIPT"
-        nohup "$BOOT_SCRIPT" >> "$TERMUX_HOME/.friday-guardian.log" 2>&1 </dev/null &
-        echo "Friday guardian installed. Confirm rish authorization and Termux:Boot setup."
+        exec "$BOOT_SCRIPT" >> "$TERMUX_HOME/.friday-guardian.log" 2>&1
+
     """.trimIndent()
 
     private val PAUSE_AND_REMOVE_SCRIPT = """
