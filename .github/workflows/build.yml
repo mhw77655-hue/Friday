@@ -68,8 +68,12 @@ jobs:
               workflow_id: "build.yml",
               per_page: 100
             });
+            const currentRunId = Number(context.runId);
+            if (!Number.isSafeInteger(currentRunId)) {
+              throw new Error(`Invalid current workflow run ID: ${context.runId}`);
+            }
             const stale = response.data.workflow_runs.filter(run =>
-              run.id !== context.runId &&
+              run.id < currentRunId &&
               run.event === "pull_request" &&
               run.status !== "completed" &&
               (run.pull_requests || []).some(item => item.number === pr.number)
