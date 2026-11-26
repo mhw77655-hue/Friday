@@ -6,7 +6,7 @@ on:
       - "tools/rea/**"
       - ".github/workflows/rea-investigation.yml"
   push:
-    branches: [ main, feat/rea-mcp-android-investigation ]
+    branches: [ main ]
     paths:
       - "tools/rea/**"
       - ".github/workflows/rea-investigation.yml"
