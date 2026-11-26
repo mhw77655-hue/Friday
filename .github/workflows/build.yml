@@ -125,6 +125,24 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Discover Friday production capabilities and persistent stores
+        id: sentinel-inventory
+        run: |
+          python3 tools/friday-builder/sentinel_inventory.py \
+            --json "$RUNNER_TEMP/friday-sentinel-inventory.json" \
+            --markdown "$RUNNER_TEMP/friday-sentinel-inventory.md"
+
+      - name: Upload Friday Sentinel inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-sentinel-capability-inventory
+          path: |
+            ${{ runner.temp }}/friday-sentinel-inventory.json
+            ${{ runner.temp }}/friday-sentinel-inventory.md
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Test Android harness and build contracts
         id: harness-contracts
         # Keep APK compilation and device validation running even when a
