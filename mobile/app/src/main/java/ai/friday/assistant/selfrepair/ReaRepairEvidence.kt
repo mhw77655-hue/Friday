@@ -32,11 +32,15 @@ data class ReaTargetArtifact(
     }
 
     /** Detect replacement or mutation between build handoff and REA invocation. */
-    fun verifyUnchanged(): Boolean = sha256(file) == sha256
+    fun verifyUnchanged(): Boolean = runCatching { sha256(file) == sha256 }.getOrDefault(false)
 
     companion object {
-        fun fromBuiltApk(file: File, sourceRevision: String, packageName: String): ReaTargetArtifact =
-            ReaTargetArtifact(file, sourceRevision, packageName, sha256(file))
+        fun fromBuiltApk(file: File, sourceRevision: String, packageName: String): ReaTargetArtifact {
+            require(file.isFile && file.extension.equals("apk", ignoreCase = true)) {
+                "REA Android target must be an existing APK file"
+            }
+            return ReaTargetArtifact(file, sourceRevision, packageName, sha256(file))
+        }
 
         private fun sha256(file: File): String {
             val digest = MessageDigest.getInstance("SHA-256")
