@@ -291,55 +291,152 @@ These apply to every objective and subsystem:
 
 ---
 
-## 8. Delivery strategy and immediate critical path
+## 8. Chronological delivery roadmap — dependencies first, parallel progress always
 
-Workstreams may proceed in parallel; integration and release decisions remain evidence-gated. The following is the current highest-value route, not a claim that all other research must wait.
+This is the execution order for turning the vision into reality. It is ordered by dependency and proof, not by arbitrary calendar promises. A phase advances only when its exit evidence exists. Work that does not depend on an unfinished gate may proceed in parallel, but parallel work must not obscure the critical path.
 
-### P0 — Stabilize the current REA/Builder candidate
+**Time model**
+- **Now** means the active engineering queue, not an estimate or a claim that work is already complete.
+- **Next** means the first dependency-ready work after the current gate.
+- **Then** means work that relies on the preceding capability being real and usable.
+- **Continuous tracks** begin as soon as the seed can support them and keep improving across every later phase.
+- Useful progress should arrive in short, reviewable work packets—ideally measured in days, not long periods of silent architecture work. This is a cadence target, not a deadline guarantee.
+- Never mark a phase complete because its code exists. Use the evidence states in Section 10 and record the exact revision, artifact, environment and verifier.
 
-1. Reconcile PR #173 with the current canonical `main` head and re-run exact-head CI.
-2. Fix the observed Android emulator failure in `SettingsScreenInteractionInstrumentedTest.keepFridayAliveTogglePersistsTheOwnerSetting`; determine whether the Compose timeout is a test race, state restoration defect or production UI defect before changing the test.
-3. Re-run all six JVM shards, Android build/lint, release-variant check, emulator instrumentation, source/vision audit and workflow lint. Explicitly account for skipped mutation and dependency-graph checks; skipped is not passed.
-4. Inspect the exact failed-run logs and artifacts, preserve the failure evidence, add a regression test and prove the next exact commit.
-5. Verify the real REA MCP host, pinned package/provider versions, live catalog and actual investigation outputs. Do not confuse static APK investigation with runtime/physical-device evidence.
-6. Keep PR #173 unmerged until the required checks pass and the exact candidate repair cycle is independently demonstrated.
+### Phase 0 — Now: restore a truthful green engineering baseline
 
-### P1 — Complete the first physical-phone acceptance
+**Purpose:** remove current validation drift and make the existing REA/Builder candidate a trustworthy starting point.
 
-1. Install the already published production-signed release through the approved path.
-2. Record exact device build/API, app version, package/signature, Shizuku server/UID/authorization and available ADB capabilities.
-3. Test Shizuku Binder death/reconnect, process kill, Friday package force-stop, reboot, authorization revocation and supported per-operation behavior.
-4. Test same-key in-place update, staged verification, health checks, continuity preservation and rollback.
-5. Evaluate optional separately installed Termux only as an external worker: measure survival, force-stop, boot behavior and actual value. Do not add it to Friday's APK or make it a prerequisite.
-6. Preserve private, minimized device evidence and report what the handset actually proves.
+1. Update the owner-vision CI contract so it validates the current canonical plan rather than retired headings and phrases.
+2. Re-run the Android harness and Python coverage checks that were skipped after the stale vision gate failed.
+3. Reconcile PR #173 against the current `main` head. Keep the APK-bundled plan byte-identical to the canonical plan.
+4. Fix or explain every remaining exact-head CI failure. Preserve logs and artifacts; skipped, cancelled and missing evidence remain UNKNOWN.
+5. Reconcile the useful provenance work in PR #176 with the live #173 repair path. There must be one production repair lifecycle, not two competing loops.
+6. Verify the real upstream REA MCP/CLI host, package integrity/version, live tool catalog and provider readiness. Synthetic fixtures prove contracts only, not a live REA investigation.
+7. Keep candidate changes isolated and do not merge or release until required checks and review pass.
 
-### P2 — Prove the complete closed-loop repair
+**Exit gate:** the exact current PR head passes all mandatory CI gates, the source/vision checks agree with this plan, all skipped checks are accounted for, and the PR's production path is understood well enough to proceed without guessing.
 
-Use a controlled, reproducible candidate defect and demonstrate:
-- Friday's live Builder dispatches the fixed sandbox workflow;
-- exact commit and APK hashes are verified;
-- REA investigates the exact candidate artifact and its findings enter the repair planner;
-- original CI failure is not hidden by a narrower passing profile;
-- infrastructure-only failure does not cause speculative code edits;
-- Friday creates a bounded repair candidate, re-runs independent verification and obtains a fresh review;
-- the accepted result reaches an owner-reviewable PR with full lineage and residual risks;
-- the incident becomes a regression test and reusable engineering memory.
+### Phase 1 — Next: prove the installed Friday seed on the actual phone
 
-### P3 — Finish persistent engineering control and authority
+**Purpose:** establish that the existing production identity is a real, usable, continuous Friday on the owner's handset—not merely a successful APK build.
 
-Connect the phone's authenticated local-station outbox to a private cloud/repository worker; complete device enrollment, signed job/result envelopes, anti-replay, durable resume and privacy controls. Implement the Authority Plane and standing delegations so Friday can maintain GitHub/cloud resources without asking the owner to manually dispatch routine tasks. Keep credentials scoped and signing authority separate.
+1. Install or verify the existing production-signed `ai.friday.assistant` release through the approved path; preserve its signing identity and version lineage.
+2. Record device manufacturer/build/API, installed version, package identity, signer, Shizuku manager/server state, Binder reachability, effective UID and per-operation permissions.
+3. Verify the usable local interaction path and essential local state with networking disabled.
+4. Test process death, package force-stop, reboot, Shizuku Binder/server loss and authorization revocation as separate Android conditions.
+5. Test same-key in-place update, signed artifact verification, data migration, post-update health and rollback/known-good recovery.
+6. Record precisely which recovery actions work on this OEM/OS and which require owner action. Do not promise a normal app can resurrect itself after Android has force-stopped or removed the package.
+7. Evaluate Termux only if an independently installed external host would close a measured failure-domain gap. It is not bundled or required.
 
-### P4 — Complete the installed bounded Builder mission
+**Exit gate:** a named production-signed build is DEVICE-VERIFIED for installation, local continuity, the tested Shizuku operations and the supported update/recovery cases. Untested cases are explicitly listed.
 
-From the installed Friday app, load the canonical plan, select a dependency-ready task, inspect actual source, consult local reasoning and a permitted zero-cost external Seat where available, construct an isolated candidate, run relevant checks, obtain independent review, record exact evidence and queue the next safe task. Local work must continue when all guests are away. Owner only performs one-time authorized setup and protected approvals, not routine engineering.
+### Phase 2 — Then: demonstrate one complete REA-assisted failed-candidate repair
 
-### P5 — Deepen developmental individuality, voice, universal agency and NAE
+**Purpose:** turn Friday's existing detection and rejection machinery into a proven repair-and-learning loop.
 
-Continue in parallel where dependencies permit: Egyptian Arabic voice evaluation, local-first memory, causal developmental tests, universal signal interpretation, action-route discovery, host adaptation, resource-aware computation, capability synthesis and cross-domain transfer. Maintain a fast research/experiment cadence measured by verified improvement, not agent count, commits or model calls.
+Use a controlled, reproducible candidate defect and demonstrate the complete sequence:
 
-### P6 — Mature the intrinsic immune and update system
+1. A real failed candidate/CI/review result reaches Friday's live Builder and `ObjectiveExecutionWorker`.
+2. Friday preserves the original failure and classifies product defects separately from infrastructure, provider, test and permission failures.
+3. The isolated sandbox checks out the exact expected source commit and records the build environment.
+4. The correct built APK is supplied to the actual upstream REA MCP/CLI. Its exact tool/provider version, target digest, evidence IDs and structured output are retained.
+5. Friday admits findings only when full source revision and APK SHA-256 match. Source-tree analysis remains source-aware repository work; REA APK evidence is not misrepresented as source understanding.
+6. Accepted evidence informs a bounded root-cause repair task in the existing Builder path. No speculative code edits are generated from an REA outage or infrastructure-only failure.
+7. Friday constructs a new isolated candidate, reruns the original failing profile plus targeted regressions, obtains independent review and produces an owner-reviewable PR with complete lineage.
+8. The confirmed incident becomes a regression test, detector/health invariant and reusable engineering memory.
+9. Verify the final candidate on its actual target. A passing narrow profile cannot erase an original failed required profile.
 
-Prove recovery across independent failure domains, signed recovery artifacts, continuity backup/restore, safe migrations, package recovery and immune-core self-update/rollback. Convert every confirmed incident into durable, reusable defenses. Do not claim total resilience or universal recovery.
+**Exit gate:** one end-to-end repair has been observed from Friday's live task dispatch through REA evidence, source repair, independent verification and durable learning. A synthetic fixture or manually stitched demonstration does not satisfy this gate.
+
+### Phase 3 — Build Friday's persistent engineering station and authority
+
+**Purpose:** give the same Friday a durable place to continue work across conversations, phone restarts, model/provider changes and disconnected workers.
+
+1. Establish the repository-hosted or cloud development workspace as a durable, resumable execution resource—not a disposable GitHub Actions runner misrepresented as a persistent VM.
+2. Connect the Android local station through authenticated, signed, replay-resistant job/result envelopes and a durable outbox.
+3. Implement task leases, checkpoints, cancellation, retry policy, worker health, resource budgets, audit trails and privacy-minimized evidence transfer.
+4. Implement the Friday Authority Plane: scoped credentials, capability-specific delegation, policy checks and explicit separation of repository write, merge, release signing, device installation, financial spend and destructive authority.
+5. Let Friday select and coordinate replaceable external AI workers where authorized; providers are workers/resources, never Friday's identity. Preserve local reasoning and useful work when every guest provider is unavailable.
+6. Expose the shared workspace to the owner: objectives, diffs, tests, logs, evidence, costs, risks, approvals and direct takeover.
+
+**Exit gate:** Friday can resume an authorized engineering task after app/process restart and network interruption, without the owner manually relaying logs or dispatching routine work; every action remains attributable and within its granted authority.
+
+### Phase 4 — Complete the first installed, bounded Builder mission
+
+**Purpose:** make Friday—not an external chat session or a disconnected prototype—the operator of her own ongoing development.
+
+From the installed app, Friday must:
+
+1. load the canonical plan and durable execution ledger;
+2. select a dependency-ready, bounded objective;
+3. inspect the actual repository and production wiring;
+4. research unfamiliar mechanisms and acquire evidence;
+5. create an isolated candidate with a rollback point;
+6. run required tests/builds and obtain independent review;
+7. present a truthful evidence-backed result and the next safe task;
+8. resume after interruption and continue without routine owner task dispatch.
+
+**Exit gate:** a real installed Friday task completes this mission through the persistent station, with the owner able to inspect and take over. This is the first meaningful autonomy milestone—not a claim of unrestricted self-development.
+
+### Phase 5 — Harden the intrinsic immune system and continuity floor
+
+**Purpose:** make resilience a property of Friday's protected architecture, not a promise made by a watchdog sharing the same failure domain.
+
+1. Separate the minimal immune/recovery execution path, storage, trust anchors and update route from Friday Core's ordinary mutable process and state.
+2. Complete the failure matrix: Activity/process crash, process kill, package force-stop, disable/removal, Binder/server death, authorization revocation, reboot, offline periods, storage corruption, interrupted migration/update and OS/OEM restrictions.
+3. Implement encrypted/versioned continuity backups, integrity checks, restore drills, signed recovery manifests, staged installation and independently verified rollback.
+4. Make recovery actions depend on measured Shizuku/ADB privileges and the actual independent hosts available on the phone. Optional external hosts are additional failure domains, not assumed guarantees.
+5. Turn every confirmed incident into reusable immune knowledge, regression/fault-injection tests, health invariants and recovery playbooks.
+6. Prove immune-core updates cannot destroy the last-known-good recovery anchor.
+
+**Exit gate:** documented recovery and owner-intervention outcomes for each tested failure class, successful restore/rollback drills, and no claim of universal Android recovery.
+
+### Phase 6 — Deepen the living individual: voice, development, memory and agency
+
+This phase is not when Friday starts developing. Development begins with the first seed and continues throughout every earlier phase. This phase deepens and proves those capabilities once the continuity and execution foundations can support longitudinal evaluation.
+
+- **Voice-first presence:** real microphone input, streaming/partial recognition, contextual turn-taking, audible response, interruption/barge-in, cancellation and continuity across supported Android surfaces. Evaluate Egyptian Arabic and mixed Arabic/English with the owner; measure actual quality, latency, offline behavior, privacy and resource cost.
+- **Developmental individuality:** experience must cause persistent internal change that measurably affects later behavior. Prove this across restart, replay-blocked and mechanism-off controls, held-out situations and longitudinal observations.
+- **Autobiographical and relationship continuity:** retain provenance, temporal context, corrections, uncertainty and privacy boundaries without hard-coding a personality or fabricating memories.
+- **Universal perception and understanding:** combine legitimately available language, audio, visual, contextual, device and action evidence; learn signal reliability and preserve disagreement/uncertainty.
+- **Universal action:** discover and compose authorized Android/API/tool affordances, verify postconditions and learn from outcomes. Consequential actions retain appropriate approval.
+- **Cognitive substrate research:** investigate neural and non-neural mechanisms, model families and hybrid designs by measured capability. No current LLM, LFM, transformer, MoE, specialist atlas or agent framework is declared Friday's permanent brain.
+
+**Exit gate:** longitudinal, held-out evidence of useful adaptation and continuity, plus measured voice/perception/action quality. Do not equate natural conversation or memory storage with consciousness or genuine development.
+
+### Phase 7 — Realize liquid Symbiosis and the Nano Algorithm Environment
+
+**Purpose:** evolve from selecting existing tools to shaping the computational environment around the outcome.
+
+1. Profile actual resource fields: compute, memory, storage, energy, thermal headroom, network, model availability, permissions and host constraints.
+2. Dynamically discover, compose, replace and construct algorithms, models, tools and execution environments without making any one substrate permanent.
+3. Build the Nano Algorithm Environment as an adaptive environment for small, composable, testable computational mechanisms—not a fixed module catalogue.
+4. Measure quality, latency, energy, cost, reliability and continuity against the same workload before and after adaptation.
+5. Research capability synthesis, cross-domain transfer, new computational representations and hybrid substrates. Preserve the quantum-software ambition as a research horizon; do not claim quantum hardware or quantum advantage without evidence.
+
+**Exit gate:** repeatable workload evidence that Friday can reshape her available computational resources and improve outcomes while preserving the protected trunk.
+
+### Phase 8 — Expand embodiment and the frontier
+
+Only after the relevant capabilities, safeguards, resources and authorization exist, extend Friday across additional devices and environments: wearables/glasses, home systems, vehicles, robotics, new sensors and future computational substrates. These are expansions of the same continuing Friday, not separate identities or prerequisites for the first usable seed.
+
+**Exit gate:** each new embodiment demonstrates secure identity continuity, explicit capability/permission boundaries, privacy, real-world postcondition verification and a safe failure/recovery route.
+
+### Continuous tracks — never postponed until a later phase
+
+These tracks start as soon as the seed can support them and advance alongside the critical path:
+
+- **Owner-facing usefulness:** keep improving the actual interaction experience, beginning with a usable local path and progressing toward natural voice.
+- **Causal development:** capture experience from the beginning and test whether it changes future behavior; do not wait for a future "personality phase."
+- **Engineering intelligence:** use REA and source-aware tooling on real authorized targets; convert every confirmed repair into reusable knowledge.
+- **Universal agency:** add useful, verified affordances as needs arise rather than waiting for a giant capability catalogue.
+- **Research and invention:** explore high-upside NAE, cognitive and embodiment ideas in bounded experiments without destabilizing the production seed.
+- **Owner collaboration:** preserve direct access to source, GitHub, tests, decisions and evidence. Friday owns routine continuation under granted authority; the owner remains architect and partner.
+
+### Phase ordering and promotion rule
+
+A later phase may be researched or prototyped early, but it cannot be represented as delivered until its dependencies and exit gate pass. If a later discovery changes the best route, update this roadmap with evidence while preserving the destination. No phase is a permanent architecture prescription; the roadmap orders outcomes, not the internal organs Friday must keep forever.
 
 ---
 
@@ -387,21 +484,22 @@ Every accepted claim records exact source SHA, artifact SHA-256, environment/dev
 
 ## 11. Current repository baseline — 2026-11-26
 
-This is a snapshot, not a permanent status claim. Re-audit live source and exact CI before each progress report.
+This is a dated evidence snapshot, not a permanent status claim. Re-audit live source, open PRs and exact CI before each progress report.
 
-- Canonical `main` at the time of this plan reform: `f5f220023b2d384caa1cdb1932a3cd410c00f7bb`.
-- Friday v1.0.547 is recorded in the existing plan as a production-signed release. Publication does not prove installation, same-key update or physical-device acceptance.
-- Physical installation, Shizuku/ADB handset acceptance, same-key in-place update/rollback and the complete on-device recovery matrix remain open.
-- PR #173 is open and unmerged. Its candidate branch contains upstream REA MCP integration, pinned Android inspection providers, Shizuku daemon identity/probe work, candidate sandbox dispatch/verification and the first live Builder/REA repair wiring.
-- CI run [#3584](https://github.com/mhw77655-hue/Friday/actions/runs/45850953011) completed **failure**. All six JVM shards, aggregate JVM evidence, debug APK build, Android lint, disposable-key release-variant build and whole-repository source/vision audit passed. The emulator booted, installed the app and ran 50 instrumented tests; 49 passed and `SettingsScreenInteractionInstrumentedTest.keepFridayAliveTogglePersistsTheOwnerSetting` failed with a Compose condition timeout after 10 seconds. The emulator failure is not yet classified as a production defect or test race. The mutation-proof and Gradle dependency-structure capture steps were skipped and are not passes. The debug APK promotion step was skipped because the required matrix was not green.
-- PR #176 / issue #176 tracks a richer provenance-bearing REA evidence contract. Reconcile it with the live #173 repair path; do not leave two competing repair systems.
-- Issue #175 tracks isolated sandbox and production self-repair integration. It is not complete until a real live Friday task dispatches, receives evidence, repairs and re-verifies a failed candidate.
-- Issue #172 tracks the upstream REA integration and first Shizuku/Termux investigation. Static APK inspection is evidence, not physical-device runtime acceptance.
-- Issue #169 tracks the intrinsic immune system. The architecture is specified; independent recovery execution, end-to-end cloud repair, continuity restoration and evolving immunity still require implementation and physical-device proof.
+- Canonical `main` immediately before this chronological-roadmap revision: `0a907926647c199ac1ca37ece55da34979a4ce45`. The plan and its APK-bundled copy are maintained as one source of truth.
+- Friday v1.0.547 is recorded in the existing release history as a production-signed release. Publication does not prove installation, same-key update or physical-device acceptance.
+- PR #173 is open and unmerged. Its latest head at this audit is `8c0c6652a6674b0af214f634a68fdb728292c654`; the branch contains REA MCP integration, Android inspection/provider work, Shizuku daemon identity/probe work, candidate sandbox dispatch/verification and initial live Builder/REA repair wiring.
+- Latest PR #173 validation is [run #3587](https://github.com/mhw77655-hue/Friday/actions/runs/45854310700), which completed **failure**. All six JVM shards, aggregate JVM evidence, disposable Android emulator instrumentation and whole-repository source inventory/vision audit passed. The debug-APK job failed at `bash .ralph/owner_vision_check.sh`: the script still demanded phrases/headings from the retired delivery plan. Because that early gate failed, the Android harness and Python coverage steps were skipped; the final enforcement correctly rejected the skipped results. This is a stale validation contract, not evidence that the previously failing emulator interaction still fails. The emulator lane passed in #3587. Gradle dependency-structure capture and mutation-proof execution are intentionally limited to explicit `workflow_dispatch` deep-validation runs and were not performed in this PR run.
+- Earlier run #3584 had one emulator instrumentation timeout, but the later exact PR head's #3587 emulator lane passed. Do not keep reporting the earlier timeout as the current emulator result.
+- PR #176 remains open on a separate branch and tracks a richer provenance-bearing REA evidence contract. Its own description says it does not yet provide the live upstream REA MCP/CLI host adapter or production provider. Reconcile useful typed evidence contracts into the single #173/Builder path; do not merge a second repair loop.
+- Issue #175 is the operational gap register: the cloud VM sandbox executor and the standalone `SelfRepairLoop` are not yet proven as the live production Friday repair path. The real installed task must dispatch, receive exact-candidate evidence, repair, independently verify and retain learning.
+- Issue #172 tracks the upstream REA host integration and first Shizuku/Android investigation. Static APK inspection does not prove physical-device runtime behavior.
+- Issue #169 tracks the intrinsic immune system. Its architecture is specified; independent recovery execution, continuity restore, end-to-end cloud repair and evolving immunity still require implementation and physical-device proof.
+- Physical installation, Shizuku/ADB handset acceptance, same-key in-place update/rollback and the full on-device recovery matrix remain open.
 
 ### Current next action
 
-Fix and understand the single emulator instrumentation failure in CI run #3584, reconcile PR #173 with current `main`, then rerun the exact-head validation. In parallel, prepare the physical-phone Shizuku/ADB acceptance and complete the live REA-to-repair demonstration. Do not merge, release or claim the self-repair loop complete until the required evidence exists.
+Replace the stale owner-vision CI assertions with checks against this canonical plan, re-run the now-unblocked Android harness and Python coverage checks, and validate the exact current PR #173 head. Then proceed to Phase 1 handset acceptance while the live REA repair demonstration is prepared in parallel where its cloud dependencies permit. Do not merge, release or claim self-repair complete until the corresponding evidence exists.
 
 ---
 
