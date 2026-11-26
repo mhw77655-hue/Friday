@@ -249,6 +249,16 @@ class FridayUpdateStateStore(context: Context) {
 
     fun clearFailedRecoveryEvidence() {
         loadFailedArtifacts().forEach { it.apk?.delete() }
+        // If the detailed ledger was damaged, remove orphaned versioned release
+        // APKs only after a newer release has passed health verification. Never
+        // delete the currently active staged candidate.
+        val activePath = loadStaged()?.apk?.canonicalPath
+        val staging = File(appContext.noBackupFilesDir, "friday-update-staging")
+        staging.listFiles().orEmpty().filter { file ->
+            file.isFile &&
+                file.name.matches(Regex("friday-[0-9]+\\.apk")) &&
+                file.canonicalPath != activePath
+        }.forEach { it.delete() }
         prefs.edit()
             .remove(KEY_FAILED_ARTIFACTS)
             .remove(KEY_HIGHEST_FAILED_VERSION_CODE)
