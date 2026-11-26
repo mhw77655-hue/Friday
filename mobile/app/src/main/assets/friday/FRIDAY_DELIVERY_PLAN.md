@@ -594,7 +594,7 @@ Complete exact-head CI for the profile-aware sandbox branch. If it passes, revie
 
 - Branch `feat/candidate-sandbox-instrumented-contract` exposes the exact-candidate sandbox as a reusable `workflow_call` as well as the existing phone-driven `workflow_dispatch`.
 - The reusable workflow validates its own generated summary against the dispatched candidate SHA and fixed test profile before uploading evidence. A passing summary must also carry a successful verification result and a valid APK SHA-256.
-- A dedicated mainline contract workflow is being added to call the actual reusable sandbox with `android-instrumented`, then download and independently assert the evidence artifact. This will exercise the actual profile branch after merge, rather than merely re-running the same emulator test script in the ordinary build job.
+- Dedicated workflow `.github/workflows/candidate-sandbox-contract.yml` has been added on branch `feat/candidate-sandbox-instrumented-contract`. It calls the actual reusable sandbox with `android-instrumented`, downloads the resulting artifact and independently asserts exact candidate SHA, profile, KVM, emulator outcome, PASS status and APK digest. Its path filter makes the canary run after this workflow change reaches main, rather than on every ordinary app commit.
 - This branch is **not yet CI-verified or merged**. The contract run after merge must pass before the instrumented candidate-sandbox profile is called operationally demonstrated.
 
 ### Current deployment and acceptance boundary
