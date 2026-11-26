@@ -24,7 +24,7 @@ internal object CandidateRepairPlanner {
             !candidateSha.matches(Regex("[0-9a-f]{40}"))
         ) return null
 
-        if (!hasActionableFailureEvidence(failureEvidence)) return null
+        if (!hasActionableFailureEvidence(failureEvidence, candidateSha)) return null
 
         // Never silently widen the authority of a candidate that required
         // owner approval or was not originally classified as low-risk.
@@ -92,17 +92,25 @@ internal object CandidateRepairPlanner {
             .put("updated_at_epoch_ms", nowEpochMs)
     }
 
-    private fun hasActionableFailureEvidence(source: JSONObject): Boolean {
-        val ci = source.optJSONObject("ci") ?: JSONObject()
+    internal fun isConfirmedCandidateDefect(candidateSha: String, sandbox: JSONObject): Boolean {
+        val summary = sandbox.optJSONObject("summary") ?: return false
+        return candidateSha.matches(Regex("[0-9a-f]{40}")) &&
+            sandbox.optString("status") == "FAIL" &&
+            summary.optString("expected_commit_sha") == candidateSha &&
+            summary.optString("checked_out_commit_sha") == candidateSha &&
+            summary.optString("test_profile") == "android-debug" &&
+            summary.optString("apk_sha256").matches(Regex("[0-9a-f]{64}")) &&
+            summary.optString("failure_classification") == "ACTIONABLE_DEFECT"
+    }
+
+    private fun hasActionableFailureEvidence(source: JSONObject, candidateSha: String): Boolean {
         val sandbox = source.optJSONObject("sandbox") ?: JSONObject()
-        val summary = sandbox.optJSONObject("summary") ?: JSONObject()
-        // A red check is not proof of a product defect. Only an explicit
-        // classifier backed by exact-candidate build/test evidence may create
-        // an automatic repair. Unknown and infrastructure failures stay triage-only.
-        val ciDefect = ci.optString("failure_classification") == "ACTIONABLE_DEFECT"
-        val sandboxDefect = summary.optString("failure_classification") == "ACTIONABLE_DEFECT"
+        // A red CI check or a non-empty log excerpt is not proof of a product
+        // defect. Require the exact candidate's independently classified build
+        // evidence. An independent reviewer may also dispute a green candidate.
+        val sandboxDefect = isConfirmedCandidateDefect(candidateSha, sandbox)
         val reviewDisputed = source.optJSONObject("review")?.optString("stance") in setOf("DISPUTE", "ADD")
-        return ciDefect || sandboxDefect || reviewDisputed
+        return sandboxDefect || reviewDisputed
     }
 
     private fun boundRepairContext(context: JSONObject): String {
@@ -143,6 +151,11 @@ internal object CandidateRepairPlanner {
         val review = source.optJSONObject("review") ?: JSONObject()
         val details = JSONArray()
         val sourceDetails = ci.optJSONArray("details") ?: JSONArray()
+        val classificationReasons = JSONArray()
+        val sourceReasons = summary.optJSONArray("failure_classification_reasons") ?: JSONArray()
+        for (index in 0 until minOf(sourceReasons.length(), 12)) {
+            classificationReasons.put(sourceReasons.optString(index).take(240))
+        }
         for (index in 0 until minOf(sourceDetails.length(), 20)) {
             details.put(sourceDetails.optString(index).take(240))
         }
@@ -165,7 +178,7 @@ internal object CandidateRepairPlanner {
                 .put("apk_sha256", summary.optString("apk_sha256").take(64))
                 .put("failure_excerpt", summary.optString("failure_excerpt").take(5_000))
                 .put("failure_classification", summary.optString("failure_classification", "UNKNOWN").take(32))
-                .put("failure_classification_reasons", summary.optJSONArray("failure_classification_reasons") ?: JSONArray())
+                .put("failure_classification_reasons", classificationReasons)
                 .put("rea_status", summary.optString("rea_status").take(20))
                 .put("rea_report_sha256", if (summary.optString("rea_status") == "COMPLETED") summary.optString("rea_report_sha256").take(64) else "")
                 .put("rea_evidence_excerpt", if (summary.optString("rea_status") == "COMPLETED") summary.optString("rea_evidence_excerpt").take(7_000) else ""))
