@@ -13,7 +13,9 @@ The repository now contains the first working update path:
 - A second digest/package/version/signer verification immediately before creating an Android PackageInstaller session.
 - A status Activity that handles Android's pending-user-action confirmation and reports the platform result.
 
-This implementation has not yet passed an end-to-end same-key upgrade test. First-launch continuity health checks and last-known-good rollback are not implemented as complete production guarantees. The permanent signing secrets are currently absent, so no production release has been published. Do not describe the update channel as fully accepted until those gates pass.
+A permanent-signed seed release, Friday 1.0.543, was published on 2026-11-25 from commit `65aaf89168c07ee1dd25a6989664ade3143ea68f`. The published APK asset is 129,738,880 bytes with SHA-256 `3d618dedd6fa083b38026a97f2cfe49fc2898577f7378ecfabc23df0defc29c6`; the release workflow states that its certificate was checked against the pinned production fingerprint. See [Friday 1.0.543](https://github.com/mhw77655-hue/Friday/releases/tag/friday-v1.0.543).
+
+The native update recovery changes have now passed the full CI suite and were merged to `main` in commit `26f8f7528969c28a926e409c87ec8dd797c919fc`. This proves automated emulator/unit/build gates for those changes; it does not prove a production-signed same-key in-place upgrade, app-data continuity, owner-device installation, or automatic last-known-good rollback. The existence of a published signed APK also does not prove that two independent offline keystore backups have been made and tested. Do not describe the update channel as fully accepted until those remaining gates pass.
 
 ## Release identity is locked before the first install
 
@@ -72,4 +74,4 @@ Every transition has explicit evidence. A GitHub green check is not proof that t
 
 ## What this means for the first phone installation
 
-Do not install the current debug APK as the permanent body. Do not ask the owner to uninstall Friday later as a normal development step. First finish the production-signed seed and its update client, configure the permanent key, and prove same-key in-place upgrade on an emulator. Then install that production seed once on the phone. Subsequent source improvements flow through the update channel.
+Never install a CI debug APK as the permanent body. The production-signed seed already exists as [Friday 1.0.543](https://github.com/mhw77655-hue/Friday/releases/tag/friday-v1.0.543). Before asking the owner to install it, verify the offline signing-key backups and complete a same-key in-place upgrade plus data-continuity test on an emulator. Then install the production seed once on the phone. Subsequent source improvements should flow through the signed update channel; uninstalling or clearing app data must not be a routine development step.
