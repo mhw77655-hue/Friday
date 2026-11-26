@@ -130,6 +130,10 @@ class Mcp {
 }
 
 function collectEvidenceIds(value, found = new Set()) {
+  if (typeof value === "string") {
+    for (const match of value.matchAll(/ev_[0-9a-f]{64}/g)) found.add(match[0]);
+    return [...found];
+  }
   if (!value || typeof value !== "object") return [...found];
   for (const [key, child] of Object.entries(value)) {
     if ((key === "evidence_id" || key === "id") &&
