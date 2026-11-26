@@ -71,6 +71,7 @@ data class ReaRepairEvidence(
  */
 fun interface ReaRepairEvidenceProvider {
     suspend fun investigate(
+        target: java.io.File,
         requirement: RepairRequirement,
         observation: TestSuiteObservation
     ): ReaRepairEvidence
