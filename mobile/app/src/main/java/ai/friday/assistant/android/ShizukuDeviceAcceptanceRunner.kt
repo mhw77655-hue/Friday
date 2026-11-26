@@ -19,6 +19,10 @@ class ShizukuDeviceAcceptanceRunner {
     suspend fun run(context: Context): String {
         val checks = JSONArray()
         val started = System.nanoTime()
+        val previousDaemonIdentity = ScreenBridge.previousDaemonIdentity(context.applicationContext)
+        val existingDaemonVersion = runCatching {
+            ScreenBridge.peekExistingUserServiceVersion(context.applicationContext)
+        }.getOrNull()
 
         fun add(name: String, passed: Boolean, detail: String) {
             checks.put(JSONObject()
@@ -45,6 +49,36 @@ class ShizukuDeviceAcceptanceRunner {
         val identityOk = binding.startsWith("bound · verified Shizuku uid=") && (uid == 0 || uid == 2000)
         add("remote_identity", identityOk, if (identityOk) binding else "Remote identity was not verified: " + binding)
         if (!identityOk) return report(checks, started)
+
+        val currentDaemonIdentity = ScreenBridge.verifiedServiceIdentity()
+        if (previousDaemonIdentity == null) {
+            val saved = ScreenBridge.persistCurrentDaemonIdentity(context.applicationContext)
+            add(
+                "daemon_continuity_baseline",
+                saved,
+                if (saved) {
+                    "Baseline saved. Now force-stop Friday from Android Settings, reopen Friday, and rerun this acceptance test to verify the same Shizuku daemon survived."
+                } else {
+                    "Could not persist the verified daemon identity; continuity cannot be measured."
+                }
+            )
+        } else {
+            val sameDaemon = existingDaemonVersion != null && existingDaemonVersion >= 0 &&
+                ScreenBridge.isSameDaemonIdentity(previousDaemonIdentity, currentDaemonIdentity)
+            val detail = when {
+                existingDaemonVersion == null ->
+                    "Shizuku peekUserService was unavailable; continuity is unverified."
+                existingDaemonVersion < 0 ->
+                    "No existing UserService was running before binding; Friday had to create a new daemon."
+                sameDaemon ->
+                    "The same Shizuku daemon PID and instance token were reused from the previous Friday process."
+                else ->
+                    "A UserService exists, but its PID/instance token differs from the previous baseline."
+            }
+            add("daemon_survived_previous_process", sameDaemon, detail)
+            val saved = ScreenBridge.persistCurrentDaemonIdentity(context.applicationContext)
+            add("daemon_identity_persisted", saved, if (saved) "Current daemon identity saved." else "Could not save current daemon identity.")
+        }
 
         val diagnostics = runCatching { ScreenBridge.diagnosticsSnapshot() }.getOrNull()
         val diagnosticsUid = runCatching { JSONObject(diagnostics.orEmpty()).optInt("uid", -1) }.getOrDefault(-1)
