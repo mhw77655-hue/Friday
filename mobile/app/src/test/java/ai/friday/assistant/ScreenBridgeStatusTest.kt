@@ -12,6 +12,12 @@ class ScreenBridgeStatusTest {
     }
 
     @Test
+    fun `legacy daemon identity is treated as a baseline not a continuity proof`() {
+        assertFalse(ScreenBridge.hasDaemonInstanceToken("uid=2000;pid=1234"))
+        assertTrue(ScreenBridge.hasDaemonInstanceToken("uid=2000;pid=1234;instance=daemon-a"))
+    }
+
+    @Test
     fun `daemon continuity requires the same uid pid and instance token`() {
         val first = "uid=2000;pid=1234;started_at=1000;instance=daemon-a"
         val same = "uid=2000;pid=1234;started_at=1000;instance=daemon-a"
