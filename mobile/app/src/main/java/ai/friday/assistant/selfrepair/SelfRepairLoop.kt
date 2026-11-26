@@ -128,6 +128,9 @@ class SelfRepairLoop(
         } else if (reaTargetArtifact == null) {
             log.add("REA skipped: no explicitly supplied APK built from this candidate revision")
             null
+        } else if (requirement.sourceRevision == null) {
+            log.add("REA skipped: repair requirement has no exact source revision")
+            null
         } else {
             try {
                 require(reaTargetArtifact.sourceRevision == requirement.sourceRevision) {
