@@ -45,7 +45,7 @@ class FridayUpdateWorker(
                             result.apk.delete()
                         }
                         state.recordStatus(
-                            "RECOVERY REQUIRED: retained the previously failed update APK and health marker; discarded the newer candidate until recovery is resolved."
+                            "RECOVERY REQUIRED: retained failed-release evidence; this candidate is not a higher-version repair and was discarded."
                         )
                     } else {
                     ai.friday.assistant.ShizukuBridge.init()
@@ -77,7 +77,14 @@ class FridayUpdateWorker(
                             }
                         }
                     } else {
-                        state.recordStatus("Verified Friday ${result.release.versionName} is staged; no authorized Shizuku installer is available, so the native fallback is ready.")
+                        val recoveryCandidate = state.hasFailedRecoveryEvidence()
+                        state.recordStatus(
+                            if (recoveryCandidate) {
+                                "Verified recovery candidate Friday ${result.release.versionName} is staged. Failed-release evidence is retained until this candidate passes its post-install health check."
+                            } else {
+                                "Verified Friday ${result.release.versionName} is staged; no authorized Shizuku installer is available, so the native fallback is ready."
+                            }
+                        )
                         notifyUpdateReady(result.release.versionName)
                     }
                     }
