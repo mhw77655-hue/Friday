@@ -62,6 +62,7 @@ import ai.friday.assistant.update.FridayShizukuPackageInstaller
 import ai.friday.assistant.update.FridayUpdateClient
 import ai.friday.assistant.update.FridayUpdateStateStore
 import ai.friday.assistant.github.reporting.GitHubCredentialStore
+import ai.friday.assistant.github.reporting.ReaInvestigationCoordinator
 import ai.friday.assistant.github.reporting.FridayGitHubReportClient
 import ai.friday.assistant.ui.theme.FridayColors
 import ai.friday.assistant.ui.theme.FridayType
@@ -811,6 +812,7 @@ fun SettingsScreen() {
         }
 
         GitHubDeviceReportingSection(context, actionTraceCount)
+        ReaEngineeringSection(context)
 
         MemoryRulesAndApplicationLabSection(context)
 
@@ -918,7 +920,7 @@ private fun GitHubDeviceReportingSection(context: Context, actionTraceCount: Int
 
         SectionLabel("GITHUB DEVICE REPORTING")
         Text(
-            text = "Create a fine-grained token limited to the mhw77655-hue/Friday repository, with Contents read/write, Pull requests read/write, Checks read, Commit statuses read, and Issues read/write (Metadata read is automatic). These permissions let Friday inspect the canonical plan, publish isolated candidate branches/PRs, check CI, and submit sanitized device acceptance reports. Paste it here once. Friday encrypts it with Android Keystore. Automatic reporting is OFF by default and requires the separate consent switch below. If enabled, Friday submits bounded app/build identity, host capability states, sanitized crash frames and action categories after defined milestones. It never includes conversations, speech transcripts, typed content, screen text, notifications or the token. Reports create public GitHub issues/artifacts. Anyone can read them. Enable automatic reporting only if you accept this public disclosure.",
+            text = "Create a fine-grained token limited to the mhw77655-hue/Friday repository, with Contents read/write, Pull requests read/write, Checks read, Commit statuses read, Issues read/write, and Actions read/write (Metadata read is automatic). Actions read/write is required for Friday to dispatch and inspect her own REA MCP investigation workflow. These permissions let Friday inspect the canonical plan, publish isolated candidate branches/PRs, check CI, run REA investigations and submit sanitized device acceptance reports. Paste it here once. Friday encrypts it with Android Keystore. Automatic reporting is OFF by default and requires the separate consent switch below. If enabled, Friday submits bounded app/build identity, host capability states, sanitized crash frames and action categories after defined milestones. It never includes conversations, speech transcripts, typed content, screen text, notifications or the token. Reports create public GitHub issues/artifacts. Anyone can read them. Enable automatic reporting only if you accept this public disclosure.",
             style = FridayType.Label,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -1346,3 +1348,82 @@ private fun JevCredentialSection(context: Context) {
         Text(text = jevStatus, style = FridayType.Technical)
     }
 }
+
+@Composable
+private fun ReaEngineeringSection(context: Context) {
+    val coordinator = remember(context) { ReaInvestigationCoordinator(context) }
+    val scope = rememberCoroutineScope()
+    var snapshot by remember(context) { mutableStateOf(coordinator.current()) }
+    var busy by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf("REA has not been dispatched from Friday yet.") }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        Text("Friday REA engineering", style = FridayType.Section)
+        Text(
+            "Friday can now dispatch the pinned upstream Reverse Engineer Anything MCP workflow herself. GitHub Actions runs it on an isolated cloud runner; the run continues if Friday is closed, and she can retrieve its evidence when reopened.",
+            style = FridayType.Technical
+        )
+        Button(
+            onClick = {
+                busy = true
+                message = "Dispatching Friday's REA MCP investigation…"
+                scope.launch {
+                    val result = runCatching {
+                        withContext(Dispatchers.IO) { coordinator.start() }
+                    }
+                    result.onSuccess {
+                        snapshot = it
+                        message = "REA workflow dispatched. Friday can continue working while GitHub Actions investigates the pinned Android targets."
+                    }.onFailure {
+                        message = "REA dispatch failed: ${it.message ?: it.javaClass.simpleName}. Check that the saved repository token has Actions read/write."
+                    }
+                    busy = false
+                }
+            },
+            enabled = !busy,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(if (busy) "Starting REA…" else "Start REA investigation") }
+
+        Button(
+            onClick = {
+                busy = true
+                message = "Checking GitHub Actions and retrieving available REA evidence…"
+                scope.launch {
+                    val result = runCatching {
+                        withContext(Dispatchers.IO) { coordinator.refresh() }
+                    }
+                    result.onSuccess {
+                        snapshot = it
+                        message = when {
+                            it == null -> "No saved REA investigation exists yet."
+                            it.status == "completed" && it.conclusion == "success" ->
+                                "REA completed successfully. Friday retrieved the investigation summary."
+                            it.status == "completed" ->
+                                "REA finished with conclusion: ${it.conclusion ?: "unknown"}. Inspect the run and evidence."
+                            else -> "REA workflow status: ${it.status}. The cloud investigation is still running or queued."
+                        }
+                    }.onFailure {
+                        message = "REA status check failed: ${it.message ?: it.javaClass.simpleName}"
+                    }
+                    busy = false
+                }
+            },
+            enabled = !busy && snapshot != null,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(if (busy) "Checking REA…" else "Refresh REA status and evidence") }
+
+        Text(message, style = FridayType.Technical)
+        snapshot?.let { state ->
+            Text("Investigation: ${state.investigationId}", style = FridayType.Technical)
+            Text("GitHub Actions: ${state.status} / ${state.conclusion ?: "pending"}", style = FridayType.Technical)
+            state.url?.let { Text("Run: $it", style = FridayType.Technical) }
+            val targetCount = runCatching {
+                JSONObject(state.summary.orEmpty()).optJSONArray("targets")?.length()
+            }.getOrNull()
+            if (targetCount != null) {
+                Text("Android artifacts inspected by REA: $targetCount", style = FridayType.Technical)
+            }
+        }
+    }
+}
+
