@@ -153,6 +153,7 @@ internal object CandidateRepairPlanner {
         val review = evidence.getJSONObject("review")
         val candidates = listOf(
             sandbox to "failure_excerpt",
+            sandbox to "test_rerun_excerpt",
             sandbox to "rea_evidence_excerpt",
             evidence to "candidate_diff",
             sandbox to "reason",
@@ -241,6 +242,17 @@ internal object CandidateRepairPlanner {
                 .put("failure_classification_reasons", classificationReasons)
                 .put("compiler_diagnostics", compilerDiagnostics)
                 .put("test_failures", testFailures)
+                .put("unconfirmed_test_failures", JSONArray().also { target ->
+                    val source = summary.optJSONArray("unconfirmed_test_failures") ?: JSONArray()
+                    for (index in 0 until minOf(source.length(), 3)) {
+                        val failure = source.optJSONObject(index) ?: continue
+                        target.put(JSONObject()
+                            .put("test", failure.optString("test").take(240))
+                            .put("kind", failure.optString("kind").take(16))
+                            .put("detail", failure.optString("detail").take(300)))
+                    }
+                })
+                .put("test_rerun_excerpt", summary.optString("test_rerun_excerpt").take(2_000))
                 .put("lint_errors", lintErrors)
                 .put("rea_status", summary.optString("rea_status").take(20))
                 .put("rea_report_sha256", if (summary.optString("rea_status") == "COMPLETED") summary.optString("rea_report_sha256").take(64) else "")
