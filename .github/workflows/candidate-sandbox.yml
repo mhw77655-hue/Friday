@@ -309,9 +309,16 @@ jobs:
               first_test_root = report_root / "testDebugUnitTest"
           first_test_failures = read_test_failures(first_test_root)
           second_test_failures = read_test_failures(second_test_root)
-          second_failed_names = {item["test"] for item in second_test_failures}
-          test_failures = [item for item in first_test_failures if item["test"] in second_failed_names]
-          unconfirmed_test_failures = [item for item in first_test_failures if item["test"] not in second_failed_names]
+          def select_reproduced_failures(first_run, second_run):
+              second_failed_names = {item["test"] for item in second_run}
+              reproduced = [item for item in first_run if item["test"] in second_failed_names]
+              unconfirmed = [item for item in first_run if item["test"] not in second_failed_names]
+              return reproduced, unconfirmed
+          assert len(select_reproduced_failures([{"test": "ExampleTest.fails"}], [{"test": "ExampleTest.fails"}])[0]) == 1
+          assert len(select_reproduced_failures([{"test": "ExampleTest.flaky"}], [])[0]) == 0
+          test_failures, unconfirmed_test_failures = select_reproduced_failures(
+              first_test_failures, second_test_failures
+          )
           lint_errors = []
           if report_root.exists():
               for report in report_root.rglob("lint-results-debug*.xml"):
@@ -416,7 +423,7 @@ jobs:
               "compiler_diagnostics": compiler_diagnostics[:20],
               "infrastructure_signatures": infra_hits[:12],
               "failure_excerpt": failure_excerpt,
-              "test_rerun_excerpt": "\\n".join(rerun_log.splitlines()[-50:])[-4000:],
+              "test_rerun_excerpt": "\n".join(rerun_log.splitlines()[-50:])[-4000:],
               "rea_status": "COMPLETED" if rea_text else ("FAILED" if os.environ.get("REA_OUTCOME") == "failure" else "UNAVAILABLE"),
               "rea_report_sha256": rea_sha,
               "rea_summary": rea_summary,
