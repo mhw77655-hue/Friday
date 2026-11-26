@@ -21,6 +21,8 @@ interface IFridayShellService : IInterface {
     fun writeApkInstallChunk(transferId: String, offset: Long, chunk: ByteArray): String
     fun commitApkInstall(transferId: String): String
     fun cancelApkInstall(transferId: String): String
+    fun setRecoveryGuardianEnabled(enabled: Boolean): String
+    fun recoveryGuardianStatus(): String
     fun destroy()
 
     abstract class Stub : Binder(), IFridayShellService {
@@ -117,6 +119,20 @@ interface IFridayShellService : IInterface {
                     reply?.writeString(result)
                     return true
                 }
+                TRANSACTION_SET_RECOVERY_GUARDIAN -> {
+                    data.enforceInterface(DESCRIPTOR)
+                    val result = setRecoveryGuardianEnabled(data.readInt() != 0)
+                    reply?.writeNoException()
+                    reply?.writeString(result)
+                    return true
+                }
+                TRANSACTION_RECOVERY_GUARDIAN_STATUS -> {
+                    data.enforceInterface(DESCRIPTOR)
+                    val result = recoveryGuardianStatus()
+                    reply?.writeNoException()
+                    reply?.writeString(result)
+                    return true
+                }
                 // Shizuku UserService destruction transaction for a hand-written Binder contract.
                 SHIZUKU_DESTROY_TRANSACTION -> {
                     destroy()
@@ -139,6 +155,8 @@ interface IFridayShellService : IInterface {
             const val TRANSACTION_WRITE_APK_CHUNK = IBinder.FIRST_CALL_TRANSACTION + 7
             const val TRANSACTION_COMMIT_APK_INSTALL = IBinder.FIRST_CALL_TRANSACTION + 8
             const val TRANSACTION_CANCEL_APK_INSTALL = IBinder.FIRST_CALL_TRANSACTION + 9
+            const val TRANSACTION_SET_RECOVERY_GUARDIAN = IBinder.FIRST_CALL_TRANSACTION + 11
+            const val TRANSACTION_RECOVERY_GUARDIAN_STATUS = IBinder.FIRST_CALL_TRANSACTION + 12
             const val SHIZUKU_DESTROY_TRANSACTION = 16777114
 
             @JvmStatic
@@ -311,6 +329,35 @@ interface IFridayShellService : IInterface {
                 remote.transact(Stub.TRANSACTION_CANCEL_APK_INSTALL, data, reply, 0)
                 reply.readException()
                 reply.readString() ?: "status=error; reason=empty-cancel-response"
+            } finally {
+                data.recycle()
+                reply.recycle()
+            }
+        }
+
+        override fun setRecoveryGuardianEnabled(enabled: Boolean): String {
+            val data = Parcel.obtain()
+            val reply = Parcel.obtain()
+            return try {
+                data.writeInterfaceToken(Stub.DESCRIPTOR)
+                data.writeInt(if (enabled) 1 else 0)
+                remote.transact(Stub.TRANSACTION_SET_RECOVERY_GUARDIAN, data, reply, 0)
+                reply.readException()
+                reply.readString() ?: "status=unverified"
+            } finally {
+                data.recycle()
+                reply.recycle()
+            }
+        }
+
+        override fun recoveryGuardianStatus(): String {
+            val data = Parcel.obtain()
+            val reply = Parcel.obtain()
+            return try {
+                data.writeInterfaceToken(Stub.DESCRIPTOR)
+                remote.transact(Stub.TRANSACTION_RECOVERY_GUARDIAN_STATUS, data, reply, 0)
+                reply.readException()
+                reply.readString() ?: "status=unverified"
             } finally {
                 data.recycle()
                 reply.recycle()
