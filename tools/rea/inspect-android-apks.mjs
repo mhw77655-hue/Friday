@@ -195,6 +195,66 @@ async function main() {
       tools: tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })),
     }, null, 2));
 
+    const classSearchQueries = {
+      friday: [
+        "Shizuku",
+        "ShizukuProvider",
+        "ShizukuService",
+        "FridayRuntimeService",
+        "FridayRuntimeBootReceiver",
+        "SelfRepairLoop",
+        "ObjectiveBuilderCandidateExecutor",
+        "CloudVmSandboxExecutor",
+      ],
+      shizuku: [
+        "ShizukuService",
+        "UserService",
+        "ShizukuBinderWrapper",
+        "ShizukuProvider",
+        "BootCompleteReceiver",
+        "Shizuku API",
+      ],
+      termux: [
+        "RunCommandService",
+        "TermuxService",
+        "TermuxBootReceiver",
+        "TermuxBoot",
+        "WakeLock",
+        "Rish",
+        "TermuxShellManager",
+      ],
+    };
+
+    for (const target of targets) {
+      const queries = classSearchQueries[target.name] ?? [];
+      for (let index = 0; index < queries.length; index += 1) {
+        const query = queries[index];
+        const result = await server.callTool("search_android_classes", {
+          path: target.path,
+          query,
+        });
+        if (result?.isError) {
+          throw new Error(`REA class search failed for ${target.name}/${query}: ${JSON.stringify(result.content ?? result).slice(0, 2500)}`);
+        }
+        const searchRecord = {
+          schema_version: 1,
+          target: target.name,
+          target_sha256: records.find((record) => record.name === target.name)?.sha256 ?? await sha256(target.path),
+          query,
+          tool: "search_android_classes",
+          rea: { package: "rea-agents", version: PACKAGE_VERSION, integrity: PACKAGE_INTEGRITY },
+          structured_content: result?.structuredContent ?? null,
+          text_content: Array.isArray(result?.content)
+            ? result.content.filter((item) => item.type === "text").map((item) => item.text).join("\\n")
+            : null,
+        };
+        await writeFile(
+          resolve(outputDir, `${target.name}.class-search-${String(index + 1).padStart(2, "0")}.json`),
+          JSON.stringify(searchRecord, null, 2),
+        );
+      }
+    }
+
     for (const target of targets) {
       const file = await stat(target.path);
       if (!file.isFile() || file.size <= 0) throw new Error(`Target is not a non-empty file: ${target.path}`);
