@@ -1,6 +1,9 @@
 name: build
 
 on:
+  schedule:
+    # Nightly full-system Sentinel pass; staggered away from the top of the hour.
+    - cron: "17 2 * * *"
   push:
     branches: [ main ]
     paths:
@@ -26,6 +29,7 @@ on:
       - docs/OBJECTIVE_1_ADVERSARIAL_VALIDATION_PLAN.md
       - docs/OBJECTIVE_1_SOURCE_AUDIT_TRIAGE.md
       - docs/FRIDAY_INSTALL_ONCE_UPDATE_CHANNEL.md
+      - docs/FRIDAY_SENTINEL_CONTINUOUS_RELIABILITY_AUDIT.md
       - AGENTS.md
       - .github/workflows/build.yml
   pull_request:
