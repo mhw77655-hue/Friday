@@ -119,35 +119,35 @@ object TermuxRuntimeBridge {
         RISH="$TERMUX_HOME/rish"
         LOG="$TERMUX_HOME/.friday-guardian.log"
         PAUSE="$TERMUX_HOME/.friday-guardian.pause"
-        printf '%s guardian-started %s\n' "$(date -Iseconds)" "$$" >> "$LOG"
+        printf '%s guardian-started %s\n' "$(date -Iseconds)" "$$" >> "${'$'}LOG"
         command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock
-        while [ ! -f "$PAUSE" ]; do
-            if [ ! -x "$RISH" ] || [ ! -r "$TERMUX_HOME/rish_shizuku.dex" ]; then
-                echo "$(date -Iseconds) missing-rish-files" >> "$LOG"
+        while [ ! -f "${'$'}PAUSE" ]; do
+            if [ ! -x "${'$'}RISH" ] || [ ! -r "$TERMUX_HOME/rish_shizuku.dex" ]; then
+                echo "$(date -Iseconds) missing-rish-files" >> "${'$'}LOG"
                 sleep 30
                 continue
             fi
-            ID_OUTPUT=$("$RISH" -c id 2>>"$LOG" || true)
-            if ! printf '%s' "$ID_OUTPUT" | grep -Eq 'uid=(2000\(shell\)|0\(root\))'; then
-                echo "$(date -Iseconds) shizuku-unavailable-or-unauthorized" >> "$LOG"
+            ID_OUTPUT=$("${'$'}RISH" -c id 2>>"${'$'}LOG" || true)
+            if ! printf '%s' "${'$'}ID_OUTPUT" | grep -Eq 'uid=(2000\(shell\)|0\(root\))'; then
+                echo "$(date -Iseconds) shizuku-unavailable-or-unauthorized" >> "${'$'}LOG"
                 sleep 30
                 continue
             fi
-            PACKAGE_STATE=$("$RISH" -c 'dumpsys package ai.friday.assistant' 2>>"$LOG" || true)
-            if printf '%s\n' "$PACKAGE_STATE" | grep -Eq 'stopped=true'; then
-                echo "$(date -Iseconds) friday-stopped-recovery-attempt" >> "$LOG"
-                "$RISH" -c 'am start -n ai.friday.assistant/.MainActivity' >> "$LOG" 2>&1 || true
+            PACKAGE_STATE=$("${'$'}RISH" -c 'dumpsys package ai.friday.assistant' 2>>"${'$'}LOG" || true)
+            if printf '%s\n' "${'$'}PACKAGE_STATE" | grep -Eq 'stopped=true'; then
+                echo "$(date -Iseconds) friday-stopped-recovery-attempt" >> "${'$'}LOG"
+                "${'$'}RISH" -c 'am start -n ai.friday.assistant/.MainActivity' >> "${'$'}LOG" 2>&1 || true
                 sleep 8
-                VERIFY=$("$RISH" -c 'dumpsys activity activities' 2>>"$LOG" || true)
-                if printf '%s\n' "$VERIFY" | grep -E 'mResumedActivity|topResumedActivity' | grep -Fq 'ai.friday.assistant'; then
-                    echo "$(date -Iseconds) friday-foreground-verified" >> "$LOG"
+                VERIFY=$("${'$'}RISH" -c 'dumpsys activity activities' 2>>"${'$'}LOG" || true)
+                if printf '%s\n' "${'$'}VERIFY" | grep -E 'mResumedActivity|topResumedActivity' | grep -Fq 'ai.friday.assistant'; then
+                    echo "$(date -Iseconds) friday-foreground-verified" >> "${'$'}LOG"
                 else
-                    echo "$(date -Iseconds) friday-launch-unverified" >> "$LOG"
+                    echo "$(date -Iseconds) friday-launch-unverified" >> "${'$'}LOG"
                 fi
             fi
             sleep 20
         done
-        echo "$(date -Iseconds) guardian-paused" >> "$LOG"
+        echo "$(date -Iseconds) guardian-paused" >> "${'$'}LOG"
         FRIDAY_GUARDIAN_EOF
         chmod 700 "$BOOT_SCRIPT"
         nohup "$BOOT_SCRIPT" >> "$TERMUX_HOME/.friday-guardian.log" 2>&1 </dev/null &
