@@ -95,7 +95,7 @@ class FridayUpdateStateInstrumentedTest {
     }
 
     @Test
-    fun failedPostInstallHealthCheckRetainsRecoveryMarker() {
+    fun failedNativePostInstallVerificationRetainsRecoveryMarkerAndStagedApk() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val info = context.packageManager.getPackageInfo(
             context.packageName,
@@ -104,6 +104,12 @@ class FridayUpdateStateInstrumentedTest {
             )
         )
         val store = FridayUpdateStateStore(context)
+        store.clearStaged()
+        store.clearPendingHealthCheck()
+        val staging = File(context.noBackupFilesDir, "friday-update-staging").apply { mkdirs() }
+        val apk = File(staging, "failed-native-update.apk").apply {
+            writeBytes(byteArrayOf(1, 3, 3, 7))
+        }
         val deliberatelyWrongRelease = FridayUpdateClient.Release(
             packageId = context.packageName,
             versionCode = info.longVersionCode + 1L,
@@ -114,17 +120,26 @@ class FridayUpdateStateInstrumentedTest {
             apkUrl = "https://example.invalid/friday.apk"
         )
         try {
-            store.recordPendingHealthCheck(deliberatelyWrongRelease)
+            store.saveStaged(FridayUpdateClient.Result.Staged(deliberatelyWrongRelease, apk))
 
-            val first = store.verifyPendingHealthCheck()
+            val first = completeNativeInstallVerification(store)
             val second = store.verifyPendingHealthCheck()
 
-            assertTrue(first.orEmpty().contains("Post-update health check failed"))
+            assertTrue(first.contains("Post-update health check failed"))
             assertTrue(
                 "A failed update must retain its recovery marker instead of erasing the failure on first launch.",
                 second.orEmpty().contains("Post-update health check failed")
             )
+            assertTrue(
+                "The native PackageInstaller callback must not delete the only staged recovery APK after failed verification.",
+                apk.exists()
+            )
+            assertNotNull(
+                "Staged release identity must remain available for recovery and diagnosis.",
+                store.loadStaged()
+            )
         } finally {
+            store.clearStaged()
             store.clearPendingHealthCheck()
         }
     }
