@@ -64,8 +64,18 @@ class CandidateRepairPlannerTest {
 
     @Test
     fun boundsPersistedRepairContext() {
-        val huge = JSONObject().put("log", "x".repeat(100_000))
+        val huge = JSONObject()
+            .put("trigger", "sandbox")
+            .put("sandbox", JSONObject().put("summary", JSONObject()
+                .put("failure_excerpt", "x".repeat(100_000))
+                .put("rea_evidence_excerpt", "ev_" + "a".repeat(64) + "y".repeat(100_000))))
+            .put("candidate_diff", "diff".repeat(100_000))
         val repair = CandidateRepairPlanner.createRepairTask(failedTask(), huge)!!
-        assertTrue(repair.getString("repair_context").length <= CandidateRepairPlanner.MAX_REPAIR_CONTEXT_CHARS)
+        val encoded = repair.getString("repair_context")
+        assertTrue(encoded.length <= CandidateRepairPlanner.MAX_REPAIR_CONTEXT_CHARS)
+        val decoded = JSONObject(encoded)
+        assertEquals("sandbox", decoded.getJSONObject("failure_evidence").getString("trigger"))
+        assertTrue(decoded.getJSONObject("failure_evidence").getJSONObject("sandbox")
+            .getString("rea_evidence_excerpt").contains("ev_" + "a".repeat(64)))
     }
 }
