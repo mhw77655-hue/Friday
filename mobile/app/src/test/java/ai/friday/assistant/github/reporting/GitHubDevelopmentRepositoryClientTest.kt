@@ -306,6 +306,90 @@ class GitHubDevelopmentRepositoryClientTest {
         }
     }
 
+    @Test fun `candidate sandbox dispatch sends only typed task sha and fixed profile`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"workflow_run_id":654,"html_url":"https://github.com/mhw77655-hue/Friday/actions/runs/654"}"""
+        ))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val runId = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+                .dispatchCandidateSandbox("task-abc123", sha1)
+            assertEquals(654L, runId)
+            val request = server.takeRequest()
+            assertEquals("POST", request.method)
+            assertTrue(request.path!!.endsWith("/actions/workflows/candidate-sandbox.yml/dispatches"))
+            val payload = JSONObject(request.body.readUtf8())
+            assertEquals("main", payload.getString("ref"))
+            val inputs = payload.getJSONObject("inputs")
+            assertEquals("task-abc123", inputs.getString("task_id"))
+            assertEquals(sha1, inputs.getString("candidate_sha"))
+            assertEquals("android-debug", inputs.getString("test_profile"))
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `candidate sandbox dispatch rejects malformed task and sha before network access`() {
+        val server = MockWebServer()
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val client = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+            assertTrue(runCatching { client.dispatchCandidateSandbox("../bad", sha1) }.isFailure)
+            assertTrue(runCatching { client.dispatchCandidateSandbox("task-abc123", "not-a-sha") }.isFailure)
+            assertEquals(0, server.requestCount)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `candidate sandbox run lookup matches exact Friday task run name`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"workflow_runs":[{"id":654,"display_title":"Friday sandbox task task-abc123","status":"completed","conclusion":"success","html_url":"https://github.com/mhw77655-hue/Friday/actions/runs/654","head_sha":"$sha1"}]}"""
+        ))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val run = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+                .findCandidateSandboxRun("task-abc123")
+            assertEquals(654L, run?.id)
+            assertEquals("completed", run?.status)
+            assertEquals("success", run?.conclusion)
+            assertEquals(sha1, run?.headSha)
+            assertTrue(server.takeRequest().path!!.contains("candidate-sandbox.yml"))
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `candidate sandbox evidence reads bounded exact root summary json`() {
+        val summary = """{"schema_version":1,"task_id":"task-abc123","expected_commit_sha":"$sha1","checked_out_commit_sha":"$sha1","test_profile":"android-debug","status":"PASS","apk_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}"""
+        val archiveBytes = ByteArrayOutputStream().also { bytes ->
+            ZipOutputStream(bytes).use { zip ->
+                zip.putNextEntry(ZipEntry("summary.json"))
+                zip.write(summary.toByteArray())
+                zip.closeEntry()
+            }
+        }.toByteArray()
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"artifacts":[{"id":790,"name":"friday-candidate-sandbox-654","expired":false}]}"""
+        ))
+        server.enqueue(MockResponse().setResponseCode(200).setBody(Buffer().write(archiveBytes)))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val result = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+                .downloadCandidateSandboxSummary(654L)
+            assertEquals(summary, result)
+        } finally {
+            server.shutdown()
+        }
+    }
+
     @Test fun `REA dispatch is pinned to Friday workflow and protected main ref`() {
         val server = MockWebServer()
         server.enqueue(MockResponse().setResponseCode(204))
