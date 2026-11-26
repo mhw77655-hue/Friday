@@ -279,6 +279,7 @@ class DiagnoseRepairIntegrationTest {
                 targetRevision = target.sourceRevision,
                 targetSha256 = target.sha256,
                 evidenceId = "ev_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                canonicalEvidenceJson = """{"evidence_id":"ev_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","artifact":{"sha256":"${target.sha256}"}}""",
                 findings = listOf(
                     ReaFinding(
                         title = "Failed node removed before downstream lookup",
