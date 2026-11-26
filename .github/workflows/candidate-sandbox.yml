@@ -234,14 +234,72 @@ jobs:
             export APK_SHA
           fi
           python3 - <<'PY'
-          import hashlib, json, os, pathlib, platform
+          import hashlib, json, os, pathlib, platform, re, xml.etree.ElementTree as ET
           out = pathlib.Path("friday-sandbox-evidence/summary.json")
           expected = os.environ.get("EXPECTED_SHA", "")
           actual = os.environ.get("ACTUAL_SHA", "")
           outcome = os.environ.get("VERIFY_OUTCOME", "unknown")
           apk_sha = os.environ.get("APK_SHA", "")
           log_path = pathlib.Path("friday-sandbox-evidence/gradle.log")
-          failure_excerpt = "\n".join(log_path.read_text(errors="replace").splitlines()[-100:])[-12000:] if log_path.exists() else ""
+          log_text = log_path.read_text(errors="replace") if log_path.exists() else ""
+          failure_excerpt = "\\n".join(log_text.splitlines()[-100:])[-12000:]
+          report_root = pathlib.Path("friday-sandbox-evidence/reports")
+          test_failures = []
+          lint_errors = []
+          if report_root.exists():
+              for report in report_root.rglob("*.xml"):
+                  try:
+                      root = ET.parse(report).getroot()
+                  except (ET.ParseError, OSError):
+                      continue
+                  if root.tag in ("testsuite", "testsuites"):
+                      for case in root.iter("testcase"):
+                          for failure in list(case):
+                              if failure.tag in ("failure", "error"):
+                                  detail = (failure.attrib.get("message", "") + " " + (failure.text or "")).strip()
+                                  test_failures.append({
+                                      "test": (case.attrib.get("classname", "") + "." + case.attrib.get("name", "")).strip(".")[:240],
+                                      "kind": failure.tag,
+                                      "detail": detail[:600]
+                                  })
+                  for issue in root.iter("issue"):
+                      if issue.attrib.get("severity", "").lower() == "error":
+                          lint_errors.append({
+                              "id": issue.attrib.get("id", "")[:120],
+                              "message": issue.attrib.get("message", "")[:500]
+                          })
+          compiler_diagnostics = re.findall(r"(?m)^e:\\s+file:///[^\\n]+", log_text)
+          infra_patterns = [
+              r"could not resolve (all )?files", r"could not (get|head) https?://",
+              r"unknownhostexception", r"sockettimeoutexception", r"connectexception",
+              r"connection reset", r"read timed out", r"tls handshake",
+              r"gradle build daemon disappeared", r"kotlin daemon terminated unexpectedly",
+              r"outofmemoryerror", r"no space left on device", r"sdk location not found",
+              r"failed to install the following android sdk packages",
+              r"failed to find target with hash string", r"failed to launch emulator",
+              r"emulator.*(offline|exited)", r"install_failed", r"timed out waiting for",
+              r"runner.*(lost|unavailable)", r"job was cancelled", r"process completed with exit code 137"
+          ]
+          infra_hits = [pattern for pattern in infra_patterns if re.search(pattern, log_text, re.IGNORECASE)]
+          if outcome == "success":
+              failure_classification = "NONE"
+          elif infra_hits:
+              failure_classification = "INFRASTRUCTURE"
+          elif compiler_diagnostics or test_failures or lint_errors:
+              failure_classification = "ACTIONABLE_DEFECT"
+          else:
+              failure_classification = "UNKNOWN"
+          reasons = []
+          if compiler_diagnostics:
+              reasons.append("Kotlin compiler emitted source-file diagnostics.")
+          if test_failures:
+              reasons.append(f"{len(test_failures)} JUnit test failure/error record(s) were found.")
+          if lint_errors:
+              reasons.append(f"{len(lint_errors)} Android lint error(s) were found.")
+          if infra_hits:
+              reasons.append("Infrastructure signatures were detected: " + ", ".join(infra_hits[:6]))
+          if failure_classification == "UNKNOWN" and outcome != "success":
+              reasons.append("No reliable code-defect or infrastructure signature was found; automatic repair is blocked.")
           rea_path = pathlib.Path(os.environ.get("REA_REPORT_PATH", ""))
           rea_text = rea_path.read_text(errors="replace") if rea_path.is_file() else ""
           rea_sha = hashlib.sha256(rea_text.encode()).hexdigest() if rea_text else ""
@@ -258,6 +316,15 @@ jobs:
               "verification_step": outcome,
               "gradle_exit_code": os.environ.get("VERIFY_EXIT_CODE", ""),
               "failure_apk_build_outcome": os.environ.get("FAILURE_APK_OUTCOME", "skipped"),
+              "failure_classification": failure_classification,
+              "failure_classification_reasons": reasons[:12],
+              "test_failure_count": len(test_failures),
+              "test_failures": test_failures[:20],
+              "lint_error_count": len(lint_errors),
+              "lint_errors": lint_errors[:20],
+              "compiler_diagnostic_count": len(compiler_diagnostics),
+              "compiler_diagnostics": compiler_diagnostics[:20],
+              "infrastructure_signatures": infra_hits[:12],
               "failure_excerpt": failure_excerpt,
               "rea_status": "COMPLETED" if rea_text else ("FAILED" if os.environ.get("REA_OUTCOME") == "failure" else "UNAVAILABLE"),
               "rea_report_sha256": rea_sha,
