@@ -309,14 +309,40 @@ fun SettingsScreen() {
                     }
                     when (result) {
                         is FridayUpdateClient.Result.UpToDate -> {
-                            withContext(Dispatchers.IO) { updateStateStore.clearStaged() }
-                            updateStatus = "Friday is up to date (version code ${result.installedVersionCode})."
+                            val cleared = withContext(Dispatchers.IO) {
+                                updateStateStore.clearStagedUnlessRecoveryRequired()
+                            }
+                            if (cleared) {
+                                stagedUpdate = null
+                                updateStatus = "Friday is up to date (version code ${result.installedVersionCode})."
+                            } else {
+                                stagedUpdate = null
+                                updateStatus = "RECOVERY REQUIRED: failed-release evidence is retained. Friday is waiting for a higher-version signed repair; the failed APK is not offered for reinstall."
+                            }
                             updateStateStore.recordStatus(updateStatus)
                         }
                         is FridayUpdateClient.Result.Staged -> {
-                            stagedUpdate = result
-                            updateStateStore.saveStaged(result)
-                            updateStatus = "Verified Friday ${result.release.versionName} is staged and ready for Android installation."
+                            val retained = withContext(Dispatchers.IO) {
+                                updateStateStore.saveStagedUnlessRecoveryRequired(result)
+                            }
+                            if (retained) {
+                                stagedUpdate = result
+                                val recoveryCandidate = withContext(Dispatchers.IO) {
+                                    updateStateStore.hasFailedRecoveryEvidence()
+                                }
+                                updateStatus = if (recoveryCandidate) {
+                                    "Verified recovery candidate Friday ${result.release.versionName} is staged. Failed-release evidence will be retained until this update passes its post-install health check."
+                                } else {
+                                    "Verified Friday ${result.release.versionName} is staged and ready for Android installation."
+                                }
+                            } else {
+                                val recovery = withContext(Dispatchers.IO) { updateStateStore.loadStaged() }
+                                if (recovery?.apk?.canonicalPath != result.apk.canonicalPath) {
+                                    result.apk.delete()
+                                }
+                                stagedUpdate = null
+                                updateStatus = "RECOVERY REQUIRED: failed-release evidence is retained; this candidate is not a higher-version signed repair and was discarded."
+                            }
                             updateStateStore.recordStatus(updateStatus)
                         }
                         is FridayUpdateClient.Result.Rejected -> {

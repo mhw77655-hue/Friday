@@ -20,6 +20,8 @@ class FridayUpdateStateInstrumentedTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val store = FridayUpdateStateStore(context)
         store.clearStaged()
+        store.clearPendingHealthCheck()
+        store.clearFailedRecoveryEvidence()
         val staging = File(context.noBackupFilesDir, "friday-update-staging").apply { mkdirs() }
         val apk = File(staging, "instrumented-update.apk").apply { writeBytes(byteArrayOf(1, 2, 3, 4)) }
         val release = FridayUpdateClient.Release(
@@ -41,6 +43,8 @@ class FridayUpdateStateInstrumentedTest {
             assertEquals(apk.canonicalPath, restored.apk.canonicalPath)
         } finally {
             store.clearStaged()
+            store.clearPendingHealthCheck()
+            store.clearFailedRecoveryEvidence()
         }
         assertFalse("Clearing staged state also removes the staged APK.", apk.exists())
     }
@@ -95,7 +99,7 @@ class FridayUpdateStateInstrumentedTest {
     }
 
     @Test
-    fun failedNativePostInstallVerificationRetainsRecoveryMarkerAndStagedApk() {
+    fun failedNativePostInstallVerificationArchivesEvidenceForForwardRecovery() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val info = context.packageManager.getPackageInfo(
             context.packageName,
@@ -106,6 +110,7 @@ class FridayUpdateStateInstrumentedTest {
         val store = FridayUpdateStateStore(context)
         store.clearStaged()
         store.clearPendingHealthCheck()
+        store.clearFailedRecoveryEvidence()
         val staging = File(context.noBackupFilesDir, "friday-update-staging").apply { mkdirs() }
         val apk = File(staging, "failed-native-update.apk").apply {
             writeBytes(byteArrayOf(1, 3, 3, 7))
@@ -123,37 +128,39 @@ class FridayUpdateStateInstrumentedTest {
             store.saveStaged(FridayUpdateClient.Result.Staged(deliberatelyWrongRelease, apk))
 
             val first = completeNativeInstallVerification(store)
-            val second = store.verifyPendingHealthCheck()
 
             assertTrue(first.contains("Post-update health check failed"))
             assertTrue(
-                "A failed update must retain its recovery marker instead of erasing the failure on first launch.",
-                second.orEmpty().contains("Post-update health check failed")
+                "The failed APK must be preserved as immutable recovery evidence.",
+                FridayUpdateStateStore(context).loadFailedArtifacts().any {
+                    it.apk?.canonicalPath == apk.canonicalPath
+                }
             )
             assertTrue(
-                "The native PackageInstaller callback must not delete the only staged recovery APK after failed verification.",
+                "A failed release must remain on disk after first-launch verification.",
                 apk.exists()
             )
-            assertNotNull(
-                "Staged release identity must remain available for recovery and diagnosis.",
-                store.loadStaged()
-            )
             assertTrue(
-                "A later up-to-date poll must not erase an artifact whose post-install health check failed.",
+                "A later up-to-date poll must not erase failed-release evidence.",
                 !store.clearStagedUnlessRecoveryRequired()
             )
             assertTrue(
-                "The staged APK must remain available after routine update cleanup is attempted.",
+                "Routine cleanup must not delete the failed APK.",
                 apk.exists()
+            )
+            assertTrue(
+                "The failure outcome remains durable after the one-shot pending marker is archived.",
+                store.lastStatus().startsWith("Post-update health check failed:")
             )
         } finally {
             store.clearStaged()
             store.clearPendingHealthCheck()
+            store.clearFailedRecoveryEvidence()
         }
     }
 
     @Test
-    fun newerReleaseCannotReplaceArtifactWhilePreviousPostInstallRecoveryIsPending() {
+    fun newerReleaseCanStageWithoutReplacingFailedRecoveryEvidence() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val info = context.packageManager.getPackageInfo(
             context.packageName,
@@ -164,9 +171,13 @@ class FridayUpdateStateInstrumentedTest {
         val store = FridayUpdateStateStore(context)
         store.clearStaged()
         store.clearPendingHealthCheck()
+        store.clearFailedRecoveryEvidence()
         val staging = File(context.noBackupFilesDir, "friday-update-staging").apply { mkdirs() }
         val failedApk = File(staging, "failed-recovery-update.apk").apply {
             writeBytes(byteArrayOf(1, 2, 3))
+        }
+        val sameVersionApk = File(staging, "same-version-candidate.apk").apply {
+            writeBytes(byteArrayOf(7, 7, 7))
         }
         val newerApk = File(staging, "newer-candidate.apk").apply {
             writeBytes(byteArrayOf(4, 5, 6))
@@ -193,27 +204,163 @@ class FridayUpdateStateInstrumentedTest {
             store.saveStaged(FridayUpdateClient.Result.Staged(failedRelease, failedApk))
             assertTrue(store.recordPendingHealthCheck(failedRelease))
 
+            // The helper archives the failed APK. The same failed version is
+            // rejected, while a strictly newer signed release may recover.
+            val sameVersionRelease = failedRelease.copy(apkUrl = "https://example.invalid/retry.apk")
+            assertFalse(
+                "The same failed release must not be offered repeatedly as its own repair.",
+                store.saveStagedUnlessRecoveryRequired(
+                    FridayUpdateClient.Result.Staged(sameVersionRelease, sameVersionApk)
+                )
+            )
+            sameVersionApk.delete()
+            assertFalse(
+                "The failed version cannot be recorded for another install attempt.",
+                store.recordPendingHealthCheck(failedRelease)
+            )
             val accepted = store.saveStagedUnlessRecoveryRequired(
                 FridayUpdateClient.Result.Staged(newerRelease, newerApk)
             )
 
-            assertFalse(
-                "A newer release must not replace the only artifact for a failed post-install update.",
+            assertTrue(
+                "A strictly newer signed release must be stageable as forward recovery.",
                 accepted
             )
             assertEquals(
-                "The original failed APK must remain the active recovery artifact.",
-                failedApk.canonicalPath,
+                "The newer release becomes the active install candidate.",
+                newerApk.canonicalPath,
                 store.loadStaged()?.apk?.canonicalPath
             )
-            assertTrue("The original recovery APK must remain on disk.", failedApk.exists())
             assertTrue(
-                "The pending failed health-check marker must remain available.",
-                store.verifyPendingHealthCheck().orEmpty().startsWith("Post-update health check failed:")
+                "The original failed APK remains separately available as evidence.",
+                store.loadFailedArtifacts().any { it.apk?.canonicalPath == failedApk.canonicalPath }
+            )
+            assertTrue("The original failed APK must remain on disk.", failedApk.exists())
+            assertTrue("The newer recovery candidate must remain on disk.", newerApk.exists())
+            assertTrue(
+                "The previous failed-release record remains until the repair passes health verification.",
+                store.hasFailedRecoveryEvidence()
+            )
+            assertTrue(
+                "The higher-version recovery candidate can enter its own post-install health-check cycle.",
+                store.recordPendingHealthCheck(newerRelease)
             )
         } finally {
             store.clearStaged()
             store.clearPendingHealthCheck()
+            store.clearFailedRecoveryEvidence()
+            newerApk.delete()
+            sameVersionApk.delete()
+        }
+    }
+
+    @Test
+    fun nativeInstallerRejectionClearsOnlyPendingMarkerAndKeepsCandidateForRetry() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val info = context.packageManager.getPackageInfo(
+            context.packageName,
+            android.content.pm.PackageManager.PackageInfoFlags.of(
+                android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES.toLong()
+            )
+        )
+        val store = FridayUpdateStateStore(context)
+        store.clearStaged()
+        store.clearPendingHealthCheck()
+        store.clearFailedRecoveryEvidence()
+        val staging = File(context.noBackupFilesDir, "friday-update-staging").apply { mkdirs() }
+        val apk = File(staging, "installer-rejected-candidate.apk").apply {
+            writeBytes(byteArrayOf(5, 5, 5))
+        }
+        val release = FridayUpdateClient.Release(
+            packageId = context.packageName,
+            versionCode = info.longVersionCode + 1L,
+            versionName = "installer-rejected-candidate",
+            sourceCommit = "a".repeat(40),
+            certificateSha256 = "B".repeat(64),
+            apkSha256 = "c".repeat(64),
+            apkUrl = "https://example.invalid/rejected.apk"
+        )
+        try {
+            store.saveStaged(FridayUpdateClient.Result.Staged(release, apk))
+            assertTrue(store.recordPendingHealthCheck(release))
+
+            val message = completeNativeInstallRejection(store, "Android rejected the Friday update.")
+
+            assertEquals("Android rejected the Friday update.", message)
+            assertEquals(message, store.lastStatus())
+            assertEquals(
+                "An installer rejection is not a post-install health failure.",
+                null,
+                store.verifyPendingHealthCheck()
+            )
+            assertNotNull("The verified candidate remains available for retry.", store.loadStaged())
+            assertTrue("The staged candidate remains on disk.", apk.exists())
+            assertFalse("No failed-release evidence is created for a rejected install.", store.hasFailedRecoveryEvidence())
+        } finally {
+            store.clearStaged()
+            store.clearPendingHealthCheck()
+            store.clearFailedRecoveryEvidence()
+        }
+    }
+
+    @Test
+    fun damagedFailureLedgerStillBlocksTheFailedVersionButAllowsANewerRepair() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val info = context.packageManager.getPackageInfo(
+            context.packageName,
+            android.content.pm.PackageManager.PackageInfoFlags.of(
+                android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES.toLong()
+            )
+        )
+        val store = FridayUpdateStateStore(context)
+        store.clearStaged()
+        store.clearPendingHealthCheck()
+        store.clearFailedRecoveryEvidence()
+        val failedVersion = info.longVersionCode + 1L
+        val prefs = context.getSharedPreferences("friday_update_state", Context.MODE_PRIVATE)
+        prefs.edit()
+            .putString("failed_artifacts_json", "{damaged")
+            .putLong("highest_failed_version_code", failedVersion)
+            .commit()
+        val staging = File(context.noBackupFilesDir, "friday-update-staging").apply { mkdirs() }
+        val sameVersionApk = File(staging, "damaged-ledger-same-version.apk").apply {
+            writeBytes(byteArrayOf(1, 1, 1))
+        }
+        val newerApk = File(staging, "damaged-ledger-newer.apk").apply {
+            writeBytes(byteArrayOf(2, 2, 2))
+        }
+        fun release(version: Long, name: String) = FridayUpdateClient.Release(
+            packageId = context.packageName,
+            versionCode = version,
+            versionName = name,
+            sourceCommit = "a".repeat(40),
+            certificateSha256 = "B".repeat(64),
+            apkSha256 = "c".repeat(64),
+            apkUrl = "https://example.invalid/$name.apk"
+        )
+        try {
+            assertTrue(
+                "A damaged but non-empty failed-release ledger must fail closed.",
+                store.hasFailedRecoveryEvidence()
+            )
+            assertFalse(
+                "A damaged ledger must still block retrying the failed version.",
+                store.saveStagedUnlessRecoveryRequired(
+                    FridayUpdateClient.Result.Staged(release(failedVersion, "failed"), sameVersionApk)
+                )
+            )
+            assertTrue(
+                "A higher-version signed repair may still be staged despite damaged detailed evidence.",
+                store.saveStagedUnlessRecoveryRequired(
+                    FridayUpdateClient.Result.Staged(release(failedVersion + 1L, "repair"), newerApk)
+                )
+            )
+            assertEquals(newerApk.canonicalPath, store.loadStaged()?.apk?.canonicalPath)
+        } finally {
+            store.clearStaged()
+            store.clearPendingHealthCheck()
+            store.clearFailedRecoveryEvidence()
+            sameVersionApk.delete()
             newerApk.delete()
         }
     }
@@ -241,12 +388,16 @@ class FridayUpdateStateInstrumentedTest {
             apkUrl = "https://example.invalid/friday.apk"
         )
         val store = FridayUpdateStateStore(context)
+        store.clearStaged()
+        store.clearPendingHealthCheck()
+        store.clearFailedRecoveryEvidence()
         store.recordPendingHealthCheck(release)
 
         val status = store.verifyPendingHealthCheck()
 
         assertTrue(status.orEmpty().contains("Post-update health check passed"))
         assertTrue(store.lastStatus().contains("Post-update health check passed"))
+        assertFalse("A healthy release leaves no failed-recovery evidence.", store.hasFailedRecoveryEvidence())
     }
 
 }

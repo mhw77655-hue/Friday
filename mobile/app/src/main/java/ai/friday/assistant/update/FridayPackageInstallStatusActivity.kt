@@ -66,7 +66,12 @@ class FridayPackageInstallStatusActivity : Activity() {
                     ?.take(160)
                     .orEmpty()
                 val message = if (detail.isBlank()) "Android rejected the Friday update." else "Friday update failed: $detail"
-                FridayUpdateStateStore(this).recordStatus(message)
+                val state = FridayUpdateStateStore(this)
+                // PackageInstaller failure means the new package was not
+                // committed. Keep the verified candidate available for retry,
+                // but do not misclassify an install rejection as a failed
+                // post-install health check.
+                completeNativeInstallRejection(state, message)
                 Toast.makeText(this, message, Toast.LENGTH_LONG).show()
                 finish()
             }
@@ -75,11 +80,12 @@ class FridayPackageInstallStatusActivity : Activity() {
 }
 
 /**
- * Finalize the native PackageInstaller callback without destroying the only
- * recovery artifact when first-launch verification fails or cannot be saved.
+ * Finalize the native PackageInstaller callback without destroying recovery
+ * evidence when first-launch verification fails.
  *
- * FridayUpdateStateStore.verifyPendingHealthCheck() owns cleanup on a verified
- * success. On failure it deliberately retains both the marker and staged APK.
+ * FridayUpdateStateStore.verifyPendingHealthCheck() archives the failed
+ * release identity and staged APK separately. A higher-version signed repair
+ * can then be staged without overwriting that evidence.
  */
 internal fun completeNativeInstallVerification(state: FridayUpdateStateStore): String {
     val staged = state.loadStaged()
@@ -91,4 +97,18 @@ internal fun completeNativeInstallVerification(state: FridayUpdateStateStore): S
 
     return state.verifyPendingHealthCheck()
         ?: "Friday installed the update, but its post-install identity check did not run. The staged APK is retained for recovery."
+}
+
+/**
+ * An Android installer rejection leaves the old package installed. Clear the
+ * pending post-install marker but retain the verified candidate for an
+ * owner-approved retry; this is not a failed installed release.
+ */
+internal fun completeNativeInstallRejection(
+    state: FridayUpdateStateStore,
+    message: String
+): String {
+    state.clearPendingHealthCheck()
+    state.recordStatus(message)
+    return message
 }

@@ -35,7 +35,7 @@ class FridayUpdateWorker(
                         state.recordStatus("Friday is up to date (version code ${result.installedVersionCode}).")
                     } else {
                         val failure = state.lastStatus()
-                        state.recordStatus("RECOVERY REQUIRED: installed Friday failed its post-update identity check. The staged APK and pending marker are retained; routine cleanup is blocked. $failure")
+                        state.recordStatus("RECOVERY REQUIRED: failed-release evidence is retained separately. Routine cleanup is blocked until a higher-version signed repair passes its post-install health check. $failure")
                     }
                 }
                 is FridayUpdateClient.Result.Staged -> {
@@ -45,7 +45,7 @@ class FridayUpdateWorker(
                             result.apk.delete()
                         }
                         state.recordStatus(
-                            "RECOVERY REQUIRED: retained the previously failed update APK and health marker; discarded the newer candidate until recovery is resolved."
+                            "RECOVERY REQUIRED: retained failed-release evidence; this candidate is not a higher-version repair and was discarded."
                         )
                     } else {
                     ai.friday.assistant.ShizukuBridge.init()
@@ -77,7 +77,14 @@ class FridayUpdateWorker(
                             }
                         }
                     } else {
-                        state.recordStatus("Verified Friday ${result.release.versionName} is staged; no authorized Shizuku installer is available, so the native fallback is ready.")
+                        val recoveryCandidate = state.hasFailedRecoveryEvidence()
+                        state.recordStatus(
+                            if (recoveryCandidate) {
+                                "Verified recovery candidate Friday ${result.release.versionName} is staged. Failed-release evidence is retained until this candidate passes its post-install health check."
+                            } else {
+                                "Verified Friday ${result.release.versionName} is staged; no authorized Shizuku installer is available, so the native fallback is ready."
+                            }
+                        )
                         notifyUpdateReady(result.release.versionName)
                     }
                     }
