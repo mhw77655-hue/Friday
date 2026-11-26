@@ -64,6 +64,7 @@ fun ConversationScreen() {
         }
     }
     val turns by conversationViewModel.turns.collectAsStateWithLifecycle()
+    val partialTranscript by ai.friday.assistant.SpeechBridge.partialTranscript.collectAsStateWithLifecycle()
     var input by remember { mutableStateOf("") }
 
     fun sendCurrentInput() {
@@ -82,6 +83,14 @@ fun ConversationScreen() {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(turns) { turn -> TurnRow(turn) }
+        }
+
+        if (partialTranscript.isNotBlank()) {
+            Text(
+                text = "… $partialTranscript",
+                style = FridayType.Label,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+            )
         }
 
         InputRow(
