@@ -101,7 +101,7 @@ class ObjectiveExecutionWorker(
                     when (checks.state) {
                         "PENDING" -> enqueueFollowUp(applicationContext, candidateTaskId, initialDelaySeconds = 600)
                         "SUCCESS" -> enqueueFollowUp(applicationContext, candidateTaskId)
-                        "FAILURE" -> Unit // Preserve failure evidence; never retry a failed candidate blindly.
+                        "FAILURE" -> enqueueFollowUp(applicationContext, candidateTaskId) // Run the isolated sandbox and collect repair evidence before generating a fix.
                     }
                     android.util.Log.i(TAG, "Candidate PR CI state: " + checks.state)
                 } catch (checkFailure: Exception) {
@@ -182,6 +182,13 @@ class ObjectiveExecutionWorker(
                             .put("run_id", run.id)
                             .put("run_url", run.url)
                             .put("reason", "Sandbox evidence could not be validated: " + (failure.message ?: failure.javaClass.simpleName).take(300))
+                    }
+                    // Preserve the exact failed candidate diff alongside CI, sandbox and
+                    // any REA evidence. The ledger turns this immutable episode into
+                    // one bounded repair task; it never retries the same patch blindly.
+                    val candidateDiff = runCatching { repository.readCommitDiff(candidateSha) }.getOrNull()
+                    if (!candidateDiff.isNullOrBlank()) {
+                        evidence.put("candidate_diff", candidateDiff.take(CandidateRepairPlanner.MAX_REPAIR_CONTEXT_CHARS / 2))
                     }
                     store.recordCandidateSandboxResult(sandboxTaskId, evidence)
                     enqueueFollowUp(applicationContext, sandboxTaskId)
