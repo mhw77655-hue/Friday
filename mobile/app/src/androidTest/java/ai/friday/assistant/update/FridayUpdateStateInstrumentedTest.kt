@@ -138,6 +138,14 @@ class FridayUpdateStateInstrumentedTest {
                 "Staged release identity must remain available for recovery and diagnosis.",
                 store.loadStaged()
             )
+            assertTrue(
+                "A later up-to-date poll must not erase an artifact whose post-install health check failed.",
+                !store.clearStagedUnlessRecoveryRequired()
+            )
+            assertTrue(
+                "The staged APK must remain available after routine update cleanup is attempted.",
+                apk.exists()
+            )
         } finally {
             store.clearStaged()
             store.clearPendingHealthCheck()
