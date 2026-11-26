@@ -1358,7 +1358,7 @@ private fun ReaEngineeringSection(context: Context) {
     var message by remember { mutableStateOf("REA has not been dispatched from Friday yet.") }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-        Text("Friday REA engineering", style = FridayType.Section)
+        Text("Friday REA engineering", style = FridayType.Body)
         Text(
             "Friday can now dispatch the pinned upstream Reverse Engineer Anything MCP workflow herself. GitHub Actions runs it on an isolated cloud runner; the run continues if Friday is closed, and she can retrieve its evidence when reopened.",
             style = FridayType.Technical
