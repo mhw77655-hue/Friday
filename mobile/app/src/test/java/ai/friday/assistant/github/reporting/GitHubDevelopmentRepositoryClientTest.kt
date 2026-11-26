@@ -333,6 +333,54 @@ class GitHubDevelopmentRepositoryClientTest {
         }
     }
 
+    @Test fun `candidate sandbox dispatch supports only the approved instrumented profile`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(204))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+                .dispatchCandidateSandbox("task-abc123", sha1, testProfile = "android-instrumented")
+            val payload = JSONObject(server.takeRequest().body.readUtf8())
+            assertEquals("android-instrumented", payload.getJSONObject("inputs").getString("test_profile"))
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `candidate sandbox profile selection follows exact failed check names`() {
+        val server = MockWebServer()
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val client = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+            assertEquals("android-debug", client.selectCandidateSandboxProfile(listOf("JVM unit tests:completed:failure")))
+            assertEquals("android-instrumented", client.selectCandidateSandboxProfile(
+                listOf("Disposable Android phone twin (instrumented):completed:failure")
+            ))
+            assertEquals("android-instrumented", client.selectCandidateSandboxProfile(
+                listOf("android-emulator:completed:failure")
+            ))
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `candidate sandbox dispatch rejects unknown profile before network access`() {
+        val server = MockWebServer()
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val client = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+            assertTrue(runCatching {
+                client.dispatchCandidateSandbox("task-abc123", sha1, testProfile = "arbitrary-shell")
+            }.isFailure)
+            assertEquals(0, server.requestCount)
+        } finally {
+            server.shutdown()
+        }
+    }
+
     @Test fun `candidate sandbox dispatch carries CI failure to REA trigger`() {
         val server = MockWebServer()
         server.enqueue(MockResponse().setResponseCode(204))
