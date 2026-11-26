@@ -137,6 +137,22 @@ class CandidateRepairPlannerTest {
     }
 
     @Test
+    fun acceptsInstrumentedCandidateFailureOnlyWithExactProfileAndProvenance() {
+        val sandbox = JSONObject().put("status", "FAIL")
+            .put("summary", JSONObject()
+                .put("expected_commit_sha", "a".repeat(40))
+                .put("checked_out_commit_sha", "a".repeat(40))
+                .put("test_profile", "android-instrumented")
+                .put("failure_classification", "ACTIONABLE_DEFECT")
+                .put("failure_evidence_kind", "TEST")
+                .put("test_failure_count", 1)
+                .put("apk_sha256", "c".repeat(64)))
+        assertTrue(CandidateRepairPlanner.isConfirmedCandidateDefect("a".repeat(40), sandbox))
+        sandbox.getJSONObject("summary").put("test_profile", "unapproved-profile")
+        assertFalse(CandidateRepairPlanner.isConfirmedCandidateDefect("a".repeat(40), sandbox))
+    }
+
+    @Test
     fun refusesSingleUnconfirmedTestFailureWithoutApk() {
         val evidence = JSONObject().put("sandbox", JSONObject().put("status", "FAIL")
             .put("summary", JSONObject()
