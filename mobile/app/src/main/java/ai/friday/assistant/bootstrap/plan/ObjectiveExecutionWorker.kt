@@ -136,10 +136,17 @@ class ObjectiveExecutionWorker(
                 try {
                     val repository = ai.friday.assistant.github.reporting.GitHubDevelopmentRepositoryClient(token)
                     val priorSandbox = pendingSandbox.optJSONObject("sandbox")
+                    val ci = pendingSandbox.optJSONObject("ci")
+                    val ciFailed = ci?.optString("state") == "FAILURE"
+                    val checkDetails = ci?.optJSONArray("details") ?: org.json.JSONArray()
+                    val testProfile = repository.selectCandidateSandboxProfile(
+                        (0 until checkDetails.length()).map { checkDetails.optString(it) }
+                    )
                     var run = repository.findCandidateSandboxRun(sandboxTaskId)
                     if (priorSandbox?.optString("state") != "DISPATCHED" && run == null) {
-                        val ciFailed = pendingSandbox.optJSONObject("ci")?.optString("state") == "FAILURE"
-                        val runId = repository.dispatchCandidateSandbox(sandboxTaskId, candidateSha, ciFailed)
+                        val runId = repository.dispatchCandidateSandbox(
+                            sandboxTaskId, candidateSha, ciFailed, testProfile
+                        )
                         store.recordCandidateSandboxDispatched(sandboxTaskId, runId)
                         enqueueFollowUp(applicationContext, sandboxTaskId, initialDelaySeconds = 600)
                         android.util.Log.i(TAG, "Dispatched isolated cloud sandbox for Builder task " + sandboxTaskId)
@@ -180,7 +187,7 @@ class ObjectiveExecutionWorker(
                             summary.optInt("schema_version", -1) == 1 &&
                             summary.optString("task_id") == sandboxTaskId &&
                             expected == candidateSha && actual == candidateSha &&
-                            summary.optString("test_profile") == "android-debug" &&
+                            summary.optString("test_profile") == testProfile &&
                             summary.optString("status") == "PASS" &&
                             apkDigest.matches(Regex("[0-9a-f]{64}"))
                         org.json.JSONObject()
@@ -193,7 +200,7 @@ class ObjectiveExecutionWorker(
                             .put("test_profile", summary.optString("test_profile"))
                             .put("apk_sha256", apkDigest)
                             .put("summary", summary)
-                            .put("reason", if (valid) "Exact candidate commit passed isolated Android debug verification." else "Sandbox evidence was incomplete, mismatched or failed.")
+                            .put("reason", if (valid) "Exact candidate commit passed isolated $testProfile verification." else "Sandbox evidence was incomplete, mismatched or failed.")
                     }.getOrElse { failure ->
                         org.json.JSONObject()
                             .put("status", "FAIL")
