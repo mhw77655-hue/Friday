@@ -92,6 +92,30 @@ internal object CandidateRepairPlanner {
             .put("updated_at_epoch_ms", nowEpochMs)
     }
 
+    internal data class SandboxDisposition(
+        val taskStatus: String,
+        val queueRepair: Boolean
+    )
+
+    internal fun classifySandboxOutcome(
+        candidateSha: String,
+        ciFailed: Boolean,
+        evidence: JSONObject
+    ): SandboxDisposition {
+        val summary = evidence.optJSONObject("summary") ?: JSONObject()
+        val actionableDefect = isConfirmedCandidateDefect(candidateSha, evidence)
+        val infrastructureFailure = summary.optString("failure_classification") == "INFRASTRUCTURE"
+        val passed = evidence.optString("status") == "PASS" && !ciFailed
+        val taskStatus = when {
+            passed -> "SANDBOX_PASSED_AWAITING_REVIEW"
+            actionableDefect -> "SANDBOX_FAILED_REQUIRES_REPAIR"
+            infrastructureFailure -> "INFRASTRUCTURE_TRIAGE_REQUIRED"
+            ciFailed && evidence.optString("status") == "PASS" -> "CI_FAILURE_NOT_REPRODUCED"
+            else -> "FAILURE_TRIAGE_REQUIRED"
+        }
+        return SandboxDisposition(taskStatus = taskStatus, queueRepair = actionableDefect)
+    }
+
     internal fun isConfirmedCandidateDefect(candidateSha: String, sandbox: JSONObject): Boolean {
         val summary = sandbox.optJSONObject("summary") ?: return false
         return candidateSha.matches(Regex("[0-9a-f]{40}")) &&
