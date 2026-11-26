@@ -13,7 +13,7 @@ class ReaTargetArtifactTest {
         try {
             val apk = File(dir, "candidate.apk").apply { writeBytes(byteArrayOf(1, 2, 3, 4)) }
             val target = ReaTargetArtifact.fromBuiltApk(
-                apk = apk,
+                file = apk,
                 sourceRevision = "a".repeat(40),
                 packageName = "ai.friday.assistant"
             )
