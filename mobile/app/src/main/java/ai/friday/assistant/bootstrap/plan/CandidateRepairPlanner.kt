@@ -118,13 +118,23 @@ internal object CandidateRepairPlanner {
 
     internal fun isConfirmedCandidateDefect(candidateSha: String, sandbox: JSONObject): Boolean {
         val summary = sandbox.optJSONObject("summary") ?: return false
+        val apkEvidenceValid = summary.optString("apk_sha256").matches(Regex("[0-9a-f]{64}"))
+        val compilerEvidenceValid =
+            summary.optString("failure_evidence_kind") == "COMPILER" &&
+                summary.optInt("compiler_diagnostic_count") > 0
+        val testEvidenceValid =
+            summary.optString("failure_evidence_kind") in setOf("TEST", "MIXED") &&
+                summary.optInt("test_failure_count") > 0
+        val lintEvidenceValid =
+            summary.optString("failure_evidence_kind") in setOf("LINT", "MIXED") &&
+                summary.optInt("lint_error_count") > 0
         return candidateSha.matches(Regex("[0-9a-f]{40}")) &&
             sandbox.optString("status") == "FAIL" &&
             summary.optString("expected_commit_sha") == candidateSha &&
             summary.optString("checked_out_commit_sha") == candidateSha &&
             summary.optString("test_profile") == "android-debug" &&
-            summary.optString("apk_sha256").matches(Regex("[0-9a-f]{64}")) &&
-            summary.optString("failure_classification") == "ACTIONABLE_DEFECT"
+            summary.optString("failure_classification") == "ACTIONABLE_DEFECT" &&
+            (apkEvidenceValid || compilerEvidenceValid || testEvidenceValid || lintEvidenceValid)
     }
 
     private fun hasActionableFailureEvidence(source: JSONObject, candidateSha: String): Boolean {
@@ -202,6 +212,10 @@ internal object CandidateRepairPlanner {
                 .put("apk_sha256", summary.optString("apk_sha256").take(64))
                 .put("failure_excerpt", summary.optString("failure_excerpt").take(5_000))
                 .put("failure_classification", summary.optString("failure_classification", "UNKNOWN").take(32))
+                .put("failure_evidence_kind", summary.optString("failure_evidence_kind", "NONE").take(24))
+                .put("compiler_diagnostic_count", summary.optInt("compiler_diagnostic_count"))
+                .put("test_failure_count", summary.optInt("test_failure_count"))
+                .put("lint_error_count", summary.optInt("lint_error_count"))
                 .put("failure_classification_reasons", classificationReasons)
                 .put("rea_status", summary.optString("rea_status").take(20))
                 .put("rea_report_sha256", if (summary.optString("rea_status") == "COMPLETED") summary.optString("rea_report_sha256").take(64) else "")
