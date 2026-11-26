@@ -1,5 +1,58 @@
 package ai.friday.assistant.selfrepair
 
+import java.io.File
+import java.io.FileInputStream
+import java.security.MessageDigest
+
+/**
+ * A built Android APK that REA can actually inspect. REA is not used as a
+ * substitute for ordinary source-repository analysis: its Android workflow
+ * operates on the packaged APK. The caller must supply the exact artifact and
+ * the source revision from which that artifact was built.
+ */
+data class ReaTargetArtifact(
+    val file: File,
+    val sourceRevision: String,
+    val packageName: String,
+    val sha256: String
+) {
+    init {
+        require(file.isFile && file.extension.equals("apk", ignoreCase = true)) {
+            "REA Android target must be an existing APK file"
+        }
+        require(Regex("[0-9a-f]{40}").matches(sourceRevision)) {
+            "APK source revision must be a full lowercase Git commit SHA"
+        }
+        require(Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+").matches(packageName)) {
+            "APK package name is invalid"
+        }
+        require(Regex("[0-9a-f]{64}").matches(sha256)) {
+            "APK SHA-256 must be 64 lowercase hexadecimal characters"
+        }
+    }
+
+    /** Detect replacement or mutation between build handoff and REA invocation. */
+    fun verifyUnchanged(): Boolean = sha256(file) == sha256
+
+    companion object {
+        fun fromBuiltApk(file: File, sourceRevision: String, packageName: String): ReaTargetArtifact =
+            ReaTargetArtifact(file, sourceRevision, packageName, sha256(file))
+
+        private fun sha256(file: File): String {
+            val digest = MessageDigest.getInstance("SHA-256")
+            FileInputStream(file).buffered().use { input ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    digest.update(buffer, 0, count)
+                }
+            }
+            return digest.digest().joinToString("") { "%02x".format(it) }
+        }
+    }
+}
+
 /**
  * Provenance-bearing findings returned by the upstream REA (Reverse Engineer
  * Anything) tool. REA runs on a suitable MCP/CLI host; this port deliberately
@@ -22,6 +75,8 @@ data class ReaRepairEvidence(
     val toolVersion: String,
     val target: String,
     val targetRevision: String,
+    /** SHA-256 of the exact built APK REA inspected. */
+    val targetSha256: String,
     /** Exact evidence_id returned by REA structuredContent. */
     val evidenceId: String,
     val findings: List<ReaFinding>,
@@ -31,7 +86,8 @@ data class ReaRepairEvidence(
         require(toolName.isNotBlank()) { "REA tool name is required" }
         require(toolVersion.isNotBlank()) { "REA version is required" }
         require(target.isNotBlank()) { "REA target is required" }
-        require(targetRevision.isNotBlank()) { "REA target revision is required" }
+        require(Regex("[0-9a-f]{40}").matches(targetRevision)) { "REA target revision must be a full lowercase Git commit SHA" }
+        require(Regex("[0-9a-f]{64}").matches(targetSha256)) { "REA target SHA-256 must be 64 lowercase hexadecimal characters" }
         require(Regex("ev_[0-9a-f]{64}").matches(evidenceId)) {
             "REA evidence ID must be the canonical ev_<64 lowercase hex> identifier"
         }
@@ -51,6 +107,7 @@ data class ReaRepairEvidence(
         appendLine("SOURCE: $toolName $toolVersion")
         appendLine("TARGET: $target")
         appendLine("TARGET REVISION: $targetRevision")
+        appendLine("TARGET SHA-256: $targetSha256")
         appendLine("REA EVIDENCE ID: $evidenceId")
         findings.forEachIndexed { index, item ->
             appendLine("FINDING ${index + 1}: ${item.title}")
@@ -67,11 +124,12 @@ data class ReaRepairEvidence(
 
 /**
  * Adapter boundary for the real upstream REA MCP/CLI integration. A host
- * adapter must return evidence for the same source revision being repaired.
+ * adapter must inspect the supplied built APK, not the source repository, and
+ * return evidence for its exact source revision and byte digest.
  */
 fun interface ReaRepairEvidenceProvider {
     suspend fun investigate(
-        target: java.io.File,
+        target: ReaTargetArtifact,
         requirement: RepairRequirement,
         observation: TestSuiteObservation
     ): ReaRepairEvidence
