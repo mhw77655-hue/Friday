@@ -389,7 +389,12 @@ jobs:
           assert classify_failure("failure", "", [], [{"detail": "java.net.UnknownHostException"}], [])[0] == "INFRASTRUCTURE"
           assert classify_failure("failure", "BUILD FAILED", [], [], [])[0] == "UNKNOWN"
           failure_classification, infra_hits, reasons, failure_evidence_kind = classify_failure(
-              outcome, log_text + "\\n" + rerun_log, compiler_diagnostics, test_failures, lint_errors
+          failure_log_for_classification = log_text + "\n" + rerun_log + "\n" + "\n".join(
+              item.get("detail", "") for item in unconfirmed_test_failures
+          )
+          failure_classification, infra_hits, reasons, failure_evidence_kind = classify_failure(
+              outcome, failure_log_for_classification, compiler_diagnostics, test_failures, lint_errors
+          )
           )
           if unconfirmed_test_failures:
               reasons.append(f"{len(unconfirmed_test_failures)} unit-test failure(s) did not reproduce; they are retained for triage but cannot trigger repair.")
