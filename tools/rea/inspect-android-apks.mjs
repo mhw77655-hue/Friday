@@ -309,6 +309,94 @@ async function main() {
       }
     }
 
+    const classInspectTargets = {
+      friday: [
+        "ai.friday.assistant.ShizukuBridge",
+        "ai.friday.assistant.ScreenBridge",
+        "ai.friday.assistant.FridayShellService",
+        "ai.friday.assistant.runtime.FridayRuntimeService",
+        "ai.friday.assistant.runtime.FridayRuntimeBootReceiver",
+        "ai.friday.assistant.update.FridayShizukuPackageInstaller",
+        "ai.friday.assistant.selfrepair.SelfRepairLoop",
+        "ai.friday.assistant.sandbox.CloudVmSandboxExecutor",
+        "ai.friday.assistant.bootstrap.plan.ObjectiveBuilderCandidateExecutor",
+      ],
+      shizuku: [
+        "rikka.shizuku.server.ShizukuService",
+        "moe.shizuku.manager.receiver.BootCompleteReceiver",
+        "moe.shizuku.manager.adb.AdbPairingService",
+      ],
+      termux: [
+        "com.termux.app.RunCommandService",
+        "com.termux.app.TermuxService",
+      ],
+      "termux-boot": [
+        "com.termux.boot.BootReceiver",
+        "com.termux.boot.BootJobService",
+        "com.termux.boot.BootActivity",
+      ],
+    };
+
+    for (const target of targets) {
+      for (const className of classInspectTargets[target.name] ?? []) {
+        const result = await server.callTool("inspect_android_class", {
+          path: target.path,
+          class_name: className,
+          detail: "complete",
+        });
+        if (result?.isError) {
+          throw new Error(`REA class inspection failed for ${target.name}/${className}: ${JSON.stringify(result.content ?? result).slice(0, 2500)}`);
+        }
+        const record = {
+          schema_version: 1,
+          target: target.name,
+          target_sha256: records.find((item) => item.name === target.name)?.sha256,
+          class_name: className,
+          tool: "inspect_android_class",
+          rea: { package: "rea-agents", version: PACKAGE_VERSION, integrity: PACKAGE_INTEGRITY },
+          structured_content: result?.structuredContent ?? null,
+          text_content: Array.isArray(result?.content)
+            ? result.content.filter((item) => item.type === "text").map((item) => item.text).join("\\n")
+            : null,
+        };
+        const safeName = className.replace(/[^a-z0-9_.-]/gi, "_");
+        await writeFile(resolve(outputDir, `${target.name}.class-${safeName}.json`), JSON.stringify(record, null, 2));
+      }
+    }
+
+    const referenceTargets = [
+      { target: "friday", className: "ai.friday.assistant.FridayShellService" },
+      { target: "friday", className: "rikka.shizuku.Shizuku" },
+      { target: "shizuku", className: "rikka.shizuku.server.ShizukuService" },
+      { target: "termux", className: "com.termux.app.RunCommandService" },
+      { target: "termux-boot", className: "com.termux.boot.BootReceiver" },
+    ];
+    for (const reference of referenceTargets) {
+      const target = targets.find((item) => item.name === reference.target);
+      if (!target) throw new Error(`Missing APK target for reference trace: ${reference.target}`);
+      const result = await server.callTool("trace_android_references", {
+        path: target.path,
+        class_name: reference.className,
+      });
+      if (result?.isError) {
+        throw new Error(`REA reference trace failed for ${reference.target}/${reference.className}: ${JSON.stringify(result.content ?? result).slice(0, 2500)}`);
+      }
+      const record = {
+        schema_version: 1,
+        target: reference.target,
+        target_sha256: records.find((item) => item.name === target.name)?.sha256,
+        class_name: reference.className,
+        tool: "trace_android_references",
+        rea: { package: "rea-agents", version: PACKAGE_VERSION, integrity: PACKAGE_INTEGRITY },
+        structured_content: result?.structuredContent ?? null,
+        text_content: Array.isArray(result?.content)
+          ? result.content.filter((item) => item.type === "text").map((item) => item.text).join("\\n")
+          : null,
+      };
+      const safeName = reference.className.replace(/[^a-z0-9_.-]/gi, "_");
+      await writeFile(resolve(outputDir, `${reference.target}.references-${safeName}.json`), JSON.stringify(record, null, 2));
+    }
+
     await writeFile(resolve(outputDir, "investigation-summary.json"), JSON.stringify({
       schema_version: 1,
       package: { name: "rea-agents", version: PACKAGE_VERSION, integrity: PACKAGE_INTEGRITY },
