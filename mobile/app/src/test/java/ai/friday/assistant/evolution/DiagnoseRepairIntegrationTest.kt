@@ -34,6 +34,7 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -333,6 +334,44 @@ class DiagnoseRepairIntegrationTest {
         assertEquals(0, invocations)
         assertNotNull(observation.diagnosis)
         assertTrue(observation.log.any { it.contains("REA skipped: repair requirement has no exact source revision") })
+    }
+
+    @Test
+    fun `REA evidence for a different APK digest is rejected`() = runBlocking {
+        scope = CoroutineScope(Dispatchers.IO)
+        val root = tmpDir()
+        writePlannerFixture(root)
+        copyXmlFixture(root)
+        val h = harness()
+        val wrongDigest = "d".repeat(64)
+        val provider = ReaRepairEvidenceProvider { target, _, _ ->
+            val id = "ev_" + "d".repeat(64)
+            ReaRepairEvidence(
+                toolName = "REA",
+                toolVersion = "integration-test",
+                target = target.packageName,
+                targetRevision = target.sourceRevision,
+                targetSha256 = wrongDigest,
+                evidenceId = id,
+                canonicalEvidenceJson = """{"evidence_id":"$id","artifact":{"sha256":"$wrongDigest"}}""",
+                findings = listOf(
+                    ReaFinding(
+                        title = "Unrelated artifact finding",
+                        finding = "This finding belongs to a different APK.",
+                        evidenceRefs = listOf("artifact:unrelated"),
+                        confidence = 0.99
+                    )
+                )
+            )
+        }
+        val (loop, diagnoser, _) = buildLoop(root, h, reaProvider = provider)
+        val observation = loop.observeAndDiagnose(
+            RepairRequirement("GoalPlanner", "retain failed nodes", emptyList(), sourceRevision = "c".repeat(40)),
+            "CapabilityExecutorTest"
+        )
+        assertNull(observation.reaEvidence)
+        assertTrue(observation.log.any { it.contains("REA unavailable or provenance rejected") })
+        assertFalse(diagnoser.lastPrompt!!.contains("UPSTREAM REA INVESTIGATION"))
     }
 
     @Test
