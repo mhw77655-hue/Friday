@@ -286,6 +286,7 @@ class DiagnoseRepairIntegrationTest {
         assertEquals(1, invocations)
         assertNotNull(result.diagnosis)
         assertTrue(diagnoser.lastPrompt!!.contains("source:GoalPlanner.replan"))
+        assertTrue(diagnoser.lastPrompt!!.contains("ev_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"))
         assertTrue(result.log.any { it.contains("REA: REA integration-test") })
         val patch = loop.proposeRepair(
             RepairRequirement("GoalPlanner", "retain failed nodes", emptyList()),
