@@ -1,6 +1,5 @@
 package ai.friday.assistant.runtime
 
-import android.Manifest
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -98,8 +97,6 @@ object TermuxRuntimeBridge {
             putExtra("com.termux.RUN_COMMAND_WORKDIR", TERMUX_HOME)
             putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
             putExtra("com.termux.RUN_COMMAND_SESSION_ACTION", "0")
-            putExtra("com.termux.RUN_COMMAND_COMMAND_LABEL", "Friday recovery guardian")
-            putExtra("com.termux.RUN_COMMAND_COMMAND_DESCRIPTION", "Install or manage Friday's independent recovery worker")
         }
         context.startService(intent)
         RequestResult.REQUESTED
