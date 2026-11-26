@@ -10,14 +10,17 @@ test -s .ralph/VISION.md
 test -s .ralph/OWNER_WORDS.md
 test -s AGENTS.md
 
-grep -q "sole active product and delivery plan" "$PLAN"
+grep -q "sole active delivery plan" "$PLAN"
 grep -q "Friday is the individual" "$PLAN"
 grep -q "liquid Symbiotic quantum software" "$PLAN"
-grep -q "Cross-objective integration target" "$PLAN"
-grep -q "Repository purification and product identity gate" "$PLAN"
+grep -q "Cross-objective integration contracts" "$PLAN"
+grep -q "Install-once identity and update channel" "$PLAN"
 grep -qi "sole active product and delivery authority" AGENTS.md
 grep -Fq 'canonical product line is `main`' AGENTS.md
-grep -q "owner explicitly authorized the fresh application identity" "$PLAN"
+grep -q "ai.friday.assistant" "$PLAN"
+grep -q "Termux is not a Friday APK component" "$PLAN"
+grep -q "REA means the upstream Reverse Engineer Anything tool" "$PLAN"
+grep -q "Chronological delivery roadmap" "$PLAN"
 
 echo "FRIDAY_DELIVERY_PLAN=PASS"
 echo "OWNER_VISION_SOURCE=PASS"
