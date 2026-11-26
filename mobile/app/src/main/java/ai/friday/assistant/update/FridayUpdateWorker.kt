@@ -35,7 +35,7 @@ class FridayUpdateWorker(
                         state.recordStatus("Friday is up to date (version code ${result.installedVersionCode}).")
                     } else {
                         val failure = state.lastStatus()
-                        state.recordStatus("Recovery required; retained the failed update APK and health marker. $failure")
+                        state.recordStatus("RECOVERY REQUIRED: installed Friday failed its post-update identity check. The staged APK and pending marker are retained; routine cleanup is blocked. $failure")
                     }
                 }
                 is FridayUpdateClient.Result.Staged -> {
