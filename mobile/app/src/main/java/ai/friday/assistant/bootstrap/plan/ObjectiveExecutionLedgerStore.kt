@@ -418,18 +418,10 @@ class ObjectiveExecutionLedgerStore(context: Context) {
             "CI_FAILED_AWAITING_SANDBOX_TRIAGE"
         )) { "Candidate is not awaiting isolated sandbox verification." }
         val ciFailed = task.optJSONObject("ci")?.optString("state") == "FAILURE"
-        val summary = evidence.optJSONObject("summary") ?: JSONObject()
         val candidateSha = task.optJSONObject("candidate")?.optString("commit_sha").orEmpty()
-        val actionableDefect = CandidateRepairPlanner.isConfirmedCandidateDefect(candidateSha, evidence)
-        val infrastructureFailure = summary.optString("failure_classification") == "INFRASTRUCTURE"
-        val passed = evidence.optString("status") == "PASS" && !ciFailed
-        val nextStatus = when {
-            passed -> "SANDBOX_PASSED_AWAITING_REVIEW"
-            actionableDefect -> "SANDBOX_FAILED_REQUIRES_REPAIR"
-            infrastructureFailure -> "INFRASTRUCTURE_TRIAGE_REQUIRED"
-            ciFailed && evidence.optString("status") == "PASS" -> "CI_FAILURE_NOT_REPRODUCED"
-            else -> "FAILURE_TRIAGE_REQUIRED"
-        }
+        val disposition = CandidateRepairPlanner.classifySandboxOutcome(candidateSha, ciFailed, evidence)
+        val actionableDefect = disposition.queueRepair
+        val nextStatus = disposition.taskStatus
         task.put("status", nextStatus)
             .put("sandbox", evidence)
             .put("checkpoint", JSONObject()
