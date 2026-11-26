@@ -202,7 +202,11 @@ class SelfRepairLoop(
         val diagnosis = observation.diagnosis!!
 
         val patch = try {
-            proposeRepair(requirement, diagnosis, observation.reaEvidence)
+            proposeRepair(requirement, diagnosis, observation.reaEvidence).also {
+                observation.reaEvidence?.let { evidence ->
+                    log.add("repair: candidate synthesis consumed REA evidence ${evidence.evidenceId}")
+                }
+            }
         } catch (cancelled: CancellationException) {
             throw cancelled
         } catch (t: Exception) {
