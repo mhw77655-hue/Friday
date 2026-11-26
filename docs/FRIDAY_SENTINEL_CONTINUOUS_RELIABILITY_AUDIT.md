@@ -109,3 +109,12 @@ These are useful foundations, not proof that every surface above is covered. The
 The next implementation increments must add a machine-readable capability/data-store inventory, risk-weighted coverage map, production-reachability verification, persistent-data upgrade tests, fault-injection suites, mutation/negative-control tests, and long-run device health probes. Each increment must have its own tests and report evidence.
 
 **Release rule:** Friday is not ready for owner-device installation or an update merely because CI is green. The exact signed artifact must pass the relevant continuity and real-device acceptance gates.
+
+
+## Phase 2 implementation increment — static capability inventory
+
+The current Sentinel branch adds `tools/friday-builder/sentinel_inventory.py` and unit tests. The detector extracts Android manifest permissions and declared components, plus lexical candidates for SharedPreferences, Preferences DataStore, Room/SQLite databases, WorkManager workers, HTTPS hosts, and unresolved dynamic preference names. CI publishes JSON and Markdown inventory artifacts.
+
+This increment deliberately labels findings as manifest-declared or source-declared and keeps `runtime_verified=false`. It does not yet establish production reachability, database read/write integrity, complete store discovery, or upgrade survival. Dynamic wrappers and generated/reflection/JNI paths remain explicit blind spots. The next increment must reconcile this discovery with a reviewed canonical registry and add seeded persistence/upgrade tests.
+
+The Settings foreground-runtime emulator regression was traced to the first enable transition (the failing wait immediately after enabling). The permission fixture is now checked explicitly before UI interaction, so the next device run can distinguish a denied notification permission from a failure in the actual toggle/controller path.
