@@ -116,20 +116,18 @@ jobs:
           ACTUAL_SHA: ${{ steps.identity.outputs.actual_sha }}
           VERIFY_OUTCOME: ${{ steps.verify.outcome }}
           VERIFY_EXIT_CODE: ${{ steps.verify.outputs.exit_code }}
-          JAVA_VERSION: ${{ steps.setup-java.outputs.version }}
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/friday-sandbox-evidence"
-          APK="mobile/app/build/outputs/apk/debug/app-debug.apk"
-          APK_SHA=""
-          if [[ -f "$APK" ]]; then APK_SHA="$(sha256sum "$APK" | awk '{print $1}')"; fi
           python3 - <<'PY'
-          import json, os, pathlib, platform, subprocess
+          import hashlib, json, os, pathlib, platform
           out = pathlib.Path(os.environ["RUNNER_TEMP"]) / "friday-sandbox-evidence" / "summary.json"
+          apk = pathlib.Path("mobile/app/build/outputs/apk/debug/app-debug.apk")
+          apk_sha = hashlib.sha256(apk.read_bytes()).hexdigest() if apk.is_file() else ""
           expected = os.environ.get("EXPECTED_SHA", "")
           actual = os.environ.get("ACTUAL_SHA", "")
           outcome = os.environ.get("VERIFY_OUTCOME", "unknown")
-          passed = outcome == "success" and expected == actual and len(actual) == 40
+          passed = outcome == "success" and expected == actual and len(actual) == 40 and bool(apk_sha)
           data = {
               "schema_version": 1,
               "task_id": os.environ.get("TASK_ID", ""),
@@ -139,17 +137,13 @@ jobs:
               "status": "PASS" if passed else "FAIL",
               "verification_step": outcome,
               "gradle_exit_code": os.environ.get("VERIFY_EXIT_CODE", ""),
-              "java_version": os.environ.get("JAVA_VERSION", ""),
               "runner_os": platform.platform(),
-              "apk_sha256": os.environ.get("APK_SHA", ""),
+              "apk_sha256": apk_sha,
               "signing": "debug-only; no production signing secrets are available to this runner"
           }
           out.write_text(json.dumps(data, indent=2) + "\n")
           print(out.read_text())
           PY
-        env:
-          APK_SHA: ${{ steps.verify.outcome == 'success' && 'built' || '' }}
-
       - name: Upload isolated sandbox evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -162,3 +156,4 @@ jobs:
             mobile/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: warn
           retention-days: 30
+
