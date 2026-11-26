@@ -65,6 +65,8 @@ class SelfRepairLoop(
      * bypass this gate and leave a candidate eligible for verification.
      */
     private val sandboxExecutor: SandboxExecutor,
+    /** Exact APK built from the candidate revision; REA must never be pointed at repoRoot. */
+    private val reaTargetArtifact: ReaTargetArtifact? = null,
     /** Optional adapter to the real upstream REA MCP/CLI host. */
     private val reaEvidenceProvider: ReaRepairEvidenceProvider? = null
 ) {
@@ -120,21 +122,36 @@ class SelfRepairLoop(
         }
         val target = failingSuites.first()
         log.add("observe: ${target.failures.size} failing test(s) in ${target.suiteName}")
-        val reaEvidence = reaEvidenceProvider?.let { provider ->
+        val reaEvidence = if (reaEvidenceProvider == null) {
+            log.add("REA not connected: no ReaRepairEvidenceProvider was configured")
+            null
+        } else if (reaTargetArtifact == null) {
+            log.add("REA skipped: no explicitly supplied APK built from this candidate revision")
+            null
+        } else {
             try {
-                provider.investigate(repoRoot, requirement, target).also { evidence ->
-                    log.add("REA: ${evidence.toolName} ${evidence.toolVersion}; target revision=${evidence.targetRevision}; findings=${evidence.findings.size}")
+                require(reaTargetArtifact.sourceRevision == requirement.sourceRevision) {
+                    "REA APK source revision does not match the repair target revision"
+                }
+                require(reaTargetArtifact.verifyUnchanged()) {
+                    "REA APK changed after its SHA-256 was recorded"
+                }
+                reaEvidenceProvider.investigate(reaTargetArtifact, requirement, target).also { evidence ->
+                    require(evidence.targetRevision == reaTargetArtifact.sourceRevision) {
+                        "REA evidence source revision does not match the inspected APK"
+                    }
+                    require(evidence.targetSha256 == reaTargetArtifact.sha256) {
+                        "REA evidence digest does not match the inspected APK"
+                    }
+                    log.add("REA: ${evidence.toolName} ${evidence.toolVersion}; APK sha256=${evidence.targetSha256}; evidence=${evidence.evidenceId}; findings=${evidence.findings.size}")
                     evidence.limitations.forEach { log.add("REA limitation: ${it.take(180)}") }
                 }
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (failure: Exception) {
-                log.add("REA unavailable; diagnosis continues from test evidence only: ${failure.message?.take(180)}")
+                log.add("REA unavailable or provenance rejected; diagnosis continues from test evidence only: ${failure.message?.take(180)}")
                 null
             }
-        }
-        if (reaEvidenceProvider == null) {
-            log.add("REA not connected: no ReaRepairEvidenceProvider was configured")
         }
         val diagnosis = diagnoser.diagnose(requirement, target, reaEvidence)
         log.add("diagnose: ${diagnosis.faultyUnit} — ${diagnosis.rootCause.take(160)}")
