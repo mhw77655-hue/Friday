@@ -33,8 +33,8 @@ class CandidateRepairPlannerTest {
         val repair = CandidateRepairPlanner.createRepairTask(failedTask(), evidence, 1234L)!!
 
         assertEquals("objective-a-phase-1-build-repair-1", repair.getString("task_id"))
-        assertEquals("a".repeat(40), repair.getJSONObject("repair_context")
-            .getString("failed_candidate_commit_sha"))
+        val context = JSONObject(repair.getString("repair_context"))
+        assertEquals("a".repeat(40), context.getString("failed_candidate_commit_sha"))
         assertTrue(repair.getString("repair_context").contains("ev_" + "b".repeat(64)))
         assertEquals("LOW", repair.getString("risk"))
         assertTrue(repair.getBoolean("reversible"))
@@ -69,9 +69,10 @@ class CandidateRepairPlannerTest {
         val huge = JSONObject()
             .put("trigger", "sandbox")
             .put("sandbox", JSONObject().put("summary", JSONObject()
-                .put("failure_excerpt", "x".repeat(100_000))
-                .put("rea_evidence_excerpt", "ev_" + "a".repeat(64) + "y".repeat(100_000))))
-            .put("candidate_diff", "diff".repeat(100_000))
+                .put("rea_status", "COMPLETED")
+                .put("failure_excerpt", "line\\n".repeat(100_000))
+                .put("rea_evidence_excerpt", "ev_" + "a".repeat(64) + "line\\n".repeat(100_000))))
+            .put("candidate_diff", "diff\\n".repeat(100_000))
         val repair = CandidateRepairPlanner.createRepairTask(failedTask(), huge)!!
         val encoded = repair.getString("repair_context")
         assertTrue(encoded.length <= CandidateRepairPlanner.MAX_REPAIR_CONTEXT_CHARS)
