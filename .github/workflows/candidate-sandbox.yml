@@ -52,6 +52,9 @@ jobs:
           fetch-depth: 1
           persist-credentials: false
 
+      - name: Validate Friday candidate REA client syntax
+        run: node --check tools/rea/inspect-candidate-apk.mjs
+
       - name: Verify exact candidate identity
         id: identity
         env:
