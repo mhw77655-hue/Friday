@@ -326,6 +326,22 @@ class GitHubDevelopmentRepositoryClientTest {
             assertEquals("task-abc123", inputs.getString("task_id"))
             assertEquals(sha1, inputs.getString("candidate_sha"))
             assertEquals("android-debug", inputs.getString("test_profile"))
+            assertFalse(inputs.getBoolean("ci_failed"))
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `candidate sandbox dispatch carries CI failure to REA trigger`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(204))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+                .dispatchCandidateSandbox("task-abc123", sha1, ciFailed = true)
+            val payload = JSONObject(server.takeRequest().body.readUtf8())
+            assertTrue(payload.getJSONObject("inputs").getBoolean("ci_failed"))
         } finally {
             server.shutdown()
         }
