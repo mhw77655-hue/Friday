@@ -345,9 +345,12 @@ async function main() {
       package_evidence_excerpt: JSON.stringify(record.package_evidence ?? record.package_text).slice(0, 1500),
       class_search_evidence_excerpt: JSON.stringify(record.class_search_evidence).slice(0, 1500),
       inspection_counts: {
-        class_inspections: classInspections.length,
-        method_inspections: methodInspections.length,
-        reference_traces: referenceTraces.length,
+        class_attempted: classInspections.length,
+        class_succeeded: classInspections.filter((item) => !item.error).length,
+        method_attempted: methodInspections.length,
+        method_succeeded: methodInspections.filter((item) => !item.error).length,
+        reference_trace_attempted: referenceTraces.length,
+        reference_trace_succeeded: referenceTraces.filter((item) => !item.error).length,
       },
     };
     await writeFile(resolve(outputDir, "candidate-rea-summary.json"), JSON.stringify(summary, null, 2) + "\n");
@@ -359,9 +362,12 @@ async function main() {
       rea_version: version,
       evidence_ids: summary.evidence_ids.length,
       class_searches: searches.length,
-      class_inspections: classInspections.length,
-      method_inspections: methodInspections.length,
-      reference_traces: referenceTraces.length,
+      class_inspections_attempted: classInspections.length,
+      class_inspections_succeeded: classInspections.filter((item) => !item.error).length,
+      method_inspections_attempted: methodInspections.length,
+      method_inspections_succeeded: methodInspections.filter((item) => !item.error).length,
+      reference_traces_attempted: referenceTraces.length,
+      reference_traces_succeeded: referenceTraces.filter((item) => !item.error).length,
       failure_symbols: failureSymbols.length,
     }) + "\n");
   } finally {
