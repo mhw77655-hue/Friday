@@ -25,6 +25,7 @@ on:
       - docs/OBJECTIVE_1_FOUNDATION_ACCEPTANCE.md
       - docs/OBJECTIVE_1_ADVERSARIAL_VALIDATION_PLAN.md
       - docs/OBJECTIVE_1_SOURCE_AUDIT_TRIAGE.md
+      - docs/FRIDAY_INSTALL_ONCE_UPDATE_CHANNEL.md
       - AGENTS.md
       - .github/workflows/build.yml
   pull_request:
