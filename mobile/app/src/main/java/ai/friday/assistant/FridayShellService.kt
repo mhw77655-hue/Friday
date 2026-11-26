@@ -70,7 +70,8 @@ class FridayShellService : IFridayShellService.Stub() {
     private fun ensureRecoveryGuardianThread() {
         if (recoveryGuardianThread?.isAlive == true) return
         recoveryGuardianThread = Thread({
-            appendRecoveryEvent("guardian-thread-started")
+            try {
+                appendRecoveryEvent("guardian-thread-started")
             while (recoveryGuardianEnabled.get() && !Thread.currentThread().isInterrupted) {
                 try {
                     val packageState = runFixed("dumpsys", "package", "ai.friday.assistant")
@@ -108,7 +109,15 @@ class FridayShellService : IFridayShellService.Stub() {
                     }
                 }
             }
-            appendRecoveryEvent("guardian-thread-stopped")
+            } finally {
+                appendRecoveryEvent("guardian-thread-stopped")
+                synchronized(this@FridayShellService) {
+                    if (recoveryGuardianThread === Thread.currentThread()) {
+                        recoveryGuardianThread = null
+                    }
+                    if (recoveryGuardianEnabled.get()) ensureRecoveryGuardianThread()
+                }
+            }
         }, "FridayShizukuRecoveryDaemon").apply {
             isDaemon = true
             start()
