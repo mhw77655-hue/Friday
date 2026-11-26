@@ -319,7 +319,7 @@ This is the execution order for turning the vision into reality. It is ordered b
 
 ### Phase 1 — Next: prove the installed Friday seed on the actual phone
 
-**Purpose:** establish that the existing production identity is a real, usable, continuous Friday on the owner's handset—not merely a successful APK build.
+**Purpose:** establish that the existing production identity is a real, usable, continuous Friday on the owner's handset—not merely a successful APK build. The first usable seed must begin beyond a basic chatbot; voice is the first user-visible priority, while independent engineering, continuity and research tracks proceed in parallel.
 
 1. Install or verify the existing production-signed `ai.friday.assistant` release through the approved path; preserve its signing identity and version lineage.
 2. Record device manufacturer/build/API, installed version, package identity, signer, Shizuku manager/server state, Binder reachability, effective UID and per-operation permissions.
@@ -328,8 +328,9 @@ This is the execution order for turning the vision into reality. It is ordered b
 5. Test same-key in-place update, signed artifact verification, data migration, post-update health and rollback/known-good recovery.
 6. Record precisely which recovery actions work on this OEM/OS and which require owner action. Do not promise a normal app can resurrect itself after Android has force-stopped or removed the package.
 7. Evaluate Termux only if an independently installed external host would close a measured failure-domain gap. It is not bundled or required.
+8. Start the first complete voice route as the first user-visible delivery: microphone capture, real ASR, contextual turn-taking and audible TTS. Prioritize Egyptian Arabic and mixed Arabic/English, measure the actual provider/device path, and prefer genuinely zero-cost resources unless the owner authorizes spend. Voice implementation and evaluation proceed alongside handset acceptance; they do not justify delaying independently testable continuity work.
 
-**Exit gate:** a named production-signed build is DEVICE-VERIFIED for installation, local continuity, the tested Shizuku operations and the supported update/recovery cases. Untested cases are explicitly listed.
+**Exit gate:** a named production-signed build is DEVICE-VERIFIED for installation, local continuity, the tested Shizuku operations and the supported update/recovery cases. The first complete voice path has a separately tracked acceptance result; untested cases are explicitly listed.
 
 ### Phase 2 — Then: demonstrate one complete REA-assisted failed-candidate repair
 
@@ -392,11 +393,11 @@ From the installed app, Friday must:
 
 **Exit gate:** documented recovery and owner-intervention outcomes for each tested failure class, successful restore/rollback drills, and no claim of universal Android recovery.
 
-### Phase 6 — Deepen the living individual: voice, development, memory and agency
+### Phase 6 — Deepen the living individual: development, memory and universal agency
 
 This phase is not when Friday starts developing. Development begins with the first seed and continues throughout every earlier phase. This phase deepens and proves those capabilities once the continuity and execution foundations can support longitudinal evaluation.
 
-- **Voice-first presence:** real microphone input, streaming/partial recognition, contextual turn-taking, audible response, interruption/barge-in, cancellation and continuity across supported Android surfaces. Evaluate Egyptian Arabic and mixed Arabic/English with the owner; measure actual quality, latency, offline behavior, privacy and resource cost.
+- **Voice maturation:** build on the first complete voice route established during Phase 1. Improve streaming/partial recognition, interruption/barge-in, natural turn-taking, cancellation, expressive TTS and continuity across supported Android surfaces. Evaluate Egyptian Arabic and mixed Arabic/English with the owner; measure actual quality, latency, offline behavior, privacy and resource cost.
 - **Developmental individuality:** experience must cause persistent internal change that measurably affects later behavior. Prove this across restart, replay-blocked and mechanism-off controls, held-out situations and longitudinal observations.
 - **Autobiographical and relationship continuity:** retain provenance, temporal context, corrections, uncertainty and privacy boundaries without hard-coding a personality or fabricating memories.
 - **Universal perception and understanding:** combine legitimately available language, audio, visual, contextual, device and action evidence; learn signal reliability and preserve disagreement/uncertainty.
@@ -427,7 +428,7 @@ Only after the relevant capabilities, safeguards, resources and authorization ex
 
 These tracks start as soon as the seed can support them and advance alongside the critical path:
 
-- **Owner-facing usefulness:** keep improving the actual interaction experience, beginning with a usable local path and progressing toward natural voice.
+- **Owner-facing usefulness:** keep improving the actual interaction experience. Voice is the first user-visible priority: start it during Phase 1 and deliver the first complete voice route as soon as the stable local seed supports it; Phase 6 matures rather than postpones it.
 - **Causal development:** capture experience from the beginning and test whether it changes future behavior; do not wait for a future "personality phase."
 - **Engineering intelligence:** use REA and source-aware tooling on real authorized targets; convert every confirmed repair into reusable knowledge.
 - **Universal agency:** add useful, verified affordances as needs arise rather than waiting for a giant capability catalogue.
@@ -517,6 +518,7 @@ These documents expand implementation details but remain subordinate to this pla
 - [Host Adaptation Control Plane](../docs/FRIDAY_HOST_ADAPTATION_CONTROL_PLANE.md) — first-launch host setup and plan synchronization.
 - [Execution and release signing](../docs/FRIDAY_INSTALL_ONCE_UPDATE_CHANNEL.md) — permanent identity, signed updates and rollback.
 - [Repository structure and migration](../docs/FRIDAY_REPOSITORY_STRUCTURE_AND_MIGRATION.md) — safe structural evolution.
+- [Language and formal-method research](../docs/FRIDAY_LANGUAGE_AND_FORMAL_METHOD_RESEARCH.md) — implementation-language allocation and formal assurance experiments; abstract proofs supplement but never replace runtime and device evidence.
 
 Any supporting document or issue that conflicts with this plan must be reconciled before its instructions are executed. Historical plans, archived proposals, disconnected prototypes and assistant-generated summaries are evidence, not active authority.
 
