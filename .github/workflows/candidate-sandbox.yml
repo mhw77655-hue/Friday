@@ -2,6 +2,25 @@ name: Friday isolated candidate sandbox
 run-name: Friday sandbox task ${{ inputs.task_id || github.run_id }}
 
 on:
+  workflow_call:
+    inputs:
+      task_id:
+        description: Friday Builder task identifier
+        required: true
+        type: string
+      candidate_sha:
+        description: Exact 40-character candidate commit SHA
+        required: true
+        type: string
+      test_profile:
+        description: Fixed verification profile
+        required: true
+        type: string
+      ci_failed:
+        description: Original pull-request CI failed; run REA even if this isolated profile passes
+        required: false
+        default: false
+        type: boolean
   workflow_dispatch:
     inputs:
       task_id:
@@ -575,6 +594,40 @@ jobs:
           out.write_text(json.dumps(data, indent=2) + "\n")
           print(out.read_text())
           PY
+      - name: Validate sandbox summary provenance before upload
+        if: always() && !cancelled()
+        env:
+          EXPECTED_SHA: ${{ inputs.candidate_sha }}
+          EXPECTED_PROFILE: ${{ inputs.test_profile }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib, re
+          path = pathlib.Path("friday-sandbox-evidence/summary.json")
+          if not path.is_file():
+              raise SystemExit("Candidate sandbox summary is missing.")
+          summary = json.loads(path.read_text())
+          expected_sha = os.environ["EXPECTED_SHA"]
+          expected_profile = os.environ["EXPECTED_PROFILE"]
+          if summary.get("expected_commit_sha") != expected_sha:
+              raise SystemExit("Summary expected SHA does not match the dispatched candidate.")
+          if summary.get("checked_out_commit_sha") != expected_sha:
+              raise SystemExit("Summary checked-out SHA does not match the dispatched candidate.")
+          if summary.get("test_profile") != expected_profile:
+              raise SystemExit("Summary test profile does not match the dispatched profile.")
+          if expected_profile not in {"android-debug", "android-instrumented"}:
+              raise SystemExit("Summary contains an unapproved test profile.")
+          if summary.get("status") == "PASS":
+              if summary.get("verification_step") != "success":
+                  raise SystemExit("A passing summary lacks a successful verification result.")
+              if not re.fullmatch(r"[0-9a-f]{64}", summary.get("apk_sha256", "")):
+                  raise SystemExit("A passing summary lacks a valid candidate APK digest.")
+          elif summary.get("status") != "FAIL":
+              raise SystemExit("Summary status must be PASS or FAIL.")
+          print("Candidate sandbox summary identity/profile provenance is valid.")
+          PY
+
       - name: Upload isolated sandbox evidence
         if: always()
         uses: actions/upload-artifact@v4
