@@ -116,6 +116,33 @@ jobs:
           echo "exit_code=$RESULT" >> "$GITHUB_OUTPUT"
           exit "$RESULT"
 
+      - name: Confirm unit-test failure reproducibility
+        id: confirm_tests
+        if: always() && steps.verify.outcome == 'failure'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPORT="mobile/app/build/reports/tests/testDebugUnitTest"
+          EVIDENCE="$RUNNER_TEMP/friday-sandbox-evidence"
+          if [[ ! -d "$REPORT" ]] || ! grep -R -qE '<(failure|error)([[:space:]>])' "$REPORT"; then
+            echo "test_failures_found=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          mkdir -p "$EVIDENCE/first-test-run"
+          cp -a "$REPORT/." "$EVIDENCE/first-test-run/"
+          set +e
+          ./gradlew --no-daemon --console=plain --rerun-tasks :mobile:app:testDebugUnitTest \
+            2>&1 | tee "$EVIDENCE/test-rerun.log"
+          RESULT=${PIPESTATUS[0]}
+          set -e
+          echo "test_failures_found=true" >> "$GITHUB_OUTPUT"
+          echo "test_rerun_exit_code=$RESULT" >> "$GITHUB_OUTPUT"
+          if [[ -d "$REPORT" ]]; then
+            mkdir -p "$EVIDENCE/second-test-run"
+            cp -a "$REPORT/." "$EVIDENCE/second-test-run/"
+          fi
+
       # A failed test/lint run is not a reason to discard the candidate.
       # Build the exact candidate APK separately, then let REA inspect that
       # artifact. This is static evidence only; it is never treated as runtime proof.
@@ -203,6 +230,7 @@ jobs:
           VERIFY_EXIT_CODE: ${{ steps.verify.outputs.exit_code }}
           FAILURE_APK_OUTCOME: ${{ steps.build_failure_apk.outcome }}
           REA_OUTCOME: ${{ steps.rea_candidate.outcome }}
+          TEST_RERUN_EXIT_CODE: ${{ steps.confirm_tests.outputs.test_rerun_exit_code }}
         run: |
           set -euo pipefail
           OUT="friday-sandbox-evidence"
@@ -223,6 +251,16 @@ jobs:
           if [[ -d mobile/app/build/reports/tests/testDebugUnitTest ]]; then
             mkdir -p "$OUT/reports"
             cp -a mobile/app/build/reports/tests/testDebugUnitTest "$OUT/reports/"
+          fi
+          for TEST_RUN in first-test-run second-test-run; do
+            SOURCE="$RUNNER_TEMP/friday-sandbox-evidence/$TEST_RUN"
+            if [[ -d "$SOURCE" ]]; then
+              mkdir -p "$OUT/reports/$TEST_RUN"
+              cp -a "$SOURCE/." "$OUT/reports/$TEST_RUN/"
+            fi
+          done
+          if [[ -f "$RUNNER_TEMP/friday-sandbox-evidence/test-rerun.log" ]]; then
+            cp "$RUNNER_TEMP/friday-sandbox-evidence/test-rerun.log" "$OUT/test-rerun.log"
           fi
           if compgen -G "mobile/app/build/reports/lint-results-debug.*" > /dev/null; then
             mkdir -p "$OUT/reports"
@@ -245,10 +283,11 @@ jobs:
           log_text = log_path.read_text(errors="replace") if log_path.exists() else ""
           failure_excerpt = "\n".join(log_text.splitlines()[-100:])[-12000:]
           report_root = pathlib.Path("friday-sandbox-evidence/reports")
-          test_failures = []
-          lint_errors = []
-          if report_root.exists():
-              for report in report_root.rglob("*.xml"):
+          def read_test_failures(root_dir):
+              failures = []
+              if not root_dir.exists():
+                  return failures
+              for report in root_dir.rglob("*.xml"):
                   try:
                       root = ET.parse(report).getroot()
                   except (ET.ParseError, OSError):
@@ -258,17 +297,36 @@ jobs:
                           for failure in list(case):
                               if failure.tag in ("failure", "error"):
                                   detail = (failure.attrib.get("message", "") + " " + (failure.text or "")).strip()
-                                  test_failures.append({
+                                  failures.append({
                                       "test": (case.attrib.get("classname", "") + "." + case.attrib.get("name", "")).strip(".")[:240],
                                       "kind": failure.tag,
                                       "detail": detail[:600]
                                   })
+              return failures
+          first_test_root = report_root / "first-test-run"
+          second_test_root = report_root / "second-test-run"
+          if not first_test_root.exists():
+              first_test_root = report_root / "testDebugUnitTest"
+          first_test_failures = read_test_failures(first_test_root)
+          second_test_failures = read_test_failures(second_test_root)
+          second_failed_names = {item["test"] for item in second_test_failures}
+          test_failures = [item for item in first_test_failures if item["test"] in second_failed_names]
+          unconfirmed_test_failures = [item for item in first_test_failures if item["test"] not in second_failed_names]
+          lint_errors = []
+          if report_root.exists():
+              for report in report_root.rglob("lint-results-debug*.xml"):
+                  try:
+                      root = ET.parse(report).getroot()
+                  except (ET.ParseError, OSError):
+                      continue
                   for issue in root.iter("issue"):
                       if issue.attrib.get("severity", "").lower() == "error":
                           lint_errors.append({
                               "id": issue.attrib.get("id", "")[:120],
                               "message": issue.attrib.get("message", "")[:500]
                           })
+          rerun_log_path = pathlib.Path("friday-sandbox-evidence/test-rerun.log")
+          rerun_log = rerun_log_path.read_text(errors="replace") if rerun_log_path.exists() else ""
           compiler_diagnostics = re.findall(r"(?m)^e:\s+file:///.*", log_text)
           def classify_failure(outcome, log_text, compiler_diagnostics, test_failures, lint_errors):
               infra_patterns = [
@@ -324,8 +382,10 @@ jobs:
           assert classify_failure("failure", "", [], [{"detail": "java.net.UnknownHostException"}], [])[0] == "INFRASTRUCTURE"
           assert classify_failure("failure", "BUILD FAILED", [], [], [])[0] == "UNKNOWN"
           failure_classification, infra_hits, reasons, failure_evidence_kind = classify_failure(
-              outcome, log_text, compiler_diagnostics, test_failures, lint_errors
+              outcome, log_text + "\\n" + rerun_log, compiler_diagnostics, test_failures, lint_errors
           )
+          if unconfirmed_test_failures:
+              reasons.append(f"{len(unconfirmed_test_failures)} unit-test failure(s) did not reproduce; they are retained for triage but cannot trigger repair.")
           rea_path = pathlib.Path(os.environ.get("REA_REPORT_PATH", ""))
           rea_text = rea_path.read_text(errors="replace") if rea_path.is_file() else ""
           rea_sha = hashlib.sha256(rea_text.encode()).hexdigest() if rea_text else ""
@@ -347,12 +407,16 @@ jobs:
               "failure_classification_reasons": reasons[:12],
               "test_failure_count": len(test_failures),
               "test_failures": test_failures[:20],
+              "unconfirmed_test_failure_count": len(unconfirmed_test_failures),
+              "unconfirmed_test_failures": unconfirmed_test_failures[:20],
+              "test_rerun_exit_code": os.environ.get("TEST_RERUN_EXIT_CODE", ""),
               "lint_error_count": len(lint_errors),
               "lint_errors": lint_errors[:20],
               "compiler_diagnostic_count": len(compiler_diagnostics),
               "compiler_diagnostics": compiler_diagnostics[:20],
               "infrastructure_signatures": infra_hits[:12],
               "failure_excerpt": failure_excerpt,
+              "test_rerun_excerpt": "\\n".join(rerun_log.splitlines()[-50:])[-4000:],
               "rea_status": "COMPLETED" if rea_text else ("FAILED" if os.environ.get("REA_OUTCOME") == "failure" else "UNAVAILABLE"),
               "rea_report_sha256": rea_sha,
               "rea_summary": rea_summary,
