@@ -118,7 +118,7 @@ class FridayShellService : IFridayShellService.Stub() {
     private fun appendRecoveryEvent(event: String) {
         runCatching {
             File("/data/local/tmp/friday-shizuku-guardian.log").appendText(
-                "${System.currentTimeMillis()} uid=${Process.myUid()} pid=${Process.myPid()} $event\\n"
+                "${System.currentTimeMillis()} uid=${Process.myUid()} pid=${Process.myPid()} $event\n"
             )
         }
     }
