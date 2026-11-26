@@ -36,7 +36,11 @@ class FridayUpdateStateStore(context: Context) {
             return false
         }
         val failedArtifacts = loadFailedArtifacts()
-        val highestFailedVersion = failedArtifacts.maxOfOrNull { it.release.versionCode } ?: -1L
+        val highestFailedVersion = maxOf(
+            prefs.getLong(KEY_HIGHEST_FAILED_VERSION_CODE, -1L),
+            failedArtifacts.maxOfOrNull { it.release.versionCode } ?: -1L
+        )
+        if (hasFailedRecoveryEvidence() && highestFailedVersion <= 0L) return false
         if (highestFailedVersion > 0L && staged.release.versionCode <= highestFailedVersion) {
             return false
         }
@@ -97,7 +101,11 @@ class FridayUpdateStateStore(context: Context) {
      */
     /** Must commit before handing control to PackageInstaller, which can kill this process. */
     fun recordPendingHealthCheck(release: FridayUpdateClient.Release): Boolean {
-        val highestFailedVersion = loadFailedArtifacts().maxOfOrNull { it.release.versionCode } ?: -1L
+        val highestFailedVersion = maxOf(
+            prefs.getLong(KEY_HIGHEST_FAILED_VERSION_CODE, -1L),
+            loadFailedArtifacts().maxOfOrNull { it.release.versionCode } ?: -1L
+        )
+        if (hasFailedRecoveryEvidence() && highestFailedVersion <= 0L) return false
         if (highestFailedVersion > 0L && release.versionCode <= highestFailedVersion) return false
         return prefs.edit()
             .putLong(KEY_PENDING_VERSION_CODE, release.versionCode)
@@ -235,11 +243,16 @@ class FridayUpdateStateStore(context: Context) {
         }
     }
 
-    fun hasFailedRecoveryEvidence(): Boolean = loadFailedArtifacts().isNotEmpty()
+    fun hasFailedRecoveryEvidence(): Boolean =
+        !prefs.getString(KEY_FAILED_ARTIFACTS, null).isNullOrBlank() ||
+            prefs.getLong(KEY_HIGHEST_FAILED_VERSION_CODE, -1L) > 0L
 
     fun clearFailedRecoveryEvidence() {
         loadFailedArtifacts().forEach { it.apk?.delete() }
-        prefs.edit().remove(KEY_FAILED_ARTIFACTS).commit()
+        prefs.edit()
+            .remove(KEY_FAILED_ARTIFACTS)
+            .remove(KEY_HIGHEST_FAILED_VERSION_CODE)
+            .commit()
     }
 
     private fun hasPendingHealthCheck(): Boolean =
@@ -279,6 +292,10 @@ class FridayUpdateStateStore(context: Context) {
         updated.put(entry)
         return prefs.edit()
             .putString(KEY_FAILED_ARTIFACTS, updated.toString())
+            .putLong(
+                KEY_HIGHEST_FAILED_VERSION_CODE,
+                maxOf(prefs.getLong(KEY_HIGHEST_FAILED_VERSION_CODE, -1L), versionCode)
+            )
             .remove(KEY_PENDING_VERSION_CODE)
             .remove(KEY_PENDING_VERSION_NAME)
             .remove(KEY_PENDING_SOURCE_COMMIT)
@@ -315,5 +332,6 @@ class FridayUpdateStateStore(context: Context) {
         private const val KEY_PENDING_SOURCE_COMMIT = "pending_source_commit"
         private const val KEY_PENDING_CERTIFICATE = "pending_certificate"
         private const val KEY_FAILED_ARTIFACTS = "failed_artifacts_json"
+        private const val KEY_HIGHEST_FAILED_VERSION_CODE = "highest_failed_version_code"
     }
 }
