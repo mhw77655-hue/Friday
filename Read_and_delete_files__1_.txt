@@ -1,0 +1,457 @@
+Read and delete files (1)
+=========================
+
+ChatGPT:
+Yes. And I've found a concrete reason why Friday's CI takes so long: the workflow is doing expensive work more than once.
+I inspected the actual build.yml on the repair branch.
+What's wasting time
+
+  
+    **1. Duplicate Android compilation**
+    High priority
+  
+  The debug job builds the APK, then the emulator job checks out the repository and builds the app and instrumentation APKs again.  We should build once, upload both APKs, and let the emulator job download and test those exact artifacts.
+  
+  **2. Repeated SDK installation**  The jobs separately install substantial Android SDK components, including the NDK and CMake. These should be cached and reused safely.
+  
+  **3. Excessive sequential Gradle work**  The main job runs APK assembly, dependency reports, lint, unit tests, coverage, and a release smoke build. Some work can be parallelized or moved to an independent validation job.
+  
+  **4. Restricted Gradle concurrency**  Current configuration explicitly sets:
+  org.gradle.workers.max=1
+  org.gradle.parallel=false
+  That's worth investigating against the runner's actual CPU and memory capacity. It may be unnecessarily restricting compilation.
+
+The changes I intend to make
+
+
+
+Change
+Expected benefit
+
+
+
+Reuse debug and instrumentation APKs
+Eliminate duplicate compilation
+
+
+Cache Android SDK components
+Avoid repeated downloads
+
+
+Optimize Gradle dependency/build caches
+Reuse compiled outputs
+
+
+Enable safe parallel execution
+Reduce independent task time
+
+
+Separate deep validation from normal release validation
+Avoid delaying every APK
+
+
+Measure each build stage
+Identify actual bottlenecks
+
+
+Gradle officially supports build caching, configuration caching and parallel execution. Android's documentation also recommends measuring compatibility before enabling optimizations. 
+My performance target
+
+  
+  Target for a normal validated APK workflow, not a measured result yet.
+  
+  - Incremental builds: aim for substantially faster.
+  - Full clean builds: optimize separately.
+  - Deep adversarial and mutation testing: run independently.
+  - Release signing and verification: never sacrifice correctness for speed.
+I won't claim a speed improvement until GitHub Actions demonstrates it across repeated builds.
+I'm adding CI performance as a permanent engineering responsibility for Friday. Her development system should not spend two hours rebuilding things it has already built.
+
+You:
+Go and read this file on GitHub then delete it 
+Read_and_delete_files.txt
+Then continue the job @Web search
+
+ChatGPT:
+I read Read_and_delete_files.txt completely, including the appended conversation and its latest instructions.
+Deletion committed and verified
+
+Repository: mhw77655-hue/Friday
+Branch: main
+Deletion commit: 85baff580a324c36d6caf8f8ed5dbc4c6e8293e2
+The file now returns GitHub 404 at its former path.
+
+The file's important addition is consistent with your instructions: continue the actual repair, improve the build pipeline, preserve the larger Friday vision, and don't turn repository cleanup or another roadmap into a substitute for delivery.
+
+ChatGPT:
+I also traced why the build keeps exceeding two hours. The latest PR #159 attempt did not fail because of the emulator: its APK build and emulator lane completed successfully. The main job reached the 120-minute timeout while testDebugUnitTest was still running. Its JUnit results were therefore never produced.
+I found two additional avoidable costs:
+
+The emulator job installs the Android build toolchain and compiles the app again.
+The main job runs three separate Gradle dependency-report commands on every PR validation, although those reports are structural diagnostics rather than APK acceptance tests.
+
+There is also a real Python workflow-contract test failure: the test expects a per-PR concurrency group, while the workflow currently uses a per-commit group. I will fix the mismatch rather than ignore it.
+
+ChatGPT:
+I read Read_and_delete_files.txt completely, including the appended conversation and its latest instructions.
+Deletion committed and verified
+
+Repository: mhw77655-hue/Friday
+Branch: main
+Deletion commit: 85baff580a324c36d6caf8f8ed5dbc4c6e8293e2
+The file now returns GitHub 404 at its former path.
+
+The file's important addition is consistent with your instructions: continue the actual repair, improve the build pipeline, preserve the larger Friday vision, and don't turn repository cleanup or another roadmap into a substitute for delivery.
+I also traced why the build keeps exceeding two hours. The latest PR #159 attempt did not fail because of the emulator: its APK build and emulator lane completed successfully. The main job reached the 120-minute timeout while testDebugUnitTest was still running. Its JUnit results were therefore never produced.
+I found two additional avoidable costs:
+
+The emulator job installs the Android build toolchain and compiles the app again.
+The main job runs three separate Gradle dependency-report commands on every PR validation, although those reports are structural diagnostics rather than APK acceptance tests.
+
+There is also a real Python workflow-contract test failure: the test expects a per-PR concurrency group, while the workflow currently uses a per-commit group. I will fix the mismatch rather than ignore it.
+Changes committed to PR #159
+I made the first CI optimization pass directly on the existing repair branch—not a new branch.
+
+
+
+Change
+Commit
+
+
+
+Per-PR concurrency and SDK/Gradle caching
+0c8c64e
+
+
+Bounded Gradle parallelism
+d39f3cf
+
+
+Two JVM test workers and test-progress diagnostics
+9cdc973
+
+
+The approach follows Gradle's official caching guidance and GitHub Actions' Gradle setup recommendations. Caching can substantially reduce repeated build work, although the actual improvement must be measured on Friday's project. 
+Live validation
+
+  **PR #159 — latest validation**
+  Running
+Open GitHub Actions run #45688740511
+Verified so far:
+
+Python workflow contract tests: passed.
+GitHub Actions lint: passed.
+Gradle cache setup: passed.
+Android SDK setup: passed.
+Debug APK compilation: running.
+Emulator APK compilation: running.
+JVM tests: not reached yet.
+Whole-repository audit: running.
+
+What remains
+I haven't yet demonstrated a build under 30 minutes. The emulator job still recompiles the app separately; eliminating that duplication is the next performance improvement, provided we preserve the exact APK and instrumentation evidence.
+The immediate priority is to get the new parallel JVM test run to finish, inspect its actual results, and then integrate the remaining repair stack.
+No production APK has been released yet. Friday is still under repair. I have made real repository changes, and the new validation is testing them now.
+
+ChatGPT:
+Changes committed to PR #159
+I made the first CI optimization pass directly on the existing repair branch—not a new branch.
+
+
+
+Change
+Commit
+
+
+
+Per-PR concurrency and SDK/Gradle caching
+0c8c64e
+
+
+Bounded Gradle parallelism
+d39f3cf
+
+
+Two JVM test workers and test-progress diagnostics
+9cdc973
+
+
+The approach follows Gradle's official caching guidance and GitHub Actions' Gradle setup recommendations. Caching can substantially reduce repeated build work, although the actual improvement must be measured on Friday's project. 
+Live validation
+
+  **PR #159 — latest validation**
+  Running
+Open GitHub Actions run #45688740511
+Verified so far:
+
+Python workflow contract tests: passed.
+GitHub Actions lint: passed.
+Gradle cache setup: passed.
+Android SDK setup: passed.
+Debug APK compilation: running.
+Emulator APK compilation: running.
+JVM tests: not reached yet.
+Whole-repository audit: running.
+
+What remains
+I haven't yet demonstrated a build under 30 minutes. The emulator job still recompiles the app separately; eliminating that duplication is the next performance improvement, provided we preserve the exact APK and instrumentation evidence.
+The immediate priority is to get the new parallel JVM test run to finish, inspect its actual results, and then integrate the remaining repair stack.
+No production APK has been released yet. Friday is still under repair. I have made real repository changes, and the new validation is testing them now.
+
+You:
+@Web search look you know problems my app problems my project problems  And im giving you the effort so you actually solve them and deliver the outcome i want im not gonna tell you how you can figure it out on your own and also this workflow https://github.com/mhw77655-hue/Friday/actions/runs/45688740511
+Has passed 1 hour mate so wtf
+
+ChatGPT:
+Mate, you're right. This is exactly the problem I was supposed to solve, and my first optimization pass hasn't solved it.
+I checked the actual GitHub run and its individual job timestamps.
+
+  **Workflow #45688740511**
+  Still running
+  
+  Measured from its 19:48 UTC start
+  
+  | Stage | Result |
+  |---|---|
+  | Debug APK compilation | Passed |
+  | Android Lint | Passed |
+  | Emulator tests | Passed |
+  | Source audit | Passed |
+  | JVM unit tests | Still running |
+  | Release verification | Waiting |
+  [Inspect the workflow](https://github.com/mhw77655-hue/Friday/actions/runs/45688740511)
+The critical finding: the JVM test task started at 19:56 UTC and is still running. That's approximately 49 minutes spent on one test stage.
+The APK itself was built successfully much earlier. The test suite is now the bottleneck.
+My next correction
+I'm changing the CI architecture rather than adding another cache and hoping.
+
+Split JVM tests into independently executable groups.
+Run those groups in parallel GitHub jobs.
+Preserve complete test reports and failure visibility.
+Reuse the already-built APK and instrumentation APK in emulator testing.
+Move expensive structural audits and deep verification out of the ordinary APK delivery critical path.
+Keep release acceptance strict: no skipped required tests disguised as success.
+
+I also need to investigate why the two-worker Gradle configuration hasn't brought the test duration down sufficiently.
+One important distinction: I have not cancelled this run or claimed it passed. Its current test process is still running, and I don't yet have evidence explaining which test classes are consuming the time.
+I made the mistake of optimizing the surrounding workflow before eliminating its largest bottleneck. That's what I am correcting now.
+The target remains a validated APK in under 30 minutes, with deeper verification preserved—not sacrificed.
+
+You:
+Just figure it out
+Im not saying anything
+Just do the remaining job and do something that solves this One important distinction: I have not cancelled this run or claimed it passed. Its current test process is still running, and I don't yet have evidence explaining which test classes are consuming the time.
+
+ChatGPT:
+I found the concrete failure in the workflow design: the APK build, emulator validation and repository audit can finish, but the entire JVM test suite is still one long, blocking Gradle task. Giving that task two workers did not solve the bottleneck.
+The latest run confirms:
+
+Debug APK compilation and Android Lint completed.
+The disposable Android emulator job passed.
+The whole-repository source audit passed.
+The JVM test task is still running; its reports and logs are not yet available, so I will not invent a test-level diagnosis.
+
+That is enough evidence to change the pipeline instead of waiting another hour and repeating the same build.
+
+ChatGPT:
+I found the concrete failure in the workflow design: the APK build, emulator validation and repository audit can finish, but the entire JVM test suite is still one long, blocking Gradle task. Giving that task two workers did not solve the bottleneck.
+The latest run confirms:
+
+Debug APK compilation and Android Lint completed.
+The disposable Android emulator job passed.
+The whole-repository source audit passed.
+The JVM test task is still running; its reports and logs are not yet available, so I will not invent a test-level diagnosis.
+
+That is enough evidence to change the pipeline instead of waiting another hour and repeating the same build.
+I recovered the cancelled run’s logs. They show 1,380 test-start events, followed by roughly 54 minutes with no further test output. The old configuration logged test starts and failures, but not successful completions. That means it could not tell us which test was last to finish—or whether the worker was stuck during test execution or shutdown. I’m correcting that evidence gap too.
+I’ve changed the pipeline to run six package-balanced JVM test shards in parallel, log passed tests as well as starts and failures, and reject any shard that produces zero JUnit tests. APK promotion now depends on all six shards and their aggregated results. Stale PR runs are also superseded instead of holding up the repaired commit.
+I also checked the other lanes rather than guessing: the previous whole-repository audit took about 4 minutes 40 seconds, and the emulator lane about 14 minutes. Neither caused the hour-long stall. The JVM test task was the critical bottleneck.
+The new run has now passed the workflow lint and all fast Python build-contract tests. All six JVM shards have started, and the debug APK build is underway. The old queued validation has been explicitly cancelled by the new run’s cleanup job.
+The split is already exposing failures the old single-job run concealed. Three completed shards have executed 846 tests; two tests failed, with zero skips:
+
+OfflineModelCatalogTest: the model bootstrap selector returns no model where the test expects the largest pinned model within the host budget.
+WallClockAllowlistTest: two new production files contain unaccounted direct clock reads.
+
+I’m tracing both failures to their implementation and test contracts. I will fix the causes, not weaken the tests or exclude the failing classes.
+I found two additional defects in the first split: parent-package filters were matching nested packages, so some tests ran in multiple shards; and parallel test harnesses shared the same /tmp/friday-jvm-test directory.
+I’ve replaced package wildcards with exact test-class filters, balanced shards by test count, isolated harness storage, added cleanup for background scopes, corrected the storage-budget fixture, and recorded the two justified clock reads. I also reduced the JVM job’s hard timeout from 60 to 20 minutes and enabled per-class JVM isolation.
+The stalled run has been cancelled by the workflow itself. A fresh validation is running against these fixes.
+The first rerun caught a compile error in my new storage-boundary test: I used the wrong argument order for JUnit’s assertTrue. I corrected it. The Python contract suite is green, and all six JVM shards are now running against the corrected commit. The APK is still unverified until the emulator and remaining gates pass.
+The corrected sharding is now producing clean evidence: five of six shards have passed, covering 1,528 unique test cases with zero failures and zero duplicates. The whole-repository audit has also completed. One JVM shard, the APK build and the emulator run are still outstanding.
+The disposable Android emulator has now completed its instrumented test run successfully. The debug APK also built, passed Android Lint and launcher-icon verification, and was uploaded as an unverified candidate. The release-variant build is underway.
+One JVM shard is still taking materially longer than the other five. I’m not counting the suite as passed until that shard finishes and its report is checked.
+I traced the slow shard to a specific point rather than guessing: every test through HostStudyTest passed, but ValidatedComputeProfileSelectorTest stopped at “disabled profiles are never selected” and never reported completion. The 20-minute cap terminated that shard. I’m inspecting that selector and test now; the rest of the validation gates had already passed.
+Correction: matching every STARTED event against its completion exposed the actual blocker. The selector test was not the hang; my earlier attribution was wrong. The only unmatched test is NervousSystemFailureTest > succeeding retry recovers the aggregate. I’m tracing that recovery path now.
+
+ChatGPT:
+I recovered the cancelled run’s logs. They show 1,380 test-start events, followed by roughly 54 minutes with no further test output. The old configuration logged test starts and failures, but not successful completions. That means it could not tell us which test was last to finish—or whether the worker was stuck during test execution or shutdown. I’m correcting that evidence gap too.
+I’ve changed the pipeline to run six package-balanced JVM test shards in parallel, log passed tests as well as starts and failures, and reject any shard that produces zero JUnit tests. APK promotion now depends on all six shards and their aggregated results. Stale PR runs are also superseded instead of holding up the repaired commit.
+
+ChatGPT:
+I also checked the other lanes rather than guessing: the previous whole-repository audit took about 4 minutes 40 seconds, and the emulator lane about 14 minutes. Neither caused the hour-long stall. The JVM test task was the critical bottleneck.
+The new run has now passed the workflow lint and all fast Python build-contract tests. All six JVM shards have started, and the debug APK build is underway. The old queued validation has been explicitly cancelled by the new run’s cleanup job.
+
+ChatGPT:
+The split is already exposing failures the old single-job run concealed. Three completed shards have executed 846 tests; two tests failed, with zero skips:
+
+OfflineModelCatalogTest: the model bootstrap selector returns no model where the test expects the largest pinned model within the host budget.
+WallClockAllowlistTest: two new production files contain unaccounted direct clock reads.
+
+I’m tracing both failures to their implementation and test contracts. I will fix the causes, not weaken the tests or exclude the failing classes.
+
+ChatGPT:
+I found two additional defects in the first split: parent-package filters were matching nested packages, so some tests ran in multiple shards; and parallel test harnesses shared the same /tmp/friday-jvm-test directory.
+I’ve replaced package wildcards with exact test-class filters, balanced shards by test count, isolated harness storage, added cleanup for background scopes, corrected the storage-budget fixture, and recorded the two justified clock reads. I also reduced the JVM job’s hard timeout from 60 to 20 minutes and enabled per-class JVM isolation.
+The stalled run has been cancelled by the workflow itself. A fresh validation is running against these fixes.
+
+ChatGPT:
+The first rerun caught a compile error in my new storage-boundary test: I used the wrong argument order for JUnit’s assertTrue. I corrected it. The Python contract suite is green, and all six JVM shards are now running against the corrected commit. The APK is still unverified until the emulator and remaining gates pass.
+
+ChatGPT:
+The corrected sharding is now producing clean evidence: five of six shards have passed, covering 1,528 unique test cases with zero failures and zero duplicates. The whole-repository audit has also completed. One JVM shard, the APK build and the emulator run are still outstanding.
+
+ChatGPT:
+The disposable Android emulator has now completed its instrumented test run successfully. The debug APK also built, passed Android Lint and launcher-icon verification, and was uploaded as an unverified candidate. The release-variant build is underway.
+One JVM shard is still taking materially longer than the other five. I’m not counting the suite as passed until that shard finishes and its report is checked.
+
+ChatGPT:
+I traced the slow shard to a specific point rather than guessing: every test through HostStudyTest passed, but ValidatedComputeProfileSelectorTest stopped at “disabled profiles are never selected” and never reported completion. The 20-minute cap terminated that shard. I’m inspecting that selector and test now; the rest of the validation gates had already passed.
+
+ChatGPT:
+Correction: matching every STARTED event against its completion exposed the actual blocker. The selector test was not the hang; my earlier attribution was wrong. The only unmatched test is NervousSystemFailureTest > succeeding retry recovers the aggregate. I’m tracing that recovery path now.
+
+You:
+Continue the remaining job but
+Tell me how much did you accomplish today @Web search
+
+ChatGPT:
+I found the two concrete blockers in the latest run:
+
+JVM: 299 of 300 tests passed in the failing shard. The remaining failure is a race in the test: it expects a recovery notification synchronously, although the production controller processes failure events asynchronously.
+Android: 43 of 44 instrumented tests passed. The failure is the Settings screen's “Keep Friday alive” switch not persisting its disabled state within the test window. The emulator also reported a deliberate voice-process crash from its crash-isolation test; that is separate from the switch failure.
+
+The debug APK itself built successfully, but the workflow correctly refused to promote it because the validation gates failed.
+
+ChatGPT:
+I found the two concrete blockers in the latest run:
+
+JVM: 299 of 300 tests passed in the failing shard. The remaining failure is a race in the test: it expects a recovery notification synchronously, although the production controller processes failure events asynchronously.
+Android: 43 of 44 instrumented tests passed. The failure is the Settings screen's “Keep Friday alive” switch not persisting its disabled state within the test window. The emulator also reported a deliberate voice-process crash from its crash-isolation test; that is separate from the switch failure.
+
+The debug APK itself built successfully, but the workflow correctly refused to promote it because the validation gates failed.
+The latest rerun has now passed the previously failing JVM shard: 300/300 tests, including the recovery tests. Two other shards have also passed, and a fourth has completed its test step successfully. This is real progress from the previous 1,827/1,828 result.
+JVM suite green All 1,828 JVM tests now pass. I checked the six JUnit artifact sets, not just the GitHub job badges: 1,828 unique tests, zero failures, zero errors, zero skipped, and no duplicate test cases.
+The repository-wide inventory and audit job also passed. The audit's 284 reported deviations still need human triage; many are generic enum/state mappings, not 284 confirmed defects.
+The debug APK has also passed Android Lint. The CI release-variant smoke build is now running with a disposable signing key; it is a build check, not Friday's permanent production signing identity. The emulator has booted and is executing the device-level acceptance checks.
+Android emulator green The repaired Settings toggle now passes, and the full emulator suite is 44/44, zero failures. I checked the JUnit XML: keepFridayAliveTogglePersistsTheOwnerSetting passed too. That clears the two failures from the previous run.
+All validation gates green The debug build, Android Lint, release-variant signing smoke check, six JVM shards, full source audit and emulator job have all passed. GitHub is now promoting the APK through its final archive-integrity and source-identity checks. This is the first fully green validation run on this repair branch.
+Verified APK available
+Download Friday's verified debug APK
+
+Size: approximately 134 MiB
+SHA-256: 5cb2c20e98b028670bb6c6cbc167f61bf0033999b79978aff080d1f9f13947cb
+Source: PR #159's exact tested merge candidate, including head 9b0b875
+Validation: 1,828/1,828 JVM tests and 44/44 emulator tests passed; Lint and APK integrity checks passed.
+
+Important: This is an installable, CI-verified debug build, not a production-signed release. The production signing identity and permanent release channel remain outstanding.
+The workflow completed successfully in 11 minutes 36 seconds. That is a major improvement over the previous runs exceeding an hour.
+
+ChatGPT:
+The latest rerun has now passed the previously failing JVM shard: 300/300 tests, including the recovery tests. Two other shards have also passed, and a fourth has completed its test step successfully. This is real progress from the previous 1,827/1,828 result.
+
+ChatGPT:
+JVM suite green All 1,828 JVM tests now pass. I checked the six JUnit artifact sets, not just the GitHub job badges: 1,828 unique tests, zero failures, zero errors, zero skipped, and no duplicate test cases.
+The repository-wide inventory and audit job also passed. The audit's 284 reported deviations still need human triage; many are generic enum/state mappings, not 284 confirmed defects.
+
+ChatGPT:
+The debug APK has also passed Android Lint. The CI release-variant smoke build is now running with a disposable signing key; it is a build check, not Friday's permanent production signing identity. The emulator has booted and is executing the device-level acceptance checks.
+
+ChatGPT:
+Android emulator green The repaired Settings toggle now passes, and the full emulator suite is 44/44, zero failures. I checked the JUnit XML: keepFridayAliveTogglePersistsTheOwnerSetting passed too. That clears the two failures from the previous run.
+
+ChatGPT:
+All validation gates green The debug build, Android Lint, release-variant signing smoke check, six JVM shards, full source audit and emulator job have all passed. GitHub is now promoting the APK through its final archive-integrity and source-identity checks. This is the first fully green validation run on this repair branch.
+
+ChatGPT:
+Verified APK available
+Download Friday's verified debug APK
+
+Size: approximately 134 MiB
+SHA-256: 5cb2c20e98b028670bb6c6cbc167f61bf0033999b79978aff080d1f9f13947cb
+Source: PR #159's exact tested merge candidate, including head 9b0b875
+Validation: 1,828/1,828 JVM tests and 44/44 emulator tests passed; Lint and APK integrity checks passed.
+
+Important: This is an installable, CI-verified debug build, not a production-signed release. The production signing identity and permanent release channel remain outstanding.
+The workflow completed successfully in 11 minutes 36 seconds. That is a major improvement over the previous runs exceeding an hour.
+
+You:
+@Web search carry on mate your actually doing progress but approximately how much havr you accomplished
+
+ChatGPT:
+Mate, the progress is substantial, but I want to separate work actually completed from Friday being finished.
+My verified baseline is:
+
+The main repair branch completed a green CI run in 11 minutes 36 seconds, down from runs exceeding an hour.
+All 1,828 JVM tests passed, and all 44 emulator tests passed.
+Android Lint, the release-signing smoke check, source audit and APK integrity checks passed.
+A verified, installable debug APK was produced.
+I added the long-term Venom bonding requirements to Friday's development plan.
+I also started hardening the separate Shizuku device-capability work, including a fail-closed check for unsupported foreground verification. That change still needs its own CI proof.
+
+That is a meaningful engineering milestone. It is not yet a completed Friday delivery.
+What changed in the repository
+All three major repair PRs are now merged into main:
+
+
+
+PR
+Work delivered
+
+
+
+#159
+Resilience, recovery and engineering operations
+
+
+#160
+Verified Android app-launch capability
+
+
+#161
+Production-wired individual experience continuity
+
+
+There are two especially important outcomes:
+
+The CI bottleneck has been substantially reduced. The full validation run completed in 11m 36s.
+Friday now has a published, production-signed release:
+
+
+  
+    **Friday v1.0.543**
+    Published
+  
+  
+  129.7 MB · November 25, 2026
+  [Open the official GitHub release and APK](https://github.com/mhw77655-hue/Friday/releases/tag/friday-v1.0.543)
+  Release commit: `65aaf89168c07ee1dd25a6989664ade3143ea68f`
+My honest progress estimate
+These are engineering estimates, not measured completion percentages.
+
+CI and release repair: approximately 90% of this immediate objective.
+First operational Friday seed: approximately 35–40%.
+Your complete Friday vision: approximately 10–15%.
+
+The distinction matters. We have achieved a signed production release, but that doesn't prove everything works on your actual handset.
+What remains
+The biggest outstanding areas are:
+
+Physical-device installation, permissions and same-signing update verification.
+Independent process monitoring and genuine automatic rollback.
+Broader REA: discovering, reconstructing and acquiring capabilities rather than merely invoking existing ones.
+Native memory and deeper experience-dependent learning.
+Actual longitudinal Venom bonding—not just its addition to the canonical plan.
+A much more autonomous development and maintenance cycle.
+
+My assessment: Today was a genuine turning point. We went from struggling to get a reliable build through CI to merging three substantial changes and publishing a signed release.
+But I am not going to confuse getting Friday released with finishing Friday. The next objective is to prove the released application works on the real device, then keep expanding her capabilities without sacrificing continuity or reliability.
