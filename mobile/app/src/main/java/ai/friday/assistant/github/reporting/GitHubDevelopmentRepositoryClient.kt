@@ -320,7 +320,11 @@ class GitHubDevelopmentRepositoryClient(
     )
 
     /** Dispatch only Friday's fixed, secret-free Android candidate sandbox. */
-    fun dispatchCandidateSandbox(taskId: String, candidateSha: String): Long? {
+    fun dispatchCandidateSandbox(
+        taskId: String,
+        candidateSha: String,
+        ciFailed: Boolean = false
+    ): Long? {
         require(taskId.matches(Regex("[A-Za-z0-9._-]{3,80}"))) { "Sandbox task id is malformed." }
         require(candidateSha.matches(Regex("[0-9a-f]{40}"))) { "Sandbox candidate SHA is invalid." }
         val payload = JSONObject()
@@ -328,6 +332,7 @@ class GitHubDevelopmentRepositoryClient(
             .put("inputs", JSONObject()
                 .put("task_id", taskId)
                 .put("candidate_sha", candidateSha)
+                .put("ci_failed", ciFailed)
                 .put("test_profile", "android-debug"))
         val response = request(
             apiRoot + "/actions/workflows/candidate-sandbox.yml/dispatches",
