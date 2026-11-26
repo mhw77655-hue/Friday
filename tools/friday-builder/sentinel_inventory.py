@@ -16,7 +16,7 @@ PATTERNS = {
     "room_database": re.compile(r'databaseBuilder\s*\([^,]+,\s*[^,]+,\s*"([^"]+)"', re.S),
     "sqlite_database": re.compile(r'(?:DATABASE_NAME|databaseName)\s*=\s*"([^"]+)"'),
     "work_worker": re.compile(r'class\s+(\w+)\s*:[^{\n]*(?:CoroutineWorker|Worker|ListenableWorker)'),
-    "network_host": re.compile(r'https://([A-Za-z0-9.-]+)(?::\d+)?(?:/|"|\\')'),
+    "network_host": re.compile(r'https://([A-Za-z0-9.-]+)'),
 }
 DYNAMIC_PREFS = re.compile(r'getSharedPreferences\s*\(\s*([A-Za-z_][A-Za-z0-9_.]*)')
 
