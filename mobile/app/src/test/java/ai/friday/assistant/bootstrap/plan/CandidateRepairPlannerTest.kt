@@ -27,13 +27,15 @@ class CandidateRepairPlannerTest {
     fun createsBoundedRepairTaskWithExactCandidateAndEvidence() {
         val evidence = JSONObject().put("status", "FAIL")
             .put("rea_status", "COMPLETED")
-            .put("rea_evidence_id", "ev_" + "b".repeat(64))
+            .put("sandbox", JSONObject().put("summary", JSONObject()
+                .put("rea_status", "COMPLETED")
+                .put("rea_evidence_excerpt", "ev_" + "b".repeat(64))))
         val repair = CandidateRepairPlanner.createRepairTask(failedTask(), evidence, 1234L)!!
 
         assertEquals("objective-a-phase-1-build-repair-1", repair.getString("task_id"))
         assertEquals("a".repeat(40), repair.getJSONObject("repair_context")
             .getString("failed_candidate_commit_sha"))
-        assertTrue(repair.getString("repair_context").contains(evidence.getString("rea_evidence_id")))
+        assertTrue(repair.getString("repair_context").contains("ev_" + "b".repeat(64)))
         assertEquals("LOW", repair.getString("risk"))
         assertTrue(repair.getBoolean("reversible"))
         assertFalse(repair.getBoolean("requires_owner_approval"))
