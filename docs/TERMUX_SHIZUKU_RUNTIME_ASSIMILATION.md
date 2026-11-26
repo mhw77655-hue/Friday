@@ -30,12 +30,26 @@ This is an implementation of an independent recovery path, not a claim that Andr
 
 Friday's guardian installer cannot grant Android permissions, change Termux's `allow-external-apps` property, approve Shizuku, or silently initialize Termux:Boot. Those are explicit platform trust decisions.
 
+## Primary recovery anchor: Shizuku daemon UserService
+
+Friday also has a stronger primary recovery path than Termux alone. Its Shizuku UserService is created with `daemon(true)`. Shizuku's API documentation states that daemon UserServices continue running when the client app process dies, until explicitly unbound. The service process runs with shell UID 2000 or root UID 0, not Friday's ordinary app UID.
+
+The new owner-controlled Shizuku recovery supervisor runs inside that daemon process. It periodically checks Friday's package stopped state, requests an explicit launcher activity start when stopped, and verifies the resumed activity. Events are written to `/data/local/tmp/friday-shizuku-guardian.log`.
+
+This creates two recovery layers:
+- **Primary:** Friday's Shizuku daemon UserService survives Friday's ordinary process death/force-stop while Shizuku remains running.
+- **Secondary:** the Termux-owned worker can re-establish recovery after Shizuku is restarted, provided Termux is still running and the owner reactivates Shizuku where required.
+
+Shizuku explicitly kills UserServices when its own server stops or restarts. Therefore the Shizuku daemon is not a reboot-surviving or Shizuku-server-independent process. The Termux worker is the independent fallback.
+
 ## Runtime behavior
 
+- The primary Shizuku recovery supervisor is hosted by Friday's daemon UserService under shell/root identity and is independent of Friday's ordinary application process.
 - The Termux worker is not hosted by Friday's package and does not call Friday's WorkManager, services or RUN_COMMAND service to stay alive.
 - The worker invokes the Shizuku helper under Termux's separately authorized Shizuku identity.
 - It checks package stopped state before launching Friday, and verifies the resumed activity after a launch attempt.
 - If Shizuku is unavailable, Termux remains alive and retries at a bounded interval. It does not claim recovery succeeded.
+- Shizuku daemon UserServices are killed when the Shizuku server stops or restarts; Termux is intended to provide the fallback once Shizuku is available again.
 - After a non-root Wireless Debugging Shizuku restart/reboot, the owner may need to start Shizuku again. The worker detects the missing shell capability and waits.
 - If Termux itself is force-stopped or killed, this worker cannot run. Termux:Boot may start it on a subsequent boot if Android permits and Termux has not been force-stopped.
 - Android/OEM process policies still govern Termux. Battery exemption and a wake lock improve persistence; neither is an absolute guarantee.
