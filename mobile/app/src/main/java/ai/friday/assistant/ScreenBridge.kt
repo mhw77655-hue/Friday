@@ -193,6 +193,9 @@ object ScreenBridge {
             .commit()
     }
 
+    internal fun hasDaemonInstanceToken(identity: String?): Boolean =
+        !identity.isNullOrBlank() && Regex("(?:^|;)instance=([^;]+)").containsMatchIn(identity)
+
     internal fun isSameDaemonIdentity(previous: String?, current: String?): Boolean {
         if (previous.isNullOrBlank() || current.isNullOrBlank()) return false
         val previousInstance = Regex("(?:^|;)instance=([^;]+)").find(previous)?.groupValues?.get(1)
