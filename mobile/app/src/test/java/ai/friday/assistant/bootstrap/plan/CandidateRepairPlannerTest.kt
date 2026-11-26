@@ -95,6 +95,37 @@ class CandidateRepairPlannerTest {
     }
 
     @Test
+    fun acceptsExactCompilerFailureEvidenceWhenNoApkCanBeBuilt() {
+        val evidence = JSONObject().put("sandbox", JSONObject().put("status", "FAIL")
+            .put("summary", JSONObject()
+                .put("expected_commit_sha", "a".repeat(40))
+                .put("checked_out_commit_sha", "a".repeat(40))
+                .put("test_profile", "android-debug")
+                .put("failure_classification", "ACTIONABLE_DEFECT")
+                .put("failure_evidence_kind", "COMPILER")
+                .put("compiler_diagnostic_count", 2)
+                .put("apk_sha256", "")))
+        assertTrue(CandidateRepairPlanner.isConfirmedCandidateDefect("a".repeat(40), evidence.getJSONObject("sandbox")))
+        assertTrue(CandidateRepairPlanner.createRepairTask(failedTask(), evidence) != null)
+    }
+
+    @Test
+    fun rejectsActionableLabelWithoutApkOrSourceFailureEvidence() {
+        val evidence = JSONObject().put("sandbox", JSONObject().put("status", "FAIL")
+            .put("summary", JSONObject()
+                .put("expected_commit_sha", "a".repeat(40))
+                .put("checked_out_commit_sha", "a".repeat(40))
+                .put("test_profile", "android-debug")
+                .put("failure_classification", "ACTIONABLE_DEFECT")
+                .put("failure_evidence_kind", "NONE")
+                .put("compiler_diagnostic_count", 0)
+                .put("test_failure_count", 0)
+                .put("lint_error_count", 0)
+                .put("apk_sha256", "")))
+        assertNull(CandidateRepairPlanner.createRepairTask(failedTask(), evidence))
+    }
+
+    @Test
     fun refusesActionableClassificationWhenCandidateProvenanceDoesNotMatch() {
         val evidence = JSONObject().put("sandbox", JSONObject()
             .put("status", "FAIL")
