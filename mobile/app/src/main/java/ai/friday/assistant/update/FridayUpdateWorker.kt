@@ -31,8 +31,12 @@ class FridayUpdateWorker(
             var retry = false
             when (val result = FridayUpdateClient(applicationContext).checkAndStage()) {
                 is FridayUpdateClient.Result.UpToDate -> {
-                    state.clearStaged()
-                    state.recordStatus("Friday is up to date (version code ${result.installedVersionCode}).")
+                    if (state.clearStagedUnlessRecoveryRequired()) {
+                        state.recordStatus("Friday is up to date (version code ${result.installedVersionCode}).")
+                    } else {
+                        val failure = state.lastStatus()
+                        state.recordStatus("Recovery required; retained the failed update APK and health marker. $failure")
+                    }
                 }
                 is FridayUpdateClient.Result.Staged -> {
                     state.saveStaged(result)
