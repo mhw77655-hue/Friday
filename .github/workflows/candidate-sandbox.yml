@@ -198,6 +198,10 @@ jobs:
           if [[ -f "$REA_REPORT" ]]; then
             cp "$REA_REPORT" "$OUT/candidate-rea-evidence.json"
           fi
+          REA_SUMMARY="$RUNNER_TEMP/friday-candidate-rea/evidence/candidate-rea-summary.json"
+          if [[ -f "$REA_SUMMARY" ]]; then
+            cp "$REA_SUMMARY" "$OUT/candidate-rea-summary.json"
+          fi
           if [[ -f "$RUNNER_TEMP/friday-candidate-rea/rea-run.stderr" ]]; then
             cp "$RUNNER_TEMP/friday-candidate-rea/rea-run.stderr" "$OUT/rea-run.stderr"
           fi
@@ -228,6 +232,8 @@ jobs:
           rea_path = pathlib.Path("friday-sandbox-evidence/candidate-rea-evidence.json")
           rea_text = rea_path.read_text(errors="replace") if rea_path.exists() else ""
           rea_sha = hashlib.sha256(rea_text.encode()).hexdigest() if rea_text else ""
+          rea_summary_path = pathlib.Path("friday-sandbox-evidence/candidate-rea-summary.json")
+          rea_summary = json.loads(rea_summary_path.read_text()) if rea_summary_path.exists() else None
           passed = outcome == "success" and expected == actual and len(actual) == 40 and len(apk_sha) == 64
           data = {
               "schema_version": 1,
@@ -242,7 +248,8 @@ jobs:
               "failure_excerpt": failure_excerpt,
               "rea_status": "COMPLETED" if rea_text else ("FAILED" if os.environ.get("REA_OUTCOME") == "failure" else "UNAVAILABLE"),
               "rea_report_sha256": rea_sha,
-              "rea_evidence_excerpt": rea_text[:20000],
+              "rea_summary": rea_summary,
+              "rea_evidence_excerpt": json.dumps(rea_summary, separators=(",", ":"))[:12000] if rea_summary else "",
               "runner_os": platform.platform(),
               "apk_sha256": apk_sha,
               "signing": "debug-only; no production signing secrets are available to this runner"
