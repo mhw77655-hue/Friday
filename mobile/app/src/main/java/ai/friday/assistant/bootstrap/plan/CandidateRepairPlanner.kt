@@ -190,6 +190,28 @@ internal object CandidateRepairPlanner {
         for (index in 0 until minOf(sourceReasons.length(), 12)) {
             classificationReasons.put(sourceReasons.optString(index).take(240))
         }
+        val compilerDiagnostics = JSONArray()
+        val sourceCompilerDiagnostics = summary.optJSONArray("compiler_diagnostics") ?: JSONArray()
+        for (index in 0 until minOf(sourceCompilerDiagnostics.length(), 5)) {
+            compilerDiagnostics.put(sourceCompilerDiagnostics.optString(index).take(500))
+        }
+        val testFailures = JSONArray()
+        val sourceTestFailures = summary.optJSONArray("test_failures") ?: JSONArray()
+        for (index in 0 until minOf(sourceTestFailures.length(), 5)) {
+            val failure = sourceTestFailures.optJSONObject(index) ?: continue
+            testFailures.put(JSONObject()
+                .put("test", failure.optString("test").take(240))
+                .put("kind", failure.optString("kind").take(16))
+                .put("detail", failure.optString("detail").take(400)))
+        }
+        val lintErrors = JSONArray()
+        val sourceLintErrors = summary.optJSONArray("lint_errors") ?: JSONArray()
+        for (index in 0 until minOf(sourceLintErrors.length(), 5)) {
+            val issue = sourceLintErrors.optJSONObject(index) ?: continue
+            lintErrors.put(JSONObject()
+                .put("id", issue.optString("id").take(120))
+                .put("message", issue.optString("message").take(300)))
+        }
         for (index in 0 until minOf(sourceDetails.length(), 20)) {
             details.put(sourceDetails.optString(index).take(240))
         }
@@ -217,6 +239,9 @@ internal object CandidateRepairPlanner {
                 .put("test_failure_count", summary.optInt("test_failure_count"))
                 .put("lint_error_count", summary.optInt("lint_error_count"))
                 .put("failure_classification_reasons", classificationReasons)
+                .put("compiler_diagnostics", compilerDiagnostics)
+                .put("test_failures", testFailures)
+                .put("lint_errors", lintErrors)
                 .put("rea_status", summary.optString("rea_status").take(20))
                 .put("rea_report_sha256", if (summary.optString("rea_status") == "COMPLETED") summary.optString("rea_report_sha256").take(64) else "")
                 .put("rea_evidence_excerpt", if (summary.optString("rea_status") == "COMPLETED") summary.optString("rea_evidence_excerpt").take(7_000) else ""))
