@@ -132,7 +132,9 @@ class FridayUpdateStateInstrumentedTest {
             assertTrue(first.contains("Post-update health check failed"))
             assertTrue(
                 "The failed APK must be preserved as immutable recovery evidence.",
-                store.loadFailedArtifacts().any { it.apk?.canonicalPath == apk.canonicalPath }
+                FridayUpdateStateStore(context).loadFailedArtifacts().any {
+                    it.apk?.canonicalPath == apk.canonicalPath
+                }
             )
             assertTrue(
                 "A failed release must remain on disk after first-launch verification.",
@@ -238,6 +240,10 @@ class FridayUpdateStateInstrumentedTest {
             assertTrue(
                 "The previous failed-release record remains until the repair passes health verification.",
                 store.hasFailedRecoveryEvidence()
+            )
+            assertTrue(
+                "The higher-version recovery candidate can enter its own post-install health-check cycle.",
+                store.recordPendingHealthCheck(newerRelease)
             )
         } finally {
             store.clearStaged()
