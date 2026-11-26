@@ -239,6 +239,8 @@ class ObjectiveExecutionWorker(
                     val review = ObjectiveBuilderCandidateExecutor(applicationContext, manager, repository)
                         .reviewCandidate(pendingReview, commitSha)
                     val evidence = org.json.JSONObject()
+                        .put("candidate_diff", runCatching { repository.readCommitDiff(commitSha) }.getOrNull()
+                            ?.take(CandidateRepairPlanner.MAX_REPAIR_CONTEXT_CHARS / 2).orEmpty())
                         .put("seat_id", review.seatId)
                         .put("provider", review.provider)
                         .put("model", review.model)
