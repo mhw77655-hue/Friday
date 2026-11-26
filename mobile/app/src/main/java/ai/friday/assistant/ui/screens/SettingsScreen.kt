@@ -787,10 +787,15 @@ fun SettingsScreen() {
         if (shizukuSnapshot.isNotBlank()) {
             Text(text = shizukuSnapshot, style = FridayType.Technical, modifier = Modifier.padding(top = 6.dp))
         }
+        Text(
+            text = "Daemon survival test: run this once to save Friday's current Shizuku UserService identity. Then force-stop Friday from Android Settings (not just swipe it away), reopen Friday, and run the test again. A pass means the same remote daemon PID and instance token survived the main app's force-stop. Restarting Shizuku itself is expected to kill its UserService.",
+            style = FridayType.Technical,
+            modifier = Modifier.padding(vertical = 6.dp)
+        )
         Button(
             onClick = {
                 shizukuAcceptanceRunning = true
-                shizukuAcceptanceReport = "Running remote identity, diagnostics, Doze add/remove/restore and harmless app-launch checks. Android Settings may open during the final check."
+                shizukuAcceptanceReport = "Checking the existing daemon without creating it, verifying remote UID and daemon continuity, then running diagnostics and device-control checks. Android Settings may open during the final check."
                 scope.launch {
                     val result = runCatching {
                         withContext(Dispatchers.IO) {
