@@ -134,13 +134,17 @@ jobs:
           echo "exit_code=0" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node.js for failure-only REA investigation
+        id: setup_node_rea
         if: always() && steps.build_failure_apk.outcome == 'success'
+        continue-on-error: true
         uses: actions/setup-node@v4
         with:
           node-version: "24.22.1"
 
       - name: Set up full JDK for the pinned REA JADX provider
+        id: setup_java_rea
         if: always() && steps.build_failure_apk.outcome == 'success'
+        continue-on-error: true
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -148,7 +152,8 @@ jobs:
 
       - name: Install and verify pinned REA Android provider
         id: rea_provider
-        if: always() && steps.build_failure_apk.outcome == 'success'
+        if: always() && steps.build_failure_apk.outcome == 'success' && steps.setup_node_rea.outcome == 'success' && steps.setup_java_rea.outcome == 'success'
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
