@@ -18,6 +18,8 @@
     "termux_run_command_bridge": true,
     "termux_shizuku_rish_guardian_bootstrap": true,
     "termux_friday_force_stop_recovery_device_verified": false,
+    "shizuku_daemon_recovery_supervisor": true,
+    "shizuku_daemon_force_stop_recovery_device_verified": false,
     "autonomous_native_apk_replacement": false,
     "developmental_learning_acceptance_proven": false,
     "egyptian_arabic_voice_quality_device_verified": false
@@ -34,6 +36,7 @@
     "signing_and_updates": "A production release requires the permanent signing keystore and all five FRIDAY_RELEASE_* repository secrets described in docs/FRIDAY_RELEASE_SIGNING_SETUP.md. CI debug artifacts and disposable CI signing are not production releases.",
     "physical_device": "GitHub emulator/instrumentation evidence is not evidence of installation, microphone behaviour, performance, or update continuity on the owner's physical phone.",
     "self_study": "The packaged source index contains structural metadata (paths, packages, declarations and imports), not source text or proof of semantic source comprehension.",
-    "termux_recovery": "Friday can submit a fixed bootstrap through Termux RUN_COMMAND and install a Termux:Boot worker that uses Shizuku rish to detect Friday's stopped package state and request relaunch. The owner must enable allow-external-apps, grant RUN_COMMAND, initialize Termux:Boot, install rish and its DEX in Termux HOME, and authorize Termux in Shizuku. A request being submitted is not proof that the worker started. Physical-device force-stop recovery, reboot persistence and OEM process survival remain unverified."
+    "termux_recovery": "Friday can submit a fixed bootstrap through Termux RUN_COMMAND and install a Termux:Boot worker that uses Shizuku rish to detect Friday's stopped package state and request relaunch. The owner must enable allow-external-apps, grant RUN_COMMAND, initialize Termux:Boot, install rish and its DEX in Termux HOME, and authorize Termux in Shizuku. A request being submitted is not proof that the worker started. Physical-device force-stop recovery, reboot persistence and OEM process survival remain unverified.",
+    "shizuku_recovery": "Friday's Shizuku UserService is bound in daemon mode and now contains an owner-controlled recovery supervisor. Shizuku documents that daemon UserServices survive the client app process dying, but are killed when Shizuku itself stops or restarts. The supervisor's actual survival through Android force-stop and successful relaunch must still be proven on the target handset."
   }
 }
