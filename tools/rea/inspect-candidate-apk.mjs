@@ -145,7 +145,7 @@ function collectEvidenceIds(value, found = new Set()) {
 
 function extractFailureSymbols(logText) {
   const found = new Map();
-  const frame = /^\\s*at\\s+((?:[A-Za-z_$][\\w$]*\\.)+[A-Z_$][\\w$]*)\\.([A-Za-z_$][\\w$]*)\\s*\\(/gm;
+  const frame = /^\s*at\s+((?:[A-Za-z_$][\w$]*\.)+[A-Z_$][\w$]*)\.([A-Za-z_$][\w$]*)\s*\(/gm;
   for (const match of logText.matchAll(frame)) {
     let className = match[1];
     const methodName = match[2];
@@ -243,7 +243,9 @@ async function main() {
       "ai.friday.assistant.bootstrap.plan.ObjectiveBuilderCandidateExecutor",
       "ai.friday.assistant.bootstrap.plan.ObjectiveExecutionLedgerStore",
       "ai.friday.assistant.bootstrap.plan.CandidateRepairPlanner",
+      "ai.friday.assistant.ScreenBridge",
       "ai.friday.assistant.ShizukuBridge",
+      "ai.friday.assistant.FridayShellService",
       "ai.friday.assistant.runtime.FridayRuntimeService",
     ];
     const classTargets = [...new Set([...coreClasses, ...failureSymbols.map((item) => item.class_name)])].slice(0, 10);
@@ -252,7 +254,10 @@ async function main() {
       { class_name: "ai.friday.assistant.bootstrap.plan.ObjectiveBuilderCandidateExecutor", method_name: "execute", source: "core_repair_path" },
       { class_name: "ai.friday.assistant.bootstrap.plan.ObjectiveExecutionLedgerStore", method_name: "recordCandidateSandboxResult", source: "core_repair_path" },
       { class_name: "ai.friday.assistant.bootstrap.plan.CandidateRepairPlanner", method_name: "createRepairTask", source: "core_repair_path" },
-      { class_name: "ai.friday.assistant.ShizukuBridge", method_name: "bind", source: "core_android_capability" },
+      { class_name: "ai.friday.assistant.ScreenBridge", method_name: "bind", source: "core_android_capability" },
+      { class_name: "ai.friday.assistant.ScreenBridge", method_name: "ensureVerifiedBinding", source: "core_android_capability" },
+      { class_name: "ai.friday.assistant.ShizukuBridge", method_name: "requestPermission", source: "core_android_capability" },
+      { class_name: "ai.friday.assistant.FridayShellService", method_name: "identity", source: "core_android_capability" },
       { class_name: "ai.friday.assistant.runtime.FridayRuntimeService", method_name: "onStartCommand", source: "core_android_continuity" },
       ...failureSymbols,
     ].filter((item, index, all) =>
@@ -293,7 +298,7 @@ async function main() {
       for (const className of [
         "ai.friday.assistant.bootstrap.plan.ObjectiveExecutionWorker",
         "ai.friday.assistant.bootstrap.plan.CandidateRepairPlanner",
-        "ai.friday.assistant.ShizukuBridge",
+        "ai.friday.assistant.ScreenBridge",
       ]) {
         referenceTraces.push(await callInspection(
           server,
@@ -327,7 +332,7 @@ async function main() {
     const reportText = JSON.stringify(record, null, 2) + "\n";
     await writeFile(output, reportText);
     const summary = {
-      schema_version: 2,
+      schema_version: 1,
       candidate_commit_sha: candidateSha,
       apk_sha256: apkSha256,
       rea_version: version,
