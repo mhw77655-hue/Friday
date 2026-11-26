@@ -83,6 +83,8 @@ data class ReaRepairEvidence(
     val targetSha256: String,
     /** Exact evidence_id returned by REA structuredContent. */
     val evidenceId: String,
+    /** Complete canonical REA structuredContent JSON; never replaced by a summary. */
+    val canonicalEvidenceJson: String,
     val findings: List<ReaFinding>,
     val limitations: List<String> = emptyList()
 ) {
@@ -94,6 +96,15 @@ data class ReaRepairEvidence(
         require(Regex("[0-9a-f]{64}").matches(targetSha256)) { "REA target SHA-256 must be 64 lowercase hexadecimal characters" }
         require(Regex("ev_[0-9a-f]{64}").matches(evidenceId)) {
             "REA evidence ID must be the canonical ev_<64 lowercase hex> identifier"
+        }
+        require(canonicalEvidenceJson.trim().let { it.startsWith("{") && it.endsWith("}") }) {
+            "complete canonical REA evidence JSON must be retained"
+        }
+        require(canonicalEvidenceJson.contains(evidenceId)) {
+            "canonical REA evidence JSON must contain its exact evidence ID"
+        }
+        require(canonicalEvidenceJson.contains(targetSha256)) {
+            "canonical REA evidence JSON must contain the inspected APK digest"
         }
         require(findings.isNotEmpty()) { "REA evidence must contain findings" }
         require(findings.all { it.title.isNotBlank() && it.finding.isNotBlank() }) {
@@ -113,6 +124,7 @@ data class ReaRepairEvidence(
         appendLine("TARGET REVISION: $targetRevision")
         appendLine("TARGET SHA-256: $targetSha256")
         appendLine("REA EVIDENCE ID: $evidenceId")
+        appendLine("CANONICAL EVIDENCE RETAINED: yes (full structuredContent JSON)")
         findings.forEachIndexed { index, item ->
             appendLine("FINDING ${index + 1}: ${item.title}")
             appendLine("DESCRIPTION: ${item.finding}")
