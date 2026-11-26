@@ -185,23 +185,27 @@ class FridaySpeechRecognizer(
         }
         status = "listening"
         onStatusChanged(status)
+        var completed = false
         port.recognize(
             locale,
             onPartial = { text ->
-                if (session != generation.get()) return@recognize
-                val clean = text?.trim().orEmpty()
-                onPartial(clean.ifBlank { null })
-                status = "listening"
-                onStatusChanged(status)
+                if (session == generation.get() && !completed) {
+                    val clean = text?.trim().orEmpty()
+                    onPartial(clean.ifBlank { null })
+                    status = "listening"
+                    onStatusChanged(status)
+                }
             },
             onResult = { text ->
-                if (session != generation.get()) return@recognize
-                onPartial(null)
-                clearPartial = null
-                val clean = text?.trim().orEmpty()
-                status = if (clean.isNotBlank()) "heard: $clean" else "no result"
-                onStatusChanged(status)
-                onResult(clean.ifBlank { null })
+                if (session == generation.get() && !completed) {
+                    completed = true
+                    onPartial(null)
+                    clearPartial = null
+                    val clean = text?.trim().orEmpty()
+                    status = if (clean.isNotBlank()) "heard: $clean" else "no result"
+                    onStatusChanged(status)
+                    onResult(clean.ifBlank { null })
+                }
             }
         )
     }
