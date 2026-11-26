@@ -359,9 +359,16 @@ class GitHubDevelopmentRepositoryClient(
     /** Select the narrowest isolated profile that can reproduce the failed repository check. */
     fun selectCandidateSandboxProfile(checkDetails: List<String>): String {
         val requiresInstrumentation = checkDetails.any { detail ->
-            val checkName = detail.substringBefore(':')
-            checkName.contains("instrument", ignoreCase = true) ||
-                checkName.contains("emulator", ignoreCase = true)
+            val parts = detail.split(':')
+            val checkName = parts.firstOrNull().orEmpty()
+            val conclusion = parts.lastOrNull().orEmpty()
+            val failed = conclusion in setOf(
+                "failure", "timed_out", "cancelled", "action_required", "startup_failure", "stale"
+            )
+            failed && (
+                checkName.contains("instrument", ignoreCase = true) ||
+                    checkName.contains("emulator", ignoreCase = true)
+                )
         }
         return if (requiresInstrumentation) "android-instrumented" else "android-debug"
     }
