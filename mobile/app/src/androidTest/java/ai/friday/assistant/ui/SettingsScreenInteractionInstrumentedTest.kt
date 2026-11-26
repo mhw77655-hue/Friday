@@ -184,9 +184,20 @@ class SettingsScreenInteractionInstrumentedTest {
         // This test exercises the authorized owner-toggle path, not Android notification denial.
         val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
         val grant = instrumentation.uiAutomation.executeShellCommand(
-            "pm grant ${context.packageName} android.permission.POST_NOTIFICATIONS"
+            "pm grant --user 0 ${context.packageName} android.permission.POST_NOTIFICATIONS"
         )
-        grant.close()
+        val grantOutput = android.os.ParcelFileDescriptor.AutoCloseInputStream(grant)
+            .bufferedReader()
+            .use { it.readText() }
+        val notificationPermission = androidx.core.content.ContextCompat.checkSelfPermission(
+            context,
+            android.Manifest.permission.POST_NOTIFICATIONS
+        )
+        assertTrue(
+            "The test fixture must grant POST_NOTIFICATIONS before exercising the owner toggle. " +
+                "shellOutput=${grantOutput.take(300)} permissionResult=$notificationPermission",
+            notificationPermission == android.content.pm.PackageManager.PERMISSION_GRANTED
+        )
         val prefs = context.getSharedPreferences("friday_runtime", Context.MODE_PRIVATE)
         // Stop any foreground service left by an earlier instrumentation case,
         // then synchronously reset only the owner-controlled preference before
@@ -220,10 +231,15 @@ class SettingsScreenInteractionInstrumentedTest {
             .assertIsDisplayed()
             .assertIsOff()
             .performClick()
-        compose.waitUntil(10_000) { prefs.getBoolean("keep_alive_enabled", false) }
+        val enabledPersisted = runCatching {
+            compose.waitUntil(10_000) { prefs.getBoolean("keep_alive_enabled", false) }
+        }.isSuccess
         assertTrue(
-            "Enabling Keep Friday alive must persist the owner setting even if Android blocks service startup.",
-            prefs.getBoolean("keep_alive_enabled", false)
+            "Enabling Keep Friday alive must persist the owner setting even if Android blocks service startup. " +
+                "notificationPermission=${androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS)} " +
+                "controllerEnabled=${ai.friday.assistant.runtime.FridayRuntimeController.isEnabled(context)} " +
+                "lastStartFailure=${ai.friday.assistant.runtime.FridayRuntimeController.lastStartFailure(context)}",
+            enabledPersisted && prefs.getBoolean("keep_alive_enabled", false)
         )
 
         // Re-query after recomposition and assert the actual switch state before
