@@ -98,9 +98,12 @@ jobs:
             'https://github.com/termux/termux-app/releases/download/v0.118.3/termux-app_v0.118.3%2Bgithub-debug_sha256sums'
           (cd "$RUNNER_TEMP/rea-targets" && grep -F 'termux-app_v0.118.3+github-debug_arm64-v8a.apk' termux-sha256sums \
             | sed 's#  .*#  termux-v0.118.3-arm64.apk#' | sha256sum -c -)
-          echo "FRIDAY_APK=$RUNNER_TEMP/rea-targets/app-release.apk" >> "$GITHUB_ENV"
-          echo "SHIZUKU_APK=$RUNNER_TEMP/rea-targets/shizuku-v13.6.0.apk" >> "$GITHUB_ENV"
-          echo "TERMUX_APK=$RUNNER_TEMP/rea-targets/termux-v0.118.3-arm64.apk" >> "$GITHUB_ENV"
+          {
+            echo "FRIDAY_APK=$RUNNER_TEMP/rea-targets/app-release.apk"
+            echo "SHIZUKU_APK=$RUNNER_TEMP/rea-targets/shizuku-v13.6.0.apk"
+            echo "TERMUX_APK=$RUNNER_TEMP/rea-targets/termux-v0.118.3-arm64.apk"
+            echo "TERMUX_BOOT_APK=$RUNNER_TEMP/rea-targets/termux-boot-v0.8.1.apk"
+          } >> "$GITHUB_ENV"
           sha256sum "$RUNNER_TEMP/rea-targets/"*.apk | tee "$RUNNER_TEMP/rea-target-sha256.txt"
           curl -fL --retry 3 \
             -o "$RUNNER_TEMP/rea-targets/termux-boot-v0.8.1.apk" \
@@ -110,7 +113,6 @@ jobs:
             https://github.com/termux/termux-boot/releases/download/v0.8.1/checksums-sha256.txt
           (cd "$RUNNER_TEMP/rea-targets" && grep -F 'termux-boot-app_v0.8.1+github.debug.apk' termux-boot-sha256sums \
             | sed 's#  .*#  termux-boot-v0.8.1.apk#' | sha256sum -c -)
-          echo "TERMUX_BOOT_APK=$RUNNER_TEMP/rea-targets/termux-boot-v0.8.1.apk" >> "$GITHUB_ENV"
 
       - name: Invoke the real REA MCP server against all three Android APKs
         env:
