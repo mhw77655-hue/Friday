@@ -269,37 +269,54 @@ jobs:
                               "message": issue.attrib.get("message", "")[:500]
                           })
           compiler_diagnostics = re.findall(r"(?m)^e:\s+file:///.*", log_text)
-          infra_patterns = [
-              r"could not resolve (all )?files", r"could not (get|head) https?://",
-              r"unknownhostexception", r"sockettimeoutexception", r"connectexception",
-              r"connection reset", r"read timed out", r"tls handshake",
-              r"gradle build daemon disappeared", r"kotlin daemon terminated unexpectedly",
-              r"outofmemoryerror", r"no space left on device", r"sdk location not found",
-              r"failed to install the following android sdk packages",
-              r"failed to find target with hash string", r"failed to launch emulator",
-              r"emulator.*(offline|exited)", r"install_failed", r"timed out waiting for",
-              r"runner.*(lost|unavailable)", r"job was cancelled", r"process completed with exit code 137"
-          ]
-          infra_hits = [pattern for pattern in infra_patterns if re.search(pattern, log_text, re.IGNORECASE)]
-          if outcome == "success":
-              failure_classification = "NONE"
-          elif infra_hits:
-              failure_classification = "INFRASTRUCTURE"
-          elif compiler_diagnostics or test_failures or lint_errors:
-              failure_classification = "ACTIONABLE_DEFECT"
-          else:
-              failure_classification = "UNKNOWN"
-          reasons = []
-          if compiler_diagnostics:
-              reasons.append("Kotlin compiler emitted source-file diagnostics.")
-          if test_failures:
-              reasons.append(f"{len(test_failures)} JUnit test failure/error record(s) were found.")
-          if lint_errors:
-              reasons.append(f"{len(lint_errors)} Android lint error(s) were found.")
-          if infra_hits:
-              reasons.append("Infrastructure signatures were detected: " + ", ".join(infra_hits[:6]))
-          if failure_classification == "UNKNOWN" and outcome != "success":
-              reasons.append("No reliable code-defect or infrastructure signature was found; automatic repair is blocked.")
+          def classify_failure(outcome, log_text, compiler_diagnostics, test_failures, lint_errors):
+              infra_patterns = [
+                  r"could not resolve (all )?files", r"could not (get|head) https?://",
+                  r"unknownhostexception", r"sockettimeoutexception", r"connectexception",
+                  r"connection reset", r"connection refused", r"no route to host",
+                  r"read timed out", r"tls handshake", r"temporary failure in name resolution",
+                  r"http (429|5\d\d)", r"too many requests", r"rate limit",
+                  r"gradle build daemon disappeared", r"kotlin daemon terminated unexpectedly",
+                  r"outofmemoryerror", r"no space left on device", r"sdk location not found",
+                  r"failed to install the following android sdk packages",
+                  r"failed to find target with hash string", r"failed to launch emulator",
+                  r"emulator.*(offline|exited)", r"install_failed", r"timed out waiting for",
+                  r"runner.*(lost|unavailable)", r"job was cancelled", r"process completed with exit code 137"
+              ]
+              failure_text = log_text + "\n" + "\n".join(item.get("detail", "") for item in test_failures)
+              infra_hits = [pattern for pattern in infra_patterns if re.search(pattern, failure_text, re.IGNORECASE)]
+              if outcome == "success":
+                  classification = "NONE"
+              elif infra_hits:
+                  classification = "INFRASTRUCTURE"
+              elif compiler_diagnostics or test_failures or lint_errors:
+                  classification = "ACTIONABLE_DEFECT"
+              else:
+                  classification = "UNKNOWN"
+              reasons = []
+              if compiler_diagnostics:
+                  reasons.append("Kotlin compiler emitted source-file diagnostics.")
+              if test_failures:
+                  reasons.append(f"{len(test_failures)} JUnit test failure/error record(s) were found.")
+              if lint_errors:
+                  reasons.append(f"{len(lint_errors)} Android lint error(s) were found.")
+              if infra_hits:
+                  reasons.append("Infrastructure signatures were detected: " + ", ".join(infra_hits[:6]))
+              if classification == "UNKNOWN" and outcome != "success":
+                  reasons.append("No reliable code-defect or infrastructure signature was found; automatic repair is blocked.")
+              return classification, infra_hits, reasons
+
+          # Keep the trusted classifier executable and self-tested in the
+          # workflow definition, not in candidate-controlled source code.
+          assert classify_failure("success", "", [], [], [])[0] == "NONE"
+          assert classify_failure("failure", "Could not resolve all files", [], [], [])[0] == "INFRASTRUCTURE"
+          assert classify_failure("failure", "", ["e: file:///src/main/Test.kt:1:1"], [], [])[0] == "ACTIONABLE_DEFECT"
+          assert classify_failure("failure", "", [], [{"detail": "AssertionError: expected true"}], [])[0] == "ACTIONABLE_DEFECT"
+          assert classify_failure("failure", "", [], [{"detail": "java.net.UnknownHostException"}], [])[0] == "INFRASTRUCTURE"
+          assert classify_failure("failure", "BUILD FAILED", [], [], [])[0] == "UNKNOWN"
+          failure_classification, infra_hits, reasons = classify_failure(
+              outcome, log_text, compiler_diagnostics, test_failures, lint_errors
+          )
           rea_path = pathlib.Path(os.environ.get("REA_REPORT_PATH", ""))
           rea_text = rea_path.read_text(errors="replace") if rea_path.is_file() else ""
           rea_sha = hashlib.sha256(rea_text.encode()).hexdigest() if rea_text else ""
