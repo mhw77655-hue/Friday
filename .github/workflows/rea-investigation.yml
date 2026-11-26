@@ -34,7 +34,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "24.22.1"
-          cache: npm
 
       - name: Set up full JDK for JADX
         uses: actions/setup-java@v4
