@@ -410,9 +410,10 @@ class ObjectiveExecutionLedgerStore(context: Context) {
         val task = (0 until tasks.length()).map { tasks.getJSONObject(it) }
             .firstOrNull { it.optString("task_id") == taskId }
             ?: error("Builder task no longer exists.")
-        require(task.optString("status") == "CI_PASSED_AWAITING_SANDBOX") {
-            "Candidate is not awaiting isolated sandbox verification."
-        }
+        require(task.optString("status") in setOf(
+            "CI_PASSED_AWAITING_SANDBOX",
+            "CI_PASSED_AWAITING_REVIEW"
+        )) { "Candidate is not awaiting isolated sandbox verification." }
         val passed = evidence.optString("status") == "PASS"
         val nextStatus = if (passed) "SANDBOX_PASSED_AWAITING_REVIEW" else "SANDBOX_FAILED_REQUIRES_REPAIR"
         task.put("status", nextStatus)
