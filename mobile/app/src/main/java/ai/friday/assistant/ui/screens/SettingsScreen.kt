@@ -316,8 +316,8 @@ fun SettingsScreen() {
                                 stagedUpdate = null
                                 updateStatus = "Friday is up to date (version code ${result.installedVersionCode})."
                             } else {
-                                stagedUpdate = withContext(Dispatchers.IO) { updateStateStore.loadStaged() }
-                                updateStatus = "RECOVERY REQUIRED: Friday retained the failed update APK and health marker; routine cleanup is blocked."
+                                stagedUpdate = null
+                                updateStatus = "RECOVERY REQUIRED: failed-release evidence is retained. Friday is waiting for a higher-version signed repair; the failed APK is not offered for reinstall."
                             }
                             updateStateStore.recordStatus(updateStatus)
                         }
@@ -327,14 +327,21 @@ fun SettingsScreen() {
                             }
                             if (retained) {
                                 stagedUpdate = result
-                                updateStatus = "Verified Friday ${result.release.versionName} is staged and ready for Android installation."
+                                val recoveryCandidate = withContext(Dispatchers.IO) {
+                                    updateStateStore.hasFailedRecoveryEvidence()
+                                }
+                                updateStatus = if (recoveryCandidate) {
+                                    "Verified recovery candidate Friday ${result.release.versionName} is staged. Failed-release evidence will be retained until this update passes its post-install health check."
+                                } else {
+                                    "Verified Friday ${result.release.versionName} is staged and ready for Android installation."
+                                }
                             } else {
                                 val recovery = withContext(Dispatchers.IO) { updateStateStore.loadStaged() }
                                 if (recovery?.apk?.canonicalPath != result.apk.canonicalPath) {
                                     result.apk.delete()
                                 }
-                                stagedUpdate = recovery
-                                updateStatus = "RECOVERY REQUIRED: retained the previously failed update APK and health marker; the newer candidate was discarded."
+                                stagedUpdate = null
+                                updateStatus = "RECOVERY REQUIRED: failed-release evidence is retained; this candidate is not a higher-version signed repair and was discarded."
                             }
                             updateStateStore.recordStatus(updateStatus)
                         }
