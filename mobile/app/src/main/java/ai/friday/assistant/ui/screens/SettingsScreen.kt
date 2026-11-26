@@ -1396,8 +1396,10 @@ private fun ReaEngineeringSection(context: Context) {
                         snapshot = it
                         message = when {
                             it == null -> "No saved REA investigation exists yet."
-                            it.status == "completed" && it.conclusion == "success" ->
+                            it.status == "completed" && it.conclusion == "success" && it.summary != null ->
                                 "REA completed successfully. Friday retrieved the investigation summary."
+                            it.status == "completed" && it.conclusion == "success" ->
+                                "REA completed successfully, but the evidence artifact is not available yet. Retry refresh."
                             it.status == "completed" ->
                                 "REA finished with conclusion: ${it.conclusion ?: "unknown"}. Inspect the run and evidence."
                             else -> "REA workflow status: ${it.status}. The cloud investigation is still running or queued."
