@@ -80,7 +80,7 @@ internal object CandidateRepairPlanner {
             .put("reversible", true)
             .put("requires_owner_approval", false)
             .put("status", "QUEUED")
-            .put("executor", "BUILDER_NOT_CONNECTED")
+            .put("executor", "LOCAL_BUILDER")
             .put("requires_repository_access", true)
             .put("dependencies", JSONArray())
             .put("dependency_state", "REPAIR_OF_FAILED_CANDIDATE")
