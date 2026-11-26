@@ -131,6 +131,7 @@ jobs:
           fi
           mkdir -p "$EVIDENCE/first-test-run"
           cp -a "$REPORT/." "$EVIDENCE/first-test-run/"
+          rm -rf "$REPORT"
           set +e
           ./gradlew --no-daemon --console=plain --rerun-tasks :mobile:app:testDebugUnitTest \
             2>&1 | tee "$EVIDENCE/test-rerun.log"
