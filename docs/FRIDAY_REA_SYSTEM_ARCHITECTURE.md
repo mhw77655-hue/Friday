@@ -1,4 +1,4 @@
-# Friday REA — Reverse Engineering and Adaptation System
+# Friday REA — Reverse Engineer Anything Tool Integration and Adaptation System
 
 **Status:** target architecture and implementation contract  
 **Authority:** subordinate to `.ralph/FRIDAY_DELIVERY_PLAN.md`; this document expands its autonomous engineering, capability acquisition, continuity and owner-control requirements.  
@@ -6,13 +6,33 @@
 
 ## 1. The intended capability
 
-REA means **Reverse Engineering and Adaptation**. It is a first-class capability of Friday, not an Android feature, a one-off APK analyzer, a fixed list of scripts, or a separate agent that becomes another Friday.
+**REA means the Reverse Engineer Anything tool**: the upstream REA project at https://github.com/morluto/rea, exposed to agents through its MCP server and CLI. Friday's REA capability is her ability to direct that tool, interpret its evidence, and use the findings to adapt, reconstruct, repair or extend authorized systems. Do not redefine the tool's name as “Reverse Engineering and Adaptation.” REA is a tool Friday uses—not a separate Friday, an Android feature, a one-off APK analyzer, or a fixed list of scripts.
 
 Friday must be able to receive an engineering outcome in natural language, investigate unfamiliar software and systems, construct an evidence-backed model of how they work, choose a repair or integration strategy, implement it, validate it in an appropriate environment, and maintain the result over time. This applies to her own application and cloud infrastructure, repositories, and other applications or systems the owner owns or has authorized her to inspect and modify.
 
 The same Friday coordinates every execution environment. Android is one host and sensor/actuator surface. Cloud workspaces, CI runners, virtual machines, containers, desktop systems, connected devices, local models, remote models and external tools are additional resources. No host, model, language, repository, framework or provider defines the boundary of Friday's intelligence.
 
 The target interaction is: **"Friday, take care of yourself and your project."** Friday should turn that responsibility into a persistent, prioritized, observable engineering programme—not wait for the owner to translate every defect into file edits or commands.
+
+## 1.1 Upstream REA tool and Friday's relationship to it
+
+The named tool is **REA — Reverse Engineer Anything**, maintained at [morluto/rea](https://github.com/morluto/rea) and distributed as the `rea-agents` npm package. It exposes investigation workflows through MCP and a CLI. Friday must integrate with the real upstream tool and its documented contracts; she must not merely recreate a generic reverse-engineering architecture and call that “REA.”
+
+REA can inspect supported software artifacts and runtime surfaces, return structured findings and evidence, and expose the limitations of each analysis. The agent then uses those findings to investigate further and construct/test an adapted implementation. Its supported targets and prerequisites are version-dependent, so Friday must query the installed tool's actual catalog/readiness rather than hard-code a stale list.
+
+**The intended relationship is:**
+1. Friday identifies a capability gap or a system she needs to understand (for example Shizuku, Termux, Android package lifecycle, an app, protocol, binary or service).
+2. Friday selects the relevant artifact and runtime evidence that she is authorized to inspect.
+3. Friday invokes upstream REA through its MCP interface or CLI on a compatible execution host.
+4. REA performs the supported inspection and returns evidence, structured findings and explicit limitations.
+5. Friday correlates those findings with documentation, live experiments and her own system model.
+6. Friday derives the underlying mechanism and capability—not a blind copy of the target product's architecture.
+7. Friday designs an implementation adapted to her own identity, security model, host constraints and capability contracts.
+8. Friday builds, tests and independently verifies that implementation; only then may she promote it into her own runtime.
+
+REA does not itself magically grant Android privileges or make a desktop analysis provider run inside the Android APK. The REA host, MCP connection, target device and any ADB/provider prerequisites are explicit resources. Friday should place REA on a suitable persistent/cloud/desktop/VM development host when the target analysis requires Node.js, JADX/JDK, ADB or native-analysis providers. Android remains a target and evidence source; it is not assumed to be the only execution host.
+
+Termux, Shizuku and similar tools are **targets and reference implementations for REA investigations**, not automatic dependencies of Friday. Friday may use an existing authorized installation as a benchmark or execution environment when useful, but the goal is to understand and assimilate the relevant mechanisms into Friday's own architecture wherever possible. A dependency is retained only when there is a deliberate, measured reason—not because the tool was studied.
 
 ## 2. System architecture
 
