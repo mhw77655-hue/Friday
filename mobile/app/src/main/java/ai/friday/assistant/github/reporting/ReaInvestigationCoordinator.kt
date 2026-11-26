@@ -66,7 +66,7 @@ class ReaInvestigationCoordinator(context: Context) {
             ?: return before.copy(status = "queued")
         var summary = before.summary
         if (run.status == "completed" && summary == null) {
-            summary = client.downloadReaInvestigationSummary(run.id)
+            summary = runCatching { client.downloadReaInvestigationSummary(run.id) }.getOrNull()
         }
         check(
             prefs.edit()
