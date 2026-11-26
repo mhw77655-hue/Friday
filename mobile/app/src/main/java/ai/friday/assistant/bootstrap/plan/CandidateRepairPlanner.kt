@@ -132,7 +132,7 @@ internal object CandidateRepairPlanner {
             sandbox.optString("status") == "FAIL" &&
             summary.optString("expected_commit_sha") == candidateSha &&
             summary.optString("checked_out_commit_sha") == candidateSha &&
-            summary.optString("test_profile") == "android-debug" &&
+            summary.optString("test_profile") in setOf("android-debug", "android-instrumented") &&
             summary.optString("failure_classification") == "ACTIONABLE_DEFECT" &&
             (apkEvidenceValid || compilerEvidenceValid || testEvidenceValid || lintEvidenceValid)
     }
