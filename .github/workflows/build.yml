@@ -167,6 +167,9 @@ jobs:
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
           "$(go env GOPATH)/bin/actionlint" -color
 
+      - name: Validate REA candidate investigation script syntax
+        run: node --check tools/rea/inspect-candidate-apk.mjs
+
       - name: Set up JDK 17
         id: setup-java
         uses: actions/setup-java@v4
