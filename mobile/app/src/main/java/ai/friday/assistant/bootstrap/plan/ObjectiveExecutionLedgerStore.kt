@@ -372,8 +372,9 @@ class ObjectiveExecutionLedgerStore(context: Context) {
             val task = tasks.optJSONObject(index) ?: continue
             if (task.optString("status") in setOf(
                     "CI_PASSED_AWAITING_SANDBOX",
-                    "CI_PASSED_AWAITING_REVIEW"
-                )
+                    "CI_PASSED_AWAITING_REVIEW",
+                    "CI_FAILED_REQUIRES_REPAIR"
+                ) && task.optJSONObject("sandbox")?.optString("state") != "COMPLETED"
             ) return JSONObject(task.toString())
         }
         return null
@@ -388,9 +389,11 @@ class ObjectiveExecutionLedgerStore(context: Context) {
             ?: error("Builder task no longer exists.")
         require(task.optString("status") in setOf(
             "CI_PASSED_AWAITING_SANDBOX",
-            "CI_PASSED_AWAITING_REVIEW"
+            "CI_PASSED_AWAITING_REVIEW",
+            "CI_FAILED_REQUIRES_REPAIR"
         )) { "Candidate is not awaiting isolated sandbox verification." }
-        task.put("status", "CI_PASSED_AWAITING_SANDBOX")
+        val ciFailed = task.optJSONObject("ci")?.optString("state") == "FAILURE"
+        task.put("status", if (ciFailed) "CI_FAILED_REQUIRES_REPAIR" else "CI_PASSED_AWAITING_SANDBOX")
             .put("sandbox", JSONObject()
                 .put("state", "DISPATCHED")
                 .put("run_id", runId ?: JSONObject.NULL)
@@ -412,9 +415,11 @@ class ObjectiveExecutionLedgerStore(context: Context) {
             ?: error("Builder task no longer exists.")
         require(task.optString("status") in setOf(
             "CI_PASSED_AWAITING_SANDBOX",
-            "CI_PASSED_AWAITING_REVIEW"
+            "CI_PASSED_AWAITING_REVIEW",
+            "CI_FAILED_REQUIRES_REPAIR"
         )) { "Candidate is not awaiting isolated sandbox verification." }
-        val passed = evidence.optString("status") == "PASS"
+        val ciFailed = task.optJSONObject("ci")?.optString("state") == "FAILURE"
+        val passed = evidence.optString("status") == "PASS" && !ciFailed
         val nextStatus = if (passed) "SANDBOX_PASSED_AWAITING_REVIEW" else "SANDBOX_FAILED_REQUIRES_REPAIR"
         task.put("status", nextStatus)
             .put("sandbox", evidence)
@@ -422,8 +427,16 @@ class ObjectiveExecutionLedgerStore(context: Context) {
                 .put("stage", nextStatus)
                 .put("updated_at_epoch_ms", System.currentTimeMillis()))
             .put("updated_at_epoch_ms", System.currentTimeMillis())
+        val repairQueued = if (passed) false else appendRepairTask(
+            tasks,
+            task,
+            JSONObject()
+                .put("trigger", if (ciFailed) "candidate_ci_and_sandbox" else "candidate_sandbox")
+                .put("ci", task.optJSONObject("ci") ?: JSONObject())
+                .put("sandbox", evidence)
+        )
         ledger.put("updated_at_epoch_ms", System.currentTimeMillis())
-            .put("execution_state", nextStatus)
+            .put("execution_state", if (repairQueued) "FAILED_CANDIDATE_REPAIR_QUEUED" else nextStatus)
         writeAtomically(ledgerFile, ledger.toString(2))
     }
 
@@ -461,8 +474,17 @@ class ObjectiveExecutionLedgerStore(context: Context) {
                 .put("stage", nextStatus)
                 .put("updated_at_epoch_ms", System.currentTimeMillis()))
             .put("updated_at_epoch_ms", System.currentTimeMillis())
+        val repairQueued = if (stance == "DISPUTE" || stance == "ADD") appendRepairTask(
+            tasks,
+            task,
+            JSONObject()
+                .put("trigger", "independent_candidate_review")
+                .put("ci", task.optJSONObject("ci") ?: JSONObject())
+                .put("sandbox", task.optJSONObject("sandbox") ?: JSONObject())
+                .put("review", review)
+        ) else false
         ledger.put("updated_at_epoch_ms", System.currentTimeMillis())
-            .put("execution_state", nextStatus)
+            .put("execution_state", if (repairQueued) "REVIEW_REPAIR_QUEUED" else nextStatus)
         writeAtomically(ledgerFile, ledger.toString(2))
     }
 
@@ -492,6 +514,20 @@ class ObjectiveExecutionLedgerStore(context: Context) {
             .put("updated_at_epoch_ms", System.currentTimeMillis())
         ledger.put("updated_at_epoch_ms", System.currentTimeMillis())
         writeAtomically(ledgerFile, ledger.toString(2))
+    }
+
+    private fun appendRepairTask(
+        tasks: JSONArray,
+        failedTask: JSONObject,
+        evidence: JSONObject
+    ): Boolean {
+        val repair = CandidateRepairPlanner.createRepairTask(failedTask, evidence) ?: return false
+        val repairId = repair.optString("task_id")
+        if ((0 until tasks.length()).any { tasks.optJSONObject(it)?.optString("task_id") == repairId }) {
+            return false
+        }
+        tasks.put(repair)
+        return true
     }
 
     @Synchronized
