@@ -370,12 +370,11 @@ class ObjectiveExecutionLedgerStore(context: Context) {
         val tasks = snapshot()?.optJSONArray("tasks") ?: return null
         for (index in 0 until tasks.length()) {
             val task = tasks.optJSONObject(index) ?: continue
-            if (task.optString("status") in setOf(
-                    "CI_PASSED_AWAITING_SANDBOX",
-                    "CI_PASSED_AWAITING_REVIEW",
-                    "CI_FAILED_REQUIRES_REPAIR"
-                ) && task.optJSONObject("sandbox")?.optString("state") != "COMPLETED"
-            ) return JSONObject(task.toString())
+            val status = task.optString("status")
+            val sandbox = task.optJSONObject("sandbox")
+            val awaitingSandbox = status in setOf("CI_PASSED_AWAITING_SANDBOX", "CI_PASSED_AWAITING_REVIEW") ||
+                (status == "CI_FAILED_REQUIRES_REPAIR" && sandbox?.optString("status").isNullOrBlank())
+            if (awaitingSandbox) return JSONObject(task.toString())
         }
         return null
     }
