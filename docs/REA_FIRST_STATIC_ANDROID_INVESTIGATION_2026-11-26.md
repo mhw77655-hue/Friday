@@ -59,7 +59,7 @@ The official Termux 0.118.3 APK declares:
 - It requests `WAKE_LOCK`, `FOREGROUND_SERVICE`, and `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, among other permissions.
 - Its manifest declares `android:debuggable=true` and legacy `android:sharedUserId="com.termux"`.
 
-The separate Termux:Boot add-on must be inspected as its own package. Do not attribute its boot receiver or startup behavior to the Termux main APK. A declared wake lock or foreground-service permission is not proof of indefinite survival: actual behavior still depends on service/process state, battery policy, user force-stop, and OEM behavior.
+The separate Termux:Boot add-on is inspected as its own package. Do not attribute its boot receiver or startup behavior to the Termux main APK. A declared wake lock or foreground-service permission is not proof of indefinite survival: actual behavior still depends on service/process state, battery policy, user force-stop, and OEM behavior.
 
 ## Immediate technical conclusions
 
@@ -97,7 +97,7 @@ REA inspected the production APK's actual DEX methods:
 
 The official Shizuku API contract states that a UserService runs in a separate process as root UID 0 or shell UID 2000 (ADB mode). With daemon mode enabled, it persists until explicitly unbound; non-daemon mode ends with the caller process. The important boundary is that Shizuku server stop/restart kills the UserService too. See the [official Shizuku API documentation](https://github.com/RikkaApps/Shizuku-API/blob/master/api/src/main/java/rikka/shizuku/Shizuku.java#L3040-L3274).
 
-**Engineering conclusion:** Friday already uses the key daemon mechanism. The missing work is to observe/reuse the existing daemon without accidentally creating a replacement, prove force-stop survival on the actual phone, and only then add an autonomous watchdog inside this privileged process. PR #174 implements the non-creating `peekUserService` continuity probe and unique instance identity.
+**Engineering conclusion:** Friday already uses the key daemon mechanism. The missing work is to observe/reuse the existing daemon without accidentally creating a replacement, prove force-stop survival on the actual phone, and only then add an autonomous watchdog inside this privileged process. The Shizuku daemon continuity probe is now included in this PR: it adds unique instance identity, non-creating `peekUserService` inspection, and a two-pass force-stop acceptance test.
 
 ### Termux and Termux:Boot mechanisms
 
@@ -109,7 +109,7 @@ REA inspected the exact methods in the official Termux 0.118.3 and Termux:Boot 0
 - The separate `com.termux.boot` package's `BootReceiver.onReceive` reads executable scripts from Termux's `.termux/boot` directory, sorts them, and schedules each through JobScheduler with a short override deadline.
 - `BootJobService.onStartJob` starts Termux's foreground `TermuxService` with a background execution request.
 
-The BootReceiver and JobService belong to **Termux:Boot**, not the main Termux APK. The inspected add-on is `com.termux.boot` 0.8.1 (versionCode 1000), 686 classes, target SDK 28. This is the key separation to preserve when adapting the design: boot scheduling is owned by a separate package identity. Friday must not add Termux as a dependency; it should implement the needed lifecycle mechanism within Friday's own architecture where Android allows it.
+The BootReceiver and JobService belong to **Termux:Boot**, not the main Termux APK. The inspected add-on is `com.termux.boot` 0.8.1 (versionCode 1000), 686 classes, target SDK 28, APK SHA-256 `97e6d336f05b59f7cb25e8efa7173e0a6e665f3022b75c6d55a69b6399ecacc8`. This is the key separation to preserve when adapting the design: boot scheduling is owned by a separate package identity. Friday must not add Termux as a dependency; it should implement the needed lifecycle mechanism within Friday's own architecture where Android allows it.
 
 ### Friday's remaining engineering blockers
 
