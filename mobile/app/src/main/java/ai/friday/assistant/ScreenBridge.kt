@@ -155,8 +155,11 @@ object ScreenBridge {
     /**
      * Query the existing daemon without starting one or attaching the main
      * ScreenBridge connection. Returns the running version, -1 when absent,
-     * or null when unsupported/unavailable. The probe callback is detached
-     * immediately so this diagnostic cannot create a lasting client binding.
+     * or null when unsupported/unavailable. Shizuku shares one connection
+     * multiplexer per UserServiceArgs; unbind(remove=false) clears every
+     * callback in that multiplexer, not just the supplied callback. Therefore
+     * this one no-op probe connection intentionally remains registered for the
+     * lifetime of ScreenBridge and is never unbound independently.
      */
     @Synchronized
     fun peekExistingUserServiceVersion(context: Context): Int? {
@@ -166,11 +169,8 @@ object ScreenBridge {
         }
         val args = createUserServiceArgs(context)
         return try {
-            val version = Shizuku.peekUserService(args, probeConnection)
-            runCatching { Shizuku.unbindUserService(args, probeConnection, false) }
-            version
+            Shizuku.peekUserService(args, probeConnection)
         } catch (failure: Exception) {
-            runCatching { Shizuku.unbindUserService(args, probeConnection, false) }
             Log.w("ScreenBridge", "Could not peek existing Shizuku UserService", failure)
             null
         }
