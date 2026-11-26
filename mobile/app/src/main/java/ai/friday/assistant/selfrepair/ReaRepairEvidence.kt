@@ -22,6 +22,8 @@ data class ReaRepairEvidence(
     val toolVersion: String,
     val target: String,
     val targetRevision: String,
+    /** Exact evidence_id returned by REA structuredContent. */
+    val evidenceId: String,
     val findings: List<ReaFinding>,
     val limitations: List<String> = emptyList()
 ) {
@@ -30,6 +32,9 @@ data class ReaRepairEvidence(
         require(toolVersion.isNotBlank()) { "REA version is required" }
         require(target.isNotBlank()) { "REA target is required" }
         require(targetRevision.isNotBlank()) { "REA target revision is required" }
+        require(Regex("ev_[0-9a-f]{64}").matches(evidenceId)) {
+            "REA evidence ID must be the canonical ev_<64 lowercase hex> identifier"
+        }
         require(findings.isNotEmpty()) { "REA evidence must contain findings" }
         require(findings.all { it.title.isNotBlank() && it.finding.isNotBlank() }) {
             "REA findings must have titles and descriptions"
@@ -46,6 +51,7 @@ data class ReaRepairEvidence(
         appendLine("SOURCE: $toolName $toolVersion")
         appendLine("TARGET: $target")
         appendLine("TARGET REVISION: $targetRevision")
+        appendLine("REA EVIDENCE ID: $evidenceId")
         findings.forEachIndexed { index, item ->
             appendLine("FINDING ${index + 1}: ${item.title}")
             appendLine("DESCRIPTION: ${item.finding}")
