@@ -35,16 +35,22 @@ internal object CandidateRepairPlanner {
         if (attempt > MAX_REPAIR_ATTEMPTS) return null
         val taskId = (failedTaskId.take(70) + "-repair-" + attempt).take(80)
         val rootTaskId = failedTask.optString("repair_root_task_id").ifBlank { failedTaskId }
-        val evidence = JSONObject(failureEvidence.toString())
         val repairContext = JSONObject()
             .put("schema_version", 1)
             .put("failed_task_id", failedTaskId)
             .put("repair_root_task_id", rootTaskId)
             .put("repair_attempt", attempt)
             .put("failed_candidate_commit_sha", candidateSha)
-            .put("candidate", JSONObject(candidate.toString()))
-            .put("failure_evidence", evidence)
-        val boundedContext = repairContext.toString().take(MAX_REPAIR_CONTEXT_CHARS)
+            .put("candidate", JSONObject()
+                .put("commit_sha", candidateSha)
+                .put("number", candidate.opt("number") ?: JSONObject.NULL)
+                .put("url", candidate.optString("url"))
+                .put("branch", candidate.optString("branch")))
+            .put("failure_evidence", compactFailureEvidence(failureEvidence))
+        val boundedContext = repairContext.toString()
+        require(boundedContext.length <= MAX_REPAIR_CONTEXT_CHARS) {
+            "Bounded repair evidence exceeded its persistence budget."
+        }
 
         val acceptance = JSONArray(
             failedTask.optJSONArray("acceptance_criteria")?.toString() ?: "[]"
@@ -85,5 +91,42 @@ internal object CandidateRepairPlanner {
                 .put("updated_at_epoch_ms", nowEpochMs))
             .put("created_at_epoch_ms", nowEpochMs)
             .put("updated_at_epoch_ms", nowEpochMs)
+    }
+
+    private fun compactFailureEvidence(source: JSONObject): JSONObject {
+        val ci = source.optJSONObject("ci") ?: JSONObject()
+        val sandbox = source.optJSONObject("sandbox") ?: JSONObject()
+        val summary = sandbox.optJSONObject("summary") ?: JSONObject()
+        val review = source.optJSONObject("review") ?: JSONObject()
+        val details = JSONArray()
+        val sourceDetails = ci.optJSONArray("details") ?: JSONArray()
+        for (index in 0 until minOf(sourceDetails.length(), 20)) {
+            details.put(sourceDetails.optString(index).take(240))
+        }
+        return JSONObject()
+            .put("trigger", source.optString("trigger").take(80))
+            .put("ci", JSONObject()
+                .put("state", ci.optString("state").take(20))
+                .put("total", ci.optInt("total"))
+                .put("completed", ci.optInt("completed"))
+                .put("failed", ci.optInt("failed"))
+                .put("details", details))
+            .put("sandbox", JSONObject()
+                .put("status", sandbox.optString("status").take(20))
+                .put("reason", sandbox.optString("reason").take(600))
+                .put("run_id", sandbox.opt("run_id") ?: JSONObject.NULL)
+                .put("run_url", sandbox.optString("run_url").take(300))
+                .put("test_profile", summary.optString("test_profile").take(80))
+                .put("expected_commit_sha", summary.optString("expected_commit_sha").take(40))
+                .put("checked_out_commit_sha", summary.optString("checked_out_commit_sha").take(40))
+                .put("apk_sha256", summary.optString("apk_sha256").take(64))
+                .put("failure_excerpt", summary.optString("failure_excerpt").take(5_000))
+                .put("rea_status", summary.optString("rea_status").take(20))
+                .put("rea_report_sha256", summary.optString("rea_report_sha256").take(64))
+                .put("rea_evidence_excerpt", summary.optString("rea_evidence_excerpt").take(7_000)))
+            .put("review", JSONObject()
+                .put("stance", review.optString("stance").take(20))
+                .put("stance_reason", review.optString("stance_reason").take(500)))
+            .put("candidate_diff", source.optString("candidate_diff").take(8_000))
     }
 }
