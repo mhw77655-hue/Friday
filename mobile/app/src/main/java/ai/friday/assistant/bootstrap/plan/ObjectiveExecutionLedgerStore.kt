@@ -366,11 +366,72 @@ class ObjectiveExecutionLedgerStore(context: Context) {
     }
 
     @Synchronized
+    fun nextCandidateForSandbox(): JSONObject? {
+        val tasks = snapshot()?.optJSONArray("tasks") ?: return null
+        for (index in 0 until tasks.length()) {
+            val task = tasks.optJSONObject(index) ?: continue
+            if (task.optString("status") in setOf(
+                    "CI_PASSED_AWAITING_SANDBOX",
+                    "CI_PASSED_AWAITING_REVIEW"
+                )
+            ) return JSONObject(task.toString())
+        }
+        return null
+    }
+
+    @Synchronized
+    fun recordCandidateSandboxDispatched(taskId: String, runId: Long?) {
+        val ledger = snapshot() ?: error("Execution ledger is not initialized.")
+        val tasks = ledger.optJSONArray("tasks") ?: error("Task ledger is missing.")
+        val task = (0 until tasks.length()).map { tasks.getJSONObject(it) }
+            .firstOrNull { it.optString("task_id") == taskId }
+            ?: error("Builder task no longer exists.")
+        require(task.optString("status") in setOf(
+            "CI_PASSED_AWAITING_SANDBOX",
+            "CI_PASSED_AWAITING_REVIEW"
+        )) { "Candidate is not awaiting isolated sandbox verification." }
+        task.put("status", "CI_PASSED_AWAITING_SANDBOX")
+            .put("sandbox", JSONObject()
+                .put("state", "DISPATCHED")
+                .put("run_id", runId ?: JSONObject.NULL)
+                .put("dispatched_at_epoch_ms", System.currentTimeMillis()))
+            .put("checkpoint", JSONObject()
+                .put("stage", "ISOLATED_SANDBOX_DISPATCHED")
+                .put("updated_at_epoch_ms", System.currentTimeMillis()))
+            .put("updated_at_epoch_ms", System.currentTimeMillis())
+        ledger.put("updated_at_epoch_ms", System.currentTimeMillis())
+        writeAtomically(ledgerFile, ledger.toString(2))
+    }
+
+    @Synchronized
+    fun recordCandidateSandboxResult(taskId: String, evidence: JSONObject) {
+        val ledger = snapshot() ?: error("Execution ledger is not initialized.")
+        val tasks = ledger.optJSONArray("tasks") ?: error("Task ledger is missing.")
+        val task = (0 until tasks.length()).map { tasks.getJSONObject(it) }
+            .firstOrNull { it.optString("task_id") == taskId }
+            ?: error("Builder task no longer exists.")
+        require(task.optString("status") == "CI_PASSED_AWAITING_SANDBOX") {
+            "Candidate is not awaiting isolated sandbox verification."
+        }
+        val passed = evidence.optString("status") == "PASS"
+        val nextStatus = if (passed) "SANDBOX_PASSED_AWAITING_REVIEW" else "SANDBOX_FAILED_REQUIRES_REPAIR"
+        task.put("status", nextStatus)
+            .put("sandbox", evidence)
+            .put("checkpoint", JSONObject()
+                .put("stage", nextStatus)
+                .put("updated_at_epoch_ms", System.currentTimeMillis()))
+            .put("updated_at_epoch_ms", System.currentTimeMillis())
+        ledger.put("updated_at_epoch_ms", System.currentTimeMillis())
+            .put("execution_state", nextStatus)
+        writeAtomically(ledgerFile, ledger.toString(2))
+    }
+
+    @Synchronized
     fun nextCandidateForReview(): JSONObject? {
         val tasks = snapshot()?.optJSONArray("tasks") ?: return null
         for (index in 0 until tasks.length()) {
             val task = tasks.optJSONObject(index) ?: continue
-            if (task.optString("status") == "CI_PASSED_AWAITING_REVIEW") {
+            if (task.optString("status") == "SANDBOX_PASSED_AWAITING_REVIEW") {
                 return JSONObject(task.toString())
             }
         }
@@ -417,12 +478,12 @@ class ObjectiveExecutionLedgerStore(context: Context) {
         val state = checks.optString("state")
         require(state in setOf("PENDING", "SUCCESS", "FAILURE")) { "Unknown CI state." }
         if (state != "PENDING") {
-            task.put("status", if (state == "SUCCESS") "CI_PASSED_AWAITING_REVIEW" else "CI_FAILED_REQUIRES_REPAIR")
+            task.put("status", if (state == "SUCCESS") "CI_PASSED_AWAITING_SANDBOX" else "CI_FAILED_REQUIRES_REPAIR")
         }
         task.put("ci", checks)
             .put("checkpoint", JSONObject()
                 .put("stage", when (state) {
-                    "SUCCESS" -> "CI_PASSED_AWAITING_INDEPENDENT_REVIEW"
+                    "SUCCESS" -> "CI_PASSED_AWAITING_ISOLATED_SANDBOX"
                     "FAILURE" -> "CI_FAILED_REPAIR_REQUIRED"
                     else -> "CI_PENDING"
                 })
