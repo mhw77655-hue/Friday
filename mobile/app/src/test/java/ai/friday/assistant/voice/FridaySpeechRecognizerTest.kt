@@ -11,7 +11,8 @@ class FridaySpeechRecognizerTest {
     private class FakeRecognizerPort(
         var available: Boolean = true,
         var transcript: String? = "open the door",
-        var cancelled: Boolean = false
+        var cancelled: Boolean = false,
+        var completeImmediately: Boolean = true
     ) : SpeechRecognizerPort {
         var lastLocale: Locale? = null
         var partialCallback: ((String?) -> Unit)? = null
@@ -27,7 +28,7 @@ class FridaySpeechRecognizerTest {
             lastLocale = locale
             partialCallback = onPartial
             resultCallback = onResult
-            onResult(transcript)
+            if (completeImmediately) onResult(transcript)
         }
 
         override fun cancel() {
@@ -58,7 +59,7 @@ class FridaySpeechRecognizerTest {
 
     @Test
     fun `partial hypotheses are surfaced but never submitted as the final transcript`() {
-        val port = FakeRecognizerPort(transcript = null)
+        val port = FakeRecognizerPort(transcript = null, completeImmediately = false)
         val recognizer = FridaySpeechRecognizer(port)
         val partials = mutableListOf<String?>()
         var final: String? = "not-finished"
@@ -81,7 +82,7 @@ class FridaySpeechRecognizerTest {
 
     @Test
     fun `late partial and final callbacks after cancellation are ignored`() {
-        val port = FakeRecognizerPort(transcript = null)
+        val port = FakeRecognizerPort(transcript = null, completeImmediately = false)
         val recognizer = FridaySpeechRecognizer(port)
         val partials = mutableListOf<String?>()
         var final: String? = null
