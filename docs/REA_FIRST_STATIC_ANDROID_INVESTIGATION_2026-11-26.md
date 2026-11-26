@@ -80,3 +80,45 @@ The separate Termux:Boot add-on must be inspected as its own package. Do not att
 ## Next REA investigation
 
 The next workflow pass searches the live APKs for Shizuku binding/authorization/UserService classes, Termux command-service and boot classes, and Friday's Shizuku/runtime/self-repair/Builder classes. It will retain the search Evidence. Follow-up calls should then inspect exact class and method bodies and trace incoming references before any native Friday code is changed.
+
+
+## Follow-up REA class and method investigation
+
+A second real REA MCP run completed with class inventory, class decompilation, method inspection and cross-reference tracing. It included the separate Termux:Boot APK. Run: [45773851184](https://github.com/mhw77655-hue/Friday/actions/runs/45773851184). Evidence artifact: `friday-rea-android-evidence-45773851184`.
+
+### Friday's existing Shizuku daemon
+
+REA inspected the production APK's actual DEX methods:
+
+- `ScreenBridge.bind(Context)` creates a `UserServiceArgs` for `FridayShellService`, sets process suffix `device-capability`, `daemon(true)`, stable tag `friday-device-capability-core`, and UserService version **6**.
+- `FridayShellService.identity()` reports only the remote UID and PID. It has no process-start timestamp or unique instance token, so Friday cannot distinguish a surviving daemon from a newly created daemon that happens to reuse a PID.
+- `FridayShellService.launchApp(packageName)` uses a fixed Android MAIN/LAUNCHER intent via `am start`, then reads ActivityManager state to verify the target package resumed. This is already a suitable typed relaunch primitive for a future watchdog.
+- `FridayShellService.destroy()` cancels outstanding APK transfers and kills its own UserService process. Explicit service removal therefore has a deliberate process-destruction path.
+
+The official Shizuku API contract states that a UserService runs in a separate process as root UID 0 or shell UID 2000 (ADB mode). With daemon mode enabled, it persists until explicitly unbound; non-daemon mode ends with the caller process. The important boundary is that Shizuku server stop/restart kills the UserService too. See the [official Shizuku API documentation](https://github.com/RikkaApps/Shizuku-API/blob/master/api/src/main/java/rikka/shizuku/Shizuku.java#L3040-L3274).
+
+**Engineering conclusion:** Friday already uses the key daemon mechanism. The missing work is to observe/reuse the existing daemon without accidentally creating a replacement, prove force-stop survival on the actual phone, and only then add an autonomous watchdog inside this privileged process. PR #174 implements the non-creating `peekUserService` continuity probe and unique instance identity.
+
+### Termux and Termux:Boot mechanisms
+
+REA inspected the exact methods in the official Termux 0.118.3 and Termux:Boot 0.8.1 APKs:
+
+- `RunCommandService.onStartCommand` validates the requested action, the external-app execution policy, executable path and file permissions, then forwards a typed execution request to TermuxService. It is not an unrestricted command tunnel.
+- `TermuxService.onStartCommand` promotes itself to a foreground service, handles execute/wake-lock/wake-unlock actions, and returns Android's `START_NOT_STICKY` value. Its `onDestroy` releases wake locks and stops/kills remaining command tasks unless it is performing an intentional stop.
+- `actionAcquireWakeLock` acquires a CPU partial wake lock and a Wi-Fi lock, requests battery-optimization exemption when absent, and refreshes the foreground notification.
+- The separate `com.termux.boot` package's `BootReceiver.onReceive` reads executable scripts from Termux's `.termux/boot` directory, sorts them, and schedules each through JobScheduler with a short override deadline.
+- `BootJobService.onStartJob` starts Termux's foreground `TermuxService` with a background execution request.
+
+The BootReceiver and JobService belong to **Termux:Boot**, not the main Termux APK. The inspected add-on is `com.termux.boot` 0.8.1 (versionCode 1000), 686 classes, target SDK 28. This is the key separation to preserve when adapting the design: boot scheduling is owned by a separate package identity. Friday must not add Termux as a dependency; it should implement the needed lifecycle mechanism within Friday's own architecture where Android allows it.
+
+### Friday's remaining engineering blockers
+
+REA inspected the production APK's current implementations and the matching repository source:
+
+- `FridayRuntimeService.onStartCommand` promotes Friday's own service to foreground and returns `START_STICKY`. `FridayRuntimeBootReceiver` handles BOOT_COMPLETED and MY_PACKAGE_REPLACED when the runtime setting is enabled. Both components still belong to Friday's package and therefore are not an independent force-stop recovery anchor.
+- `CloudVmSandboxExecutor.stressTest` unconditionally returns failure because the cloud VM sandbox is not implemented. It explicitly fails closed and refuses candidate promotion.
+- `SelfRepairLoop` contains a real observe/diagnose/propose/apply/verify/rollback/gate pipeline, but its own source documentation says it is tooling/test-only and is not instantiated in the live FridayEngine. Its mandatory sandbox gate cannot pass with the current stub.
+- `ObjectiveBuilderCandidateExecutor.execute` uses Friday's resident model to draft a bounded patch and publishes an isolated GitHub candidate PR. It does not invoke REA and does not itself run the independent cloud sandbox.
+
+This corrects the delivery priority: the next major product milestone is not inventing another Shizuku bridge. It is (a) proving and extending the existing Shizuku daemon recovery anchor, and (b) connecting REA plus an isolated GitHub Actions sandbox to Friday's live engineering worker so her Builder and self-repair system can actually investigate, test and verify changes.
+
