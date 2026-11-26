@@ -268,7 +268,7 @@ jobs:
                               "id": issue.attrib.get("id", "")[:120],
                               "message": issue.attrib.get("message", "")[:500]
                           })
-          compiler_diagnostics = re.findall(r"(?m)^e:\s+file:///[^\\n]+", log_text)
+          compiler_diagnostics = re.findall(r"(?m)^e:\s+file:///.*", log_text)
           infra_patterns = [
               r"could not resolve (all )?files", r"could not (get|head) https?://",
               r"unknownhostexception", r"sockettimeoutexception", r"connectexception",
