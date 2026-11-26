@@ -18,8 +18,16 @@ data class RepairRequirement(
     /** The original requirement, in behavior terms (not implementation terms). */
     val requirement: String,
     /** Hard constraints any repair must respect. */
-    val constraints: List<String> = emptyList()
-)
+    val constraints: List<String> = emptyList(),
+    /** Full Git revision of the source candidate; required before artifact REA evidence can be attached. */
+    val sourceRevision: String? = null
+) {
+    init {
+        require(sourceRevision == null || Regex("[0-9a-f]{40}").matches(sourceRevision)) {
+            "sourceRevision must be a full lowercase Git commit SHA"
+        }
+    }
+}
 
 /**
  * DIAGNOSE step output — parsed from the model's structured response. Every
