@@ -31,8 +31,12 @@ class FridayUpdateWorker(
             var retry = false
             when (val result = FridayUpdateClient(applicationContext).checkAndStage()) {
                 is FridayUpdateClient.Result.UpToDate -> {
-                    state.clearStaged()
-                    state.recordStatus("Friday is up to date (version code ${result.installedVersionCode}).")
+                    if (state.clearStagedUnlessRecoveryRequired()) {
+                        state.recordStatus("Friday is up to date (version code ${result.installedVersionCode}).")
+                    } else {
+                        val failure = state.lastStatus()
+                        state.recordStatus("RECOVERY REQUIRED: installed Friday failed its post-update identity check. The staged APK and pending marker are retained; routine cleanup is blocked. $failure")
+                    }
                 }
                 is FridayUpdateClient.Result.Staged -> {
                     state.saveStaged(result)
