@@ -123,7 +123,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          REPORT="mobile/app/build/reports/tests/testDebugUnitTest"
+          REPORT="mobile/app/build/test-results/testDebugUnitTest"
           EVIDENCE="$RUNNER_TEMP/friday-sandbox-evidence"
           if [[ ! -d "$REPORT" ]] || ! grep -R -qE '<(failure|error)([[:space:]>])' "$REPORT"; then
             echo "test_failures_found=false" >> "$GITHUB_OUTPUT"
