@@ -234,7 +234,7 @@ class GitHubDevelopmentRepositoryClient(
         ZipInputStream(ByteArrayInputStream(archive)).use { zip ->
             while (true) {
                 val entry = zip.nextEntry ?: break
-                if (!entry.isDirectory && entry.name.substringAfterLast('/') == "investigation-summary.json") {
+                if (!entry.isDirectory && entry.name == "investigation-summary.json") {
                     val output = ByteArrayOutputStream()
                     val buffer = ByteArray(4_096)
                     var total = 0
