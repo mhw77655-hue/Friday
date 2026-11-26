@@ -172,8 +172,8 @@ class ObjectiveExecutionWorker(
                             // Retain the run record, but do not feed mismatched REA
                             // observations into repair synthesis as trusted evidence.
                             summary.put("rea_status", "REJECTED_PROVENANCE")
-                                .remove("rea_summary")
-                                .remove("rea_evidence_excerpt")
+                            summary.remove("rea_summary")
+                            summary.remove("rea_evidence_excerpt")
                         }
                         val valid = run.conclusion == "success" &&
                             summary.optInt("schema_version", -1) == 1 &&
