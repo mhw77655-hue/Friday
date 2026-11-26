@@ -136,14 +136,18 @@ class ObjectiveExecutionWorker(
                 try {
                     val repository = ai.friday.assistant.github.reporting.GitHubDevelopmentRepositoryClient(token)
                     val priorSandbox = pendingSandbox.optJSONObject("sandbox")
-                    if (priorSandbox?.optString("state") != "DISPATCHED") {
+                    var run = repository.findCandidateSandboxRun(sandboxTaskId)
+                    if (priorSandbox?.optString("state") != "DISPATCHED" && run == null) {
                         val runId = repository.dispatchCandidateSandbox(sandboxTaskId, candidateSha)
                         store.recordCandidateSandboxDispatched(sandboxTaskId, runId)
                         enqueueFollowUp(applicationContext, sandboxTaskId, initialDelaySeconds = 600)
                         android.util.Log.i(TAG, "Dispatched isolated cloud sandbox for Builder task " + sandboxTaskId)
                         return@withContext Result.success()
                     }
-                    val run = repository.findCandidateSandboxRun(sandboxTaskId)
+                    if (priorSandbox?.optString("state") != "DISPATCHED" && run != null) {
+                        // Recover a dispatch whose HTTP response arrived just before Friday was closed.
+                        store.recordCandidateSandboxDispatched(sandboxTaskId, run.id)
+                    }
                     if (run == null || run.status != "completed") {
                         enqueueFollowUp(applicationContext, sandboxTaskId, initialDelaySeconds = 600)
                         android.util.Log.i(TAG, "Isolated candidate sandbox is queued or running.")
