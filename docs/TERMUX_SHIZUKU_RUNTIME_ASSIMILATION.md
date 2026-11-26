@@ -58,14 +58,14 @@ Shizuku explicitly kills UserServices when its own server stops or restarts. The
 
 Run on the actual target phone; emulator tests cannot prove Shizuku or Termux lifecycle behavior.
 
-1. Verify Termux is installed, Friday's RUN_COMMAND permission is granted, and the Termux setting allows external apps.
-2. Verify Termux:Boot has been initialized and the boot script exists.
-3. Verify the worker log contains `guardian-started`.
-4. Verify the worker logs a successful `rish` identity (shell UID 2000 or root UID 0).
-5. While Friday is running, force-stop Friday from Android Settings or with a controlled ADB test.
-6. Confirm the worker logs `friday-stopped-recovery-attempt`, starts Friday, and records `friday-foreground-verified`.
-7. Separately force-stop Termux, stop Shizuku, reboot the device, and test battery/OEM process management. Record each failure mode separately.
-8. Confirm **Pause guardian** stops the loop and removes its Termux:Boot entry.
+1. In Friday Settings, connect Shizuku and enable **Independent Shizuku recovery daemon**. Confirm the service reports enabled/running and note its shell UID and PID.
+2. Force-stop Friday while leaving Shizuku running. Confirm the Shizuku UserService PID survives, `/data/local/tmp/friday-shizuku-guardian.log` records `friday-stopped-detected`, and Friday returns to the resumed state.
+3. Verify that the owner can disable the supervisor and that it stops attempting relaunches.
+4. Install the Termux guardian as the secondary recovery path, then verify its log contains `guardian-started` and a successful `rish` identity.
+5. Stop/restart Shizuku while Friday is stopped. Confirm the Shizuku daemon process dies, Termux waits while rish is unavailable, and Termux recovers Friday after Shizuku is started again.
+6. Reboot the device. Confirm the Termux:Boot worker starts when Android permits, then verify Friday reconnects to Shizuku and restores the owner-enabled daemon setting.
+7. Separately force-stop Termux, test battery/OEM process management, and record each failure mode separately.
+8. Confirm **Pause guardian** stops the Termux loop and removes its Termux:Boot entry.
 
 ## Important implementation boundary
 
