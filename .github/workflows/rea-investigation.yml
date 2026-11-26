@@ -6,7 +6,7 @@ on:
       - "tools/rea/**"
       - ".github/workflows/rea-investigation.yml"
   push:
-    branches: [ main ]
+    branches: [ main, feat/rea-mcp-android-investigation ]
     paths:
       - "tools/rea/**"
       - ".github/workflows/rea-investigation.yml"
@@ -29,6 +29,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+
+      - name: Validate Friday's REA MCP client syntax
+        run: node --check tools/rea/inspect-android-apks.mjs
 
       - name: Set up Node.js required by REA
         uses: actions/setup-node@v4
