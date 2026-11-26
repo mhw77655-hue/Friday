@@ -364,6 +364,62 @@ async function main() {
       }
     }
 
+    const methodInspectTargets = [
+      { target: "friday", className: "ai.friday.assistant.ScreenBridge", methodName: "bind" },
+      { target: "friday", className: "ai.friday.assistant.ScreenBridge", methodName: "ensureVerifiedBinding" },
+      { target: "friday", className: "ai.friday.assistant.ShizukuBridge", methodName: "init" },
+      { target: "friday", className: "ai.friday.assistant.ShizukuBridge", methodName: "requestPermission" },
+      { target: "friday", className: "ai.friday.assistant.FridayShellService", methodName: "identity" },
+      { target: "friday", className: "ai.friday.assistant.FridayShellService", methodName: "runFixed" },
+      { target: "friday", className: "ai.friday.assistant.FridayShellService", methodName: "launchApp" },
+      { target: "friday", className: "ai.friday.assistant.FridayShellService", methodName: "destroy" },
+      { target: "friday", className: "ai.friday.assistant.runtime.FridayRuntimeService", methodName: "onStartCommand" },
+      { target: "friday", className: "ai.friday.assistant.runtime.FridayRuntimeBootReceiver", methodName: "onReceive" },
+      { target: "friday", className: "ai.friday.assistant.update.FridayShizukuPackageInstaller", methodName: "install" },
+      { target: "friday", className: "ai.friday.assistant.selfrepair.SelfRepairLoop", methodName: "repair" },
+      { target: "friday", className: "ai.friday.assistant.sandbox.CloudVmSandboxExecutor", methodName: "stressTest" },
+      { target: "friday", className: "ai.friday.assistant.bootstrap.plan.ObjectiveBuilderCandidateExecutor", methodName: "execute" },
+      { target: "shizuku", className: "rikka.shizuku.server.ShizukuService", methodName: "main" },
+      { target: "shizuku", className: "rikka.shizuku.server.ShizukuService", methodName: "onTransact" },
+      { target: "shizuku", className: "moe.shizuku.manager.receiver.BootCompleteReceiver", methodName: "onReceive" },
+      { target: "termux", className: "com.termux.app.RunCommandService", methodName: "onStartCommand" },
+      { target: "termux", className: "com.termux.app.TermuxService", methodName: "onStartCommand" },
+      { target: "termux", className: "com.termux.app.TermuxService", methodName: "onDestroy" },
+      { target: "termux", className: "com.termux.app.TermuxService", methodName: "actionServiceExecute" },
+      { target: "termux", className: "com.termux.app.TermuxService", methodName: "actionAcquireWakeLock" },
+      { target: "termux-boot", className: "com.termux.boot.BootReceiver", methodName: "onReceive" },
+      { target: "termux-boot", className: "com.termux.boot.BootJobService", methodName: "onStartJob" },
+    ];
+
+    for (const method of methodInspectTargets) {
+      const target = targets.find((item) => item.name === method.target);
+      if (!target) throw new Error(`Missing APK target for method inspection: ${method.target}`);
+      const result = await server.callTool("inspect_android_method", {
+        path: target.path,
+        class_name: method.className,
+        method_name: method.methodName,
+        detail: "complete",
+      });
+      if (result?.isError) {
+        throw new Error(`REA method inspection failed for ${method.target}/${method.className}#${method.methodName}: ${JSON.stringify(result.content ?? result).slice(0, 2500)}`);
+      }
+      const record = {
+        schema_version: 1,
+        target: method.target,
+        target_sha256: records.find((item) => item.name === target.name)?.sha256,
+        class_name: method.className,
+        method_name: method.methodName,
+        tool: "inspect_android_method",
+        rea: { package: "rea-agents", version: PACKAGE_VERSION, integrity: PACKAGE_INTEGRITY },
+        structured_content: result?.structuredContent ?? null,
+        text_content: Array.isArray(result?.content)
+          ? result.content.filter((item) => item.type === "text").map((item) => item.text).join("\\n")
+          : null,
+      };
+      const safeName = `${method.className}#${method.methodName}`.replace(/[^a-z0-9_.-]/gi, "_");
+      await writeFile(resolve(outputDir, `${method.target}.method-${safeName}.json`), JSON.stringify(record, null, 2));
+    }
+
     const referenceTargets = [
       { target: "friday", className: "ai.friday.assistant.FridayShellService" },
       { target: "friday", className: "rikka.shizuku.Shizuku" },
