@@ -121,7 +121,7 @@ object ScreenBridge {
             .processNameSuffix("device-capability")
             .daemon(true)
             .tag("friday-device-capability-core")
-            .version(6)
+            .version(7)
         userServiceArgs = args
         try {
             bindingInProgress = true
@@ -256,6 +256,22 @@ object ScreenBridge {
                 runCatching { svc.cancelApkInstall(transferId) }.getOrNull()
             } ?: run { _status.value = "APK transfer cancellation timed out"; null }
         }
+
+    /** Enable/disable the Shizuku-daemon-owned recovery loop. */
+    fun setRecoveryGuardianEnabled(enabled: Boolean): String? {
+        val svc = service ?: return null
+        return runCatching { svc.setRecoveryGuardianEnabled(enabled) }
+            .onFailure { _status.value = "recovery guardian control failed: ${it.javaClass.simpleName}" }
+            .getOrNull()
+    }
+
+    /** Read live status from the independent Shizuku UserService process. */
+    fun recoveryGuardianStatus(): String? {
+        val svc = service ?: return null
+        return runCatching { svc.recoveryGuardianStatus() }
+            .onFailure { _status.value = "recovery guardian status failed: ${it.javaClass.simpleName}" }
+            .getOrNull()
+    }
 
     /** Launches an installed app by package name through a typed Shizuku operation. */
     fun launchApp(packageName: String): String? {
