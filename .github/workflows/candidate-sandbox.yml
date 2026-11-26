@@ -179,6 +179,7 @@ jobs:
           REA_PACKAGE_INTEGRITY: ${{ steps.rea_provider.outputs.integrity }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           CANDIDATE_APK: mobile/app/build/outputs/apk/debug/app-debug.apk
+          CANDIDATE_FAILURE_LOG: ${{ runner.temp }}/friday-sandbox-evidence/gradle.log
           REA_OUTPUT_DIR: ${{ runner.temp }}/friday-candidate-rea/evidence
         shell: bash
         run: |
