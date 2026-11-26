@@ -7,9 +7,12 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.util.Base64
+import java.util.zip.ZipInputStream
 import java.util.concurrent.TimeUnit
 
 /**
@@ -138,6 +141,122 @@ class GitHubDevelopmentRepositoryClient(
             }
             return diff
         }
+    }
+
+    data class ReaInvestigationRun(
+        val id: Long,
+        val title: String,
+        val status: String,
+        val conclusion: String?,
+        val url: String,
+        val headSha: String
+    )
+
+    /**
+     * Start the pinned REA investigation workflow. This is deliberately limited
+     * to the repository-owned workflow file; the caller cannot dispatch arbitrary
+     * workflow IDs or supply shell commands/targets.
+     */
+    fun dispatchReaInvestigation(investigationId: String, ref: String = "main") {
+        require(investigationId.matches(Regex("[A-Za-z0-9._-]{8,80}"))) {
+            "REA investigation id is malformed."
+        }
+        require(ref == "main") { "REA investigations may only run from the protected main ref." }
+        val payload = JSONObject()
+            .put("ref", ref)
+            .put("inputs", JSONObject().put("investigation_id", investigationId))
+        val response = request(
+            apiRoot + "/actions/workflows/rea-investigation.yml/dispatches",
+            "POST",
+            payload.toString()
+        )
+        response.use {
+            if (it.code == 204) return
+            throw IOException(apiError(it.code, "dispatch the REA investigation workflow"))
+        }
+    }
+
+    /** Find the exact workflow run associated with a Friday-generated investigation id. */
+    fun findReaInvestigationRun(investigationId: String): ReaInvestigationRun? {
+        require(investigationId.matches(Regex("[A-Za-z0-9._-]{8,80}"))) {
+            "REA investigation id is malformed."
+        }
+        val json = getJson(
+            apiRoot + "/actions/workflows/rea-investigation.yml/runs?branch=main&event=workflow_dispatch&per_page=50"
+        )
+        val runs = json.optJSONArray("workflow_runs") ?: JSONArray()
+        val expectedTitle = "Friday REA investigation " + investigationId
+        for (index in 0 until runs.length()) {
+            val run = runs.optJSONObject(index) ?: continue
+            val title = run.optString("display_title").ifBlank { run.optString("name") }
+            if (title != expectedTitle && !title.endsWith(investigationId)) continue
+            val id = run.optLong("id", -1L)
+            val url = run.optString("html_url")
+            if (id <= 0L || !url.startsWith("https://github.com/")) continue
+            return ReaInvestigationRun(
+                id = id,
+                title = title,
+                status = run.optString("status", "unknown"),
+                conclusion = run.optString("conclusion").takeIf { value -> value.isNotBlank() && value != "null" },
+                url = url,
+                headSha = run.optString("head_sha")
+            )
+        }
+        return null
+    }
+
+    /**
+     * Download only the investigation summary from the run's evidence ZIP.
+     * ZIP paths are never extracted to disk; size limits and exact entry matching
+     * prevent path traversal and unbounded decompression.
+     */
+    fun downloadReaInvestigationSummary(runId: Long): String {
+        require(runId > 0L) { "REA workflow run id is invalid." }
+        val json = getJson(apiRoot + "/actions/runs/" + runId + "/artifacts?per_page=100")
+        val artifacts = json.optJSONArray("artifacts") ?: JSONArray()
+        val expectedName = "friday-rea-android-evidence-" + runId
+        var artifactId = -1L
+        for (index in 0 until artifacts.length()) {
+            val artifact = artifacts.optJSONObject(index) ?: continue
+            if (artifact.optString("name") == expectedName && !artifact.optBoolean("expired", true)) {
+                artifactId = artifact.optLong("id", -1L)
+                break
+            }
+        }
+        require(artifactId > 0L) { "The completed REA run has no available evidence artifact." }
+        val response = request(apiRoot + "/actions/artifacts/" + artifactId + "/zip", "GET", null)
+        val archive = response.use {
+            if (!it.isSuccessful) throw IOException(apiError(it.code, "download REA evidence"))
+            val bytes = it.body?.bytes() ?: throw IOException("GitHub returned an empty REA evidence archive.")
+            require(bytes.size <= MAX_REA_ARCHIVE_BYTES) { "REA evidence archive exceeds the download limit." }
+            bytes
+        }
+        ZipInputStream(ByteArrayInputStream(archive)).use { zip ->
+            while (true) {
+                val entry = zip.nextEntry ?: break
+                if (!entry.isDirectory && entry.name.substringAfterLast('/') == "investigation-summary.json") {
+                    val output = ByteArrayOutputStream()
+                    val buffer = ByteArray(4_096)
+                    var total = 0
+                    while (true) {
+                        val count = zip.read(buffer)
+                        if (count < 0) break
+                        total += count
+                        require(total <= MAX_REA_SUMMARY_BYTES) { "REA investigation summary exceeds the size limit." }
+                        output.write(buffer, 0, count)
+                    }
+                    val summary = output.toString(StandardCharsets.UTF_8.name())
+                    val parsed = runCatching { JSONObject(summary) }
+                        .getOrElse { throw IOException("REA evidence summary is not valid JSON.") }
+                    require(parsed.optInt("schema_version", -1) == 1) {
+                        "REA evidence summary schema is unsupported."
+                    }
+                    return summary
+                }
+                zip.closeEntry()
+            }
+        }
+        throw IOException("REA evidence archive did not contain investigation-summary.json.")
     }
 
     data class CandidateChecks(
@@ -395,6 +514,8 @@ class GitHubDevelopmentRepositoryClient(
         private const val MAX_FILE_CHARS = 160_000
         private const val MAX_TOTAL_BYTES = 512 * 1024
         private const val MAX_REVIEW_DIFF_CHARS = 256_000
+        private const val MAX_REA_ARCHIVE_BYTES = 20 * 1024 * 1024
+        private const val MAX_REA_SUMMARY_BYTES = 2 * 1024 * 1024
         private val SECRET_PATTERN = Regex(
             "(?i)(github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{30,}|xox[baprs]-[A-Za-z0-9-]{20,}|bearer\\s+[A-Za-z0-9._-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)"
         )
