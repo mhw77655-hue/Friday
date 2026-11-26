@@ -420,15 +420,7 @@ class ObjectiveExecutionLedgerStore(context: Context) {
         val ciFailed = task.optJSONObject("ci")?.optString("state") == "FAILURE"
         val summary = evidence.optJSONObject("summary") ?: JSONObject()
         val candidateSha = task.optJSONObject("candidate")?.optString("commit_sha").orEmpty()
-        val exactCandidateEvidence =
-            candidateSha.matches(Regex("[0-9a-f]{40}")) &&
-                summary.optString("expected_commit_sha") == candidateSha &&
-                summary.optString("checked_out_commit_sha") == candidateSha &&
-                summary.optString("test_profile") == "android-debug" &&
-                summary.optString("apk_sha256").matches(Regex("[0-9a-f]{64}"))
-        val actionableDefect = exactCandidateEvidence &&
-            evidence.optString("status") == "FAIL" &&
-            summary.optString("failure_classification") == "ACTIONABLE_DEFECT"
+        val actionableDefect = CandidateRepairPlanner.isConfirmedCandidateDefect(candidateSha, evidence)
         val infrastructureFailure = summary.optString("failure_classification") == "INFRASTRUCTURE"
         val passed = evidence.optString("status") == "PASS" && !ciFailed
         val nextStatus = when {
