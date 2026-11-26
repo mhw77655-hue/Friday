@@ -24,9 +24,20 @@ A Binder connection without the expected execution identity is not a usable priv
 - `setDozeWhitelist`: add or remove only Friday's own package from Device Idle whitelist and verify by reading the whitelist back.
 - `isDozeWhitelisted`: read-only, verified query of Friday's current Device Idle whitelist state so acceptance tests can restore the owner's original choice.
 - `launchApp`: launch an installed package through Android's launcher intent and verify that the package owns the resumed/top-resumed activity.
+- `setRecoveryGuardianEnabled`: owner-controlled start/stop of Friday's recovery supervisor inside the daemon UserService.
+- `recoveryGuardianStatus`: report the live supervisor state, UID and PID.
 
 The app-launch operation accepts a package name, not a command. Package names are validated before use. The service uses an argument-vector ProcessBuilder with fixed executable and argument structure; it does not expose arbitrary shell, scripts, paths or command strings.
 
+## Daemon recovery supervisor
+
+The Shizuku UserService is bound with `daemon(true)`. Shizuku's API documentation defines daemon mode as continuing after the client application process dies, until the service is explicitly unbound. The UserService runs in a separate process with shell UID 2000 or root UID 0.
+
+Friday now exposes an owner-controlled recovery supervisor inside that daemon process. It checks the package-manager stopped state for Friday, issues a fixed explicit launcher start when stopped, and verifies the resumed activity. It writes an event log to `/data/local/tmp/friday-shizuku-guardian.log`.
+
+This gives Friday a privileged recovery process that is not an ordinary component of Friday's app process. Shizuku itself still owns its lifetime: Shizuku's documentation says the UserService is killed when the Shizuku server stops or restarts. Termux's separately running worker is therefore retained as a second recovery path.
+
+**Physical-device acceptance is mandatory:** enable the supervisor in Friday Settings, force-stop Friday, then confirm the Shizuku daemon PID remains alive, the log records detection and launch, and Friday returns to the resumed state. Repeat after Shizuku restart and device reboot to confirm the Termux fallback behavior. Source-level integration is not evidence that this has passed on the owner's handset.
 ## Device Agency Fabric — target architecture
 
 Friday should reason over capabilities, not memorize one implementation per user request.
