@@ -18,6 +18,7 @@ import ai.friday.assistant.selfrepair.RepairRequirement
 import ai.friday.assistant.selfrepair.ReaFinding
 import ai.friday.assistant.selfrepair.ReaRepairEvidence
 import ai.friday.assistant.selfrepair.ReaRepairEvidenceProvider
+import ai.friday.assistant.selfrepair.ReaTargetArtifact
 import ai.friday.assistant.selfrepair.RepairVerificationEvidence
 import ai.friday.assistant.selfrepair.SelfRepairLoop
 import ai.friday.assistant.selfrepair.SourcePatch
@@ -164,6 +165,12 @@ class DiagnoseRepairIntegrationTest {
                     usage = TokenUsage(promptTokens = 10, completionTokens = 50, totalTokens = 60))
             }
         )
+        val reaArtifact = reaProvider?.let {
+            val apk = root.resolve("build/outputs/apk/debug/app-debug.apk")
+            apk.parentFile?.mkdirs()
+            apk.writeBytes("test-apk-artifact".toByteArray())
+            ReaTargetArtifact.fromBuiltApk(apk, "c".repeat(40), "ai.friday.assistant")
+        }
         val loop = SelfRepairLoop(
             repoRoot = root,
             observer = GradleXmlFailureObserver(root.resolve("results")),
@@ -172,6 +179,7 @@ class DiagnoseRepairIntegrationTest {
             gate = h.gate,
             failureSurface = h.surface,
             sandboxExecutor = passingSandbox,
+            reaTargetArtifact = reaArtifact,
             reaEvidenceProvider = reaProvider
         )
         return Triple(loop, diagnoser, synth)
@@ -260,14 +268,16 @@ class DiagnoseRepairIntegrationTest {
         var invocations = 0
         val provider = ReaRepairEvidenceProvider { target, requirement, observation ->
             invocations++
-            assertEquals(root.canonicalFile, target.canonicalFile)
+            assertEquals(root.resolve("build/outputs/apk/debug/app-debug.apk").canonicalFile, target.file.canonicalFile)
+            assertTrue(target.verifyUnchanged())
             assertEquals("GoalPlanner", requirement.component)
             assertEquals("CapabilityExecutorTest", observation.suiteName)
             ReaRepairEvidence(
                 toolName = "REA",
                 toolVersion = "integration-test",
-                target = "Friday repository",
-                targetRevision = "test-revision",
+                target = target.packageName,
+                targetRevision = target.sourceRevision,
+                targetSha256 = target.sha256,
                 evidenceId = "ev_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                 findings = listOf(
                     ReaFinding(
@@ -281,7 +291,7 @@ class DiagnoseRepairIntegrationTest {
         }
         val (loop, diagnoser, synthesizer) = buildLoop(root, h, reaProvider = provider)
         val result = loop.observeAndDiagnose(
-            RepairRequirement("GoalPlanner", "retain failed nodes", emptyList()),
+            RepairRequirement("GoalPlanner", "retain failed nodes", emptyList(), sourceRevision = "c".repeat(40)),
             "CapabilityExecutorTest"
         )
         assertEquals(1, invocations)
@@ -290,7 +300,7 @@ class DiagnoseRepairIntegrationTest {
         assertTrue(diagnoser.lastPrompt!!.contains("ev_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"))
         assertTrue(result.log.any { it.contains("REA: REA integration-test") })
         val patch = loop.proposeRepair(
-            RepairRequirement("GoalPlanner", "retain failed nodes", emptyList()),
+            RepairRequirement("GoalPlanner", "retain failed nodes", emptyList(), sourceRevision = "c".repeat(40)),
             result.diagnosis!!,
             result.reaEvidence
         )
