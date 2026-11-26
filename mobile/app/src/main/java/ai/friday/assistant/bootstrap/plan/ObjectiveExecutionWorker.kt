@@ -111,6 +111,84 @@ class ObjectiveExecutionWorker(
                 return@withContext Result.success()
             }
 
+            // A green repository CI run is not sufficient evidence. Friday
+            // dispatches a second, disposable hosted-runner sandbox against the
+            // exact candidate commit and waits for its machine-readable proof.
+            val pendingSandbox = store.nextCandidateForSandbox()
+            if (pendingSandbox != null) {
+                val candidate = pendingSandbox.optJSONObject("candidate")
+                val candidateSha = candidate?.optString("commit_sha").orEmpty()
+                val sandboxTaskId = pendingSandbox.optString("task_id")
+                if (token == null) {
+                    android.util.Log.i(TAG, "Isolated candidate sandbox is waiting for repository authorization.")
+                    return@withContext Result.success()
+                }
+                if (!candidateSha.matches(Regex("[0-9a-f]{40}"))) {
+                    store.recordCandidateSandboxResult(
+                        sandboxTaskId,
+                        org.json.JSONObject()
+                            .put("status", "FAIL")
+                            .put("reason", "Candidate commit SHA is missing or malformed.")
+                    )
+                    enqueueFollowUp(applicationContext, sandboxTaskId)
+                    return@withContext Result.success()
+                }
+                try {
+                    val repository = ai.friday.assistant.github.reporting.GitHubDevelopmentRepositoryClient(token)
+                    val priorSandbox = pendingSandbox.optJSONObject("sandbox")
+                    if (priorSandbox?.optString("state") != "DISPATCHED") {
+                        val runId = repository.dispatchCandidateSandbox(sandboxTaskId, candidateSha)
+                        store.recordCandidateSandboxDispatched(sandboxTaskId, runId)
+                        enqueueFollowUp(applicationContext, sandboxTaskId, initialDelaySeconds = 600)
+                        android.util.Log.i(TAG, "Dispatched isolated cloud sandbox for Builder task " + sandboxTaskId)
+                        return@withContext Result.success()
+                    }
+                    val run = repository.findCandidateSandboxRun(sandboxTaskId)
+                    if (run == null || run.status != "completed") {
+                        enqueueFollowUp(applicationContext, sandboxTaskId, initialDelaySeconds = 600)
+                        android.util.Log.i(TAG, "Isolated candidate sandbox is queued or running.")
+                        return@withContext Result.success()
+                    }
+                    val evidence = runCatching {
+                        val summary = org.json.JSONObject(repository.downloadCandidateSandboxSummary(run.id))
+                        val expected = summary.optString("expected_commit_sha")
+                        val actual = summary.optString("checked_out_commit_sha")
+                        val apkDigest = summary.optString("apk_sha256")
+                        val valid = run.conclusion == "success" &&
+                            summary.optInt("schema_version", -1) == 1 &&
+                            summary.optString("task_id") == sandboxTaskId &&
+                            expected == candidateSha && actual == candidateSha &&
+                            summary.optString("test_profile") == "android-debug" &&
+                            summary.optString("status") == "PASS" &&
+                            apkDigest.matches(Regex("[0-9a-f]{64}"))
+                        org.json.JSONObject()
+                            .put("status", if (valid) "PASS" else "FAIL")
+                            .put("run_id", run.id)
+                            .put("run_url", run.url)
+                            .put("run_conclusion", run.conclusion ?: org.json.JSONObject.NULL)
+                            .put("expected_commit_sha", expected)
+                            .put("checked_out_commit_sha", actual)
+                            .put("test_profile", summary.optString("test_profile"))
+                            .put("apk_sha256", apkDigest)
+                            .put("summary", summary)
+                            .put("reason", if (valid) "Exact candidate commit passed isolated Android debug verification." else "Sandbox evidence was incomplete, mismatched or failed.")
+                    }.getOrElse { failure ->
+                        org.json.JSONObject()
+                            .put("status", "FAIL")
+                            .put("run_id", run.id)
+                            .put("run_url", run.url)
+                            .put("reason", "Sandbox evidence could not be validated: " + (failure.message ?: failure.javaClass.simpleName).take(300))
+                    }
+                    store.recordCandidateSandboxResult(sandboxTaskId, evidence)
+                    enqueueFollowUp(applicationContext, sandboxTaskId)
+                    android.util.Log.i(TAG, "Isolated candidate sandbox result: " + evidence.optString("status"))
+                } catch (sandboxFailure: Exception) {
+                    android.util.Log.w(TAG, "Isolated candidate sandbox inspection deferred.", sandboxFailure)
+                    enqueueFollowUp(applicationContext, sandboxTaskId, initialDelaySeconds = 600)
+                }
+                return@withContext Result.success()
+            }
+
             // A green CI result is not the final review. Inspect the exact
             // published diff with a separate public Seat, only when repository
             // visibility permits disclosure. The Seat cannot merge or promote.
