@@ -500,7 +500,7 @@ This is a dated evidence snapshot, not a permanent status claim. Re-audit live s
 
 ### Current next action
 
-Replace the stale owner-vision CI assertions with checks against this canonical plan, re-run the now-unblocked Android harness and Python coverage checks, and validate the exact current PR #173 head. Then proceed to Phase 1 handset acceptance while the live REA repair demonstration is prepared in parallel where its cloud dependencies permit. Do not merge, release or claim self-repair complete until the corresponding evidence exists.
+The stale owner-vision CI assertions have been replaced on `main` and synchronized to PR #173; the canonical and APK-bundled plans are byte-identical on both lines. The next action is to let a fresh exact-head PR validation run complete, confirm that the vision gate now passes and that the previously skipped Android harness/Python coverage checks execute, then fix any newly exposed failures. Once Phase 0 exits, begin Phase 1 handset acceptance and the Phase 2 live REA repair demonstration in parallel wherever their dependencies allow. Do not merge, release or claim self-repair complete until the corresponding evidence exists.
 
 ---
 
