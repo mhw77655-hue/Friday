@@ -51,7 +51,7 @@ class ShizukuDeviceAcceptanceRunner {
         if (!identityOk) return report(checks, started)
 
         val currentDaemonIdentity = ScreenBridge.verifiedServiceIdentity()
-        if (previousDaemonIdentity == null) {
+        if (!ScreenBridge.hasDaemonInstanceToken(previousDaemonIdentity)) {
             val saved = ScreenBridge.persistCurrentDaemonIdentity(context.applicationContext)
             add(
                 "daemon_continuity_baseline",
