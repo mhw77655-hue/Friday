@@ -84,7 +84,7 @@ The next workflow pass searches the live APKs for Shizuku binding/authorization/
 
 ## Follow-up REA class and method investigation
 
-A second real REA MCP run completed with class inventory, class decompilation, method inspection and cross-reference tracing. It included the separate Termux:Boot APK. Run: [45773851184](https://github.com/mhw77655-hue/Friday/actions/runs/45773851184). Evidence artifact: `friday-rea-android-evidence-45773851184`.
+A real REA MCP run completed with class inventory, class decompilation, **24 method inspections** and cross-reference tracing across all four APKs, including the separate Termux:Boot package. Latest successful run: [45776634914](https://github.com/mhw77655-hue/Friday/actions/runs/45776634914). Evidence artifact: `friday-rea-android-evidence-45776634914` (447,236 bytes). The artifact contains the full tool catalog, package reports, class/method outputs and reference traces.
 
 ### Friday's existing Shizuku daemon
 
