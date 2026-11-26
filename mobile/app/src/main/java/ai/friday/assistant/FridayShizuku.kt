@@ -1,5 +1,6 @@
 package ai.friday.assistant
 
+import android.content.Context
 import android.content.pm.PackageManager
 import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,6 +14,8 @@ import rikka.shizuku.Shizuku
  * Shizuku is a capability provider; Friday remains functional when it is unavailable.
  */
 object ShizukuBridge {
+    @Volatile private var appContext: Context? = null
+
     private val _isAvailable = MutableStateFlow(false)
     val isAvailable: StateFlow<Boolean> = _isAvailable.asStateFlow()
 
@@ -22,6 +25,7 @@ object ShizukuBridge {
     private val binderReceivedListener = Shizuku.OnBinderReceivedListener {
         _isAvailable.value = true
         checkPermission()
+        restoreRecoveryGuardianIfEnabled()
     }
 
     private val binderDeadListener = Shizuku.OnBinderDeadListener {
@@ -32,13 +36,18 @@ object ShizukuBridge {
 
     private val permissionResultListener = Shizuku.OnRequestPermissionResultListener { _, grantResult ->
         _isGranted.value = grantResult == PackageManager.PERMISSION_GRANTED
+        restoreRecoveryGuardianIfEnabled()
     }
 
     @Volatile private var initialized = false
 
     @Synchronized
-    fun init() {
-        if (initialized) return
+    fun init(context: Context? = null) {
+        context?.let { appContext = it.applicationContext }
+        if (initialized) {
+            refresh()
+            return
+        }
         try {
             Shizuku.addBinderReceivedListenerSticky(binderReceivedListener)
             Shizuku.addBinderDeadListener(binderDeadListener)
@@ -77,6 +86,22 @@ object ShizukuBridge {
     fun refresh() {
         _isAvailable.value = runCatching { Shizuku.pingBinder() }.getOrDefault(false)
         checkPermission()
+        restoreRecoveryGuardianIfEnabled()
+    }
+
+    private fun restoreRecoveryGuardianIfEnabled() {
+        val context = appContext ?: return
+        if (!_isAvailable.value || !_isGranted.value) return
+        val enabled = runCatching {
+            context.getSharedPreferences("friday_settings", Context.MODE_PRIVATE)
+                .getBoolean("shizuku_recovery_guardian_enabled", false)
+        }.getOrDefault(false)
+        if (enabled) {
+            runCatching { ScreenBridge.bind(context) }
+                .onFailure { failure ->
+                    Log.w("ShizukuBridge", "Could not restore daemon recovery binding", failure)
+                }
+        }
     }
 
     private const val REQUEST_CODE = 4107
