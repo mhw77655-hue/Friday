@@ -18,6 +18,11 @@ on:
         type: choice
         options:
           - android-debug
+      ci_failed:
+        description: Original pull-request CI failed; run REA even if this isolated profile passes
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -116,15 +121,17 @@ jobs:
       # artifact. This is static evidence only; it is never treated as runtime proof.
       - name: Build candidate APK for failure investigation
         id: build_failure_apk
-        if: always() && steps.verify.outcome == 'failure'
+        if: always() && (steps.verify.outcome == 'failure' || inputs.ci_failed)
         continue-on-error: true
         shell: bash
         run: |
-          set +e
-          ./gradlew --no-daemon --console=plain :mobile:app:assembleDebug
-          RESULT=$?
-          echo "exit_code=$RESULT" >> "$GITHUB_OUTPUT"
-          exit "$RESULT"
+          set -euo pipefail
+          APK="mobile/app/build/outputs/apk/debug/app-debug.apk"
+          if [[ ! -s "$APK" ]]; then
+            ./gradlew --no-daemon --console=plain :mobile:app:assembleDebug
+          fi
+          test -s "$APK"
+          echo "exit_code=0" >> "$GITHUB_OUTPUT"
 
       - name: Set up Node.js for failure-only REA investigation
         if: always() && steps.build_failure_apk.outcome == 'success'
