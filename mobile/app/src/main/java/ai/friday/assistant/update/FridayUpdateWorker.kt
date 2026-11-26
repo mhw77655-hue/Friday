@@ -39,7 +39,15 @@ class FridayUpdateWorker(
                     }
                 }
                 is FridayUpdateClient.Result.Staged -> {
-                    state.saveStaged(result)
+                    if (!state.saveStagedUnlessRecoveryRequired(result)) {
+                        val retainedPath = state.loadStaged()?.apk?.canonicalPath
+                        if (result.apk.canonicalPath != retainedPath) {
+                            result.apk.delete()
+                        }
+                        state.recordStatus(
+                            "RECOVERY REQUIRED: retained the previously failed update APK and health marker; discarded the newer candidate until recovery is resolved."
+                        )
+                    } else {
                     ai.friday.assistant.ShizukuBridge.init()
                     ai.friday.assistant.ShizukuBridge.refresh()
                     if (ai.friday.assistant.ShizukuBridge.isAvailable.value &&
@@ -71,6 +79,7 @@ class FridayUpdateWorker(
                     } else {
                         state.recordStatus("Verified Friday ${result.release.versionName} is staged; no authorized Shizuku installer is available, so the native fallback is ready.")
                         notifyUpdateReady(result.release.versionName)
+                    }
                     }
                 }
                 is FridayUpdateClient.Result.Rejected -> {
