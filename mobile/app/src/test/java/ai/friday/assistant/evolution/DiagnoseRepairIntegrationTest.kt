@@ -151,7 +151,7 @@ class DiagnoseRepairIntegrationTest {
         ) = SandboxExecutor.StressResult(passed = true, log = listOf("explicit test-only sandbox stub"))
     }
 
-    private fun buildLoop(root: File, h: Harness, diagText: String = scriptedDiagnosis, repairText: String = scriptedRepair, reaProvider: ReaRepairEvidenceProvider? = null): Pair<SelfRepairLoop, DiagnosisEngine> {
+    private fun buildLoop(root: File, h: Harness, diagText: String = scriptedDiagnosis, repairText: String = scriptedRepair, reaProvider: ReaRepairEvidenceProvider? = null): Triple<SelfRepairLoop, DiagnosisEngine, LlmSynthesisProvider> {
         val diagnoser = DiagnosisEngine(
             complete = { _ ->
                 GenerateResult(content = diagText, finishReason = FinishReason.STOP,
@@ -174,7 +174,7 @@ class DiagnoseRepairIntegrationTest {
             sandboxExecutor = passingSandbox,
             reaEvidenceProvider = reaProvider
         )
-        return loop to diagnoser
+        return Triple(loop, diagnoser, synth)
     }
 
     private fun validEvidence(
@@ -204,7 +204,7 @@ class DiagnoseRepairIntegrationTest {
         writePlannerFixture(root)
         copyXmlFixture(root)
         val h = harness()
-        val (loop, diagnoser) = buildLoop(root, h)
+        val (loop, diagnoser, _) = buildLoop(root, h)
 
         val requirement = RepairRequirement(
             component = "cognitive/planning GoalPlanner.replan",
@@ -277,7 +277,7 @@ class DiagnoseRepairIntegrationTest {
                 )
             )
         }
-        val (loop, diagnoser) = buildLoop(root, h, reaProvider = provider)
+        val (loop, diagnoser, synthesizer) = buildLoop(root, h, reaProvider = provider)
         val result = loop.observeAndDiagnose(
             RepairRequirement("GoalPlanner", "retain failed nodes", emptyList()),
             "CapabilityExecutorTest"
@@ -286,6 +286,15 @@ class DiagnoseRepairIntegrationTest {
         assertNotNull(result.diagnosis)
         assertTrue(diagnoser.lastPrompt!!.contains("source:GoalPlanner.replan"))
         assertTrue(result.log.any { it.contains("REA: REA integration-test") })
+        val patch = loop.proposeRepair(
+            RepairRequirement("GoalPlanner", "retain failed nodes", emptyList()),
+            result.diagnosis!!,
+            result.reaEvidence
+        )
+        assertTrue(patch.edits.isNotEmpty())
+        assertTrue(synthesizer.lastPrompt!!.contains("UPSTREAM REA EVIDENCE"))
+        assertTrue(synthesizer.lastPrompt!!.contains("source:GoalPlanner.replan"))
+        assertTrue(synthesizer.lastPrompt!!.contains("trace:failed-node-lookup"))
     }
 
     @Test
@@ -295,7 +304,7 @@ class DiagnoseRepairIntegrationTest {
         writePlannerFixture(root)
         copyXmlFixture(root)
         val h = harness()
-        val (loop, _) = buildLoop(root, h)
+        val (loop, _, _) = buildLoop(root, h)
 
         val requirement = RepairRequirement(
             component = "cognitive/planning GoalPlanner.replan",
