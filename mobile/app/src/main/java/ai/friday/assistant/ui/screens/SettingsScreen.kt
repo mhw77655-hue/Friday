@@ -233,10 +233,6 @@ fun SettingsScreen() {
     var runtimeMicrophoneActive by remember { mutableStateOf(false) }
     var batteryOptimizationIgnored by remember { mutableStateOf(false) }
     var runtimeStartFailure by remember { mutableStateOf("") }
-    var termuxAvailability by remember {
-        mutableStateOf(ai.friday.assistant.runtime.TermuxRuntimeBridge.Availability.TERMUX_NOT_INSTALLED)
-    }
-    var termuxGuardianStatus by remember { mutableStateOf("Termux recovery worker has not been configured.") }
     // A slow lifecycle snapshot or an older service poll must not overwrite a
     // newer owner toggle. This revision is local to this Settings composition.
     var runtimeStateRevision by remember { mutableIntStateOf(0) }
@@ -269,12 +265,6 @@ fun SettingsScreen() {
                 ai.friday.assistant.ScreenBridge.setRecoveryGuardianEnabled(true)
                     ?: "Shizuku recovery daemon is not connected."
             }
-        }
-    }
-
-    LaunchedEffect(resumeSignal) {
-        termuxAvailability = withContext(Dispatchers.IO) {
-            ai.friday.assistant.runtime.TermuxRuntimeBridge.availability(context)
         }
     }
 
@@ -611,7 +601,7 @@ fun SettingsScreen() {
 
         SectionLabel("FRIDAY RUNTIME")
         Text(
-            text = "Keep Friday's ordinary runtime alive with an Android foreground service. For app-process death or force-stop, Friday can also run a separate Shizuku daemon recovery supervisor, with a Termux-owned worker as a second recovery path. Android/OEM policy still controls whether those independent anchors remain alive.",
+            text = "Keep Friday's ordinary runtime alive with an Android foreground service. Shizuku's daemon UserService offers a separate privileged execution process while Shizuku remains running; Android/OEM policy still controls process and service lifetimes.",
             style = FridayType.Label,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -716,122 +706,9 @@ fun SettingsScreen() {
             )
         }
         Text(
-            text = "After reboot Friday restores her non-microphone core where Android permits. Microphone capture is resumed only after Friday is opened in the foreground with RECORD_AUDIO granted. The Shizuku daemon can recover Friday's ordinary process while Shizuku remains running; Termux can provide a second path after Shizuku restarts. Neither can guarantee recovery if Android/OEM kills both anchors, permissions are revoked, or the device shuts down.",
+            text = "After reboot Friday restores her non-microphone core where Android permits. Microphone capture is resumed only after Friday is opened in the foreground with RECORD_AUDIO granted. Shizuku's daemon UserService is terminated when Shizuku stops or restarts; no recovery guarantee is claimed across that boundary.",
             style = FridayType.Label,
             modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
-        )
-
-        SectionLabel("INDEPENDENT RECOVERY INFRASTRUCTURE")
-        Text(
-            text = "Friday can provision a Termux-owned recovery worker. It runs outside Friday's package, uses Shizuku's official rish bridge, and checks whether Friday has entered Android's stopped state. If stopped, it requests a launch and checks the resumed activity.",
-            style = FridayType.Label,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        Text(
-            text = when (termuxAvailability) {
-                ai.friday.assistant.runtime.TermuxRuntimeBridge.Availability.READY ->
-                    "Termux + Termux:Boot detected; Friday's RUN_COMMAND permission is granted."
-                ai.friday.assistant.runtime.TermuxRuntimeBridge.Availability.TERMUX_NOT_INSTALLED ->
-                    "Termux is not installed."
-                ai.friday.assistant.runtime.TermuxRuntimeBridge.Availability.RUN_COMMAND_PERMISSION_MISSING ->
-                    "Friday still needs the owner-granted 'Run commands in Termux environment' permission."
-                ai.friday.assistant.runtime.TermuxRuntimeBridge.Availability.TERMUX_BOOT_NOT_INSTALLED ->
-                    "Termux is installed, but Termux:Boot is missing. Install it from the same trusted source/signing family and open it once."
-            },
-            style = FridayType.Technical,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        Text(
-            text = "Setup prerequisites: in Termux set allow-external-apps=true in ~/.termux/termux.properties and restart Termux. Export Shizuku's official rish and rish_shizuku.dex into Termux HOME, make rish executable, remove write permission from the dex, and authorize com.termux in Shizuku. Verify with ./rish -c id (UID 2000 in ADB mode or UID 0 in root mode). Termux:Boot must be opened once before it can run boot scripts.",
-            style = FridayType.Technical,
-            modifier = Modifier.padding(bottom = 8.dp)
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = {
-                    runCatching {
-                        context.startActivity(
-                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                android.net.Uri.parse("package:${context.packageName}"))
-                        )
-                    }
-                },
-                modifier = Modifier.weight(1f)
-            ) { Text("Friday app permissions") }
-            Button(
-                onClick = {
-                    context.packageManager.getLaunchIntentForPackage(
-                        ai.friday.assistant.runtime.TermuxRuntimeBridge.TERMUX_PACKAGE
-                    )?.let(context::startActivity)
-                },
-                enabled = ai.friday.assistant.runtime.TermuxRuntimeBridge.isInstalled(
-                    context, ai.friday.assistant.runtime.TermuxRuntimeBridge.TERMUX_PACKAGE
-                ),
-                modifier = Modifier.weight(1f)
-            ) { Text("Open Termux") }
-        }
-        Button(
-            onClick = {
-                context.packageManager.getLaunchIntentForPackage(
-                    ai.friday.assistant.runtime.TermuxRuntimeBridge.TERMUX_BOOT_PACKAGE
-                )?.let(context::startActivity)
-            },
-            enabled = ai.friday.assistant.runtime.TermuxRuntimeBridge.isInstalled(
-                context, ai.friday.assistant.runtime.TermuxRuntimeBridge.TERMUX_BOOT_PACKAGE
-            ),
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("Open Termux:Boot once") }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = {
-                    termuxGuardianStatus = "Submitting the fixed guardian bootstrap to Termux…"
-                    scope.launch {
-                        val result = withContext(Dispatchers.IO) {
-                            ai.friday.assistant.runtime.TermuxRuntimeBridge.installGuardian(context)
-                        }
-                        termuxGuardianStatus = when (result) {
-                            ai.friday.assistant.runtime.TermuxRuntimeBridge.RequestResult.REQUESTED ->
-                                "Bootstrap request submitted to Termux. This is not yet proof the worker is active: verify rish authorization and inspect ~/.friday-guardian.log in Termux."
-                            ai.friday.assistant.runtime.TermuxRuntimeBridge.RequestResult.TERMUX_NOT_INSTALLED ->
-                                "Termux is not installed."
-                            ai.friday.assistant.runtime.TermuxRuntimeBridge.RequestResult.RUN_COMMAND_PERMISSION_MISSING ->
-                                "Grant Friday the Run commands in Termux environment permission in Android app settings."
-                            ai.friday.assistant.runtime.TermuxRuntimeBridge.RequestResult.START_REJECTED ->
-                                "Android rejected the Termux command request. Open Termux, verify allow-external-apps=true, then retry."
-                        }
-                    }
-                },
-                enabled = termuxAvailability != ai.friday.assistant.runtime.TermuxRuntimeBridge.Availability.TERMUX_NOT_INSTALLED &&
-                    termuxAvailability != ai.friday.assistant.runtime.TermuxRuntimeBridge.Availability.RUN_COMMAND_PERMISSION_MISSING,
-                modifier = Modifier.weight(1f)
-            ) { Text("Install / start guardian") }
-            Button(
-                onClick = {
-                    scope.launch {
-                        val result = withContext(Dispatchers.IO) {
-                            ai.friday.assistant.runtime.TermuxRuntimeBridge.uninstallGuardian(context)
-                        }
-                        termuxGuardianStatus = when (result) {
-                            ai.friday.assistant.runtime.TermuxRuntimeBridge.RequestResult.REQUESTED ->
-                                "Guardian pause/removal request submitted to Termux."
-                            ai.friday.assistant.runtime.TermuxRuntimeBridge.RequestResult.TERMUX_NOT_INSTALLED ->
-                                "Termux is not installed."
-                            ai.friday.assistant.runtime.TermuxRuntimeBridge.RequestResult.RUN_COMMAND_PERMISSION_MISSING ->
-                                "Friday lacks Termux RUN_COMMAND permission."
-                            ai.friday.assistant.runtime.TermuxRuntimeBridge.RequestResult.START_REJECTED ->
-                                "Android rejected the Termux command request."
-                        }
-                    }
-                },
-                enabled = termuxAvailability != ai.friday.assistant.runtime.TermuxRuntimeBridge.Availability.TERMUX_NOT_INSTALLED &&
-                    termuxAvailability != ai.friday.assistant.runtime.TermuxRuntimeBridge.Availability.RUN_COMMAND_PERMISSION_MISSING,
-                modifier = Modifier.weight(1f)
-            ) { Text("Pause guardian") }
-        }
-        Text(
-            text = termuxGuardianStatus,
-            style = FridayType.Technical,
-            modifier = Modifier.padding(top = 6.dp, bottom = 8.dp)
         )
 
         SectionLabel("DEVICE CAPABILITIES")
@@ -904,7 +781,7 @@ fun SettingsScreen() {
         }
         Text(text = shizukuStatus, style = FridayType.Technical, modifier = Modifier.padding(vertical = 6.dp))
         Text(
-            text = "Shizuku can host Friday's recovery supervisor in daemon mode. This is a separate shell/root UserService process, not a normal Friday component; Shizuku documents that daemon UserServices survive the client app process dying and remain until explicitly unbound. Shizuku server shutdown/restart still terminates them, so Termux remains the second recovery anchor.",
+            text = "Shizuku can host Friday's recovery supervisor in daemon mode. This is a separate shell/root UserService process, not a normal Friday component; Shizuku documents that daemon UserServices survive the client app process dying and remain until explicitly unbound. Shizuku server shutdown/restart still terminates them.",
             style = FridayType.Label,
             modifier = Modifier.padding(top = 8.dp, bottom = 6.dp)
         )
