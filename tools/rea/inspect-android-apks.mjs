@@ -271,6 +271,12 @@ async function main() {
         "Rish",
         "TermuxShellManager",
       ],
+      "termux-boot": [
+        "BootReceiver",
+        "BootActivity",
+        "BootService",
+        "RunScript",
+      ],
     };
 
     for (const target of targets) {
