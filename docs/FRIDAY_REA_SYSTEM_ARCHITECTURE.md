@@ -230,9 +230,36 @@ These are capability gates, not a claim that they already exist.
 
 Gates can be developed in parallel where dependencies permit. A gate passes only with production wiring and reproducible evidence; a document, class, unit test or green unrelated workflow alone does not pass it.
 
+## 7.1 First executable REA milestone — study Shizuku and Termux, then assimilate
+
+The first upstream-tool integration must be a real REA session, not a new in-house analyzer pretending to be REA.
+
+**Host and connection**
+- Run the upstream `rea-agents` package on a persistent development/cloud worker that satisfies the current REA Node.js/npm requirements. Do not package Node.js, the REA server, JADX or native analysis engines into Friday's Android APK.
+- Pin and record the exact `rea-agents` version, package integrity, host OS/runtime and selected providers for every investigation.
+- Connect the Friday engineering agent to REA through its documented MCP server. Run `rea doctor --json` for host/provider readiness and inspect the live MCP tool catalog. Call `binary_session({})` and use its `tool_availability` before selecting a binary-analysis operation; never infer that an operation is usable merely because a provider name appears in documentation.
+- Keep setup read-only until the exact agent registration changes and any optional analysis-engine installation have been reviewed and approved.
+
+**First investigation targets**
+1. Official Shizuku APK/source and documented UserService API/lifecycle.
+2. Official Termux APK/source and documented command execution, background process and boot mechanisms.
+3. Android platform package stopped-state, process lifecycle, foreground-service and package-install behavior relevant to Friday's recovery and update goals.
+4. Friday's current APK/source and existing Shizuku integration, so findings are compared against Friday's actual implementation rather than an imagined baseline.
+
+Use REA's Android/JADX analysis where the installed tool catalog reports it available. Use ADB/device captures, logs, process snapshots and recorded runtime/network activity only when the host and selected REA tools actually support those inputs. Capture each tool's evidence, limitations, unavailable providers and target/version identity. Static APK analysis alone is not proof of runtime or force-stop behavior; reproduce the critical lifecycle cases on the actual target phone and retain the corresponding traces.
+
+**Required investigation output**
+- A provenance-linked capability map: mechanism, API/protocol, privilege identity, lifecycle owner, trigger, persistence boundary, failure modes and evidence.
+- A comparative explanation of what Termux and Shizuku each contribute, where their capabilities overlap, and which parts are Android platform behavior rather than either app's special implementation.
+- A Friday-native implementation proposal that states which mechanisms can be assimilated into Friday's own code, which require an external Android-granted capability, and why.
+- A small executable proof for each selected capability, with tests for ordinary process death, package force-stop, Shizuku server restart, reboot, revoked authorization and OEM-specific behavior as applicable.
+- A decision record for every retained external dependency. Studying Termux does not authorize adding Termux permissions, package visibility, installation, scripts or runtime coupling to Friday. No such dependency is added by default.
+
+**Pass condition:** REA is demonstrably connected to Friday's engineering agent, a real investigation against the named targets has completed, evidence and tool limitations are retained, and Friday has an independently tested native capability improvement. A setup command, an MCP registration, a static report or a proposed design alone does not pass this milestone.
+
 ## 8. First implementation sequence for this repository
 
-1. Reconcile the canonical plan and bundled offline copy with this REA target.
+1. Complete the executable REA-0 investigation above against Shizuku, Termux, Android lifecycle and Friday itself.
 2. Inventory the existing builder, source index, objective scheduler, execution ledger, capability registry, sandbox, GitHub integration, cloud hooks, device station and release/update mechanisms. Identify actual production wiring and missing links.
 3. Establish one persistent engineering task/evidence model shared across Android and cloud workers.
 4. Implement the cloud engineering workspace and isolated repository operations with resumable tasks.
