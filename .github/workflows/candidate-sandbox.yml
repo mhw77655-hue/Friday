@@ -305,7 +305,15 @@ jobs:
                   reasons.append("Infrastructure signatures were detected: " + ", ".join(infra_hits[:6]))
               if classification == "UNKNOWN" and outcome != "success":
                   reasons.append("No reliable code-defect or infrastructure signature was found; automatic repair is blocked.")
-              return classification, infra_hits, reasons
+              evidence_kinds = []
+              if compiler_diagnostics:
+                  evidence_kinds.append("COMPILER")
+              if test_failures:
+                  evidence_kinds.append("TEST")
+              if lint_errors:
+                  evidence_kinds.append("LINT")
+              evidence_kind = "MIXED" if len(evidence_kinds) > 1 else (evidence_kinds[0] if evidence_kinds else "NONE")
+              return classification, infra_hits, reasons, evidence_kind
 
           # Keep the trusted classifier executable and self-tested in the
           # workflow definition, not in candidate-controlled source code.
@@ -315,7 +323,7 @@ jobs:
           assert classify_failure("failure", "", [], [{"detail": "AssertionError: expected true"}], [])[0] == "ACTIONABLE_DEFECT"
           assert classify_failure("failure", "", [], [{"detail": "java.net.UnknownHostException"}], [])[0] == "INFRASTRUCTURE"
           assert classify_failure("failure", "BUILD FAILED", [], [], [])[0] == "UNKNOWN"
-          failure_classification, infra_hits, reasons = classify_failure(
+          failure_classification, infra_hits, reasons, failure_evidence_kind = classify_failure(
               outcome, log_text, compiler_diagnostics, test_failures, lint_errors
           )
           rea_path = pathlib.Path(os.environ.get("REA_REPORT_PATH", ""))
@@ -335,6 +343,7 @@ jobs:
               "gradle_exit_code": os.environ.get("VERIFY_EXIT_CODE", ""),
               "failure_apk_build_outcome": os.environ.get("FAILURE_APK_OUTCOME", "skipped"),
               "failure_classification": failure_classification,
+              "failure_evidence_kind": failure_evidence_kind,
               "failure_classification_reasons": reasons[:12],
               "test_failure_count": len(test_failures),
               "test_failures": test_failures[:20],
