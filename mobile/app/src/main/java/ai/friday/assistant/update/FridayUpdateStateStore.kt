@@ -14,6 +14,20 @@ class FridayUpdateStateStore(context: Context) {
     private val appContext = context.applicationContext
     private val prefs = appContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
 
+    /**
+     * Do not replace the only staged recovery APK while a failed post-install
+     * identity check is still pending. A healthy pending install is finalized
+     * (and its old artifact cleaned) before accepting a newer candidate.
+     */
+    fun saveStagedUnlessRecoveryRequired(staged: FridayUpdateClient.Result.Staged): Boolean {
+        val pendingStatus = verifyPendingHealthCheck()
+        if (pendingStatus?.startsWith("Post-update health check failed:") == true) {
+            return false
+        }
+        saveStaged(staged)
+        return true
+    }
+
     fun saveStaged(staged: FridayUpdateClient.Result.Staged) {
         val release = staged.release
         prefs.edit()
