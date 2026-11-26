@@ -290,7 +290,7 @@ class ObjectiveExecutionLedgerStore(context: Context) {
                 .put("reversible", item.getBoolean("reversible"))
                 .put("requires_owner_approval", item.getBoolean("requires_owner_approval"))
                 .put("status", "QUEUED")
-                .put("executor", "BUILDER_NOT_CONNECTED")
+                .put("executor", "LOCAL_BUILDER")
                 .put("requires_repository_access", true)
                 .put("dependencies", childDependencies)
                 .put("dependency_state", item.optString("dependency_state", "UNRESOLVED"))
@@ -310,7 +310,7 @@ class ObjectiveExecutionLedgerStore(context: Context) {
             .put("updated_at_epoch_ms", System.currentTimeMillis())
         ledger.put("tasks", tasks)
             .put("updated_at_epoch_ms", System.currentTimeMillis())
-            .put("execution_state", "WORK_BREAKDOWN_READY_BUILDER_NOT_CONNECTED")
+            .put("execution_state", "WORK_BREAKDOWN_READY_LOCAL_BUILDER")
         writeAtomically(ledgerFile, ledger.toString(2))
     }
 
