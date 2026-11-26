@@ -179,7 +179,9 @@ class GitHubDevelopmentRepositoryClient(
             if (it.code == 200) {
                 val body = runCatching { JSONObject(it.body?.string().orEmpty()) }
                     .getOrElse { throw IOException("GitHub accepted the REA dispatch but returned invalid run metadata.") }
-                return body.optLong("workflow_run_id", -1L).takeIf { id -> id > 0L }
+                val runId = body.optLong("workflow_run_id", -1L)
+                if (runId > 0L) return runId
+                throw IOException("GitHub accepted the REA dispatch but omitted its workflow run id.")
             }
             throw IOException(apiError(it.code, "dispatch the REA investigation workflow"))
         }
@@ -337,7 +339,9 @@ class GitHubDevelopmentRepositoryClient(
             if (it.code == 200) {
                 val body = runCatching { JSONObject(it.body?.string().orEmpty()) }
                     .getOrElse { throw IOException("GitHub accepted the sandbox dispatch but returned invalid run metadata.") }
-                return body.optLong("workflow_run_id", -1L).takeIf { id -> id > 0L }
+                val runId = body.optLong("workflow_run_id", -1L)
+                if (runId > 0L) return runId
+                throw IOException("GitHub accepted the sandbox dispatch but omitted its workflow run id.")
             }
             throw IOException(apiError(it.code, "dispatch the isolated candidate sandbox"))
         }
