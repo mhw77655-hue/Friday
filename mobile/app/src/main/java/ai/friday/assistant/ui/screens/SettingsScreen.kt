@@ -309,14 +309,33 @@ fun SettingsScreen() {
                     }
                     when (result) {
                         is FridayUpdateClient.Result.UpToDate -> {
-                            withContext(Dispatchers.IO) { updateStateStore.clearStaged() }
-                            updateStatus = "Friday is up to date (version code ${result.installedVersionCode})."
+                            val cleared = withContext(Dispatchers.IO) {
+                                updateStateStore.clearStagedUnlessRecoveryRequired()
+                            }
+                            if (cleared) {
+                                stagedUpdate = null
+                                updateStatus = "Friday is up to date (version code ${result.installedVersionCode})."
+                            } else {
+                                stagedUpdate = withContext(Dispatchers.IO) { updateStateStore.loadStaged() }
+                                updateStatus = "RECOVERY REQUIRED: Friday retained the failed update APK and health marker; routine cleanup is blocked."
+                            }
                             updateStateStore.recordStatus(updateStatus)
                         }
                         is FridayUpdateClient.Result.Staged -> {
-                            stagedUpdate = result
-                            updateStateStore.saveStaged(result)
-                            updateStatus = "Verified Friday ${result.release.versionName} is staged and ready for Android installation."
+                            val retained = withContext(Dispatchers.IO) {
+                                updateStateStore.saveStagedUnlessRecoveryRequired(result)
+                            }
+                            if (retained) {
+                                stagedUpdate = result
+                                updateStatus = "Verified Friday ${result.release.versionName} is staged and ready for Android installation."
+                            } else {
+                                val recovery = withContext(Dispatchers.IO) { updateStateStore.loadStaged() }
+                                if (recovery?.apk?.canonicalPath != result.apk.canonicalPath) {
+                                    result.apk.delete()
+                                }
+                                stagedUpdate = recovery
+                                updateStatus = "RECOVERY REQUIRED: retained the previously failed update APK and health marker; the newer candidate was discarded."
+                            }
                             updateStateStore.recordStatus(updateStatus)
                         }
                         is FridayUpdateClient.Result.Rejected -> {
