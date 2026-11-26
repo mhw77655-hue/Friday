@@ -2,10 +2,6 @@ name: Friday REA Android investigation
 run-name: Friday REA investigation ${{ inputs.investigation_id || github.run_id }}
 
 on:
-  pull_request:
-    paths:
-      - "tools/rea/**"
-      - ".github/workflows/rea-investigation.yml"
   push:
     branches: [ main ]
     paths:
