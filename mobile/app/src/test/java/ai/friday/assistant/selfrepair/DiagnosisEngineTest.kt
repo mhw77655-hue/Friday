@@ -75,6 +75,7 @@ class DiagnosisEngineTest {
                 toolVersion = "test-version",
                 target = "Friday source tree",
                 targetRevision = "abc123",
+                evidenceId = "ev_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                 findings = listOf(
                     ReaFinding(
                         title = "Failed node is removed during replanning",
