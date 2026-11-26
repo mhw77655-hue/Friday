@@ -458,9 +458,10 @@ class ObjectiveExecutionLedgerStore(context: Context) {
         val task = (0 until tasks.length()).map { tasks.getJSONObject(it) }
             .firstOrNull { it.optString("task_id") == taskId }
             ?: error("Builder task no longer exists.")
-        require(task.optString("status") == "CI_PASSED_AWAITING_REVIEW") {
-            "Candidate is not awaiting independent review."
-        }
+        require(task.optString("status") in setOf(
+            "CI_PASSED_AWAITING_REVIEW",
+            "SANDBOX_PASSED_AWAITING_REVIEW"
+        )) { "Candidate is not awaiting independent review." }
         val stance = review.optString("stance")
         val nextStatus = when (stance) {
             "AGREE" -> "VERIFIED_CANDIDATE_AWAITING_OWNER_REVIEW"
