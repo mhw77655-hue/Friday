@@ -42,11 +42,11 @@ class ReaInvestigationCoordinator(context: Context) {
         val token = GitHubCredentialStore(appContext).read()
             ?: throw IllegalStateException("Save Friday's GitHub token before starting REA.")
         val id = UUID.randomUUID().toString().replace("-", "")
-        GitHubDevelopmentRepositoryClient(token).dispatchReaInvestigation(id)
+        val dispatchedRunId = GitHubDevelopmentRepositoryClient(token).dispatchReaInvestigation(id)
         check(
             prefs.edit()
                 .putString(KEY_INVESTIGATION_ID, id)
-                .putLong(KEY_RUN_ID, -1L)
+                .putLong(KEY_RUN_ID, dispatchedRunId ?: -1L)
                 .putString(KEY_STATUS, "dispatched")
                 .remove(KEY_CONCLUSION)
                 .remove(KEY_URL)
