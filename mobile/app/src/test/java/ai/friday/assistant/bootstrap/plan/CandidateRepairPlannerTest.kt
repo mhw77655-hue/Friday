@@ -136,7 +136,7 @@ class CandidateRepairPlannerTest {
     fun boundsPersistedRepairContext() {
         val huge = JSONObject()
             .put("trigger", "sandbox")
-            .put("sandbox", JSONObject().put("summary", JSONObject()
+            .put("sandbox", JSONObject().put("status", "FAIL").put("summary", JSONObject()
                 .put("rea_status", "COMPLETED")
                 .put("failure_classification", "ACTIONABLE_DEFECT")
                 .put("expected_commit_sha", "a".repeat(40))
