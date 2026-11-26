@@ -267,6 +267,7 @@ class DiagnoseRepairIntegrationTest {
                 toolVersion = "integration-test",
                 target = "Friday repository",
                 targetRevision = "test-revision",
+                evidenceId = "ev_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
                 findings = listOf(
                     ReaFinding(
                         title = "Failed node removed before downstream lookup",
