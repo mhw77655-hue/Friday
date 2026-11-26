@@ -24,6 +24,7 @@ object ScreenBridge {
     @Volatile private var service: IFridayShellService? = null
     private var userServiceArgs: Shizuku.UserServiceArgs? = null
     @Volatile private var verifiedUid: Int? = null
+    @Volatile private var verifiedIdentity: String? = null
     @Volatile private var bindingInProgress: Boolean = false
 
     private val _status = MutableStateFlow("not bound")
@@ -36,6 +37,9 @@ object ScreenBridge {
     internal fun isVerifiedShizukuStatus(status: String): Boolean =
         status.startsWith("bound · verified Shizuku uid=")
 
+    private const val DAEMON_PROBE_PREFS = "friday_shizuku_daemon_probe"
+    private const val KEY_LAST_DAEMON_IDENTITY = "last_verified_daemon_identity"
+
     private val _lastScreenText = MutableStateFlow("")
     val lastScreenText: StateFlow<String> = _lastScreenText.asStateFlow()
 
@@ -46,6 +50,7 @@ object ScreenBridge {
                 bindingInProgress = false
                 service = null
                 verifiedUid = null
+                verifiedIdentity = null
                 _status.value = "null service binder"
                 return
             }
@@ -58,11 +63,13 @@ object ScreenBridge {
                 bindingInProgress = false
                 service = null
                 verifiedUid = null
+                verifiedIdentity = null
                 _status.value = "rejected Shizuku identity: ${if (uid == null) "unverified" else "uid=$uid"}"
                 return
             }
             service = candidate
             verifiedUid = uid
+            verifiedIdentity = identity
             bindingInProgress = false
             _status.value = "bound · verified Shizuku uid=$uid"
         }
@@ -70,18 +77,21 @@ object ScreenBridge {
             bindingInProgress = false
             service = null
             verifiedUid = null
+            verifiedIdentity = null
             _status.value = "disconnected"
         }
         override fun onBindingDied(name: ComponentName?) {
             bindingInProgress = false
             service = null
             verifiedUid = null
+            verifiedIdentity = null
             _status.value = "binding died"
         }
         override fun onNullBinding(name: ComponentName?) {
             bindingInProgress = false
             service = null
             verifiedUid = null
+            verifiedIdentity = null
             _status.value = "empty binding"
         }
     }
@@ -117,15 +127,25 @@ object ScreenBridge {
             return
         }
         if (bindingInProgress) return
-        val args = Shizuku.UserServiceArgs(ComponentName(context, FridayShellService::class.java))
-            .processNameSuffix("device-capability")
-            .daemon(true)
-            .tag("friday-device-capability-core")
-            .version(6)
+        val args = createUserServiceArgs(context)
         userServiceArgs = args
         try {
+            // Do not create a replacement before checking whether the daemon
+            // from Friday's previous process is still alive. This is the key
+            // observation needed to prove survival across package force-stop.
             bindingInProgress = true
-            _status.value = "binding..."
+            _status.value = "checking existing Shizuku daemon..."
+            val existingVersion = runCatching {
+                Shizuku.peekUserService(args, connection)
+            }.getOrNull()
+            if (existingVersion != null && existingVersion >= 0) {
+                _status.value = "connecting to existing Shizuku daemon version=$existingVersion"
+                return
+            }
+
+            bindingInProgress = false
+            bindingInProgress = true
+            _status.value = "starting Shizuku daemon..."
             Shizuku.bindUserService(args, connection)
         } catch (e: Exception) {
             bindingInProgress = false
@@ -133,10 +153,71 @@ object ScreenBridge {
         }
     }
 
+    private fun createUserServiceArgs(context: Context): Shizuku.UserServiceArgs =
+        Shizuku.UserServiceArgs(ComponentName(context, FridayShellService::class.java))
+            .processNameSuffix("device-capability")
+            .daemon(true)
+            .tag("friday-device-capability-core")
+            .version(6)
+
+    /**
+     * Query the existing daemon without starting one. Returns the remote
+     * UserService version, -1 when absent, or null when the query is unsupported
+     * or Shizuku is unavailable. This is intentionally separate from bind().
+     */
+    fun peekExistingUserServiceVersion(context: Context): Int? {
+        if (!runCatching { Shizuku.pingBinder() }.getOrDefault(false)) return null
+        if (runCatching { Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED }.getOrDefault(false).not()) {
+            return null
+        }
+        val args = createUserServiceArgs(context)
+        userServiceArgs = args
+        bindingInProgress = true
+        _status.value = "checking existing Shizuku daemon..."
+        val version = runCatching { Shizuku.peekUserService(args, connection) }.getOrNull()
+        if (version == null || version < 0) {
+            bindingInProgress = false
+            if (service == null) _status.value = "no existing Shizuku daemon"
+        } else {
+            _status.value = "connecting to existing Shizuku daemon version=$version"
+        }
+        return version
+    }
+
+    /** Full identity reported by the remote daemon after UID verification. */
+    fun verifiedServiceIdentity(): String? = verifiedIdentity
+
+    /** Last verified daemon identity saved by Friday before the prior process exited. */
+    fun previousDaemonIdentity(context: Context): String? =
+        context.applicationContext.getSharedPreferences(DAEMON_PROBE_PREFS, Context.MODE_PRIVATE)
+            .getString(KEY_LAST_DAEMON_IDENTITY, null)
+
+    /** Persist the current remote daemon identity so a later launch can compare it. */
+    fun persistCurrentDaemonIdentity(context: Context): Boolean {
+        val identity = verifiedIdentity ?: return false
+        return context.applicationContext.getSharedPreferences(DAEMON_PROBE_PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putString(KEY_LAST_DAEMON_IDENTITY, identity)
+            .commit()
+    }
+
+    internal fun isSameDaemonIdentity(previous: String?, current: String?): Boolean {
+        if (previous.isNullOrBlank() || current.isNullOrBlank()) return false
+        val previousInstance = Regex("(?:^|;)instance=([^;]+)").find(previous)?.groupValues?.get(1)
+        val currentInstance = Regex("(?:^|;)instance=([^;]+)").find(current)?.groupValues?.get(1)
+        val previousPid = Regex("(?:^|;)pid=(\\d+)(?:;|$)").find(previous)?.groupValues?.get(1)
+        val currentPid = Regex("(?:^|;)pid=(\\d+)(?:;|$)").find(current)?.groupValues?.get(1)
+        val previousUid = Regex("(?:^|;)uid=(\\d+)(?:;|$)").find(previous)?.groupValues?.get(1)
+        val currentUid = Regex("(?:^|;)uid=(\\d+)(?:;|$)").find(current)?.groupValues?.get(1)
+        return previousInstance != null && currentInstance != null &&
+            previousInstance == currentInstance && previousPid == currentPid && previousUid == currentUid
+    }
+
     fun onShizukuUnavailable() {
         bindingInProgress = false
         service = null
         verifiedUid = null
+        verifiedIdentity = null
         _status.value = "Shizuku unavailable"
         _lastScreenText.value = "not bound"
     }
