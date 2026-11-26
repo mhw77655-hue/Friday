@@ -11,6 +11,7 @@ import java.util.UUID
 import java.io.RandomAccessFile
 import java.io.FileInputStream
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 
 internal fun summarizeWindowHierarchy(xml: String): String {
     val nodeCount = Regex("<node\\b").findAll(xml).count()
@@ -36,7 +37,91 @@ internal fun outputContainsExactToken(output: String, expected: String): Boolean
 class FridayShellService : IFridayShellService.Stub() {
     private data class ApkTransfer(val file: File, val output: RandomAccessFile, val expectedSize: Long, val expectedSha256: String, var written: Long = 0L)
     private val apkTransfers = ConcurrentHashMap<String, ApkTransfer>()
+    private val recoveryGuardianEnabled = AtomicBoolean(false)
+    @Volatile private var recoveryGuardianThread: Thread? = null
 
+
+    /**
+     * Starts a Shizuku-daemon-owned recovery loop. Because ScreenBridge binds
+     * this UserService with daemon(true), Shizuku keeps this separate shell/root
+     * process alive when Friday's ordinary application process dies.
+     */
+    override fun setRecoveryGuardianEnabled(enabled: Boolean): String {
+        if (Process.myUid() != 0 && Process.myUid() != 2000) {
+            return "status=rejected; reason=untrusted-user-service-uid"
+        }
+        recoveryGuardianEnabled.set(enabled)
+        if (enabled) {
+            ensureRecoveryGuardianThread()
+            appendRecoveryEvent("guardian-enabled")
+        } else {
+            recoveryGuardianThread?.interrupt()
+            appendRecoveryEvent("guardian-disabled")
+        }
+        return recoveryGuardianStatus()
+    }
+
+    override fun recoveryGuardianStatus(): String =
+        "status=verified; enabled=${recoveryGuardianEnabled.get()}; " +
+            "running=${recoveryGuardianThread?.isAlive == true}; uid=${Process.myUid()}; " +
+            "pid=${Process.myPid()}"
+
+    @Synchronized
+    private fun ensureRecoveryGuardianThread() {
+        if (recoveryGuardianThread?.isAlive == true) return
+        recoveryGuardianThread = Thread({
+            appendRecoveryEvent("guardian-thread-started")
+            while (recoveryGuardianEnabled.get() && !Thread.currentThread().isInterrupted) {
+                try {
+                    val packageState = runFixed("dumpsys", "package", "ai.friday.assistant")
+                    val fridayStopped = packageState.lineSequence().any { line ->
+                        line.contains("stopped=true")
+                    }
+                    if (fridayStopped) {
+                        appendRecoveryEvent("friday-stopped-detected")
+                        val launchResult = runFixed(
+                            "am", "start", "-n", "ai.friday.assistant/.MainActivity"
+                        )
+                        appendRecoveryEvent("launch-request: ${launchResult.take(300)}")
+                        Thread.sleep(5_000)
+                        val activityState = runFixed("dumpsys", "activity", "activities")
+                        val resumed = activityState.lineSequence().any { line ->
+                            line.contains("ai.friday.assistant") &&
+                                (line.contains("mResumedActivity", ignoreCase = true) ||
+                                    line.contains("topResumedActivity", ignoreCase = true))
+                        }
+                        appendRecoveryEvent(
+                            if (resumed) "friday-foreground-verified" else "friday-launch-unverified"
+                        )
+                    }
+                    Thread.sleep(15_000)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    break
+                } catch (failure: Exception) {
+                    appendRecoveryEvent("guardian-error: ${failure.javaClass.simpleName}")
+                    try {
+                        Thread.sleep(15_000)
+                    } catch (_: InterruptedException) {
+                        Thread.currentThread().interrupt()
+                        break
+                    }
+                }
+            }
+            appendRecoveryEvent("guardian-thread-stopped")
+        }, "FridayShizukuRecoveryDaemon").apply {
+            isDaemon = true
+            start()
+        }
+    }
+
+    private fun appendRecoveryEvent(event: String) {
+        runCatching {
+            File("/data/local/tmp/friday-shizuku-guardian.log").appendText(
+                "${System.currentTimeMillis()} uid=${Process.myUid()} pid=${Process.myPid()} $event\\n"
+            )
+        }
+    }
 
     /** Proves the bound process is actually running with Shizuku shell/root identity. */
     override fun identity(): String = "uid=${Process.myUid()};pid=${Process.myPid()}"
@@ -302,6 +387,8 @@ class FridayShellService : IFridayShellService.Stub() {
     }
 
     override fun destroy() {
+        recoveryGuardianEnabled.set(false)
+        recoveryGuardianThread?.interrupt()
         apkTransfers.keys.toList().forEach(::cancelApkInstall)
         Process.killProcess(Process.myPid())
     }
