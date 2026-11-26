@@ -1,11 +1,16 @@
 package ai.friday.assistant.github.reporting
 
 import java.util.Base64
+import java.io.ByteArrayOutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
+import okio.Buffer
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -297,6 +302,238 @@ class GitHubDevelopmentRepositoryClientTest {
             }.exceptionOrNull()
             assertTrue(secret is IllegalArgumentException)
             assertEquals(0, server.requestCount)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `candidate sandbox dispatch sends only typed task sha and fixed profile`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"workflow_run_id":654,"html_url":"https://github.com/mhw77655-hue/Friday/actions/runs/654"}"""
+        ))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val runId = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+                .dispatchCandidateSandbox("task-abc123", sha1)
+            assertEquals(654L, runId)
+            val request = server.takeRequest()
+            assertEquals("POST", request.method)
+            assertTrue(request.path!!.endsWith("/actions/workflows/candidate-sandbox.yml/dispatches"))
+            val payload = JSONObject(request.body.readUtf8())
+            assertEquals("main", payload.getString("ref"))
+            val inputs = payload.getJSONObject("inputs")
+            assertEquals("task-abc123", inputs.getString("task_id"))
+            assertEquals(sha1, inputs.getString("candidate_sha"))
+            assertEquals("android-debug", inputs.getString("test_profile"))
+            assertFalse(inputs.getBoolean("ci_failed"))
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `candidate sandbox dispatch carries CI failure to REA trigger`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(204))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+                .dispatchCandidateSandbox("task-abc123", sha1, ciFailed = true)
+            val payload = JSONObject(server.takeRequest().body.readUtf8())
+            assertTrue(payload.getJSONObject("inputs").getBoolean("ci_failed"))
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `candidate sandbox dispatch rejects malformed task and sha before network access`() {
+        val server = MockWebServer()
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val client = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+            assertTrue(runCatching { client.dispatchCandidateSandbox("../bad", sha1) }.isFailure)
+            assertTrue(runCatching { client.dispatchCandidateSandbox("task-abc123", "not-a-sha") }.isFailure)
+            assertEquals(0, server.requestCount)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `candidate sandbox run lookup matches exact Friday task run name`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"workflow_runs":[{"id":654,"display_title":"Friday sandbox task task-abc123","status":"completed","conclusion":"success","html_url":"https://github.com/mhw77655-hue/Friday/actions/runs/654","head_sha":"$sha1"}]}"""
+        ))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val run = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+                .findCandidateSandboxRun("task-abc123")
+            assertEquals(654L, run?.id)
+            assertEquals("completed", run?.status)
+            assertEquals("success", run?.conclusion)
+            assertEquals(sha1, run?.headSha)
+            assertTrue(server.takeRequest().path!!.contains("candidate-sandbox.yml"))
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `candidate sandbox evidence reads bounded exact root summary json`() {
+        val summary = """{"schema_version":1,"task_id":"task-abc123","expected_commit_sha":"$sha1","checked_out_commit_sha":"$sha1","test_profile":"android-debug","status":"PASS","apk_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}"""
+        val archiveBytes = ByteArrayOutputStream().also { bytes ->
+            ZipOutputStream(bytes).use { zip ->
+                zip.putNextEntry(ZipEntry("summary.json"))
+                zip.write(summary.toByteArray())
+                zip.closeEntry()
+            }
+        }.toByteArray()
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"artifacts":[{"id":790,"name":"friday-candidate-sandbox-654","expired":false}]}"""
+        ))
+        server.enqueue(MockResponse().setResponseCode(200).setBody(Buffer().write(archiveBytes)))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val result = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+                .downloadCandidateSandboxSummary(654L)
+            assertEquals(summary, result)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `REA dispatch is pinned to Friday workflow and protected main ref`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(204))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val client = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+            client.dispatchReaInvestigation("friday-rea-abc12345")
+            val request = server.takeRequest()
+            assertEquals("POST", request.method)
+            assertTrue(request.path!!.endsWith("/actions/workflows/rea-investigation.yml/dispatches"))
+            assertEquals("Bearer " + token, request.getHeader("Authorization"))
+            val payload = JSONObject(request.body.readUtf8())
+            assertEquals("main", payload.getString("ref"))
+            assertEquals("friday-rea-abc12345", payload.getJSONObject("inputs").getString("investigation_id"))
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `REA dispatch accepts current GitHub 200 response and captures run id`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"workflow_run_id":987,"run_url":"https://api.github.com/repos/mhw77655-hue/Friday/actions/runs/987","html_url":"https://github.com/mhw77655-hue/Friday/actions/runs/987"}"""
+        ))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val runId = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+                .dispatchReaInvestigation("friday-rea-abc12345")
+            assertEquals(987L, runId)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `REA dispatch rejects arbitrary refs and malformed identifiers before network access`() {
+        val server = MockWebServer()
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val client = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+            assertTrue(runCatching { client.dispatchReaInvestigation("bad", "feature/unsafe") }.isFailure)
+            assertTrue(runCatching { client.dispatchReaInvestigation("bad") }.isFailure)
+            assertEquals(0, server.requestCount)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `REA run lookup matches the exact Friday generated investigation id`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"workflow_runs":[{"id":456,"display_title":"Friday REA investigation friday-rea-abc12345","status":"completed","conclusion":"success","html_url":"https://github.com/mhw77655-hue/Friday/actions/runs/456","head_sha":"$sha1"}]}"""
+        ))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val run = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+                .findReaInvestigationRun("friday-rea-abc12345")
+            assertEquals(456L, run?.id)
+            assertEquals("completed", run?.status)
+            assertEquals("success", run?.conclusion)
+            assertEquals(sha1, run?.headSha)
+            val request = server.takeRequest()
+            assertEquals("GET", request.method)
+            assertTrue(request.path!!.contains("workflow_dispatch"))
+            assertTrue(request.path!!.contains("rea-investigation.yml"))
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `REA evidence download reads only bounded root summary JSON from the artifact`() {
+        val summary = """{"schema_version":1,"targets":[{"name":"friday","sha256":"$sha1"}]}"""
+        val archiveBytes = ByteArrayOutputStream().also { bytes ->
+            ZipOutputStream(bytes).use { zip ->
+                zip.putNextEntry(ZipEntry("investigation-summary.json"))
+                zip.write(summary.toByteArray())
+                zip.closeEntry()
+                zip.putNextEntry(ZipEntry("friday.rea.json"))
+                zip.write("{}".toByteArray())
+                zip.closeEntry()
+            }
+        }.toByteArray()
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"artifacts":[{"id":789,"name":"friday-rea-android-evidence-456","expired":false}]}"""
+        ))
+        server.enqueue(MockResponse().setResponseCode(200).setBody(Buffer().write(archiveBytes)))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val result = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+                .downloadReaInvestigationSummary(456L)
+            assertEquals(summary, result)
+            val metadataRequest = server.takeRequest()
+            val downloadRequest = server.takeRequest()
+            assertEquals("GET", metadataRequest.method)
+            assertEquals("GET", downloadRequest.method)
+            assertTrue(downloadRequest.path!!.endsWith("/actions/artifacts/789/zip"))
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun `REA evidence download refuses path prefixed summary entries`() {
+        val archiveBytes = ByteArrayOutputStream().also { bytes ->
+            ZipOutputStream(bytes).use { zip ->
+                zip.putNextEntry(ZipEntry("../investigation-summary.json"))
+                zip.write("""{"schema_version":1}""".toByteArray())
+                zip.closeEntry()
+            }
+        }.toByteArray()
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"artifacts":[{"id":790,"name":"friday-rea-android-evidence-457","expired":false}]}"""
+        ))
+        server.enqueue(MockResponse().setResponseCode(200).setBody(Buffer().write(archiveBytes)))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val failure = runCatching {
+                GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+                    .downloadReaInvestigationSummary(457L)
+            }.exceptionOrNull()
+            assertTrue(failure is java.io.IOException)
         } finally {
             server.shutdown()
         }

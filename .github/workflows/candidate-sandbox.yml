@@ -1,0 +1,307 @@
+name: Friday isolated candidate sandbox
+run-name: Friday sandbox task ${{ inputs.task_id || github.run_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      task_id:
+        description: Friday Builder task identifier
+        required: true
+        type: string
+      candidate_sha:
+        description: Exact 40-character candidate commit SHA
+        required: true
+        type: string
+      test_profile:
+        description: Fixed verification profile
+        required: true
+        type: choice
+        options:
+          - android-debug
+      ci_failed:
+        description: Original pull-request CI failed; run REA even if this isolated profile passes
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: friday-candidate-sandbox-${{ inputs.task_id }}
+  cancel-in-progress: false
+
+jobs:
+  isolated-candidate-verification:
+    name: Isolated Android candidate verification
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    steps:
+      - name: Validate typed task and commit inputs
+        env:
+          TASK_ID: ${{ inputs.task_id }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          TEST_PROFILE: ${{ inputs.test_profile }}
+        run: |
+          set -euo pipefail
+          [[ "$TASK_ID" =~ ^[A-Za-z0-9._-]{3,80}$ ]]
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$TEST_PROFILE" == "android-debug" ]]
+
+      - name: Checkout exact candidate commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Validate Friday candidate REA client syntax
+        run: node --check tools/rea/inspect-candidate-apk.mjs
+
+      - name: Verify exact candidate identity
+        id: identity
+        env:
+          EXPECTED_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          echo "actual_sha=$ACTUAL_SHA" >> "$GITHUB_OUTPUT"
+          test "$ACTUAL_SHA" = "$EXPECTED_SHA"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Configure Gradle dependency cache
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Create isolated writable Android SDK
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${RUNNER_TEMP}/friday-sandbox-android-sdk"
+          mkdir -p "$SDK_ROOT/cmdline-tools"
+          cp -a /usr/local/lib/android/sdk/cmdline-tools/latest "$SDK_ROOT/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+
+      - name: Install pinned Android build components
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install \
+            "platform-tools" \
+            "platforms;android-36" \
+            "build-tools;35.0.0" \
+            "ndk;27.3.13750724" \
+            "cmake;3.22.1"
+
+      - name: Run isolated candidate verification profile
+        id: verify
+        shell: bash
+        run: |
+          set +e
+          mkdir -p "$RUNNER_TEMP/friday-sandbox-evidence"
+          ./gradlew --no-daemon --console=plain \
+            :mobile:app:testDebugUnitTest \
+            :mobile:app:lintDebug \
+            :mobile:app:assembleDebug \
+            2>&1 | tee "$RUNNER_TEMP/friday-sandbox-evidence/gradle.log"
+          RESULT=${PIPESTATUS[0]}
+          echo "exit_code=$RESULT" >> "$GITHUB_OUTPUT"
+          exit "$RESULT"
+
+      # A failed test/lint run is not a reason to discard the candidate.
+      # Build the exact candidate APK separately, then let REA inspect that
+      # artifact. This is static evidence only; it is never treated as runtime proof.
+      - name: Build candidate APK for failure investigation
+        id: build_failure_apk
+        if: always() && (steps.verify.outcome == 'failure' || inputs.ci_failed)
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="mobile/app/build/outputs/apk/debug/app-debug.apk"
+          if [[ ! -s "$APK" ]]; then
+            ./gradlew --no-daemon --console=plain :mobile:app:assembleDebug
+          fi
+          test -s "$APK"
+          echo "exit_code=0" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js for failure-only REA investigation
+        id: setup_node_rea
+        if: always() && steps.build_failure_apk.outcome == 'success'
+        continue-on-error: true
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.22.1"
+
+      - name: Set up full JDK for the pinned REA JADX provider
+        id: setup_java_rea
+        if: always() && steps.build_failure_apk.outcome == 'success'
+        continue-on-error: true
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install and verify pinned REA Android provider
+        id: rea_provider
+        if: always() && steps.build_failure_apk.outcome == 'success' && steps.setup_node_rea.outcome == 'success' && steps.setup_java_rea.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="6.10.1"
+          INTEGRITY="$(npm view "rea-agents@${VERSION}" dist.integrity)"
+          test -n "$INTEGRITY"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "integrity=$INTEGRITY" >> "$GITHUB_OUTPUT"
+          mkdir -p "$RUNNER_TEMP/friday-candidate-rea"
+          cd "$RUNNER_TEMP/friday-candidate-rea"
+          curl -fL --retry 3 -o jadx-headless-mcp-0.7.1-all.jar \
+            https://github.com/1013503897/jadx-headless-mcp/releases/download/v0.7.1/jadx-headless-mcp-0.7.1-all.jar
+          echo "6e5eacf500b64292bfb73c49797c1958f6ee44646e43e868039ae7feb573ff75  jadx-headless-mcp-0.7.1-all.jar" | sha256sum -c -
+          echo "REA_JADX_MCP_JAR=$RUNNER_TEMP/friday-candidate-rea/jadx-headless-mcp-0.7.1-all.jar" >> "$GITHUB_ENV"
+          npx --yes "rea-agents@${VERSION}" doctor --provider jadx --json
+
+      - name: Investigate the exact failed candidate APK with REA
+        id: rea_candidate
+        if: always() && steps.rea_provider.outcome == 'success'
+        continue-on-error: true
+        env:
+          REA_PACKAGE_VERSION: ${{ steps.rea_provider.outputs.version }}
+          REA_PACKAGE_INTEGRITY: ${{ steps.rea_provider.outputs.integrity }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          CANDIDATE_APK: mobile/app/build/outputs/apk/debug/app-debug.apk
+          REA_OUTPUT_DIR: ${{ runner.temp }}/friday-candidate-rea/evidence
+        shell: bash
+        run: |
+          set +e
+          mkdir -p "$REA_OUTPUT_DIR"
+          node tools/rea/inspect-candidate-apk.mjs \
+            > "$RUNNER_TEMP/friday-candidate-rea/rea-run.stdout" \
+            2> "$RUNNER_TEMP/friday-candidate-rea/rea-run.stderr"
+          RESULT=$?
+          echo "exit_code=$RESULT" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/friday-candidate-rea/rea-run.stdout"
+          exit "$RESULT"
+
+      - name: Assemble machine-readable sandbox evidence
+        if: always()
+        env:
+          TASK_ID: ${{ inputs.task_id }}
+          EXPECTED_SHA: ${{ inputs.candidate_sha }}
+          ACTUAL_SHA: ${{ steps.identity.outputs.actual_sha }}
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+          VERIFY_EXIT_CODE: ${{ steps.verify.outputs.exit_code }}
+          FAILURE_APK_OUTCOME: ${{ steps.build_failure_apk.outcome }}
+          REA_OUTCOME: ${{ steps.rea_candidate.outcome }}
+        run: |
+          set -euo pipefail
+          OUT="friday-sandbox-evidence"
+          mkdir -p "$OUT"
+          if [[ -f "$RUNNER_TEMP/friday-sandbox-evidence/gradle.log" ]]; then
+            cp "$RUNNER_TEMP/friday-sandbox-evidence/gradle.log" "$OUT/gradle.log"
+          fi
+          REA_REPORT="$RUNNER_TEMP/friday-candidate-rea/evidence/candidate-rea-evidence.json"
+          REA_SUMMARY="$RUNNER_TEMP/friday-candidate-rea/evidence/candidate-rea-summary.json"
+          export REA_REPORT_PATH="$REA_REPORT"
+          export REA_SUMMARY_PATH="$REA_SUMMARY"
+          if [[ -f "$REA_SUMMARY" ]]; then
+            cp "$REA_SUMMARY" "$OUT/candidate-rea-summary.json"
+          fi
+          if [[ -f "$RUNNER_TEMP/friday-candidate-rea/rea-run.stderr" ]]; then
+            cp "$RUNNER_TEMP/friday-candidate-rea/rea-run.stderr" "$OUT/rea-run.stderr"
+          fi
+          if [[ -d mobile/app/build/reports/tests/testDebugUnitTest ]]; then
+            mkdir -p "$OUT/reports"
+            cp -a mobile/app/build/reports/tests/testDebugUnitTest "$OUT/reports/"
+          fi
+          if compgen -G "mobile/app/build/reports/lint-results-debug.*" > /dev/null; then
+            mkdir -p "$OUT/reports"
+            cp mobile/app/build/reports/lint-results-debug.* "$OUT/reports/"
+          fi
+          APK="mobile/app/build/outputs/apk/debug/app-debug.apk"
+          APK_SHA=""
+          if [[ -f "$APK" ]]; then
+            APK_SHA="$(sha256sum "$APK" | awk '{print $1}')"
+            export APK_SHA
+          fi
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, platform
+          out = pathlib.Path("friday-sandbox-evidence/summary.json")
+          expected = os.environ.get("EXPECTED_SHA", "")
+          actual = os.environ.get("ACTUAL_SHA", "")
+          outcome = os.environ.get("VERIFY_OUTCOME", "unknown")
+          apk_sha = os.environ.get("APK_SHA", "")
+          log_path = pathlib.Path("friday-sandbox-evidence/gradle.log")
+          failure_excerpt = "\n".join(log_path.read_text(errors="replace").splitlines()[-100:])[-12000:] if log_path.exists() else ""
+          rea_path = pathlib.Path(os.environ.get("REA_REPORT_PATH", ""))
+          rea_text = rea_path.read_text(errors="replace") if rea_path.is_file() else ""
+          rea_sha = hashlib.sha256(rea_text.encode()).hexdigest() if rea_text else ""
+          rea_summary_path = pathlib.Path(os.environ.get("REA_SUMMARY_PATH", ""))
+          rea_summary = json.loads(rea_summary_path.read_text()) if rea_summary_path.is_file() else None
+          passed = outcome == "success" and expected == actual and len(actual) == 40 and len(apk_sha) == 64
+          data = {
+              "schema_version": 1,
+              "task_id": os.environ.get("TASK_ID", ""),
+              "expected_commit_sha": expected,
+              "checked_out_commit_sha": actual,
+              "test_profile": "android-debug",
+              "status": "PASS" if passed else "FAIL",
+              "verification_step": outcome,
+              "gradle_exit_code": os.environ.get("VERIFY_EXIT_CODE", ""),
+              "failure_apk_build_outcome": os.environ.get("FAILURE_APK_OUTCOME", "skipped"),
+              "failure_excerpt": failure_excerpt,
+              "rea_status": "COMPLETED" if rea_text else ("FAILED" if os.environ.get("REA_OUTCOME") == "failure" else "UNAVAILABLE"),
+              "rea_report_sha256": rea_sha,
+              "rea_summary": rea_summary,
+              "rea_evidence_excerpt": json.dumps(rea_summary, separators=(",", ":"))[:12000] if rea_summary else "",
+              "runner_os": platform.platform(),
+              "apk_sha256": apk_sha,
+              "signing": "debug-only; no production signing secrets are available to this runner"
+          }
+          out.write_text(json.dumps(data, indent=2) + "\n")
+          print(out.read_text())
+          PY
+      - name: Upload isolated sandbox evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-candidate-sandbox-${{ github.run_id }}
+          path: friday-sandbox-evidence/
+          if-no-files-found: warn
+          retention-days: 30
+
+      # Keep the full canonical REA record separately. The Android worker
+      # downloads only the small sandbox summary; this avoids pulling a large
+      # APK/REA evidence archive into the phone's bounded ZIP parser.
+      - name: Stage full candidate REA evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p friday-candidate-rea-evidence
+          for FILE in candidate-rea-evidence.json candidate-rea-summary.json; do
+            SOURCE="$RUNNER_TEMP/friday-candidate-rea/evidence/$FILE"
+            if [[ -f "$SOURCE" ]]; then cp "$SOURCE" friday-candidate-rea-evidence/; fi
+          done
+          if [[ -f "$RUNNER_TEMP/friday-candidate-rea/rea-run.stderr" ]]; then
+            cp "$RUNNER_TEMP/friday-candidate-rea/rea-run.stderr" friday-candidate-rea-evidence/
+          fi
+
+      - name: Upload full candidate REA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-candidate-rea-evidence-${{ github.run_id }}
+          path: friday-candidate-rea-evidence/
+          if-no-files-found: ignore
+          retention-days: 30
+
+

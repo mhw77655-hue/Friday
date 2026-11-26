@@ -101,12 +101,119 @@ class ObjectiveExecutionWorker(
                     when (checks.state) {
                         "PENDING" -> enqueueFollowUp(applicationContext, candidateTaskId, initialDelaySeconds = 600)
                         "SUCCESS" -> enqueueFollowUp(applicationContext, candidateTaskId)
-                        "FAILURE" -> Unit // Preserve failure evidence; never retry a failed candidate blindly.
+                        "FAILURE" -> enqueueFollowUp(applicationContext, candidateTaskId) // Run the isolated sandbox and collect repair evidence before generating a fix.
                     }
                     android.util.Log.i(TAG, "Candidate PR CI state: " + checks.state)
                 } catch (checkFailure: Exception) {
                     android.util.Log.w(TAG, "Candidate CI inspection deferred.", checkFailure)
                     enqueueFollowUp(applicationContext, candidateTaskId, initialDelaySeconds = 600)
+                }
+                return@withContext Result.success()
+            }
+
+            // A green repository CI run is not sufficient evidence. Friday
+            // dispatches a second, disposable hosted-runner sandbox against the
+            // exact candidate commit and waits for its machine-readable proof.
+            val pendingSandbox = store.nextCandidateForSandbox()
+            if (pendingSandbox != null) {
+                val candidate = pendingSandbox.optJSONObject("candidate")
+                val candidateSha = candidate?.optString("commit_sha").orEmpty()
+                val sandboxTaskId = pendingSandbox.optString("task_id")
+                if (token == null) {
+                    android.util.Log.i(TAG, "Isolated candidate sandbox is waiting for repository authorization.")
+                    return@withContext Result.success()
+                }
+                if (!candidateSha.matches(Regex("[0-9a-f]{40}"))) {
+                    store.recordCandidateSandboxResult(
+                        sandboxTaskId,
+                        org.json.JSONObject()
+                            .put("status", "FAIL")
+                            .put("reason", "Candidate commit SHA is missing or malformed.")
+                    )
+                    enqueueFollowUp(applicationContext, sandboxTaskId)
+                    return@withContext Result.success()
+                }
+                try {
+                    val repository = ai.friday.assistant.github.reporting.GitHubDevelopmentRepositoryClient(token)
+                    val priorSandbox = pendingSandbox.optJSONObject("sandbox")
+                    var run = repository.findCandidateSandboxRun(sandboxTaskId)
+                    if (priorSandbox?.optString("state") != "DISPATCHED" && run == null) {
+                        val ciFailed = pendingSandbox.optJSONObject("ci")?.optString("state") == "FAILURE"
+                        val runId = repository.dispatchCandidateSandbox(sandboxTaskId, candidateSha, ciFailed)
+                        store.recordCandidateSandboxDispatched(sandboxTaskId, runId)
+                        enqueueFollowUp(applicationContext, sandboxTaskId, initialDelaySeconds = 600)
+                        android.util.Log.i(TAG, "Dispatched isolated cloud sandbox for Builder task " + sandboxTaskId)
+                        return@withContext Result.success()
+                    }
+                    if (priorSandbox?.optString("state") != "DISPATCHED" && run != null) {
+                        // Recover a dispatch whose HTTP response arrived just before Friday was closed.
+                        store.recordCandidateSandboxDispatched(sandboxTaskId, run.id)
+                    }
+                    if (run == null || run.status != "completed") {
+                        enqueueFollowUp(applicationContext, sandboxTaskId, initialDelaySeconds = 600)
+                        android.util.Log.i(TAG, "Isolated candidate sandbox is queued or running.")
+                        return@withContext Result.success()
+                    }
+                    val evidence = runCatching {
+                        val summary = org.json.JSONObject(repository.downloadCandidateSandboxSummary(run.id))
+                        val expected = summary.optString("expected_commit_sha")
+                        val actual = summary.optString("checked_out_commit_sha")
+                        val apkDigest = summary.optString("apk_sha256")
+                        val reaSummary = summary.optJSONObject("rea_summary")
+                        val reaIds = reaSummary?.optJSONArray("evidence_ids")
+                        val reaProvenanceValid = summary.optString("rea_status") == "COMPLETED" &&
+                            reaSummary != null &&
+                            reaSummary.optInt("schema_version", -1) == 1 &&
+                            reaSummary.optString("candidate_commit_sha") == candidateSha &&
+                            reaSummary.optString("apk_sha256") == apkDigest &&
+                            reaSummary.optString("rea_version") == "6.10.1" &&
+                            reaSummary.optString("report_sha256") == summary.optString("rea_report_sha256") &&
+                            reaIds != null && reaIds.length() > 0
+                        if (summary.optString("rea_status") == "COMPLETED" && !reaProvenanceValid) {
+                            // Retain the run record, but do not feed mismatched REA
+                            // observations into repair synthesis as trusted evidence.
+                            summary.put("rea_status", "REJECTED_PROVENANCE")
+                            summary.remove("rea_summary")
+                            summary.remove("rea_evidence_excerpt")
+                        }
+                        val valid = run.conclusion == "success" &&
+                            summary.optInt("schema_version", -1) == 1 &&
+                            summary.optString("task_id") == sandboxTaskId &&
+                            expected == candidateSha && actual == candidateSha &&
+                            summary.optString("test_profile") == "android-debug" &&
+                            summary.optString("status") == "PASS" &&
+                            apkDigest.matches(Regex("[0-9a-f]{64}"))
+                        org.json.JSONObject()
+                            .put("status", if (valid) "PASS" else "FAIL")
+                            .put("run_id", run.id)
+                            .put("run_url", run.url)
+                            .put("run_conclusion", run.conclusion ?: org.json.JSONObject.NULL)
+                            .put("expected_commit_sha", expected)
+                            .put("checked_out_commit_sha", actual)
+                            .put("test_profile", summary.optString("test_profile"))
+                            .put("apk_sha256", apkDigest)
+                            .put("summary", summary)
+                            .put("reason", if (valid) "Exact candidate commit passed isolated Android debug verification." else "Sandbox evidence was incomplete, mismatched or failed.")
+                    }.getOrElse { failure ->
+                        org.json.JSONObject()
+                            .put("status", "FAIL")
+                            .put("run_id", run.id)
+                            .put("run_url", run.url)
+                            .put("reason", "Sandbox evidence could not be validated: " + (failure.message ?: failure.javaClass.simpleName).take(300))
+                    }
+                    // Preserve the exact failed candidate diff alongside CI, sandbox and
+                    // any REA evidence. The ledger turns this immutable episode into
+                    // one bounded repair task; it never retries the same patch blindly.
+                    val candidateDiff = runCatching { repository.readCommitDiff(candidateSha) }.getOrNull()
+                    if (!candidateDiff.isNullOrBlank()) {
+                        evidence.put("candidate_diff", candidateDiff.take(CandidateRepairPlanner.MAX_REPAIR_CONTEXT_CHARS / 2))
+                    }
+                    store.recordCandidateSandboxResult(sandboxTaskId, evidence)
+                    enqueueFollowUp(applicationContext, sandboxTaskId)
+                    android.util.Log.i(TAG, "Isolated candidate sandbox result: " + evidence.optString("status"))
+                } catch (sandboxFailure: Exception) {
+                    android.util.Log.w(TAG, "Isolated candidate sandbox inspection deferred.", sandboxFailure)
+                    enqueueFollowUp(applicationContext, sandboxTaskId, initialDelaySeconds = 600)
                 }
                 return@withContext Result.success()
             }
@@ -133,6 +240,8 @@ class ObjectiveExecutionWorker(
                     val review = ObjectiveBuilderCandidateExecutor(applicationContext, manager, repository)
                         .reviewCandidate(pendingReview, commitSha)
                     val evidence = org.json.JSONObject()
+                        .put("candidate_diff", runCatching { repository.readCommitDiff(commitSha) }.getOrNull()
+                            ?.take(CandidateRepairPlanner.MAX_REPAIR_CONTEXT_CHARS / 2).orEmpty())
                         .put("seat_id", review.seatId)
                         .put("provider", review.provider)
                         .put("model", review.model)
