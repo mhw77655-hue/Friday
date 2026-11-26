@@ -16,8 +16,9 @@ import java.util.zip.ZipInputStream
 import java.util.concurrent.TimeUnit
 
 /**
- * Narrow GitHub source-candidate publisher. It creates an isolated branch and
- * pull request; it cannot merge, publish a release, or access signing keys.
+ * Narrow GitHub engineering client. It publishes isolated candidate PRs and
+ * dispatches only Friday's pinned REA workflow; it cannot merge, publish a
+ * release, or access signing keys.
  */
 class GitHubDevelopmentRepositoryClient(
     private val token: String,
@@ -47,7 +48,7 @@ class GitHubDevelopmentRepositoryClient(
         val plan = getFile(".ralph/FRIDAY_DELIVERY_PLAN.md", baseBranch)
         require(plan.isNotBlank()) { "Canonical plan read returned empty content." }
         return "Repository read access verified at " + baseBranch + " (" + head.take(12) + "). " +
-            "Candidate creation additionally requires Contents write and Pull requests write."
+            "Candidate creation additionally requires Contents write and Pull requests write. REA dispatch requires Actions read/write."
     }
 
     /**
