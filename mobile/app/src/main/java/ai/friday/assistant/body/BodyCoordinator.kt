@@ -429,6 +429,7 @@ class BodyCoordinator(
         when (_state.value) {
             BodyState.LISTENING, BodyState.WAKE, BodyState.HEARING -> {
                 speechRecognizer?.cancel()
+                SpeechBridge.clearPartialTranscript()
                 emitEvent(BodyEvent.Reset)
             }
             BodyState.SPEAKING, BodyState.RESPONDING, BodyState.THINKING, BodyState.RETRIEVING -> {
@@ -643,8 +644,13 @@ class BodyCoordinator(
             LanguageRouter.Language.EGYPTIAN_ARABIC -> java.util.Locale("ar", "EG")
             LanguageRouter.Language.ENGLISH -> java.util.Locale.US
         }
-        recognizer.recognize(locale) { text ->
+        SpeechBridge.clearPartialTranscript()
+        recognizer.recognize(
+            locale = locale,
+            onPartial = { partial -> SpeechBridge.updatePartialTranscript(partial) }
+        ) { text ->
             val clean = text?.trim().orEmpty()
+            SpeechBridge.clearPartialTranscript()
             if (clean.isNotBlank()) SpeechBridge.recordResult(clean)
             // Deliver success OR failure. A null/blank result must close the
             // listening state and release the mic lease rather than strand it.
@@ -730,6 +736,7 @@ class BodyCoordinator(
 
         // Stop any live tap-to-trigger recognition
         speechRecognizer?.cancel()
+        SpeechBridge.clearPartialTranscript()
 
         // Re-route the interrupting utterance as the new turn. From INTERRUPTED,
         // the re-emitted UserInput transitions straight to THINKING, so the
@@ -852,6 +859,7 @@ class BodyCoordinator(
         micJob?.cancel()
         FridayMic.stopAsync()
         speechRecognizer?.cancel()
+        SpeechBridge.clearPartialTranscript()
         tts?.stop()
         presenceMonitor?.stop()
         warmupExecutor.shutdown()
