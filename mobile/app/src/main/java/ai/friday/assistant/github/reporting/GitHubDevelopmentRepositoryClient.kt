@@ -158,7 +158,7 @@ class GitHubDevelopmentRepositoryClient(
      * to the repository-owned workflow file; the caller cannot dispatch arbitrary
      * workflow IDs or supply shell commands/targets.
      */
-    fun dispatchReaInvestigation(investigationId: String, ref: String = "main") {
+    fun dispatchReaInvestigation(investigationId: String, ref: String = "main"): Long? {
         require(investigationId.matches(Regex("[A-Za-z0-9._-]{8,80}"))) {
             "REA investigation id is malformed."
         }
@@ -172,7 +172,15 @@ class GitHubDevelopmentRepositoryClient(
             payload.toString()
         )
         response.use {
-            if (it.code == 204) return
+            // GitHub's current REST contract returns 200 + workflow_run_id;
+            // older API-version behavior returned 204. Accept both so a
+            // successful dispatch is never misreported as a failed request.
+            if (it.code == 204) return null
+            if (it.code == 200) {
+                val body = runCatching { JSONObject(it.body?.string().orEmpty()) }
+                    .getOrElse { throw IOException("GitHub accepted the REA dispatch but returned invalid run metadata.") }
+                return body.optLong("workflow_run_id", -1L).takeIf { id -> id > 0L }
+            }
             throw IOException(apiError(it.code, "dispatch the REA investigation workflow"))
         }
     }
