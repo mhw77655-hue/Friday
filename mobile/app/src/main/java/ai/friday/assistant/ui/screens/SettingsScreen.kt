@@ -1385,7 +1385,7 @@ private fun ReaEngineeringSection(context: Context) {
                     busy = false
                 }
             },
-            enabled = !busy,
+            enabled = !busy && snapshot?.status !in setOf("dispatched", "queued", "in_progress"),
             modifier = Modifier.fillMaxWidth()
         ) { Text(if (busy) "Starting REA…" else "Start REA investigation") }
 
