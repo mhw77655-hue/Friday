@@ -242,7 +242,7 @@ jobs:
           apk_sha = os.environ.get("APK_SHA", "")
           log_path = pathlib.Path("friday-sandbox-evidence/gradle.log")
           log_text = log_path.read_text(errors="replace") if log_path.exists() else ""
-          failure_excerpt = "\\n".join(log_text.splitlines()[-100:])[-12000:]
+          failure_excerpt = "\n".join(log_text.splitlines()[-100:])[-12000:]
           report_root = pathlib.Path("friday-sandbox-evidence/reports")
           test_failures = []
           lint_errors = []
@@ -268,7 +268,7 @@ jobs:
                               "id": issue.attrib.get("id", "")[:120],
                               "message": issue.attrib.get("message", "")[:500]
                           })
-          compiler_diagnostics = re.findall(r"(?m)^e:\\s+file:///[^\\n]+", log_text)
+          compiler_diagnostics = re.findall(r"(?m)^e:\s+file:///[^\\n]+", log_text)
           infra_patterns = [
               r"could not resolve (all )?files", r"could not (get|head) https?://",
               r"unknownhostexception", r"sockettimeoutexception", r"connectexception",
