@@ -1,54 +1,42 @@
 package ai.friday.assistant.voice
 
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Injectable platform seam for speech recognition — the single STT entry point
- * the BodyCoordinator drives. The recognizer never talks to the Android runtime
- * directly; it drives this port, so [FridaySpeechRecognizer] is unit-testable on
- * the JVM through a deterministic fake while the production
- * [PlatformSpeechRecognizerPort] owns the real `android.speech.SpeechRecognizer`
- * interaction. This mirrors the established `MediaSessionControlPort` pattern.
+ * Injectable platform seam for speech recognition. Partial hypotheses are
+ * ephemeral UI feedback; only the final result is returned to Friday's turn
+ * pipeline. The platform adapter owns Android SpeechRecognizer lifecycle.
  */
 interface SpeechRecognizerPort {
-    /** True when a platform speech-recognition service is installed and usable. */
     fun isRecognitionAvailable(): Boolean
 
-    /**
-     * Begin a recognition session for [locale]. The platform listens live,
-     * endpoints on its own and delivers at most one non-blank result through
-     * [onResult] (null when unavailable/errored/timed out). Cancels any prior
-     * session.
-     */
-    fun recognize(locale: Locale, onResult: (String?) -> Unit)
+    /** Begin one locale-specific session. A new call replaces the prior session. */
+    fun recognize(
+        locale: Locale,
+        onPartial: (String?) -> Unit,
+        onResult: (String?) -> Unit
+    )
 
-    /** Cancel + release any in-flight session. */
     fun cancel()
 }
 
-/**
- * Production [SpeechRecognizerPort] over the real Android platform API
- * (`android.speech.SpeechRecognizer`). Compile-time-only reference
- * (android.jar stub) — constructed only on-device, never invoked on the JVM,
- * matching the existing `PlatformBiometricPromptResultMapper` /
- * `PlatformMediaSessionControlPort` pattern. No JNI, no native object lifecycle.
- *
- * Platform availability is truth: [isRecognitionAvailable] reports whether a
- * recognizer service exists at all, so the caller degrades honestly to the
- * manual tap-to-trigger path when it does not.
- */
+/** Production adapter over Android's platform SpeechRecognizer API. */
 class PlatformSpeechRecognizerPort(
     private val context: android.content.Context,
     private val onFailure: (ai.friday.assistant.failure.FailureReport) -> Unit = {}
 ) : SpeechRecognizerPort {
 
+    @Volatile private var activeRecognizer: android.speech.SpeechRecognizer? = null
+
     override fun isRecognitionAvailable(): Boolean =
         android.speech.SpeechRecognizer.isRecognitionAvailable(context)
 
-    override fun recognize(locale: Locale, onResult: (String?) -> Unit) {
+    override fun recognize(
+        locale: Locale,
+        onPartial: (String?) -> Unit,
+        onResult: (String?) -> Unit
+    ) {
         cancel()
         val sr = if (
             android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
@@ -67,21 +55,29 @@ class PlatformSpeechRecognizerPort(
             override fun onRmsChanged(rmsdB: Float) {}
             override fun onBufferReceived(buffer: ByteArray?) {}
             override fun onEndOfSpeech() {}
-            override fun onPartialResults(partialResults: android.os.Bundle?) {}
+
+            override fun onPartialResults(partialResults: android.os.Bundle?) {
+                if (delivered || activeRecognizer !== sr) return
+                val matches = partialResults
+                    ?.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION)
+                    .orEmpty()
+                onPartial(matches.firstOrNull { it.isNotBlank() })
+            }
 
             override fun onResults(results: android.os.Bundle?) {
-                if (delivered) return
+                if (delivered || activeRecognizer !== sr) return
                 delivered = true
                 val matches = results
                     ?.getStringArrayList(android.speech.SpeechRecognizer.RESULTS_RECOGNITION)
                     .orEmpty()
-                val text = matches.firstOrNull { !it.isBlank() }
-                finish()
+                val text = matches.firstOrNull { it.isNotBlank() }
+                onPartial(null)
+                finish(sr)
                 onResult(text)
             }
 
             override fun onError(error: Int) {
-                if (delivered) return
+                if (delivered || activeRecognizer !== sr) return
                 delivered = true
                 onFailure(
                     ai.friday.assistant.failure.FailureReport(
@@ -97,7 +93,8 @@ class PlatformSpeechRecognizerPort(
                         recoveryAction = ai.friday.assistant.failure.RecoveryAction.RETRY
                     )
                 )
-                finish()
+                onPartial(null)
+                finish(sr)
                 onResult(null)
             }
 
@@ -112,14 +109,14 @@ class PlatformSpeechRecognizerPort(
             )
             putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, locale.toLanguageTag())
             putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, locale.toLanguageTag())
-            putExtra(android.speech.RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+            putExtra(android.speech.RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(android.speech.RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
             putExtra(android.speech.RecognizerIntent.EXTRA_MAX_RESULTS, 3)
         }
 
         runCatching { sr.startListening(intent) }
             .onFailure { t ->
-                if (delivered) return@onFailure
+                if (delivered || activeRecognizer !== sr) return@onFailure
                 delivered = true
                 onFailure(
                     ai.friday.assistant.failure.FailureReport(
@@ -134,63 +131,53 @@ class PlatformSpeechRecognizerPort(
                         recoveryAction = ai.friday.assistant.failure.RecoveryAction.USER_ACTION_REQUIRED
                     )
                 )
-                finish()
+                onPartial(null)
+                finish(sr)
                 onResult(null)
             }
     }
 
     override fun cancel() {
-        activeRecognizer?.let { sr ->
-            runCatching { sr.cancel() }
-            sr.destroy()
-        }
+        val sr = activeRecognizer ?: return
         activeRecognizer = null
+        runCatching { sr.cancel() }
+        runCatching { sr.destroy() }
     }
 
-    private fun finish() {
-        activeRecognizer?.let { sr ->
-            runCatching { sr.stopListening() }
-            sr.destroy()
-        }
+    private fun finish(sr: android.speech.SpeechRecognizer) {
+        if (activeRecognizer !== sr) return
         activeRecognizer = null
+        runCatching { sr.stopListening() }
+        runCatching { sr.destroy() }
     }
-
-    private var activeRecognizer: android.speech.SpeechRecognizer? = null
 }
 
 /**
- * Platform STT via the Android [android.speech.SpeechRecognizer] — a pure
- * platform service with no JNI, no native object lifecycle, and thus none of
- * the "destroyed mutex" native-crash class that Vosk / sherpa-onnx carried.
- *
- * This is the replacement for the deleted `FridayVosk` / `FridaySherpaWhisper`
- * STT stack. It is a thin, honest wrapper: [recognize] reports whether a
- * platform recognizer exists and drives one live recognition session, so the
- * caller gets the real transcript or a truthful null (never a fabricated one).
- *
- * The always-on 'friday' wake behavior the old Vosk WAKE_GRAMMAR pass provided
- * is a separate concern ([HotwordAvailabilityProbe]); when the device's
- * SoundTrigger HAL does not support custom keyphrase enrollment, the caller
- * falls back to manual tap-to-trigger recognition through this recognizer.
+ * Friday's single STT entry point. Session generations reject late callbacks
+ * from a cancelled/replaced recognizer so stale speech cannot enter a later turn.
  */
 class FridaySpeechRecognizer(
     private val port: SpeechRecognizerPort,
     private val onStatusChanged: (String) -> Unit = {}
 ) {
-
     @Volatile var status: String = "not started"
         private set
 
-    /** Whether a platform recognizer service exists on this device. */
+    private val generation = AtomicLong(0)
+    @Volatile private var clearPartial: (() -> Unit)? = null
+
     fun isAvailable(): Boolean = port.isRecognitionAvailable()
 
-    /**
-     * Drive one live recognition session for [locale]; delivers the platform
-     * transcript (or null) once via [onResult]. Reuses the same real production
-     * call path the BodyCoordinator drives for push-to-talk input.
-     */
-    fun recognize(locale: Locale, onResult: (String?) -> Unit) {
+    fun recognize(
+        locale: Locale,
+        onPartial: (String?) -> Unit = {},
+        onResult: (String?) -> Unit
+    ) {
+        val session = generation.incrementAndGet()
+        clearPartial = { onPartial(null) }
         if (!isAvailable()) {
+            clearPartial?.invoke()
+            clearPartial = null
             status = "unavailable"
             onStatusChanged(status)
             onResult(null)
@@ -198,15 +185,31 @@ class FridaySpeechRecognizer(
         }
         status = "listening"
         onStatusChanged(status)
-        port.recognize(locale) { text ->
-            val clean = text?.trim().orEmpty()
-            status = if (clean.isNotBlank()) "heard: $clean" else "no result"
-            onStatusChanged(status)
-            onResult(clean.ifBlank { null })
-        }
+        port.recognize(
+            locale,
+            onPartial = { text ->
+                if (session != generation.get()) return@recognize
+                val clean = text?.trim().orEmpty()
+                onPartial(clean.ifBlank { null })
+                status = "listening"
+                onStatusChanged(status)
+            },
+            onResult = { text ->
+                if (session != generation.get()) return@recognize
+                onPartial(null)
+                clearPartial = null
+                val clean = text?.trim().orEmpty()
+                status = if (clean.isNotBlank()) "heard: $clean" else "no result"
+                onStatusChanged(status)
+                onResult(clean.ifBlank { null })
+            }
+        )
     }
 
     fun cancel() {
+        generation.incrementAndGet()
+        clearPartial?.invoke()
+        clearPartial = null
         port.cancel()
         status = "idle"
         onStatusChanged(status)
