@@ -255,6 +255,55 @@ class FridayUpdateStateInstrumentedTest {
     }
 
     @Test
+    fun nativeInstallerRejectionClearsOnlyPendingMarkerAndKeepsCandidateForRetry() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val info = context.packageManager.getPackageInfo(
+            context.packageName,
+            android.content.pm.PackageManager.PackageInfoFlags.of(
+                android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES.toLong()
+            )
+        )
+        val store = FridayUpdateStateStore(context)
+        store.clearStaged()
+        store.clearPendingHealthCheck()
+        store.clearFailedRecoveryEvidence()
+        val staging = File(context.noBackupFilesDir, "friday-update-staging").apply { mkdirs() }
+        val apk = File(staging, "installer-rejected-candidate.apk").apply {
+            writeBytes(byteArrayOf(5, 5, 5))
+        }
+        val release = FridayUpdateClient.Release(
+            packageId = context.packageName,
+            versionCode = info.longVersionCode + 1L,
+            versionName = "installer-rejected-candidate",
+            sourceCommit = "a".repeat(40),
+            certificateSha256 = "B".repeat(64),
+            apkSha256 = "c".repeat(64),
+            apkUrl = "https://example.invalid/rejected.apk"
+        )
+        try {
+            store.saveStaged(FridayUpdateClient.Result.Staged(release, apk))
+            assertTrue(store.recordPendingHealthCheck(release))
+
+            val message = completeNativeInstallRejection(store, "Android rejected the Friday update.")
+
+            assertEquals("Android rejected the Friday update.", message)
+            assertEquals(message, store.lastStatus())
+            assertEquals(
+                "An installer rejection is not a post-install health failure.",
+                null,
+                store.verifyPendingHealthCheck()
+            )
+            assertNotNull("The verified candidate remains available for retry.", store.loadStaged())
+            assertTrue("The staged candidate remains on disk.", apk.exists())
+            assertFalse("No failed-release evidence is created for a rejected install.", store.hasFailedRecoveryEvidence())
+        } finally {
+            store.clearStaged()
+            store.clearPendingHealthCheck()
+            store.clearFailedRecoveryEvidence()
+        }
+    }
+
+    @Test
     fun damagedFailureLedgerStillBlocksTheFailedVersionButAllowsANewerRepair() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val info = context.packageManager.getPackageInfo(
