@@ -123,6 +123,35 @@ class CandidateRepairPlannerTest {
     }
 
     @Test
+    fun acceptsReproducedTestFailureWithoutApkWhenCandidateIdentityMatches() {
+        val sandbox = JSONObject().put("status", "FAIL")
+            .put("summary", JSONObject()
+                .put("expected_commit_sha", "a".repeat(40))
+                .put("checked_out_commit_sha", "a".repeat(40))
+                .put("test_profile", "android-debug")
+                .put("failure_classification", "ACTIONABLE_DEFECT")
+                .put("failure_evidence_kind", "TEST")
+                .put("test_failure_count", 1)
+                .put("apk_sha256", ""))
+        assertTrue(CandidateRepairPlanner.isConfirmedCandidateDefect("a".repeat(40), sandbox))
+    }
+
+    @Test
+    fun refusesSingleUnconfirmedTestFailureWithoutApk() {
+        val evidence = JSONObject().put("sandbox", JSONObject().put("status", "FAIL")
+            .put("summary", JSONObject()
+                .put("expected_commit_sha", "a".repeat(40))
+                .put("checked_out_commit_sha", "a".repeat(40))
+                .put("test_profile", "android-debug")
+                .put("failure_classification", "UNKNOWN")
+                .put("failure_evidence_kind", "NONE")
+                .put("test_failure_count", 0)
+                .put("unconfirmed_test_failure_count", 1)
+                .put("apk_sha256", "")))
+        assertNull(CandidateRepairPlanner.createRepairTask(failedTask(), evidence))
+    }
+
+    @Test
     fun rejectsActionableLabelWithoutApkOrSourceFailureEvidence() {
         val evidence = JSONObject().put("sandbox", JSONObject().put("status", "FAIL")
             .put("summary", JSONObject()
