@@ -133,6 +133,46 @@ class CandidateRepairPlannerTest {
     }
 
     @Test
+    fun classifiesRedCiWithPassingSandboxAsNotReproducedNotRepairable() {
+        val passedSandbox = JSONObject().put("status", "PASS")
+            .put("summary", JSONObject()
+                .put("expected_commit_sha", "a".repeat(40))
+                .put("checked_out_commit_sha", "a".repeat(40))
+                .put("test_profile", "android-debug")
+                .put("apk_sha256", "c".repeat(64))
+                .put("failure_classification", "NONE"))
+        val result = CandidateRepairPlanner.classifySandboxOutcome("a".repeat(40), true, passedSandbox)
+        assertEquals("CI_FAILURE_NOT_REPRODUCED", result.taskStatus)
+        assertFalse(result.queueRepair)
+    }
+
+    @Test
+    fun classifiesInfrastructureFailureAsTriageOnly() {
+        val failedSandbox = JSONObject().put("status", "FAIL")
+            .put("summary", JSONObject().put("failure_classification", "INFRASTRUCTURE"))
+        val result = CandidateRepairPlanner.classifySandboxOutcome("a".repeat(40), true, failedSandbox)
+        assertEquals("INFRASTRUCTURE_TRIAGE_REQUIRED", result.taskStatus)
+        assertFalse(result.queueRepair)
+    }
+
+    @Test
+    fun classifiesUnknownFailureAsTriageOnly() {
+        val failedSandbox = JSONObject().put("status", "FAIL")
+            .put("summary", JSONObject().put("failure_classification", "UNKNOWN"))
+        val result = CandidateRepairPlanner.classifySandboxOutcome("a".repeat(40), false, failedSandbox)
+        assertEquals("FAILURE_TRIAGE_REQUIRED", result.taskStatus)
+        assertFalse(result.queueRepair)
+    }
+
+    @Test
+    fun classifiesExactActionableCandidateDefectAsRepairable() {
+        val failedSandbox = failureEvidence().getJSONObject("sandbox")
+        val result = CandidateRepairPlanner.classifySandboxOutcome("a".repeat(40), false, failedSandbox)
+        assertEquals("SANDBOX_FAILED_REQUIRES_REPAIR", result.taskStatus)
+        assertTrue(result.queueRepair)
+    }
+
+    @Test
     fun boundsPersistedRepairContext() {
         val huge = JSONObject()
             .put("trigger", "sandbox")
