@@ -59,7 +59,7 @@ class FridayApplication : Application() {
         // A slow or unavailable Shizuku binder must not block plan/update scheduling.
         shizukuExecutor.execute {
             startupTask("Shizuku initialization") {
-                ShizukuBridge.init()
+                ShizukuBridge.init(applicationContext)
                 ShizukuBridge.refresh()
             }
         }
