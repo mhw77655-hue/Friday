@@ -137,6 +137,34 @@ class CandidateRepairPlannerTest {
     }
 
     @Test
+    fun acceptsInstrumentedCandidateFailureOnlyWithExactProfileAndProvenance() {
+        val sandbox = JSONObject().put("status", "FAIL")
+            .put("summary", JSONObject()
+                .put("expected_commit_sha", "a".repeat(40))
+                .put("checked_out_commit_sha", "a".repeat(40))
+                .put("test_profile", "android-instrumented")
+                .put("failure_classification", "ACTIONABLE_DEFECT")
+                .put("failure_evidence_kind", "TEST")
+                .put("test_failure_count", 1)
+                .put("instrumented_kvm_outcome", "success")
+                .put("instrumented_outcome", "failure")
+                .put("instrumented_rerun_requested", true)
+                .put("instrumented_rerun_outcome", "failure")
+                .put("apk_sha256", "c".repeat(64)))
+        assertTrue(CandidateRepairPlanner.isConfirmedCandidateDefect("a".repeat(40), sandbox))
+        val repair = CandidateRepairPlanner.createRepairTask(failedTask(), JSONObject().put("sandbox", sandbox))!!
+        val compact = JSONObject(repair.getString("repair_context"))
+            .getJSONObject("failure_evidence").getJSONObject("sandbox")
+        assertEquals("android-instrumented", compact.getString("test_profile"))
+        assertEquals("success", compact.getString("instrumented_kvm_outcome"))
+        assertEquals("failure", compact.getString("instrumented_outcome"))
+        assertTrue(compact.getBoolean("instrumented_rerun_requested"))
+        assertEquals("failure", compact.getString("instrumented_rerun_outcome"))
+        sandbox.getJSONObject("summary").put("test_profile", "unapproved-profile")
+        assertFalse(CandidateRepairPlanner.isConfirmedCandidateDefect("a".repeat(40), sandbox))
+    }
+
+    @Test
     fun refusesSingleUnconfirmedTestFailureWithoutApk() {
         val evidence = JSONObject().put("sandbox", JSONObject().put("status", "FAIL")
             .put("summary", JSONObject()

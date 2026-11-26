@@ -543,3 +543,36 @@ Before accepting a new feature, architecture, algorithm, tool or plan change, as
 The list is deliberately incomplete. A new form of drift is still a finding even if no bullet names it.
 
 **Final rule:** Friday is the outcome. Architecture, code, models, hosts and tools are means. Preserve the destination, investigate the real problem, invent the strongest coherent route, prove it, and learn from what actually happens.
+
+
+---
+
+## 14. Chronological delivery log — 2026-11-27
+
+This section extends the dated baseline above; older entries remain historical evidence and must not be silently rewritten as current status.
+
+### 2026-11-26 — repair-safety gate merged
+
+- PR #178, **Classify candidate failures before autonomous repair**, merged to `main` at `15ce678a89bd9609bbe8352cc082a1579e1cf769`.
+- Exact-head validation [run #3626](https://github.com/mhw77655-hue/Friday/actions/runs/45869677936) passed all six JVM shards, aggregate JVM evidence, debug APK build/promotion, disposable Android emulator instrumentation and whole-repository audit.
+- The merged classifier distinguishes actionable defects, infrastructure failures and unknown failures. It requires exact candidate identity and an approved test profile; a red CI status, unclassified log or one-off flaky test is not sufficient to trigger automatic source repair.
+- The live Builder repair path now records infrastructure/unknown/unreproduced outcomes for triage rather than synthesizing code changes from them.
+
+### 2026-11-27 — profile-aware candidate verification in progress
+
+- Current `main` begins at merge commit `15ce678a89bd9609bbe8352cc082a1579e1cf769`; re-fetch live branch state before relying on this snapshot.
+- Branch `feat/builder-profile-aware-instrumented-sandbox` extends the fixed candidate sandbox with two explicitly allowlisted profiles: `android-debug` and `android-instrumented`.
+- Friday selects the instrumented profile only when the original failed check itself is an emulator/instrumentation check. A passing emulator check does not widen an unrelated JVM/build failure into a more expensive profile.
+- The instrumented profile builds the exact candidate's app and test APKs, runs the same disposable Android phone test harness used by main CI, retains first/second run reports, and only treats test failures reproduced on a fresh emulator as actionable. The worker checks that the returned summary's profile matches the profile it dispatched.
+- This branch is **implemented but not yet CI-verified or merged**. Its workflow, Kotlin changes, classifier behavior and report paths must be validated by exact-head CI before acceptance.
+- The full installed-Friday Builder -> exact candidate -> isolated sandbox -> real REA -> bounded repair -> new candidate -> independent review cycle remains **not demonstrated**.
+
+### 2026-11-27 — Android force-stop boundary clarified
+
+Android 15's official behavior-change documentation states that a package placed in the stopped state by Force Stop remains stopped until direct or indirect user interaction removes that state; pending intents are cancelled while stopped. See [Android 15 package stopped-state behavior](https://developer.android.com/about/versions/15/behavior-changes-all#package-stopped-state) and the [PackageManager stopped-state API](https://developer.android.com/reference/android/content/pm/PackageManager#isPackageStopped(java.lang.String)).
+
+Engineering consequence: do not promise that Friday can autonomously restart itself through an ordinary in-package receiver, alarm or pending intent after a user force-stop. Treat process death, service/Binder death, Shizuku server loss, reboot and an explicit user force-stop as separate failure classes. A Shizuku/shell-assisted launch may have different authority, but it must be demonstrated on the target handset and Android version; static APK analysis and emulator success do not prove it. Preserve user force-stop as an intentional owner control unless a verified, platform-compliant external recovery path is explicitly established.
+
+### Current next action
+
+Complete exact-head CI for the profile-aware sandbox branch. If it passes, review and merge the isolated-profile integration. Then use the installed Friday app and its authorized Builder worker to produce a real failed candidate and observe the complete REA-assisted repair episode. In parallel, prepare a physical-device acceptance matrix for Shizuku identity, daemon reuse, Binder death, server stop/restart, ordinary process death, reboot and user force-stop. Never report emulator or static evidence as handset proof.

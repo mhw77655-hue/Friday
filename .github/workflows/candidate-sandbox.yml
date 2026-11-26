@@ -18,6 +18,7 @@ on:
         type: choice
         options:
           - android-debug
+          - android-instrumented
       ci_failed:
         description: Original pull-request CI failed; run REA even if this isolated profile passes
         required: false
@@ -35,7 +36,7 @@ jobs:
   isolated-candidate-verification:
     name: Isolated Android candidate verification
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 150
     permissions:
       contents: read
     steps:
@@ -48,7 +49,7 @@ jobs:
           set -euo pipefail
           [[ "$TASK_ID" =~ ^[A-Za-z0-9._-]{3,80}$ ]]
           [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$TEST_PROFILE" == "android-debug" ]]
+          [[ "$TEST_PROFILE" == "android-debug" || "$TEST_PROFILE" == "android-instrumented" ]]
 
       - name: Checkout exact candidate commit
         uses: actions/checkout@v4
@@ -90,16 +91,23 @@ jobs:
           echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
 
       - name: Install pinned Android build components
+        env:
+          TEST_PROFILE: ${{ inputs.test_profile }}
         run: |
           set -euo pipefail
           SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
           yes | "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --licenses >/dev/null 2>&1 || true
-          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install \
-            "platform-tools" \
-            "platforms;android-36" \
-            "build-tools;35.0.0" \
-            "ndk;27.3.13750724" \
+          packages=(
+            "platform-tools"
+            "platforms;android-36"
+            "build-tools;35.0.0"
+            "ndk;27.3.13750724"
             "cmake;3.22.1"
+          )
+          if [[ "$TEST_PROFILE" == "android-instrumented" ]]; then
+            packages+=("emulator" "system-images;android-35;google_apis;x86_64")
+          fi
+          "$SDKMANAGER" --sdk_root="$ANDROID_HOME" --install "${packages[@]}"
 
       - name: Run isolated candidate verification profile
         id: verify
@@ -107,14 +115,126 @@ jobs:
         run: |
           set +e
           mkdir -p "$RUNNER_TEMP/friday-sandbox-evidence"
-          ./gradlew --no-daemon --console=plain \
-            :mobile:app:testDebugUnitTest \
-            :mobile:app:lintDebug \
-            :mobile:app:assembleDebug \
+          tasks=(
+            :mobile:app:testDebugUnitTest
+            :mobile:app:lintDebug
+            :mobile:app:assembleDebug
+          )
+          if [[ "${{ inputs.test_profile }}" == "android-instrumented" ]]; then
+            tasks+=(:mobile:app:assembleDebugAndroidTest)
+          fi
+          ./gradlew --no-daemon --console=plain "${tasks[@]}" \
             2>&1 | tee "$RUNNER_TEMP/friday-sandbox-evidence/gradle.log"
           RESULT=${PIPESTATUS[0]}
           echo "exit_code=$RESULT" >> "$GITHUB_OUTPUT"
           exit "$RESULT"
+
+      - name: Enable KVM for instrumented candidate verification
+        id: instrumented_kvm
+        if: inputs.test_profile == 'android-instrumented'
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! -e /dev/kvm ]]; then
+            echo "KVM is unavailable on this runner; instrumented verification cannot run." >&2
+            exit 1
+          fi
+          sudo chmod 666 /dev/kvm
+          test -r /dev/kvm && test -w /dev/kvm
+
+      - name: Run exact candidate on a disposable Android phone
+        id: verify_instrumented
+        if: inputs.test_profile == 'android-instrumented' && steps.verify.outcome == 'success' && steps.instrumented_kvm.outcome == 'success'
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -camera-front none -gpu swiftshader_indirect -memory 3072 -cores 2 -no-snapshot -wipe-data -timezone Etc/UTC
+          script: bash tools/friday-builder/run_virtual_phone_tests.sh
+
+      - name: Preserve first instrumented run reports
+        if: always() && inputs.test_profile == 'android-instrumented'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEST="$RUNNER_TEMP/friday-sandbox-evidence/instrumented-first-run"
+          mkdir -p "$DEST"
+          for SOURCE in mobile/app/build/outputs/androidTest-results mobile/app/build/reports/androidTests; do
+            if [[ -d "$SOURCE" ]]; then
+              mkdir -p "$DEST/$(basename "$SOURCE")"
+              cp -a "$SOURCE/." "$DEST/$(basename "$SOURCE")/"
+            fi
+          done
+
+      - name: Decide whether instrumentation failure reproduced
+        id: instrumented_rerun_gate
+        if: always() && inputs.test_profile == 'android-instrumented'
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPORT="$RUNNER_TEMP/friday-sandbox-evidence/instrumented-first-run"
+          if [[ "${{ steps.verify_instrumented.outcome }}" == "failure" ]] &&
+             [[ -d "$REPORT" ]] &&
+             grep -R -qE '<(failure|error)([[:space:]>])' "$REPORT"; then
+            echo "should_rerun=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_rerun=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Clear prior instrumentation reports before reproducibility run
+        if: steps.instrumented_rerun_gate.outputs.should_rerun == 'true'
+        shell: bash
+        run: |
+          rm -rf mobile/app/build/outputs/androidTest-results mobile/app/build/reports/androidTests mobile/app/build/reports/coverage
+
+      - name: Re-run failed instrumentation suite on a fresh emulator
+        id: verify_instrumented_rerun
+        if: steps.instrumented_rerun_gate.outputs.should_rerun == 'true'
+        continue-on-error: true
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -camera-front none -gpu swiftshader_indirect -memory 3072 -cores 2 -no-snapshot -wipe-data -timezone Etc/UTC
+          script: bash tools/friday-builder/run_virtual_phone_tests.sh
+
+      - name: Preserve second instrumented run reports
+        if: always() && steps.instrumented_rerun_gate.outputs.should_rerun == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEST="$RUNNER_TEMP/friday-sandbox-evidence/instrumented-second-run"
+          mkdir -p "$DEST"
+          for SOURCE in mobile/app/build/outputs/androidTest-results mobile/app/build/reports/androidTests; do
+            if [[ -d "$SOURCE" ]]; then
+              mkdir -p "$DEST/$(basename "$SOURCE")"
+              cp -a "$SOURCE/." "$DEST/$(basename "$SOURCE")/"
+            fi
+          done
+
+      - name: Finalize candidate verification result
+        id: verification_result
+        if: always()
+        env:
+          BUILD_OUTCOME: ${{ steps.verify.outcome }}
+          INSTRUMENTED_OUTCOME: ${{ steps.verify_instrumented.outcome }}
+          TEST_PROFILE: ${{ inputs.test_profile }}
+          KVM_OUTCOME: ${{ steps.instrumented_kvm.outcome }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RESULT=success
+          if [[ "$BUILD_OUTCOME" != "success" ]]; then RESULT=failure; fi
+          if [[ "$TEST_PROFILE" == "android-instrumented" && "$INSTRUMENTED_OUTCOME" != "success" ]]; then RESULT=failure; fi
+          if [[ "$TEST_PROFILE" == "android-instrumented" && "$KVM_OUTCOME" != "success" ]]; then RESULT=failure; fi
+          echo "outcome=$RESULT" >> "$GITHUB_OUTPUT"
 
       - name: Confirm unit-test failure reproducibility
         id: confirm_tests
@@ -149,7 +269,7 @@ jobs:
       # artifact. This is static evidence only; it is never treated as runtime proof.
       - name: Build candidate APK for failure investigation
         id: build_failure_apk
-        if: always() && (steps.verify.outcome == 'failure' || inputs.ci_failed)
+        if: always() && (steps.verification_result.outputs.outcome == 'failure' || inputs.ci_failed)
         continue-on-error: true
         shell: bash
         run: |
@@ -227,8 +347,13 @@ jobs:
           TASK_ID: ${{ inputs.task_id }}
           EXPECTED_SHA: ${{ inputs.candidate_sha }}
           ACTUAL_SHA: ${{ steps.identity.outputs.actual_sha }}
-          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+          VERIFY_OUTCOME: ${{ steps.verification_result.outputs.outcome }}
           VERIFY_EXIT_CODE: ${{ steps.verify.outputs.exit_code }}
+          TEST_PROFILE: ${{ inputs.test_profile }}
+          INSTRUMENTED_OUTCOME: ${{ steps.verify_instrumented.outcome }}
+          INSTRUMENTED_RERUN_OUTCOME: ${{ steps.verify_instrumented_rerun.outcome }}
+          INSTRUMENTED_RERUN_REQUESTED: ${{ steps.instrumented_rerun_gate.outputs.should_rerun }}
+          INSTRUMENTED_KVM_OUTCOME: ${{ steps.instrumented_kvm.outcome }}
           FAILURE_APK_OUTCOME: ${{ steps.build_failure_apk.outcome }}
           REA_OUTCOME: ${{ steps.rea_candidate.outcome }}
           TEST_RERUN_EXIT_CODE: ${{ steps.confirm_tests.outputs.test_rerun_exit_code }}
@@ -253,7 +378,7 @@ jobs:
             mkdir -p "$OUT/reports"
             cp -a mobile/app/build/reports/tests/testDebugUnitTest "$OUT/reports/"
           fi
-          for TEST_RUN in first-test-run second-test-run; do
+          for TEST_RUN in first-test-run second-test-run instrumented-first-run instrumented-second-run; do
             SOURCE="$RUNNER_TEMP/friday-sandbox-evidence/$TEST_RUN"
             if [[ -d "$SOURCE" ]]; then
               mkdir -p "$OUT/reports/$TEST_RUN"
@@ -310,6 +435,8 @@ jobs:
               first_test_root = report_root / "testDebugUnitTest"
           first_test_failures = read_test_failures(first_test_root)
           second_test_failures = read_test_failures(second_test_root)
+          instrumented_first_failures = read_test_failures(report_root / "instrumented-first-run")
+          instrumented_second_failures = read_test_failures(report_root / "instrumented-second-run")
           def select_reproduced_failures(first_run, second_run):
               second_failed_names = {item["test"] for item in second_run}
               reproduced = [item for item in first_run if item["test"] in second_failed_names]
@@ -317,9 +444,14 @@ jobs:
               return reproduced, unconfirmed
           assert len(select_reproduced_failures([{"test": "ExampleTest.fails"}], [{"test": "ExampleTest.fails"}])[0]) == 1
           assert len(select_reproduced_failures([{"test": "ExampleTest.flaky"}], [])[0]) == 0
-          test_failures, unconfirmed_test_failures = select_reproduced_failures(
+          unit_test_failures, unconfirmed_unit_test_failures = select_reproduced_failures(
               first_test_failures, second_test_failures
           )
+          instrumented_test_failures, unconfirmed_instrumented_failures = select_reproduced_failures(
+              instrumented_first_failures, instrumented_second_failures
+          )
+          test_failures = unit_test_failures + instrumented_test_failures
+          unconfirmed_test_failures = unconfirmed_unit_test_failures + unconfirmed_instrumented_failures
           lint_errors = []
           if report_root.exists():
               for report in report_root.rglob("lint-results-debug*.xml"):
@@ -396,7 +528,7 @@ jobs:
               outcome, failure_log_for_classification, compiler_diagnostics, test_failures, lint_errors
           )
           if unconfirmed_test_failures:
-              reasons.append(f"{len(unconfirmed_test_failures)} unit-test failure(s) did not reproduce; they are retained for triage but cannot trigger repair.")
+              reasons.append(f"{len(unconfirmed_test_failures)} test failure(s) did not reproduce; they are retained for triage but cannot trigger repair.")
           rea_path = pathlib.Path(os.environ.get("REA_REPORT_PATH", ""))
           rea_text = rea_path.read_text(errors="replace") if rea_path.is_file() else ""
           rea_sha = hashlib.sha256(rea_text.encode()).hexdigest() if rea_text else ""
@@ -408,10 +540,14 @@ jobs:
               "task_id": os.environ.get("TASK_ID", ""),
               "expected_commit_sha": expected,
               "checked_out_commit_sha": actual,
-              "test_profile": "android-debug",
+              "test_profile": os.environ.get("TEST_PROFILE", "android-debug"),
               "status": "PASS" if passed else "FAIL",
               "verification_step": outcome,
               "gradle_exit_code": os.environ.get("VERIFY_EXIT_CODE", ""),
+              "instrumented_kvm_outcome": os.environ.get("INSTRUMENTED_KVM_OUTCOME", "skipped"),
+              "instrumented_outcome": os.environ.get("INSTRUMENTED_OUTCOME", "skipped"),
+              "instrumented_rerun_requested": os.environ.get("INSTRUMENTED_RERUN_REQUESTED", "false") == "true",
+              "instrumented_rerun_outcome": os.environ.get("INSTRUMENTED_RERUN_OUTCOME", "skipped"),
               "failure_apk_build_outcome": os.environ.get("FAILURE_APK_OUTCOME", "skipped"),
               "failure_classification": failure_classification,
               "failure_evidence_kind": failure_evidence_kind,
@@ -427,7 +563,7 @@ jobs:
               "compiler_diagnostics": compiler_diagnostics[:20],
               "infrastructure_signatures": infra_hits[:12],
               "failure_excerpt": failure_excerpt,
-              "test_rerun_excerpt": "\n".join(rerun_log.splitlines()[-50:])[-4000:],
+              "test_rerun_excerpt": "\n".join((rerun_log + "\nInstrumented rerun outcome: " + os.environ.get("INSTRUMENTED_RERUN_OUTCOME", "skipped")).splitlines()[-50:])[-4000:],
               "rea_status": "COMPLETED" if rea_text else ("FAILED" if os.environ.get("REA_OUTCOME") == "failure" else "UNAVAILABLE"),
               "rea_report_sha256": rea_sha,
               "rea_summary": rea_summary,
@@ -472,5 +608,16 @@ jobs:
           path: friday-candidate-rea-evidence/
           if-no-files-found: ignore
           retention-days: 30
+
+      - name: Enforce exact candidate verification result
+        if: always() && !cancelled()
+        env:
+          VERIFY_OUTCOME: ${{ steps.verification_result.outputs.outcome }}
+        shell: bash
+        run: |
+          if [[ "$VERIFY_OUTCOME" != "success" ]]; then
+            echo "::error::The exact candidate did not pass its selected verification profile."
+            exit 1
+          fi
 
 
