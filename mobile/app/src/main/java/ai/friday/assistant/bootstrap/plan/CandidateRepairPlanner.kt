@@ -122,11 +122,12 @@ internal object CandidateRepairPlanner {
                 .put("apk_sha256", summary.optString("apk_sha256").take(64))
                 .put("failure_excerpt", summary.optString("failure_excerpt").take(5_000))
                 .put("rea_status", summary.optString("rea_status").take(20))
-                .put("rea_report_sha256", summary.optString("rea_report_sha256").take(64))
-                .put("rea_evidence_excerpt", summary.optString("rea_evidence_excerpt").take(7_000)))
+                .put("rea_report_sha256", if (summary.optString("rea_status") == "COMPLETED") summary.optString("rea_report_sha256").take(64) else "")
+                .put("rea_evidence_excerpt", if (summary.optString("rea_status") == "COMPLETED") summary.optString("rea_evidence_excerpt").take(7_000) else ""))
             .put("review", JSONObject()
                 .put("stance", review.optString("stance").take(20))
                 .put("stance_reason", review.optString("stance_reason").take(500)))
-            .put("candidate_diff", source.optString("candidate_diff").take(8_000))
+            .put("candidate_diff", source.optString("candidate_diff")
+                .ifBlank { sandbox.optString("candidate_diff") }.take(8_000))
     }
 }
