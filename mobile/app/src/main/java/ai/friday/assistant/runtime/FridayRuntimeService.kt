@@ -112,7 +112,7 @@ class FridayRuntimeService : Service() {
 
             // Reconnect the existing capability owner. Friday remains useful if
             // Shizuku is unavailable; no second device-control host is created.
-            runCatching { ShizukuBridge.init() }
+            runCatching { ShizukuBridge.init(applicationContext) }
             if (ShizukuBridge.isGranted.value) {
                 runCatching { ScreenBridge.bind(applicationContext) }
                     .onFailure { Log.w(TAG, "Shizuku reconnect deferred", it) }
