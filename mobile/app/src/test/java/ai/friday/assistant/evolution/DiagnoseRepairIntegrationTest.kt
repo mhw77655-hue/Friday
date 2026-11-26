@@ -311,6 +311,28 @@ class DiagnoseRepairIntegrationTest {
     }
 
     @Test
+    fun `REA is not invoked without an exact source revision`() = runBlocking {
+        scope = CoroutineScope(Dispatchers.IO)
+        val root = tmpDir()
+        writePlannerFixture(root)
+        copyXmlFixture(root)
+        val h = harness()
+        var invocations = 0
+        val provider = ReaRepairEvidenceProvider { _, _, _ ->
+            invocations++
+            error("REA must not run without an exact source revision")
+        }
+        val (loop, _, _) = buildLoop(root, h, reaProvider = provider)
+        val observation = loop.observeAndDiagnose(
+            RepairRequirement("GoalPlanner", "retain failed nodes", emptyList()),
+            "CapabilityExecutorTest"
+        )
+        assertEquals(0, invocations)
+        assertNotNull(observation.diagnosis)
+        assertTrue(observation.log.any { it.contains("REA skipped: repair requirement has no exact source revision") })
+    }
+
+    @Test
     fun `gate rejects repair when verification still shows failures`() = runBlocking {
         scope = CoroutineScope(Dispatchers.IO)
         val root = tmpDir()
