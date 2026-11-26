@@ -361,6 +361,15 @@ class GitHubDevelopmentRepositoryClientTest {
             assertEquals("android-instrumented", client.selectCandidateSandboxProfile(
                 listOf("android-emulator:completed:failure")
             ))
+            assertEquals("android-debug", client.selectCandidateSandboxProfile(
+                listOf("Disposable Android phone twin (instrumented):completed:success")
+            ))
+            assertEquals("android-debug", client.selectCandidateSandboxProfile(
+                listOf(
+                    "Disposable Android phone twin (instrumented):completed:success",
+                    "JVM unit tests (shard 2):completed:failure"
+                )
+            ))
         } finally {
             server.shutdown()
         }
