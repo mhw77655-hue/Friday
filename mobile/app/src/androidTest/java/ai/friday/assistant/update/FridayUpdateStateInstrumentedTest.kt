@@ -95,7 +95,7 @@ class FridayUpdateStateInstrumentedTest {
     }
 
     @Test
-    fun failedNativePostInstallVerificationRetainsRecoveryMarkerAndStagedApk() {
+    fun failedNativePostInstallVerificationArchivesEvidenceForForwardRecovery() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val info = context.packageManager.getPackageInfo(
             context.packageName,
@@ -149,11 +149,12 @@ class FridayUpdateStateInstrumentedTest {
         } finally {
             store.clearStaged()
             store.clearPendingHealthCheck()
+            store.clearFailedRecoveryEvidence()
         }
     }
 
     @Test
-    fun newerReleaseCannotReplaceArtifactWhilePreviousPostInstallRecoveryIsPending() {
+    fun newerReleaseCanStageWithoutReplacingFailedRecoveryEvidence() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val info = context.packageManager.getPackageInfo(
             context.packageName,
@@ -164,9 +165,13 @@ class FridayUpdateStateInstrumentedTest {
         val store = FridayUpdateStateStore(context)
         store.clearStaged()
         store.clearPendingHealthCheck()
+        store.clearFailedRecoveryEvidence()
         val staging = File(context.noBackupFilesDir, "friday-update-staging").apply { mkdirs() }
         val failedApk = File(staging, "failed-recovery-update.apk").apply {
             writeBytes(byteArrayOf(1, 2, 3))
+        }
+        val sameVersionApk = File(staging, "same-version-candidate.apk").apply {
+            writeBytes(byteArrayOf(7, 7, 7))
         }
         val newerApk = File(staging, "newer-candidate.apk").apply {
             writeBytes(byteArrayOf(4, 5, 6))
@@ -193,8 +198,20 @@ class FridayUpdateStateInstrumentedTest {
             store.saveStaged(FridayUpdateClient.Result.Staged(failedRelease, failedApk))
             assertTrue(store.recordPendingHealthCheck(failedRelease))
 
-            // The helper archives the failed APK and allows a strictly newer
-            // signed candidate to occupy the active staging slot.
+            // The helper archives the failed APK. The same failed version is
+            // rejected, while a strictly newer signed release may recover.
+            val sameVersionRelease = failedRelease.copy(apkUrl = "https://example.invalid/retry.apk")
+            assertFalse(
+                "The same failed release must not be offered repeatedly as its own repair.",
+                store.saveStagedUnlessRecoveryRequired(
+                    FridayUpdateClient.Result.Staged(sameVersionRelease, sameVersionApk)
+                )
+            )
+            sameVersionApk.delete()
+            assertFalse(
+                "The failed version cannot be recorded for another install attempt.",
+                store.recordPendingHealthCheck(failedRelease)
+            )
             val accepted = store.saveStagedUnlessRecoveryRequired(
                 FridayUpdateClient.Result.Staged(newerRelease, newerApk)
             )
@@ -223,6 +240,7 @@ class FridayUpdateStateInstrumentedTest {
             store.clearPendingHealthCheck()
             store.clearFailedRecoveryEvidence()
             newerApk.delete()
+            sameVersionApk.delete()
         }
     }
 
