@@ -224,7 +224,7 @@ fun SettingsScreen() {
     }
 
     var shizukuDozeStatus by remember { mutableStateOf("Not checked.") }
-    var keepFridayAlive by remember { mutableStateOf(false) }
+    var keepFridayAlive by remember(context) { mutableStateOf(ai.friday.assistant.runtime.FridayRuntimeController.isEnabled(context)) }
     var runtimeServiceRunning by remember { mutableStateOf(false) }
     var runtimeMicrophoneActive by remember { mutableStateOf(false) }
     var batteryOptimizationIgnored by remember { mutableStateOf(false) }
