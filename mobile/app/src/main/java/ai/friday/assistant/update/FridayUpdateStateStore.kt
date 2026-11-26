@@ -5,6 +5,8 @@ import java.io.File
 import android.content.pm.PackageManager
 import android.os.Build
 import java.security.MessageDigest
+import org.json.JSONArray
+import org.json.JSONObject
 
 /**
  * Small local index for a verified APK staged by the background updater.
@@ -14,14 +16,28 @@ class FridayUpdateStateStore(context: Context) {
     private val appContext = context.applicationContext
     private val prefs = appContext.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
 
+    data class FailedArtifact(
+        val release: FridayUpdateClient.Release,
+        val apk: File?,
+        val failure: String
+    )
+
     /**
-     * Do not replace the only staged recovery APK while a failed post-install
-     * identity check is still pending. A healthy pending install is finalized
-     * (and its old artifact cleaned) before accepting a newer candidate.
+     * Keep failed APKs as immutable evidence, but allow a strictly newer signed
+     * release to be staged as a forward-recovery candidate. The old failed APK
+     * is not the active candidate pointer and is not overwritten.
      */
     fun saveStagedUnlessRecoveryRequired(staged: FridayUpdateClient.Result.Staged): Boolean {
         val pendingStatus = verifyPendingHealthCheck()
-        if (pendingStatus?.startsWith("Post-update health check failed:") == true) {
+        if (pendingStatus?.startsWith("Post-update health check failed:") == true &&
+            hasPendingHealthCheck()
+        ) {
+            // Could not durably preserve the failed marker; do not overwrite anything.
+            return false
+        }
+        val failedArtifacts = loadFailedArtifacts()
+        val highestFailedVersion = failedArtifacts.maxOfOrNull { it.release.versionCode } ?: -1L
+        if (highestFailedVersion > 0L && staged.release.versionCode <= highestFailedVersion) {
             return false
         }
         saveStaged(staged)
@@ -80,14 +96,17 @@ class FridayUpdateStateStore(context: Context) {
      * record before declaring the update healthy.
      */
     /** Must commit before handing control to PackageInstaller, which can kill this process. */
-    fun recordPendingHealthCheck(release: FridayUpdateClient.Release): Boolean =
-        prefs.edit()
+    fun recordPendingHealthCheck(release: FridayUpdateClient.Release): Boolean {
+        val highestFailedVersion = loadFailedArtifacts().maxOfOrNull { it.release.versionCode } ?: -1L
+        if (highestFailedVersion > 0L && release.versionCode <= highestFailedVersion) return false
+        return prefs.edit()
             .putLong(KEY_PENDING_VERSION_CODE, release.versionCode)
             .putString(KEY_PENDING_VERSION_NAME, release.versionName)
             .putString(KEY_PENDING_SOURCE_COMMIT, release.sourceCommit)
             .putString(KEY_PENDING_CERTIFICATE, release.certificateSha256)
             .putString(KEY_STATUS, "Update installed by Android; awaiting first-launch continuity verification.")
             .commit()
+    }
 
     fun clearPendingHealthCheck(): Boolean =
         prefs.edit()
@@ -146,15 +165,17 @@ class FridayUpdateStateStore(context: Context) {
         }
         recordStatus(status)
         if (problem == null) {
-            // A verified update is complete: remove the staged bytes and its
-            // one-shot post-install marker.
+            // A verified forward-recovery release is healthy: remove its staged
+            // bytes, the one-shot marker, and all older failed-release evidence.
             clearStaged()
             clearPendingHealthCheck()
+            clearFailedRecoveryEvidence()
+        } else {
+            // Move the failed identity into a durable evidence ledger before
+            // clearing the one-shot marker. A later higher-version repair can
+            // now be staged independently without destroying this failed APK.
+            preserveFailedPendingHealthCheck(status)
         }
-        // On failure, deliberately retain both the pending identity and staged
-        // artifact. The recovery system needs durable evidence of which update
-        // failed; deleting the marker here made the first failed launch erase
-        // the only machine-readable trigger for follow-up repair.
         return status
     }
 
@@ -166,18 +187,103 @@ class FridayUpdateStateStore(context: Context) {
         ?: "No update check has been run."
 
     /**
-     * A routine up-to-date poll must never erase the only recovery artifact
-     * while a failed post-install identity check is still pending.
-     *
-     * Returns false when recovery is required and staged bytes are retained.
+     * Routine up-to-date polling may clear an ordinary staged candidate, but
+     * must retain all failed-release evidence until a higher signed repair
+     * passes its post-install health check.
      */
     fun clearStagedUnlessRecoveryRequired(): Boolean {
         val pendingStatus = verifyPendingHealthCheck()
-        if (pendingStatus?.startsWith("Post-update health check failed:") == true) {
-            return false
-        }
+        if (pendingStatus?.startsWith("Post-update health check failed:") == true &&
+            hasPendingHealthCheck()
+        ) return false
+        if (hasFailedRecoveryEvidence()) return false
         clearStaged()
         return true
+    }
+
+    fun loadFailedArtifacts(): List<FailedArtifact> {
+        val raw = prefs.getString(KEY_FAILED_ARTIFACTS, null) ?: return emptyList()
+        val staging = File(appContext.noBackupFilesDir, "friday-update-staging").canonicalFile
+        val array = runCatching { JSONArray(raw) }.getOrNull() ?: return emptyList()
+        return (0 until array.length()).mapNotNull { index ->
+            val item = array.optJSONObject(index) ?: return@mapNotNull null
+            val versionCode = item.optLong("version_code", -1L)
+            val versionName = item.optString("version_name").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val sourceCommit = item.optString("source_commit").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val certificate = item.optString("certificate_sha256").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val apkSha = item.optString("apk_sha256").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            val apkUrl = item.optString("apk_url").takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            if (versionCode <= 0L) return@mapNotNull null
+            val apkPath = item.optString("apk_path").takeIf { it.isNotBlank() }
+            val apk = apkPath?.let { path ->
+                runCatching { File(path).canonicalFile }.getOrNull()
+                    ?.takeIf { it.parentFile == staging && it.isFile && it.length() > 0L }
+            }
+            FailedArtifact(
+                release = FridayUpdateClient.Release(
+                    packageId = appContext.packageName,
+                    versionCode = versionCode,
+                    versionName = versionName,
+                    sourceCommit = sourceCommit,
+                    certificateSha256 = certificate,
+                    apkSha256 = apkSha,
+                    apkUrl = apkUrl
+                ),
+                apk = apk,
+                failure = item.optString("failure", "Post-update health check failed.")
+            )
+        }
+    }
+
+    fun hasFailedRecoveryEvidence(): Boolean = loadFailedArtifacts().isNotEmpty()
+
+    fun clearFailedRecoveryEvidence() {
+        loadFailedArtifacts().forEach { it.apk?.delete() }
+        prefs.edit().remove(KEY_FAILED_ARTIFACTS).commit()
+    }
+
+    private fun hasPendingHealthCheck(): Boolean =
+        prefs.getLong(KEY_PENDING_VERSION_CODE, -1L) > 0L
+
+    private fun preserveFailedPendingHealthCheck(failure: String): Boolean {
+        val versionCode = prefs.getLong(KEY_PENDING_VERSION_CODE, -1L)
+        if (versionCode <= 0L) return false
+        val versionName = prefs.getString(KEY_PENDING_VERSION_NAME, null) ?: return false
+        val sourceCommit = prefs.getString(KEY_PENDING_SOURCE_COMMIT, null) ?: return false
+        val certificate = prefs.getString(KEY_PENDING_CERTIFICATE, null) ?: return false
+        val staged = loadStaged()?.takeIf {
+            it.release.versionCode == versionCode &&
+                it.release.sourceCommit == sourceCommit &&
+                it.release.certificateSha256.equals(certificate, ignoreCase = true)
+        }
+        val array = runCatching {
+            JSONArray(prefs.getString(KEY_FAILED_ARTIFACTS, "[]") ?: "[]")
+        }.getOrElse { JSONArray() }
+        val entry = JSONObject()
+            .put("version_code", versionCode)
+            .put("version_name", versionName)
+            .put("source_commit", sourceCommit)
+            .put("certificate_sha256", certificate)
+            .put("apk_sha256", staged?.release?.apkSha256 ?: "unknown")
+            .put("apk_url", staged?.release?.apkUrl ?: "unknown")
+            .put("apk_path", staged?.apk?.canonicalPath ?: "")
+            .put("failure", failure.take(240))
+        val updated = JSONArray()
+        for (index in 0 until array.length()) {
+            val existing = array.optJSONObject(index) ?: continue
+            if (existing.optLong("version_code") == versionCode &&
+                existing.optString("source_commit") == sourceCommit
+            ) continue
+            updated.put(existing)
+        }
+        updated.put(entry)
+        return prefs.edit()
+            .putString(KEY_FAILED_ARTIFACTS, updated.toString())
+            .remove(KEY_PENDING_VERSION_CODE)
+            .remove(KEY_PENDING_VERSION_NAME)
+            .remove(KEY_PENDING_SOURCE_COMMIT)
+            .remove(KEY_PENDING_CERTIFICATE)
+            .commit()
     }
 
     fun clearStaged() {
@@ -208,5 +314,6 @@ class FridayUpdateStateStore(context: Context) {
         private const val KEY_PENDING_VERSION_NAME = "pending_version_name"
         private const val KEY_PENDING_SOURCE_COMMIT = "pending_source_commit"
         private const val KEY_PENDING_CERTIFICATE = "pending_certificate"
+        private const val KEY_FAILED_ARTIFACTS = "failed_artifacts_json"
     }
 }
