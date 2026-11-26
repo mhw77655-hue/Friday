@@ -195,6 +195,54 @@ async function main() {
       tools: tools.map(({ name, description, inputSchema }) => ({ name, description, inputSchema })),
     }, null, 2));
 
+    for (const target of targets) {
+      const file = await stat(target.path);
+      if (!file.isFile() || file.size <= 0) throw new Error(`Target is not a non-empty file: ${target.path}`);
+      const digest = await sha256(target.path);
+      const result = await server.callTool("inspect_android_package", { path: target.path });
+      if (result?.isError) {
+        throw new Error(`REA rejected ${target.name}: ${JSON.stringify(result.content ?? result).slice(0, 3000)}`);
+      }
+      const structured = result?.structuredContent;
+      const textContent = Array.isArray(result?.content)
+        ? result.content.filter((item) => item.type === "text").map((item) => item.text).join("\n")
+        : "";
+      if (!structured && !textContent) {
+        throw new Error(`REA returned no usable result for ${target.name}.`);
+      }
+      const record = {
+        schema_version: 1,
+        target: {
+          name: target.name,
+          path_basename: basename(target.path),
+          bytes: file.size,
+          sha256: digest,
+        },
+        tool: "inspect_android_package",
+        rea: {
+          package: "rea-agents",
+          version: PACKAGE_VERSION,
+          integrity: PACKAGE_INTEGRITY,
+          server: serverInfo.serverInfo,
+          protocol_version: serverInfo.protocolVersion,
+        },
+        captured_at: new Date().toISOString(),
+        structured_content: structured ?? null,
+        text_content: textContent || null,
+        is_error: false,
+      };
+      const reportPath = resolve(outputDir, `${target.name}.rea.json`);
+      await writeFile(reportPath, JSON.stringify(record, null, 2));
+      records.push({
+        name: target.name,
+        sha256: digest,
+        bytes: file.size,
+        report: basename(reportPath),
+        structured_result: Boolean(structured),
+      });
+      process.stdout.write(`REA inspected ${target.name}: sha256=${digest}\n`);
+    }
+
     const classSearchQueries = {
       friday: [
         "Shizuku",
@@ -253,54 +301,6 @@ async function main() {
           JSON.stringify(searchRecord, null, 2),
         );
       }
-    }
-
-    for (const target of targets) {
-      const file = await stat(target.path);
-      if (!file.isFile() || file.size <= 0) throw new Error(`Target is not a non-empty file: ${target.path}`);
-      const digest = await sha256(target.path);
-      const result = await server.callTool("inspect_android_package", { path: target.path });
-      if (result?.isError) {
-        throw new Error(`REA rejected ${target.name}: ${JSON.stringify(result.content ?? result).slice(0, 3000)}`);
-      }
-      const structured = result?.structuredContent;
-      const textContent = Array.isArray(result?.content)
-        ? result.content.filter((item) => item.type === "text").map((item) => item.text).join("\n")
-        : "";
-      if (!structured && !textContent) {
-        throw new Error(`REA returned no usable result for ${target.name}.`);
-      }
-      const record = {
-        schema_version: 1,
-        target: {
-          name: target.name,
-          path_basename: basename(target.path),
-          bytes: file.size,
-          sha256: digest,
-        },
-        tool: "inspect_android_package",
-        rea: {
-          package: "rea-agents",
-          version: PACKAGE_VERSION,
-          integrity: PACKAGE_INTEGRITY,
-          server: serverInfo.serverInfo,
-          protocol_version: serverInfo.protocolVersion,
-        },
-        captured_at: new Date().toISOString(),
-        structured_content: structured ?? null,
-        text_content: textContent || null,
-        is_error: false,
-      };
-      const reportPath = resolve(outputDir, `${target.name}.rea.json`);
-      await writeFile(reportPath, JSON.stringify(record, null, 2));
-      records.push({
-        name: target.name,
-        sha256: digest,
-        bytes: file.size,
-        report: basename(reportPath),
-        structured_result: Boolean(structured),
-      });
-      process.stdout.write(`REA inspected ${target.name}: sha256=${digest}\n`);
     }
 
     await writeFile(resolve(outputDir, "investigation-summary.json"), JSON.stringify({
