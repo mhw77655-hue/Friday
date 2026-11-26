@@ -28,6 +28,9 @@
 - Optimize verified task outcomes and time to first useful action.
 - Preserve Laya as a distinct decision capability, not ASR or TTS.
 - Protect owner authorization, permissions, signing trust, provenance, isolation, recovery and rollback.
+- Integrate the actual upstream REA (Reverse Engineer Anything) MCP/CLI on an appropriate engineering host; REA is a tool Friday uses, not a replacement identity or Android runtime dependency.
+- Shizuku/ADB are first-class Android capability/recovery interfaces whose effective privileges must be probed per operation.
+- Termux is optional and external only; never bundle it, make it a Friday APK/runtime dependency, or add Termux-specific permissions/package visibility by default.
 
 
 ## Structure and local-station boundaries
