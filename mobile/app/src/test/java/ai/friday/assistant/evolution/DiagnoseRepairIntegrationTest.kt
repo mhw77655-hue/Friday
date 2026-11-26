@@ -15,6 +15,9 @@ import ai.friday.assistant.mutation.FitnessModel
 import ai.friday.assistant.selfrepair.DiagnosisEngine
 import ai.friday.assistant.selfrepair.GradleXmlFailureObserver
 import ai.friday.assistant.selfrepair.RepairRequirement
+import ai.friday.assistant.selfrepair.ReaFinding
+import ai.friday.assistant.selfrepair.ReaRepairEvidence
+import ai.friday.assistant.selfrepair.ReaRepairEvidenceProvider
 import ai.friday.assistant.selfrepair.RepairVerificationEvidence
 import ai.friday.assistant.selfrepair.SelfRepairLoop
 import ai.friday.assistant.selfrepair.SourcePatch
