@@ -20,6 +20,8 @@ class FridayUpdateStateInstrumentedTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val store = FridayUpdateStateStore(context)
         store.clearStaged()
+        store.clearPendingHealthCheck()
+        store.clearFailedRecoveryEvidence()
         val staging = File(context.noBackupFilesDir, "friday-update-staging").apply { mkdirs() }
         val apk = File(staging, "instrumented-update.apk").apply { writeBytes(byteArrayOf(1, 2, 3, 4)) }
         val release = FridayUpdateClient.Release(
@@ -41,6 +43,8 @@ class FridayUpdateStateInstrumentedTest {
             assertEquals(apk.canonicalPath, restored.apk.canonicalPath)
         } finally {
             store.clearStaged()
+            store.clearPendingHealthCheck()
+            store.clearFailedRecoveryEvidence()
         }
         assertFalse("Clearing staged state also removes the staged APK.", apk.exists())
     }
