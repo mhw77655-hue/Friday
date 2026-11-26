@@ -161,7 +161,8 @@ class ObjectiveExecutionWorker(
                         val reaSummary = summary.optJSONObject("rea_summary")
                         val reaIds = reaSummary?.optJSONArray("evidence_ids")
                         val reaProvenanceValid = summary.optString("rea_status") == "COMPLETED" &&
-                            reaSummary?.optInt("schema_version", -1) == 1 &&
+                            reaSummary != null &&
+                            reaSummary.optInt("schema_version", -1) == 1 &&
                             reaSummary.optString("candidate_commit_sha") == candidateSha &&
                             reaSummary.optString("apk_sha256") == apkDigest &&
                             reaSummary.optString("rea_version") == "6.10.1" &&
