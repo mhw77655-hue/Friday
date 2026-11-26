@@ -232,8 +232,19 @@ class SettingsScreenInteractionInstrumentedTest {
         compose.onNodeWithTag("friday_runtime_toggle")
             .assertIsOn()
             .performClick()
-        compose.onNodeWithTag("friday_runtime_toggle").assertIsOff()
+        // The second transition crosses the foreground-service stop path. On
+        // a slow emulator, the preference commit and Compose semantics update
+        // are not guaranteed to be observable in the same frame as performClick.
+        // Wait for the durable owner preference first, then for the rendered
+        // switch state; never turn a scheduling delay into a false UI failure.
         compose.waitUntil(10_000) { !prefs.getBoolean("keep_alive_enabled", true) }
+        compose.waitUntil(5_000) {
+            runCatching {
+                compose.onNodeWithTag("friday_runtime_toggle").assertIsOff()
+                true
+            }.getOrDefault(false)
+        }
+        compose.onNodeWithTag("friday_runtime_toggle").assertIsOff()
         assertTrue(
             "Disabling Keep Friday alive must persist the owner setting.",
             !prefs.getBoolean("keep_alive_enabled", true)
