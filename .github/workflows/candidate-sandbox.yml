@@ -609,4 +609,15 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
+      - name: Enforce exact candidate verification result
+        if: always() && !cancelled()
+        env:
+          VERIFY_OUTCOME: ${{ steps.verification_result.outputs.outcome }}
+        shell: bash
+        run: |
+          if [[ "$VERIFY_OUTCOME" != "success" ]]; then
+            echo "::error::The exact candidate did not pass its selected verification profile."
+            exit 1
+          fi
+
 
