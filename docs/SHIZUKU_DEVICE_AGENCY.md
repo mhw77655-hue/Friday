@@ -35,9 +35,9 @@ The Shizuku UserService is bound with `daemon(true)`. Shizuku's API documentatio
 
 Friday now exposes an owner-controlled recovery supervisor inside that daemon process. It checks the package-manager stopped state for Friday, issues a fixed explicit launcher start when stopped, and verifies the resumed activity. It writes an event log to `/data/local/tmp/friday-shizuku-guardian.log`.
 
-This gives Friday a privileged recovery process that is not an ordinary component of Friday's app process. Shizuku itself still owns its lifetime: Shizuku's documentation says the UserService is killed when the Shizuku server stops or restarts. Termux's separately running worker is therefore retained as a second recovery path.
+This gives Friday a privileged recovery process that is not an ordinary component of Friday's app process. Shizuku itself still owns its lifetime: Shizuku's documentation says the UserService is killed when the Shizuku server stops or restarts. No second recovery worker is implemented in this change; the Shizuku-server restart boundary remains an explicit unresolved capability.
 
-**Physical-device acceptance is mandatory:** enable the supervisor in Friday Settings, force-stop Friday, then confirm the Shizuku daemon PID remains alive, the log records detection and launch, and Friday returns to the resumed state. Repeat after Shizuku restart and device reboot to confirm the Termux fallback behavior. Source-level integration is not evidence that this has passed on the owner's handset.
+**Physical-device acceptance is mandatory:** enable the supervisor in Friday Settings, force-stop Friday, then confirm the Shizuku daemon PID remains alive, the log records detection and launch, and Friday returns to the resumed state. Repeat after Shizuku restart and device reboot to record the daemon's lifecycle boundary. Source-level integration is not evidence that this has passed on the owner's handset.
 ## Device Agency Fabric — target architecture
 
 Friday should reason over capabilities, not memorize one implementation per user request.
