@@ -1,7 +1,6 @@
 package ai.friday.assistant.github.reporting
 
 import android.content.Context
-import org.json.JSONObject
 import java.util.UUID
 
 /**
