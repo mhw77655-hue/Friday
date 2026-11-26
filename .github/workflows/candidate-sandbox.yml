@@ -36,7 +36,7 @@ jobs:
   isolated-candidate-verification:
     name: Isolated Android candidate verification
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 150
     permissions:
       contents: read
     steps:
