@@ -27,6 +27,7 @@ class CandidateRepairPlannerTest {
         .put("trigger", "candidate_sandbox")
         .put("sandbox", JSONObject().put("status", "FAIL").put("summary", JSONObject()
             .put("verification_step", "failure")
+            .put("failure_classification", "ACTIONABLE_DEFECT")
             .put("failure_excerpt", "testDebugUnitTest failed")))
 
     @Test
@@ -36,6 +37,7 @@ class CandidateRepairPlannerTest {
             .put("sandbox", JSONObject().put("summary", JSONObject()
                 .put("rea_status", "COMPLETED")
                 .put("verification_step", "failure")
+                .put("failure_classification", "ACTIONABLE_DEFECT")
                 .put("failure_excerpt", "testDebugUnitTest failed")
                 .put("rea_evidence_excerpt", "ev_" + "b".repeat(64))))
         val repair = CandidateRepairPlanner.createRepairTask(failedTask(), evidence, 1234L)!!
@@ -75,11 +77,38 @@ class CandidateRepairPlannerTest {
     @Test
     fun refusesInfrastructureOnlyFailureWithoutAObservedCandidateDefect() {
         val infrastructureFailure = JSONObject()
-            .put("ci", JSONObject().put("state", "SUCCESS"))
+            .put("ci", JSONObject().put("state", "FAILURE"))
             .put("sandbox", JSONObject().put("status", "FAIL")
-                .put("reason", "Evidence artifact could not be downloaded.")
-                .put("summary", JSONObject().put("verification_step", "success")))
+                .put("reason", "Gradle dependency download failed.")
+                .put("summary", JSONObject()
+                    .put("verification_step", "failure")
+                    .put("failure_classification", "INFRASTRUCTURE")))
         assertNull(CandidateRepairPlanner.createRepairTask(failedTask(), infrastructureFailure))
+    }
+
+    @Test
+    fun refusesUnclassifiedCiFailureEvenWhenTheCheckIsRed() {
+        val unclassified = JSONObject()
+            .put("ci", JSONObject().put("state", "FAILURE"))
+            .put("sandbox", JSONObject().put("status", "FAIL")
+                .put("summary", JSONObject()
+                    .put("verification_step", "failure")
+                    .put("failure_classification", "UNKNOWN")
+                    .put("failure_excerpt", "The workflow exited non-zero.")))
+        assertNull(CandidateRepairPlanner.createRepairTask(failedTask(), unclassified))
+    }
+
+    @Test
+    fun refusesInfrastructureClassificationEvenWhenCiAndSandboxAreRed() {
+        val infrastructure = JSONObject()
+            .put("ci", JSONObject().put("state", "FAILURE")
+                .put("failure_classification", "INFRASTRUCTURE"))
+            .put("sandbox", JSONObject().put("status", "FAIL")
+                .put("summary", JSONObject()
+                    .put("verification_step", "failure")
+                    .put("failure_classification", "INFRASTRUCTURE")
+                    .put("failure_excerpt", "Could not resolve host.")))
+        assertNull(CandidateRepairPlanner.createRepairTask(failedTask(), infrastructure))
     }
 
     @Test
@@ -88,6 +117,7 @@ class CandidateRepairPlannerTest {
             .put("trigger", "sandbox")
             .put("sandbox", JSONObject().put("summary", JSONObject()
                 .put("rea_status", "COMPLETED")
+                .put("failure_classification", "ACTIONABLE_DEFECT")
                 .put("failure_excerpt", "line\\n".repeat(100_000))
                 .put("rea_evidence_excerpt", "ev_" + "a".repeat(64) + "line\\n".repeat(100_000))))
             .put("candidate_diff", "diff\\n".repeat(100_000))
