@@ -122,3 +122,27 @@ REA inspected the production APK's current implementations and the matching repo
 
 This corrects the delivery priority: the next major product milestone is not inventing another Shizuku bridge. It is (a) proving and extending the existing Shizuku daemon recovery anchor, and (b) connecting REA plus an isolated GitHub Actions sandbox to Friday's live engineering worker so her Builder and self-repair system can actually investigate, test and verify changes.
 
+
+
+## Post-integration verification — REA run #39
+
+After PR #173 merged, the default-branch push triggered a fresh real REA MCP investigation on 2026-11-26:
+- Run: [GitHub Actions run #39](https://github.com/mhw77655-hue/Friday/actions/runs/45864921849) — **success**.
+- Main revision: `48d4745937fcc417d58a793e419282815c8226ea`.
+- Evidence artifact: [friday-rea-android-evidence-45864921849](https://github.com/mhw77655-hue/Friday/actions/runs/45864921849) — 447,105 bytes; artifact SHA-256 `a55c77d29ebc3dd2ce992d2a688b2dfef0cfde2930b138e10e7dbe40774d6fde`.
+- REA server: `rea-agents@6.10.1`, MCP protocol `2025-03-26`; Android provider JADX headless 0.7.1.
+- The artifact contains package evidence, eight class searches, class inspections, 24 method inspections and reference traces for Friday, Shizuku, Termux and the separate Termux:Boot APK.
+- Friday target SHA-256 remains `231ee7244bd5d3b6adf5219a202a12af95536c9d78d59ac6f910acf080d53075`, the pinned production v1.0.547 APK. This run revalidates the historical baseline; it is not an inspection of the newly merged main build or a physical handset.
+
+### Confirmed method-level findings retained from the report
+
+- `CloudVmSandboxExecutor.stressTest` in the pinned release unconditionally returns a failed `StressResult` with the explicit reason that cloud VM sandbox execution is not implemented. The new production path now uses the integrated, fixed GitHub Actions candidate-sandbox workflow; the legacy class remains a fail-closed stub and must not be described as the production executor.
+- `FridayRuntimeService.onStartCommand` promotes the service to foreground and returns Android `START_STICKY` on its supported path. This is not a guarantee against user force-stop, package disable/removal, OEM policy or Shizuku server death.
+- `FridayShellService.identity()` in the inspected release reports only UID and PID. PR #173 now adds a unique per-process instance token and start timestamp to the live source and a non-creating existing-daemon probe; these newer source changes are not present in the pinned v1.0.547 artifact.
+- Static evidence continues to prove only what is packaged and decompiled. No attached handset was used; no live Shizuku UID, Binder-death, force-stop, boot or recovery result is claimed.
+
+### Updated engineering status
+
+PR #173 was merged to `main` at `48d4745937fcc417d58a793e419282815c8226ea`. The merged code now connects the live `ObjectiveExecutionWorker` to the exact-candidate isolated sandbox and candidate-specific REA investigation, validates provenance, and queues bounded repairs from actionable failures. This closes the source-integration gap identified in the earlier static report, but not the end-to-end acceptance gap.
+
+Remaining proof: a real installed Friday Builder task must trigger the workflow, receive the exact candidate's real REA evidence, synthesize a repair, publish a new candidate, and pass independent verification. Physical-device Shizuku/force-stop acceptance remains separate and outstanding.
