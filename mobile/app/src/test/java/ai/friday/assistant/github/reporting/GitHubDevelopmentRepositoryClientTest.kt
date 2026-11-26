@@ -326,6 +326,22 @@ class GitHubDevelopmentRepositoryClientTest {
         }
     }
 
+    @Test fun `REA dispatch accepts current GitHub 200 response and captures run id`() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"workflow_run_id":987,"run_url":"https://api.github.com/repos/mhw77655-hue/Friday/actions/runs/987","html_url":"https://github.com/mhw77655-hue/Friday/actions/runs/987"}"""
+        ))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val runId = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+                .dispatchReaInvestigation("friday-rea-abc12345")
+            assertEquals(987L, runId)
+        } finally {
+            server.shutdown()
+        }
+    }
+
     @Test fun `REA dispatch rejects arbitrary refs and malformed identifiers before network access`() {
         val server = MockWebServer()
         server.start()
