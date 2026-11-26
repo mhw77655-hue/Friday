@@ -188,7 +188,24 @@ class SettingsScreenInteractionInstrumentedTest {
         )
         grant.close()
         val prefs = context.getSharedPreferences("friday_runtime", Context.MODE_PRIVATE)
-        prefs.edit().clear().commit()
+        // Stop any foreground service left by an earlier instrumentation case,
+        // then synchronously reset only the owner-controlled preference before
+        // Settings reads its initial snapshot.
+        context.stopService(
+            android.content.Intent(
+                context,
+                ai.friday.assistant.runtime.FridayRuntimeService::class.java
+            )
+        )
+        prefs.edit()
+            .putBoolean("keep_alive_enabled", false)
+            .putBoolean("microphone_service_active", false)
+            .remove("last_start_failure")
+            .commit()
+        assertTrue(
+            "The runtime toggle fixture must start disabled.",
+            !ai.friday.assistant.runtime.FridayRuntimeController.isEnabled(context)
+        )
 
         compose.setContent {
             FridayTheme {
