@@ -308,6 +308,133 @@ class GitHubDevelopmentRepositoryClient(
         throw IOException("REA evidence archive did not contain investigation-summary.json.")
     }
 
+    data class CandidateSandboxRun(
+        val id: Long,
+        val title: String,
+        val status: String,
+        val conclusion: String?,
+        val url: String,
+        val headSha: String
+    )
+
+    /** Dispatch only Friday's fixed, secret-free Android candidate sandbox. */
+    fun dispatchCandidateSandbox(taskId: String, candidateSha: String): Long? {
+        require(taskId.matches(Regex("[A-Za-z0-9._-]{3,80}"))) { "Sandbox task id is malformed." }
+        require(candidateSha.matches(Regex("[0-9a-f]{40}"))) { "Sandbox candidate SHA is invalid." }
+        val payload = JSONObject()
+            .put("ref", "main")
+            .put("inputs", JSONObject()
+                .put("task_id", taskId)
+                .put("candidate_sha", candidateSha)
+                .put("test_profile", "android-debug"))
+        val response = request(
+            apiRoot + "/actions/workflows/candidate-sandbox.yml/dispatches",
+            "POST",
+            payload.toString()
+        )
+        response.use {
+            if (it.code == 204) return null
+            if (it.code == 200) {
+                val body = runCatching { JSONObject(it.body?.string().orEmpty()) }
+                    .getOrElse { throw IOException("GitHub accepted the sandbox dispatch but returned invalid run metadata.") }
+                return body.optLong("workflow_run_id", -1L).takeIf { id -> id > 0L }
+            }
+            throw IOException(apiError(it.code, "dispatch the isolated candidate sandbox"))
+        }
+    }
+
+    /** Match only the run-name generated from Friday's task identifier. */
+    fun findCandidateSandboxRun(taskId: String): CandidateSandboxRun? {
+        require(taskId.matches(Regex("[A-Za-z0-9._-]{3,80}"))) { "Sandbox task id is malformed." }
+        val json = getJson(
+            apiRoot + "/actions/workflows/candidate-sandbox.yml/runs?branch=main&event=workflow_dispatch&per_page=50"
+        )
+        val runs = json.optJSONArray("workflow_runs") ?: JSONArray()
+        val expectedTitle = "Friday sandbox task " + taskId
+        for (index in 0 until runs.length()) {
+            val run = runs.optJSONObject(index) ?: continue
+            val title = run.optString("display_title").ifBlank { run.optString("name") }
+            if (title != expectedTitle) continue
+            val id = run.optLong("id", -1L)
+            val url = run.optString("html_url")
+            if (id <= 0L || !url.startsWith("https://github.com/")) continue
+            return CandidateSandboxRun(
+                id = id,
+                title = title,
+                status = run.optString("status", "unknown"),
+                conclusion = run.optString("conclusion").takeIf { value -> value.isNotBlank() && value != "null" },
+                url = url,
+                headSha = run.optString("head_sha")
+            )
+        }
+        return null
+    }
+
+    /** Retrieve the exact root summary JSON from the sandbox run's bounded evidence artifact. */
+    fun downloadCandidateSandboxSummary(runId: Long): String {
+        require(runId > 0L) { "Sandbox workflow run id is invalid." }
+        val json = getJson(apiRoot + "/actions/runs/" + runId + "/artifacts?per_page=100")
+        val artifacts = json.optJSONArray("artifacts") ?: JSONArray()
+        val expectedName = "friday-candidate-sandbox-" + runId
+        var artifactId = -1L
+        for (index in 0 until artifacts.length()) {
+            val artifact = artifacts.optJSONObject(index) ?: continue
+            if (artifact.optString("name") == expectedName && !artifact.optBoolean("expired", true)) {
+                artifactId = artifact.optLong("id", -1L)
+                break
+            }
+        }
+        require(artifactId > 0L) { "Completed sandbox run has no available evidence artifact." }
+        val response = request(apiRoot + "/actions/artifacts/" + artifactId + "/zip", "GET", null)
+        val archive = response.use {
+            if (!it.isSuccessful) throw IOException(apiError(it.code, "download candidate sandbox evidence"))
+            val body = it.body ?: throw IOException("GitHub returned an empty sandbox evidence archive.")
+            val contentLength = body.contentLength()
+            require(contentLength < 0L || contentLength <= MAX_REA_ARCHIVE_BYTES.toLong()) {
+                "Sandbox evidence archive exceeds the download limit."
+            }
+            body.byteStream().use { input ->
+                val output = ByteArrayOutputStream()
+                val buffer = ByteArray(8_192)
+                var total = 0
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    total += count
+                    require(total <= MAX_REA_ARCHIVE_BYTES) { "Sandbox evidence archive exceeds the download limit." }
+                    output.write(buffer, 0, count)
+                }
+                output.toByteArray()
+            }
+        }
+        ZipInputStream(ByteArrayInputStream(archive)).use { zip ->
+            while (true) {
+                val entry = zip.nextEntry ?: break
+                if (!entry.isDirectory && entry.name == "summary.json") {
+                    val output = ByteArrayOutputStream()
+                    val buffer = ByteArray(4_096)
+                    var total = 0
+                    while (true) {
+                        val count = zip.read(buffer)
+                        if (count < 0) break
+                        total += count
+                        require(total <= MAX_REA_SUMMARY_BYTES) { "Sandbox summary exceeds the size limit." }
+                        output.write(buffer, 0, count)
+                    }
+                    val summary = output.toString(StandardCharsets.UTF_8.name())
+                    val parsed = runCatching { JSONObject(summary) }
+                        .getOrElse { throw IOException("Sandbox summary is not valid JSON.") }
+                    require(parsed.optInt("schema_version", -1) == 1) {
+                        "Sandbox evidence schema is unsupported."
+                    }
+                    return summary
+                }
+                zip.closeEntry()
+            }
+        }
+        throw IOException("Sandbox artifact did not contain the exact root summary.json entry.")
+    }
+
     data class CandidateChecks(
         val state: String,
         val total: Int,
