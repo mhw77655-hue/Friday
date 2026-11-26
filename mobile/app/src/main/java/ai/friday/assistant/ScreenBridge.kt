@@ -22,6 +22,7 @@ object ScreenBridge {
     // Binder callbacks publish this reference from a Binder-managed thread;
     // UI and IO callers consume it from different dispatchers.
     @Volatile private var service: IFridayShellService? = null
+    @Volatile private var appContext: Context? = null
     private var userServiceArgs: Shizuku.UserServiceArgs? = null
     @Volatile private var verifiedUid: Int? = null
     @Volatile private var bindingInProgress: Boolean = false
@@ -65,6 +66,17 @@ object ScreenBridge {
             verifiedUid = uid
             bindingInProgress = false
             _status.value = "bound · verified Shizuku uid=$uid"
+            val ownerContext = appContext
+            val restoreGuardian = runCatching {
+                ownerContext?.getSharedPreferences("friday_settings", Context.MODE_PRIVATE)
+                    ?.getBoolean("shizuku_recovery_guardian_enabled", false) == true
+            }.getOrDefault(false)
+            if (restoreGuardian) {
+                runCatching { candidate.setRecoveryGuardianEnabled(true) }
+                    .onFailure { failure ->
+                        Log.w("ScreenBridge", "Could not restore Shizuku recovery guardian", failure)
+                    }
+            }
         }
         override fun onServiceDisconnected(name: ComponentName?) {
             bindingInProgress = false
@@ -88,6 +100,7 @@ object ScreenBridge {
 
     @Synchronized
     fun bind(context: Context) {
+        appContext = context.applicationContext
         val binderAvailable = runCatching { Shizuku.pingBinder() }.getOrElse { failure ->
             bindingInProgress = false
             _status.value = "Shizuku availability check failed: ${failure.javaClass.simpleName}"
