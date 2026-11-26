@@ -153,6 +153,72 @@ class FridayUpdateStateInstrumentedTest {
     }
 
     @Test
+    fun newerReleaseCannotReplaceArtifactWhilePreviousPostInstallRecoveryIsPending() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val info = context.packageManager.getPackageInfo(
+            context.packageName,
+            android.content.pm.PackageManager.PackageInfoFlags.of(
+                android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES.toLong()
+            )
+        )
+        val store = FridayUpdateStateStore(context)
+        store.clearStaged()
+        store.clearPendingHealthCheck()
+        val staging = File(context.noBackupFilesDir, "friday-update-staging").apply { mkdirs() }
+        val failedApk = File(staging, "failed-recovery-update.apk").apply {
+            writeBytes(byteArrayOf(1, 2, 3))
+        }
+        val newerApk = File(staging, "newer-candidate.apk").apply {
+            writeBytes(byteArrayOf(4, 5, 6))
+        }
+        val failedRelease = FridayUpdateClient.Release(
+            packageId = context.packageName,
+            versionCode = info.longVersionCode + 1L,
+            versionName = "failed-update",
+            sourceCommit = "a".repeat(40),
+            certificateSha256 = "B".repeat(64),
+            apkSha256 = "c".repeat(64),
+            apkUrl = "https://example.invalid/failed.apk"
+        )
+        val newerRelease = FridayUpdateClient.Release(
+            packageId = context.packageName,
+            versionCode = info.longVersionCode + 2L,
+            versionName = "newer-candidate",
+            sourceCommit = "d".repeat(40),
+            certificateSha256 = "E".repeat(64),
+            apkSha256 = "f".repeat(64),
+            apkUrl = "https://example.invalid/newer.apk"
+        )
+        try {
+            store.saveStaged(FridayUpdateClient.Result.Staged(failedRelease, failedApk))
+            assertTrue(store.recordPendingHealthCheck(failedRelease))
+
+            val accepted = store.saveStagedUnlessRecoveryRequired(
+                FridayUpdateClient.Result.Staged(newerRelease, newerApk)
+            )
+
+            assertFalse(
+                "A newer release must not replace the only artifact for a failed post-install update.",
+                accepted
+            )
+            assertEquals(
+                "The original failed APK must remain the active recovery artifact.",
+                failedApk.canonicalPath,
+                store.loadStaged()?.apk?.canonicalPath
+            )
+            assertTrue("The original recovery APK must remain on disk.", failedApk.exists())
+            assertTrue(
+                "The pending failed health-check marker must remain available.",
+                store.verifyPendingHealthCheck().orEmpty().startsWith("Post-update health check failed:")
+            )
+        } finally {
+            store.clearStaged()
+            store.clearPendingHealthCheck()
+            newerApk.delete()
+        }
+    }
+
+    @Test
     fun postInstallHealthCheckConfirmsCurrentVersionSourceAndSigner() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val flags = android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES
