@@ -576,3 +576,30 @@ Engineering consequence: do not promise that Friday can autonomously restart its
 ### Current next action
 
 Complete exact-head CI for the profile-aware sandbox branch. If it passes, review and merge the isolated-profile integration. Then use the installed Friday app and its authorized Builder worker to produce a real failed candidate and observe the complete REA-assisted repair episode. In parallel, prepare a physical-device acceptance matrix for Shizuku identity, daemon reuse, Binder death, server stop/restart, ordinary process death, reboot and user force-stop. Never report emulator or static evidence as handset proof.
+
+
+---
+
+## 15. Chronological delivery log — 2026-11-27 (continued)
+
+### PR #179 — profile-aware repair verification merged
+
+- PR #179 merged to `main` at `0187fbd90a2ce488b5372e3364f213d266650a0e`.
+- Exact-head run [#3631](https://github.com/mhw77655-hue/Friday/actions/runs/45907842727) passed all six JVM shards, aggregate evidence, whole-repository Kotlin/vision audit, debug APK, Android lint, release-variant signing verification with a disposable CI key, and the disposable Android emulator lane.
+- The emulator artifact contains 50 instrumentation tests with 0 failures, 0 errors and 0 skipped tests, plus Friday's launched MainActivity, process/activity evidence, screenshot, logs and coverage report.
+- Formal Lean 4 contract validation for the merge commit [run #45909194965](https://github.com/mhw77655-hue/Friday/actions/runs/45909194965) passed.
+- **Evidence distinction:** run #3631 exercised the repository's normal Android emulator CI lane. It did not dispatch `.github/workflows/candidate-sandbox.yml` with `test_profile=android-instrumented`. The actual reusable candidate-sandbox workflow path therefore still requires a dedicated workflow-level canary; do not infer it from the normal emulator job.
+
+### Candidate-sandbox workflow contract — in progress
+
+- Branch `feat/candidate-sandbox-instrumented-contract` exposes the exact-candidate sandbox as a reusable `workflow_call` as well as the existing phone-driven `workflow_dispatch`.
+- The reusable workflow validates its own generated summary against the dispatched candidate SHA and fixed test profile before uploading evidence. A passing summary must also carry a successful verification result and a valid APK SHA-256.
+- A dedicated mainline contract workflow is being added to call the actual reusable sandbox with `android-instrumented`, then download and independently assert the evidence artifact. This will exercise the actual profile branch after merge, rather than merely re-running the same emulator test script in the ordinary build job.
+- This branch is **not yet CI-verified or merged**. The contract run after merge must pass before the instrumented candidate-sandbox profile is called operationally demonstrated.
+
+### Current deployment and acceptance boundary
+
+- The latest signed release at this snapshot is [Friday 1.0.568](https://github.com/mhw77655-hue/Friday/releases/tag/friday-v1.0.568), built from `15ce678a89bd9609bbe8352cc082a1579e1cf769`. It includes PR #178 but predates PR #179. The signed release for `0187fbd90a2ce488b5372e3364f213d266650a0e` is pending its successful main build.
+- No live installed-app Builder task has yet been observed completing a real failed candidate -> candidate-specific REA -> bounded repair -> new candidate -> independent verification cycle.
+- No physical handset Shizuku daemon survival, Binder-death, reboot or force-stop result is claimed. The existing Shizuku acceptance runner must be exercised on the owner's device; emulator results are not substitutes.
+
