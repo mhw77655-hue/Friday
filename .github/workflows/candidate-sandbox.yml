@@ -108,6 +108,75 @@ jobs:
           echo "exit_code=$RESULT" >> "$GITHUB_OUTPUT"
           exit "$RESULT"
 
+      # A failed test/lint run is not a reason to discard the candidate.
+      # Build the exact candidate APK separately, then let REA inspect that
+      # artifact. This is static evidence only; it is never treated as runtime proof.
+      - name: Build candidate APK for failure investigation
+        id: build_failure_apk
+        if: always() && steps.verify.outcome == 'failure'
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          ./gradlew --no-daemon --console=plain :mobile:app:assembleDebug
+          RESULT=$?
+          echo "exit_code=$RESULT" >> "$GITHUB_OUTPUT"
+          exit "$RESULT"
+
+      - name: Set up Node.js for failure-only REA investigation
+        if: always() && steps.build_failure_apk.outcome == 'success'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.22.1"
+
+      - name: Set up full JDK for the pinned REA JADX provider
+        if: always() && steps.build_failure_apk.outcome == 'success'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install and verify pinned REA Android provider
+        id: rea_provider
+        if: always() && steps.build_failure_apk.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="6.10.1"
+          INTEGRITY="$(npm view "rea-agents@${VERSION}" dist.integrity)"
+          test -n "$INTEGRITY"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "integrity=$INTEGRITY" >> "$GITHUB_OUTPUT"
+          mkdir -p "$RUNNER_TEMP/friday-candidate-rea"
+          cd "$RUNNER_TEMP/friday-candidate-rea"
+          curl -fL --retry 3 -o jadx-headless-mcp-0.7.1-all.jar \
+            https://github.com/1013503897/jadx-headless-mcp/releases/download/v0.7.1/jadx-headless-mcp-0.7.1-all.jar
+          echo "6e5eacf500b64292bfb73c49797c1958f6ee44646e43e868039ae7feb573ff75  jadx-headless-mcp-0.7.1-all.jar" | sha256sum -c -
+          echo "REA_JADX_MCP_JAR=$RUNNER_TEMP/friday-candidate-rea/jadx-headless-mcp-0.7.1-all.jar" >> "$GITHUB_ENV"
+          npx --yes "rea-agents@${VERSION}" doctor --provider jadx --json
+
+      - name: Investigate the exact failed candidate APK with REA
+        id: rea_candidate
+        if: always() && steps.rea_provider.outcome == 'success'
+        continue-on-error: true
+        env:
+          REA_PACKAGE_VERSION: ${{ steps.rea_provider.outputs.version }}
+          REA_PACKAGE_INTEGRITY: ${{ steps.rea_provider.outputs.integrity }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          CANDIDATE_APK: mobile/app/build/outputs/apk/debug/app-debug.apk
+          REA_OUTPUT_DIR: ${{ runner.temp }}/friday-candidate-rea/evidence
+        shell: bash
+        run: |
+          set +e
+          mkdir -p "$REA_OUTPUT_DIR"
+          node tools/rea/inspect-candidate-apk.mjs \
+            > "$RUNNER_TEMP/friday-candidate-rea/rea-run.stdout" \
+            2> "$RUNNER_TEMP/friday-candidate-rea/rea-run.stderr"
+          RESULT=$?
+          echo "exit_code=$RESULT" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/friday-candidate-rea/rea-run.stdout"
+          exit "$RESULT"
+
       - name: Assemble machine-readable sandbox evidence
         if: always()
         env:
@@ -116,12 +185,21 @@ jobs:
           ACTUAL_SHA: ${{ steps.identity.outputs.actual_sha }}
           VERIFY_OUTCOME: ${{ steps.verify.outcome }}
           VERIFY_EXIT_CODE: ${{ steps.verify.outputs.exit_code }}
+          FAILURE_APK_OUTCOME: ${{ steps.build_failure_apk.outcome }}
+          REA_OUTCOME: ${{ steps.rea_candidate.outcome }}
         run: |
           set -euo pipefail
           OUT="friday-sandbox-evidence"
           mkdir -p "$OUT"
           if [[ -f "$RUNNER_TEMP/friday-sandbox-evidence/gradle.log" ]]; then
             cp "$RUNNER_TEMP/friday-sandbox-evidence/gradle.log" "$OUT/gradle.log"
+          fi
+          REA_REPORT="$RUNNER_TEMP/friday-candidate-rea/evidence/candidate-rea-evidence.json"
+          if [[ -f "$REA_REPORT" ]]; then
+            cp "$REA_REPORT" "$OUT/candidate-rea-evidence.json"
+          fi
+          if [[ -f "$RUNNER_TEMP/friday-candidate-rea/rea-run.stderr" ]]; then
+            cp "$RUNNER_TEMP/friday-candidate-rea/rea-run.stderr" "$OUT/rea-run.stderr"
           fi
           if [[ -d mobile/app/build/reports/tests/testDebugUnitTest ]]; then
             mkdir -p "$OUT/reports"
@@ -139,12 +217,17 @@ jobs:
             cp "$APK" "$OUT/app-debug.apk"
           fi
           python3 - <<'PY'
-          import json, os, pathlib, platform
+          import hashlib, json, os, pathlib, platform
           out = pathlib.Path("friday-sandbox-evidence/summary.json")
           expected = os.environ.get("EXPECTED_SHA", "")
           actual = os.environ.get("ACTUAL_SHA", "")
           outcome = os.environ.get("VERIFY_OUTCOME", "unknown")
           apk_sha = os.environ.get("APK_SHA", "")
+          log_path = pathlib.Path("friday-sandbox-evidence/gradle.log")
+          failure_excerpt = "\\n".join(log_path.read_text(errors="replace").splitlines()[-100:])[-12000:] if log_path.exists() else ""
+          rea_path = pathlib.Path("friday-sandbox-evidence/candidate-rea-evidence.json")
+          rea_text = rea_path.read_text(errors="replace") if rea_path.exists() else ""
+          rea_sha = hashlib.sha256(rea_text.encode()).hexdigest() if rea_text else ""
           passed = outcome == "success" and expected == actual and len(actual) == 40 and len(apk_sha) == 64
           data = {
               "schema_version": 1,
@@ -155,6 +238,11 @@ jobs:
               "status": "PASS" if passed else "FAIL",
               "verification_step": outcome,
               "gradle_exit_code": os.environ.get("VERIFY_EXIT_CODE", ""),
+              "failure_apk_build_outcome": os.environ.get("FAILURE_APK_OUTCOME", "skipped"),
+              "failure_excerpt": failure_excerpt,
+              "rea_status": "COMPLETED" if rea_text else ("FAILED" if os.environ.get("REA_OUTCOME") == "failure" else "UNAVAILABLE"),
+              "rea_report_sha256": rea_sha,
+              "rea_evidence_excerpt": rea_text[:20000],
               "runner_os": platform.platform(),
               "apk_sha256": apk_sha,
               "signing": "debug-only; no production signing secrets are available to this runner"
