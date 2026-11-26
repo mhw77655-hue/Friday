@@ -28,6 +28,10 @@ class CandidateRepairPlannerTest {
         .put("sandbox", JSONObject().put("status", "FAIL").put("summary", JSONObject()
             .put("verification_step", "failure")
             .put("failure_classification", "ACTIONABLE_DEFECT")
+            .put("expected_commit_sha", "a".repeat(40))
+            .put("checked_out_commit_sha", "a".repeat(40))
+            .put("test_profile", "android-debug")
+            .put("apk_sha256", "c".repeat(64))
             .put("failure_excerpt", "testDebugUnitTest failed")))
 
     @Test
@@ -38,6 +42,10 @@ class CandidateRepairPlannerTest {
                 .put("rea_status", "COMPLETED")
                 .put("verification_step", "failure")
                 .put("failure_classification", "ACTIONABLE_DEFECT")
+                .put("expected_commit_sha", "a".repeat(40))
+                .put("checked_out_commit_sha", "a".repeat(40))
+                .put("test_profile", "android-debug")
+                .put("apk_sha256", "c".repeat(64))
                 .put("failure_excerpt", "testDebugUnitTest failed")
                 .put("rea_evidence_excerpt", "ev_" + "b".repeat(64))))
         val repair = CandidateRepairPlanner.createRepairTask(failedTask(), evidence, 1234L)!!
@@ -87,6 +95,19 @@ class CandidateRepairPlannerTest {
     }
 
     @Test
+    fun refusesActionableClassificationWhenCandidateProvenanceDoesNotMatch() {
+        val evidence = JSONObject().put("sandbox", JSONObject()
+            .put("status", "FAIL")
+            .put("summary", JSONObject()
+                .put("failure_classification", "ACTIONABLE_DEFECT")
+                .put("expected_commit_sha", "b".repeat(40))
+                .put("checked_out_commit_sha", "b".repeat(40))
+                .put("test_profile", "android-debug")
+                .put("apk_sha256", "c".repeat(64))))
+        assertNull(CandidateRepairPlanner.createRepairTask(failedTask(), evidence))
+    }
+
+    @Test
     fun refusesUnclassifiedCiFailureEvenWhenTheCheckIsRed() {
         val unclassified = JSONObject()
             .put("ci", JSONObject().put("state", "FAILURE"))
@@ -118,6 +139,10 @@ class CandidateRepairPlannerTest {
             .put("sandbox", JSONObject().put("summary", JSONObject()
                 .put("rea_status", "COMPLETED")
                 .put("failure_classification", "ACTIONABLE_DEFECT")
+                .put("expected_commit_sha", "a".repeat(40))
+                .put("checked_out_commit_sha", "a".repeat(40))
+                .put("test_profile", "android-debug")
+                .put("apk_sha256", "c".repeat(64))
                 .put("failure_excerpt", "line\\n".repeat(100_000))
                 .put("rea_evidence_excerpt", "ev_" + "a".repeat(64) + "line\\n".repeat(100_000))))
             .put("candidate_diff", "diff\\n".repeat(100_000))
