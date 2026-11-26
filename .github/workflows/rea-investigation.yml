@@ -1,0 +1,136 @@
+name: Friday REA Android investigation
+
+on:
+  pull_request:
+    paths:
+      - "tools/rea/**"
+      - ".github/workflows/rea-investigation.yml"
+  push:
+    branches: [ main ]
+    paths:
+      - "tools/rea/**"
+      - ".github/workflows/rea-investigation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: friday-rea-android-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rea-android-static-investigation:
+    name: REA MCP static APK investigation
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout Friday
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js required by REA
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24.22.1"
+          cache: npm
+
+      - name: Set up full JDK for JADX
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Record pinned upstream REA package integrity
+        id: rea-package
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="6.10.1"
+          INTEGRITY="$(npm view "rea-agents@${VERSION}" dist.integrity)"
+          test -n "$INTEGRITY"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "integrity=$INTEGRITY" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$INTEGRITY" > "$RUNNER_TEMP/rea-package-integrity.txt"
+          node --version
+          npm --version
+
+      - name: Install and verify the exact JADX provider required by REA 6.10.1
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rea-android"
+          cd "$RUNNER_TEMP/rea-android"
+          curl -fL --retry 3 -o jadx-headless-mcp-0.7.1-all.jar \
+            https://github.com/1013503897/jadx-headless-mcp/releases/download/v0.7.1/jadx-headless-mcp-0.7.1-all.jar
+          echo "6e5eacf500b64292bfb73c49797c1958f6ee44646e43e868039ae7feb573ff75  jadx-headless-mcp-0.7.1-all.jar" | sha256sum -c -
+          echo "REA_JADX_MCP_JAR=$RUNNER_TEMP/rea-android/jadx-headless-mcp-0.7.1-all.jar" >> "$GITHUB_ENV"
+          java -version
+          javac -version
+
+      - name: Check REA's actual Android provider readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes "rea-agents@${{ steps.rea-package.outputs.version }}" doctor --provider jadx --json \
+            | tee "$RUNNER_TEMP/rea-doctor-jadx.json"
+
+      - name: Download pinned Friday, Shizuku and Termux APK targets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rea-targets"
+          gh release download friday-v1.0.547 --repo mhw77655-hue/Friday \
+            --pattern app-release.apk --dir "$RUNNER_TEMP/rea-targets"
+          curl -fL --retry 3 \
+            -o "$RUNNER_TEMP/rea-targets/shizuku-v13.6.0.apk" \
+            https://github.com/RikkaApps/Shizuku/releases/download/v13.6.0/shizuku-v13.6.0.r1086.2650830c-release.apk
+          curl -fL --retry 3 \
+            -o "$RUNNER_TEMP/rea-targets/termux-v0.118.3-arm64.apk" \
+            'https://github.com/termux/termux-app/releases/download/v0.118.3/termux-app_v0.118.3%2Bgithub-debug_arm64-v8a.apk'
+          curl -fL --retry 3 \
+            -o "$RUNNER_TEMP/rea-targets/termux-sha256sums" \
+            'https://github.com/termux/termux-app/releases/download/v0.118.3/termux-app_v0.118.3%2Bgithub-debug_sha256sums'
+          (cd "$RUNNER_TEMP/rea-targets" && grep -F 'termux-app_v0.118.3+github-debug_arm64-v8a.apk' termux-sha256sums \
+            | sed 's#  .*#  termux-v0.118.3-arm64.apk#' | sha256sum -c -)
+          echo "FRIDAY_APK=$RUNNER_TEMP/rea-targets/app-release.apk" >> "$GITHUB_ENV"
+          echo "SHIZUKU_APK=$RUNNER_TEMP/rea-targets/shizuku-v13.6.0.apk" >> "$GITHUB_ENV"
+          echo "TERMUX_APK=$RUNNER_TEMP/rea-targets/termux-v0.118.3-arm64.apk" >> "$GITHUB_ENV"
+          sha256sum "$RUNNER_TEMP/rea-targets/"*.apk | tee "$RUNNER_TEMP/rea-target-sha256.txt"
+
+      - name: Invoke the real REA MCP server against all three Android APKs
+        env:
+          REA_PACKAGE_VERSION: ${{ steps.rea-package.outputs.version }}
+          REA_PACKAGE_INTEGRITY: ${{ steps.rea-package.outputs.integrity }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/rea/inspect-android-apks.mjs \
+            --output-dir "$RUNNER_TEMP/rea-evidence" \
+            --target friday="$FRIDAY_APK" \
+            --target shizuku="$SHIZUKU_APK" \
+            --target termux="$TERMUX_APK"
+
+      - name: Assemble investigation provenance
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/rea-evidence"
+          cp "$RUNNER_TEMP/rea-doctor-jadx.json" "$RUNNER_TEMP/rea-evidence/" 2>/dev/null || true
+          cp "$RUNNER_TEMP/rea-target-sha256.txt" "$RUNNER_TEMP/rea-evidence/" 2>/dev/null || true
+          cp "$RUNNER_TEMP/rea-package-integrity.txt" "$RUNNER_TEMP/rea-evidence/" 2>/dev/null || true
+          java -version 2> "$RUNNER_TEMP/rea-evidence/java-version.txt" || true
+          node --version > "$RUNNER_TEMP/rea-evidence/node-version.txt" || true
+
+      - name: Upload REA evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-rea-android-evidence-${{ github.run_id }}
+          path: ${{ runner.temp }}/rea-evidence/
+          if-no-files-found: warn
+          retention-days: 30
