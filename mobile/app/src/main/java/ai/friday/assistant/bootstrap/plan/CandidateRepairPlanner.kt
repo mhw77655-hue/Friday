@@ -156,6 +156,7 @@ internal object CandidateRepairPlanner {
                 .put("stance", review.optString("stance").take(20))
                 .put("stance_reason", review.optString("stance_reason").take(500)))
             .put("candidate_diff", source.optString("candidate_diff")
-                .ifBlank { sandbox.optString("candidate_diff") }.take(8_000))
+                .ifBlank { sandbox.optString("candidate_diff") }
+                .ifBlank { review.optString("candidate_diff") }.take(8_000))
     }
 }
