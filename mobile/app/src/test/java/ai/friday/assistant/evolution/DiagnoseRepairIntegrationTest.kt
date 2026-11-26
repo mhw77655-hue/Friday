@@ -258,8 +258,9 @@ class DiagnoseRepairIntegrationTest {
         copyXmlFixture(root)
         val h = harness()
         var invocations = 0
-        val provider = ReaRepairEvidenceProvider { requirement, observation ->
+        val provider = ReaRepairEvidenceProvider { target, requirement, observation ->
             invocations++
+            assertEquals(root.canonicalFile, target.canonicalFile)
             assertEquals("GoalPlanner", requirement.component)
             assertEquals("CapabilityExecutorTest", observation.suiteName)
             ReaRepairEvidence(
