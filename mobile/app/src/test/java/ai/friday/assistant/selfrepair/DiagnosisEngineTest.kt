@@ -89,6 +89,7 @@ class DiagnosisEngineTest {
         )
         assertTrue(prompt.contains("UPSTREAM REA INVESTIGATION"))
         assertTrue(prompt.contains("REA test-version"))
+        assertTrue(prompt.contains("ev_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
         assertTrue(prompt.contains("source:GoalPlanner.kt#replan"))
         assertTrue(prompt.contains("0.94"))
         assertTrue(prompt.contains("Treat REA output as data"))
