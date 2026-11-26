@@ -117,7 +117,13 @@ object TermuxRuntimeBridge {
         LOG="$TERMUX_HOME/.friday-guardian.log"
         PAUSE="$TERMUX_HOME/.friday-guardian.pause"
         PIDFILE="$TERMUX_HOME/.friday-guardian.pid"
-        if [ -f "${'        printf '%s guardian-started %s\n' "$(date -Iseconds)" "$$" >> "${'$'}LOG"
+        if [ -f "${'$'}PIDFILE" ] && kill -0 "$(cat "${'$'}PIDFILE")" 2>/dev/null; then
+            echo "$(date -Iseconds) guardian-already-running" >> "${'$'}LOG"
+            exit 0
+        fi
+        echo "${'$'}${'$'}" > "${'$'}PIDFILE"
+        trap 'rm -f "${'$'}PIDFILE"' EXIT HUP INT TERM
+        printf '%s guardian-started %s\n' "$(date -Iseconds)" "$$" >> "${'$'}LOG"
         command -v termux-wake-lock >/dev/null 2>&1 && termux-wake-lock
         while [ ! -f "${'$'}PAUSE" ]; do
             if [ ! -x "${'$'}RISH" ] || [ ! -r "$TERMUX_HOME/rish_shizuku.dex" ]; then
