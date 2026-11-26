@@ -36,10 +36,17 @@ internal fun outputContainsExactToken(output: String, expected: String): Boolean
 class FridayShellService : IFridayShellService.Stub() {
     private data class ApkTransfer(val file: File, val output: RandomAccessFile, val expectedSize: Long, val expectedSha256: String, var written: Long = 0L)
     private val apkTransfers = ConcurrentHashMap<String, ApkTransfer>()
+    private val daemonStartedAtEpochMs = System.currentTimeMillis()
+    private val daemonInstanceId = UUID.randomUUID().toString()
 
-
-    /** Proves the bound process is actually running with Shizuku shell/root identity. */
-    override fun identity(): String = "uid=${Process.myUid()};pid=${Process.myPid()}"
+    /**
+     * Proves the actual remote UID and exposes a per-process identity token.
+     * Friday stores this before a force-stop; on next launch it can use
+     * Shizuku.peekUserService() and compare the token without creating a new
+     * service, proving whether the original daemon survived.
+     */
+    override fun identity(): String =
+        "uid=${Process.myUid()};pid=${Process.myPid()};started_at=$daemonStartedAtEpochMs;instance=$daemonInstanceId"
 
     override fun diagnosticsSnapshot(): String {
         val result = JSONObject()
