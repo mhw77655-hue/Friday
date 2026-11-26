@@ -75,11 +75,12 @@ class FridayPackageInstallStatusActivity : Activity() {
 }
 
 /**
- * Finalize the native PackageInstaller callback without destroying the only
- * recovery artifact when first-launch verification fails or cannot be saved.
+ * Finalize the native PackageInstaller callback without destroying recovery
+ * evidence when first-launch verification fails.
  *
- * FridayUpdateStateStore.verifyPendingHealthCheck() owns cleanup on a verified
- * success. On failure it deliberately retains both the marker and staged APK.
+ * FridayUpdateStateStore.verifyPendingHealthCheck() archives the failed
+ * release identity and staged APK separately. A higher-version signed repair
+ * can then be staged without overwriting that evidence.
  */
 internal fun completeNativeInstallVerification(state: FridayUpdateStateStore): String {
     val staged = state.loadStaged()
