@@ -793,9 +793,28 @@ The later main commit `27a712b097d29523335939ab321313a82bcdc587` passes the Andr
 - Prove an in-place upgrade from the currently installed package using the permanent signer, preserving Friday's identity, settings and experience.
 - Prove staged update verification, install result, post-update health checks and rollback/last-known-good recovery on the target phone.
 - Complete the Friday-native operations/development control plane and the adversarial/immune recovery campaign.
-- Integrate the real upstream REA MCP/CLI into Friday's engineering workflow and complete the Shizuku/Termux investigation. This is tracked in [issue #172](https://github.com/mhw77655-hue/Friday/issues/172); documentation changes alone do not mean REA is connected.
+- Merge and validate [PR #173](https://github.com/mhw77655-hue/Friday/pull/173), which now contains the real upstream REA MCP investigation, Friday-side workflow dispatch/status/evidence retrieval, and the Shizuku daemon continuity probe. The REA investigation itself has passed; the consolidated Android build/tests and owner-phone force-stop acceptance are still pending. [Issue #172](https://github.com/mhw77655-hue/Friday/issues/172) tracks completion.
 
 **Current deliverable:** a CI-verified, production-signed APK is available as [Friday v1.0.547](https://github.com/mhw77655-hue/Friday/releases/tag/friday-v1.0.547). It is a real installable release artifact, not yet an owner-phone accepted seed. The next critical proof is physical installation and continuity/update verification, not another claim of successful compilation.
+
+### Current engineering delta — REA and Shizuku (2026-11-26)
+
+The actual upstream tool is **REA — Reverse Engineer Anything**, [morluto/rea](https://github.com/morluto/rea), distributed as `rea-agents` and exposed through MCP/CLI. Do not redefine the acronym or substitute a generic in-house APK analyzer.
+
+**Verified REA investigation:** GitHub Actions run [45776634914](https://github.com/mhw77655-hue/Friday/actions/runs/45776634914) completed successfully using the real REA MCP server and pinned JADX provider. It inspected four exact APKs (Friday v1.0.547, Shizuku v13.6.0, Termux v0.118.3 and Termux:Boot v0.8.1), including 24 method decompilations and reference traces. The 447,236-byte evidence artifact records the live MCP catalog, package reports, target SHA-256 values and explicit analysis limitations.
+
+**Friday-side integration in PR #173:**
+- Friday's Android Settings can dispatch the fixed REA workflow on protected `main`, persist its investigation ID, resume status polling after reopening, and retrieve a bounded JSON evidence summary.
+- The saved fine-grained GitHub token needs Actions read/write for dispatch and run/artifact access.
+- REA runs on a disposable GitHub Actions worker; its Node/JADX/MCP runtime is not bundled into Friday's APK.
+- Termux and Termux:Boot are research targets/reference implementations, not Friday runtime dependencies.
+
+**Shizuku recovery finding and adaptation in PR #173:**
+- Friday already uses Shizuku `UserServiceArgs.daemon(true)`; REA confirmed the production APK's daemon configuration and typed `launchApp` operation.
+- The new probe adds a unique daemon-instance token and a non-creating `peekUserService` check. The owner can save a baseline, force-stop Friday from Android Settings, reopen it and rerun the acceptance test to determine whether the same Shizuku daemon survived.
+- This is not yet a physical-device pass. Shizuku server stop/restart is expected to kill its UserService; the owner handset test determines whether a Friday-native watchdog can safely live inside the existing daemon.
+
+**Still blocking autonomous self-repair:** `CloudVmSandboxExecutor` is currently a fail-closed stub, and `SelfRepairLoop` is not wired into the live FridayEngine. [Issue #175](https://github.com/mhw77655-hue/Friday/issues/175) tracks the isolated cloud sandbox and activation of the live repair/verification pipeline. Do not call autonomous self-repair complete until that pipeline passes independent tests.
 
 ### Owner correction — Friday is the control centre; Android/Shizuku are guided setup steps
 
