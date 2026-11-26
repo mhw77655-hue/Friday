@@ -134,6 +134,10 @@ fun SettingsScreen() {
     var shizukuRequestRunning by remember { mutableStateOf(false) }
     var shizukuAcceptanceReport by remember { mutableStateOf("") }
     var shizukuAcceptanceRunning by remember { mutableStateOf(false) }
+    var shizukuRecoveryGuardianEnabled by remember(context) {
+        mutableStateOf(prefs.getBoolean("shizuku_recovery_guardian_enabled", false))
+    }
+    var shizukuRecoveryGuardianStatus by remember { mutableStateOf("Shizuku recovery daemon is not enabled.") }
     var objectiveExecutionStatus by remember { mutableStateOf("Friday is loading the canonical objectives ledger…") }
 
     // Bumped on ON_RESUME so runtime status and local diagnostic counts
@@ -254,6 +258,17 @@ fun SettingsScreen() {
             runtimeMicrophoneActive = snapshot.microphoneActive
             batteryOptimizationIgnored = snapshot.batteryOptimizationIgnored
             runtimeStartFailure = snapshot.startFailure
+        }
+    }
+
+    LaunchedEffect(shizukuStatus, shizukuRecoveryGuardianEnabled) {
+        if (shizukuRecoveryGuardianEnabled &&
+            shizukuStatus.startsWith("bound · verified Shizuku uid=")
+        ) {
+            shizukuRecoveryGuardianStatus = withContext(Dispatchers.IO) {
+                ai.friday.assistant.ScreenBridge.setRecoveryGuardianEnabled(true)
+                    ?: "Shizuku recovery daemon is not connected."
+            }
         }
     }
 
@@ -888,6 +903,49 @@ fun SettingsScreen() {
             )
         }
         Text(text = shizukuStatus, style = FridayType.Technical, modifier = Modifier.padding(vertical = 6.dp))
+        Text(
+            text = "Shizuku can host Friday's recovery supervisor in daemon mode. This is a separate shell/root UserService process, not a normal Friday component; Shizuku documents that daemon UserServices survive the client app process dying and remain until explicitly unbound. Shizuku server shutdown/restart still terminates them, so Termux remains the second recovery anchor.",
+            style = FridayType.Label,
+            modifier = Modifier.padding(top = 8.dp, bottom = 6.dp)
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Independent Shizuku recovery daemon", style = FridayType.Body)
+                Text(
+                    if (shizukuRecoveryGuardianEnabled) "Owner setting: enabled" else "Owner setting: disabled",
+                    style = FridayType.Technical
+                )
+            }
+            Switch(
+                checked = shizukuRecoveryGuardianEnabled,
+                enabled = shizukuStatus.startsWith("bound · verified Shizuku uid="),
+                onCheckedChange = { enabled ->
+                    shizukuRecoveryGuardianEnabled = enabled
+                    prefs.edit().putBoolean("shizuku_recovery_guardian_enabled", enabled).apply()
+                    shizukuRecoveryGuardianStatus = if (enabled) {
+                        "Starting Shizuku recovery daemon…"
+                    } else {
+                        "Stopping Shizuku recovery daemon…"
+                    }
+                    scope.launch {
+                        shizukuRecoveryGuardianStatus = withContext(Dispatchers.IO) {
+                            ai.friday.assistant.ScreenBridge.setRecoveryGuardianEnabled(enabled)
+                                ?: "Shizuku service is not connected."
+                        }
+                    }
+                },
+                colors = SwitchDefaults.colors(checkedTrackColor = FridayColors.CoreIdle)
+            )
+        }
+        Text(
+            text = shizukuRecoveryGuardianStatus,
+            style = FridayType.Technical,
+            modifier = Modifier.padding(vertical = 6.dp)
+        )
         Button(
             onClick = {
                 shizukuDiagnosticsRunning = true
