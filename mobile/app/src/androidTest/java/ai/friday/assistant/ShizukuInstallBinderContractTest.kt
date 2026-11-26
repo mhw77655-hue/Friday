@@ -18,6 +18,7 @@ class ShizukuInstallBinderContractTest {
         var observedOffset = -1L
         var observedBytes = ByteArray(0)
         var observedForegroundPackage = ""
+        var observedGuardianEnabled = false
         val service = object : IFridayShellService.Stub() {
             override fun identity() = "uid=2000;pid=1"
             override fun diagnosticsSnapshot() = "{}"
@@ -42,6 +43,11 @@ class ShizukuInstallBinderContractTest {
             }
             override fun commitApkInstall(transferId: String) = "status=installed; package=ai.friday.assistant; uid=2000"
             override fun cancelApkInstall(transferId: String) = "status=cancelled; deleted=true"
+            override fun setRecoveryGuardianEnabled(enabled: Boolean): String {
+                observedGuardianEnabled = enabled
+                return "status=verified; enabled=$enabled"
+            }
+            override fun recoveryGuardianStatus() = "status=verified; enabled=$observedGuardianEnabled"
             override fun destroy() = Unit
         }
 
@@ -74,6 +80,10 @@ class ShizukuInstallBinderContractTest {
             "status=cancelled; deleted=true",
             client.cancelApkInstall("0123456789abcdef0123456789abcdef")
         )
+
+        assertEquals("status=verified; enabled=true", client.setRecoveryGuardianEnabled(true))
+        assertEquals(true, observedGuardianEnabled)
+        assertEquals("status=verified; enabled=true", client.recoveryGuardianStatus())
     }
     @Test
     fun unsupportedForegroundTransactionFailsClosed() {
