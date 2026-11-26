@@ -84,7 +84,7 @@ jobs:
           npx --yes "rea-agents@${{ steps.rea-package.outputs.version }}" doctor --provider jadx --json \
             | tee "$RUNNER_TEMP/rea-doctor-jadx.json"
 
-      - name: Download pinned Friday, Shizuku and Termux APK targets
+      - name: Download pinned Friday, Shizuku, Termux and Termux:Boot APK targets
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -120,7 +120,7 @@ jobs:
           (cd "$RUNNER_TEMP/rea-targets" && grep -F 'termux-boot-app_v0.8.1+github.debug.apk' termux-boot-sha256sums \
             | sed 's#  .*#  termux-boot-v0.8.1.apk#' | sha256sum -c -)
 
-      - name: Invoke the real REA MCP server against all three Android APKs
+      - name: Invoke the real REA MCP server against all four Android APKs
         env:
           REA_PACKAGE_VERSION: ${{ steps.rea-package.outputs.version }}
           REA_PACKAGE_INTEGRITY: ${{ steps.rea-package.outputs.integrity }}
