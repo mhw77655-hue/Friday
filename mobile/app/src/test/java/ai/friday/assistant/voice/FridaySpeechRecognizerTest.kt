@@ -8,25 +8,31 @@ import java.util.Locale
 
 class FridaySpeechRecognizerTest {
 
-    /**
-     * Deterministic stand-in for the platform recognizer seam. [PlatformSpeechRecognizerPort]
-     * is the real production implementation (device-only, compile-time android.jar
-     * reference, never invoked on the JVM — the established seam pattern). This fake
-     * drives [FridaySpeechRecognizer] through the SAME [SpeechRecognizerPort] contract
-     * the BodyCoordinator uses, proving the full round-trip flow on the JVM.
-     */
     private class FakeRecognizerPort(
         var available: Boolean = true,
         var transcript: String? = "open the door",
         var cancelled: Boolean = false
     ) : SpeechRecognizerPort {
         var lastLocale: Locale? = null
+        var partialCallback: ((String?) -> Unit)? = null
+        var resultCallback: ((String?) -> Unit)? = null
+
         override fun isRecognitionAvailable(): Boolean = available
-        override fun recognize(locale: Locale, onResult: (String?) -> Unit) {
+
+        override fun recognize(
+            locale: Locale,
+            onPartial: (String?) -> Unit,
+            onResult: (String?) -> Unit
+        ) {
             lastLocale = locale
+            partialCallback = onPartial
+            resultCallback = onResult
             onResult(transcript)
         }
-        override fun cancel() { cancelled = true }
+
+        override fun cancel() {
+            cancelled = true
+        }
     }
 
     @Test
@@ -40,7 +46,7 @@ class FridaySpeechRecognizerTest {
     }
 
     @Test
-    fun `real recognition round trip delivers the platform transcript`() {
+    fun `recognition round trip delivers the platform transcript and requested locale`() {
         val port = FakeRecognizerPort(transcript = "what time is it")
         val recognizer = FridaySpeechRecognizer(port)
         var delivered: String? = null
@@ -51,7 +57,48 @@ class FridaySpeechRecognizerTest {
     }
 
     @Test
-    fun `blank transcript is treated as no result, never fabricated`() {
+    fun `partial hypotheses are surfaced but never submitted as the final transcript`() {
+        val port = FakeRecognizerPort(transcript = null)
+        val recognizer = FridaySpeechRecognizer(port)
+        val partials = mutableListOf<String?>()
+        var final: String? = "not-finished"
+
+        recognizer.recognize(
+            locale = Locale("ar", "EG"),
+            onPartial = { partials += it },
+            onResult = { final = it }
+        )
+        port.partialCallback?.invoke("افتح الإعدادات")
+        assertEquals(listOf("افتح الإعدادات"), partials)
+        assertEquals("not-finished", final)
+        assertEquals(Locale("ar", "EG"), port.lastLocale)
+
+        port.resultCallback?.invoke("افتح الإعدادات")
+        assertEquals(listOf("افتح الإعدادات", null), partials)
+        assertEquals("افتح الإعدادات", final)
+        assertEquals("heard: افتح الإعدادات", recognizer.status)
+    }
+
+    @Test
+    fun `late partial and final callbacks after cancellation are ignored`() {
+        val port = FakeRecognizerPort(transcript = null)
+        val recognizer = FridaySpeechRecognizer(port)
+        val partials = mutableListOf<String?>()
+        var final: String? = null
+
+        recognizer.recognize(Locale.US, onPartial = { partials += it }) { final = it }
+        recognizer.cancel()
+        port.partialCallback?.invoke("stale words")
+        port.resultCallback?.invoke("stale words")
+
+        assertTrue(port.cancelled)
+        assertEquals(listOf(null), partials)
+        assertNull(final)
+        assertEquals("idle", recognizer.status)
+    }
+
+    @Test
+    fun `blank transcript is treated as no result never fabricated`() {
         val port = FakeRecognizerPort(transcript = "   ")
         val recognizer = FridaySpeechRecognizer(port)
         var delivered: String? = "sentinel"
