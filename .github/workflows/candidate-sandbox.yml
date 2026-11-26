@@ -198,10 +198,9 @@ jobs:
             cp "$RUNNER_TEMP/friday-sandbox-evidence/gradle.log" "$OUT/gradle.log"
           fi
           REA_REPORT="$RUNNER_TEMP/friday-candidate-rea/evidence/candidate-rea-evidence.json"
-          if [[ -f "$REA_REPORT" ]]; then
-            cp "$REA_REPORT" "$OUT/candidate-rea-evidence.json"
-          fi
           REA_SUMMARY="$RUNNER_TEMP/friday-candidate-rea/evidence/candidate-rea-summary.json"
+          export REA_REPORT_PATH="$REA_REPORT"
+          export REA_SUMMARY_PATH="$REA_SUMMARY"
           if [[ -f "$REA_SUMMARY" ]]; then
             cp "$REA_SUMMARY" "$OUT/candidate-rea-summary.json"
           fi
@@ -221,7 +220,6 @@ jobs:
           if [[ -f "$APK" ]]; then
             APK_SHA="$(sha256sum "$APK" | awk '{print $1}')"
             export APK_SHA
-            cp "$APK" "$OUT/app-debug.apk"
           fi
           python3 - <<'PY'
           import hashlib, json, os, pathlib, platform
@@ -232,11 +230,11 @@ jobs:
           apk_sha = os.environ.get("APK_SHA", "")
           log_path = pathlib.Path("friday-sandbox-evidence/gradle.log")
           failure_excerpt = "\n".join(log_path.read_text(errors="replace").splitlines()[-100:])[-12000:] if log_path.exists() else ""
-          rea_path = pathlib.Path("friday-sandbox-evidence/candidate-rea-evidence.json")
-          rea_text = rea_path.read_text(errors="replace") if rea_path.exists() else ""
+          rea_path = pathlib.Path(os.environ.get("REA_REPORT_PATH", ""))
+          rea_text = rea_path.read_text(errors="replace") if rea_path.is_file() else ""
           rea_sha = hashlib.sha256(rea_text.encode()).hexdigest() if rea_text else ""
-          rea_summary_path = pathlib.Path("friday-sandbox-evidence/candidate-rea-summary.json")
-          rea_summary = json.loads(rea_summary_path.read_text()) if rea_summary_path.exists() else None
+          rea_summary_path = pathlib.Path(os.environ.get("REA_SUMMARY_PATH", ""))
+          rea_summary = json.loads(rea_summary_path.read_text()) if rea_summary_path.is_file() else None
           passed = outcome == "success" and expected == actual and len(actual) == 40 and len(apk_sha) == 64
           data = {
               "schema_version": 1,
@@ -267,6 +265,31 @@ jobs:
           name: friday-candidate-sandbox-${{ github.run_id }}
           path: friday-sandbox-evidence/
           if-no-files-found: warn
+          retention-days: 30
+
+      # Keep the full canonical REA record separately. The Android worker
+      # downloads only the small sandbox summary; this avoids pulling a large
+      # APK/REA evidence archive into the phone's bounded ZIP parser.
+      - name: Stage full candidate REA evidence
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p friday-candidate-rea-evidence
+          for FILE in candidate-rea-evidence.json candidate-rea-summary.json; do
+            SOURCE="$RUNNER_TEMP/friday-candidate-rea/evidence/$FILE"
+            if [[ -f "$SOURCE" ]]; then cp "$SOURCE" friday-candidate-rea-evidence/; fi
+          done
+          if [[ -f "$RUNNER_TEMP/friday-candidate-rea/rea-run.stderr" ]]; then
+            cp "$RUNNER_TEMP/friday-candidate-rea/rea-run.stderr" friday-candidate-rea-evidence/
+          fi
+
+      - name: Upload full candidate REA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-candidate-rea-evidence-${{ github.run_id }}
+          path: friday-candidate-rea-evidence/
+          if-no-files-found: ignore
           retention-days: 30
 
 
