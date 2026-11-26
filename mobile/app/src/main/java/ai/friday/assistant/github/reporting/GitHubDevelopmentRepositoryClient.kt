@@ -228,9 +228,26 @@ class GitHubDevelopmentRepositoryClient(
         val response = request(apiRoot + "/actions/artifacts/" + artifactId + "/zip", "GET", null)
         val archive = response.use {
             if (!it.isSuccessful) throw IOException(apiError(it.code, "download REA evidence"))
-            val bytes = it.body?.bytes() ?: throw IOException("GitHub returned an empty REA evidence archive.")
-            require(bytes.size <= MAX_REA_ARCHIVE_BYTES) { "REA evidence archive exceeds the download limit." }
-            bytes
+            val body = it.body ?: throw IOException("GitHub returned an empty REA evidence archive.")
+            val contentLength = body.contentLength()
+            require(contentLength < 0L || contentLength <= MAX_REA_ARCHIVE_BYTES.toLong()) {
+                "REA evidence archive exceeds the download limit."
+            }
+            body.byteStream().use { input ->
+                val output = ByteArrayOutputStream()
+                val buffer = ByteArray(8_192)
+                var total = 0
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    total += count
+                    require(total <= MAX_REA_ARCHIVE_BYTES) {
+                        "REA evidence archive exceeds the download limit."
+                    }
+                    output.write(buffer, 0, count)
+                }
+                output.toByteArray()
+            }
         }
         ZipInputStream(ByteArrayInputStream(archive)).use { zip ->
             while (true) {
