@@ -158,6 +158,22 @@ class ObjectiveExecutionWorker(
                         val expected = summary.optString("expected_commit_sha")
                         val actual = summary.optString("checked_out_commit_sha")
                         val apkDigest = summary.optString("apk_sha256")
+                        val reaSummary = summary.optJSONObject("rea_summary")
+                        val reaIds = reaSummary?.optJSONArray("evidence_ids")
+                        val reaProvenanceValid = summary.optString("rea_status") == "COMPLETED" &&
+                            reaSummary?.optInt("schema_version", -1) == 1 &&
+                            reaSummary.optString("candidate_commit_sha") == candidateSha &&
+                            reaSummary.optString("apk_sha256") == apkDigest &&
+                            reaSummary.optString("rea_version") == "6.10.1" &&
+                            reaSummary.optString("report_sha256") == summary.optString("rea_report_sha256") &&
+                            reaIds != null && reaIds.length() > 0
+                        if (summary.optString("rea_status") == "COMPLETED" && !reaProvenanceValid) {
+                            // Retain the run record, but do not feed mismatched REA
+                            // observations into repair synthesis as trusted evidence.
+                            summary.put("rea_status", "REJECTED_PROVENANCE")
+                                .remove("rea_summary")
+                                .remove("rea_evidence_excerpt")
+                        }
                         val valid = run.conclusion == "success" &&
                             summary.optInt("schema_version", -1) == 1 &&
                             summary.optString("task_id") == sandboxTaskId &&
