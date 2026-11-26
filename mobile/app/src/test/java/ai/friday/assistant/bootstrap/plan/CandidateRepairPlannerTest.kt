@@ -38,7 +38,7 @@ class CandidateRepairPlannerTest {
     fun createsBoundedRepairTaskWithExactCandidateAndEvidence() {
         val evidence = JSONObject().put("status", "FAIL")
             .put("rea_status", "COMPLETED")
-            .put("sandbox", JSONObject().put("summary", JSONObject()
+            .put("sandbox", JSONObject().put("status", "FAIL").put("summary", JSONObject()
                 .put("rea_status", "COMPLETED")
                 .put("verification_step", "failure")
                 .put("failure_classification", "ACTIONABLE_DEFECT")
