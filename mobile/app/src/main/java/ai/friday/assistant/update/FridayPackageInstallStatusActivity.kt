@@ -71,8 +71,7 @@ class FridayPackageInstallStatusActivity : Activity() {
                 // committed. Keep the verified candidate available for retry,
                 // but do not misclassify an install rejection as a failed
                 // post-install health check.
-                state.clearPendingHealthCheck()
-                state.recordStatus(message)
+                completeNativeInstallRejection(state, message)
                 Toast.makeText(this, message, Toast.LENGTH_LONG).show()
                 finish()
             }
@@ -98,4 +97,18 @@ internal fun completeNativeInstallVerification(state: FridayUpdateStateStore): S
 
     return state.verifyPendingHealthCheck()
         ?: "Friday installed the update, but its post-install identity check did not run. The staged APK is retained for recovery."
+}
+
+/**
+ * An Android installer rejection leaves the old package installed. Clear the
+ * pending post-install marker but retain the verified candidate for an
+ * owner-approved retry; this is not a failed installed release.
+ */
+internal fun completeNativeInstallRejection(
+    state: FridayUpdateStateStore,
+    message: String
+): String {
+    state.clearPendingHealthCheck()
+    state.recordStatus(message)
+    return message
 }
