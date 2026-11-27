@@ -329,3 +329,26 @@ Official references:
 - https://developer.android.com/privacy-and-security/risks/dynamic-code-loading
 
 No local model installation, Claude connection, live phone bridge or update-without-reinstall capability is claimed as delivered merely because these requirements are logged.
+
+
+### 2026-11-27 — Preserve canonical roadmap priority; collaboration research is a later track
+
+The owner explicitly directed that recently suggested Claude, local-memory delegation, update-without-reinstall and multi-AI communication requirements must be placed in their correct architectural positions, not promoted above the existing delivery priorities.
+
+The canonical `.ralph/FRIDAY_DELIVERY_PLAN.md` remains authoritative and unchanged. Continue its chronological dependency order:
+1. Phase 0 — truthful green engineering baseline.
+2. Phase 1 — prove and repair the already-installed `ai.friday.assistant` on the physical phone, preserve identity/data, and establish useful interaction/voice. The phone has no local reasoning LLM installed; do not assume one.
+3. Phase 2 — demonstrate one real REA-assisted failed-candidate repair from exact candidate evidence through independent verification and durable learning.
+4. Phase 3 — persistent engineering station and authority.
+5. Subsequent phases — full individuality, cognition, agency, NAE, universal capability acquisition and evolution.
+
+Placement of the owner's additional requirements:
+- Anthropic Claude is a replaceable external reasoning/engineering resource in the dynamic worker pool / Builder architecture, not a new top-level product priority.
+- Local memory and task-scoped context projection belong in the continuity, privacy and worker collaboration contracts.
+- The update-without-routine-reinstall requirement belongs in the install-once identity/update contract (Section 3.3) and later capability-evolution delivery, not ahead of repairing the installed seed.
+- ChatGPT/Claude/Friday collaboration belongs in the persistent engineering workspace and authority plane, with live device inspection as a separate scoped capability.
+- Novel collaboration research is tracked as future work in Issue #192 — Continuity-First Task Fabric: https://github.com/mhw77655-hue/Friday/issues/192. It is explicitly not a blocker for Phases 0–2.
+
+The proposed Task Fabric is a research hypothesis, not a claim of proven global novelty or a delivered system. Compare against MCP, A2A, group/room protocols, event sourcing, blackboard systems, workflow engines, context retrieval and caching. The possible differentiator is Friday-owned continuity plus temporary provider-specific context projections, narrow evidence/capability leases and a shared outcome ledger; do not merely rebrand an existing protocol.
+
+The immediate repair remains Issue #184. Its known source defects and release lineage remain controlling. Physical-device acceptance still requires genuine handset evidence; do not mark it complete based on CI/emulator evidence.
