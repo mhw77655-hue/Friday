@@ -465,3 +465,16 @@ Candidate fix:
 This is a source-level fix candidate plus a regression test. CI has not yet run, and no physical-phone retest has occurred. The severe thermal gate remains intact. The handset logs still show no local model loaded, so even after this IPC repair Friday's general reasoning capability needs the separate authorized cloud/Friday↔ChatGPT agent connection and/or a legitimate model installation strategy; no local model is assumed or required for the ChatGPT collaboration bridge.
 
 Next: open PR, require the complete build workflow, inspect test results, publish only a same-signer in-place update if green, then obtain a fresh redacted device report and verify typed/STT/TTS behavior on the handset.
+
+
+### 2026-11-27 — app repair source merged; combined release validation underway
+
+PR #185 (Settings/glass/AMOLED and ChatGPT identity-vs-plan consent UX) merged: `c77a5e952f9f37562357db7d7aea88b2e83b686a`. Exact-head CI run #46064333709 passed source audit, all six JVM shards, Android lint, release-variant build and emulator instrumentation.
+
+PR #193 (isolated inference Messenger lifecycle race) merged: `3212211c915644e2ceb2f8e524baaee4dad644b4`. Exact-head CI run #46065644117 passed debug and release-variant builds, Android lint, all six JVM shards, whole-repository source audit and disposable-emulator instrumentation. The handler now snapshots Message-owned state before asynchronous dispatch; the numeric operation/request ID is retained in diagnostics.
+
+Combined main validation run #46067087494 is in progress. Release workflow #609 is building the earlier PR #185-only commit `c77a5e9`; it does not contain the Messenger repair and is not the release to install. The combined release follows the current main build.
+
+Handset truth remains unchanged: the uploaded diagnostics report 1.0.601 installed; no local model is installed or required; ModelManager defaults to the model-free HEURISTIC provider. The optional isolated inference tier is repaired at source/CI level, but the physical handset has not yet been retested. Do not uninstall Friday or clear its data. The owner should install only the combined same-signer release in-place once published, then export a fresh redacted diagnostic bundle.
+
+Next: verify the combined signed release's package/version/signing fingerprint/SHA-256; request in-place install; validate typed input, STT, TTS and process recovery on the physical phone; then complete the public-only GitHub collaboration UI/WorkManager integration and private SIWC/device bridge.
