@@ -205,3 +205,24 @@ The focused pass is being rerun under an isolated Actions concurrency key becaus
 
 
 **Correction to the preceding note after source verification:** Android `REASON_16` is indeed `REASON_PACKAGE_UPDATED`, but the diagnostic's abnormal-exit count is computed by an explicit allowlist of ANR, Java crash, native crash, low-memory and excessive-resource reasons. Therefore the reported "1 of 12" count is consistent with the one `NATIVE_CRASH` record; the three `REASON_16` package-update exits were included only in the detail list and were not counted as abnormal. The actual diagnostics issue is narrower: `DiagnosticRunner.probeApplicationExits()` does not label `REASON_PACKAGE_UPDATED` by name, so it prints the opaque `REASON_16` label. The separate `ProcessExitDiagnostics.reasonName()` already maps it correctly. Do not treat this as a false crash count.
+
+
+
+### 2026-11-27 — first device-report findings (GitHub-extracted)
+
+The structured report from the focused GitHub Actions run establishes the following live handset state for Friday **1.0.601 / version code 1601**, source revision `399a97e0cfc290c61447c697bf0d5fce7e6aff39`:
+
+- Device model `RMX3472`, SoC `SM6375`, Android app memory class 384 MB; device total RAM about 7.76 GB, available RAM about 2.35 GB, app storage free about 24.6 GB.
+- Battery 67% and charging; Wi-Fi active; Android did not flag the device as low-memory.
+- Friday microphone permission is granted, speech recognition reports active, and local TTS reports ready with high-quality `en-gb-x-gba-local`.
+- Friday's voice process is bound to the app process, ping 1 ms, zero restarts at capture.
+- Friday's accessibility service is enabled, battery optimization is ignored, and Shizuku binder is reachable; subsystem summary says Shizuku is running and granted.
+- **The local reasoning model is not loaded.** Runtime selected `LLAMA_CPP`, but the report says "no model confirmed loaded." Model bootstrap is `WAITING_FOR_HOST_CAPACITY`, and the pinned-model recommendation is zero bytes.
+- The host-bootstrap report recorded Android thermal status 3 at boot. Friday maps Android thermal statuses 3–6 to its critical bucket, and `NanoSymbioticPolicy.admitModel()` refuses a model when thermal level is at least 2. Available RAM and free storage in the exported snapshot are above that policy's hard minimums, so thermal pressure and/or CPU load are the remaining likely gate(s); the exact live values are being extracted in a follow-up pass.
+- The Shizuku system log explicitly shows `ShizukuServiceStarter` starting `ai.friday.assistant.FridayShellService` at 20:44:02.716 and sending a binder to the Shizuku manager at 20:44:02.992. This proves the service-start request and binder handoff occurred; it does not by itself prove Friday's client completed every subsequent privileged operation.
+- Android's process-exit history includes a real native crash of `ai.friday.assistant:voice` (reason code 5, status 6, trace available) at 2026-11-25 21:47:35 UTC, while the three exits at 2026-11-27 18:42:59 UTC (reason 16) are package-update exits, not crashes. The report's "1 of 12" abnormal-exit count is therefore consistent with the single historical native crash.
+- The system log also records an ANR for the Shizuku manager package at approximately 20:43:37 local time. It occurs before the captured log window and is not evidence of a Friday ANR.
+
+**Initial diagnosis:** the phone's permissions, microphone, STT, TTS, Friday voice-process binding and Shizuku binder are all reported healthy at capture. The strongest current explanation for Friday's lack of general reasoning is the model-admission/bootstrap gate: the native backend is selected but no resident model is loaded because the host-adaptation policy is refusing model admission. This is now a much narrower and evidence-based target than the earlier broad "dead app" uncertainty. It is not yet proven that thermal pressure is the only blocking input; the follow-up extracts exact CPU/thermal values and active diagnostic findings.
+
+The historical voice native crash needs its trace inspected separately; it is not the same event as the 1.0.601 package-update process restarts.
