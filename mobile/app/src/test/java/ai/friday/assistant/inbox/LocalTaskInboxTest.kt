@@ -163,6 +163,29 @@ class LocalTaskInboxTest {
     }
 
     @Test
+    fun `accepting external proposal records review without making it executable`() = runBlocking {
+        val dir = tempDir()
+        val taskInbox = inbox(dir)
+        val proposal = taskInbox.submitOnce(
+            id = "agent-reply:review-only-test",
+            source = "chatgpt-cloud",
+            description = "Consider the external engineering proposal",
+            capability = "review_external_agent_proposal",
+            arguments = mapOf("message_id" to "review-only-test"),
+            requiresApproval = true
+        )
+
+        assertEquals(InboxTaskStatus.WAITING_APPROVAL, proposal.status)
+        assertTrue(taskInbox.reviewExternalProposal(proposal.id, accepted = true).isSuccess)
+
+        val reviewed = taskInbox.getTask(proposal.id)!!
+        assertEquals(InboxTaskStatus.COMPLETED, reviewed.status)
+        assertEquals("accepted_for_consideration", reviewed.result?.get("decision"))
+        assertEquals(false, reviewed.result?.get("executed"))
+        assertEquals(null, taskInbox.claimNext())
+    }
+
+    @Test
     fun `tasks survive a simulated restart`() = runBlocking {
         val dir = tempDir()
         val i1 = inbox(dir)
