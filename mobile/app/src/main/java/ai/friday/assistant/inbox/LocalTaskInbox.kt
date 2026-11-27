@@ -111,8 +111,10 @@ class LocalTaskInbox(
                 createdAt = System.currentTimeMillis(),
                 requiresApproval = requiresApproval
             )
-            _tasks.value = _tasks.value + task
+            // Persist first: if disk I/O fails, do not expose an in-memory
+            // task that a retry could mistake for a durable import.
             persistTask(task)
+            _tasks.value = _tasks.value + task
             refreshDerivedFlows()
             task
         }
