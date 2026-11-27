@@ -389,6 +389,7 @@ class FridayAgentTaskRelay(
                 !seenInThisPoll.add(envelope.messageId)
             ) return@mapNotNull null
             if (envelope.sender != "chatgpt-cloud" || envelope.recipient != "friday") return@mapNotNull null
+            if (runCatching { validatePublicPayload(envelope.payload) }.isFailure) return@mapNotNull null
             if (envelope.kind == AgentTaskMessageKind.REQUEST || envelope.kind == AgentTaskMessageKind.CANCEL) {
                 return@mapNotNull null
             }
