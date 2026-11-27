@@ -59,7 +59,7 @@ class Pcm16WavReaderTest {
         body.writeUInt16Le(1) // WAVE_FORMAT_PCM
         body.writeUInt16Le(channels)
         body.writeUInt32Le(16_000)
-        body.writeUInt32Le(16_000 * blockAlign)
+        body.writeUInt32Le((16_000 * blockAlign).toLong())
         body.writeUInt16Le(blockAlign)
         body.writeUInt16Le(bitsPerSample)
         body.write("data".toByteArray(Charsets.US_ASCII))
