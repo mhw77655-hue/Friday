@@ -1,6 +1,5 @@
 package ai.friday.assistant.github.reporting
 
-import ai.friday.assistant.FridayEngine
 import ai.friday.assistant.inbox.InboxTask
 import ai.friday.assistant.inbox.LocalTaskInbox
 import java.security.MessageDigest
