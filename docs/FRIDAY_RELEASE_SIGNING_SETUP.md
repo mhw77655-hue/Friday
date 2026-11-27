@@ -16,15 +16,19 @@ The helper refuses to overwrite an existing key. Keep two encrypted offline back
 
 ## Release workflow
 
-The coding worker never receives these secrets. A separate release workflow runs only after the exact `main` commit passes the complete `build` workflow. It builds a release APK, verifies the signing certificate against the pinned fingerprint, and publishes the APK, SHA-256 checksum and metadata as GitHub Release assets.
+The coding worker never receives the signing secrets. A separate release workflow runs after a successful main `build` workflow. It builds a release APK, verifies the signing certificate against the pinned fingerprint, calculates the APK SHA-256, and creates release metadata.
+
+The workflow first preserves the verified signed APK, metadata and checksum as a 30-day Actions artifact, then attempts to publish them as GitHub Release assets. This preserves a recoverable APK if GitHub denies release publication. A green workflow conclusion alone is not proof of publication: inspect the job steps and confirm the release tag/assets exist.
+
+If release publication returns `403 Resource not accessible by integration`, check repository Settings → Actions → General → Workflow permissions and allow read/write access to repository contents for `GITHUB_TOKEN`. If an organization policy or ruleset still prevents that, configure an owner-controlled fine-grained token with Contents: read/write as the optional `FRIDAY_RELEASE_PUBLISH_TOKEN` repository secret. The workflow uses it only for release publication. This token is separate from the permanent signing key.
 
 No debug APK is ever promoted as a production release.
 
-## First install identity
+## Existing installed identity and in-place repair
 
-The owner confirmed the previous APK was deleted and authorized a fresh package identity. The first permanent-signed Friday APK is therefore a clean install using `ai.friday.assistant`; there is no old-package data continuity requirement. Do not install a debug APK as the seed.
+The active repair task targets the owner's **already-installed Friday v1.0.510**, package `ai.friday.assistant`, versionCode `1510`, with the pinned permanent signing certificate recorded in [the installed-APK forensic dossier](FRIDAY_1.0.510_INSTALLED_APK_REPAIR_DOSSIER.md). Earlier notes in this document claiming that the previous APK had been deleted and that a clean install was authorized are stale and do not apply to this repair task.
 
-After the permanent-signed seed is installed, every update must keep the same application ID and signing certificate. Android's package installer enforces signer compatibility; Shizuku does not bypass that check.
+For this task, never uninstall Friday, clear its app data, or replace it with a debug APK. The update must preserve the application ID, use the same signing identity, have a strictly higher version code, and be verified as an in-place update before the owner installs it. Android's package installer enforces signer compatibility; Shizuku does not bypass that check.
 
 ## Install-once update channel
 
