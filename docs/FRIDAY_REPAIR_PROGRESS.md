@@ -26,10 +26,13 @@ This file is the handoff log. Every session must read this file, the dossier, an
 - The exact PR #183 code changes are now in main. This is source/CI evidence, not yet proof of audible playback on the owner's phone.
 
 ### Main CI state at last check
-- Main build [#3667](https://github.com/mhw77655-hue/Friday/actions/runs/46042403395), SHA `add503a53ffca183677815311ffa2c29b6df9c9e`, was **queued**.
-- Other main builds #3664–#3666 were also in progress from preceding main commits. Do not confuse their conclusions or commits with #3667.
-- Signed-release workflow runs #586/#588 observed at that time were for earlier SHA `b8fbbc0ffa0ec1a039fe37baa574f078ed6470c1`, not the PR #183 merge. They do not prove a release containing the voice fixes exists.
-- The signed-release workflow triggers after a successful main build. Recheck #3667 and the subsequent release workflow. The workflow verifies the permanent signer, package identity, increasing version code, APK digest and canonical/bundled plan parity. It intentionally does not publish a debug APK as a production update.
+
+- PR #183 merge commit is `add503a53ffca183677815311ffa2c29b6df9c9e`.
+- After the merge, the forensic dossier and canonical/APK-bundled roadmap were updated on main so the work survives future sessions. Those documentation/plan commits advanced main beyond the merge commit.
+- Main build #3667 for the merge commit was queued; it is now superseded by subsequent main commits.
+- At the latest check, main build [#3669](https://github.com/mhw77655-hue/Friday/actions/runs/46042520902), SHA `bd3266e27f791c6720ab395335183a79f6c860dc`, was queued. Build #3668 covered the preceding dossier update. Re-fetch current main and find the newest build for its exact SHA before continuing; never assume #3667 is the latest run.
+- Earlier signed-release workflow runs #586/#588 targeted SHA `b8fbbc0ffa0ec1a039fe37baa574f078ed6470c1`, not the PR #183 merge. They do not prove a release containing the voice fixes exists.
+- The signed-release workflow triggers after a successful main build. Follow the build for the current main SHA and its subsequent signed-release run. Verify signer, package identity, increasing version code, APK digest and canonical/bundled plan parity. It intentionally does not publish a debug APK as a production update.
 
 ### Next actions — continue in this exact order
 1. Re-fetch current main and run #3667. Inspect failures and fix them; do not claim main is green until the merge SHA has a successful full build.
