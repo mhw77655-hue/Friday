@@ -190,7 +190,7 @@ jobs:
                               walk(child, path + (str(index),))
                       else:
                           keypath = ".".join(path)
-                          relevant = re.search(r"friday|shizuku|model|inference|voice|speech|audio|microphone|permission|readiness|engine|crash|exit|anr|error|warning|capability|bootstrap|turn|storage|battery|memory|process|provider|network|service|version|package", keypath, re.I)
+                          relevant = re.search(r"friday|shizuku|model|inference|voice|speech|audio|microphone|permission|readiness|engine|crash|exit|anr|error|warning|failure|active_diagnostics|capability|bootstrap|turn|storage|battery|memory|cpu|thermal|process|provider|network|service|version|package|local_adaptation|host_study", keypath, re.I)
                           if relevant:
                               value_text = clean(str(value))
                               summary.append(f"- `{clean(keypath)}`: {value_text[:1800]}")
