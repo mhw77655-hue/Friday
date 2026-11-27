@@ -54,3 +54,8 @@ The worker validates all limits and computes a canonical, length-prefixed SHA-25
 ## Additional API instrumentation
 
 An Android instrumentation test now exercises the worker against a local mock Responses endpoint. It verifies the approved projection is sent with the SIWC bearer token, the selected account model, `store=false`, `stream=true`, and a client request ID; it validates the completed response ID/output and proves the consumed approval cannot trigger a second network request. This is transport-contract testing, not a live OpenAI account or handset acceptance test.
+
+
+### Android network-security test correction
+
+The first instrumented run exposed an Android cleartext-policy failure because MockWebServer used HTTP on localhost. The worker was not changed to weaken the app's network policy. The test now uses a generated localhost certificate, a test-scoped trust anchor, and HTTPS for the mock endpoint. The next CI run must prove this correction.
