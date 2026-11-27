@@ -150,9 +150,7 @@ class GitHubDevelopmentRepositoryClient(
                 val issue = issues.optJSONObject(index) ?: continue
                 if (issue.has("pull_request")) continue
                 if (!issue.optString("body").contains(marker)) continue
-                if (issue.optString("title") != "[Friday Task $taskId] " +
-                    issue.optString("title").substringAfter("] ").takeIf { it.isNotBlank() }.orEmpty()
-                ) continue
+                if (!issue.optString("title").startsWith("[Friday Task $taskId] ")) continue
                 val author = issue.optJSONObject("user")?.optString("login").orEmpty()
                 if (!author.equals(REPOSITORY_OWNER, ignoreCase = true)) continue
                 val number = issue.optInt("number", -1)
