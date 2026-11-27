@@ -133,10 +133,11 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
             onValueChange = { trustedActorsText = it },
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Trusted GitHub usernames") },
-            supportingText = {
-                Text("Comma-separated. Default: " + FridayAgentTaskRelayConsentStore.DEFAULT_TRUSTED_ACTOR)
-            },
             singleLine = true
+        )
+        Text(
+            "Comma-separated. Default: " + FridayAgentTaskRelayConsentStore.DEFAULT_TRUSTED_ACTOR,
+            style = FridayType.Label
         )
         Button(
             onClick = {
