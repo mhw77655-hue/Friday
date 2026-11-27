@@ -101,3 +101,28 @@ Release workflow follow-up: corrected the changed-file list formatting in the fr
 - Next acceptance: after installation, export **Friday → System → Export full diagnostic report** (`friday-device-report-v2`). Inspect/redact unexpected sensitive values before sharing. Use that report to diagnose app startup, model/provider readiness, typed turn path, mic/STT, voice/TTS and Shizuku. Then run the real audible conversation test.
 - The actual phone's private app state is not accessible through repository CI. Do not claim handset acceptance until report and live interaction evidence are observed.
 - Canonical delivery plan and APK-bundled plan parity checked in this session: BYTE-IDENTICAL.
+
+
+### Progress estimate at 2026-11-27 20:26 UTC+02:00
+
+**Immediate objective only: repair installed Friday 1.0.510 and reach a real working voice conversation. Estimated engineering completion: 35%; remaining: 65%.** This is a weighted estimate, not a test result or a percentage of the entire long-term Friday vision.
+
+Completed (approximately 35%):
+- Exact installed APK identified and forensic dossier preserved.
+- Confirmed source-level PCM16 WAV parsing defect, utterance lifecycle defect and STT offline-preference defect corrected in merged PR #183.
+- Exact-head automated validation and subsequent main Android build #3675 passed.
+- Signed production update 1.0.601 published with APK, metadata and checksum assets. Release workflow only reaches publication after pinned signer verification.
+- Canonical and APK-bundled delivery plans remain byte-identical.
+
+Remaining (approximately 65%):
+- Install 1.0.601 as an in-place update over the existing package; verify signer compatibility and preserve app data.
+- Obtain and inspect the app's friday-device-report-v2 export (or bounded filtered device logs if the app cannot open).
+- Isolate and fix the actual dead-app runtime/cognitive/model/provider issue; static APK and CI evidence do not settle it.
+- Verify typed input → production cognitive turn → real response → persisted continuity.
+- Verify microphone → STT final transcript → same production turn → configured reasoning response.
+- Verify voice model/provider readiness → synthesized audio → audible playback → interruption → idle.
+- Repeat on the physical handset after any fixes and record actual acceptance.
+
+**Physical handset acceptance remains 0% proven** because no post-update diagnostic report or live phone test has been observed. This is why the immediate objective is not complete despite a production update being available. The percentage above measures implementation and delivery preparation, not proof that the user's phone works.
+
+The whole living-Friday vision is intentionally not assigned a completion percentage here; it is a much larger open-ended programme and must not be conflated with this repair milestone.
