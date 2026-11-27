@@ -39,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ai.friday.assistant.body.BodyCoordinator
 import ai.friday.assistant.ui.components.StateChip
+import ai.friday.assistant.ui.components.GlassPanel
 import ai.friday.assistant.ui.theme.FridayColors
 import ai.friday.assistant.ui.theme.FridayType
 import ai.friday.assistant.ui.viewmodel.ConversationViewModel
@@ -114,13 +115,12 @@ fun ConversationScreen() {
 
 @Composable
 private fun ContextStrip() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(FridayColors.SurfacePanel)
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-    ) {
-        Text(text = "FRIDAY · conversation", style = FridayType.Label)
+    GlassPanel(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Text(
+            text = "FRIDAY · conversation",
+            style = FridayType.Label,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+        )
     }
 }
 
@@ -139,13 +139,12 @@ private fun TurnRow(turn: Turn) {
                 Text(text = turn.text, style = FridayType.Body, modifier = Modifier.padding(top = 4.dp))
             }
         } else {
-            Box(
-                modifier = Modifier
-                    .widthIn(max = 320.dp)
-                    .background(FridayColors.SurfacePanel, RoundedCornerShape(4.dp))
-                    .padding(12.dp)
-            ) {
-                Text(text = turn.text, style = FridayType.Body)
+            GlassPanel(modifier = Modifier.widthIn(max = 320.dp)) {
+                Text(
+                    text = turn.text,
+                    style = FridayType.Body,
+                    modifier = Modifier.padding(14.dp)
+                )
             }
         }
     }
@@ -153,10 +152,11 @@ private fun TurnRow(turn: Turn) {
 
 @Composable
 private fun InputRow(value: String, onValueChange: (String) -> Unit, onSend: () -> Unit, onMicClick: () -> Unit) {
+    GlassPanel(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(12.dp),
+            .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         OutlinedTextField(
@@ -178,5 +178,6 @@ private fun InputRow(value: String, onValueChange: (String) -> Unit, onSend: () 
         TextButton(onClick = onMicClick, enabled = true) {
             Text(text = "MIC", style = FridayType.Label)
         }
+    }
     }
 }
