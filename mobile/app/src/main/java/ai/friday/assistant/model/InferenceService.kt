@@ -65,7 +65,7 @@ class InferenceService : Service() {
                             response.putString(KEY_TEXT, backend.generate(handle, prompt))
                         }
                         MSG_UNLOAD -> {
-                            val handleId = data.getLong(KEY_HANDLE_ID, -1L)
+                            val handleId = request.data.getLong(KEY_HANDLE_ID, -1L)
                             val handle = handles.remove(handleId)
                             if (handle != null) backend.unloadModel(handle)
                         }
