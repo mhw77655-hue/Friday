@@ -1,7 +1,7 @@
 # Friday 1.0.510 — Installed APK Repair Dossier and Continuity Handoff
 
 **Last updated:** 2026-11-27  
-**Purpose:** preserve the exact installed-APK investigation, the work completed across 2026-11-23 through 2026-11-27, the verified facts, open hypotheses, current code changes and next actions. A future Friday engineering session must read this file before asking the owner to re-upload or re-explain the APK.
+**Purpose:** preserve the exact installed-APK investigation, the work completed across 2026-11-23 through 2026-11-27, the verified facts, open hypotheses, current code changes and next actions. A future Friday engineering session must read this file and [Issue #184](https://github.com/mhw77655-hue/Friday/issues/184) before asking the owner to re-upload or re-explain the APK.
 
 > **Controlling correction from the owner:** Friday is already installed on the owner's phone. It is currently a dead/nonfunctional app. The assignment is to diagnose and repair that exact installation, then get a real voice conversation working. Do not treat "first APK", "first production install" or "first handset installation" as the current milestone. An in-place signed update is a delivery mechanism, not the product outcome.
 
@@ -172,8 +172,9 @@ These merged code changes improve foundations but must not be mistaken for proof
 | [PR #182](https://github.com/mhw77655-hue/Friday/pull/182) | Merged | Durable live candidate-to-repair ledger contract |
 | [PR #183](https://github.com/mhw77655-hue/Friday/pull/183) | Open; exact-head CI pending | Installed-app voice fixes and typed response acceptance |
 | [Issue #175](https://github.com/mhw77655-hue/Friday/issues/175) | Open | Full live Builder → exact sandbox → REA → bounded repair → new candidate → independent verification remains unproven |
+| [Issue #184](https://github.com/mhw77655-hue/Friday/issues/184) | Open | **Controlling installed-APK repair task:** exact v1.0.510 problems, four-day history, acceptance criteria and next actions |
 
-Latest PR #183 head recorded at dossier creation: `03ce04c641295c1b20b8a58d0ab99a97a6ec66bc`. Its exact-head build run is [#3662](https://github.com/mhw77655-hue/Friday/actions/runs/46039764560), still in progress at the last status check. Do not claim PR #183 is green or merged until that exact SHA has all required checks completed. Re-fetch live PR/run state before continuing.
+Latest PR #183 head: `03ce04c641295c1b20b8a58d0ab99a97a6ec66bc`. Exact-head run [#3662](https://github.com/mhw77655-hue/Friday/actions/runs/46039764560): at 2026-11-27 19:25 local, six JVM shards, aggregate JVM evidence, Android instrumented emulator, whole-repository source audit and obsolete-run cancellation had passed; the `debug-apk` job remained in progress. Do not claim PR #183 is green or merged until that job and all required checks finish successfully. Re-fetch live PR/run state before continuing.
 
 ## 6. Correct execution sequence from here
 
