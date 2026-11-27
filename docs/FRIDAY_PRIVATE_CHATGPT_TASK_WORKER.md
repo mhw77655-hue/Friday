@@ -49,3 +49,8 @@ The worker validates all limits and computes a canonical, length-prefixed SHA-25
 3. Bind the worker to Friday's task lifecycle and local task inbox; ensure only a locally authorized task can reach this adapter.
 4. Add instrumentation for approval mismatch/replay, expiry, consent revocation, offline failure, partial stream recovery and no credential leakage.
 5. Prove a real task from Friday reaches the authorized model endpoint and the complete result is recoverable after process death.
+
+
+## Additional API instrumentation
+
+An Android instrumentation test now exercises the worker against a local mock Responses endpoint. It verifies the approved projection is sent with the SIWC bearer token, the selected account model, `store=false`, `stream=true`, and a client request ID; it validates the completed response ID/output and proves the consumed approval cannot trigger a second network request. This is transport-contract testing, not a live OpenAI account or handset acceptance test.
