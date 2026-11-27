@@ -478,3 +478,23 @@ Combined main validation run #46067087494 is in progress. Release `friday-v1.0.6
 Handset truth remains unchanged: the uploaded diagnostics report 1.0.601 installed; no local model is installed or required; ModelManager defaults to the model-free HEURISTIC provider. The optional isolated inference tier is repaired at source/CI level, but the physical handset has not yet been retested. Do not uninstall Friday or clear its data. The owner should install only the combined same-signer release in-place once published, then export a fresh redacted diagnostic bundle.
 
 Next: verify the combined signed release's package/version/signing fingerprint/SHA-256; request in-place install; validate typed input, STT, TTS and process recovery on the physical phone; then complete the public-only GitHub collaboration UI/WorkManager integration and private SIWC/device bridge.
+
+
+### 2026-11-27 — combined app repair release 1.0.610 published
+
+<badge>Version 1.0.610</badge>
+
+- Release: https://github.com/mhw77655-hue/Friday/releases/tag/friday-v1.0.610
+- APK: https://github.com/mhw77655-hue/Friday/releases/download/friday-v1.0.610/app-release.apk
+- Version code: `1610`
+- APK size: `129,737,452` bytes
+- APK SHA-256: `dc31e57e2d3eee60e89174942560eee367faa943550a476f3fa828cc374e3487`
+- Signing certificate SHA-256: `fd84811f911585d8152dc2bfff700d8fce36d5a07df392be89f91d5646a6d1b8` (matches the existing 1.0.601 install lineage; same-signature in-place update verified by the release workflow)
+- Release target commit: `3212211c915644e2ceb2f8e524baaee4dad644b4`
+- Combined main CI run: #46067087494 passed; signed release run #46068259021 passed permanent-keystore verification and publication.
+
+This is the first release containing both merged PR #185 (compact Settings, glass/AMOLED surfaces and corrected ChatGPT connection/consent UX) and PR #193 (Messenger request snapshot/lifecycle repair). Release #609 is the earlier UI-only build; do not use it as the repair target.
+
+Physical handset acceptance remains pending. The owner must install 1.0.610 over the existing app without uninstalling or clearing data, then export a fresh diagnostic bundle. Do not claim the phone is fixed until this real-device evidence is reviewed.
+
+Collaboration continues in stacked draft PRs #194 and #195: public-only GitHub task transport and its Android polling/Settings integration. Private SIWC ChatGPT task work and the private read-only device broker remain separate follow-on adapters.
