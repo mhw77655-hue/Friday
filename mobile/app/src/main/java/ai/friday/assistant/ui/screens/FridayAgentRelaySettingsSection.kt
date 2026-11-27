@@ -280,11 +280,11 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
                             onClick = {
                                 scope.launch {
                                     val result = withContext(Dispatchers.IO) {
-                                        FridayEngine.taskInbox?.approve(proposal.id)
+                                        FridayEngine.taskInbox?.reviewExternalProposal(proposal.id, accepted = true)
                                             ?: Result.failure(IllegalStateException("Friday's task inbox is not ready."))
                                     }
                                     status = result.fold(
-                                        onSuccess = { "Proposal approved and returned to Friday's local task queue. No external action was executed." },
+                                        onSuccess = { "Proposal accepted for consideration. It was recorded as reviewed, not queued or executed." },
                                         onFailure = { it.message ?: "Proposal approval failed." }
                                     )
                                     refresh()
@@ -292,12 +292,12 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
                             },
                             enabled = FridayEngine.taskInbox != null,
                             modifier = Modifier.weight(1f)
-                        ) { Text("Approve proposal") }
+                        ) { Text("Accept for consideration") }
                         TextButton(
                             onClick = {
                                 scope.launch {
                                     val result = withContext(Dispatchers.IO) {
-                                        FridayEngine.taskInbox?.deny(proposal.id, "Owner declined the external proposal")
+                                        FridayEngine.taskInbox?.reviewExternalProposal(proposal.id, accepted = false)
                                             ?: Result.failure(IllegalStateException("Friday's task inbox is not ready."))
                                     }
                                     status = result.fold(
