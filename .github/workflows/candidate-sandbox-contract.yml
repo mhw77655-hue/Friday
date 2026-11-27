@@ -1,0 +1,82 @@
+name: Friday instrumented candidate sandbox contract
+run-name: Friday instrumented sandbox contract ${{ github.run_id }}
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - ".github/workflows/candidate-sandbox.yml"
+      - ".github/workflows/candidate-sandbox-contract.yml"
+      - "tools/friday-builder/run_virtual_phone_tests.sh"
+      - "tools/rea/inspect-candidate-apk.mjs"
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: friday-instrumented-sandbox-contract-${{ github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  instrumented-candidate-sandbox:
+    name: Execute reusable exact-candidate instrumented sandbox
+    uses: ./.github/workflows/candidate-sandbox.yml
+    with:
+      task_id: sandbox-contract-${{ github.run_id }}
+      candidate_sha: ${{ github.sha }}
+      test_profile: android-instrumented
+      ci_failed: false
+    permissions:
+      contents: read
+
+  verify-evidence:
+    name: Verify uploaded instrumented sandbox provenance
+    needs: instrumented-candidate-sandbox
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Download exact sandbox evidence
+        uses: actions/download-artifact@v4
+        with:
+          name: friday-candidate-sandbox-${{ github.run_id }}
+          path: ${{ runner.temp }}/friday-instrumented-sandbox-contract
+
+      - name: Validate exact candidate and instrumented execution
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          SUMMARY_DIR: ${{ runner.temp }}/friday-instrumented-sandbox-contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib, re
+          summary_path = pathlib.Path(os.environ["SUMMARY_DIR"]) / "summary.json"
+          if not summary_path.is_file():
+              raise SystemExit("The reusable candidate sandbox did not upload summary.json.")
+          summary = json.loads(summary_path.read_text())
+          expected_sha = os.environ["EXPECTED_SHA"]
+          checks = {
+              "expected commit": summary.get("expected_commit_sha") == expected_sha,
+              "checked-out commit": summary.get("checked_out_commit_sha") == expected_sha,
+              "profile": summary.get("test_profile") == "android-instrumented",
+              "sandbox status": summary.get("status") == "PASS",
+              "verification outcome": summary.get("verification_step") == "success",
+              "KVM setup": summary.get("instrumented_kvm_outcome") == "success",
+              "instrumented run": summary.get("instrumented_outcome") == "success",
+              "APK digest": bool(re.fullmatch(r"[0-9a-f]{64}", summary.get("apk_sha256", ""))),
+          }
+          failed = [name for name, passed in checks.items() if not passed]
+          if failed:
+              raise SystemExit("Instrumented sandbox contract failed: " + ", ".join(failed))
+          print(json.dumps({
+              "candidate_sha": expected_sha,
+              "test_profile": summary["test_profile"],
+              "apk_sha256": summary["apk_sha256"],
+              "instrumented_outcome": summary["instrumented_outcome"],
+              "instrumented_kvm_outcome": summary["instrumented_kvm_outcome"],
+              "checks": checks,
+          }, indent=2))
+          PY
