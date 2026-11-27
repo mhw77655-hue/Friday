@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,8 +58,8 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
     }
     var status by remember { mutableStateOf("") }
     var latestIssueUrl by remember { mutableStateOf("") }
-    var latestReplies by remember { mutableStateOf(replyStore.latest(3)) }
-    var unreadCount by remember { mutableStateOf(replyStore.unreadCount()) }
+    var latestReplies by remember { mutableStateOf(emptyList<ai.friday.assistant.github.reporting.StoredAgentTaskReply>()) }
+    var unreadCount by remember { mutableStateOf(0) }
     var lastPollLabel by remember { mutableStateOf("Not checked yet") }
     val scope = rememberCoroutineScope()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -66,12 +67,19 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
     fun refresh() {
         enabled = consent.isEnabled()
         tokenConfigured = credentials.read() != null
-        latestReplies = replyStore.latest(3)
-        unreadCount = replyStore.unreadCount()
         val lastPoll = consent.lastPollAtEpochMs()
         lastPollLabel = if (lastPoll == 0L) "Not checked yet"
         else DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(lastPoll))
+        scope.launch {
+            val snapshot = withContext(Dispatchers.IO) {
+                replyStore.latest(3) to replyStore.unreadCount()
+            }
+            latestReplies = snapshot.first
+            unreadCount = snapshot.second
+        }
     }
+
+    LaunchedEffect(Unit) { refresh() }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -255,16 +263,22 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
                         color = FridayColors.TextPrimary
                     )
                     TextButton(onClick = {
-                        replyStore.markRead(reply.envelope.messageId)
-                        refresh()
+                        scope.launch {
+                            withContext(Dispatchers.IO) {
+                                replyStore.markRead(reply.envelope.messageId)
+                            }
+                            refresh()
+                        }
                     }) {
                         Text(if (reply.isRead) "Read" else "Mark read")
                     }
                 }
             }
             TextButton(onClick = {
-                replyStore.markAllRead()
-                refresh()
+                scope.launch {
+                    withContext(Dispatchers.IO) { replyStore.markAllRead() }
+                    refresh()
+                }
             }) {
                 Text("Mark all replies read")
             }
