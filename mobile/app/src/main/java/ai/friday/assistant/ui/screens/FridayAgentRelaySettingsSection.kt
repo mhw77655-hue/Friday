@@ -57,6 +57,7 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
         mutableStateOf(consent.trustedActors().sorted().joinToString(", "))
     }
     var status by remember { mutableStateOf("") }
+    var sending by remember { mutableStateOf(false) }
     var latestIssueUrl by remember { mutableStateOf("") }
     var latestReplies by remember { mutableStateOf(emptyList<ai.friday.assistant.github.reporting.StoredAgentTaskReply>()) }
     var unreadCount by remember { mutableStateOf(0) }
@@ -182,7 +183,8 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
                 onClick = {
                     if (!enabled) {
                         status = "Enable public project collaboration first."
-                    } else {
+                    } else if (!sending) {
+                        sending = true
                         scope.launch {
                             status = "Creating a public collaboration handshake…"
                             try {
@@ -221,13 +223,15 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
                                 FridayAgentTaskRelayPollWorker.checkNow(appContext)
                             } catch (failure: Exception) {
                                 status = failure.message ?: "Could not create the collaboration task."
+                            } finally {
+                                sending = false
                             }
                         }
                     }
                 },
-                enabled = enabled && tokenConfigured,
+                enabled = enabled && tokenConfigured && !sending,
                 modifier = Modifier.weight(1f)
-            ) { Text("Send handshake") }
+            ) { Text(if (sending) "Sending…" else "Send handshake") }
         }
         Text("Last check: " + lastPollLabel + " · " + unreadCount + " unread replies", style = FridayType.Technical)
         if (latestIssueUrl.isNotBlank()) {
