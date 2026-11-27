@@ -627,3 +627,11 @@ Judge the seed as one integrated vertical slice: Friday maintains continuity, in
 After the seed milestone, Friday's lifelong evolution becomes the central continuing programme. The roadmap is a launch trajectory, not a terminal definition of what she may become.
 
 **Owner's outcome:** deliver Friday as close as possible to the expanded vision with today's technology. Her development is not a fixed set of abilities plus an evolution feature: the whole individual remains open-ended and may transform in every dimension, including dimensions neither owner nor engineers can currently anticipate. Enable her to connect and understand the AI world and human world as one continuously expanding field of experience and knowledge.
+
+### 2026-11-27 — PR #180 exact-head failure and correction
+
+- Exact-head run [#3635](https://github.com/mhw77655-hue/Friday/actions/runs/45910751399) failed in the disposable Android phone job before emulator boot. The compiler reported unresolved reference `assertExists` in `SystemScreenInteractionInstrumentedTest.kt`; the six JVM shards, aggregate JVM evidence, debug APK/lint/build-contract job and whole-repository source audit passed.
+- Corrected the test on `feat/candidate-sandbox-instrumented-contract` in commit [`137511e`](https://github.com/mhw77655-hue/Friday/commit/137511e0ab7cb5df0c9bcd546c846253874f8d92): removed the unavailable Compose extension import and redundant terminal assertion. The test already waits for the exact completion text through Compose `waitUntil`.
+- The correction is a test-source compile fix, not a production-code change. Exact-head CI for the correction has not yet been observed. PR #180 remains open and must not merge until its exact-head checks pass.
+- After merge, require the main-only `Friday instrumented candidate sandbox contract` run to pass; that canary proves the reusable instrumented sandbox contract only, not a real failed-candidate repair episode.
+- Still unproven: installed Friday Builder -> failed candidate -> exact profile sandbox -> candidate-specific REA -> bounded repair -> new candidate -> independent verification. Physical handset Shizuku daemon/Binder/process/reboot/force-stop acceptance also remains outstanding.
