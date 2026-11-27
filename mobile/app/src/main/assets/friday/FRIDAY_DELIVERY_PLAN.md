@@ -659,3 +659,19 @@ Owner instruction: **make it exist first; make it good later.** The complete Fri
 - No additional broad refactor is on the critical path unless it blocks building, installing, starting, communicating with, preserving continuity for, or recovering the first Friday.
 
 **Current next action:** finish build #3654, then publish the exact-revision production-signed APK and move directly to handset acceptance. The complete vision continues in parallel only where it does not delay this gate.
+
+### 2026-11-27 — owner correction: Friday is already installed; repair the live app
+
+The owner corrected the previous execution framing: **Friday is already installed on the phone. She is a dead app because the current installed build does not work.** Therefore "produce Friday's first production APK" and "first handset installation" are incorrect objectives and are superseded by this entry.
+
+The actual critical path is to **modify and repair the existing Friday application**, preserve its installed identity/data/signing lineage, and move directly into working voice interaction.
+
+1. Diagnose why the current installed application is nonfunctional using the actual Android startup, readiness, turn, voice, and device-control paths—not by assuming a fresh installation is the blocker.
+2. Fix the smallest concrete defects that prevent the installed app from waking, accepting input, producing a response, and retaining continuity.
+3. Move immediately to voice: microphone permission and capture, speech recognition, transcript delivery into the existing BodyCoordinator turn path, response generation, audible TTS/Friday voice playback, interruption, and return to idle.
+4. Verify this end-to-end on the owner's physical handset. CI/emulator tests are supporting evidence only; they do not prove the phone works.
+5. Deliver an in-place update APK only after the fixes pass the relevant checks and preserve the existing package identity, user data and production signing lineage. Installing a new app from scratch is not the goal.
+
+**First voice repair identified:** the existing isolated voice playback path parsed RIFF/WAV little-endian numeric fields using big-endian reads, rejecting standard PCM16 output. The same path compared its active Job against the coroutine receiver when clearing speaking state. Speech recognition also forced offline preference when no on-device recognizer pack existed. These concrete fixes are in PR #183 and awaiting exact-head CI.
+
+The prior "produce first production APK / first handset installation" wording is retained only as historical context and must not drive execution. The next success criterion is a working voice conversation in the already-installed Friday app.
