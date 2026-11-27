@@ -51,6 +51,21 @@ class GitHubDevelopmentRepositoryClient(
             "Candidate creation additionally requires Contents write and Pull requests write. REA dispatch requires Actions read/write."
     }
 
+    data class AgentTaskIssue(
+        val number: Int,
+        val title: String,
+        val url: String,
+        val state: String
+    )
+
+    data class AgentTaskComment(
+        val id: Long,
+        val authorLogin: String,
+        val body: String,
+        val createdAt: String,
+        val url: String?
+    )
+
     /**
      * Recover a branch that was created before an Android process died. The
      * exact existing commit is reused; no candidate code is regenerated.
@@ -116,6 +131,151 @@ class GitHubDevelopmentRepositoryClient(
         val pr = createPullRequest(title, body, candidateBranch, baseBranch)
         return CandidatePullRequest(candidateBranch, commit, pr.first, pr.second)
     }
+
+    /**
+     * Find the durable GitHub issue for one Friday task. The task marker is
+     * stable across retries, so a process crash after remote creation does not
+     * create a second logical task on the next attempt.
+     */
+    fun findAgentTaskIssue(taskId: String): AgentTaskIssue? {
+        validateTaskId(taskId)
+        val marker = taskIssueMarker(taskId)
+        for (page in 1..MAX_TASK_SEARCH_PAGES) {
+            val issues = getArray(
+                "$apiRoot/issues?state=all&per_page=100&page=$page",
+                "read Friday task issues"
+            )
+            if (issues.length() == 0) break
+            for (index in 0 until issues.length()) {
+                val issue = issues.optJSONObject(index) ?: continue
+                if (issue.has("pull_request")) continue
+                if (!issue.optString("body").contains(marker)) continue
+                val number = issue.optInt("number", -1)
+                val url = issue.optString("html_url")
+                if (number > 0 && url.startsWith("https://github.com/")) {
+                    return AgentTaskIssue(
+                        number = number,
+                        title = issue.optString("title"),
+                        url = url,
+                        state = issue.optString("state")
+                    )
+                }
+            }
+        }
+        return null
+    }
+
+    /**
+     * Create one durable task thread, or recover the existing issue for the
+     * same task ID. The caller supplies only an already-reviewed bounded task
+     * envelope; this method never reads chat history or device data itself.
+     */
+    fun createOrFindAgentTaskIssue(
+        taskId: String,
+        title: String,
+        body: String
+    ): AgentTaskIssue {
+        validateTaskId(taskId)
+        require(title.isNotBlank() && title.length <= 160) { "Friday task title is invalid." }
+        require(body.isNotBlank() && body.length <= MAX_AGENT_TASK_BODY_CHARS) {
+            "Friday task envelope is empty or exceeds its size limit."
+        }
+        require(!SECRET_PATTERN.containsMatchIn(title + "\n" + body)) {
+            "Friday task envelope was blocked because it resembles a credential."
+        }
+        findAgentTaskIssue(taskId)?.let { return it }
+        val issueBody = taskIssueMarker(taskId) + "\n\n" + body
+        val created = postJson(
+            apiRoot + "/issues",
+            JSONObject()
+                .put("title", "[Friday Task " + taskId + "] " + title)
+                .put("body", issueBody),
+            "create Friday task issue"
+        )
+        val number = created.optInt("number", -1)
+        val url = created.optString("html_url")
+        if (number <= 0 || !url.startsWith("https://github.com/")) {
+            throw IOException("GitHub accepted a Friday task but returned incomplete issue metadata.")
+        }
+        return AgentTaskIssue(
+            number = number,
+            title = created.optString("title"),
+            url = url,
+            state = created.optString("state", "open")
+        )
+    }
+
+    /** Read the bounded append-only message stream for a known task issue. */
+    fun readAgentTaskComments(issueNumber: Int): List<AgentTaskComment> {
+        require(issueNumber > 0) { "Friday task issue number is invalid." }
+        val comments = getArray(
+            "$apiRoot/issues/$issueNumber/comments?per_page=100",
+            "read Friday task comments"
+        )
+        return (0 until comments.length()).mapNotNull { index ->
+            val comment = comments.optJSONObject(index) ?: return@mapNotNull null
+            val id = comment.optLong("id", -1L)
+            val author = comment.optJSONObject("user")?.optString("login").orEmpty()
+            val body = comment.optString("body")
+            if (id <= 0L || author.isBlank() || body.length > MAX_AGENT_TASK_COMMENT_CHARS) {
+                return@mapNotNull null
+            }
+            AgentTaskComment(
+                id = id,
+                authorLogin = author,
+                body = body,
+                createdAt = comment.optString("created_at"),
+                url = comment.optString("html_url").takeIf { it.startsWith("https://github.com/") }
+            )
+        }
+    }
+
+    /**
+     * Append a typed task message. Sequence and task identity are visible in a
+     * stable marker so Friday can deduplicate after a process restart.
+     */
+    fun postAgentTaskComment(
+        issueNumber: Int,
+        taskId: String,
+        sequence: Long,
+        messageBody: String
+    ): AgentTaskComment {
+        require(issueNumber > 0) { "Friday task issue number is invalid." }
+        validateTaskId(taskId)
+        require(sequence >= 0L) { "Friday task message sequence is invalid." }
+        require(messageBody.isNotBlank() && messageBody.length <= MAX_AGENT_TASK_COMMENT_CHARS - 180) {
+            "Friday task message is empty or too large."
+        }
+        require(!SECRET_PATTERN.containsMatchIn(messageBody)) {
+            "Friday task message was blocked because it resembles a credential."
+        }
+        val marker = "<!-- friday-agent-message:v1:$taskId:$sequence -->"
+        val created = postJson(
+            "$apiRoot/issues/$issueNumber/comments",
+            JSONObject().put("body", marker + "\n\n" + messageBody),
+            "post Friday task message"
+        )
+        val id = created.optLong("id", -1L)
+        val author = created.optJSONObject("user")?.optString("login").orEmpty()
+        if (id <= 0L || author.isBlank()) {
+            throw IOException("GitHub accepted a Friday task message but returned incomplete comment metadata.")
+        }
+        return AgentTaskComment(
+            id = id,
+            authorLogin = author,
+            body = created.optString("body"),
+            createdAt = created.optString("created_at"),
+            url = created.optString("html_url").takeIf { it.startsWith("https://github.com/") }
+        )
+    }
+
+    private fun validateTaskId(taskId: String) {
+        require(taskId.matches(Regex("[A-Za-z0-9._-]{8,80}"))) {
+            "Friday task ID must contain 8–80 safe characters."
+        }
+    }
+
+    private fun taskIssueMarker(taskId: String) = "<!-- friday-task:v1:$taskId -->"
 
     /** External public Seats may see source only after this live visibility check. */
     fun isRepositoryPublic(): Boolean = !getJson(apiRoot).optBoolean("private", true)
@@ -627,19 +787,23 @@ class GitHubDevelopmentRepositoryClient(
         }
     }
 
-    private fun getArray(url: String): JSONArray {
+    private fun getArray(url: String, operation: String = "read pull requests"): JSONArray {
         val response = request(url, "GET", null)
         response.use {
-            if (!it.isSuccessful) throw IOException(apiError(it.code, "read pull requests"))
+            if (!it.isSuccessful) throw IOException(apiError(it.code, operation))
             return runCatching { JSONArray(it.body?.string().orEmpty()) }
                 .getOrElse { throw IOException("GitHub returned an unreadable pull-request list.") }
         }
     }
 
-    private fun postJson(url: String, payload: JSONObject): JSONObject {
+    private fun postJson(
+        url: String,
+        payload: JSONObject,
+        operation: String = "write candidate data"
+    ): JSONObject {
         val response = request(url, "POST", payload.toString())
         response.use {
-            if (!it.isSuccessful) throw IOException(apiError(it.code, "write candidate data"))
+            if (!it.isSuccessful) throw IOException(apiError(it.code, operation))
             return runCatching { JSONObject(it.body?.string().orEmpty()) }
                 .getOrElse { throw IOException("GitHub returned an unreadable write response.") }
         }
@@ -717,6 +881,9 @@ class GitHubDevelopmentRepositoryClient(
         private const val REPOSITORY_OWNER = "mhw77655-hue"
         private const val API_ROOT = "https://api.github.com/repos/" + REPOSITORY
         private const val MAX_FILES = 12
+        private const val MAX_TASK_SEARCH_PAGES = 3
+        private const val MAX_AGENT_TASK_BODY_CHARS = 18_000
+        private const val MAX_AGENT_TASK_COMMENT_CHARS = 12_000
         private const val MAX_FILE_CHARS = 160_000
         private const val MAX_TOTAL_BYTES = 512 * 1024
         private const val MAX_REVIEW_DIFF_CHARS = 256_000
