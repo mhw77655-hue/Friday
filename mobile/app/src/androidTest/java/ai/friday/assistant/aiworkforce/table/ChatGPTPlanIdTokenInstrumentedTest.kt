@@ -8,6 +8,8 @@ import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -15,6 +17,7 @@ import java.security.KeyPair
 import java.security.KeyPairGenerator
 import java.security.Signature
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.runBlocking
 
 @RunWith(AndroidJUnit4::class)
 class ChatGPTPlanIdTokenInstrumentedTest {
@@ -62,6 +65,34 @@ class ChatGPTPlanIdTokenInstrumentedTest {
             assertEquals(clientId, claims.getString("aud"))
         } finally {
             server.shutdown()
+        }
+    }
+
+    @Test
+    fun identityOnlySignInIsRetainedButDoesNotEnablePlanInference() = runBlocking {
+        val store = ChatGPTPlanCredentialStore(context)
+        store.clearTokensPreserveRegistration()
+        try {
+            store.save(
+                ChatGPTPlanCredentialStore.Credentials(
+                    clientId = "oaiapp_identity_only_test",
+                    hostId = store.hostId(),
+                    subject = "identity-only-subject",
+                    email = "owner@example.test",
+                    idToken = "verified-identity-token-fixture",
+                    accessToken = "identity-only-access-fixture",
+                    refreshToken = "identity-only-refresh-fixture",
+                    expiresAtEpochSeconds = System.currentTimeMillis() / 1000L + 3600,
+                    scopes = setOf("openid", "profile", "email", "offline_access", "resource.invoke"),
+                    modelSlug = null
+                )
+            )
+            val auth = ChatGPTPlanAuth(context = context, credentials = store)
+            assertTrue("Verified identity sign-in should remain visible.", auth.isSignedIn())
+            assertFalse("Identity sign-in alone must not enable ChatGPT plan inference.", auth.isConnected())
+            assertEquals(null, auth.validAccessToken())
+        } finally {
+            store.clearTokensPreserveRegistration()
         }
     }
 
