@@ -12,7 +12,8 @@ Friday can use an owner's eligible ChatGPT plan as one explicitly authorized Int
 - Authorization, token, JWKS and revocation endpoints are loaded from OpenAI's production OpenID discovery document; the issuer and endpoint origin are validated against `https://auth.openai.com` before use.
 - Token exchange uses the issued client ID, code verifier, exact redirect URI and `resource=https://api.openai.com/v1`. No client secret or API key is used.
 - The ID token is verified against the configured OpenAI JWKS. Friday checks RS256 signature, issuer, audience/authorized party, expiry, issued-at, nonce and subject before storing credentials.
-- The token response must include `chatgpt.tokens.use.direct`; a valid identity token alone is insufficient.
+- Identity sign-in and ChatGPT plan usage are separate grants. Friday retains a verified identity-only session when `chatgpt.tokens.use.direct` is absent, but marks plan inference disabled and does not expose an access token to the Seat. Settings offers a reauthorization path to request plan usage explicitly.
+- The token response must include `chatgpt.tokens.use.direct` before any ChatGPT-plan inference; a valid identity token alone is insufficient.
 - Access/refresh/ID tokens and account identity are encrypted with an Android Keystore AES-GCM key. Tokens are never written to Table logs, crash reports or GitHub diagnostics.
 - A newly issued client ID is persisted as pending before code exchange, so an `invalid_grant` retry uses that issued ID rather than registering a duplicate client.
 - Refresh is serialized across all in-process Seat instances to protect rotating refresh tokens; refresh rotates credentials atomically and preserves the issued client ID and account identity.

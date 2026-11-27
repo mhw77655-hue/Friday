@@ -10,6 +10,8 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.clickable
@@ -59,6 +61,32 @@ fun rememberCapabilitySnapshot(): State<Map<String, Boolean>?> {
             value = FridayEngine.capabilities?.capabilities // <- verify field name against real FridayEngine.kt
             delay(300)
         }
+    }
+}
+
+/**
+ * Shared translucent glass surface. The base remains true AMOLED black;
+ * this panel adds only a low-opacity tint, a fine highlight edge and a soft
+ * vertical reflection. It deliberately avoids opaque stock Material cards.
+ */
+@Composable
+fun GlassPanel(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+    val shape = RoundedCornerShape(22.dp)
+    Box(
+        modifier = modifier
+            .clip(shape)
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0x20FFFFFF), Color(0x0BFFFFFF), Color(0x12A7C8FF))
+                ),
+                shape
+            )
+            .border(1.dp, Color(0x30FFFFFF), shape)
+    ) {
+        content()
     }
 }
 

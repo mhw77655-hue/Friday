@@ -1,5 +1,6 @@
 package ai.friday.assistant.ui.navigation
 import ai.friday.assistant.ui.EngineAccess
+import ai.friday.assistant.ui.components.GlassPanel
 import ai.friday.assistant.ui.WakingSurface
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
@@ -240,18 +241,18 @@ private fun FridayBottomBar(
     onMissions: () -> Unit,
     onMore: () -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(FridayColors.SurfacePanel)
-            .border(1.dp, FridayColors.SurfaceHairline)
-            .padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly
-    ) {
-        BottomBarItem("Home", currentRoute == ROUTE_HOME, onHome)
-        BottomBarItem("Chat", currentRoute == ROUTE_CONVERSATION, onConversation)
-        BottomBarItem("Missions", currentRoute == ROUTE_MISSIONS, onMissions)
-        BottomBarItem("More", moreSelected, onMore)
+    GlassPanel(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            BottomBarItem("Home", currentRoute == ROUTE_HOME, onHome)
+            BottomBarItem("Chat", currentRoute == ROUTE_CONVERSATION, onConversation)
+            BottomBarItem("Missions", currentRoute == ROUTE_MISSIONS, onMissions)
+            BottomBarItem("More", moreSelected, onMore)
+        }
     }
 }
 

@@ -65,9 +65,51 @@ class ChatGPTPlanSeatApiInstrumentedTest {
             val body = inferenceRequest.body.readUtf8()
             assertTrue(body.contains("\"store\":false"))
             assertTrue(body.contains("\"stream\":true"))
+            assertTrue(body.contains("\"role\":\"developer\""))
+            assertFalse(body.contains("max_output_tokens"))
             assertTrue(body.contains("public sanitized digest"))
         } finally {
             ChatGPTPlanBackgroundConsentStore(context).setEnabled(false)
+            server.shutdown()
+        }
+    }
+
+    @Test
+    fun settingsConnectionTestPerformsRealCompletedResponsesInference() = runBlocking {
+        val fixture = secureMockWebServer()
+        val server = fixture.server
+        try {
+            server.enqueue(MockResponse().setBody(
+                """{"models":[{"slug":"gpt-test","display_name":"GPT Test","visibility":"list"}]}"""
+            ))
+            server.enqueue(MockResponse()
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody(
+                    "data: {\"type\":\"response.output_text.delta\",\"delta\":\"Friday connection verified.\"}\n\n" +
+                    "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_test\"}}\n\n"
+                ))
+            val seat = ChatGPTPlanSeat(
+                context = context,
+                tokenProvider = object : ChatGPTPlanTokenProvider {
+                    override suspend fun validAccessToken() = "oauth-access-token"
+                },
+                apiBaseUrl = server.url("/v1").toString().trimEnd('/'),
+                http = fixture.client
+            )
+            val result = seat.testConnection()
+            assertTrue(result.contains("ChatGPT plan inference verified"))
+            assertTrue(result.contains("Friday connection verified"))
+
+            val modelRequest = server.takeRequest()
+            assertEquals("/v1/models", modelRequest.path)
+            val inferenceRequest = server.takeRequest()
+            assertEquals("/v1/responses", inferenceRequest.path)
+            val body = inferenceRequest.body.readUtf8()
+            assertTrue(body.contains("\"store\":false"))
+            assertTrue(body.contains("\"stream\":true"))
+            assertTrue(body.contains("\"role\":\"developer\""))
+            assertFalse(body.contains("max_output_tokens"))
+        } finally {
             server.shutdown()
         }
     }
