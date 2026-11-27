@@ -30,6 +30,40 @@ A GitHub issue is the durable **public project task record**:
 
 This gives a durable, inspectable, crash-tolerant collaboration history using the repository access Friday already needs. It does not require an always-open inbound phone port or a new public relay server.
 
+## ChatGPT reply contract for the connected GitHub session
+
+When Friday creates a public task issue, the connected ChatGPT engineering session can answer by posting an issue comment using the authenticated GitHub connector. The comment must be a valid v1 envelope, not free-form Markdown alone, so Friday's poller can authenticate and ingest it.
+
+The required comment shape is:
+
+```text
+<!-- friday-agent-message:v1:<task-id>:<sequence> -->
+
+{
+  "schema_version": 1,
+  "data_classification": "public",
+  "task_id": "<exact task ID from the issue>",
+  "message_id": "<task-id>:in:<sequence>",
+  "sequence": 1,
+  "sender": "chatgpt-cloud",
+  "recipient": "friday",
+  "kind": "result",
+  "created_at_epoch_ms": 1795900000000,
+  "expires_at_epoch_ms": 1795986400000,
+  "source_revision": "<exact source_revision from the task>",
+  "payload": {
+    "data_classification": "public",
+    "summary": "Concise result summary",
+    "findings": ["Evidence-grounded finding"],
+    "next_actions": ["Concrete next step"]
+  }
+}
+```
+
+The marker task ID and sequence must match the envelope. Sequence starts at 1 for the first reply and must increase for each subsequent message on that task. Preserve the exact source revision. Use a short expiry (normally 24 hours). Only public source references, test evidence and non-sensitive engineering results may be included. Never put private phone state, personal context, conversation history, private memory, tokens or credentials in the comment. If the requested work requires private evidence, return an `evidence_request` or explain that the public relay cannot carry it; Friday must use its separately approved private channel.
+
+A comment is not accepted merely because it exists. Friday also checks the GitHub author against its trusted actor allowlist, task ID, sender/recipient, sequence, source revision, expiry and payload policy. The owner account used by the connected GitHub connector must therefore be included in Friday's trusted actor list.
+
 ## Trust and authority
 
 - Friday's GitHub token remains encrypted in Android Keystore and never enters ChatGPT task content.
