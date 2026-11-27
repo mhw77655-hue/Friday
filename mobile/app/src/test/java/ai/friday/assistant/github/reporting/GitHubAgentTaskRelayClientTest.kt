@@ -44,7 +44,7 @@ class GitHubAgentTaskRelayClientTest {
     fun retryFindsExistingTaskInsteadOfCreatingDuplicateIssue() {
         val server = MockWebServer()
         server.enqueue(MockResponse().setBody(
-            """[{"number":321,"title":"[Friday Task $taskId] Repair IPC","html_url":"https://github.com/mhw77655-hue/Friday/issues/321","state":"open","body":"<!-- friday-task:v1:$taskId -->"}]"""
+            """[{"number":321,"title":"[Friday Task $taskId] Repair IPC","html_url":"https://github.com/mhw77655-hue/Friday/issues/321","state":"open","user":{"login":"mhw77655-hue"},"body":"<!-- friday-task:v1:$taskId -->"}]"""
         ))
         server.start()
         try {
