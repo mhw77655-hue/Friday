@@ -265,3 +265,25 @@ The handset is not globally dead: the UI, permissions, Shizuku binder, Friday sh
 5. Run physical typed and audible acceptance; diagnostics alone do not prove the user-facing experience.
 
 **Privacy note:** `log.zip` remains in the public repository. The Actions report is redacted on a best-effort basis, but the original raw ZIP is not redacted by this workflow and may contain private system identifiers or other sensitive details. It should be moved to a private location or removed after the investigation if the repository is intended to remain public.
+
+
+
+### 2026-11-27 — Settings and glass UI rebuild started (PR #185)
+
+Branch: feat/glass-settings-chatgpt-connection  
+PR: https://github.com/mhw77655-hue/Friday/pull/185
+
+Implemented in this draft:
+- Reorganized the single long Settings scroll into collapsible glass groups: Friday updates, ChatGPT connection, personalization/voice, phone access, runtime/capabilities, and GitHub/advanced development.
+- Added a real ChatGPT inference health check in Settings. It discovers a visible account model and makes a minimal Responses request, then displays the actual completed reply rather than treating OAuth login as proof of inference.
+- Corrected the existing ChatGPT Plan Seat Responses request: SIWC direct-plan usage rejects system-role items and unsupported max_output_tokens; the Seat now uses developer and omits that unsupported field.
+- Added instrumented coverage for the ChatGPT connection test and the request contract.
+- Added a shared translucent glass surface and applied it to Home's capability panel, Conversation header, user bubbles and message composer.
+- Kept the app/system chrome true AMOLED black. Friday already had an AMOLED-black base; this pass layers translucent glass styling over it rather than changing the black substrate.
+
+Important truth about the ChatGPT login:
+- The current OAuth integration is wired to the AI Table/Builder advisory Seat, not the ordinary Friday conversation model. A successful sign-in therefore did not visibly change normal conversation.
+- This PR makes the connection testable, but does not silently route private conversation text to ChatGPT. Main-chat use needs a separate explicit user opt-in and provider integration; this is a distinct next engineering step.
+- GitHub access is separate from ChatGPT. The owner has not yet entered a GitHub fine-grained token in Friday, so Friday's on-device GitHub client cannot act as the owner until that credential is saved. The token must be entered on the phone; it is not available to this GitHub-connected engineering session and must never be copied into source or logs.
+
+CI: PR validation run https://github.com/mhw77655-hue/Friday/actions/runs/46056623855 was created and is pending. This is a draft PR, not a merged change or a released APK. No physical-device visual or account test has been claimed.
