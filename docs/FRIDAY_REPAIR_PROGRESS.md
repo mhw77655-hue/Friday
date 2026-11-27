@@ -172,3 +172,22 @@ Re-opened the current main source after the 1.0.601 release and traced the Andro
 **Release verification refresh:** GitHub release API re-confirmed `friday-v1.0.601`, target commit `399a97e0cfc290c61447c697bf0d5fce7e6aff39`, APK asset `app-release.apk`, 129,721,072 bytes, digest `sha256:f838f8542acbcb0792a7fcb3fc8c683f0447f497767496baa1b767a85bbdacf3`; metadata and checksum assets are also published. This is still not evidence that the owner installed it.
 
 The narrow repair objective remains **35% engineering/delivery preparation complete; physical handset acceptance 0% proven**. The source audit improves diagnosis but does not substitute for the missing handset report or acceptance.
+
+
+
+### 2026-11-27 — GitHub-native inspection of uploaded log.zip
+
+The uploaded root-level `log.zip` was located directly in the public repository. Rather than asking the owner to upload it again, a repository-local GitHub Actions workflow was added at `.github/workflows/analyze-device-logs.yml` to validate and inspect the ZIP on GitHub's own runner.
+
+- Analyzer run: https://github.com/mhw77655-hue/Friday/actions/runs/46053115518
+- Run status: successful.
+- Archive integrity: valid ZIP.
+- Archive inventory: 3 file entries.
+- Parsed text sources: 2.
+- Total uncompressed bytes inspected: within the workflow's 200 MiB safety bound.
+- Diagnostic matches: 2,454 before deduplication and prioritization.
+- Raw archive contents were not copied into the repository or printed in the first run's job log; a second pass is configured to emit only a privacy-filtered diagnostic report into the job output for direct review.
+
+The workflow rejects unsafe archive paths, enforces compressed/uncompressed size and entry-count limits, recursively inspects nested ZIPs to bounded depth, and redacts common credentials, email addresses, IP addresses, device identifiers and app-private paths in excerpts. Redaction is best-effort, not a guarantee; the source archive itself remains in the public repository and may contain sensitive system data.
+
+This establishes that the archive can be processed entirely through GitHub Actions; no manual re-upload or local extraction is required. Root-cause analysis is pending retrieval and correlation of the prioritized diagnostic excerpts.
