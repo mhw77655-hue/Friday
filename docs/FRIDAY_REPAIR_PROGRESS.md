@@ -482,7 +482,7 @@ Next: verify the combined signed release's package/version/signing fingerprint/S
 
 ### 2026-11-27 — combined app repair release 1.0.610 published
 
-<badge>Version 1.0.610</badge>
+**Release: Friday 1.0.610**
 
 - Release: https://github.com/mhw77655-hue/Friday/releases/tag/friday-v1.0.610
 - APK: https://github.com/mhw77655-hue/Friday/releases/download/friday-v1.0.610/app-release.apk
