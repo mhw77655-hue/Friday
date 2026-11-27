@@ -152,7 +152,7 @@ class FridayAgentTaskRelayTest {
                 createdAtEpochMs = now,
                 expiresAtEpochMs = now + 60_000L,
                 sourceRevision = "main",
-                payload = JSONObject().put("status", "working")
+                payload = JSONObject().put("data_classification", "public").put("status", "working")
             )
             server.enqueue(MockResponse().setResponseCode(201).setBody(
                 JSONObject()
@@ -256,7 +256,7 @@ class FridayAgentTaskRelayTest {
         createdAtEpochMs = createdAt,
         expiresAtEpochMs = createdAt + 60_000L,
         sourceRevision = "main",
-        payload = JSONObject().put("summary", "verified result")
+        payload = JSONObject().put("data_classification", "public").put("summary", "verified result")
     )
 
     private fun comment(
