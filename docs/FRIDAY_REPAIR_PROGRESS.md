@@ -287,3 +287,19 @@ Important truth about the ChatGPT login:
 - GitHub access is separate from ChatGPT. The owner has not yet entered a GitHub fine-grained token in Friday, so Friday's on-device GitHub client cannot act as the owner until that credential is saved. The token must be entered on the phone; it is not available to this GitHub-connected engineering session and must never be copied into source or logs.
 
 CI: PR validation run https://github.com/mhw77655-hue/Friday/actions/runs/46056623855 was created and is pending. This is a draft PR, not a merged change or a released APK. No physical-device visual or account test has been claimed.
+
+
+
+### 2026-11-27 — ChatGPT sign-in consent-state bug identified and corrected in PR #185
+
+A second issue explains why a user could complete ChatGPT sign-in yet Friday appeared disconnected: the existing OAuth handler required the optional chatgpt.tokens.use.direct scope before saving anything. OpenAI's current SIWC contract distinguishes identity sign-in from permission to use the user's ChatGPT plan. An identity-only grant should be retained and shown as signed in, while plan inference remains disabled.
+
+PR #185 now:
+- Stores a verified identity-only session when OpenAI returns identity scopes without chatgpt.tokens.use.direct.
+- Exposes separate isSignedIn() and isConnected() states (identity vs plan inference permission).
+- Shows "Signed in · plan use not enabled" rather than pretending no account was connected.
+- Offers "Enable ChatGPT plan usage" as the reauthorization action.
+- Keeps the actual inference test and background Builder use disabled until the direct-plan scope is granted.
+- Adds an instrumented regression test proving identity-only sign-in is retained but validAccessToken() remains unavailable.
+
+This follows OpenAI's SIWC guidance: https://developers.openai.com/siwc/token-sharing-open-source/errors-and-recovery and https://developers.openai.com/siwc/token-sharing-open-source/sign-in. The app must not infer plan-use consent from identity sign-in.
