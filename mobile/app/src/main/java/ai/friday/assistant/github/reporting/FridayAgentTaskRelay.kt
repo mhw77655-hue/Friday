@@ -414,30 +414,32 @@ class FridayAgentTaskRelay(
             "Public GitHub task payload exceeds its size limit."
         }
         val forbiddenKeys = setOf(
-            "device_snapshot", "phone_snapshot", "conversation", "chat_history",
+            "devicesnapshot", "phonesnapshot", "conversation", "chathistory",
             "memory", "transcript", "audio", "microphone", "notifications",
             "contacts", "location", "credentials", "token", "secret",
-            "user_profile", "health", "personal_context", "screen_contents"
+            "userprofile", "health", "personalcontext", "screencontents",
+            "email", "emailaddress", "phone", "phonenumber", "homeaddress",
+            "birthdate", "dateofbirth", "ssn", "passport", "accountnumber"
         )
-        fun inspectObject(value: JSONObject) {
-            val keys = value.keys()
-            while (keys.hasNext()) {
-                val key = keys.next()
-                require(key.lowercase() !in forbiddenKeys) {
-                    "Private device/user field '$key' cannot be sent through public GitHub task threads."
-                }
-                when (val nested = value.opt(key)) {
-                    is JSONObject -> inspectObject(nested)
-                    is JSONArray -> {
-                        for (index in 0 until nested.length()) {
-                            val item = nested.opt(index)
-                            if (item is JSONObject) inspectObject(item)
+        fun inspectValue(value: Any?) {
+            when (value) {
+                is JSONObject -> {
+                    val keys = value.keys()
+                    while (keys.hasNext()) {
+                        val key = keys.next()
+                        val normalizedKey = key.lowercase().filter { it.isLetterOrDigit() }
+                        require(normalizedKey !in forbiddenKeys) {
+                            "Private device/user field '$key' cannot be sent through public GitHub task threads."
                         }
+                        inspectValue(value.opt(key))
                     }
+                }
+                is JSONArray -> {
+                    for (index in 0 until value.length()) inspectValue(value.opt(index))
                 }
             }
         }
-        inspectObject(payload)
+        inspectValue(payload)
     }
 
     private fun ensureConsent() {
