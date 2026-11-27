@@ -73,6 +73,7 @@ class FridayAgentTaskRelayTest {
                 github = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot),
                 threads = store,
                 trustedActors = setOf("mhw77655-hue"),
+                consentEnabled = { true },
                 clock = { now + 1_000L }
             )
 
@@ -105,6 +106,7 @@ class FridayAgentTaskRelayTest {
                 github = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot),
                 threads = AgentTaskThreadStore(directory),
                 trustedActors = setOf("mhw77655-hue"),
+                consentEnabled = { true },
                 clock = { now }
             )
 
@@ -168,6 +170,7 @@ class FridayAgentTaskRelayTest {
                 github = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot),
                 threads = store,
                 trustedActors = setOf("mhw77655-hue"),
+                consentEnabled = { true },
                 clock = { now }
             )
 
@@ -177,6 +180,36 @@ class FridayAgentTaskRelayTest {
             val request = server.takeRequest()
             assertEquals("POST", request.method)
             assertTrue(request.body.readUtf8().contains("friday-agent-message:v1:$taskId:1"))
+        } finally {
+            server.shutdown()
+            directory.deleteRecursively()
+        }
+    }
+
+
+    @Test
+    fun collaborationIsBlockedByDefaultBeforeAnyGitHubRequest() {
+        val directory = Files.createTempDirectory("friday-agent-consent").toFile()
+        val server = MockWebServer()
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val relay = FridayAgentTaskRelay(
+                github = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot),
+                threads = AgentTaskThreadStore(directory),
+                trustedActors = setOf("mhw77655-hue")
+            )
+            val result = runCatching {
+                relay.createTask(
+                    taskId,
+                    "No consent",
+                    "main",
+                    JSONObject().put("goal", "must not leave device")
+                )
+            }
+            assertTrue(result.isFailure)
+            assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("disabled"))
+            assertEquals(0, server.requestCount)
         } finally {
             server.shutdown()
             directory.deleteRecursively()
