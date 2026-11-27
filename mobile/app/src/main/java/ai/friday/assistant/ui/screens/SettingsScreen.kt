@@ -13,6 +13,9 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -45,6 +48,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.launch
@@ -55,6 +60,7 @@ import java.io.File
 import org.json.JSONObject
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import ai.friday.assistant.aiworkforce.table.ChatGPTPlanSeat
 import ai.friday.assistant.aiworkforce.table.ChatGPTPlanAuth
 import ai.friday.assistant.aiworkforce.table.ChatGPTPlanBackgroundConsentStore
 import ai.friday.assistant.update.FridayPackageInstaller
@@ -114,6 +120,12 @@ fun SettingsScreen() {
     var chatGptAccountLabel by remember { mutableStateOf("") }
     var chatGptStatus by remember { mutableStateOf("Checking ChatGPT connection…") }
     var chatGptBusy by remember { mutableStateOf(false) }
+    var chatGptTestBusy by remember { mutableStateOf(false) }
+    var updatesExpanded by remember { mutableStateOf(false) }
+    var chatGptExpanded by remember { mutableStateOf(true) }
+    var personalExpanded by remember { mutableStateOf(false) }
+    var deviceExpanded by remember { mutableStateOf(false) }
+    var developmentExpanded by remember { mutableStateOf(false) }
     val updateStateStore = remember { FridayUpdateStateStore(context) }
     var updateStatus by remember { mutableStateOf("Checking update status…") }
     var stagedUpdate by remember { mutableStateOf<FridayUpdateClient.Result.Staged?>(null) }
@@ -294,6 +306,13 @@ fun SettingsScreen() {
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
+        Text("Settings", style = FridayType.Display, modifier = Modifier.padding(start = 4.dp, bottom = 4.dp))
+        Text(
+            "Friday control centre · connections, appearance, device access and development",
+            style = FridayType.Label,
+            modifier = Modifier.padding(start = 4.dp, bottom = 14.dp)
+        )
+        SettingsGroup("Friday updates", "Verified releases and safe installation", updatesExpanded, { updatesExpanded = !updatesExpanded }) {
         SectionLabel("FRIDAY UPDATES")
         Text(
             text = "Check the official Friday release channel. Friday verifies package identity, version, APK digest and signing certificate before Android receives an update. Android may still require your approval.",
@@ -418,6 +437,8 @@ fun SettingsScreen() {
         }
         Text(text = updateStatus, style = FridayType.Technical, modifier = Modifier.padding(bottom = 16.dp))
 
+        }
+        SettingsGroup("ChatGPT connection", if (chatGptConnected) "Plan connected · " + chatGptAccountLabel else "Not connected · sign-in alone does not start normal Friday replies", chatGptExpanded, { chatGptExpanded = !chatGptExpanded }) {
         SectionLabel("AI TABLE — CHATGPT PLAN SEAT")
         Text(
             text = "Connect Friday directly to your ChatGPT plan through OpenAI's official open-source sign-in. No API key or paid API fallback. Availability and usage limits depend on your ChatGPT account.",
@@ -453,6 +474,24 @@ fun SettingsScreen() {
             style = FridayType.Technical,
             modifier = Modifier.padding(vertical = 6.dp)
         )
+        Button(
+            onClick = {
+                chatGptTestBusy = true
+                chatGptStatus = "Testing a real ChatGPT Responses API request…"
+                scope.launch {
+                    val result = withContext(Dispatchers.IO) {
+                        runCatching { ChatGPTPlanSeat(context).testConnection() }
+                    }
+                    chatGptStatus = result.fold(
+                        onSuccess = { it },
+                        onFailure = { failure -> failure.message ?: "ChatGPT inference test failed." }
+                    )
+                    chatGptTestBusy = false
+                }
+            },
+            enabled = chatGptConnected && !chatGptBusy && !chatGptTestBusy,
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(if (chatGptTestBusy) "Testing ChatGPT…" else "Test ChatGPT response") }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -523,6 +562,8 @@ fun SettingsScreen() {
         }
         Text(text = chatGptStatus, style = FridayType.Technical, modifier = Modifier.padding(bottom = 16.dp))
 
+        }
+        SettingsGroup("Personalization and voice", "Personality, speech and device-decision credentials", personalExpanded, { personalExpanded = !personalExpanded }) {
         SectionLabel("PERSONALITY")
         Text(
             text = "This changes how FRIDAY answers, not what he knows.",
@@ -548,6 +589,8 @@ fun SettingsScreen() {
 
         JevCredentialSection(context)
 
+        }
+        SettingsGroup("Phone access", "Accessibility and approved on-device actions", deviceExpanded, { deviceExpanded = !deviceExpanded }) {
         SectionLabel("PHONE CONTROL")
         Text(
             text = "Enable Android Accessibility only if you want Friday to perform approved on-screen actions. Android keeps this permission under your control.",
@@ -566,6 +609,8 @@ fun SettingsScreen() {
         }
 
 
+        }
+        SettingsGroup("Friday runtime and capabilities", "Continuity, resource state, Shizuku and device services", deviceExpanded, { deviceExpanded = !deviceExpanded }) {
         SectionLabel("OBJECTIVES AND DEVELOPMENT")
         Text(
             text = "Friday keeps the canonical objectives and evidence ledger locally. Work is tracked across the full plan; queued packets are not counted as completed work. Repository changes still require a configured, authorized development executor.",
@@ -816,11 +861,55 @@ fun SettingsScreen() {
             Text(text = shizukuAcceptanceReport, style = FridayType.Technical, modifier = Modifier.padding(vertical = 6.dp))
         }
 
-        GitHubDeviceReportingSection(context, actionTraceCount)
+        }
+        SettingsGroup("GitHub and advanced development", "Repository access, device reports, memory and Builder controls", developmentExpanded, { developmentExpanded = !developmentExpanded }) {
+            GitHubDeviceReportingSection(context, actionTraceCount)
+        }
         ReaEngineeringSection(context)
 
         MemoryRulesAndApplicationLabSection(context)
 
+    }
+}
+
+@Composable
+private fun SettingsGroup(
+    title: String,
+    description: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    val shape = RoundedCornerShape(22.dp)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp)
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color(0x1FFFFFFF), Color(0x0AFFFFFF), Color(0x12A7C8FF))
+                ),
+                shape
+            )
+            .border(1.dp, Color(0x2EFFFFFF), shape)
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().clickable(onClick = onToggle),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, style = FridayType.Body.copy(color = FridayColors.TextPrimary))
+                Text(description, style = FridayType.Technical, modifier = Modifier.padding(top = 3.dp))
+            }
+            Text(if (expanded) "−" else "+", style = FridayType.Display.copy(fontSize = 24.sp))
+        }
+        if (expanded) {
+            Column(modifier = Modifier.fillMaxWidth().padding(top = 14.dp)) {
+                content()
+            }
+        }
     }
 }
 
