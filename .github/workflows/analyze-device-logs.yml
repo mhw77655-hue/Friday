@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: device-log-analysis
+  group: device-log-analysis-focused-pass
   cancel-in-progress: false
 
 jobs:
