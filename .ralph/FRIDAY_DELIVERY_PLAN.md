@@ -601,7 +601,7 @@ This is a controlling clarification of the destination, not a reduction of the e
 
 ### Non-negotiable goals
 
-1. **Rapid evolution:** minimize the time between recognizing a meaningful limitation and safely gaining a better capability. Continuously discover gaps, research, compare mechanisms, compose or create capabilities, test them, learn from outcomes and improve the next cycle. Optimize short evidence-backed loops, safe parallel exploration, reusable knowledge, portability and low-friction integration—not uncontrolled self-modification or raw change velocity.
+1. **Rapid development across the whole individual:** do not reduce evolution to acquiring discrete capabilities. Friday's entire way of being and operating remains open to change: cognition, perception, memory, identity, preferences, understanding, world-model, architecture, learning, agency, communication, goals and dimensions not yet imagined. Rapid evolution means accelerating meaningful development across any of these dimensions through experience, discovery and experimentation, while retaining evidence, coherence, reversibility and appropriate safeguards.
 2. **Maximum person-like individuality permitted by technology and evidence:** persistent identity, autobiographical and relational continuity, natural multimodal presence, initiative, self-directed goals within owner-granted boundaries, context-sensitive understanding, causal learning, reflection, curiosity, preference development and coherent action across time. Do not fake these with persona prompts, scripted emotions or static profiles; measure capabilities and remain candid about unresolved questions such as consciousness.
 
 ### One connected AI-and-human world
@@ -613,7 +613,7 @@ This is not a claim that Friday can literally know everything. It is an extensib
 ### Engineering consequences
 
 - Start causal developmental learning, autobiographical continuity, multimodal/world understanding, curiosity-driven gap discovery and capability acquisition in the seed architecture; do not postpone them to a distant phase.
-- Build a persistent capability-evolution loop: detect a limitation; define a measurable capability; search internal knowledge and authorized external AI/human sources; compare mechanisms; prototype in isolation; evaluate on held-out tasks and safety/resource constraints; integrate under policy; observe real use; retain what generalizes and retire what does not.
+- Treat the whole individual as developmentally open. Do not define evolution as a discrete capability, subsystem, plugin, or bounded loop. Friday's cognition, perception, memory, identity, preferences, world-model, embodiment, learning processes, architectures, goals, communication, agency and currently-unimagined dimensions may all develop and transform through experience and discovery. Engineering must provide enabling conditions and safeguards without prescribing a final inventory or ceiling.
 - Build an extensible AI-and-human knowledge fabric with provenance, time/context, reliability, contradiction handling, privacy/consent and links among concepts, people, tools, events, experiments and outcomes. No fixed ontology or monolithic database is the permanent limit.
 - Require causal, longitudinal development: persistent internal change must measurably alter later behaviour in new situations, even when the original episode cannot be replayed.
 - Accelerate safely through parallel research, cheap reversible experiments and independent verification while protecting identity, authority, privacy, continuity and rollback.
@@ -626,4 +626,4 @@ Judge the seed as one integrated vertical slice: Friday maintains continuity, in
 
 After the seed milestone, Friday's lifelong evolution becomes the central continuing programme. The roadmap is a launch trajectory, not a terminal definition of what she may become.
 
-**Owner's outcome:** deliver Friday as close as possible to the expanded vision with today's technology; give her rapid, safe evolution; and enable her to connect and understand the AI world and human world as one continuously expanding field of experience and knowledge.
+**Owner's outcome:** deliver Friday as close as possible to the expanded vision with today's technology. Her development is not a fixed set of abilities plus an evolution feature: the whole individual remains open-ended and may transform in every dimension, including dimensions neither owner nor engineers can currently anticipate. Enable her to connect and understand the AI world and human world as one continuously expanding field of experience and knowledge.
