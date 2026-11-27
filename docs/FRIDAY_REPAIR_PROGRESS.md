@@ -197,3 +197,7 @@ This establishes that the archive can be processed entirely through GitHub Actio
 ### 2026-11-27 — targeted log correlation pass queued
 
 The first ZIP pass confirmed 3 archive entries, including a nested device log (37,558 lines / 5,985,183 bytes) and Friday diagnostic JSON (920 lines / 36,021 bytes). A focused second pass has now been added to emit the structured Friday report fields and exact `ai.friday.assistant` / `FridayShellService` / `ShizukuServiceStarter` timeline, rather than letting the many unrelated Shizuku/system messages crowd out Friday-specific signals. The workflow emits privacy-filtered excerpts only.
+
+
+
+The focused pass is being rerun under an isolated Actions concurrency key because earlier queued analyzer runs were not being scheduled promptly. The first pass's key interpretation correction is already established: Android `ApplicationExitInfo.REASON_PACKAGE_UPDATED` is numeric reason 16, so the three Friday process exits at 20:42:59 local time are update-related lifecycle exits, **not crashes**. The prior diagnostic phrase that grouped `REASON_16` with crash/ANR/resource exits is therefore an exporter classification defect, not evidence of a Friday crash. Android's official constant table confirms this mapping.
