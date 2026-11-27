@@ -676,6 +676,12 @@ The actual critical path is to **modify and repair the existing Friday applicati
 
 The prior "produce first production APK / first handset installation" wording is retained only as historical context and must not drive execution. The next success criterion is a working voice conversation in the already-installed Friday app.
 
+### 2026-11-27 — controlling repair issue and next-session entry point
+
+- Created [Issue #184](https://github.com/mhw77655-hue/Friday/issues/184) as the controlling execution ticket for repairing the already-installed Friday 1.0.510 and getting her speaking. It contains the complete confirmed APK problems, four-day engineering consolidation, explicit unknowns, exact PR #183 state, and handset acceptance sequence.
+- The mandatory forensic source of truth is [`docs/FRIDAY_1.0.510_INSTALLED_APK_REPAIR_DOSSIER.md`](../docs/FRIDAY_1.0.510_INSTALLED_APK_REPAIR_DOSSIER.md). Read it and Issue #184 first in every new session; retrieve the exact official release asset from GitHub rather than asking the owner to upload it again.
+- The immediate critical path is Issue #184 / PR #183. The broad living-Friday vision and REA/Shizuku immune architecture remain the destination, but they do not supersede repair of the installed app.
+
 ### 2026-11-27 — exact installed APK dossier and next-session continuity
 
 The owner supplied the APK already installed on the phone. It is verified as the official GitHub release `friday-v1.0.510`, tag target `24e653589fa623ce5819387a9179dfe878a0a720`, SHA-256 `e8446047acb04b83d3d57d0f332ee59c8f86a0f32c1e710c941b45d118a7398e`. The complete artifact identity, signer fingerprint, manifest inventory, confirmed source defects, model/provider gaps, four-day engineering history, merged PRs, open blockers and next-session instructions are preserved in [`docs/FRIDAY_1.0.510_INSTALLED_APK_REPAIR_DOSSIER.md`](../docs/FRIDAY_1.0.510_INSTALLED_APK_REPAIR_DOSSIER.md).
