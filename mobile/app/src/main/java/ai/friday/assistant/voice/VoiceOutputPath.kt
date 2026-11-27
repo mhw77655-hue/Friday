@@ -51,7 +51,6 @@ class VoiceOutputPath(
     private val _audioLevel = MutableStateFlow(0f)
     val audioLevel: StateFlow<Float> = _audioLevel.asStateFlow()
 
-    @Volatile private var cancelled = false
     @Volatile private var nativePlaybackActive = false
     @Volatile private var activeUtteranceToken: Any? = null
     private var job: Job? = null
@@ -77,29 +76,29 @@ class VoiceOutputPath(
         val utteranceToken = Any()
         activeUtteranceToken = utteranceToken
         val myJob = scope.launch {
+            if (!isCurrentUtterance(utteranceToken)) return@launch
             _isSpeaking.value = true
-            cancelled = false
             try {
                 for (segment in segment(text)) {
-                    if (cancelled) break
-                    // Route Arabic-script segments to the offline Arabic model even
-                    // when the saved default profile language is English.
+                    if (!isCurrentUtterance(utteranceToken)) break
                     val segmentLanguage = if (containsArabic(segment)) "ar-EG" else lang
-                    val spoken = habitatSpeak(segment, segmentLanguage, voiceId ?: profile.preferredVoice, profile, vocabulary)
+                    val spoken = habitatSpeak(
+                        segment, segmentLanguage, voiceId ?: profile.preferredVoice,
+                        profile, vocabulary, utteranceToken
+                    )
+                    if (!isCurrentUtterance(utteranceToken)) break
                     if (!spoken && fallback != null && profile.referenceAudioPath.isNullOrBlank()) {
-                        // Never silently substitute a different voice after the
-                        // owner explicitly selected Friday's reference identity.
                         fallback.speakStreaming(segment, vocabulary ?: emptyVocabulary())
                     } else if (!spoken && !profile.referenceAudioPath.isNullOrBlank()) {
                         Log.w(TAG, "Reference voice synthesis failed; refusing to substitute an unrelated voice")
                     }
                 }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
             } catch (e: Throwable) {
                 Log.w(TAG, "voice output failed: ${e.message}")
             } finally {
-                // Only this utterance may clear the speaking flag — an earlier
-                // cancelled job must not stomp the current one's state.
-                if (activeUtteranceToken === utteranceToken) {
+                if (isCurrentUtterance(utteranceToken)) {
                     activeUtteranceToken = null
                     job = null
                     _isSpeaking.value = fallback?.isSpeaking?.value ?: false
@@ -112,7 +111,6 @@ class VoiceOutputPath(
 
     /** Stop playback and ask the habitat to cancel in-flight synthesis. */
     fun interrupt() {
-        cancelled = true
         activeUtteranceToken = null
         nativePlaybackActive = false
         _isSpeaking.value = false
@@ -128,8 +126,10 @@ class VoiceOutputPath(
         language: String,
         voiceId: String?,
         profile: VoiceProfile,
-        vocabulary: VocabularyStore?
+        vocabulary: VocabularyStore?,
+        utteranceToken: Any
     ): Boolean {
+        if (!isCurrentUtterance(utteranceToken)) return true
         // Only route through the habitat when it is bound and not failed; else
         // the caller falls through to the legacy path without blocking.
         val substrate = host.state.value
@@ -152,15 +152,16 @@ class VoiceOutputPath(
             )
         } ?: return false
 
+        if (!isCurrentUtterance(utteranceToken)) return true
         return withContext(Dispatchers.IO) {
-            playWav(audio.audioFile, audio.sampleRate, audio.channels)
+            playWav(audio.audioFile, audio.sampleRate, audio.channels, utteranceToken)
         }
     }
 
     // ───────────────────────────────────────────────── playback
 
-    private fun playWav(file: File, sampleRate: Int, channels: Int): Boolean {
-        if (cancelled) return true
+    private fun playWav(file: File, sampleRate: Int, channels: Int, utteranceToken: Any): Boolean {
+        if (!isCurrentUtterance(utteranceToken)) return true
         val pcm = Pcm16WavReader.read(file, channels) ?: return false
         val encoding = AudioFormat.ENCODING_PCM_16BIT
         val channelMask = if (channels >= 2) AudioFormat.CHANNEL_OUT_STEREO else AudioFormat.CHANNEL_OUT_MONO
@@ -181,6 +182,7 @@ class VoiceOutputPath(
             .setTransferMode(AudioTrack.MODE_STATIC)
             .build()
         return try {
+            if (!isCurrentUtterance(utteranceToken)) return true
             track.write(pcm, 0, pcm.size)
             track.play()
             nativePlaybackActive = true
@@ -188,7 +190,7 @@ class VoiceOutputPath(
             val bytesPerFrame = channels.coerceAtLeast(1) * 2
             val totalFrames = pcm.size / bytesPerFrame
             val windowFrames = (sampleRate / 25).coerceAtLeast(1)
-            while (track.playState == AudioTrack.PLAYSTATE_PLAYING && !cancelled) {
+            while (track.playState == AudioTrack.PLAYSTATE_PLAYING && isCurrentUtterance(utteranceToken)) {
                 val playedFrames = track.playbackHeadPosition.coerceAtLeast(0).coerceAtMost(totalFrames)
                 val firstFrame = (playedFrames - windowFrames).coerceAtLeast(0)
                 val firstByte = firstFrame * bytesPerFrame
@@ -204,13 +206,17 @@ class VoiceOutputPath(
             false
         } finally {
             runCatching { track.release() }
-            nativePlaybackActive = false
-            _isSpeaking.value = fallback?.isSpeaking?.value ?: false
-            _audioLevel.value = 0f
+            if (isCurrentUtterance(utteranceToken)) {
+                nativePlaybackActive = false
+                _isSpeaking.value = fallback?.isSpeaking?.value ?: false
+                _audioLevel.value = 0f
+            }
         }
     }
 
     // ───────────────────────────────────────────────── segmentation + hints
+
+    private fun isCurrentUtterance(token: Any): Boolean = activeUtteranceToken === token
 
     private fun containsArabic(text: String): Boolean =
         text.any { it in '\u0600'..'\u06FF' || it in '\u0750'..'\u077F' || it in '\u08A0'..'\u08FF' }
