@@ -233,7 +233,7 @@ class FridayAgentTaskRelayTest {
             val payload = JSONObject()
                 .put("data_classification", "public")
                 .put("goal", "inspect phone")
-                .put("device_snapshot", JSONObject().put("battery", 70))
+                .put("deviceSnapshot", JSONObject().put("battery", 70))
             val result = runCatching {
                 relay.createTask(taskId, "Private device task", "main", payload)
             }
