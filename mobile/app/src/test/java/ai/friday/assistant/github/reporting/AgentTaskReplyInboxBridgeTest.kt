@@ -19,10 +19,7 @@ class AgentTaskReplyInboxBridgeTest {
         directory.mkdirs()
         try {
             val inbox = LocalTaskInbox(FileStorage(directory), CoroutineScope(Dispatchers.Default))
-            val bridge = AgentTaskReplyInboxBridge(
-                context = androidx.test.core.app.ApplicationProvider.getApplicationContext(),
-                inbox = inbox
-            )
+            val bridge = AgentTaskReplyInboxBridge.withInbox(inbox)
             val envelope = AgentTaskEnvelope(
                 taskId = "task-2026-bridge",
                 messageId = "task-2026-bridge:in:1",
