@@ -92,6 +92,13 @@ class ChatGPTPlanAuth(
                 .appendQueryParameter("response_type", "code")
                 .appendQueryParameter("redirect_uri", redirectUri)
                 .appendQueryParameter("scope", "openid profile email offline_access resource.invoke chatgpt.tokens.use.direct")
+                .apply {
+                    // If identity was previously granted without plan use, explicitly
+                    // reopen the consent step so the owner can enable the missing scope.
+                    if (existing != null && REQUIRED_SCOPE !in existing.scopes) {
+                        appendQueryParameter("prompt", "consent")
+                    }
+                }
                 .appendQueryParameter("resource", RESOURCE)
                 .appendQueryParameter("state", state)
                 .appendQueryParameter("nonce", nonce)
