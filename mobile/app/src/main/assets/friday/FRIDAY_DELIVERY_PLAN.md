@@ -635,3 +635,13 @@ After the seed milestone, Friday's lifelong evolution becomes the central contin
 - The correction is a test-source compile fix, not a production-code change. Exact-head CI for the correction has not yet been observed. PR #180 remains open and must not merge until its exact-head checks pass.
 - After merge, require the main-only `Friday instrumented candidate sandbox contract` run to pass; that canary proves the reusable instrumented sandbox contract only, not a real failed-candidate repair episode.
 - Still unproven: installed Friday Builder -> failed candidate -> exact profile sandbox -> candidate-specific REA -> bounded repair -> new candidate -> independent verification. Physical handset Shizuku daemon/Binder/process/reboot/force-stop acceptance also remains outstanding.
+
+### 2026-11-27 — PR #181 merged; instrumented sandbox contract validated
+
+- The stale/conflicted PR #180 was not merged. Its corrected work was ported onto a fresh main-based branch and delivered as PR [#181](https://github.com/mhw77655-hue/Friday/pull/181).
+- PR #181 exact-head validation [run #3647](https://github.com/mhw77655-hue/Friday/actions/runs/46017274994) completed successfully: six JVM shards, aggregate JVM evidence, Android instrumented emulator, debug APK, APK promotion and whole-repository source audit all passed.
+- PR #181 merged to main at [`8d07614`](https://github.com/mhw77655-hue/Friday/commit/8d076148865ca897389b43866a1ace775acfd7bc). The merge-base main build [#3646](https://github.com/mhw77655-hue/Friday/actions/runs/46017065318) also completed successfully.
+- The actual reusable `android-instrumented` candidate sandbox and main-only provenance-verifying canary workflow are now on main. The passing PR validation proves the reusable workflow's build/test contract; it does not yet prove the post-merge main-only canary or a live failed-candidate repair episode.
+- The earlier PR #180 bullets above are historical and superseded: PR #180 remains unmerged; PR #181 is the accepted replacement.
+- Still unproven: installed Friday Builder -> real failed candidate -> exact-profile sandbox -> candidate-specific REA diagnosis -> bounded repair -> new candidate -> independent verification. Physical handset Shizuku/Binder/process/reboot/force-stop acceptance also remains outstanding.
+- Next engineering priority remains the actual installed-phone seed and its integrated continuity, voice, agency, learning and immune/recovery acceptance. Passing CI is supporting evidence, not a substitute for handset execution.
