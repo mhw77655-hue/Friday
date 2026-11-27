@@ -546,3 +546,6 @@ Collaboration continues in stacked draft PRs #194 and #195: public-only GitHub t
 
 - Closed the reply-to-Friday gap in the relay branch: accepted GitHub comments are now durably journaled, then imported idempotently into the canonical `LocalTaskInbox` under a stable message-derived ID as `WAITING_APPROVAL` proposals, before GitHub acknowledgement. Crash replay is safe; duplicate replies do not create duplicate local tasks; no external proposal is auto-executed.
 - Added `LocalTaskInbox.submitOnce`, a worker-safe application-context factory, the `AgentTaskReplyInboxBridge`, and tests for stable import/deduplication and the approval gate. The relay now connects GitHub replies to Friday's local task surface rather than merely showing them in Settings.
+
+
+- Additional crash/replay hardening: LocalTaskInbox now persists an external proposal before exposing it in memory, and stable-ID deduplication rejects reuse of the same idempotency key with different proposal content. This closes the case where a failed disk write or altered duplicate message could otherwise be acknowledged as if safely imported.
