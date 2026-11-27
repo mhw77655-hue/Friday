@@ -26,6 +26,7 @@ class TypedConversationInstrumentedTest {
     @Test
     fun typedMessageFromVisibleConversationReachesProductionTurnPath() {
         val marker = "FRIDAY_TYPED_UI_ACCEPTANCE_" + UUID.randomUUID()
+        val assistantTurnsBefore = LatencyLayer.turns.value.count { it.fromFriday }
 
         composeRule.waitUntil(timeoutMillis = 30_000L) {
             composeRule.onAllNodesWithText("Finish setup").fetchSemanticsNodes().isNotEmpty()
@@ -49,6 +50,14 @@ class TypedConversationInstrumentedTest {
         assertTrue(
             "The visible typed chat must submit the exact user message into Friday's live turn path.",
             LatencyLayer.turns.value.any { turn -> !turn.fromFriday && turn.text == marker }
+        )
+
+        composeRule.waitUntil(timeoutMillis = 60_000L) {
+            LatencyLayer.turns.value.count { it.fromFriday } > assistantTurnsBefore
+        }
+        assertTrue(
+            "A submitted message must settle into an actual Friday response, including the model-independent seed path.",
+            LatencyLayer.turns.value.count { it.fromFriday } > assistantTurnsBefore
         )
     }
 }
