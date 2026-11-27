@@ -201,3 +201,7 @@ The first ZIP pass confirmed 3 archive entries, including a nested device log (3
 
 
 The focused pass is being rerun under an isolated Actions concurrency key because earlier queued analyzer runs were not being scheduled promptly. The first pass's key interpretation correction is already established: Android `ApplicationExitInfo.REASON_PACKAGE_UPDATED` is numeric reason 16, so the three Friday process exits at 20:42:59 local time are update-related lifecycle exits, **not crashes**. The prior diagnostic phrase that grouped `REASON_16` with crash/ANR/resource exits is therefore an exporter classification defect, not evidence of a Friday crash. Android's official constant table confirms this mapping.
+
+
+
+**Correction to the preceding note after source verification:** Android `REASON_16` is indeed `REASON_PACKAGE_UPDATED`, but the diagnostic's abnormal-exit count is computed by an explicit allowlist of ANR, Java crash, native crash, low-memory and excessive-resource reasons. Therefore the reported "1 of 12" count is consistent with the one `NATIVE_CRASH` record; the three `REASON_16` package-update exits were included only in the detail list and were not counted as abnormal. The actual diagnostics issue is narrower: `DiagnosticRunner.probeApplicationExits()` does not label `REASON_PACKAGE_UPDATED` by name, so it prints the opaque `REASON_16` label. The separate `ProcessExitDiagnostics.reasonName()` already maps it correctly. Do not treat this as a false crash count.
