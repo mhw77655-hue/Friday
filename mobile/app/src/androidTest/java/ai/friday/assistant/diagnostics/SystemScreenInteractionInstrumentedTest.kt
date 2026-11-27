@@ -2,7 +2,6 @@ package ai.friday.assistant.diagnostics
 
 import ai.friday.assistant.ui.screens.SystemScreen
 import ai.friday.assistant.ui.theme.FridayTheme
-import androidx.compose.ui.test.assertExists
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -61,6 +60,5 @@ class SystemScreenInteractionInstrumentedTest {
             compose.onAllNodesWithText("Active diagnosis run #2 completed", substring = true)
                 .fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText("Active diagnosis run #2 completed", substring = true).assertExists()
     }
 }
