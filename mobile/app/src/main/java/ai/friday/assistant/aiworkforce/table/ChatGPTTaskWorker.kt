@@ -34,6 +34,8 @@ class ChatGPTTaskWorker(
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(120, TimeUnit.SECONDS)
         .callTimeout(180, TimeUnit.SECONDS)
+        // A consumed one-shot approval must never hide an automatic duplicate request.
+        .retryOnConnectionFailure(false)
         .followRedirects(false)
         .followSslRedirects(false)
         .build()
@@ -164,7 +166,13 @@ class ChatGPTTaskWorker(
                 if (response.code == 429) throw TaskWorkerRateLimitException("ChatGPT plan usage is rate-limited; no paid API fallback was attempted.")
                 if (!response.isSuccessful) {
                     val detail = response.body?.string().orEmpty().take(400)
-                    throw IOException("ChatGPT Responses API returned HTTP ${response.code}: ${detail.ifBlank { "no detail" }}")
+                    val requestIdHeader = response.header("x-request-id")
+                        ?: response.header("request-id")
+                        ?: "unavailable"
+                    throw IOException(
+                        "ChatGPT Responses API returned HTTP ${response.code} " +
+                            "(request_id=$requestIdHeader): ${detail.ifBlank { "no detail" }}"
+                    )
                 }
                 val source = response.body?.source()
                     ?: throw IOException("ChatGPT returned an empty event stream.")
@@ -231,9 +239,19 @@ class ChatGPTTaskWorker(
                     responseId = response?.optString("id")?.takeIf { it.isNotBlank() } ?: responseId
                     break
                 }
-                "response.failed" -> failure = response?.optJSONObject("error")?.optString("message")
-                    ?: event.optJSONObject("error")?.optString("message") ?: "response_failed"
-                "response.incomplete" -> failure = "ChatGPT returned an incomplete response."
+                "response.failed", "error" -> {
+                    val error = response?.optJSONObject("error") ?: event.optJSONObject("error")
+                    val code = error?.optString("code")?.takeIf { it.isNotBlank() }
+                    val message = error?.optString("message")?.takeIf { it.isNotBlank() }
+                    failure = listOfNotNull(code, message).joinToString(": ")
+                        .ifBlank { "response_failed" }
+                }
+                "response.incomplete" -> {
+                    val reason = response?.optJSONObject("incomplete_details")
+                        ?.optString("reason")?.takeIf { it.isNotBlank() }
+                    failure = "ChatGPT returned an incomplete response" +
+                        (reason?.let { ": $it" } ?: ".")
+                }
             }
             if (failure != null) break
         }
