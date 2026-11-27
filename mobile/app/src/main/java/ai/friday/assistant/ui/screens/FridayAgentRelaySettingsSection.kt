@@ -3,7 +3,7 @@ package ai.friday.assistant.ui.screens
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import ai.friday.assistant.FridayEngine
+import ai.friday.assistant.ui.EngineAccess
 import ai.friday.assistant.inbox.InboxTask
 import ai.friday.assistant.inbox.InboxTaskStatus
 import androidx.compose.foundation.layout.Arrangement
@@ -81,7 +81,7 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
             }
             latestReplies = snapshot.first
             unreadCount = snapshot.second
-            pendingProposals = FridayEngine.taskInbox
+            pendingProposals = EngineAccess.taskInbox().value
                 ?.listTasks(InboxTaskStatus.WAITING_APPROVAL)
                 ?.filter { it.source == "chatgpt-cloud" }
                 .orEmpty()
