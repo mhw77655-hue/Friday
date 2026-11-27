@@ -92,6 +92,7 @@ private data class RuntimeSnapshot(
 
 private data class SettingsSnapshot(
     val chatGptConnected: Boolean,
+    val chatGptSignedIn: Boolean,
     val chatGptBackgroundConsent: Boolean,
     val chatGptAccountLabel: String,
     val updateStatus: String,
@@ -116,6 +117,7 @@ fun SettingsScreen() {
     val chatGptAuth = remember(context) { ChatGPTPlanAuth(context) }
     val chatGptConsentStore = remember(context) { ChatGPTPlanBackgroundConsentStore(context) }
     var chatGptConnected by remember { mutableStateOf(false) }
+    var chatGptSignedIn by remember { mutableStateOf(false) }
     var chatGptBackgroundConsent by remember { mutableStateOf(false) }
     var chatGptConsentSaving by remember { mutableStateOf(false) }
     var chatGptAccountLabel by remember { mutableStateOf("") }
@@ -171,6 +173,7 @@ fun SettingsScreen() {
         val settingsSnapshot = withContext(Dispatchers.IO) {
             SettingsSnapshot(
                 chatGptConnected = chatGptAuth.isConnected(),
+                chatGptSignedIn = chatGptAuth.isSignedIn(),
                 chatGptBackgroundConsent = chatGptConsentStore.isEnabled(),
                 chatGptAccountLabel = chatGptAuth.accountLabel(),
                 updateStatus = updateStateStore.lastStatus(),
@@ -184,9 +187,14 @@ fun SettingsScreen() {
         // an explicit Save/Remove action performed while that snapshot ran.
 
         chatGptConnected = settingsSnapshot.chatGptConnected
+        chatGptSignedIn = settingsSnapshot.chatGptSignedIn
         chatGptBackgroundConsent = settingsSnapshot.chatGptBackgroundConsent
         chatGptAccountLabel = settingsSnapshot.chatGptAccountLabel
-        chatGptStatus = if (settingsSnapshot.chatGptConnected) "Connected." else "ChatGPT plan Seat is not connected."
+        chatGptStatus = when {
+            settingsSnapshot.chatGptConnected -> "ChatGPT plan usage is authorized."
+            settingsSnapshot.chatGptSignedIn -> "Signed in to ChatGPT, but plan usage permission is not enabled."
+            else -> "ChatGPT is not connected."
+        }
         updateStatus = settingsSnapshot.updateStatus
         stagedUpdate = settingsSnapshot.stagedUpdate
         actionTraceCount = settingsSnapshot.actionTraceCount
@@ -440,7 +448,11 @@ fun SettingsScreen() {
         Text(text = updateStatus, style = FridayType.Technical, modifier = Modifier.padding(bottom = 16.dp))
 
         }
-        SettingsGroup("ChatGPT connection", if (chatGptConnected) "Plan connected · " + chatGptAccountLabel else "Not connected · sign-in alone does not start normal Friday replies", chatGptExpanded, { chatGptExpanded = !chatGptExpanded }) {
+        SettingsGroup("ChatGPT connection", when {
+            chatGptConnected -> "Plan use enabled · " + chatGptAccountLabel
+            chatGptSignedIn -> "Signed in · plan use not enabled · " + chatGptAccountLabel
+            else -> "Not connected · sign-in alone does not start normal Friday replies"
+        }, chatGptExpanded, { chatGptExpanded = !chatGptExpanded }) {
         SectionLabel("AI TABLE — CHATGPT PLAN SEAT")
         Text(
             text = "Connect your ChatGPT account for Friday’s AI Table and Builder. This does not yet switch normal Friday conversations to ChatGPT. Use Test ChatGPT response to verify real inference; background Builder sharing remains separately disabled until you enable it.",
@@ -459,6 +471,7 @@ fun SettingsScreen() {
                         try {
                             chatGptStatus = chatGptAuth.signIn(activity)
                             chatGptConnected = withContext(Dispatchers.IO) { chatGptAuth.isConnected() }
+                            chatGptSignedIn = withContext(Dispatchers.IO) { chatGptAuth.isSignedIn() }
                             chatGptAccountLabel = withContext(Dispatchers.IO) { chatGptAuth.accountLabel() }
                         } catch (failure: Exception) {
                             chatGptStatus = failure.message?.take(240) ?: "ChatGPT sign-in did not complete."
@@ -470,9 +483,20 @@ fun SettingsScreen() {
             },
             enabled = !chatGptBusy,
             modifier = Modifier.fillMaxWidth()
-        ) { Text(if (chatGptBusy) "Waiting for ChatGPT sign-in…" else if (chatGptConnected) "Reconnect ChatGPT" else "Continue with ChatGPT") }
+        ) { Text(
+            when {
+                chatGptBusy -> "Waiting for ChatGPT sign-in…"
+                chatGptConnected -> "Reconnect ChatGPT"
+                chatGptSignedIn -> "Enable ChatGPT plan usage"
+                else -> "Continue with ChatGPT"
+            }
+        ) }
         Text(
-            text = if (chatGptConnected) "Connected: $chatGptAccountLabel" else "ChatGPT plan Seat is not connected.",
+            text = when {
+                chatGptConnected -> "ChatGPT plan use enabled: $chatGptAccountLabel"
+                chatGptSignedIn -> "Signed in: $chatGptAccountLabel · plan-use permission not granted"
+                else -> "No ChatGPT account is connected."
+            },
             style = FridayType.Technical,
             modifier = Modifier.padding(vertical = 6.dp)
         )
@@ -535,7 +559,7 @@ fun SettingsScreen() {
             style = FridayType.Label,
             modifier = Modifier.padding(vertical = 8.dp)
         )
-        if (chatGptConnected) {
+        if (chatGptConnected || chatGptSignedIn) {
             TextButton(
                 enabled = !chatGptBusy,
                 onClick = {
@@ -555,6 +579,7 @@ fun SettingsScreen() {
                             chatGptStatus = "Local sign-out failed: ${failure.javaClass.simpleName}."
                         } finally {
                             chatGptConnected = withContext(Dispatchers.IO) { chatGptAuth.isConnected() }
+                            chatGptSignedIn = withContext(Dispatchers.IO) { chatGptAuth.isSignedIn() }
                             chatGptAccountLabel = withContext(Dispatchers.IO) { chatGptAuth.accountLabel() }
                             chatGptBusy = false
                         }
