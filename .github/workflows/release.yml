@@ -90,18 +90,27 @@ jobs:
             exit 1
           fi
 
-      - name: Ensure this CI build is still the current main revision
+      - name: Ensure no Android product changes landed after this CI build
         id: freshness
         if: steps.signing.outputs.configured == 'true'
         run: |
           set -euo pipefail
           git fetch origin main
           CURRENT_MAIN_SHA="$(git rev-parse origin/main)"
-          if [[ "$TARGET_SHA" == "$CURRENT_MAIN_SHA" ]]; then
+          if ! git merge-base --is-ancestor "$TARGET_SHA" "$CURRENT_MAIN_SHA"; then
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping non-ancestor CI build $TARGET_SHA; main is now $CURRENT_MAIN_SHA."
+            exit 0
+          fi
+          PRODUCT_CHANGES="$(git diff --name-only "$TARGET_SHA" "$CURRENT_MAIN_SHA" -- mobile/ gradle/ build.gradle.kts settings.gradle.kts gradle.properties jniLibs/ local-repo/)"
+          if [[ -z "$PRODUCT_CHANGES" ]]; then
             echo "current=true" >> "$GITHUB_OUTPUT"
+            echo "No Android product/build inputs changed after verified build $TARGET_SHA."
+            echo "Documentation-only commits do not invalidate an otherwise current APK."
           else
             echo "current=false" >> "$GITHUB_OUTPUT"
-            echo "Skipping stale build $TARGET_SHA; main is now $CURRENT_MAIN_SHA."
+            echo "Skipping build $TARGET_SHA because Android product/build inputs changed after it:"
+            printf '%s\\n' "$PRODUCT_CHANGES"
           fi
 
       - name: Set up JDK 17
