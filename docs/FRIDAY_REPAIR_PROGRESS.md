@@ -409,3 +409,25 @@ Revised integration target: a secure, bidirectional, task-oriented ChatGPT↔Fri
 The IETF agent-communication draft is useful background for dialog correlation, independent task context, delegation, identity/authentication and streaming/cancellation, but it is an Internet-Draft and not a finished architecture. We must not simply wrap Friday in A2A/MCP and call the distinctive design achieved. Research existing protocols, then design Friday's task/evidence/authority model around the owner's actual requirements. Reference: https://datatracker.ietf.org/doc/html/draft-agentic-ai-usecases-requirements-07
 
 Immediate corrective action: re-scope issue #186 and the branch `feat/chatgpt-main-turn-provider`; do not merge or ship a ChatGPT ordinary-conversation provider as a solution to this requirement. Retain the passing PR #185 settings/glass work as a separate app-repair track. Continue fixing Friday's own interaction path independently of ChatGPT.
+
+
+### 2026-11-27 — Friday ↔ ChatGPT/GitHub task-thread transport opened (PR #194)
+
+Branch: `feat/friday-github-task-relay`  
+PR: https://github.com/mhw77655-hue/Friday/pull/194  
+Architecture: `docs/FRIDAY_AGENT_TASK_RELAY.md`  
+Tracking: #186 (agent collaboration) and #188 (read-only phone observation)
+
+The first transport slice adds:
+- Stable task issue markers and create-or-recover by task ID.
+- Recovery restricted to exact Friday task titles and issues created by the repository owner account.
+- Bounded issue-comment read/write with author identity, timestamp, comment ID and URL.
+- Stable task/sequence markers for downstream deduplication.
+- Strict size limits and credential-pattern rejection before outbound network activity.
+- Unit tests for issue create/recovery, comment provenance, sequence markers and secret rejection.
+
+This is transport only. The app-side durable thread journal, explicit owner consent, trusted-actor allowlist, typed envelope parser, WorkManager polling, recovery/acknowledgement and Settings UX remain to be implemented. No phone access or remote control is provided by GitHub issue connectivity alone.
+
+The owner-facing relationship remains You ⇄ Friday. ChatGPT is a bounded collaborator with Friday, not Friday's replacement conversation model. Friday's GitHub token remains encrypted on-device and is never placed in task content.
+
+CI run for the first PR #194 head passed no checks yet; the latest head is `1e0790d0f6a1f9f2071ba0fc5a03ebea31a5bffd` and its validation run is https://github.com/mhw77655-hue/Friday/actions/runs/46064939450 (queued at this checkpoint). Keep PR #194 draft until the full app-side relay is implemented and tests pass.
