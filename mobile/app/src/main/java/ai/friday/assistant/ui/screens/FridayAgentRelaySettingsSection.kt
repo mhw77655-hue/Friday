@@ -113,9 +113,11 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
             }
             Switch(
                 checked = enabled,
-                enabled = tokenConfigured,
+                enabled = true,
                 onCheckedChange = { next ->
-                    try {
+                    if (next && !tokenConfigured) {
+                        status = "Save the GitHub token in Settings before enabling the relay."
+                    } else try {
                         if (next) {
                             val actors = trustedActorsText.split(',')
                                 .map { it.trim() }.filter { it.isNotBlank() }.toSet()
@@ -173,7 +175,7 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
                         status = "Checking known public task threads for trusted replies."
                     }
                 },
-                enabled = enabled,
+                enabled = enabled && tokenConfigured,
                 modifier = Modifier.weight(1f)
             ) { Text("Check replies") }
             Button(
@@ -223,7 +225,7 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
                         }
                     }
                 },
-                enabled = enabled,
+                enabled = enabled && tokenConfigured,
                 modifier = Modifier.weight(1f)
             ) { Text("Send handshake") }
         }
