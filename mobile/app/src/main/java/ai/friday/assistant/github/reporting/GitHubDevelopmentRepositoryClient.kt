@@ -197,7 +197,10 @@ class GitHubDevelopmentRepositoryClient(
         )
         val number = created.optInt("number", -1)
         val url = created.optString("html_url")
-        if (number <= 0 || !url.startsWith("https://github.com/")) {
+        val author = created.optJSONObject("user")?.optString("login").orEmpty()
+        if (number <= 0 || !url.startsWith("https://github.com/") ||
+            !author.equals(REPOSITORY_OWNER, ignoreCase = true)
+        ) {
             throw IOException("GitHub accepted a Friday task but returned incomplete issue metadata.")
         }
         return AgentTaskIssue(
