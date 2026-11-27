@@ -4,6 +4,7 @@ import ai.friday.assistant.ui.screens.SystemScreen
 import ai.friday.assistant.ui.theme.FridayTheme
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -12,10 +13,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Regression coverage for the phone diagnostics screen. Export is not the
- * only functional action: both diagnosis controls must expose click semantics,
- * and the active diagnostic action must produce visible findings or a visible
- * execution-error finding rather than silently doing nothing.
+ * Regression coverage for the phone diagnostics screen. The view model runs
+ * an initial baseline diagnosis on construction, so explicit button checks
+ * must wait for that asynchronous run to finish before expecting the idle
+ * button label or dispatching a second run.
  */
 @RunWith(AndroidJUnit4::class)
 class SystemScreenInteractionInstrumentedTest {
@@ -30,13 +31,13 @@ class SystemScreenInteractionInstrumentedTest {
             }
         }
 
-        compose.waitForIdle()
         compose.waitUntil(timeoutMillis = 20_000) {
-            runCatching {
-                compose.onNodeWithText("checks ·", substring = true).assertExists()
-            }.isSuccess || runCatching {
-                compose.onNodeWithText("Architecture diagnosis failed:", substring = true).assertExists()
-            }.isSuccess
+            compose.onAllNodesWithText("Active diagnosis run #1 completed", substring = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.waitUntil(timeoutMillis = 15_000) {
+            compose.onAllNodesWithText("Self-diagnosis run #1:", substring = true)
+                .fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText("Run full system diagnosis").assertHasClickAction()
         compose.onNodeWithText("Run Friday architecture and autonomy diagnosis").assertHasClickAction()
@@ -50,14 +51,14 @@ class SystemScreenInteractionInstrumentedTest {
             }
         }
 
-        compose.waitForIdle()
+        compose.waitUntil(timeoutMillis = 20_000) {
+            compose.onAllNodesWithText("Active diagnosis run #1 completed", substring = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
         compose.onNodeWithText("Run full system diagnosis").performClick()
         compose.waitUntil(timeoutMillis = 20_000) {
-            runCatching {
-                compose.onNodeWithText("findings ·", substring = true).assertExists()
-            }.isSuccess || runCatching {
-                compose.onNodeWithText("Active diagnostics failed:", substring = true).assertExists()
-            }.isSuccess
+            compose.onAllNodesWithText("Active diagnosis run #2 completed", substring = true)
+                .fetchSemanticsNodes().isNotEmpty()
         }
     }
 }
