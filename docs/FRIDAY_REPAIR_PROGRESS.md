@@ -411,6 +411,55 @@ The IETF agent-communication draft is useful background for dialog correlation, 
 Immediate corrective action: re-scope issue #186 and the branch `feat/chatgpt-main-turn-provider`; do not merge or ship a ChatGPT ordinary-conversation provider as a solution to this requirement. Retain the passing PR #185 settings/glass work as a separate app-repair track. Continue fixing Friday's own interaction path independently of ChatGPT.
 
 
+### 2026-11-27 — Settings and glass UI rebuild started (PR #185)
+
+Branch: feat/glass-settings-chatgpt-connection  
+PR: https://github.com/mhw77655-hue/Friday/pull/185
+
+Implemented in this draft:
+- Reorganized the single long Settings scroll into collapsible glass groups: Friday updates, ChatGPT connection, personalization/voice, phone access, runtime/capabilities, and GitHub/advanced development.
+- Added a real ChatGPT inference health check in Settings. It discovers a visible account model and makes a minimal Responses request, then displays the actual completed reply rather than treating OAuth login as proof of inference.
+- Corrected the existing ChatGPT Plan Seat Responses request: SIWC direct-plan usage rejects system-role items and unsupported max_output_tokens; the Seat now uses developer and omits that unsupported field.
+- Added instrumented coverage for the ChatGPT connection test and the request contract.
+- Added a shared translucent glass surface and applied it to Home's capability panel, Conversation header, user bubbles and message composer.
+- Kept the app/system chrome true AMOLED black. Friday already had an AMOLED-black base; this pass layers translucent glass styling over it rather than changing the black substrate.
+
+Important truth about the ChatGPT login:
+- The current OAuth integration is wired to the AI Table/Builder advisory Seat, not the ordinary Friday conversation model. A successful sign-in therefore did not visibly change normal conversation.
+- This PR makes the connection testable, but does not silently route private conversation text to ChatGPT. Main-chat use needs a separate explicit user opt-in and provider integration; this is a distinct next engineering step.
+- GitHub access is separate from ChatGPT. The owner has not yet entered a GitHub fine-grained token in Friday, so Friday's on-device GitHub client cannot act as the owner until that credential is saved. The token must be entered on the phone; it is not available to this GitHub-connected engineering session and must never be copied into source or logs.
+
+CI: PR validation run https://github.com/mhw77655-hue/Friday/actions/runs/46056623855 was created and is pending. This is a draft PR, not a merged change or a released APK. No physical-device visual or account test has been claimed.
+
+
+
+### 2026-11-27 — ChatGPT sign-in consent-state bug identified and corrected in PR #185
+
+A second issue explains why a user could complete ChatGPT sign-in yet Friday appeared disconnected: the existing OAuth handler required the optional chatgpt.tokens.use.direct scope before saving anything. OpenAI's current SIWC contract distinguishes identity sign-in from permission to use the user's ChatGPT plan. An identity-only grant should be retained and shown as signed in, while plan inference remains disabled.
+
+PR #185 now:
+- Stores a verified identity-only session when OpenAI returns identity scopes without chatgpt.tokens.use.direct.
+- Exposes separate isSignedIn() and isConnected() states (identity vs plan inference permission).
+- Shows "Signed in · plan use not enabled" rather than pretending no account was connected.
+- Offers "Enable ChatGPT plan usage" as the reauthorization action.
+- Keeps the actual inference test and background Builder use disabled until the direct-plan scope is granted.
+- Adds an instrumented regression test proving identity-only sign-in is retained but validAccessToken() remains unavailable.
+
+This follows OpenAI's SIWC guidance: https://developers.openai.com/siwc/token-sharing-open-source/errors-and-recovery and https://developers.openai.com/siwc/token-sharing-open-source/sign-in. The app must not infer plan-use consent from identity sign-in.
+
+
+### 2026-11-27 — Friday ↔ ChatGPT/GitHub collaboration core implemented in draft PR #194
+
+Branch: `feat/friday-github-task-relay`  
+PR: https://github.com/mhw77655-hue/Friday/pull/194  
+Design: `docs/FRIDAY_AGENT_TASK_RELAY.md`  
+Tracking: #186 and #188
+
+The draft contains bounded GitHub issue/comment transport, create-or-recover by stable task ID, versioned task envelopes, default-OFF relay consent, an atomic local thread journal, sequence allocation, trusted-actor filtering, at-least-once reply delivery/acknowledgement, and tests for recovery, provenance, consent and payload safety. This is public-project collaboration plumbing, not a private phone channel and not Friday's owner-facing conversation model.
+
+Still pending in the app: visible public-disclosure consent UI, trusted-actor settings, WorkManager polling/reconnect, LocalTaskInbox integration, private SIWC ChatGPT task worker, private read-only device broker and physical acceptance. PR #194 remains draft until the latest-head CI is green and those integration layers are complete.
+
+
 ### 2026-11-27 — public/private boundary added to Friday collaboration fabric (PR #194)
 
 Security correction: this repository is public. GitHub Issues/comments here are public and cannot be treated as a private ChatGPT/phone channel.

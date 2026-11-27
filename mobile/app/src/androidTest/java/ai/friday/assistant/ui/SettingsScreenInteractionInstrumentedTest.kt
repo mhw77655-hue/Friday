@@ -44,6 +44,9 @@ class SettingsScreenInteractionInstrumentedTest {
         }
 
         compose.waitForIdle()
+        compose.onNodeWithText("Friday runtime and capabilities").performScrollTo().performClick()
+        compose.onNodeWithText("Personalization and voice").performScrollTo().performClick()
+        compose.onNodeWithText("Friday updates").performScrollTo().performClick()
         compose.onNodeWithText("Check for Friday updates").assertHasClickAction()
         compose.onNodeWithText("Open battery optimization settings").assertHasClickAction()
         compose.onNodeWithText("Remove key").assertHasClickAction()
@@ -151,6 +154,8 @@ class SettingsScreenInteractionInstrumentedTest {
         }
 
         compose.waitForIdle()
+        compose.onNodeWithText("GitHub and advanced development").performScrollTo().performClick()
+        compose.onNodeWithText("GitHub repository and device reporting").performScrollTo().performClick()
         // This control is far below the initial viewport in Settings. Scroll it
         // into the visible viewport before injecting the tap; otherwise the
         // test can target a clipped semantics node without exercising the UI.
@@ -214,6 +219,7 @@ class SettingsScreenInteractionInstrumentedTest {
         }
         compose.waitForIdle()
 
+        compose.onNodeWithText("Friday runtime and capabilities").performScrollTo().performClick()
         compose.onNodeWithTag("friday_runtime_toggle").performScrollTo()
         compose.waitForIdle()
         compose.onNodeWithTag("friday_runtime_toggle")
@@ -260,6 +266,8 @@ class SettingsScreenInteractionInstrumentedTest {
         }
 
         compose.waitForIdle()
+        compose.onNodeWithText("Friday runtime and capabilities").performScrollTo().performClick()
+        compose.onNodeWithText("Check Shizuku connection").performScrollTo()
         compose.onNodeWithText("Check Shizuku connection").performClick()
         compose.waitUntil(5_000) {
             compose.onAllNodesWithText("Shizuku is not running. Friday remains operational without it.", substring = true)
@@ -292,8 +300,8 @@ class SettingsScreenInteractionInstrumentedTest {
         }
 
         compose.waitForIdle()
-        // Jev controls are also below the initial viewport; scroll the actual
-        // button into view before performing the user action.
+        // Jev controls live inside the collapsed personalization group.
+        compose.onNodeWithText("Personalization and voice").performScrollTo().performClick()
         compose.onNodeWithText("Remove key").performScrollTo()
         compose.waitForIdle()
         compose.onNodeWithText("Remove key").assertIsDisplayed().performClick()
@@ -331,6 +339,11 @@ class SettingsScreenInteractionInstrumentedTest {
         }
 
         compose.waitForIdle()
+        compose.onNodeWithText("Friday runtime and capabilities").performScrollTo().performClick()
+        compose.onNodeWithText("Personalization and voice").performScrollTo().performClick()
+        compose.onNodeWithText("GitHub and advanced development").performScrollTo().performClick()
+        compose.onNodeWithText("GitHub repository and device reporting").performScrollTo().performClick()
+        compose.onNodeWithText("Friday updates").performScrollTo().performClick()
         compose.onNodeWithText("Check for Friday updates").assertHasClickAction()
         compose.onNodeWithText("Open battery optimization settings").assertHasClickAction()
         compose.onNodeWithText("Create fine-grained GitHub token").assertHasClickAction()

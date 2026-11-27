@@ -13,6 +13,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import ai.friday.assistant.ui.components.pressScale
+import ai.friday.assistant.ui.components.GlassPanel
+import androidx.compose.ui.graphics.Color
 import ai.friday.assistant.ui.theme.FridayColors
 import ai.friday.assistant.ui.theme.FridayType
 
@@ -26,8 +28,9 @@ fun MoreSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = FridayColors.SurfacePanel
+        containerColor = Color.Transparent
     ) {
+        GlassPanel(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
             listOf(
                 "Task Inbox" to "task_inbox",
@@ -58,6 +61,7 @@ fun MoreSheet(
                         .padding(horizontal = 24.dp, vertical = 16.dp)
                 )
             }
+        }
         }
     }
 }

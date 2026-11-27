@@ -1,6 +1,8 @@
 package ai.friday.assistant.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +23,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ai.friday.assistant.ui.components.pressScale
+import ai.friday.assistant.ui.components.GlassPanel
 import ai.friday.assistant.ui.components.rememberCapabilitySnapshot
 import ai.friday.assistant.FridayMic
 import ai.friday.assistant.ui.theme.FridayColors
@@ -52,7 +55,7 @@ fun HomeScreen(onOpenTools: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(FridayColors.SurfaceBase),
+            .background(Brush.radialGradient(listOf(Color(0x182E9BFF), Color(0x0800D9C0), FridayColors.SurfaceBase))),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Column(
@@ -87,16 +90,16 @@ fun HomeScreen(onOpenTools: () -> Unit) {
 
 @Composable
 private fun CapabilitySummaryBar(enabled: Int, total: Int, onTap: () -> Unit) {
-    Box(
+    GlassPanel(
         modifier = Modifier
             .fillMaxWidth()
-            .background(FridayColors.SurfacePanel)
-            .border(1.dp, FridayColors.SurfaceHairline)
             .pressScale(onClick = onTap)
-            .padding(PaddingValues(horizontal = 16.dp, vertical = 16.dp)),
-        contentAlignment = Alignment.Center
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Text(
                 text = "$enabled of $total capability entries enabled",
                 style = FridayType.Body.copy(color = FridayColors.TextSecondary)
