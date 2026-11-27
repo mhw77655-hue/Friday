@@ -130,6 +130,17 @@ class LocalTaskInboxTest {
         )
 
         assertEquals(first.id, duplicate.id)
+        val changedContent = runCatching {
+            firstInbox.submitOnce(
+                id = "agent-reply:stable-message-id",
+                source = "chatgpt-cloud",
+                description = "Review external proposal",
+                capability = "review_external_agent_proposal",
+                arguments = mapOf("message_id" to "different-message-id"),
+                requiresApproval = true
+            )
+        }
+        assertTrue("stable IDs must not be rebound to changed content", changedContent.isFailure)
         assertEquals(InboxTaskStatus.WAITING_APPROVAL, first.status)
         assertEquals(1, firstInbox.tasks.value.count { it.id == first.id })
 
