@@ -376,3 +376,19 @@ Priority corrections:
 Evidence discipline: source/CI/release evidence is not physical-phone acceptance. Do not claim the app is fixed, audible voice works, or live ChatGPT-to-phone inspection exists until demonstrated. Do not ask the owner to repeat the vision or re-upload the original APK.
 
 Immediate work remains Phase 1: inspect and repair the production turn and voice paths without assuming a local model; validate PR #185 independently and preserve its visual/settings work without letting it become the critical path.
+
+
+### 2026-11-27 — production turn-path audit: no cloud reasoning provider is configured
+
+A fresh source-level audit of the current `main` branch traced the actual conversation entry path:
+
+- `BodyCoordinator.routeInputText()` routes ordinary typed and recognized speech into `LatencyLayer.onUserInput()`.
+- `LatencyLayer` delegates to the one installed `LatencyPipeline`; its normal bridge send calls `ModelManager.send(text)`.
+- `TurnPathAssembly.assemble()` constructs `CloudModelRouter(emptyList())`. The router is therefore explicitly empty in the production composition.
+- The same assembly supplies a model-free seed responder as a fallback, but this is not a general cloud reasoning provider.
+- `FridayEngine` exposes the assembled router for research components, but this does not connect ChatGPT to ordinary conversation.
+- `ChatGPTPlanSeat` is an advisory Table seat, not the normal conversation provider. The current main-branch implementation also still contains a `system` role and `max_output_tokens` in that Seat request; PR #185 proposes correcting its SIWC request contract, but PR #185 is still draft and not merged.
+
+This is a concrete source-level explanation for why ChatGPT sign-in did not make Friday answer ordinary conversations with ChatGPT. The production app currently has no configured cloud reasoning provider in its central router. This finding does not, by itself, prove every cause of the handset's observed failure; physical runtime evidence remains separate.
+
+Immediate repair implication: do not install or assume a local LLM. Implement a supported, explicitly consented cloud provider adapter in the single production turn path, starting with the already-authorized ChatGPT plan integration where its grant permits it; preserve the model-free seed as an honest offline fallback. Add request-contract tests, provider absence/expiry/rate-limit tests, no-history-leak tests, and a physical typed-response acceptance. Do not route private full conversation history to the provider by default.
