@@ -123,7 +123,7 @@ class LocalTaskInboxTest {
         val duplicate = firstInbox.submitOnce(
             id = "agent-reply:stable-message-id",
             source = "chatgpt-cloud",
-            description = "Duplicate must not replace original",
+            description = "Review external proposal",
             capability = "review_external_agent_proposal",
             arguments = mapOf("message_id" to "stable-message-id"),
             requiresApproval = true
