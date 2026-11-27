@@ -3,6 +3,9 @@ package ai.friday.assistant.ui.screens
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import ai.friday.assistant.FridayEngine
+import ai.friday.assistant.inbox.InboxTask
+import ai.friday.assistant.inbox.InboxTaskStatus
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -60,6 +63,7 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
     var sending by remember { mutableStateOf(false) }
     var latestIssueUrl by remember { mutableStateOf("") }
     var latestReplies by remember { mutableStateOf(emptyList<ai.friday.assistant.github.reporting.StoredAgentTaskReply>()) }
+    var pendingProposals by remember { mutableStateOf(emptyList<InboxTask>()) }
     var unreadCount by remember { mutableStateOf(0) }
     var lastPollLabel by remember { mutableStateOf("Not checked yet") }
     val scope = rememberCoroutineScope()
@@ -77,6 +81,10 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
             }
             latestReplies = snapshot.first
             unreadCount = snapshot.second
+            pendingProposals = FridayEngine.taskInbox
+                ?.listTasks(InboxTaskStatus.WAITING_APPROVAL)
+                ?.filter { it.source == "chatgpt-cloud" }
+                .orEmpty()
         }
     }
 
@@ -251,6 +259,59 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
         }
         if (status.isNotBlank()) {
             Text(status, style = FridayType.Technical, color = FridayColors.TextPrimary)
+        }
+        if (pendingProposals.isNotEmpty()) {
+            Text("Proposals awaiting your approval", style = FridayType.Body)
+            pendingProposals.forEach { proposal ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(proposal.description, style = FridayType.Body, color = FridayColors.TextPrimary)
+                    Text(
+                        "External proposal · ${proposal.capability} · approval does not execute it",
+                        style = FridayType.Label,
+                        color = FridayColors.CoreIdle
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = {
+                                scope.launch {
+                                    val result = withContext(Dispatchers.IO) {
+                                        FridayEngine.taskInbox?.approve(proposal.id)
+                                            ?: Result.failure(IllegalStateException("Friday's task inbox is not ready."))
+                                    }
+                                    status = result.fold(
+                                        onSuccess = { "Proposal approved and returned to Friday's local task queue. No external action was executed." },
+                                        onFailure = { it.message ?: "Proposal approval failed." }
+                                    )
+                                    refresh()
+                                }
+                            },
+                            enabled = FridayEngine.taskInbox != null,
+                            modifier = Modifier.weight(1f)
+                        ) { Text("Approve proposal") }
+                        TextButton(
+                            onClick = {
+                                scope.launch {
+                                    val result = withContext(Dispatchers.IO) {
+                                        FridayEngine.taskInbox?.deny(proposal.id, "Owner declined the external proposal")
+                                            ?: Result.failure(IllegalStateException("Friday's task inbox is not ready."))
+                                    }
+                                    status = result.fold(
+                                        onSuccess = { "Proposal declined." },
+                                        onFailure = { it.message ?: "Proposal rejection failed." }
+                                    )
+                                    refresh()
+                                }
+                            },
+                            enabled = FridayEngine.taskInbox != null
+                        ) { Text("Decline") }
+                    }
+                }
+            }
         }
         if (latestReplies.isNotEmpty()) {
             Text("Recent ChatGPT replies", style = FridayType.Body)
