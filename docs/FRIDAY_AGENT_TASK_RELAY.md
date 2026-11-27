@@ -1,6 +1,6 @@
 # Friday agent task relay — GitHub issue threads
 
-Status: public GitHub transport, default-OFF consent/trusted-actor controls, durable local reply inbox, WorkManager polling and Settings handshake UI are implemented on `feat/github-task-relay-integrated` (PR #198, draft). The separate private SIWC worker is implemented in PR #197 (draft); durable private-result recovery and handset acceptance remain pending. The relay Settings section now exposes explicit approve/decline controls for imported ChatGPT proposals; approval moves the proposal into Friday's local task queue but does not itself execute an external action.
+Status: public GitHub transport, default-OFF consent/trusted-actor controls, durable local reply inbox, WorkManager polling and Settings handshake UI are implemented on `feat/github-task-relay-integrated` (PR #198, draft). The separate private SIWC worker is implemented in PR #197 (draft); durable private-result recovery and handset acceptance remain pending. The relay Settings section now exposes explicit approve/decline controls for imported ChatGPT proposals; acceptance records a completed review decision, never places the proposal in the executable queue, and never executes an external action. A separate, explicitly authored task is required to act on accepted findings.
 
 ## Why this channel exists
 
