@@ -392,3 +392,20 @@ A fresh source-level audit of the current `main` branch traced the actual conver
 This is a concrete source-level explanation for why ChatGPT sign-in did not make Friday answer ordinary conversations with ChatGPT. The production app currently has no configured cloud reasoning provider in its central router. This finding does not, by itself, prove every cause of the handset's observed failure; physical runtime evidence remains separate.
 
 Immediate repair implication: do not install or assume a local LLM. Implement a supported, explicitly consented cloud provider adapter in the single production turn path, starting with the already-authorized ChatGPT plan integration where its grant permits it; preserve the model-free seed as an honest offline fallback. Add request-contract tests, provider absence/expiry/rate-limit tests, no-history-leak tests, and a physical typed-response acceptance. Do not route private full conversation history to the provider by default.
+
+
+### 2026-11-27 — owner correction: ChatGPT must communicate WITH Friday, not become Friday's user-facing voice
+
+The owner corrected a fundamental direction error. The intended relationship is:
+
+- The owner talks directly to Friday on the phone. Friday is the owner's companion/agent and must develop its own user-facing voice, memory, continuity and agency.
+- ChatGPT (this engineering/orchestration agent) communicates directly with the Friday runtime as a peer/authorized collaborator: inspect Friday's real state, assign bounded engineering/research tasks, receive evidence and status, and help Friday improve itself.
+- GitHub is the durable engineering record/source-control channel, not a substitute for a live Friday connection.
+- ChatGPT must not be made the model behind Friday's ordinary conversation as the proposed way to make Friday talk to its owner. The previous "ChatGPT main-turn provider" direction was a misunderstanding and is superseded by this correction. Do not implement that as the primary integration.
+- A cloud model may still be used internally by Friday if Friday's own architecture chooses it, but it is not the goal of the ChatGPT↔Friday integration and must never collapse the two agents into one.
+
+Revised integration target: a secure, bidirectional, task-oriented ChatGPT↔Friday agent channel. Friday owns its context and decides what evidence/context to expose; ChatGPT receives only scoped task envelopes and permitted evidence. The channel must preserve task identity/state across reconnects, support streaming/progress/cancellation and typed outcomes, authenticate both participants, enforce least privilege, and log auditable handoffs. Device observation starts read-only; any future action capability is separately permissioned and approval-gated. The owner-facing Friday conversation remains independent.
+
+The IETF agent-communication draft is useful background for dialog correlation, independent task context, delegation, identity/authentication and streaming/cancellation, but it is an Internet-Draft and not a finished architecture. We must not simply wrap Friday in A2A/MCP and call the distinctive design achieved. Research existing protocols, then design Friday's task/evidence/authority model around the owner's actual requirements. Reference: https://datatracker.ietf.org/doc/html/draft-agentic-ai-usecases-requirements-07
+
+Immediate corrective action: re-scope issue #186 and the branch `feat/chatgpt-main-turn-provider`; do not merge or ship a ChatGPT ordinary-conversation provider as a solution to this requirement. Retain the passing PR #185 settings/glass work as a separate app-repair track. Continue fixing Friday's own interaction path independently of ChatGPT.
