@@ -191,3 +191,9 @@ The uploaded root-level `log.zip` was located directly in the public repository.
 The workflow rejects unsafe archive paths, enforces compressed/uncompressed size and entry-count limits, recursively inspects nested ZIPs to bounded depth, and redacts common credentials, email addresses, IP addresses, device identifiers and app-private paths in excerpts. Redaction is best-effort, not a guarantee; the source archive itself remains in the public repository and may contain sensitive system data.
 
 This establishes that the archive can be processed entirely through GitHub Actions; no manual re-upload or local extraction is required. Root-cause analysis is pending retrieval and correlation of the prioritized diagnostic excerpts.
+
+
+
+### 2026-11-27 — targeted log correlation pass queued
+
+The first ZIP pass confirmed 3 archive entries, including a nested device log (37,558 lines / 5,985,183 bytes) and Friday diagnostic JSON (920 lines / 36,021 bytes). A focused second pass has now been added to emit the structured Friday report fields and exact `ai.friday.assistant` / `FridayShellService` / `ShizukuServiceStarter` timeline, rather than letting the many unrelated Shizuku/system messages crowd out Friday-specific signals. The workflow emits privacy-filtered excerpts only.
