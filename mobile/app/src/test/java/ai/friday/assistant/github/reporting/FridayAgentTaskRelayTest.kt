@@ -109,7 +109,7 @@ class FridayAgentTaskRelayTest {
                 clock = { now }
             )
 
-            val payload = JSONObject().put("goal", "inspect the Friday runtime").put("allowed_evidence", JSONArray().put("health snapshot"))
+            val payload = JSONObject().put("data_classification", "public").put("goal", "inspect the Friday source").put("allowed_evidence", JSONArray().put("public source paths"))
             val thread = relay.createTask(taskId, "Inspect runtime", "main", payload)
             val recovered = relay.createTask(taskId, "Ignored duplicate", "main", payload)
 
@@ -173,7 +173,7 @@ class FridayAgentTaskRelayTest {
                 clock = { now }
             )
 
-            val posted = relay.send(taskId, AgentTaskMessageKind.PROGRESS, JSONObject().put("status", "working"))
+            val posted = relay.send(taskId, AgentTaskMessageKind.PROGRESS, JSONObject().put("data_classification", "public").put("status", "working"))
             assertEquals(9004L, posted.id)
             assertEquals(2L, AgentTaskThreadStore(directory).get(taskId)!!.nextOutgoingSequence)
             val request = server.takeRequest()
@@ -208,6 +208,37 @@ class FridayAgentTaskRelayTest {
             }
             assertTrue(result.isFailure)
             assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("disabled"))
+            assertEquals(0, server.requestCount)
+        } finally {
+            server.shutdown()
+            directory.deleteRecursively()
+        }
+    }
+
+
+    @Test
+    fun publicGitHubRelayRejectsPrivateDeviceFieldsBeforeNetworkAccess() {
+        val directory = Files.createTempDirectory("friday-agent-public-only").toFile()
+        val server = MockWebServer()
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val relay = FridayAgentTaskRelay(
+                github = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot),
+                threads = AgentTaskThreadStore(directory),
+                trustedActors = setOf("mhw77655-hue"),
+                consentEnabled = { true },
+                clock = { now }
+            )
+            val payload = JSONObject()
+                .put("data_classification", "public")
+                .put("goal", "inspect phone")
+                .put("device_snapshot", JSONObject().put("battery", 70))
+            val result = runCatching {
+                relay.createTask(taskId, "Private device task", "main", payload)
+            }
+            assertTrue(result.isFailure)
+            assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("Private device/user field"))
             assertEquals(0, server.requestCount)
         } finally {
             server.shutdown()
