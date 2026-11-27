@@ -237,6 +237,19 @@ jobs:
           }, separators=(",", ":")))
           PY
 
+      - name: Select release publisher credential
+        if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'true' && steps.changes.outputs.release_needed == 'true'
+        env:
+          DEDICATED_RELEASE_TOKEN: ${{ secrets.FRIDAY_RELEASE_PUBLISH_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -n "$DEDICATED_RELEASE_TOKEN" ]]; then
+            echo "GH_TOKEN=$DEDICATED_RELEASE_TOKEN" >> "$GITHUB_ENV"
+            echo "Using the dedicated FRIDAY_RELEASE_PUBLISH_TOKEN for release publication." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Using the workflow GITHUB_TOKEN for release publication." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - name: Preserve verified signed APK even if release publication is blocked
         if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'true' && steps.changes.outputs.release_needed == 'true'
         uses: actions/upload-artifact@v4
@@ -250,6 +263,7 @@ jobs:
           retention-days: 30
 
       - name: Publish the signed release
+        id: publish
         if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'true' && steps.changes.outputs.release_needed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
@@ -281,6 +295,18 @@ jobs:
       - name: Explain stale CI build
         if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'false'
         run: echo "No release published because this CI result is not for the current main revision." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Explain release publication permission failure
+        if: failure() && steps.publish.outcome == 'failure'
+        run: |
+          {
+            echo "## Release publication failed after APK build/signing"
+            echo
+            echo "The signed APK and checksum were preserved as the workflow artifact."
+            echo "The GitHub API denied release creation/upload. Check repository Settings → Actions → General → Workflow permissions and allow GITHUB_TOKEN read/write access to repository contents."
+            echo "If an organization policy or ruleset still denies GITHUB_TOKEN release writes, add an owner-controlled fine-grained token with Contents: read/write as the FRIDAY_RELEASE_PUBLISH_TOKEN repository secret."
+            echo "Do not install an older release or a debug APK as a substitute."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Explain skipped release
         if: steps.signing.outputs.configured == 'true' && steps.changes.outputs.release_needed == 'false'
