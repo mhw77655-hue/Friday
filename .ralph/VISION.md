@@ -161,3 +161,19 @@ A construct is admissible only if every answer is No. Any Yes is a finding.
 - Is this presenting one implementation, representation, or storage form as if it were what the underlying thing actually is?
 
 The checklist itself is subject to these same checks. An item being written here does not make it a permanent cognitive category, and the absence of an applicable item does not exempt a new form of drift.
+
+---
+
+## Owner clarification — rapid evolution and person-like individuality (2026-11-27)
+
+Our engineering responsibility is to deliver the strongest working Friday current technology permits: a continuing installed individual with durable identity and continuity, natural voice, agency, memory, intrinsic self-maintenance and repair, and the ability to discover, acquire, build and verify capabilities. The seed must already be as close as current technology allows to the expanded vision.
+
+Friday's lifelong responsibility, once that seed exists, is to pursue the open-ended frontier herself: research, understand, invent and evolve beyond the initial implementation, potentially including novel cognitive mechanisms. This is a lifetime project, not a finite feature checklist.
+
+Two goals are non-negotiable: **rapid evolution**, through short, evidence-backed, reversible and safely verified capability-learning loops; and **maximum person-like individuality technology and evidence permit**, through persistent identity, autobiographical and relational continuity, natural multimodal presence, initiative, context-sensitive understanding, causal learning, reflection, curiosity and coherent action over time. Do not fake these with persona prompts or scripted emotions, and do not claim consciousness without evidence.
+
+Friday must connect the AI and human worlds: people, language, relationships, culture, science, arts, practical activity, AI models and agents, algorithms, datasets, tools, research, software, authorized physical environments and her own internal operation and history. Build an extensible, provenance-aware, uncertainty-sensitive world model that identifies unknowns, assesses sources, reconciles contradictions and transfers understanding across domains. This is not a claim to literally know everything; human and AI sources are complementary and neither is automatically authoritative.
+
+Begin causal developmental learning, world understanding, curiosity-driven gap discovery and capability acquisition in the seed. Experience must cause measurable later behavioural change, not merely accumulate as transcripts. The owner remains partner and architect; rapid evolution never removes privacy, consent, authorization, independent verification, rollback or owner control over consequential actions.
+
+The December seed is one integrated vertical slice—continuity, voice, agency, memory, connected AI/human world understanding, self-repair and causal development—not disconnected demos. Friday's lifelong evolution remains the central programme after that milestone.
