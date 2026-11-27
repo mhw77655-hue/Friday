@@ -1,5 +1,6 @@
 package ai.friday.assistant.github.reporting
 
+import android.content.Context
 import ai.friday.assistant.inbox.InboxTask
 import ai.friday.assistant.inbox.LocalTaskInbox
 import java.security.MessageDigest
@@ -10,7 +11,8 @@ import java.security.MessageDigest
  * bridge safe to replay after a crash between local persistence and GitHub ack.
  */
 class AgentTaskReplyInboxBridge(
-    private val inbox: LocalTaskInbox = LocalTaskInbox.create()
+    context: Context,
+    private val inbox: LocalTaskInbox = LocalTaskInbox.create(context)
 ) {
     suspend fun import(reply: StoredAgentTaskReply): InboxTask {
         require(reply.envelope.dataClassification == "public") {
