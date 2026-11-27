@@ -56,7 +56,7 @@ class FridayAgentTaskRelayPollWorker(
         )
         var newReplies = 0
         try {
-            for (thread in threads.all()) {
+            for (thread in threads.all().takeLast(MAX_THREADS_PER_POLL)) {
                 if (!consent.isEnabled()) break
                 val pending = relay.pollReplies(thread.taskId)
                 for (reply in pending) {
@@ -100,6 +100,7 @@ class FridayAgentTaskRelayPollWorker(
     companion object {
         const val UNIQUE_PERIODIC_WORK = "friday-public-agent-relay-periodic"
         const val UNIQUE_NOW_WORK = "friday-public-agent-relay-now"
+        private const val MAX_THREADS_PER_POLL = 20
 
         private fun constraints() = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
