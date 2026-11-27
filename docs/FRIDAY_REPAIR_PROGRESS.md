@@ -498,3 +498,30 @@ This is the first release containing both merged PR #185 (compact Settings, glas
 Physical handset acceptance remains pending. The owner must install 1.0.610 over the existing app without uninstalling or clearing data, then export a fresh diagnostic bundle. Do not claim the phone is fixed until this real-device evidence is reviewed.
 
 Collaboration continues in stacked draft PRs #194 and #195: public-only GitHub task transport and its Android polling/Settings integration. Private SIWC ChatGPT task work and the private read-only device broker remain separate follow-on adapters.
+
+
+### 2026-11-27 — Friday ↔ ChatGPT/GitHub collaboration core implemented in draft PR #194
+
+Branch: `feat/friday-github-task-relay`  
+PR: https://github.com/mhw77655-hue/Friday/pull/194  
+Design: `docs/FRIDAY_AGENT_TASK_RELAY.md`  
+Tracking: #186 and #188
+
+The draft contains bounded GitHub issue/comment transport, create-or-recover by stable task ID, versioned task envelopes, default-OFF relay consent, an atomic local thread journal, sequence allocation, trusted-actor filtering, at-least-once reply delivery/acknowledgement, and tests for recovery, provenance, consent and payload safety. This is public-project collaboration plumbing, not a private phone channel and not Friday's owner-facing conversation model.
+
+Still pending in the app: visible public-disclosure consent UI, trusted-actor settings, WorkManager polling/reconnect, LocalTaskInbox integration, private SIWC ChatGPT task worker, private read-only device broker and physical acceptance. PR #194 remains draft until the latest-head CI is green and those integration layers are complete.
+
+
+### 2026-11-27 — public/private boundary added to Friday collaboration fabric (PR #194)
+
+Security correction: this repository is public. GitHub Issues/comments here are public and cannot be treated as a private ChatGPT/phone channel.
+
+The GitHub task relay now requires `data_classification=public`, bounds the payload, rejects obvious private device/user keys (phone/device snapshots, conversation/history, memory, transcripts/audio, notifications, contacts, location, credentials, tokens, health and personal context), and validates inbound replies against the same public-only rule. The relay remains default-OFF and requires explicit owner consent plus a trusted GitHub actor.
+
+Architecture boundary:
+- Public project tasks/artifacts/progress use GitHub issue threads so this ChatGPT session can inspect and reply.
+- Private task context goes directly from Friday to a separately authorized SIWC ChatGPT task-worker adapter; it is never copied into public GitHub.
+- Live phone snapshots go through the separate authenticated private read-only device broker tracked in #188, not GitHub.
+- All channels share Friday-owned task identity, local journal, consent/authority checks, provenance and crash recovery.
+
+This preserves one coherent task fabric while preventing the public repository from becoming a leak path. The field-name filter is not a complete PII detector; the eventual UI must explicitly disclose public visibility and require owner approval. The private SIWC worker and private phone broker remain to be implemented.
