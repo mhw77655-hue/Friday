@@ -409,3 +409,22 @@ Revised integration target: a secure, bidirectional, task-oriented ChatGPT↔Fri
 The IETF agent-communication draft is useful background for dialog correlation, independent task context, delegation, identity/authentication and streaming/cancellation, but it is an Internet-Draft and not a finished architecture. We must not simply wrap Friday in A2A/MCP and call the distinctive design achieved. Research existing protocols, then design Friday's task/evidence/authority model around the owner's actual requirements. Reference: https://datatracker.ietf.org/doc/html/draft-agentic-ai-usecases-requirements-07
 
 Immediate corrective action: re-scope issue #186 and the branch `feat/chatgpt-main-turn-provider`; do not merge or ship a ChatGPT ordinary-conversation provider as a solution to this requirement. Retain the passing PR #185 settings/glass work as a separate app-repair track. Continue fixing Friday's own interaction path independently of ChatGPT.
+
+
+### 2026-11-27 — concrete inference IPC race repaired in candidate branch
+
+Branch: `fix/inference-messenger-message-recycling`
+
+The handset diagnostic archive recorded an inference failure surfaced to the main process at `ProcessIsolatedModelBackend.kt:46`: `Unknown inference service operation.` The installed release was 1.0.601 / versionCode 1601. The diagnostic also showed severe thermal status and no model loaded; those are separate constraints and are not claimed fixed by this patch.
+
+Source-level root cause found in `InferenceService`: its main-thread Messenger Handler captured the framework-owned incoming Android `Message` object in a coroutine dispatched to `Dispatchers.IO`. Android recycles a Message after the Handler callback returns. Reading `message.what`, `message.arg1`, `message.replyTo` or `message.data` later from that coroutine can therefore observe mutated/reused fields. That explains how the service can see an unknown operation even though the client sends only MSG_LOAD=1, MSG_GENERATE=2 and MSG_UNLOAD=3.
+
+Candidate fix:
+- Snapshot operation, request ID, reply Messenger and a defensive Bundle copy synchronously inside the Handler callback.
+- The coroutine consumes only this immutable request envelope; it never touches the recycled Message.
+- Unknown-operation failures now include the numeric operation and request ID for future diagnosis without logging prompt/model data.
+- Added an Android instrumented regression test that mutates/reuses the original Message and Bundle after snapshot and asserts the captured envelope remains unchanged.
+
+This is a source-level fix candidate plus a regression test. CI has not yet run, and no physical-phone retest has occurred. The severe thermal gate remains intact. The handset logs still show no local model loaded, so even after this IPC repair Friday's general reasoning capability needs the separate authorized cloud/Friday↔ChatGPT agent connection and/or a legitimate model installation strategy; no local model is assumed or required for the ChatGPT collaboration bridge.
+
+Next: open PR, require the complete build workflow, inspect test results, publish only a same-signer in-place update if green, then obtain a fresh redacted device report and verify typed/STT/TTS behavior on the handset.
