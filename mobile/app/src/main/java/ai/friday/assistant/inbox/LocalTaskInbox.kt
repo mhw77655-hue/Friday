@@ -268,6 +268,41 @@ class LocalTaskInbox(
         Result.success(Unit)
     }
 
+    /**
+     * Record an owner decision on an external proposal without placing it in the
+     * executable PENDING queue. Accepted proposals are retained as completed
+     * review records; a separate, explicitly authored task is required to act.
+     */
+    suspend fun reviewExternalProposal(taskId: String, accepted: Boolean): Result<Unit> = withContext(Dispatchers.IO) {
+        val task = _tasks.value.find { it.id == taskId }
+            ?: return@withContext Result.failure(IllegalArgumentException("Proposal not found"))
+        if (task.source != "chatgpt-cloud" || task.capability != "review_external_agent_proposal") {
+            return@withContext Result.failure(IllegalArgumentException("Task is not an external agent proposal"))
+        }
+        if (task.status != InboxTaskStatus.WAITING_APPROVAL) {
+            return@withContext Result.failure(IllegalStateException("Proposal is no longer awaiting review"))
+        }
+        val now = System.currentTimeMillis()
+        val decision = if (accepted) "accepted_for_consideration" else "declined"
+        val updated = task.copy(
+            status = if (accepted) InboxTaskStatus.COMPLETED else InboxTaskStatus.FAILED,
+            completedAt = now,
+            requiresApproval = false,
+            result = mapOf(
+                "decision" to decision,
+                "executed" to false,
+                "reviewed_at_epoch_ms" to now
+            ),
+            history = task.history + TaskHistoryEntry(
+                timestamp = now,
+                action = if (accepted) "OWNER_ACCEPTED_PROPOSAL" else "OWNER_DECLINED_PROPOSAL",
+                detail = "Review decision recorded; no external action was executed."
+            )
+        )
+        updateTask(updated)
+        Result.success(Unit)
+    }
+
     /** Deny a waiting-approval task */
     suspend fun deny(taskId: String, reason: String): Result<Unit> = withContext(Dispatchers.IO) {
         val task = _tasks.value.find { it.id == taskId }
