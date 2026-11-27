@@ -6,6 +6,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ChatGPTTaskWorkerTest {
+    private val sharedExpiry = System.currentTimeMillis() + 60 * 60 * 1000L
+
     private fun projection(
         classification: ChatGPTTaskWorker.TaskProjection.Classification =
             ChatGPTTaskWorker.TaskProjection.Classification.PRIVATE,
@@ -18,7 +20,7 @@ class ChatGPTTaskWorkerTest {
         sourceRevision = "abc123",
         acceptanceCriteria = listOf("Findings cite the supplied source revision"),
         classification = classification,
-        expiresAtEpochMs = System.currentTimeMillis() + 60_000
+        expiresAtEpochMs = sharedExpiry
     )
 
     @Test
