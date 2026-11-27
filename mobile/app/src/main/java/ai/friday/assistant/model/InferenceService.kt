@@ -30,22 +30,23 @@ class InferenceService : Service() {
 
     private val messenger by lazy {
         Messenger(Handler(Looper.getMainLooper()) { message ->
-            val replyTo = message.replyTo
-            val requestId = message.arg1
-            val data = message.data ?: Bundle()
+            // Android recycles the incoming Message as soon as this Handler
+            // callback returns. Never capture it in a coroutine: snapshot every
+            // field (including a defensive Bundle copy) before dispatching work.
+            val request = snapshotMessage(message)
             scope.launch {
                 val response = Bundle()
                 try {
-                    when (message.what) {
+                    when (request.operation) {
                         MSG_LOAD -> {
-                            val keys = data.getStringArray(KEY_PARAM_KEYS) ?: emptyArray()
-                            val values = data.getStringArray(KEY_PARAM_VALUES) ?: emptyArray()
+                            val keys = request.data.getStringArray(KEY_PARAM_KEYS) ?: emptyArray()
+                            val values = request.data.getStringArray(KEY_PARAM_VALUES) ?: emptyArray()
                             val params = keys.indices
                                 .filter { it < values.size }
                                 .associate { keys[it] to values[it] }
                             val config = ModelBackendConfig(
-                                modelId = data.getString(KEY_MODEL_ID).orEmpty(),
-                                modelPath = data.getString(KEY_MODEL_PATH),
+                                modelId = request.data.getString(KEY_MODEL_ID).orEmpty(),
+                                modelPath = request.data.getString(KEY_MODEL_PATH),
                                 params = params
                             )
                             val handle = backend.loadModel(config)
@@ -54,10 +55,10 @@ class InferenceService : Service() {
                             response.putBoolean(KEY_AVAILABLE, backend.isAvailable(handle))
                         }
                         MSG_GENERATE -> {
-                            val handleId = data.getLong(KEY_HANDLE_ID, -1L)
+                            val handleId = request.data.getLong(KEY_HANDLE_ID, -1L)
                             val handle = handles[handleId]
                                 ?: error("Inference handle is no longer available.")
-                            val prompt = data.getString(KEY_PROMPT).orEmpty()
+                            val prompt = request.data.getString(KEY_PROMPT).orEmpty()
                             require(prompt.length <= MAX_PROMPT_CHARS) {
                                 "Prompt exceeds the isolated inference IPC limit."
                             }
@@ -68,7 +69,7 @@ class InferenceService : Service() {
                             val handle = handles.remove(handleId)
                             if (handle != null) backend.unloadModel(handle)
                         }
-                        else -> error("Unknown inference service operation.")
+                        else -> error("Unknown inference service operation ${request.operation} (request ${request.requestId}).")
                     }
                     response.putBoolean(KEY_OK, true)
                 } catch (error: Exception) {
@@ -79,8 +80,8 @@ class InferenceService : Service() {
                     response.putString(KEY_ERROR, error.message ?: "Native inference library failed to load.")
                 }
                 runCatching {
-                    replyTo?.send(Message.obtain(null, MSG_RESPONSE).apply {
-                        arg1 = requestId
+                    request.replyTo?.send(Message.obtain(null, MSG_RESPONSE).apply {
+                        arg1 = request.requestId
                         this.data = response
                     })
                 }
@@ -108,6 +109,21 @@ class InferenceService : Service() {
     }
 
     companion object {
+        internal data class RequestEnvelope(
+            val operation: Int,
+            val requestId: Int,
+            val replyTo: Messenger?,
+            val data: Bundle
+        )
+
+        /** Copy Message-owned state before the framework recycles its instance. */
+        internal fun snapshotMessage(message: Message): RequestEnvelope = RequestEnvelope(
+            operation = message.what,
+            requestId = message.arg1,
+            replyTo = message.replyTo,
+            data = Bundle(message.data ?: Bundle())
+        )
+
         const val MSG_LOAD = 1
         const val MSG_GENERATE = 2
         const val MSG_UNLOAD = 3
