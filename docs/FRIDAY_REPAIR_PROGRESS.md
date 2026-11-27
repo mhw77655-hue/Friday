@@ -411,13 +411,16 @@ The IETF agent-communication draft is useful background for dialog correlation, 
 Immediate corrective action: re-scope issue #186 and the branch `feat/chatgpt-main-turn-provider`; do not merge or ship a ChatGPT ordinary-conversation provider as a solution to this requirement. Retain the passing PR #185 settings/glass work as a separate app-repair track. Continue fixing Friday's own interaction path independently of ChatGPT.
 
 
-### 2026-11-27 — Friday task relay advanced from transport to durable local orchestration (PR #194)
+### 2026-11-27 — public/private boundary added to Friday collaboration fabric (PR #194)
 
-The same PR branch now adds:
-- Versioned `AgentTaskEnvelope` validation with bounded payload, task/message IDs, sender/recipient, sequence, source revision and expiry.
-- Separate default-OFF `FridayAgentTaskRelayConsentStore`; relay network methods fail closed unless the caller supplies an enabled consent gate.
-- `AgentTaskThreadStore`, atomically persisted through the existing fsync + atomic-rename `FileStorage`, with issue mapping, outgoing sequence allocation and inbound acknowledgement IDs.
-- `FridayAgentTaskRelay`: create/recover task, send progress/evidence/cancel, poll unacknowledged replies and require an explicit trusted GitHub actor allowlist.
-- Replies are at-least-once until the caller persists them in Friday's own inbox and acknowledges the comment/message. This avoids marking work consumed before Friday has stored it.
+Security correction: this repository is public. GitHub Issues/comments here are public and cannot be treated as a private ChatGPT/phone channel.
 
-Still missing: Settings UI for relay consent and trusted actor, WorkManager polling/reconnect, direct wiring into `LocalTaskInbox`, message presentation, end-to-end device test and physical handset acceptance. The relay is not yet active in the installed app. PR #194 remains draft; latest code must pass its current CI run before further integration.
+The GitHub task relay now requires `data_classification=public`, bounds the payload, rejects obvious private device/user keys (phone/device snapshots, conversation/history, memory, transcripts/audio, notifications, contacts, location, credentials, tokens, health and personal context), and validates inbound replies against the same public-only rule. The relay remains default-OFF and requires explicit owner consent plus a trusted GitHub actor.
+
+Architecture boundary:
+- Public project tasks/artifacts/progress use GitHub issue threads so this ChatGPT session can inspect and reply.
+- Private task context goes directly from Friday to a separately authorized SIWC ChatGPT task-worker adapter; it is never copied into public GitHub.
+- Live phone snapshots go through the separate authenticated private read-only device broker tracked in #188, not GitHub.
+- All channels share Friday-owned task identity, local journal, consent/authority checks, provenance and crash recovery.
+
+This preserves one coherent task fabric while preventing the public repository from becoming a leak path. The field-name filter is not a complete PII detector; the eventual UI must explicitly disclose public visibility and require owner approval. The private SIWC worker and private phone broker remain to be implemented.
