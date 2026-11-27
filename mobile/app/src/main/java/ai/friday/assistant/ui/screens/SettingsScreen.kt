@@ -125,6 +125,7 @@ fun SettingsScreen() {
     var chatGptExpanded by remember { mutableStateOf(true) }
     var personalExpanded by remember { mutableStateOf(false) }
     var deviceExpanded by remember { mutableStateOf(false) }
+    var runtimeExpanded by remember { mutableStateOf(false) }
     var developmentExpanded by remember { mutableStateOf(false) }
     val updateStateStore = remember { FridayUpdateStateStore(context) }
     var updateStatus by remember { mutableStateOf("Checking update status…") }
@@ -441,7 +442,7 @@ fun SettingsScreen() {
         SettingsGroup("ChatGPT connection", if (chatGptConnected) "Plan connected · " + chatGptAccountLabel else "Not connected · sign-in alone does not start normal Friday replies", chatGptExpanded, { chatGptExpanded = !chatGptExpanded }) {
         SectionLabel("AI TABLE — CHATGPT PLAN SEAT")
         Text(
-            text = "Connect Friday directly to your ChatGPT plan through OpenAI's official open-source sign-in. No API key or paid API fallback. Availability and usage limits depend on your ChatGPT account.",
+            text = "Connect your ChatGPT account for Friday’s AI Table and Builder. This does not yet switch normal Friday conversations to ChatGPT. Use Test ChatGPT response to verify real inference; background Builder sharing remains separately disabled until you enable it.",
             style = FridayType.Label,
             modifier = Modifier.padding(bottom = 8.dp)
         )
@@ -610,7 +611,7 @@ fun SettingsScreen() {
 
 
         }
-        SettingsGroup("Friday runtime and capabilities", "Continuity, resource state, Shizuku and device services", deviceExpanded, { deviceExpanded = !deviceExpanded }) {
+        SettingsGroup("Friday runtime and capabilities", "Continuity, resource state, Shizuku and device services", runtimeExpanded, { runtimeExpanded = !runtimeExpanded }) {
         SectionLabel("OBJECTIVES AND DEVELOPMENT")
         Text(
             text = "Friday keeps the canonical objectives and evidence ledger locally. Work is tracked across the full plan; queued packets are not counted as completed work. Repository changes still require a configured, authorized development executor.",
