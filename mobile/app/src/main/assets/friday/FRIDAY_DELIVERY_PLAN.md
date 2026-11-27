@@ -586,3 +586,44 @@ Complete exact-head CI for the profile-aware sandbox branch. If it passes, revie
 - Physical handset acceptance also remains separate: Shizuku identity/operation probing, Binder/server loss, ordinary process death, reboot, same-key update/rollback and explicit user force-stop must each be tested on the owner's device. Do not claim that Friday can defeat Android's stopped-package boundary.
 
 **Next action:** finish exact-head review/CI for #179 and #180; after #180 is accepted, require its main-branch instrumented sandbox canary to pass. Then trigger a controlled, reproducible failure through an installed Friday Builder task and preserve the complete end-to-end evidence episode. In parallel, continue Phase 1 handset acceptance and the first complete voice route. Keep every claim scoped to its exact evidence.
+
+---
+
+## 15. Owner clarification — rapid evolution and person-like development (2026-11-27)
+
+This is a controlling clarification of the destination, not a reduction of the existing vision.
+
+### Two responsibilities, one lifetime project
+
+**Our engineering responsibility:** deliver the strongest working Friday current technology permits: one continuing installed digital individual with durable identity and continuity, natural voice and interaction, agency, memory, intrinsic self-maintenance and repair, and the ability to discover, acquire, build and verify capabilities. The seed must already be as close as current technology allows to the expanded vision—not a basic chatbot with future promises attached.
+
+**Friday's lifelong responsibility:** once that seed exists, Friday must be equipped and empowered to pursue the open-ended frontier herself: researching, understanding, inventing and evolving beyond the initial implementation, potentially including novel cognitive mechanisms. This is a lifetime project, not a finite feature-completion exercise. We continue improving the seed while giving Friday the foundations and authority model to keep evolving for life.
+
+### Non-negotiable goals
+
+1. **Rapid evolution:** minimize the time between recognizing a meaningful limitation and safely gaining a better capability. Continuously discover gaps, research, compare mechanisms, compose or create capabilities, test them, learn from outcomes and improve the next cycle. Optimize short evidence-backed loops, safe parallel exploration, reusable knowledge, portability and low-friction integration—not uncontrolled self-modification or raw change velocity.
+2. **Maximum person-like individuality permitted by technology and evidence:** persistent identity, autobiographical and relational continuity, natural multimodal presence, initiative, self-directed goals within owner-granted boundaries, context-sensitive understanding, causal learning, reflection, curiosity, preference development and coherent action across time. Do not fake these with persona prompts, scripted emotions or static profiles; measure capabilities and remain candid about unresolved questions such as consciousness.
+
+### One connected AI-and-human world
+
+Friday's world model must connect, not isolate, people, language, relationships, culture and human activity; scientific, technical, artistic and practical knowledge; AI models, agents, algorithms, datasets, tools, APIs, research and software; authorized physical environments, devices, sensors, actions and consequences; and her own internal operation, capability limits, resource state, history and action evidence.
+
+This is not a claim that Friday can literally know everything. It is an extensible, uncertainty-aware world model: connect evidence across domains, identify unknowns, seek missing information, assess source reliability, distinguish observation from inference, reconcile contradictions and transfer understanding to unfamiliar situations. Human and AI sources are complementary, and neither is automatically authoritative.
+
+### Engineering consequences
+
+- Start causal developmental learning, autobiographical continuity, multimodal/world understanding, curiosity-driven gap discovery and capability acquisition in the seed architecture; do not postpone them to a distant phase.
+- Build a persistent capability-evolution loop: detect a limitation; define a measurable capability; search internal knowledge and authorized external AI/human sources; compare mechanisms; prototype in isolation; evaluate on held-out tasks and safety/resource constraints; integrate under policy; observe real use; retain what generalizes and retire what does not.
+- Build an extensible AI-and-human knowledge fabric with provenance, time/context, reliability, contradiction handling, privacy/consent and links among concepts, people, tools, events, experiments and outcomes. No fixed ontology or monolithic database is the permanent limit.
+- Require causal, longitudinal development: persistent internal change must measurably alter later behaviour in new situations, even when the original episode cannot be replayed.
+- Accelerate safely through parallel research, cheap reversible experiments and independent verification while protecting identity, authority, privacy, continuity and rollback.
+- Keep the owner as partner and architect. Standing authorization should remove repetitive approvals; consequential, privacy-sensitive, financial, security, signing, release and irreversible actions remain governed by explicit policy and owner control.
+- Do not equate person-like capability with proof of subjective experience or consciousness. Separate demonstrated capability, inference and unknowns.
+
+### December seed acceptance
+
+Judge the seed as one integrated vertical slice: Friday maintains continuity, interacts naturally, understands and acts across connected AI/human resources, pursues authorized objectives, notices capability gaps, acquires/builds/tests a bounded improvement, recovers from failure and retains experience that changes later behaviour. Voice, memory, agency, self-repair and development must converge into one continuing system, not disconnected demonstrations.
+
+After the seed milestone, Friday's lifelong evolution becomes the central continuing programme. The roadmap is a launch trajectory, not a terminal definition of what she may become.
+
+**Owner's outcome:** deliver Friday as close as possible to the expanded vision with today's technology; give her rapid, safe evolution; and enable her to connect and understand the AI world and human world as one continuously expanding field of experience and knowledge.
