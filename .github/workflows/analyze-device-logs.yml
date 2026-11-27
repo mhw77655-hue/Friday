@@ -179,5 +179,8 @@ jobs:
               f.write("\n".join(summary) + "\n")
           print("Archive integrity: OK")
           print(f"Entries: {len(inventory)}; text sources parsed: {len(source_stats)}; diagnostic matches: {len(findings)}")
-          print("Privacy-filtered report written to the GitHub Actions job summary; raw log contents were not printed.")
+          print("BEGIN PRIVACY-FILTERED DIAGNOSTIC REPORT")
+          print("\n".join(summary))
+          print("END PRIVACY-FILTERED DIAGNOSTIC REPORT")
+          print("Raw archive contents were not printed.")
           PY
