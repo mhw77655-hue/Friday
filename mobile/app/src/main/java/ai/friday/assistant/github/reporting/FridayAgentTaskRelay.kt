@@ -447,8 +447,12 @@ class FridayAgentTaskRelay(
         require(payload.optString("data_classification") == "public") {
             "GitHub is a public project surface; payload must be explicitly classified public."
         }
-        require(payload.toString().length <= AgentTaskEnvelope.MAX_PAYLOAD_CHARS) {
+        val serialized = payload.toString()
+        require(serialized.length <= AgentTaskEnvelope.MAX_PAYLOAD_CHARS) {
             "Public GitHub task payload exceeds its size limit."
+        }
+        require(!SECRET_PATTERN.containsMatchIn(serialized)) {
+            "Public GitHub task payload was blocked because it resembles a credential."
         }
         val forbiddenKeys = setOf(
             "devicesnapshot", "phonesnapshot", "conversation", "chathistory",
@@ -496,6 +500,9 @@ class FridayAgentTaskRelay(
         private const val MAX_CLOCK_SKEW_MS = 5L * 60L * 1000L
         private val COMMENT_MARKER = Regex(
             "^<!-- friday-agent-message:v1:([A-Za-z0-9._-]{8,80}):(\\d+) -->"
+        )
+        private val SECRET_PATTERN = Regex(
+            "(?i)(github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{30,}|xox[baprs]-[A-Za-z0-9-]{20,}|bearer\\s+[A-Za-z0-9._-]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]*PRIVATE KEY-----)"
         )
     }
 }
