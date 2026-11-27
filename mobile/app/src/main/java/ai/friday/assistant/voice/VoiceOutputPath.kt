@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.RandomAccessFile
 import kotlin.math.sqrt
 
 private const val TAG = "VoiceOutputPath"
@@ -54,6 +53,7 @@ class VoiceOutputPath(
 
     @Volatile private var cancelled = false
     @Volatile private var nativePlaybackActive = false
+    @Volatile private var activeUtteranceToken: Any? = null
     private var job: Job? = null
 
     init {
@@ -74,6 +74,8 @@ class VoiceOutputPath(
         interrupt()
         val profile = profileStore.get(DefaultFridayVoiceProfile.id) ?: DefaultFridayVoiceProfile
         val lang = language ?: profile.language
+        val utteranceToken = Any()
+        activeUtteranceToken = utteranceToken
         val myJob = scope.launch {
             _isSpeaking.value = true
             cancelled = false
@@ -97,8 +99,10 @@ class VoiceOutputPath(
             } finally {
                 // Only this utterance may clear the speaking flag — an earlier
                 // cancelled job must not stomp the current one's state.
-                if (job === this) {
-                    _isSpeaking.value = false
+                if (activeUtteranceToken === utteranceToken) {
+                    activeUtteranceToken = null
+                    job = null
+                    _isSpeaking.value = fallback?.isSpeaking?.value ?: false
                     _audioLevel.value = 0f
                 }
             }
@@ -109,6 +113,7 @@ class VoiceOutputPath(
     /** Stop playback and ask the habitat to cancel in-flight synthesis. */
     fun interrupt() {
         cancelled = true
+        activeUtteranceToken = null
         nativePlaybackActive = false
         _isSpeaking.value = false
         _audioLevel.value = 0f
@@ -156,7 +161,7 @@ class VoiceOutputPath(
 
     private fun playWav(file: File, sampleRate: Int, channels: Int): Boolean {
         if (cancelled) return true
-        val pcm = readWavPcm16(file, channels) ?: return false
+        val pcm = Pcm16WavReader.read(file, channels) ?: return false
         val encoding = AudioFormat.ENCODING_PCM_16BIT
         val channelMask = if (channels >= 2) AudioFormat.CHANNEL_OUT_STEREO else AudioFormat.CHANNEL_OUT_MONO
         val minBuf = AudioTrack.getMinBufferSize(sampleRate, channelMask, encoding).coerceAtLeast(pcm.size)
@@ -202,42 +207,6 @@ class VoiceOutputPath(
             nativePlaybackActive = false
             _isSpeaking.value = fallback?.isSpeaking?.value ?: false
             _audioLevel.value = 0f
-        }
-    }
-
-    /** Extract the 16-bit PCM payload from a RIFF WAV, validating the header. */
-    private fun readWavPcm16(file: File, channels: Int): ByteArray? {
-        return try {
-            RandomAccessFile(file, "r").use { raf ->
-                if (raf.length() < 44) return null
-                val riff = ByteArray(4); raf.readFully(riff)
-                if (String(riff) != "RIFF") return null
-                raf.skipBytes(4)
-                val wave = ByteArray(4); raf.readFully(wave)
-                if (String(wave) != "WAVE") return null
-                raf.skipBytes(4) // "fmt "
-                raf.skipBytes(4) // fmt chunk size
-                val fmt = ShortArray(2); raf.readShort()
-                val fmtChannels = raf.readShort().toInt()
-                raf.skipBytes(4 + 4 + 2) // sampleRate, byteRate, blockAlign
-                val bitsPerSample = raf.readShort().toInt()
-                if (fmtChannels != channels || bitsPerSample != 16) return null
-                // Walk chunks to "data"
-                while (raf.filePointer < raf.length() - 8) {
-                    val chunkId = ByteArray(4); raf.readFully(chunkId)
-                    val size = Integer.reverseBytes(raf.readInt())
-                    if (String(chunkId) == "data") {
-                        val data = ByteArray(size)
-                        raf.readFully(data)
-                        return data
-                    }
-                    raf.skipBytes(size)
-                }
-                null
-            }
-        } catch (e: Throwable) {
-            Log.w(TAG, "wav read failed: ${e.message}")
-            null
         }
     }
 
