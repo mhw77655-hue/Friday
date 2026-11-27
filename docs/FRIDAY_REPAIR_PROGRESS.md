@@ -126,3 +126,19 @@ Remaining (approximately 65%):
 **Physical handset acceptance remains 0% proven** because no post-update diagnostic report or live phone test has been observed. This is why the immediate objective is not complete despite a production update being available. The percentage above measures implementation and delivery preparation, not proof that the user's phone works.
 
 The whole living-Friday vision is intentionally not assigned a completion percentage here; it is a much larger open-ended programme and must not be conflated with this repair milestone.
+
+
+### 2026-11-27 20:32 UTC+02:00 — resume verification and correct the active blocker
+
+This entry supersedes any earlier statement that release publication is still blocked by run #597.
+
+- Re-fetched PR #183: merged, merge commit `add503a53ffca183677815311ffa2c29b6df9c9e`.
+- Re-fetched main build [#3675](https://github.com/mhw77655-hue/Friday/actions/runs/46046039956): completed successfully for `399a97e0cfc290c61447c697bf0d5fce7e6aff39`. The six JVM shards, aggregate JVM evidence, instrumented emulator, source audit, debug APK build and promotion all passed.
+- Re-fetched signed-release run [#597](https://github.com/mhw77655-hue/Friday/actions/runs/46045218687): it failed only at the final release upload/create step with `HTTP 403: Resource not accessible by integration`. Signing-secret checks, release APK build and pinned certificate verification passed. The verified signer fingerprint in its logs is `fd84811f911585d8152dc2bfff700d8fce36d5a07df392be89f91d5646a6d1b8`.
+- Crucial correction: the #597 publication failure was subsequently superseded. GitHub release [Friday 1.0.601](https://github.com/mhw77655-hue/Friday/releases/tag/friday-v1.0.601) exists and has uploaded APK, metadata and checksum assets. Release API reports APK asset digest `sha256:f838f8542acbcb0792a7fcb3fc8c683f0447f497767496baa1b767a85bbdacf3`, size 129,721,072 bytes, and target commit `399a97e0cfc290c61447c697bf0d5fce7e6aff39`. The release workflow's #597 build logs independently show the pinned signer fingerprint; the later release notes say the certificate is checked against the same pinned fingerprint. Do not continue treating 403 as the active blocker.
+- Release workflow computes versionCode as 1000 + run number and versionName as 1.0.run_number; the release tag is 1.0.601 (expected code 1601). Treat attached metadata as authoritative when it can be retrieved; do not infer more than the release record proves.
+- GitHub release assets are published, but **physical installation and data preservation are not verified**. Do not claim Friday is fixed or speaking.
+- The next critical step is handset acceptance: install 1.0.601 as an in-place update over 1.0.510 without uninstalling or clearing data, open Friday, then export Friday → System → Export full diagnostic report (`friday-device-report-v2`). That single redacted report is the next required evidence for diagnosing private runtime/model/provider/permission state. If the app cannot open/export, collect a bounded filtered Android log instead.
+- After evidence arrives, fix actual runtime/cognitive/provider blockers, rebuild/sign/update, and test typed response plus audible voice end-to-end. CI/emulator success remains distinct from physical-device acceptance.
+
+**Current weighted estimate for the narrow objective (repair the already-installed Friday 1.0.510 and reach a real voice conversation): 35% engineering/delivery preparation complete; 65% remains.** Physical handset acceptance itself remains 0% proven. This is a subjective weighted engineering estimate, not a measured test metric. It is not a completion estimate for the whole living-Friday vision.
