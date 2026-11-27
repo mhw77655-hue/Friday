@@ -85,6 +85,39 @@ class LocalTaskInbox(
         return task
     }
 
+    /**
+     * Idempotently import an externally received proposal under a stable ID.
+     * The task is always WAITING_APPROVAL: external model output is evidence,
+     * never an executable instruction.
+     */
+    suspend fun submitOnce(
+        id: String,
+        source: String,
+        description: String,
+        capability: String,
+        arguments: Map<String, Any>,
+        requiresApproval: Boolean = true
+    ): InboxTask = withContext(Dispatchers.IO) {
+        require(id.matches(Regex("[A-Za-z0-9._:-]{8,160}"))) { "Stable task ID is malformed." }
+        mutationMutex.withLock {
+            _tasks.value.firstOrNull { it.id == id }?.let { return@withLock it }
+            val task = InboxTask(
+                id = id,
+                source = source,
+                description = description,
+                capability = capability,
+                arguments = arguments,
+                status = if (requiresApproval) InboxTaskStatus.WAITING_APPROVAL else InboxTaskStatus.PENDING,
+                createdAt = System.currentTimeMillis(),
+                requiresApproval = requiresApproval
+            )
+            _tasks.value = _tasks.value + task
+            persistTask(task)
+            refreshDerivedFlows()
+            task
+        }
+    }
+
     /** Get a task by ID */
     suspend fun getTask(id: String): InboxTask? = withContext(Dispatchers.IO) {
         _tasks.value.find { it.id == id }
