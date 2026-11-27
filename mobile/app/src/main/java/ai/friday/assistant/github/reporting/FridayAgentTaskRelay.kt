@@ -247,6 +247,9 @@ class FridayAgentTaskRelayConsentStore(context: Context) {
     fun isEnabled(): Boolean = preferences.getBoolean(KEY_ENABLED, false)
 
     fun setEnabled(enabled: Boolean) {
+        if (enabled) require(trustedActors().isNotEmpty()) {
+            "Configure at least one trusted GitHub actor before enabling the public relay."
+        }
         check(
             preferences.edit()
                 .putBoolean(KEY_ENABLED, enabled)
@@ -255,11 +258,45 @@ class FridayAgentTaskRelayConsentStore(context: Context) {
         ) { "Could not durably save Friday agent relay consent." }
     }
 
+    fun trustedActors(): Set<String> = preferences
+        .getStringSet(KEY_TRUSTED_ACTORS, null)
+        ?.mapNotNull { actor ->
+            actor.trim().takeIf { it.matches(Regex("[A-Za-z0-9-]{1,39}")) }
+        }?.toSet()
+        ?: setOf(DEFAULT_TRUSTED_ACTOR)
+
+    fun setTrustedActors(actors: Set<String>) {
+        val normalized = actors.map { it.trim() }.filter { it.isNotBlank() }.toSet()
+        require(normalized.isNotEmpty()) { "At least one trusted GitHub actor is required." }
+        require(normalized.all { it.matches(Regex("[A-Za-z0-9-]{1,39}")) }) {
+            "GitHub actor names contain unsupported characters."
+        }
+        check(preferences.edit().putStringSet(KEY_TRUSTED_ACTORS, normalized).commit()) {
+            "Could not durably save trusted GitHub actors."
+        }
+    }
+
     fun changedAtEpochMs(): Long = preferences.getLong(KEY_CHANGED_AT, 0L)
+    fun lastPollAtEpochMs(): Long = preferences.getLong(KEY_LAST_POLL_AT, 0L)
+    fun lastPollReplyCount(): Int = preferences.getInt(KEY_LAST_POLL_REPLY_COUNT, 0)
+    fun lastPollError(): String? = preferences.getString(KEY_LAST_POLL_ERROR, null)
+
+    fun recordPoll(replyCount: Int, error: String? = null) {
+        preferences.edit()
+            .putLong(KEY_LAST_POLL_AT, System.currentTimeMillis())
+            .putInt(KEY_LAST_POLL_REPLY_COUNT, replyCount.coerceAtLeast(0))
+            .putString(KEY_LAST_POLL_ERROR, error?.take(240))
+            .commit()
+    }
 
     companion object {
+        const val DEFAULT_TRUSTED_ACTOR = "mhw77655-hue"
         private const val KEY_ENABLED = "enabled"
         private const val KEY_CHANGED_AT = "changed_at_epoch_ms"
+        private const val KEY_TRUSTED_ACTORS = "trusted_github_actors"
+        private const val KEY_LAST_POLL_AT = "last_poll_at_epoch_ms"
+        private const val KEY_LAST_POLL_REPLY_COUNT = "last_poll_reply_count"
+        private const val KEY_LAST_POLL_ERROR = "last_poll_error"
     }
 }
 
