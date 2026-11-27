@@ -217,6 +217,35 @@ class FridayAgentTaskRelayTest {
 
 
     @Test
+    fun publicGitHubRelayRejectsCredentialLikeTextBeforeNetworkAccess() {
+        val directory = Files.createTempDirectory("friday-agent-secret-filter").toFile()
+        val server = MockWebServer()
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val relay = FridayAgentTaskRelay(
+                github = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot),
+                threads = AgentTaskThreadStore(directory),
+                trustedActors = setOf("mhw77655-hue"),
+                consentEnabled = { true },
+                clock = { now }
+            )
+            val payload = JSONObject()
+                .put("data_classification", "public")
+                .put("summary", "Example token: " + "ghp_" + "x".repeat(36))
+            val result = runCatching {
+                relay.createTask(taskId, "Credential filter", "main", payload)
+            }
+            assertTrue(result.isFailure)
+            assertTrue(result.exceptionOrNull()?.message.orEmpty().contains("credential"))
+            assertEquals(0, server.requestCount)
+        } finally {
+            server.shutdown()
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun publicGitHubRelayRejectsPrivateDeviceFieldsBeforeNetworkAccess() {
         val directory = Files.createTempDirectory("friday-agent-public-only").toFile()
         val server = MockWebServer()
