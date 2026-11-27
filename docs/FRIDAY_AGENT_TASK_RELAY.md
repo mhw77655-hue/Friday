@@ -117,3 +117,8 @@ The read-only phone inspection broker remains separately specified in Issue #188
 ## Prior-art discipline
 
 This design reuses GitHub's Issues/Comments API and SIWC. The potential differentiation is the Friday-owned continuity and authority model: stable task identity, durable local checkpoints, scoped evidence disclosure, actor provenance, idempotent recovery and strict separation between external proposals and local execution authority. This is an architectural hypothesis, not a claim that no other project has ever built similar behavior. Compare A2A, MCP, event sourcing, task queues and webhook patterns before making novelty claims.
+
+
+## Delivery semantics: mailbox, not a push wake-up
+
+The GitHub issue thread is an asynchronous mailbox. Friday can create a task and poll for replies, and this active ChatGPT session can inspect the public task and post a reply when it is invoked. GitHub does **not** have a supported mechanism to inject a message into or wake this exact ChatGPT conversation automatically. The SIWC private worker is the separate Friday-triggerable model endpoint; it is not this session. A future unattended callback into a ChatGPT-side agent requires a separately hosted/event-driven execution surface or supported ChatGPT automation integration. Do not describe the current mailbox as real-time push or a live phone session.
