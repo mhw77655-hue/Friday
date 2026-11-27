@@ -48,6 +48,7 @@ class FridayAgentTaskRelayPollWorker(
 
         val threads = AgentTaskThreadStore(applicationContext.filesDir)
         val replies = AgentTaskReplyStore(applicationContext.filesDir)
+        val taskInboxBridge = AgentTaskReplyInboxBridge(applicationContext)
         val relay = FridayAgentTaskRelay(
             github = GitHubDevelopmentRepositoryClient(token),
             threads = threads,
@@ -71,12 +72,14 @@ class FridayAgentTaskRelayPollWorker(
                         receivedAtEpochMs = System.currentTimeMillis(),
                         envelope = reply.envelope
                     )
-                    val inserted = replies.appendIfAbsent(stored)
-                    // A previous attempt may have persisted the reply and died
-                    // before acknowledging GitHub. In that case appendIfAbsent
-                    // returns false and this retry safely completes the ack.
+                    replies.appendIfAbsent(stored)
+                    // Import into Friday's canonical task inbox as a stable,
+                    // approval-gated proposal before acknowledging GitHub.
+                    // Re-running after a crash is safe: submitOnce deduplicates
+                    // by the external message ID-derived local task ID.
+                    taskInboxBridge.import(stored)
                     relay.acknowledge(thread.taskId, reply)
-                    if (inserted) newReplies++
+                    newReplies++
                 }
             }
             consent.recordPoll(newReplies)
