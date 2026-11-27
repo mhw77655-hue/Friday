@@ -7,6 +7,8 @@ import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
+import okhttp3.tls.HandshakeCertificates
+import okhttp3.tls.HeldCertificate
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -21,6 +23,15 @@ class ChatGPTTaskWorkerApiInstrumentedTest {
     @Test
     fun sendsOnlyApprovedProjectionWithNoServerStorageAndBlocksReplay() = runBlocking {
         val server = MockWebServer()
+        val localhostCertificate = HeldCertificate.Builder()
+            .addSubjectAltName("localhost")
+            .build()
+        val serverCertificates = HandshakeCertificates.Builder()
+            .heldCertificate(localhostCertificate)
+            .build()
+        val clientCertificates = HandshakeCertificates.Builder()
+            .addTrustedCertificate(localhostCertificate.certificate)
+            .build()
         val credentialStore = ChatGPTPlanCredentialStore(context)
         val approvalPrefs = context.getSharedPreferences("friday_chatgpt_task_approvals", Context.MODE_PRIVATE)
         approvalPrefs.edit().clear().commit()
@@ -33,6 +44,7 @@ class ChatGPTTaskWorkerApiInstrumentedTest {
                         "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_test_123\"}}\n\n"
                 )
         )
+        server.useHttps(serverCertificates.sslSocketFactory(), false)
         server.start()
         try {
             credentialStore.save(
@@ -55,7 +67,9 @@ class ChatGPTTaskWorkerApiInstrumentedTest {
                 credentials = credentialStore,
                 approvals = ChatGPTTaskApprovalStore(context),
                 apiBaseUrl = server.url("/v1").toString().trimEnd('/'),
-                http = OkHttpClient()
+                http = OkHttpClient.Builder()
+                    .sslSocketFactory(clientCertificates.sslSocketFactory(), clientCertificates.trustManager)
+                    .build()
             )
             val projection = ChatGPTTaskWorker.TaskProjection(
                 taskId = "friday-private-task-001",
