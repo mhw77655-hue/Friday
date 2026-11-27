@@ -32,10 +32,14 @@ data class AgentTaskEnvelope(
     val expiresAtEpochMs: Long,
     val sourceRevision: String,
     val payload: JSONObject,
-    val schemaVersion: Int = SCHEMA_VERSION
+    val schemaVersion: Int = SCHEMA_VERSION,
+    val dataClassification: String = "public"
 ) {
     init {
         require(schemaVersion == SCHEMA_VERSION) { "Unsupported Friday agent message schema." }
+        require(dataClassification == "public") {
+            "GitHub task threads are public; only explicitly classified public project data is allowed."
+        }
         require(taskId.matches(TASK_ID_PATTERN)) { "Friday task ID is malformed." }
         require(messageId.matches(MESSAGE_ID_PATTERN)) { "Friday task message ID is malformed." }
         require(sequence >= 0L) { "Friday task message sequence is invalid." }
@@ -58,6 +62,7 @@ data class AgentTaskEnvelope(
 
     fun toJson(): JSONObject = JSONObject()
         .put("schema_version", schemaVersion)
+        .put("data_classification", dataClassification)
         .put("task_id", taskId)
         .put("message_id", messageId)
         .put("sequence", sequence)
@@ -83,6 +88,7 @@ data class AgentTaskEnvelope(
             }.getOrElse { throw IllegalArgumentException("Friday task message kind is unknown.") }
             return AgentTaskEnvelope(
                 schemaVersion = json.optInt("schema_version", -1),
+                dataClassification = json.optString("data_classification"),
                 taskId = json.optString("task_id"),
                 messageId = json.optString("message_id"),
                 sequence = json.optLong("sequence", -1L),
@@ -286,6 +292,7 @@ class FridayAgentTaskRelay(
         ttlMs: Long = DEFAULT_TASK_TTL_MS
     ): AgentTaskThread {
         ensureConsent()
+        validatePublicPayload(allowedTaskPayload)
         threads.get(taskId)?.let { return it }
         val now = clock()
         require(ttlMs in 60_000L..AgentTaskEnvelope.MAX_TTL_MS)
@@ -332,6 +339,7 @@ class FridayAgentTaskRelay(
         )) { "Friday may send only progress, evidence requests or cancellation on an active task." }
         val thread = threads.get(taskId)
             ?: throw IllegalArgumentException("Friday task thread is not registered.")
+        validatePublicPayload(payload)
         val now = clock()
         require(ttlMs in 60_000L..AgentTaskEnvelope.MAX_TTL_MS)
         val sequence = threads.claimOutgoingSequence(taskId)
@@ -395,6 +403,40 @@ class FridayAgentTaskRelay(
                 envelope = envelope
             )
         }.sortedBy { it.envelope.sequence }
+    }
+
+    private fun validatePublicPayload(payload: JSONObject) {
+        require(payload.optString("data_classification") == "public") {
+            "GitHub is a public project surface; payload must be explicitly classified public."
+        }
+        require(payload.toString().length <= AgentTaskEnvelope.MAX_PAYLOAD_CHARS) {
+            "Public GitHub task payload exceeds its size limit."
+        }
+        val forbiddenKeys = setOf(
+            "device_snapshot", "phone_snapshot", "conversation", "chat_history",
+            "memory", "transcript", "audio", "microphone", "notifications",
+            "contacts", "location", "credentials", "token", "secret",
+            "user_profile", "health", "personal_context", "screen_contents"
+        )
+        fun inspectObject(value: JSONObject) {
+            val keys = value.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                require(key.lowercase() !in forbiddenKeys) {
+                    "Private device/user field '$key' cannot be sent through public GitHub task threads."
+                }
+                when (val nested = value.opt(key)) {
+                    is JSONObject -> inspectObject(nested)
+                    is JSONArray -> {
+                        for (index in 0 until nested.length()) {
+                            val item = nested.opt(index)
+                            if (item is JSONObject) inspectObject(item)
+                        }
+                    }
+                }
+            }
+        }
+        inspectObject(payload)
     }
 
     private fun ensureConsent() {
