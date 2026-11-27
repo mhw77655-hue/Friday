@@ -448,6 +448,38 @@ PR #185 now:
 This follows OpenAI's SIWC guidance: https://developers.openai.com/siwc/token-sharing-open-source/errors-and-recovery and https://developers.openai.com/siwc/token-sharing-open-source/sign-in. The app must not infer plan-use consent from identity sign-in.
 
 
+### 2026-11-27 — concrete inference IPC race repaired in candidate branch
+
+Branch: `fix/inference-messenger-message-recycling`
+
+The handset diagnostic archive recorded an inference failure surfaced to the main process at `ProcessIsolatedModelBackend.kt:46`: `Unknown inference service operation.` The installed release was 1.0.601 / versionCode 1601. The diagnostic also showed severe thermal status and no model loaded; those are separate constraints and are not claimed fixed by this patch.
+
+Concrete source-level race found in `InferenceService`: its main-thread Messenger Handler captured the framework-owned incoming Android `Message` object in a coroutine dispatched to `Dispatchers.IO`. Android recycles a Message after the Handler callback returns. Reading `message.what`, `message.arg1`, `message.replyTo` or `message.data` later from that coroutine can therefore observe mutated/reused fields. This race can produce the reported unknown-operation failure even though the client sends only MSG_LOAD=1, MSG_GENERATE=2 and MSG_UNLOAD=3. The old device report did not retain the numeric incoming operation, so causality is strongly plausible but not proven until the patched build is exercised on the handset.
+
+Candidate fix:
+- Snapshot operation, request ID, reply Messenger and a defensive Bundle copy synchronously inside the Handler callback.
+- The coroutine consumes only this immutable request envelope; it never touches the recycled Message.
+- Unknown-operation failures now include the numeric operation and request ID for future diagnosis without logging prompt/model data.
+- Added an Android instrumented regression test that mutates/reuses the original Message and Bundle after snapshot and asserts the captured envelope remains unchanged.
+
+This is a source-level fix candidate plus a regression test. CI has not yet run, and no physical-phone retest has occurred. The severe thermal gate remains intact. The handset logs still show no local model loaded, so even after this IPC repair Friday's general reasoning capability needs the separate authorized cloud/Friday↔ChatGPT agent connection and/or a legitimate model installation strategy; no local model is assumed or required for the ChatGPT collaboration bridge.
+
+Next: open PR, require the complete build workflow, inspect test results, publish only a same-signer in-place update if green, then obtain a fresh redacted device report and verify typed/STT/TTS behavior on the handset.
+
+
+### 2026-11-27 — app repair source merged; combined release validation underway
+
+PR #185 (Settings/glass/AMOLED and ChatGPT identity-vs-plan consent UX) merged: `c77a5e952f9f37562357db7d7aea88b2e83b686a`. Exact-head CI run #46064333709 passed source audit, all six JVM shards, Android lint, release-variant build and emulator instrumentation.
+
+PR #193 (isolated inference Messenger lifecycle race) merged: `3212211c915644e2ceb2f8e524baaee4dad644b4`. Exact-head CI run #46065644117 passed debug and release-variant builds, Android lint, all six JVM shards, whole-repository source audit and disposable-emulator instrumentation. The handler now snapshots Message-owned state before asynchronous dispatch; the numeric operation/request ID is retained in diagnostics.
+
+Combined main validation run #46067087494 is in progress. Release `friday-v1.0.609` has now published from the earlier PR #185-only commit `c77a5e9`; it does not contain the Messenger repair and is not the release to install. Its APK SHA-256 is `d67ecde02bb6ffb7cb0e373bc28a373449133794ea83a467febdc1662d42c913`. The combined main build #46067087494 is still in progress; the combined signed release follows it.
+
+Handset truth remains unchanged: the uploaded diagnostics report 1.0.601 installed; no local model is installed or required; ModelManager defaults to the model-free HEURISTIC provider. The optional isolated inference tier is repaired at source/CI level, but the physical handset has not yet been retested. Do not uninstall Friday or clear its data. The owner should install only the combined same-signer release in-place once published, then export a fresh redacted diagnostic bundle.
+
+Next: verify the combined signed release's package/version/signing fingerprint/SHA-256; request in-place install; validate typed input, STT, TTS and process recovery on the physical phone; then complete the public-only GitHub collaboration UI/WorkManager integration and private SIWC/device bridge.
+
+
 ### 2026-11-27 — Friday ↔ ChatGPT/GitHub collaboration core implemented in draft PR #194
 
 Branch: `feat/friday-github-task-relay`  
