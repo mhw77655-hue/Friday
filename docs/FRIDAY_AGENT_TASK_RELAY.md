@@ -1,6 +1,6 @@
 # Friday agent task relay — GitHub issue threads
 
-Status: transport primitives implemented in branch `feat/friday-github-task-relay`; application orchestration and handset acceptance remain pending.
+Status: GitHub transport and core local task orchestration are implemented in branch `feat/friday-github-task-relay`; Settings integration, WorkManager polling and handset acceptance remain pending.
 
 ## Why this channel exists
 
@@ -46,7 +46,7 @@ Each comment body contains a JSON envelope with:
 - `payload` and expected result schema
 - provenance references and payload digest
 
-The relay methods in the current branch provide bounded issue creation/recovery and comment read/write. The versioned JSON envelope parser, trusted-actor gate, durable local sequence journal, WorkManager polling and UI consent are the next implementation slice; they are not claimed complete by the transport PR.
+The current branch now provides bounded issue creation/recovery, comment read/write, a versioned JSON envelope parser, an explicit trusted-actor allowlist, a separate default-OFF owner consent store, and an atomic local task-thread journal. The journal persists issue identity, next outgoing sequence and acknowledged comment/message IDs. Friday claims an outgoing sequence before network I/O (gaps are safe; duplicate IDs are not), and inbound replies are returned at-least-once until the caller durably stores them in Friday's inbox and acknowledges them. `pollReplies` rejects untrusted authors, mismatched task IDs/sequences, wrong sender/recipient, stale source revisions, expired messages and clock-skewed messages. Friday can send only progress, evidence requests and cancellation; external results remain proposals. WorkManager polling, Settings UI, wiring into `LocalTaskInbox`, and phone acceptance are still pending.
 
 ## How this connects to live device inspection
 

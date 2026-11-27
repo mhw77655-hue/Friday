@@ -411,23 +411,13 @@ The IETF agent-communication draft is useful background for dialog correlation, 
 Immediate corrective action: re-scope issue #186 and the branch `feat/chatgpt-main-turn-provider`; do not merge or ship a ChatGPT ordinary-conversation provider as a solution to this requirement. Retain the passing PR #185 settings/glass work as a separate app-repair track. Continue fixing Friday's own interaction path independently of ChatGPT.
 
 
-### 2026-11-27 — Friday ↔ ChatGPT/GitHub task-thread transport opened (PR #194)
+### 2026-11-27 — Friday task relay advanced from transport to durable local orchestration (PR #194)
 
-Branch: `feat/friday-github-task-relay`  
-PR: https://github.com/mhw77655-hue/Friday/pull/194  
-Architecture: `docs/FRIDAY_AGENT_TASK_RELAY.md`  
-Tracking: #186 (agent collaboration) and #188 (read-only phone observation)
+The same PR branch now adds:
+- Versioned `AgentTaskEnvelope` validation with bounded payload, task/message IDs, sender/recipient, sequence, source revision and expiry.
+- Separate default-OFF `FridayAgentTaskRelayConsentStore`; relay network methods fail closed unless the caller supplies an enabled consent gate.
+- `AgentTaskThreadStore`, atomically persisted through the existing fsync + atomic-rename `FileStorage`, with issue mapping, outgoing sequence allocation and inbound acknowledgement IDs.
+- `FridayAgentTaskRelay`: create/recover task, send progress/evidence/cancel, poll unacknowledged replies and require an explicit trusted GitHub actor allowlist.
+- Replies are at-least-once until the caller persists them in Friday's own inbox and acknowledges the comment/message. This avoids marking work consumed before Friday has stored it.
 
-The first transport slice adds:
-- Stable task issue markers and create-or-recover by task ID.
-- Recovery restricted to exact Friday task titles and issues created by the repository owner account.
-- Bounded issue-comment read/write with author identity, timestamp, comment ID and URL.
-- Stable task/sequence markers for downstream deduplication.
-- Strict size limits and credential-pattern rejection before outbound network activity.
-- Unit tests for issue create/recovery, comment provenance, sequence markers and secret rejection.
-
-This is transport only. The app-side durable thread journal, explicit owner consent, trusted-actor allowlist, typed envelope parser, WorkManager polling, recovery/acknowledgement and Settings UX remain to be implemented. No phone access or remote control is provided by GitHub issue connectivity alone.
-
-The owner-facing relationship remains You ⇄ Friday. ChatGPT is a bounded collaborator with Friday, not Friday's replacement conversation model. Friday's GitHub token remains encrypted on-device and is never placed in task content.
-
-CI run for the first PR #194 head passed no checks yet; the latest head is `1e0790d0f6a1f9f2071ba0fc5a03ebea31a5bffd` and its validation run is https://github.com/mhw77655-hue/Friday/actions/runs/46064939450 (queued at this checkpoint). Keep PR #194 draft until the full app-side relay is implemented and tests pass.
+Still missing: Settings UI for relay consent and trusted actor, WorkManager polling/reconnect, direct wiring into `LocalTaskInbox`, message presentation, end-to-end device test and physical handset acceptance. The relay is not yet active in the installed app. PR #194 remains draft; latest code must pass its current CI run before further integration.
