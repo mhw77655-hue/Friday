@@ -132,9 +132,9 @@ class ChatGPTPlanAuth(
             val token = exchangeAuthorizationCode(code, issuedClientId, verifier, redirectUri, oidc.getString("token_endpoint"))
             require(token.optString("token_type").equals("Bearer", ignoreCase = true)) { "OpenAI returned an unsupported token type." }
             val scopes = token.optString("scope").split(' ').filter { it.isNotBlank() }.toSet()
-            require(REQUIRED_SCOPE in scopes) {
-                "ChatGPT plan usage was not authorized. Sign in again and grant the ChatGPT plan permission."
-            }
+            // Identity sign-in and ChatGPT plan usage are separate grants.
+            // Preserve a verified identity-only session so Settings can show
+            // the actual state and let the owner explicitly re-authorize plan use.
             val idToken = token.getString("id_token")
             val claims = verifyIdToken(idToken, issuedClientId, nonce, oidc.getString("jwks_uri"))
             val subject = claims.getString("sub")
@@ -157,7 +157,11 @@ class ChatGPTPlanAuth(
                     modelSlug = existing?.modelSlug
                 )
             )
-            "Connected to ChatGPT plan usage for ${claims.optString("email").ifBlank { "your authorized account" }}."
+            if (REQUIRED_SCOPE in scopes) {
+                "Connected to ChatGPT plan usage for ${claims.optString("email").ifBlank { "your authorized account" }}."
+            } else {
+                "Signed in to ChatGPT as ${claims.optString("email").ifBlank { "your account" }}, but plan usage was not authorized. Reconnect and choose Use your ChatGPT plan to enable AI requests."
+            }
         } finally {
             runCatching { server.close() }
         }
@@ -242,6 +246,10 @@ class ChatGPTPlanAuth(
         }
     }
 
+    /** True when a verified ChatGPT identity is stored, even without plan-use consent. */
+    fun isSignedIn(): Boolean = credentials.read()?.subject?.isNotBlank() == true
+
+    /** True only when OpenAI granted the optional direct ChatGPT-plan usage scope. */
     fun isConnected(): Boolean = credentials.read()?.let { REQUIRED_SCOPE in it.scopes } == true
     fun accountLabel(): String = credentials.read()?.email
         ?: credentials.readRegistration()?.email
