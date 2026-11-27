@@ -265,3 +265,36 @@ The handset is not globally dead: the UI, permissions, Shizuku binder, Friday sh
 5. Run physical typed and audible acceptance; diagnostics alone do not prove the user-facing experience.
 
 **Privacy note:** `log.zip` remains in the public repository. The Actions report is redacted on a best-effort basis, but the original raw ZIP is not redacted by this workflow and may contain private system identifiers or other sensitive details. It should be moved to a private location or removed after the investigation if the repository is intended to remain public.
+
+
+
+### 2026-11-27 — Owner clarified the full operating model: local memory, cloud task execution, and app evolution without routine APK replacement
+
+This clarification supersedes any assumption that a local reasoning model is installed or required. The owner explicitly states that there are no models on the phone. Treat Friday as **without an installed local LLM** until a fresh live device report proves otherwise. Cloud reasoning must work without a local model.
+
+Three new controlling work items were opened:
+
+- **Issue #189 — Local-memory / task-scoped Cloud AI:** https://github.com/mhw77655-hue/Friday/issues/189
+  - Friday owns all identity, memory, conversation history and continuity locally.
+  - A local retrieval/task compiler selects only the minimum relevant memory and source artifacts for each cloud task.
+  - Cloud receives an explicit work order and bounded evidence, not the entire conversation or memory.
+  - Results return as structured task outputs; Friday validates, stores and decides what becomes memory.
+  - Multi-step jobs use compact checkpoints, stable artifact references, hashes and provider caching where supported. No claim that caching makes input free.
+  - Must support Cloud AI with no on-device model installed.
+
+- **Issue #190 — Update-without-reinstall evolution runtime:** https://github.com/mhw77655-hue/Friday/issues/190
+  - Stable Android host/kernel plus signed, versioned evolution packages for declarative UI, workflows, task definitions, capability manifests, resources and sandboxed interpreted modules.
+  - Atomic activation, last-known-good rollback, compatibility checks, signatures, key rotation, audit, staged rollout and explicit capability grants.
+  - Minimize bandwidth through content-addressed artifacts, delta/chunk delivery, compression, deduplication, resume and Wi-Fi/metered-data controls.
+  - Most substantial feature and experience changes should not need a complete APK reinstall when the installed host already contains the required runtime primitives.
+  - Be explicit: native Android code, manifest permissions or new platform integrations that the host does not contain still require a signed host update. Do not evade Android or Play restrictions by downloading DEX/JAR/native code outside approved distribution. See official Android and Play references in Issue #190.
+
+Related existing work:
+- #186: ChatGPT plan as an explicit opt-in provider for normal conversation.
+- #188: secure, live, read-only inspection bridge from the actual phone to ChatGPT Cloud.
+- #189: task-scoped cloud reasoning with local memory ownership.
+- #190: remote evolution without routine host APK replacement.
+
+The intended system is now explicit: Friday compiles a task locally, sends only necessary context to cloud reasoning, receives a result, validates it locally, and evolves through signed compatible packages. Cloud AI is a worker, not the owner of Friday's memory. GitHub is the engineering collaboration and artifact ledger. The phone remains the trust and identity boundary.
+
+**No new physical-device capability is claimed by opening these issues.** They are architecture requirements and implementation work, not delivered features.
