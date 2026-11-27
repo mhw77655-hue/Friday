@@ -1,6 +1,5 @@
 package ai.friday.assistant.github.reporting
 
-import java.io.File
 import java.nio.file.Files
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
@@ -33,7 +32,7 @@ class FridayAgentTaskRelayTest {
             assertEquals(1L, first.claimOutgoingSequence(taskId))
 
             val reopened = AgentTaskThreadStore(directory)
-            assertEquals(2L, reopened.get(taskId)?.nextOutgoingSequence)
+            assertEquals(2L, reopened.get(taskId)!!.nextOutgoingSequence)
             reopened.acknowledge(taskId, 9001L, "$taskId:in:1")
 
             val recovered = AgentTaskThreadStore(directory).get(taskId)
