@@ -1,6 +1,7 @@
 package ai.friday.assistant.github.reporting
 
 import android.content.Context
+import ai.friday.assistant.FridayEngine
 import ai.friday.assistant.inbox.InboxTask
 import ai.friday.assistant.inbox.LocalTaskInbox
 import java.security.MessageDigest
@@ -13,7 +14,7 @@ import java.security.MessageDigest
 class AgentTaskReplyInboxBridge private constructor(
     private val inbox: LocalTaskInbox
 ) {
-    constructor(context: Context) : this(LocalTaskInbox.create(context))
+    constructor(context: Context) : this(FridayEngine.taskInbox ?: LocalTaskInbox.create(context))
     suspend fun import(reply: StoredAgentTaskReply): InboxTask {
         require(reply.envelope.dataClassification == "public") {
             "Only public-classified GitHub replies may enter this inbox bridge."
