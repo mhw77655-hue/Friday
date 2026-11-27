@@ -5,6 +5,7 @@ import android.util.Log
 import ai.friday.assistant.FridayEngine
 import ai.friday.assistant.humancore.store.FileStorage
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
@@ -49,10 +50,18 @@ class LocalTaskInbox(
 
     private val _failedTasks = MutableStateFlow<List<InboxTask>>(emptyList())
     val failedTasks = _failedTasks.asStateFlow()
+    private val initialLoad = CompletableDeferred<Unit>()
+    @Volatile private var initialLoadFailure: Exception? = null
 
     init {
         inboxDir.mkdirs()
-        scope.launch { loadTasks() }
+        scope.launch {
+            try {
+                loadTasks()
+            } finally {
+                initialLoad.complete(Unit)
+            }
+        }
     }
 
     /** UI-friendly observe method returning LiveData of TaskEntry */
@@ -98,6 +107,10 @@ class LocalTaskInbox(
         arguments: Map<String, Any>,
         requiresApproval: Boolean = true
     ): InboxTask = withContext(Dispatchers.IO) {
+        initialLoad.await()
+        initialLoadFailure?.let {
+            throw IOException("Cannot safely deduplicate an external proposal because the existing inbox did not load.", it)
+        }
         require(id.matches(Regex("[A-Za-z0-9._:-]{8,160}"))) { "Stable task ID is malformed." }
         mutationMutex.withLock {
             _tasks.value.firstOrNull { it.id == id }?.let { existing ->
@@ -328,6 +341,7 @@ class LocalTaskInbox(
                 refreshDerivedFlows()
             }
         } catch (failure: Exception) {
+            initialLoadFailure = failure
             Log.e("LocalTaskInbox", "Could not load or reconcile the persisted task inbox", failure)
         }
     }
