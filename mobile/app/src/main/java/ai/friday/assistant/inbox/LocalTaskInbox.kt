@@ -340,6 +340,12 @@ class LocalTaskInbox(
             fileStorage = FileStorage(FridayEngine.appContext().filesDir),
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + inboxExceptionHandler)
         )
+
+        /** Worker-safe factory that does not depend on the activity/engine singleton being initialized. */
+        fun create(context: android.content.Context): LocalTaskInbox = LocalTaskInbox(
+            fileStorage = FileStorage(context.applicationContext.filesDir),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + inboxExceptionHandler)
+        )
     }
 }
 
