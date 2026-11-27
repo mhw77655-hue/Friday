@@ -1,0 +1,183 @@
+name: Analyze uploaded Friday and Shizuku device logs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "log.zip"
+      - ".github/workflows/analyze-device-logs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: device-log-analysis
+  cancel-in-progress: false
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Inspect archive and produce a privacy-filtered diagnostic
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import collections, datetime, io, os, re, zipfile
+          from pathlib import PurePosixPath
+
+          archive = "log.zip"
+          if not os.path.isfile(archive):
+              raise SystemExit("log.zip is missing from the checked-out commit")
+          if os.path.getsize(archive) > 50 * 1024 * 1024:
+              raise SystemExit("Archive exceeds 50 MiB safety limit")
+
+          findings = []
+          inventory = []
+          source_stats = collections.defaultdict(collections.Counter)
+          total_uncompressed = 0
+          max_total = 200 * 1024 * 1024
+          max_member = 40 * 1024 * 1024
+          max_entries = 3000
+          max_findings = 260
+
+          patterns = [
+              ("FATAL", re.compile(r"FATAL EXCEPTION|Fatal signal|SIGABRT|SIGSEGV|tombstone", re.I)),
+              ("CRASH", re.compile(r"AndroidRuntime|Process .* has died|am_crash|crash_dump|uncaught exception", re.I)),
+              ("ANR", re.compile(r"\bANR\b|Application Not Responding|am_anr|Input dispatching timed out", re.I)),
+              ("PERMISSION", re.compile(r"Permission Denial|SecurityException|not allowed|permission.*denied|denied.*permission", re.I)),
+              ("SHIZUKU", re.compile(r"shizuku|rikka|binder.*death|dead object|transact.*fail", re.I)),
+              ("FRIDAY", re.compile(r"ai\.friday|FridayEngine|BodyCoordinator|TurnPathAssembly|ResidentModel|InferenceService|friday", re.I)),
+              ("MODEL", re.compile(r"GGUF|llama|model.*(load|download|fail|ready)|download.*(fail|retry)|MODEL_READY", re.I)),
+              ("VOICE", re.compile(r"AudioRecord|AudioTrack|SpeechRecognizer|TextToSpeech|TTS|microphone|recognition|audio focus|wav", re.I)),
+              ("LIFECYCLE", re.compile(r"force.stop|force-stop|START.*(PROC|SERVICE)|Killing .* process|onCreate|onStartCommand|BOOT_COMPLETED|WorkManager", re.I)),
+              ("RESOURCE", re.compile(r"OutOfMemory|low memory|lmkd|lowmemorykiller|ENOSPC|No space left|SQLiteFullException", re.I)),
+              ("FAILURE", re.compile(r"\b(error|failed|failure|exception|timeout|timed out|unavailable|not configured)\b", re.I)),
+          ]
+          redact = [
+              (re.compile(r"(?i)(authorization\s*[:=]\s*bearer\s+)[A-Za-z0-9._~+/-]+=*"), r"\1[REDACTED]"),
+              (re.compile(r"(?i)((?:access[_-]?token|refresh[_-]?token|api[_-]?key|password|passwd|secret)\s*[=:]\s*)[^\s,;]+"), r"\1[REDACTED]"),
+              (re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.I), "[EMAIL]"),
+              (re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b"), "[IP]"),
+              (re.compile(r"(?i)(serial(?:no)?|android[_ -]?id|device[_ -]?id|imei|imsi)\s*[:=]\s*[^\s,;]+"), r"\1=[DEVICE_ID]"),
+          ]
+
+          def clean(s):
+              for rx, repl in redact:
+                  s = rx.sub(repl, s)
+              s = re.sub(r"/data/(?:user|user_de|data)/\d+/[^\s:]+", "[APP_PRIVATE_PATH]", s)
+              return s[:900]
+
+          def inspect_zip(zf, prefix="", depth=0):
+              nonlocal_dummy = None
+              global total_uncompressed
+              infos = zf.infolist()
+              if len(inventory) + len(infos) > max_entries:
+                  findings.append(("SAFETY", "Archive entry limit reached; remaining entries skipped"))
+                  infos = infos[:max(0, max_entries-len(inventory))]
+              for info in infos:
+                  name = info.filename
+                  pp = PurePosixPath(name)
+                  if pp.is_absolute() or ".." in pp.parts or "\\" in name:
+                      findings.append(("SAFETY", "Rejected unsafe archive path"))
+                      continue
+                  if info.is_dir():
+                      continue
+                  total_uncompressed += info.file_size
+                  if info.file_size > max_member or total_uncompressed > max_total:
+                      findings.append(("SAFETY", "Skipped oversized archive member: " + clean(name)))
+                      continue
+                  inventory.append((prefix + name, info.file_size))
+                  ext = PurePosixPath(name).suffix.lower()
+                  if ext == ".zip" and depth < 2:
+                      try:
+                          nested = zf.read(info)
+                          with zipfile.ZipFile(io.BytesIO(nested)) as nz:
+                              inspect_zip(nz, prefix + name + "!/", depth + 1)
+                      except Exception:
+                          findings.append(("ARCHIVE", "Could not inspect nested ZIP: " + clean(name)))
+                      continue
+                  if ext not in {".txt",".log",".json",".xml",".csv",".html",".htm",".out",".err",".md"} and not any(k in name.lower() for k in ("logcat","diagnostic","report","shizuku","friday")):
+                      continue
+                  try:
+                      raw = zf.read(info)
+                      if b"\x00" in raw[:4096]:
+                          continue
+                      text = raw.decode("utf-8", errors="replace")
+                  except Exception:
+                      continue
+                  label = prefix + name
+                  lines = text.splitlines()
+                  source_stats[label]["lines"] += len(lines)
+                  source_stats[label]["bytes"] += len(raw)
+                  for lineno, line in enumerate(lines, 1):
+                      tags = [tag for tag, rx in patterns if rx.search(line)]
+                      if not tags:
+                          continue
+                      # Exclude lines that merely contain the app name unless they carry diagnostic signal.
+                      if tags == ["FRIDAY"] and not re.search(r"error|fail|warn|start|stop|ready|crash|exception|timeout|denied", line, re.I):
+                          continue
+                      findings.append((",".join(tags), f"{label}:{lineno}: {clean(line)}"))
+
+          try:
+              with zipfile.ZipFile(archive) as z:
+                  bad = z.testzip()
+                  if bad:
+                      raise SystemExit("ZIP integrity check failed")
+                  inspect_zip(z)
+          except zipfile.BadZipFile:
+              raise SystemExit("log.zip is not a valid ZIP archive")
+
+          summary = []
+          summary.append("# Friday + Shizuku device-log analysis")
+          summary.append("")
+          summary.append(f"- Archive: `log.zip` ({os.path.getsize(archive):,} bytes)")
+          summary.append(f"- Extracted inventory entries: {len(inventory)}")
+          summary.append(f"- Total uncompressed bytes inspected: {total_uncompressed:,}")
+          summary.append(f"- Text sources parsed: {len(source_stats)}")
+          summary.append("")
+          summary.append("## Archive inventory")
+          for name, size in inventory[:300]:
+              summary.append(f"- `{clean(name)}` — {size:,} bytes")
+          if len(inventory) > 300:
+              summary.append(f"- … {len(inventory)-300} additional entries omitted")
+          summary.append("")
+          summary.append("## Parsed sources")
+          for name, stats in source_stats.items():
+              summary.append(f"- `{clean(name)}`: {stats['lines']:,} lines, {stats['bytes']:,} bytes")
+          summary.append("")
+          summary.append("## Diagnostic signals (privacy-filtered excerpts)")
+          if not findings:
+              summary.append("No matching diagnostic signals found in recognized text files.")
+          else:
+              # Prioritize fatal/crash/ANR, permissions, Shizuku, Friday/model/voice, then general failures.
+              priority = {"FATAL":0,"CRASH":1,"ANR":2,"PERMISSION":3,"SHIZUKU":4,"FRIDAY":5,"MODEL":6,"VOICE":7,"RESOURCE":8,"LIFECYCLE":9,"FAILURE":10,"SAFETY":11,"ARCHIVE":12}
+              findings.sort(key=lambda x: (min((priority.get(t, 20) for t in x[0].split(",")), default=20)))
+              seen = set()
+              emitted = 0
+              for category, detail in findings:
+                  key = (category, detail)
+                  if key in seen:
+                      continue
+                  seen.add(key)
+                  summary.append(f"- **{category}** — {detail}")
+                  emitted += 1
+                  if emitted >= max_findings:
+                      break
+              if len(seen) > emitted:
+                  summary.append(f"- {len(seen)-emitted} additional matching lines omitted from this summary")
+          summary.append("")
+          summary.append("## Interpretation limits")
+          summary.append("This is a static scan of the uploaded archive. Correlation and root-cause claims require checking timestamps, process IDs, component state transitions and the surrounding lines. Redaction is best-effort; the raw archive is not copied into the report.")
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "w", encoding="utf-8") as f:
+              f.write("\n".join(summary) + "\n")
+          print("Archive integrity: OK")
+          print(f"Entries: {len(inventory)}; text sources parsed: {len(source_stats)}; diagnostic matches: {len(findings)}")
+          print("Privacy-filtered report written to the GitHub Actions job summary; raw log contents were not printed.")
+          PY
