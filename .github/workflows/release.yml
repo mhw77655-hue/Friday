@@ -265,6 +265,8 @@ jobs:
       - name: Publish the signed release
         id: publish
         if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'true' && steps.changes.outputs.release_needed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.FRIDAY_RELEASE_PUBLISH_TOKEN || github.token }}
         run: |
           set -euo pipefail
           TAG="friday-v$FRIDAY_VERSION_NAME"
