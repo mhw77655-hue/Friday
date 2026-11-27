@@ -70,13 +70,17 @@ class ChatGPTTaskWorker(
         /** Stable digest binds approval to the exact context projection, not just its task ID. */
         fun projectionDigest(): String {
             val canonical = buildString {
-                append(taskId).append('\n')
-                append(goal).append('\n')
-                append(instructions).append('\n')
-                append(context).append('\n')
-                append(sourceRevision).append('\n')
-                acceptanceCriteria.forEach { append(it).append('\n') }
-                append(classification.name).append('\n')
+                // Length-prefix every text field so embedded newlines or separators
+                // cannot make two different projections share the same encoding.
+                fun field(value: String) { append(value.length).append(':').append(value) }
+                field(taskId)
+                field(goal)
+                field(instructions)
+                field(context)
+                field(sourceRevision)
+                append(acceptanceCriteria.size).append(':')
+                acceptanceCriteria.forEach(::field)
+                field(classification.name)
                 append(expiresAtEpochMs)
             }
             return sha256(canonical)
@@ -216,7 +220,12 @@ class ChatGPTTaskWorker(
             val response = event.optJSONObject("response")
             response?.optString("id")?.takeIf { it.isNotBlank() }?.let { responseId = it }
             when (event.optString("type")) {
-                "response.output_text.delta" -> output.append(event.optString("delta"))
+                "response.output_text.delta" -> {
+                    output.append(event.optString("delta"))
+                    if (output.length > MAX_OUTPUT_CHARS) {
+                        throw IOException("ChatGPT task output exceeded the response size limit.")
+                    }
+                }
                 "response.completed" -> {
                     completed = true
                     responseId = response?.optString("id")?.takeIf { it.isNotBlank() } ?: responseId
@@ -241,6 +250,7 @@ class ChatGPTTaskWorker(
     companion object {
         const val API_BASE_URL = "https://api.openai.com/v1"
         const val MAX_CONTEXT_CHARS = 24_000
+        const val MAX_OUTPUT_CHARS = 48_000
         const val MAX_APPROVAL_LIFETIME_MS = 24 * 60 * 60 * 1000L
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
     }
@@ -254,10 +264,10 @@ class ChatGPTTaskApprovalStore(context: Context) {
 
     @Synchronized
     fun approve(taskId: String, projectionDigest: String, expiresAtEpochMs: Long) {
-        prefs.edit()
+        check(prefs.edit()
             .putString(key(taskId), projectionDigest)
             .putLong(expiryKey(taskId), expiresAtEpochMs)
-            .commit()
+            .commit()) { "Could not durably save the one-shot ChatGPT task approval." }
     }
 
     @Synchronized
@@ -271,7 +281,9 @@ class ChatGPTTaskApprovalStore(context: Context) {
             expiry > now
         // Consume even on a mismatch: a stale approval cannot be replayed against
         // a changed projection. A fresh owner confirmation is required.
-        prefs.edit().remove(key).remove(expiryKey).commit()
+        check(prefs.edit().remove(key).remove(expiryKey).commit()) {
+            "Could not durably consume the one-shot ChatGPT task approval; request was not sent."
+        }
         return valid
     }
 
