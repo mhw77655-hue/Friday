@@ -246,7 +246,7 @@ class ChatGPTTaskWorker(
     }
 }
 
-private class ChatGPTTaskApprovalStore(context: Context) {
+class ChatGPTTaskApprovalStore(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences(
         "friday_chatgpt_task_approvals",
         Context.MODE_PRIVATE
