@@ -110,7 +110,7 @@ jobs:
           else
             echo "current=false" >> "$GITHUB_OUTPUT"
             echo "Skipping build $TARGET_SHA because Android product/build inputs changed after it:"
-            printf '%s\\n' "$PRODUCT_CHANGES"
+            printf '%s\n' "$PRODUCT_CHANGES"
           fi
 
       - name: Set up JDK 17
