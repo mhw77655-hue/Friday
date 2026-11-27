@@ -473,7 +473,7 @@ PR #185 (Settings/glass/AMOLED and ChatGPT identity-vs-plan consent UX) merged: 
 
 PR #193 (isolated inference Messenger lifecycle race) merged: `3212211c915644e2ceb2f8e524baaee4dad644b4`. Exact-head CI run #46065644117 passed debug and release-variant builds, Android lint, all six JVM shards, whole-repository source audit and disposable-emulator instrumentation. The handler now snapshots Message-owned state before asynchronous dispatch; the numeric operation/request ID is retained in diagnostics.
 
-Combined main validation run #46067087494 is in progress. Release workflow #609 is building the earlier PR #185-only commit `c77a5e9`; it does not contain the Messenger repair and is not the release to install. The combined release follows the current main build.
+Combined main validation run #46067087494 is in progress. Release `friday-v1.0.609` has now published from the earlier PR #185-only commit `c77a5e9`; it does not contain the Messenger repair and is not the release to install. Its APK SHA-256 is `d67ecde02bb6ffb7cb0e373bc28a373449133794ea83a467febdc1662d42c913`. The combined main build #46067087494 is still in progress; the combined signed release follows it.
 
 Handset truth remains unchanged: the uploaded diagnostics report 1.0.601 installed; no local model is installed or required; ModelManager defaults to the model-free HEURISTIC provider. The optional isolated inference tier is repaired at source/CI level, but the physical handset has not yet been retested. Do not uninstall Friday or clear its data. The owner should install only the combined same-signer release in-place once published, then export a fresh redacted diagnostic bundle.
 
