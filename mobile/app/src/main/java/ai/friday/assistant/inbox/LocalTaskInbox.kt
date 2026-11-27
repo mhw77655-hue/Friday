@@ -100,7 +100,15 @@ class LocalTaskInbox(
     ): InboxTask = withContext(Dispatchers.IO) {
         require(id.matches(Regex("[A-Za-z0-9._:-]{8,160}"))) { "Stable task ID is malformed." }
         mutationMutex.withLock {
-            _tasks.value.firstOrNull { it.id == id }?.let { return@withLock it }
+            _tasks.value.firstOrNull { it.id == id }?.let { existing ->
+                require(
+                    existing.source == source &&
+                        existing.capability == capability &&
+                        existing.arguments == arguments &&
+                        existing.requiresApproval == requiresApproval
+                ) { "Stable task ID is already bound to different proposal content." }
+                return@withLock existing
+            }
             val task = InboxTask(
                 id = id,
                 source = source,
