@@ -10,10 +10,10 @@ import java.security.MessageDigest
  * local task inbox as a proposal requiring owner approval. Stable IDs make the
  * bridge safe to replay after a crash between local persistence and GitHub ack.
  */
-class AgentTaskReplyInboxBridge(
-    context: Context,
-    private val inbox: LocalTaskInbox = LocalTaskInbox.create(context)
+class AgentTaskReplyInboxBridge private constructor(
+    private val inbox: LocalTaskInbox
 ) {
+    constructor(context: Context) : this(LocalTaskInbox.create(context))
     suspend fun import(reply: StoredAgentTaskReply): InboxTask {
         require(reply.envelope.dataClassification == "public") {
             "Only public-classified GitHub replies may enter this inbox bridge."
@@ -43,6 +43,8 @@ class AgentTaskReplyInboxBridge(
     }
 
     companion object {
+        internal fun withInbox(inbox: LocalTaskInbox) = AgentTaskReplyInboxBridge(inbox)
+
         private fun sha256(value: String): String =
             MessageDigest.getInstance("SHA-256")
                 .digest(value.toByteArray(Charsets.UTF_8))
