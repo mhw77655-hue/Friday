@@ -603,3 +603,8 @@ Complete exact-head CI for the profile-aware sandbox branch. If it passes, revie
 - No live installed-app Builder task has yet been observed completing a real failed candidate -> candidate-specific REA -> bounded repair -> new candidate -> independent verification cycle.
 - No physical handset Shizuku daemon survival, Binder-death, reboot or force-stop result is claimed. The existing Shizuku acceptance runner must be exercised on the owner's device; emulator results are not substitutes.
 
+### 2026-11-27 — PR #180 instrumentation compile correction
+
+- The first PR-head validation, run [#3635](https://github.com/mhw77655-hue/Friday/actions/runs/45910751399), failed before emulator boot because the instrumentation test imported unavailable Compose extension `assertExists`.
+- Commit [`137511e`](https://github.com/mhw77655-hue/Friday/commit/137511e0ab7cb5df0c9bcd546c846253874f8d92) removes that unsupported import and the redundant terminal assertion; the test already waits for the exact completion label with `waitUntil`.
+- This is a test-source correction only. GitHub currently reports no check runs for the corrected head, so PR #180 remains unverified and unmerged until fresh exact-head CI completes.
