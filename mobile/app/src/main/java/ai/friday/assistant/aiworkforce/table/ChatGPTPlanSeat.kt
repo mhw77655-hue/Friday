@@ -80,7 +80,7 @@ class ChatGPTPlanSeat(
         http.newCall(request).execute().use { response ->
             if (!response.isSuccessful) {
                 val detail = response.body?.string().orEmpty().take(500)
-                error("ChatGPT inference test failed (HTTP \${response.code}): \${detail.ifBlank { "No error detail returned." }}")
+                error("ChatGPT inference test failed (HTTP ${response.code}): ${detail.ifBlank { "No error detail returned." }}")
             }
             val source = response.body?.source() ?: error("ChatGPT returned an empty response stream.")
             val output = StringBuilder()
@@ -106,7 +106,7 @@ class ChatGPTPlanSeat(
             }
             if (failure != null) error(failure!!)
             if (!completed || output.isBlank()) error("ChatGPT did not complete a non-empty test response.")
-            "ChatGPT plan inference verified · \${model.second} · \${output.toString().trim().take(120)}"
+            "ChatGPT plan inference verified · ${model.second} · ${output.toString().trim().take(120)}"
         }
     }
 
