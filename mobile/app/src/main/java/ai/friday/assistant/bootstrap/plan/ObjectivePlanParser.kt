@@ -15,7 +15,7 @@ object ObjectivePlanParser {
         val exitEvidence: String
     )
 
-    private val phaseHeading = Regex("^### Phase ([0-7])\\s+[—-]\\s*(.+)$")
+    private val phaseHeading = Regex("^### Phase ([0-8])\\s+[—-]\\s*(.+)$")
 
     fun parse(markdown: String): List<Objective> {
         require(markdown.isNotBlank()) { "The canonical objectives plan is empty." }
@@ -32,29 +32,28 @@ object ObjectivePlanParser {
         }
     }
 
-
     /**
-     * Objective 1 is explicitly an eight-phase gate (0 through 7).
-     * Preserve the plan's actual wording and exit evidence; never invent
-     * dependencies or infer acceptance from a heading existing.
+     * Parse the chronological delivery roadmap. The roadmap—not an obsolete
+     * nested "Objective 1" section—is the canonical source of Phase 0 through
+     * Phase 8. Exit gates are retained verbatim as the phase acceptance evidence.
      */
     fun parseObjectiveOnePhases(markdown: String): List<Phase> {
         val lines = markdown.lines()
-        val objectiveStart = lines.indexOfFirst {
-            it.trim().startsWith("## Objective A / Objective 1")
+        val roadmapStart = lines.indexOfFirst {
+            it.trim().startsWith("## 8. Chronological delivery roadmap")
         }
-        require(objectiveStart >= 0) { "Objective 1 phase section was not found." }
-        val objectiveEnd = (objectiveStart + 1 until lines.size).firstOrNull {
-            lines[it].startsWith("## ")
+        require(roadmapStart >= 0) { "Canonical chronological delivery roadmap was not found." }
+        val continuousStart = (roadmapStart + 1 until lines.size).firstOrNull {
+            lines[it].trim().startsWith("### Continuous tracks")
         } ?: lines.size
-        val phaseStarts = (objectiveStart + 1 until objectiveEnd).mapNotNull { index ->
+        val phaseStarts = (roadmapStart + 1 until continuousStart).mapNotNull { index ->
             phaseHeading.matchEntire(lines[index].trim())?.let { index to it }
         }
         val phases = phaseStarts.mapIndexed { index, (start, match) ->
-            val end = phaseStarts.getOrNull(index + 1)?.first ?: objectiveEnd
+            val end = phaseStarts.getOrNull(index + 1)?.first ?: continuousStart
             val section = lines.subList(start, end).joinToString("\n").trim()
             val evidence = Regex(
-                "(?is)\\*\\*Exit evidence:\\*\\*\\s*(.*?)(?:\n\n|$)"
+                "(?is)\\*\\*(?:Exit gate|Exit evidence):\\*\\*\\s*(.*?)(?:\\n\\n|$)"
             ).find(section)?.groupValues?.getOrNull(1)?.trim().orEmpty()
             Phase(
                 id = match.groupValues[1].toInt(),
@@ -63,11 +62,11 @@ object ObjectivePlanParser {
                 exitEvidence = evidence
             )
         }
-        require(phases.map { it.id } == (0..7).toList()) {
-            "Objective 1 must contain exactly phases 0 through 7 in canonical order."
+        require(phases.map { it.id } == (0..8).toList()) {
+            "Canonical roadmap must contain exactly phases 0 through 8 in order."
         }
         require(phases.all { it.exitEvidence.isNotBlank() }) {
-            "Every Objective 1 phase must retain its explicit exit evidence."
+            "Every canonical roadmap phase must retain its explicit exit gate."
         }
         return phases
     }

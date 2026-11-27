@@ -21,27 +21,27 @@ class ObjectivePlanParserTest {
     fun `rejects a document without canonical objective headings`() {
         ObjectivePlanParser.parse("# Not the delivery plan")
     }
-    @Test fun `parses all eight Objective 1 phases and preserves exit evidence`() {
-        val sections = (0..7).joinToString("\n\n") { phase ->
-            "### Phase $phase — Gate $phase\n\nWork $phase.\n\n**Exit evidence:** Evidence $phase."
+
+    @Test fun `parses all nine chronological roadmap phases and preserves exit gates`() {
+        val sections = (0..8).joinToString("\n\n") { phase ->
+            "### Phase $phase — Gate $phase\n\nWork $phase.\n\n**Exit gate:** Evidence $phase."
         }
-        val markdown = "## Objective A / Objective 1 — Test\n\n$sections\n\n## Next section"
+        val markdown = "## 8. Chronological delivery roadmap — Test\n\n$sections\n\n### Continuous tracks"
         val phases = ObjectivePlanParser.parseObjectiveOnePhases(markdown)
-        assertEquals((0..7).toList(), phases.map { it.id })
+        assertEquals((0..8).toList(), phases.map { it.id })
         assertEquals("Gate 0", phases.first().title)
         assertEquals("Evidence 0.", phases.first().exitEvidence)
-        assertTrue(ObjectivePlanParser.phasesToJson(phases).getJSONObject(7)
-            .getString("exit_evidence").contains("Evidence 7"))
+        assertTrue(ObjectivePlanParser.phasesToJson(phases).getJSONObject(8)
+            .getString("exit_evidence").contains("Evidence 8"))
     }
 
     @Test(expected = IllegalArgumentException::class)
-    fun `rejects missing Objective 1 phase rather than inventing it`() {
-        val sections = (0..6).joinToString("\n\n") { phase ->
-            "### Phase $phase — Gate $phase\n\n**Exit evidence:** Evidence."
+    fun `rejects a missing roadmap phase rather than inventing it`() {
+        val sections = (0..7).joinToString("\n\n") { phase ->
+            "### Phase $phase — Gate $phase\n\n**Exit gate:** Evidence."
         }
         ObjectivePlanParser.parseObjectiveOnePhases(
-            "## Objective A / Objective 1\n$sections"
+            "## 8. Chronological delivery roadmap\n$sections\n### Continuous tracks"
         )
     }
-
 }
