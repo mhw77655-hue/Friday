@@ -155,6 +155,7 @@ class SettingsScreenInteractionInstrumentedTest {
 
         compose.waitForIdle()
         compose.onNodeWithText("GitHub and advanced development").performScrollTo().performClick()
+        compose.onNodeWithText("GitHub repository and device reporting").performScrollTo().performClick()
         // This control is far below the initial viewport in Settings. Scroll it
         // into the visible viewport before injecting the tap; otherwise the
         // test can target a clipped semantics node without exercising the UI.
@@ -341,6 +342,7 @@ class SettingsScreenInteractionInstrumentedTest {
         compose.onNodeWithText("Friday runtime and capabilities").performScrollTo().performClick()
         compose.onNodeWithText("Personalization and voice").performScrollTo().performClick()
         compose.onNodeWithText("GitHub and advanced development").performScrollTo().performClick()
+        compose.onNodeWithText("GitHub repository and device reporting").performScrollTo().performClick()
         compose.onNodeWithText("Friday updates").performScrollTo().performClick()
         compose.onNodeWithText("Check for Friday updates").assertHasClickAction()
         compose.onNodeWithText("Open battery optimization settings").assertHasClickAction()
