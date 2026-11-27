@@ -528,3 +528,14 @@ Collaboration continues in stacked draft PRs #194 and #195: public-only GitHub t
 - Keep Material 3 as the semantic component/accessibility foundation; evaluate current Material 3 Expressive APIs and update Compose BOM from the stale 2024.09.00 only after dependency compatibility, minSdk 26, Kotlin/AGP, APK size, GPU/memory and screenshot/performance tests. Haze native Android backdrop backend remains experimental; use source-backed rendering as the reliable cross-version path.
 - Next UI work is a full authored design-system pass (materials, layout, typography, navigation, motion, interaction, accessibility, AMOLED true-black hierarchy), not a one-library makeover. Build screenshot/golden comparisons on Home, Conversation, Settings and system/diagnostic screens; owner review before release.
 - No dependency or production code has been changed by this audit. This is an implementation decision and investigation record only.
+
+
+### 2026-11-28 — hybrid AMOLED presence implementation started
+
+- Owner selected the hybrid visual direction; no further design-choice prompt is required.
+- Created branch `feat/hybrid-amoled-presence` from main at `24ca1e5dcbc1afde21b8f3c73afe2bfbee0717f4`.
+- Updated `FridayAvatar.kt` with a low-cost depth field, offset elliptical contours, broken orbital highlights and restrained specular accents. This uses existing Compose drawing primitives and adds no graphics dependency.
+- Added `docs/FRIDAY_HYBRID_AMOLED_PRESENCE.md` to define the actual target, current source truth, phased true-3D renderer integration, adaptive quality contract and acceptance gates.
+- Important honesty boundary: this first source slice is enhanced 2.5D illustration, **not true 3D**. Existing FridayAvatar remains Compose Canvas geometry. Do not call the premium 3D target complete.
+- Filament is not yet integrated. Next engineering step is a pinned-version feasibility prototype with lifecycle-bound rendering, compact PBR topology, thermal/battery adaptation and a fallback; do not add a native rendering dependency to production until APK size and device performance are measured.
+- No physical-device visual or performance validation has occurred. Exact-head CI/build is still required before this slice can be treated as release-ready.

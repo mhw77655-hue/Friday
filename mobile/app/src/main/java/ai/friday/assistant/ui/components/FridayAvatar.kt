@@ -74,6 +74,54 @@ fun FridayAvatar(
     val energy = (0.12f + measuredLevel * 0.88f).coerceIn(0.12f, 1f)
 
     Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
+        // Low-cost depth field: layered radial light and broken orbital contours.
+        // These are deliberately sparse line primitives, not full-screen blur layers.
+        Canvas(Modifier.fillMaxSize()) {
+            val cx = this.size.width * 0.5f
+            val cy = this.size.height * 0.5f
+            val unit = this.size.minDimension
+            val scale = unit / 280f
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0x243D9EC4), Color(0x101D4568), Color.Transparent),
+                    center = Offset(cx - 12f * scale, cy - 18f * scale),
+                    radius = 136f * scale
+                ),
+                radius = 136f * scale,
+                center = Offset(cx - 12f * scale, cy - 18f * scale)
+            )
+            // Offset ellipses create parallax/depth cues without a costly blur.
+            drawOval(
+                color = Color(0x2478DDF2),
+                topLeft = Offset(cx - 104f * scale, cy - 53f * scale),
+                size = androidx.compose.ui.geometry.Size(208f * scale, 106f * scale),
+                style = Stroke(0.7f * scale)
+            )
+            drawOval(
+                color = Color(0x18B6A6FF),
+                topLeft = Offset(cx - 119f * scale, cy - 35f * scale),
+                size = androidx.compose.ui.geometry.Size(238f * scale, 70f * scale),
+                style = Stroke(0.65f * scale)
+            )
+            drawArc(
+                color = Color(0x6678DDF2),
+                startAngle = 204f,
+                sweepAngle = 54f,
+                useCenter = false,
+                topLeft = Offset(cx - 112f * scale, cy - 65f * scale),
+                size = androidx.compose.ui.geometry.Size(224f * scale, 130f * scale),
+                style = Stroke(1.15f * scale, cap = StrokeCap.Round)
+            )
+            drawArc(
+                color = Color(0x55B6A6FF),
+                startAngle = 18f,
+                sweepAngle = 42f,
+                useCenter = false,
+                topLeft = Offset(cx - 122f * scale, cy - 71f * scale),
+                size = androidx.compose.ui.geometry.Size(244f * scale, 142f * scale),
+                style = Stroke(0.9f * scale, cap = StrokeCap.Round)
+            )
+        }
         Canvas(Modifier.fillMaxSize()) {
             val cx = this.size.width * 0.5f
             val cy = this.size.height * 0.5f
@@ -207,6 +255,33 @@ fun FridayAvatar(
             val glintX = 9f * sin(t * 0.61f) + 3f * drift
             val glintY = 11f * cos(t * 0.47f)
             drawCircle(Color.White.copy(alpha = 0.72f), 2.1f * scale, point(glintX, glintY))
+        }
+        // Restrained specular accents sit above the topology, suggesting a
+        // faceted translucent volume while keeping the AMOLED field black.
+        Canvas(Modifier.fillMaxSize()) {
+            val cx = this.size.width * 0.5f
+            val cy = this.size.height * 0.5f
+            val scale = this.size.minDimension / 280f
+            drawArc(
+                brush = Brush.linearGradient(
+                    listOf(Color.White.copy(alpha = 0.32f), Color(0x3378DDF2), Color.Transparent)
+                ),
+                startAngle = 222f,
+                sweepAngle = 38f,
+                useCenter = false,
+                topLeft = Offset(cx - 40f * scale, cy - 42f * scale),
+                size = androidx.compose.ui.geometry.Size(80f * scale, 84f * scale),
+                style = Stroke(1.1f * scale, cap = StrokeCap.Round)
+            )
+            drawCircle(
+                brush = Brush.radialGradient(
+                    listOf(Color.White.copy(alpha = 0.20f), Color.Transparent),
+                    center = Offset(cx - 14f * scale, cy - 19f * scale),
+                    radius = 23f * scale
+                ),
+                radius = 23f * scale,
+                center = Offset(cx - 14f * scale, cy - 19f * scale)
+            )
         }
     }
 }
