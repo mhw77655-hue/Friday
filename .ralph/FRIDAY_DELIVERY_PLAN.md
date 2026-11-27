@@ -645,3 +645,17 @@ After the seed milestone, Friday's lifelong evolution becomes the central contin
 - The earlier PR #180 bullets above are historical and superseded: PR #180 remains unmerged; PR #181 is the accepted replacement.
 - Still unproven: installed Friday Builder -> real failed candidate -> exact-profile sandbox -> candidate-specific REA diagnosis -> bounded repair -> new candidate -> independent verification. Physical handset Shizuku/Binder/process/reboot/force-stop acceptance also remains outstanding.
 - Next engineering priority remains the actual installed-phone seed and its integrated continuity, voice, agency, learning and immune/recovery acceptance. Passing CI is supporting evidence, not a substitute for handset execution.
+
+### 2026-11-27 — execution reset: first installed Friday is the critical path
+
+Owner instruction: **make it exist first; make it good later.** The complete Friday vision remains unchanged. Execution order is corrected: do not delay the first usable installed Friday for broad infrastructure refinement. Prioritize the production Android artifact and its first real handset interaction; improve and expand the complete system through subsequent iterations.
+
+- PR #182 merged to main as `b6e25300003aace4708d446bee8e161d0ce5ed11`. It fixes the ObjectiveExecutionLedgerStore roadmap parser to consume the current canonical Section 8 phases 0–8 and adds tests for the actual nine-phase contract.
+- Main build #3654 for that exact commit: six JVM shards, aggregate JVM evidence, Python build-contract checks, canonical-plan parity, and whole-repository source audit passed. Debug APK assembly and upload completed. The artifact is explicitly an **unverified candidate**, not a promoted installable release.
+- At this log update, the disposable Android emulator acceptance job is still booting/running, and the release-variant verification step is still running. Do not report build #3654 green until every required job completes successfully.
+- After the build passes, use the signed-release workflow on the exact same main SHA and verify the permanent signing certificate, APK digest, application identity and embedded source revision. Do not substitute the debug candidate or disposable CI key for the production signing identity.
+- The next acceptance gate is the first real handset installation and interaction: launch Friday, complete first-run setup, submit a typed turn through the production cognitive path, verify an actual configured inference response, persist continuity, restart and recover it, then exercise the already-planned Shizuku/device capability path. Physical-device evidence must be recorded separately from emulator/CI evidence.
+- Keep the existing owner-directed Android recovery design in execution; do not reopen previously settled design discussion as a substitute for implementing and validating it.
+- No additional broad refactor is on the critical path unless it blocks building, installing, starting, communicating with, preserving continuity for, or recovering the first Friday.
+
+**Current next action:** finish build #3654, then publish the exact-revision production-signed APK and move directly to handset acceptance. The complete vision continues in parallel only where it does not delay this gate.
