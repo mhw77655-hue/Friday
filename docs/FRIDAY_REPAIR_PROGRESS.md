@@ -142,3 +142,33 @@ This entry supersedes any earlier statement that release publication is still bl
 - After evidence arrives, fix actual runtime/cognitive/provider blockers, rebuild/sign/update, and test typed response plus audible voice end-to-end. CI/emulator success remains distinct from physical-device acceptance.
 
 **Current weighted estimate for the narrow objective (repair the already-installed Friday 1.0.510 and reach a real voice conversation): 35% engineering/delivery preparation complete; 65% remains.** Physical handset acceptance itself remains 0% proven. This is a subjective weighted engineering estimate, not a measured test metric. It is not a completion estimate for the whole living-Friday vision.
+
+
+
+### 2026-11-27 — resumed production-path audit: model bootstrap is a material capability gate
+
+Re-opened the current main source after the 1.0.601 release and traced the Android composition root, production turn assembly, model manager, resident-model worker and BodyCoordinator.
+
+**Confirmed source facts**
+- `TurnPathAssembly.assemble()` constructs `CloudModelRouter(emptyList())`. The repository explicitly treats this as "none configured today"; the cloud router returns "No cloud providers are configured." There is no hidden cloud fallback in this production composition.
+- The packaged `capability_manifest.json` explicitly reports `cloud_reasoning_provider_configured=false` and `offline_model_installed_and_loaded=false`. Its semantics correctly distinguish source-wired code from installed/configured runtime capability.
+- The Android production inference path is process-isolated through `ProcessIsolatedModelBackend` and `:inference`; it requires a real GGUF file in Friday's private model storage and a successful resource-admitted load. Native libraries alone do not provide a reasoning model.
+- `FridayEngine` enqueues `ResidentModelBootstrapWorker` only after the complete composition root is published and the readiness gate is marked ready. The worker waits for the matching current-build host report, checks native inference availability, chooses a pinned resident candidate using live resource admission, verifies the downloaded/installed file, requests the resident model and records `MODEL_READY` only after a successful load.
+- The initial WorkManager request itself is unconstrained so an already-installed model can load offline. However, when weights are absent, the worker's own `isSafeToDownload()` gate requires an unmetered network and charging, with storage/battery safety checks. Until those conditions occur and the model loads, arbitrary local reasoning is not available.
+- The production turn pipeline explicitly receives `modelAvailable` and a model-free seed reply function. Therefore a missing model should be represented as degraded capability, not mistaken for proof that the entire app or voice transport is dead. The physical UI/turn outcome still needs device evidence.
+- BodyCoordinator's typed text and final STT transcript converge on the same serialized input queue and ordinary cognition route. Phone-action interception is upstream of the same normal response path. The previously fixed STT/WAV defects remain merged in PR #183.
+
+**What this does and does not establish**
+- It establishes a concrete reason Friday 1.0.510 may feel unintelligent even if the UI and transport are alive: the original APK manifest advertised no installed model and no configured cloud reasoning, and the current architecture still requires successful private model bootstrap for broad offline reasoning.
+- It does NOT prove the actual handset lacks a downloaded model today, that the bootstrap worker failed, or that this is the only reason the owner describes the app as dead. Only the device report can establish private storage, worker state, model load, permissions, process exits and actual turn failures.
+- No speculative cloud provider, fake model-ready state, or automatic credential collection was added. A cloud path must be a real provider with explicit user-controlled configuration and secure credentials; the local model path must be verified by digest, integrity, admission and live inference.
+
+**Next engineering sequence**
+1. Obtain the redacted `friday-device-report-v2` from Friday 1.0.601, or bounded filtered logcat if the app cannot export it.
+2. Compare the report's engine readiness, host-bootstrap report, resident-model bootstrap state, model file inventory/digests, inference service health, provider health, BodyCoordinator/LatencyLayer turn trace, voice state, permissions and Shizuku state.
+3. Fix the first evidenced failure in the production path, add a regression test, run the full exact-head CI suite, then publish a same-signer in-place update.
+4. Acceptance remains physical: typed prompt → non-empty production answer → persisted turn; then microphone → final STT transcript → same turn → actual reasoning provider → synthesized audio → audible output → interruption → idle.
+
+**Release verification refresh:** GitHub release API re-confirmed `friday-v1.0.601`, target commit `399a97e0cfc290c61447c697bf0d5fce7e6aff39`, APK asset `app-release.apk`, 129,721,072 bytes, digest `sha256:f838f8542acbcb0792a7fcb3fc8c683f0447f497767496baa1b767a85bbdacf3`; metadata and checksum assets are also published. This is still not evidence that the owner installed it.
+
+The narrow repair objective remains **35% engineering/delivery preparation complete; physical handset acceptance 0% proven**. The source audit improves diagnosis but does not substitute for the missing handset report or acceptance.
