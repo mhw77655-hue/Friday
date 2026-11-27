@@ -173,6 +173,46 @@ jobs:
                       break
               if len(seen) > emitted:
                   summary.append(f"- {len(seen)-emitted} additional matching lines omitted from this summary")
+          # Focused cross-source pass: structured Friday report + exact package/service log timeline.
+          import json
+          target = []
+          with zipfile.ZipFile(archive) as outer:
+              try:
+                  report_obj = json.loads(outer.read("friday-device-report.json").decode("utf-8", errors="replace"))
+                  summary.append("")
+                  summary.append("## Structured Friday diagnostic fields")
+                  def walk(value, path=()):
+                      if isinstance(value, dict):
+                          for key, child in value.items():
+                              walk(child, path + (str(key),))
+                      elif isinstance(value, list):
+                          for index, child in enumerate(value[:100]):
+                              walk(child, path + (str(index),))
+                      else:
+                          keypath = ".".join(path)
+                          relevant = re.search(r"friday|shizuku|model|inference|voice|speech|audio|microphone|permission|readiness|engine|crash|exit|anr|error|warning|capability|bootstrap|turn|storage|battery|memory|process|provider|network|service|version|package", keypath, re.I)
+                          if relevant:
+                              value_text = clean(str(value))
+                              summary.append(f"- `{clean(keypath)}`: {value_text[:1800]}")
+                  walk(report_obj)
+              except Exception as exc:
+                  summary.append("Could not parse structured Friday JSON report: " + clean(str(exc)))
+              try:
+                  nested_bytes = outer.read("20261127-204358-device.zip")
+                  with zipfile.ZipFile(io.BytesIO(nested_bytes)) as inner:
+                      log_name = next(n for n in inner.namelist() if n.endswith(".log"))
+                      log_lines = inner.read(log_name).decode("utf-8", errors="replace").splitlines()
+                      summary.append("")
+                      summary.append("## Exact Friday / Shizuku service timeline")
+                      for number, line in enumerate(log_lines, 1):
+                          if re.search(r"ai\\.friday\\.assistant|FridayShellService|ShizukuServiceStarter", line, re.I):
+                              target.append((number, line))
+                      for number, line in target[:240]:
+                          summary.append(f"- {number}: {clean(line)}")
+                      if len(target) > 240:
+                          summary.append(f"- {len(target)-240} additional matching package/service lines omitted")
+              except Exception as exc:
+                  summary.append("Could not inspect nested device log: " + clean(str(exc)))
           summary.append("")
           summary.append("## Interpretation limits")
           summary.append("This is a static scan of the uploaded archive. Correlation and root-cause claims require checking timestamps, process IDs, component state transitions and the surrounding lines. Redaction is best-effort; the raw archive is not copied into the report.")
