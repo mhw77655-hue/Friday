@@ -95,7 +95,7 @@ class ChatGPTPlanAuth(
                 .apply {
                     // If identity was previously granted without plan use, explicitly
                     // reopen the consent step so the owner can enable the missing scope.
-                    if (existing != null && REQUIRED_SCOPE !in existing.scopes) {
+                    if (!firstRegistration && existing?.let { REQUIRED_SCOPE in it.scopes } != true) {
                         appendQueryParameter("prompt", "consent")
                     }
                 }
