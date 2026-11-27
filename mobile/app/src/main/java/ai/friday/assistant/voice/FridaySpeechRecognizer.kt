@@ -38,13 +38,35 @@ class PlatformSpeechRecognizerPort(
         onResult: (String?) -> Unit
     ) {
         cancel()
-        val sr = if (
+        val useOnDeviceRecognizer =
             android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S &&
-            android.speech.SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
-        ) {
-            android.speech.SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
-        } else {
-            android.speech.SpeechRecognizer.createSpeechRecognizer(context)
+                android.speech.SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
+        val sr = try {
+            if (useOnDeviceRecognizer) {
+                android.speech.SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+            } else {
+                // Keep the system recognizer's network-capable path available
+                // when this device has no installed on-device language pack.
+                android.speech.SpeechRecognizer.createSpeechRecognizer(context)
+            }
+        } catch (failure: Throwable) {
+            onFailure(
+                ai.friday.assistant.failure.FailureReport(
+                    subsystem = "STT_PLATFORM",
+                    operation = "create_recognizer",
+                    severity = ai.friday.assistant.failure.FailureSeverity.ERROR,
+                    category = ai.friday.assistant.failure.FailureCategory.VOICE_INPUT,
+                    message = "Android could not create a speech recognizer",
+                    source = "PlatformSpeechRecognizerPort",
+                    cause = failure.message,
+                    dependency = locale.toLanguageTag(),
+                    recoverability = ai.friday.assistant.failure.Recoverability.RETRYABLE,
+                    recoveryAction = ai.friday.assistant.failure.RecoveryAction.RETRY
+                )
+            )
+            onPartial(null)
+            onResult(null)
+            return
         }
         activeRecognizer = sr
         var delivered = false
@@ -110,7 +132,7 @@ class PlatformSpeechRecognizerPort(
             putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, locale.toLanguageTag())
             putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, locale.toLanguageTag())
             putExtra(android.speech.RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-            putExtra(android.speech.RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+            putExtra(android.speech.RecognizerIntent.EXTRA_PREFER_OFFLINE, useOnDeviceRecognizer)
             putExtra(android.speech.RecognizerIntent.EXTRA_MAX_RESULTS, 3)
         }
 
