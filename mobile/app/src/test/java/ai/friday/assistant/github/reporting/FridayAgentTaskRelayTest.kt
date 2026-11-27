@@ -175,7 +175,7 @@ class FridayAgentTaskRelayTest {
 
             val posted = relay.send(taskId, AgentTaskMessageKind.PROGRESS, JSONObject().put("status", "working"))
             assertEquals(9004L, posted.id)
-            assertEquals(2L, AgentTaskThreadStore(directory).get(taskId)?.nextOutgoingSequence)
+            assertEquals(2L, AgentTaskThreadStore(directory).get(taskId)!!.nextOutgoingSequence)
             val request = server.takeRequest()
             assertEquals("POST", request.method)
             assertTrue(request.body.readUtf8().contains("friday-agent-message:v1:$taskId:1"))
