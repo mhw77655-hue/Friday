@@ -268,38 +268,151 @@ The handset is not globally dead: the UI, permissions, Shizuku binder, Friday sh
 
 
 
-### 2026-11-27 — Settings and glass UI rebuild started (PR #185)
+### 2026-11-27 — Owner clarified the full operating model: local memory, cloud task execution, and app evolution without routine APK replacement
 
-Branch: feat/glass-settings-chatgpt-connection  
-PR: https://github.com/mhw77655-hue/Friday/pull/185
+This clarification supersedes any assumption that a local reasoning model is installed or required. The owner explicitly states that there are no models on the phone. Treat Friday as **without an installed local LLM** until a fresh live device report proves otherwise. Cloud reasoning must work without a local model.
 
-Implemented in this draft:
-- Reorganized the single long Settings scroll into collapsible glass groups: Friday updates, ChatGPT connection, personalization/voice, phone access, runtime/capabilities, and GitHub/advanced development.
-- Added a real ChatGPT inference health check in Settings. It discovers a visible account model and makes a minimal Responses request, then displays the actual completed reply rather than treating OAuth login as proof of inference.
-- Corrected the existing ChatGPT Plan Seat Responses request: SIWC direct-plan usage rejects system-role items and unsupported max_output_tokens; the Seat now uses developer and omits that unsupported field.
-- Added instrumented coverage for the ChatGPT connection test and the request contract.
-- Added a shared translucent glass surface and applied it to Home's capability panel, Conversation header, user bubbles and message composer.
-- Kept the app/system chrome true AMOLED black. Friday already had an AMOLED-black base; this pass layers translucent glass styling over it rather than changing the black substrate.
+Three new controlling work items were opened:
 
-Important truth about the ChatGPT login:
-- The current OAuth integration is wired to the AI Table/Builder advisory Seat, not the ordinary Friday conversation model. A successful sign-in therefore did not visibly change normal conversation.
-- This PR makes the connection testable, but does not silently route private conversation text to ChatGPT. Main-chat use needs a separate explicit user opt-in and provider integration; this is a distinct next engineering step.
-- GitHub access is separate from ChatGPT. The owner has not yet entered a GitHub fine-grained token in Friday, so Friday's on-device GitHub client cannot act as the owner until that credential is saved. The token must be entered on the phone; it is not available to this GitHub-connected engineering session and must never be copied into source or logs.
+- **Issue #189 — Local-memory / task-scoped Cloud AI:** https://github.com/mhw77655-hue/Friday/issues/189
+  - Friday owns all identity, memory, conversation history and continuity locally.
+  - A local retrieval/task compiler selects only the minimum relevant memory and source artifacts for each cloud task.
+  - Cloud receives an explicit work order and bounded evidence, not the entire conversation or memory.
+  - Results return as structured task outputs; Friday validates, stores and decides what becomes memory.
+  - Multi-step jobs use compact checkpoints, stable artifact references, hashes and provider caching where supported. No claim that caching makes input free.
+  - Must support Cloud AI with no on-device model installed.
 
-CI: PR validation run https://github.com/mhw77655-hue/Friday/actions/runs/46056623855 was created and is pending. This is a draft PR, not a merged change or a released APK. No physical-device visual or account test has been claimed.
+- **Issue #190 — Update-without-reinstall evolution runtime:** https://github.com/mhw77655-hue/Friday/issues/190
+  - Stable Android host/kernel plus signed, versioned evolution packages for declarative UI, workflows, task definitions, capability manifests, resources and sandboxed interpreted modules.
+  - Atomic activation, last-known-good rollback, compatibility checks, signatures, key rotation, audit, staged rollout and explicit capability grants.
+  - Minimize bandwidth through content-addressed artifacts, delta/chunk delivery, compression, deduplication, resume and Wi-Fi/metered-data controls.
+  - Most substantial feature and experience changes should not need a complete APK reinstall when the installed host already contains the required runtime primitives.
+  - Be explicit: native Android code, manifest permissions or new platform integrations that the host does not contain still require a signed host update. Do not evade Android or Play restrictions by downloading DEX/JAR/native code outside approved distribution. See official Android and Play references in Issue #190.
+
+Related existing work:
+- #186: ChatGPT plan as an explicit opt-in provider for normal conversation.
+- #188: secure, live, read-only inspection bridge from the actual phone to ChatGPT Cloud.
+- #189: task-scoped cloud reasoning with local memory ownership.
+- #190: remote evolution without routine host APK replacement.
+
+The intended system is now explicit: Friday compiles a task locally, sends only necessary context to cloud reasoning, receives a result, validates it locally, and evolves through signed compatible packages. Cloud AI is a worker, not the owner of Friday's memory. GitHub is the engineering collaboration and artifact ledger. The phone remains the trust and identity boundary.
+
+**No new physical-device capability is claimed by opening these issues.** They are architecture requirements and implementation work, not delivered features.
 
 
+### 2026-11-27 — Owner clarified cloud AI provider and zero-local-model constraint
 
-### 2026-11-27 — ChatGPT sign-in consent-state bug identified and corrected in PR #185
+The owner explicitly corrected the architecture:
+- **There are no reasoning models installed on the phone.** This is a hard current-state fact. Do not assume GGUF weights, a local LLM, local embeddings or local model inference are present. Cloud reasoning must be able to work without them.
+- The requested external AI worker is **Anthropic Claude**, not GitHub Cloud. GitHub is the repository/workspace and engineering evidence ledger; Claude is a separate cloud reasoning provider.
+- Friday's memory and conversation history must remain local and authoritative. Claude receives a bounded task capsule, not the entire conversation or full memory. A deterministic local retrieval/task compiler selects the minimum relevant context and records exactly what was sent.
+- Multi-step work resumes from compact checkpoints and stable artifact hashes; do not replay the whole history. Prompt caching can reduce repeated-prefix costs but does not make usage free or remove usage limits.
+- The user wants rapid evolution without downloading/reinstalling a full APK for every change. Issue #190 defines a stable Android host/kernel plus signed declarative UI, workflow, resource and sandboxed extension packages, atomic activation, rollback and bandwidth-efficient delivery. New native capabilities or missing host primitives still require a signed host update; no policy-evasion code loading.
+- The intended outcome is autonomous progress without repeated manual instructions. One-time account authorization, device pairing and Android permission grants remain unavoidable trust-boundary actions; the engineering should automate all subsequent task packaging, execution, validation, logging and updates within those grants.
 
-A second issue explains why a user could complete ChatGPT sign-in yet Friday appeared disconnected: the existing OAuth handler required the optional chatgpt.tokens.use.direct scope before saving anything. OpenAI's current SIWC contract distinguishes identity sign-in from permission to use the user's ChatGPT plan. An identity-only grant should be retained and shown as signed in, while plan inference remains disabled.
+New controlling issue:
+- **#191 — Integrate Anthropic Claude as Friday's task-scoped cloud worker:** https://github.com/mhw77655-hue/Friday/issues/191
 
-PR #185 now:
-- Stores a verified identity-only session when OpenAI returns identity scopes without chatgpt.tokens.use.direct.
-- Exposes separate isSignedIn() and isConnected() states (identity vs plan inference permission).
-- Shows "Signed in · plan use not enabled" rather than pretending no account was connected.
-- Offers "Enable ChatGPT plan usage" as the reauthorization action.
-- Keeps the actual inference test and background Builder use disabled until the direct-plan scope is granted.
-- Adds an instrumented regression test proving identity-only sign-in is retained but validAccessToken() remains unavailable.
+Existing controlling issues:
+- #188 — read-only live-device bridge.
+- #189 — local-memory/task-scoped cloud AI protocol.
+- #190 — update-without-reinstall evolution runtime.
+- #186 — ChatGPT as optional provider for normal conversation (separate provider from Claude).
+- #184 — installed APK repair.
 
-This follows OpenAI's SIWC guidance: https://developers.openai.com/siwc/token-sharing-open-source/errors-and-recovery and https://developers.openai.com/siwc/token-sharing-open-source/sign-in. The app must not infer plan-use consent from identity sign-in.
+Anthropic billing caveat verified against current official documentation: Claude Pro does not include Console API usage. Eligible Max, Ultra and Team plans can claim scoped monthly API credits by linking a Claude Console organization. Prompt caching reduces repeated-prefix costs but does not eliminate usage. Do not assume the owner's Claude plan or API entitlement; expose the actual connected billing route and hard budget controls.
+
+Official references:
+- https://support.claude.com/en/articles/9876003-why-is-claude-api-usage-billed-separately-from-my-paid-claude-plan
+- https://platform.claude.com/docs/en/about-claude/api-credits-for-subscribers
+- https://platform.claude.com/docs/en/build-with-claude/prompt-caching
+- https://developer.android.com/privacy-and-security/risks/dynamic-code-loading
+
+No local model installation, Claude connection, live phone bridge or update-without-reinstall capability is claimed as delivered merely because these requirements are logged.
+
+
+### 2026-11-27 — Preserve canonical roadmap priority; collaboration research is a later track
+
+The owner explicitly directed that recently suggested Claude, local-memory delegation, update-without-reinstall and multi-AI communication requirements must be placed in their correct architectural positions, not promoted above the existing delivery priorities.
+
+The canonical `.ralph/FRIDAY_DELIVERY_PLAN.md` remains authoritative and unchanged. Continue its chronological dependency order:
+1. Phase 0 — truthful green engineering baseline.
+2. Phase 1 — prove and repair the already-installed `ai.friday.assistant` on the physical phone, preserve identity/data, and establish useful interaction/voice. The phone has no local reasoning LLM installed; do not assume one.
+3. Phase 2 — demonstrate one real REA-assisted failed-candidate repair from exact candidate evidence through independent verification and durable learning.
+4. Phase 3 — persistent engineering station and authority.
+5. Subsequent phases — full individuality, cognition, agency, NAE, universal capability acquisition and evolution.
+
+Placement of the owner's additional requirements:
+- Anthropic Claude is a replaceable external reasoning/engineering resource in the dynamic worker pool / Builder architecture, not a new top-level product priority.
+- Local memory and task-scoped context projection belong in the continuity, privacy and worker collaboration contracts.
+- The update-without-routine-reinstall requirement belongs in the install-once identity/update contract (Section 3.3) and later capability-evolution delivery, not ahead of repairing the installed seed.
+- ChatGPT/Claude/Friday collaboration belongs in the persistent engineering workspace and authority plane, with live device inspection as a separate scoped capability.
+- Novel collaboration research is tracked as future work in Issue #192 — Continuity-First Task Fabric: https://github.com/mhw77655-hue/Friday/issues/192. It is explicitly not a blocker for Phases 0–2.
+
+The proposed Task Fabric is a research hypothesis, not a claim of proven global novelty or a delivered system. Compare against MCP, A2A, group/room protocols, event sourcing, blackboard systems, workflow engines, context retrieval and caching. The possible differentiator is Friday-owned continuity plus temporary provider-specific context projections, narrow evidence/capability leases and a shared outcome ledger; do not merely rebrand an existing protocol.
+
+The immediate repair remains Issue #184. Its known source defects and release lineage remain controlling. Physical-device acceptance still requires genuine handset evidence; do not mark it complete based on CI/emulator evidence.
+
+
+### 2026-11-27 — owner reaffirmed delivery order; new requirements kept subordinate
+
+Owner's explicit execution order: **fix the already-installed Friday app first; then connect ChatGPT, Friday and GitHub; then continue bringing Friday to life.** The canonical `.ralph/FRIDAY_DELIVERY_PLAN.md` remains authoritative; new requirements extend it and do not replace its priority.
+
+1. Phase 0: restore truthful green engineering baseline and Builder/REA contracts.
+2. Phase 1: repair the existing `ai.friday.assistant` installation in place, preserve data/signing lineage, and prove typed interaction plus audible voice on the physical phone.
+3. Phase 2: prove the real failed-candidate → sandbox → REA investigation → bounded repair → independent verification cycle.
+4. Phase 3: persistent engineering station, owner-authorized GitHub authority, live read-only device observation and ChatGPT-to-Friday integration.
+5. Continue the complete vision: continuity, individuality, cognition, agency, NAE and evolution.
+
+Priority corrections:
+- PR #185 (compact settings, glass visuals, AMOLED) is draft; known run #3683 was cancelled, not passed. Keep this work, but it must not displace functional repair.
+- ChatGPT identity sign-in, permission for ChatGPT plan inference, and ChatGPT powering ordinary Friday conversations are three distinct states. Main-turn integration remains to be implemented and verified.
+- GitHub authorization is separate; do not assume a GitHub token has been entered on the phone.
+- Owner explicitly confirms **no local language model is installed**. Do not assume one or make local LLM installation a prerequisite.
+- Anthropic Claude is a replaceable cloud worker, not GitHub Cloud. Local-memory task compilation and provider-specific context belong in later worker orchestration.
+- Update-without-routine-APK-replacement belongs in the protected update/evolution architecture. Use signed, compatible modules/resources and bandwidth-efficient delivery; do not promise arbitrary native-code replacement without a host update or evade Android security constraints.
+- Issue #192's distinctive collaboration fabric is future research, subordinate to Phases 0–2. Compare prior art honestly; do not claim global novelty.
+
+Evidence discipline: source/CI/release evidence is not physical-phone acceptance. Do not claim the app is fixed, audible voice works, or live ChatGPT-to-phone inspection exists until demonstrated. Do not ask the owner to repeat the vision or re-upload the original APK.
+
+Immediate work remains Phase 1: inspect and repair the production turn and voice paths without assuming a local model; validate PR #185 independently and preserve its visual/settings work without letting it become the critical path.
+
+
+### 2026-11-27 — production turn-path audit: no cloud reasoning provider is configured
+
+A fresh source-level audit of the current `main` branch traced the actual conversation entry path:
+
+- `BodyCoordinator.routeInputText()` routes ordinary typed and recognized speech into `LatencyLayer.onUserInput()`.
+- `LatencyLayer` delegates to the one installed `LatencyPipeline`; its normal bridge send calls `ModelManager.send(text)`.
+- `TurnPathAssembly.assemble()` constructs `CloudModelRouter(emptyList())`. The router is therefore explicitly empty in the production composition.
+- The same assembly supplies a model-free seed responder as a fallback, but this is not a general cloud reasoning provider.
+- `FridayEngine` exposes the assembled router for research components, but this does not connect ChatGPT to ordinary conversation.
+- `ChatGPTPlanSeat` is an advisory Table seat, not the normal conversation provider. The current main-branch implementation also still contains a `system` role and `max_output_tokens` in that Seat request; PR #185 proposes correcting its SIWC request contract, but PR #185 is still draft and not merged.
+
+This is a concrete source-level explanation for why ChatGPT sign-in did not make Friday answer ordinary conversations with ChatGPT. The production app currently has no configured cloud reasoning provider in its central router. This finding does not, by itself, prove every cause of the handset's observed failure; physical runtime evidence remains separate.
+
+Immediate repair implication: do not install or assume a local LLM. Implement a supported, explicitly consented cloud provider adapter in the single production turn path, starting with the already-authorized ChatGPT plan integration where its grant permits it; preserve the model-free seed as an honest offline fallback. Add request-contract tests, provider absence/expiry/rate-limit tests, no-history-leak tests, and a physical typed-response acceptance. Do not route private full conversation history to the provider by default.
+
+
+### 2026-11-27 — ChatGPT normal-turn provider implementation branch opened
+
+Branch: `feat/chatgpt-main-turn-provider`  
+Base: PR #185 head `364cea7266426b118ec14bd93691eeadf1128013`  
+Tracking issue: #186  
+Design contract: `docs/CHATGPT_MAIN_TURN_PROVIDER_DESIGN.md`
+
+The latest PR #185 validation run is now confirmed successful: https://github.com/mhw77655-hue/Friday/actions/runs/46057753690. It passed the debug/release builds, Android lint, disposable-emulator instrumentation and all JVM shards. PR #185 remains a draft and has not been physically accepted on the owner's handset.
+
+This branch is deliberately stacked on the validated PR #185 work so the compact Settings, glass/AMOLED surface and corrected SIWC identity/plan-consent handling are preserved. A comparison against current main found five intervening commits, all confined to this progress log; the branch log has been synchronized with current main before recording this entry.
+
+Implementation contract:
+- Add a distinct default-OFF normal-conversation consent. Do not reuse the Builder/background consent.
+- Route authorized ChatGPT Responses inference through the existing ModelProvider/ModelManager -> LatencyLayer -> Friday reply/TTS pipeline.
+- Require the ChatGPT plan-use scope and normal-chat consent before token or network access.
+- Send only the task/turn prompt assembled by Friday, with clear disclosure that included context is shared. Do not silently ship full conversation history or memory.
+- Use store=false, stream=true, developer/user/assistant messages, and accept output only after response.completed.
+- No API-key fallback, no hidden provider substitution and no local-LLM prerequisite.
+- Restore the previously selected local provider when consent is disabled or ChatGPT is unavailable; preserve Friday's local continuity and expose honest failure state.
+- Add deterministic and instrumented tests before considering the provider wired.
+
+No main-turn provider code or physical-device acceptance is claimed by opening this branch. Next work is implementation and validation under issue #186.
