@@ -170,11 +170,19 @@ These merged code changes improve foundations but must not be mistaken for proof
 | [PR #179](https://github.com/mhw77655-hue/Friday/pull/179) | Merged | Profile-aware instrumented candidate sandbox |
 | [PR #181](https://github.com/mhw77655-hue/Friday/pull/181) | Merged | Reusable exact-candidate sandbox and main canary |
 | [PR #182](https://github.com/mhw77655-hue/Friday/pull/182) | Merged | Durable live candidate-to-repair ledger contract |
-| [PR #183](https://github.com/mhw77655-hue/Friday/pull/183) | Open; exact-head CI pending | Installed-app voice fixes and typed response acceptance |
+| [PR #183](https://github.com/mhw77655-hue/Friday/pull/183) | **Merged** | PCM16 WAV parser, utterance-scoped cancellation/state, STT fallback, typed response acceptance |
 | [Issue #175](https://github.com/mhw77655-hue/Friday/issues/175) | Open | Full live Builder → exact sandbox → REA → bounded repair → new candidate → independent verification remains unproven |
 | [Issue #184](https://github.com/mhw77655-hue/Friday/issues/184) | Open | **Controlling installed-APK repair task:** exact v1.0.510 problems, four-day history, acceptance criteria and next actions |
 
-Latest PR #183 head: `03ce04c641295c1b20b8a58d0ab99a97a6ec66bc`. Exact-head run [#3662](https://github.com/mhw77655-hue/Friday/actions/runs/46039764560): at 2026-11-27 19:25 local, six JVM shards, aggregate JVM evidence, Android instrumented emulator, whole-repository source audit and obsolete-run cancellation had passed; the `debug-apk` job remained in progress. Do not claim PR #183 is green or merged until that job and all required checks finish successfully. Re-fetch live PR/run state before continuing.
+PR #183 head `03ce04c641295c1b20b8a58d0ab99a97a6ec66bc` passed exact-head Actions run [#3662](https://github.com/mhw77655-hue/Friday/actions/runs/46039764560), including all six JVM shards, aggregate JVM evidence, Android instrumented emulator, whole-repository source audit, debug APK assembly and APK promotion. It was squash-merged into main as `add503a53ffca183677815311ffa2c29b6df9c9e`. Main build [#3667](https://github.com/mhw77655-hue/Friday/actions/runs/46042403395) for that merge SHA was queued at the last check. The signed-release runs #586/#588 visible at that time targeted an earlier commit, not the PR #183 merge. Re-fetch the merge-SHA main build and subsequent signed-release run before claiming a release exists.
+
+
+### 2026-11-27 — PR #183 merged; main validation queued
+
+- PR #183 passed its exact-head validation and was squash-merged to main as `add503a53ffca183677815311ffa2c29b6df9c9e`.
+- Merge-SHA main build [#3667](https://github.com/mhw77655-hue/Friday/actions/runs/46042403395) was queued at the last check. Earlier release runs observed were for a prior main SHA and do not contain this merge.
+- A dedicated appendable execution handoff is maintained at [`docs/FRIDAY_REPAIR_PROGRESS.md`](FRIDAY_REPAIR_PROGRESS.md). New sessions must read it before resuming.
+- This merge fixes source-level voice defects and strengthens automated typed-response acceptance. It does not yet establish physical-device audible voice or a successful in-place update.
 
 ## 6. Correct execution sequence from here
 
