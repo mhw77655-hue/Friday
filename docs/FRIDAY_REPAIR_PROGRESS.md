@@ -549,3 +549,6 @@ Collaboration continues in stacked draft PRs #194 and #195: public-only GitHub t
 
 
 - Additional crash/replay hardening: LocalTaskInbox now persists an external proposal before exposing it in memory, and stable-ID deduplication rejects reuse of the same idempotency key with different proposal content. This closes the case where a failed disk write or altered duplicate message could otherwise be acknowledged as if safely imported.
+
+
+- Review correction: the GitHub reply bridge now targets the already-running `FridayEngine.taskInbox` when available, rather than always creating a second `LocalTaskInbox` instance. This prevents a stale in-memory StateFlow while preserving the cold-start path (a worker-created durable inbox is recovered by normal engine startup). CI run #3771 is validating this current relay head.
