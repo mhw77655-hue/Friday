@@ -352,3 +352,27 @@ Placement of the owner's additional requirements:
 The proposed Task Fabric is a research hypothesis, not a claim of proven global novelty or a delivered system. Compare against MCP, A2A, group/room protocols, event sourcing, blackboard systems, workflow engines, context retrieval and caching. The possible differentiator is Friday-owned continuity plus temporary provider-specific context projections, narrow evidence/capability leases and a shared outcome ledger; do not merely rebrand an existing protocol.
 
 The immediate repair remains Issue #184. Its known source defects and release lineage remain controlling. Physical-device acceptance still requires genuine handset evidence; do not mark it complete based on CI/emulator evidence.
+
+
+### 2026-11-27 — owner reaffirmed delivery order; new requirements kept subordinate
+
+Owner's explicit execution order: **fix the already-installed Friday app first; then connect ChatGPT, Friday and GitHub; then continue bringing Friday to life.** The canonical `.ralph/FRIDAY_DELIVERY_PLAN.md` remains authoritative; new requirements extend it and do not replace its priority.
+
+1. Phase 0: restore truthful green engineering baseline and Builder/REA contracts.
+2. Phase 1: repair the existing `ai.friday.assistant` installation in place, preserve data/signing lineage, and prove typed interaction plus audible voice on the physical phone.
+3. Phase 2: prove the real failed-candidate → sandbox → REA investigation → bounded repair → independent verification cycle.
+4. Phase 3: persistent engineering station, owner-authorized GitHub authority, live read-only device observation and ChatGPT-to-Friday integration.
+5. Continue the complete vision: continuity, individuality, cognition, agency, NAE and evolution.
+
+Priority corrections:
+- PR #185 (compact settings, glass visuals, AMOLED) is draft; known run #3683 was cancelled, not passed. Keep this work, but it must not displace functional repair.
+- ChatGPT identity sign-in, permission for ChatGPT plan inference, and ChatGPT powering ordinary Friday conversations are three distinct states. Main-turn integration remains to be implemented and verified.
+- GitHub authorization is separate; do not assume a GitHub token has been entered on the phone.
+- Owner explicitly confirms **no local language model is installed**. Do not assume one or make local LLM installation a prerequisite.
+- Anthropic Claude is a replaceable cloud worker, not GitHub Cloud. Local-memory task compilation and provider-specific context belong in later worker orchestration.
+- Update-without-routine-APK-replacement belongs in the protected update/evolution architecture. Use signed, compatible modules/resources and bandwidth-efficient delivery; do not promise arbitrary native-code replacement without a host update or evade Android security constraints.
+- Issue #192's distinctive collaboration fabric is future research, subordinate to Phases 0–2. Compare prior art honestly; do not claim global novelty.
+
+Evidence discipline: source/CI/release evidence is not physical-phone acceptance. Do not claim the app is fixed, audible voice works, or live ChatGPT-to-phone inspection exists until demonstrated. Do not ask the owner to repeat the vision or re-upload the original APK.
+
+Immediate work remains Phase 1: inspect and repair the production turn and voice paths without assuming a local model; validate PR #185 independently and preserve its visual/settings work without letting it become the critical path.
