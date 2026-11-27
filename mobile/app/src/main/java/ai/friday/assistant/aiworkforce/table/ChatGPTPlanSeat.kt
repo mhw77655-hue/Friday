@@ -53,6 +53,63 @@ class ChatGPTPlanSeat(
         loadModels(token)
     }
 
+    /**
+     * Performs a real, minimal Responses API round-trip so Settings can
+     * distinguish "OAuth identity connected" from "ChatGPT plan inference works".
+     * Uses the same token, model catalog and request contract as Builder.
+     */
+    suspend fun testConnection(): String = withContext(Dispatchers.IO) {
+        val token = tokenProvider.validAccessToken()
+            ?: error("ChatGPT is not authorized for plan usage. Reconnect and enable plan use.")
+        val model = loadModels(token).firstOrNull()
+            ?: error("The authorized account returned no available ChatGPT models.")
+        val payload = JSONObject()
+            .put("model", model.first)
+            .put("input", JSONArray()
+                .put(JSONObject().put("role", "developer").put("content", "You are testing a connection. Reply exactly with the words: Friday connection verified."))
+                .put(JSONObject().put("role", "user").put("content", "Confirm the connection.")))
+            .put("store", false)
+            .put("stream", true)
+        val request = Request.Builder()
+            .url("$apiBaseUrl/responses")
+            .header("Authorization", "Bearer $token")
+            .header("Content-Type", "application/json")
+            .header("Accept", "text/event-stream")
+            .post(payload.toString().toRequestBody(JSON_MEDIA_TYPE))
+            .build()
+        http.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                val detail = response.body?.string().orEmpty().take(500)
+                error("ChatGPT inference test failed (HTTP \${response.code}): \${detail.ifBlank { "No error detail returned." }}")
+            }
+            val source = response.body?.source() ?: error("ChatGPT returned an empty response stream.")
+            val output = StringBuilder()
+            var completed = false
+            var failure: String? = null
+            while (!source.exhausted()) {
+                val line = source.readUtf8Line() ?: break
+                if (!line.startsWith("data:")) continue
+                val data = line.removePrefix("data:").trim()
+                if (data.isBlank() || data == "[DONE]") continue
+                val event = runCatching { JSONObject(data) }.getOrNull() ?: continue
+                when (event.optString("type")) {
+                    "response.output_text.delta" -> output.append(event.optString("delta"))
+                    "response.completed" -> { completed = true; break }
+                    "response.failed" -> {
+                        failure = event.optJSONObject("response")?.optJSONObject("error")?.optString("message")
+                            ?: event.optJSONObject("error")?.optString("message")
+                            ?: "ChatGPT reported a failed response."
+                        break
+                    }
+                    "response.incomplete" -> { failure = "ChatGPT returned an incomplete response."; break }
+                }
+            }
+            if (failure != null) error(failure!!)
+            if (!completed || output.isBlank()) error("ChatGPT did not complete a non-empty test response.")
+            "ChatGPT plan inference verified · \${model.second} · \${output.toString().trim().take(120)}"
+        }
+    }
+
     override suspend fun speak(request: SeatRequest): SeatReply = withContext(Dispatchers.IO) {
         if (request.dataClass != SeatDataClass.PUBLIC || !request.externallyShareable) {
             return@withContext reply(null, null, true, SeatPresence.DISABLED,
@@ -92,7 +149,7 @@ class ChatGPTPlanSeat(
                 append("STANCE: AGREE — <reason> OR STANCE: DISPUTE — <reason> OR STANCE: ADD — <reason>.")
             }
             val input = JSONArray()
-                .put(JSONObject().put("role", "system").put("content", system))
+                .put(JSONObject().put("role", "developer").put("content", system))
                 .put(JSONObject().put("role", "user").put(
                     "content", "DIGEST:\n${request.digest}\nDELTA:\n${request.delta}"
                 ))
@@ -101,7 +158,6 @@ class ChatGPTPlanSeat(
                 .put("input", input)
                 .put("store", false)
                 .put("stream", true)
-                .put("max_output_tokens", 500)
             val body = payload.toString().toRequestBody(JSON_MEDIA_TYPE)
             val httpRequest = Request.Builder()
                 .url("$apiBaseUrl/responses")
