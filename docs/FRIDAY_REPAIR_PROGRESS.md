@@ -498,3 +498,14 @@ This is the first release containing both merged PR #185 (compact Settings, glas
 Physical handset acceptance remains pending. The owner must install 1.0.610 over the existing app without uninstalling or clearing data, then export a fresh diagnostic bundle. Do not claim the phone is fixed until this real-device evidence is reviewed.
 
 Collaboration continues in stacked draft PRs #194 and #195: public-only GitHub task transport and its Android polling/Settings integration. Private SIWC ChatGPT task work and the private read-only device broker remain separate follow-on adapters.
+
+
+### 2026-11-27 — GitHub collaboration transport and Android relay integration both pass exact-head CI
+
+- Core transport PR #194 exact head: `130c2ba482982529521d0c331915d341a03b5109`; run #46069437763 completed successfully. All six JVM shards, debug APK build, whole-repository source audit, disposable Android instrumentation, aggregate evidence and debug APK promotion passed.
+- Android integration PR #195 exact head: `4818ac99f92cb87a2c578e02681105a47db8e054`; run #46068400888 completed successfully. All six JVM shards, debug APK build, whole-repository source audit, disposable Android instrumentation, aggregate evidence and debug APK promotion passed.
+- Both PRs remain draft and open. #195 is stacked on #194; its base must be synchronized/reviewed against the current #194 head before merge. Green CI does not equal a live handset connection.
+- #194 implements the public GitHub task-thread transport; #195 adds Android opt-in consent, trusted actors, WorkManager polling, durable local reply inbox and Settings UI. GitHub public threads contain project metadata only. Private ChatGPT context and private device observations are not routed through public GitHub.
+- Neither PR is included in signed release 1.0.610. That release remains the app-repair baseline. The next relay release must be built and signed only after the stacked PRs are reconciled, reviewed and merged.
+- Remaining gates: owner installs 1.0.610 in-place and supplies fresh handset diagnostics plus typed/STT/TTS acceptance; merge/release relay code; configure repository-scoped GitHub access in Friday; implement the private SIWC ChatGPT task adapter and authenticated read-only phone broker (#188); then prove the complete Friday-owned task lifecycle with crash recovery and local validation.
+- Correct interpretation: ChatGPT is Friday's external engineering collaborator, not the model replacing Friday in the owner's conversation.
