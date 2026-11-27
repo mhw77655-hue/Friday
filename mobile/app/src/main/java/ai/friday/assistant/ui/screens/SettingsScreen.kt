@@ -889,12 +889,20 @@ fun SettingsScreen() {
         }
 
         }
-        SettingsGroup("GitHub and advanced development", "Add your GitHub token here · repository access, device reports and Builder controls", developmentExpanded, { developmentExpanded = !developmentExpanded }) {
-            GitHubDeviceReportingSection(context, actionTraceCount)
+        SettingsGroup("GitHub and advanced development", "GitHub token, repository access, REA repair, memory and Builder controls", developmentExpanded, { developmentExpanded = !developmentExpanded }) {
+            var repositoryExpanded by remember { mutableStateOf(true) }
+            var reaExpanded by remember { mutableStateOf(false) }
+            var memoryLabExpanded by remember { mutableStateOf(false) }
+            SettingsGroup("GitHub repository and device reporting", "Fine-grained token, repository permissions and diagnostics", repositoryExpanded, { repositoryExpanded = !repositoryExpanded }) {
+                GitHubDeviceReportingSection(context, actionTraceCount)
+            }
+            SettingsGroup("Reverse engineering and repair", "REA investigations and controlled repair workflows", reaExpanded, { reaExpanded = !reaExpanded }) {
+                ReaEngineeringSection(context)
+            }
+            SettingsGroup("Memory and application lab", "Recall controls and read-only installed-app analysis", memoryLabExpanded, { memoryLabExpanded = !memoryLabExpanded }) {
+                MemoryRulesAndApplicationLabSection(context)
+            }
         }
-        ReaEngineeringSection(context)
-
-        MemoryRulesAndApplicationLabSection(context)
 
     }
 }
