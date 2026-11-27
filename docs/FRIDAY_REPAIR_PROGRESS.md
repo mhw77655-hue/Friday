@@ -298,3 +298,34 @@ Related existing work:
 The intended system is now explicit: Friday compiles a task locally, sends only necessary context to cloud reasoning, receives a result, validates it locally, and evolves through signed compatible packages. Cloud AI is a worker, not the owner of Friday's memory. GitHub is the engineering collaboration and artifact ledger. The phone remains the trust and identity boundary.
 
 **No new physical-device capability is claimed by opening these issues.** They are architecture requirements and implementation work, not delivered features.
+
+
+### 2026-11-27 — Owner clarified cloud AI provider and zero-local-model constraint
+
+The owner explicitly corrected the architecture:
+- **There are no reasoning models installed on the phone.** This is a hard current-state fact. Do not assume GGUF weights, a local LLM, local embeddings or local model inference are present. Cloud reasoning must be able to work without them.
+- The requested external AI worker is **Anthropic Claude**, not GitHub Cloud. GitHub is the repository/workspace and engineering evidence ledger; Claude is a separate cloud reasoning provider.
+- Friday's memory and conversation history must remain local and authoritative. Claude receives a bounded task capsule, not the entire conversation or full memory. A deterministic local retrieval/task compiler selects the minimum relevant context and records exactly what was sent.
+- Multi-step work resumes from compact checkpoints and stable artifact hashes; do not replay the whole history. Prompt caching can reduce repeated-prefix costs but does not make usage free or remove usage limits.
+- The user wants rapid evolution without downloading/reinstalling a full APK for every change. Issue #190 defines a stable Android host/kernel plus signed declarative UI, workflow, resource and sandboxed extension packages, atomic activation, rollback and bandwidth-efficient delivery. New native capabilities or missing host primitives still require a signed host update; no policy-evasion code loading.
+- The intended outcome is autonomous progress without repeated manual instructions. One-time account authorization, device pairing and Android permission grants remain unavoidable trust-boundary actions; the engineering should automate all subsequent task packaging, execution, validation, logging and updates within those grants.
+
+New controlling issue:
+- **#191 — Integrate Anthropic Claude as Friday's task-scoped cloud worker:** https://github.com/mhw77655-hue/Friday/issues/191
+
+Existing controlling issues:
+- #188 — read-only live-device bridge.
+- #189 — local-memory/task-scoped cloud AI protocol.
+- #190 — update-without-reinstall evolution runtime.
+- #186 — ChatGPT as optional provider for normal conversation (separate provider from Claude).
+- #184 — installed APK repair.
+
+Anthropic billing caveat verified against current official documentation: Claude Pro does not include Console API usage. Eligible Max, Ultra and Team plans can claim scoped monthly API credits by linking a Claude Console organization. Prompt caching reduces repeated-prefix costs but does not eliminate usage. Do not assume the owner's Claude plan or API entitlement; expose the actual connected billing route and hard budget controls.
+
+Official references:
+- https://support.claude.com/en/articles/9876003-why-is-claude-api-usage-billed-separately-from-my-paid-claude-plan
+- https://platform.claude.com/docs/en/about-claude/api-credits-for-subscribers
+- https://platform.claude.com/docs/en/build-with-claude/prompt-caching
+- https://developer.android.com/privacy-and-security/risks/dynamic-code-loading
+
+No local model installation, Claude connection, live phone bridge or update-without-reinstall capability is claimed as delivered merely because these requirements are logged.
