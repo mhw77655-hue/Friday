@@ -201,6 +201,9 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
                                         appContext.packageManager.getPackageInfo(appContext.packageName, 0).versionName
                                     }.getOrNull().orEmpty().ifBlank { "unknown" }
                                 }
+                                val sourceRevision = ai.friday.assistant.BuildConfig.SOURCE_REVISION
+                                    .takeIf { it.matches(Regex("[0-9a-fA-F]{40}")) }
+                                    ?: "version:$version"
                                 val taskId = UUID.randomUUID().toString()
                                 val payload = JSONObject()
                                     .put("data_classification", "public")
@@ -214,7 +217,7 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
                                     relay.createTask(
                                         taskId = taskId,
                                         title = "Friday collaboration handshake",
-                                        sourceRevision = version,
+                                        sourceRevision = sourceRevision,
                                         allowedTaskPayload = payload
                                     )
                                 }
