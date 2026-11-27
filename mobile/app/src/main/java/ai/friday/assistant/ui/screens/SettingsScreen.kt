@@ -318,7 +318,7 @@ fun SettingsScreen() {
     ) {
         Text("Settings", style = FridayType.Display, modifier = Modifier.padding(start = 4.dp, bottom = 4.dp))
         Text(
-            "Friday control centre · connections, appearance, device access and development",
+            "Glass interface · true AMOLED black · connections, device access and development",
             style = FridayType.Label,
             modifier = Modifier.padding(start = 4.dp, bottom = 14.dp)
         )
@@ -889,7 +889,7 @@ fun SettingsScreen() {
         }
 
         }
-        SettingsGroup("GitHub and advanced development", "Repository access, device reports, memory and Builder controls", developmentExpanded, { developmentExpanded = !developmentExpanded }) {
+        SettingsGroup("GitHub and advanced development", "Add your GitHub token here · repository access, device reports and Builder controls", developmentExpanded, { developmentExpanded = !developmentExpanded }) {
             GitHubDeviceReportingSection(context, actionTraceCount)
         }
         ReaEngineeringSection(context)
