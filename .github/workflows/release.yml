@@ -237,6 +237,18 @@ jobs:
           }, separators=(",", ":")))
           PY
 
+      - name: Preserve verified signed APK even if release publication is blocked
+        if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'true' && steps.changes.outputs.release_needed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-signed-release-${{ github.run_number }}
+          path: |
+            mobile/app/build/outputs/apk/release/app-release.apk
+            ${{ runner.temp }}/friday-release-metadata.json
+            ${{ runner.temp }}/friday.apk.sha256
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Publish the signed release
         if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'true' && steps.changes.outputs.release_needed == 'true'
         env:
