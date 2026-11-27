@@ -1,5 +1,6 @@
 package ai.friday.assistant.github.reporting
 
+import android.content.Context
 import ai.friday.assistant.humancore.store.FileStorage
 import org.json.JSONArray
 import org.json.JSONObject
@@ -230,6 +231,32 @@ data class AgentTaskReply(
     val envelope: AgentTaskEnvelope
 )
 
+/** Separate, default-OFF permission for Friday to exchange bounded agent tasks through GitHub. */
+class FridayAgentTaskRelayConsentStore(context: Context) {
+    private val preferences = context.applicationContext.getSharedPreferences(
+        "friday_agent_task_relay_consent",
+        Context.MODE_PRIVATE
+    )
+
+    fun isEnabled(): Boolean = preferences.getBoolean(KEY_ENABLED, false)
+
+    fun setEnabled(enabled: Boolean) {
+        check(
+            preferences.edit()
+                .putBoolean(KEY_ENABLED, enabled)
+                .putLong(KEY_CHANGED_AT, System.currentTimeMillis())
+                .commit()
+        ) { "Could not durably save Friday agent relay consent." }
+    }
+
+    fun changedAtEpochMs(): Long = preferences.getLong(KEY_CHANGED_AT, 0L)
+
+    companion object {
+        private const val KEY_ENABLED = "enabled"
+        private const val KEY_CHANGED_AT = "changed_at_epoch_ms"
+    }
+}
+
 /**
  * Friday-owned collaboration boundary. It does not route owner conversation
  * turns to ChatGPT and does not execute returned proposals.
@@ -238,6 +265,7 @@ class FridayAgentTaskRelay(
     private val github: GitHubDevelopmentRepositoryClient,
     private val threads: AgentTaskThreadStore,
     trustedActors: Set<String>,
+    private val consentEnabled: () -> Boolean = { false },
     private val clock: () -> Long = System::currentTimeMillis
 ) {
     private val trustedActors = trustedActors.map { it.trim().lowercase() }
@@ -257,6 +285,7 @@ class FridayAgentTaskRelay(
         allowedTaskPayload: JSONObject,
         ttlMs: Long = DEFAULT_TASK_TTL_MS
     ): AgentTaskThread {
+        ensureConsent()
         threads.get(taskId)?.let { return it }
         val now = clock()
         require(ttlMs in 60_000L..AgentTaskEnvelope.MAX_TTL_MS)
@@ -295,6 +324,7 @@ class FridayAgentTaskRelay(
         payload: JSONObject,
         ttlMs: Long = DEFAULT_TASK_TTL_MS
     ): GitHubDevelopmentRepositoryClient.AgentTaskComment {
+        ensureConsent()
         require(kind in setOf(
             AgentTaskMessageKind.PROGRESS,
             AgentTaskMessageKind.EVIDENCE_REQUEST,
@@ -330,6 +360,7 @@ class FridayAgentTaskRelay(
      * reply in Friday's own task inbox, then call acknowledge().
      */
     fun pollReplies(taskId: String): List<AgentTaskReply> {
+        ensureConsent()
         val thread = threads.get(taskId)
             ?: throw IllegalArgumentException("Friday task thread is not registered.")
         val now = clock()
@@ -345,7 +376,7 @@ class FridayAgentTaskRelay(
             val envelope = runCatching {
                 AgentTaskEnvelope.fromJson(JSONObject(jsonText))
             }.getOrNull() ?: return@mapNotNull null
-            if (envelope.taskId != taskId || envelope.sequence != sequence) return@mapNotNull null
+            if (envelope.taskId != taskId || envelope.sequence != sequence || sequence <= 0L) return@mapNotNull null
             if (envelope.messageId in thread.acknowledgedMessageIds ||
                 !seenInThisPoll.add(envelope.messageId)
             ) return@mapNotNull null
@@ -364,6 +395,12 @@ class FridayAgentTaskRelay(
                 envelope = envelope
             )
         }.sortedBy { it.envelope.sequence }
+    }
+
+    private fun ensureConsent() {
+        check(consentEnabled()) {
+            "Friday agent collaboration is disabled until the owner explicitly enables it."
+        }
     }
 
     /** Call only after the reply has been durably stored in Friday's local inbox. */
