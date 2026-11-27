@@ -59,3 +59,8 @@ An Android instrumentation test now exercises the worker against a local mock Re
 ### Android network-security test correction
 
 The first instrumented run exposed an Android cleartext-policy failure because MockWebServer used HTTP on localhost. The worker was not changed to weaken the app's network policy. The test now uses a generated localhost certificate, a test-scoped trust anchor, and HTTPS for the mock endpoint. The next CI run must prove this correction.
+
+
+### Retry and stream-failure hardening
+
+The worker's OkHttp client now disables automatic connection retries. A consumed one-shot approval therefore cannot silently lead to a hidden duplicate request after a transport failure. HTTP failures retain the response request ID and bounded body detail; stream failures preserve the provider error code/message, and incomplete responses retain their reason. Only `response.completed` is accepted as success, consistent with the official Sign in with ChatGPT inference contract.
