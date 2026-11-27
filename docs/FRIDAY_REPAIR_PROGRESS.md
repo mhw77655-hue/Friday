@@ -90,3 +90,14 @@ Release workflow follow-up: corrected the changed-file list formatting in the fr
 - A published signed release is not proof it has been installed.
 - A transcript is not audible voice output.
 - Do not report the installed Friday as fixed until the owner's actual phone passes the typed and full voice acceptance above.
+
+### 2026-11-27 — signed production update published; move to handset diagnosis
+
+- Main Android build [#3675](https://github.com/mhw77655-hue/Friday/actions/runs/46046039956) completed successfully for commit `399a97e0cfc290c61447c697bf0d5fce7e6aff39`. Verified job inventory included all six JVM shards, aggregate JVM evidence, Android instrumentation, source audit and verified debug APK promotion.
+- The later signed release is now published: [Friday 1.0.601](https://github.com/mhw77655-hue/Friday/releases/tag/friday-v1.0.601). The official release contains `app-release.apk` (label `friday.apk`, 129,721,072 bytes), `friday-release-metadata.json`, and `friday.apk.sha256`.
+- APK release asset SHA-256 from GitHub's release asset metadata: `f838f8542acbcb0792a7fcb3fc8c683f0447f497767496baa1b767a85bbdacf3`. Release target commit: `399a97e0cfc290c61447c697bf0d5fce7e6aff39`. The earlier #597 failure was superseded by this later successful release; the 403 is no longer the current blocker.
+- Release workflow source computes versionCode as `1000 + GITHUB_RUN_NUMBER` and versionName as `1.0.GITHUB_RUN_NUMBER`; release tag 1.0.601 therefore corresponds to expected versionCode 1601. Treat the release's attached metadata as the definitive verification record; do not infer signer/package solely from the tag.
+- Current GitHub release asset is available for an in-place update. Do not uninstall Friday or clear data. The owner must install this update on the existing package; installation and data preservation have not been physically verified.
+- Next acceptance: after installation, export **Friday → System → Export full diagnostic report** (`friday-device-report-v2`). Inspect/redact unexpected sensitive values before sharing. Use that report to diagnose app startup, model/provider readiness, typed turn path, mic/STT, voice/TTS and Shizuku. Then run the real audible conversation test.
+- The actual phone's private app state is not accessible through repository CI. Do not claim handset acceptance until report and live interaction evidence are observed.
+- Canonical delivery plan and APK-bundled plan parity checked in this session: BYTE-IDENTICAL.
