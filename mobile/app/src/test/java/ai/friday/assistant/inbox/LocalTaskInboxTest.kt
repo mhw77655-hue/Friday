@@ -149,6 +149,17 @@ class LocalTaskInboxTest {
         val restored = reopened.getTask(first.id)!!
         assertEquals(InboxTaskStatus.WAITING_APPROVAL, restored.status)
         assertEquals("stable-message-id", restored.arguments["message_id"])
+        val conflictingReplay = runCatching {
+            reopened.submitOnce(
+                id = first.id,
+                source = "chatgpt-cloud",
+                description = "Changed proposal",
+                capability = "review_external_agent_proposal",
+                arguments = mapOf("message_id" to "changed-after-restart"),
+                requiresApproval = true
+            )
+        }
+        assertTrue("recovered task identity must remain bound to its original content", conflictingReplay.isFailure)
     }
 
     @Test
