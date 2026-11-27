@@ -72,14 +72,14 @@ class FridayAgentTaskRelayPollWorker(
                         receivedAtEpochMs = System.currentTimeMillis(),
                         envelope = reply.envelope
                     )
-                    replies.appendIfAbsent(stored)
+                    val inserted = replies.appendIfAbsent(stored)
                     // Import into Friday's canonical task inbox as a stable,
                     // approval-gated proposal before acknowledging GitHub.
                     // Re-running after a crash is safe: submitOnce deduplicates
                     // by the external message ID-derived local task ID.
                     taskInboxBridge.import(stored)
                     relay.acknowledge(thread.taskId, reply)
-                    newReplies++
+                    if (inserted) newReplies++
                 }
             }
             consent.recordPoll(newReplies)
