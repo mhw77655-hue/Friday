@@ -890,7 +890,7 @@ fun SettingsScreen() {
 
         }
         SettingsGroup("GitHub and advanced development", "GitHub token, repository access, REA repair, memory and Builder controls", developmentExpanded, { developmentExpanded = !developmentExpanded }) {
-            var repositoryExpanded by remember { mutableStateOf(true) }
+            var repositoryExpanded by remember { mutableStateOf(false) }
             var reaExpanded by remember { mutableStateOf(false) }
             var memoryLabExpanded by remember { mutableStateOf(false) }
             SettingsGroup("GitHub repository and device reporting", "Fine-grained token, repository permissions and diagnostics", repositoryExpanded, { repositoryExpanded = !repositoryExpanded }) {
