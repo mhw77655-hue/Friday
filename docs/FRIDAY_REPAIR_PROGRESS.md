@@ -226,3 +226,42 @@ The structured report from the focused GitHub Actions run establishes the follow
 **Initial diagnosis:** the phone's permissions, microphone, STT, TTS, Friday voice-process binding and Shizuku binder are all reported healthy at capture. The strongest current explanation for Friday's lack of general reasoning is the model-admission/bootstrap gate: the native backend is selected but no resident model is loaded because the host-adaptation policy is refusing model admission. This is now a much narrower and evidence-based target than the earlier broad "dead app" uncertainty. It is not yet proven that thermal pressure is the only blocking input; the follow-up extracts exact CPU/thermal values and active diagnostic findings.
 
 The historical voice native crash needs its trace inspected separately; it is not the same event as the 1.0.601 package-update process restarts.
+
+
+
+### 2026-11-27 — full structured device report and cross-system findings
+
+The second focused GitHub Actions pass completed successfully (run https://github.com/mhw77655-hue/Friday/actions/runs/46053755389). It extracted the structured Friday report fields and the exact Friday/Shizuku service timeline from the nested log.
+
+**Confirmed live state at capture**
+- App identity: Friday 1.0.601, version code 1601, exact source revision `399a97e0cfc290c61447c697bf0d5fce7e6aff39`.
+- Host: RMX3472 / SM6375, 8 CPU cores, Android app memory class 384 MB, 7.76 GB total RAM, 2.34 GB available, 23.47 GB app storage free, battery 67% charging, validated Wi-Fi. Android does not report low-memory state.
+- Host thermal status is `3` (Android `THERMAL_STATUS_SEVERE`). The Android resource adapter maps status 3–6 into Friday's critical thermal bucket. `HostBootstrapPolicy` only permits local model loading at raw thermal status 0 or 1; `NanoSymbioticPolicy.admitModel()` blocks every model at thermal level >=2.
+- The resident-model bootstrap is `WAITING_FOR_HOST_CAPACITY`; its recorded reason is live RAM/CPU/thermal admission, and host bootstrap recommended model size is 0 bytes. Free storage and available RAM are above their hard minimums, so severe thermal pressure is an evidenced blocker, not a storage shortage. The exact capture does not include a separately serialized CPU-load value, so do not claim CPU was or was not contributing.
+- Model runtime: `LLAMA_CPP` selected, but **no model confirmed loaded**. The primary pinned resident candidate is a 1.56 GB MiniCPM5 2B GGUF; the smallest pinned fallback is a 517 MB Qwen3.5 0.8B GGUF. The bootstrap worker's live admission must approve a candidate before it downloads/loads. Do not bypass the severe-thermal safety gate; retry after the phone cools and verify that the 517 MB fallback can be admitted.
+- The app's 384 MB Android memory class is not itself the NAE hard rejection criterion. The direct policy rejection is thermal status >=2; available RAM in this snapshot was 2.34 GB and private storage 23.47 GB.
+- Shizuku: Friday reports binder reachable and granted. The system log shows Shizuku's server sending a binder to UID 10276 / PID 2575 at 20:44:01.130; Friday's voice-process report identifies the app PID as 2575. At 20:44:02.716 Shizuku's `ServiceStarter` starts `ai.friday.assistant.FridayShellService`, then sends the manager binder at 20:44:02.992. This is strong evidence the Shizuku-to-Friday service path was invoked and a binder was handed to Friday's process; it does not prove every privileged command succeeded.
+- Voice: microphone permission granted, speech recognition reports active, TTS initialized and ready (`en-gb-x-gba-local`, high quality), voice process bound (voice PID 5095, app PID 2575), 1 ms ping, zero restarts at capture. These are readiness signals, not proof of a real STT-to-TTS audible round trip. The report itself explicitly says STT and TTS still require feature-level tests. Hotword is unknown; manual tap-to-listen only.
+- UI thread probe passed at 21 ms. Memory/storage/private-storage/network checks passed. Process PSS was 120 MB, native heap 30 MB. Individual-memory counters show 2 experiences and 6 associations, but a write/restart/retrieval cycle remains unproven.
+- Active diagnostics: 22 findings, 2 errors, 3 warnings. The errors are the historical abnormal process-exit finding and the ENGINE failure surface. Warnings include hotword unknown, model runtime with no model loaded, and speech recognition not proven end-to-end.
+- Process-exit history: one genuine native crash of `ai.friday.assistant:voice` (reason 5, status 6, trace available) at 2026-11-25 21:47:35 UTC. The three 2026-11-27 18:42:59 UTC exits with reason 16 are Android package-update exits, not crashes. The count of 1 abnormal exit out of 12 is consistent with the single native crash. The exported JSON says the native trace is available but contains no excerpt; the archive does not include the trace itself.
+- System log records an ANR for `moe.shizuku.privileged.api` around 20:43:37 local time, before the captured log window. Shizuku is later reachable and successfully starts FridayShellService. Do not attribute this ANR to Friday.
+
+**Second confirmed defect to investigate**
+- Friday's failure evidence records an ENGINE error at 2026-11-27 18:43:09.511 UTC (20:43:09.511 local): `IllegalStateException: Unknown inference service operation.`
+- Stack: `ProcessIsolatedModelBackend.clientMessenger$lambda$0(ProcessIsolatedModelBackend.kt:46)`.
+- In the exact 1.0.601 source, the client throws this after receiving an error response from `InferenceService`; that service returns this message only when it receives a Messenger `message.what` outside its supported `MSG_LOAD=1`, `MSG_GENERATE=2`, `MSG_UNLOAD=3` operations.
+- This proves an invalid/unknown IPC operation reached the inference service, but the current report does not include the actual `message.what` value or caller. It is not yet safe to guess whether this is an unexpected client message, protocol mismatch or stale/incorrect Messenger endpoint. Next source fix should log the numeric operation, request ID and sender-side operation at the IPC boundary, add a regression test for unknown messages, then reproduce on device. Do not silently swallow it.
+- Separate historical model-load failures report the resident weights missing or the in-app runtime unavailable. They are retryable and consistent with the current no-model state.
+
+**Root-cause assessment**
+The handset is not globally dead: the UI, permissions, Shizuku binder, Friday shell-service launch, voice process binding, STT recognizer initialization and TTS initialization are all present. The principal reason Friday lacks general reasoning is now evidenced: no GGUF model is loaded, and severe device thermal status causes Friday's host-adaptation/resource gate to refuse local model admission. A second inference IPC protocol error is recorded and must be fixed/diagnosed independently. The historic voice native crash remains a separate follow-up.
+
+**Next engineering actions**
+1. Inspect the IPC protocol at the exact release revision; instrument and test the unknown operation rather than guessing.
+2. Verify the bootstrap retry schedule and model candidate admission after the device returns below severe thermal status; prefer the pinned 517 MB fallback when the 1.56 GB resident model cannot fit.
+3. Keep the severe thermal guard. Add a real cloud reasoning provider only through an explicit, secure user-controlled configuration path; Wi-Fi availability alone is not a configured provider.
+4. Retrieve the 2026-11-25 voice native-crash trace if Android still retains it, then test microphone capture → STT → model response → TTS audio → actual playback.
+5. Run physical typed and audible acceptance; diagnostics alone do not prove the user-facing experience.
+
+**Privacy note:** `log.zip` remains in the public repository. The Actions report is redacted on a best-effort basis, but the original raw ZIP is not redacted by this workflow and may contain private system identifiers or other sensitive details. It should be moved to a private location or removed after the investigation if the repository is intended to remain public.
