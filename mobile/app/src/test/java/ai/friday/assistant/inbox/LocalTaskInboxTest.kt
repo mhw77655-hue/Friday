@@ -109,6 +109,38 @@ class LocalTaskInboxTest {
     }
 
     @Test
+    fun `submitOnce deduplicates external proposals and preserves approval gate`() = runBlocking {
+        val dir = tempDir()
+        val firstInbox = inbox(dir)
+        val first = firstInbox.submitOnce(
+            id = "agent-reply:stable-message-id",
+            source = "chatgpt-cloud",
+            description = "Review external proposal",
+            capability = "review_external_agent_proposal",
+            arguments = mapOf("message_id" to "stable-message-id"),
+            requiresApproval = true
+        )
+        val duplicate = firstInbox.submitOnce(
+            id = "agent-reply:stable-message-id",
+            source = "chatgpt-cloud",
+            description = "Duplicate must not replace original",
+            capability = "review_external_agent_proposal",
+            arguments = mapOf("message_id" to "stable-message-id"),
+            requiresApproval = true
+        )
+
+        assertEquals(first.id, duplicate.id)
+        assertEquals(InboxTaskStatus.WAITING_APPROVAL, first.status)
+        assertEquals(1, firstInbox.tasks.value.count { it.id == first.id })
+
+        val reopened = inbox(dir)
+        awaitCondition { reopened.tasks.value.any { it.id == first.id } }
+        val restored = reopened.getTask(first.id)!!
+        assertEquals(InboxTaskStatus.WAITING_APPROVAL, restored.status)
+        assertEquals("stable-message-id", restored.arguments["message_id"])
+    }
+
+    @Test
     fun `tasks survive a simulated restart`() = runBlocking {
         val dir = tempDir()
         val i1 = inbox(dir)
