@@ -542,3 +542,7 @@ Collaboration continues in stacked draft PRs #194 and #195: public-only GitHub t
 
 - Follow-up hardening on the consolidated relay branch: public payload validation now scans serialized content for common GitHub/OpenAI/Google/Slack bearer/API-key and private-key patterns in addition to forbidden private-field names; regression test added. The Settings handshake now embeds the exact 40-character BuildConfig source revision when available, falling back explicitly to an app-version marker rather than pretending the version is a commit SHA.
 - Added the exact ChatGPT v1 reply-envelope contract to `docs/FRIDAY_AGENT_TASK_RELAY.md`, so the connected GitHub collaborator can post machine-ingestible replies instead of unstructured comments.
+
+
+- Closed the reply-to-Friday gap in the relay branch: accepted GitHub comments are now durably journaled, then imported idempotently into the canonical `LocalTaskInbox` under a stable message-derived ID as `WAITING_APPROVAL` proposals, before GitHub acknowledgement. Crash replay is safe; duplicate replies do not create duplicate local tasks; no external proposal is auto-executed.
+- Added `LocalTaskInbox.submitOnce`, a worker-safe application-context factory, the `AgentTaskReplyInboxBridge`, and tests for stable import/deduplication and the approval gate. The relay now connects GitHub replies to Friday's local task surface rather than merely showing them in Settings.
