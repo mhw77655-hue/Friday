@@ -108,6 +108,14 @@ class TaskCapsuleCompilerTest {
     }
 
     @Test
+    fun `capsule verification rejects post compilation tampering`() {
+        val capsule = compiler.compile(request(), emptyList())
+        assertTrue(compiler.verify(capsule))
+        assertFalse(compiler.verify(capsule.copy(context = "injected unrelated memory")))
+        assertFalse(compiler.verify(capsule.copy(allowedTools = listOf("device.shell"))))
+    }
+
+    @Test
     fun `context budget is hard and artifact bytes are never embedded`() {
         val evidence = (1..8).map {
             TaskCapsuleCompiler.MemoryEvidence(
