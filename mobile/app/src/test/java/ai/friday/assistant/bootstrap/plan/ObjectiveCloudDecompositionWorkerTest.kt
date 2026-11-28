@@ -8,6 +8,38 @@ import org.junit.Test
 
 class ObjectiveCloudDecompositionWorkerTest {
     @Test
+    fun ambiguousChatGptAttemptsAreNeverAutomaticallyRetried() {
+        val running = ai.friday.assistant.aiworkforce.table.ChatGPTTaskResultStore.Checkpoint(
+            taskId = "task-123",
+            requestId = "request-123",
+            model = "model",
+            contextDigest = "a".repeat(64),
+            output = "",
+            responseId = null,
+            state = ai.friday.assistant.aiworkforce.table.ChatGPTTaskResultStore.State.RUNNING,
+            updatedAtEpochMs = 1_000L
+        )
+        val incomplete = running.copy(
+            state = ai.friday.assistant.aiworkforce.table.ChatGPTTaskResultStore.State.INCOMPLETE,
+            updatedAtEpochMs = 2_000L
+        )
+        assertTrue(ObjectiveCloudDecompositionWorker.canRetrySafely(true, null, null, 0))
+        assertTrue(ObjectiveCloudDecompositionWorker.canRetrySafely(true, running.copy(
+            state = ai.friday.assistant.aiworkforce.table.ChatGPTTaskResultStore.State.COMPLETED,
+            output = "done",
+            responseId = "response-123"
+        ), running.copy(
+            state = ai.friday.assistant.aiworkforce.table.ChatGPTTaskResultStore.State.COMPLETED,
+            output = "done",
+            responseId = "response-123"
+        ), 0))
+        assertTrue(!ObjectiveCloudDecompositionWorker.canRetrySafely(true, running, incomplete, 0))
+        assertTrue(!ObjectiveCloudDecompositionWorker.canRetrySafely(true, running, running, 0))
+        assertTrue(!ObjectiveCloudDecompositionWorker.canRetrySafely(false, null, null, 0))
+        assertTrue(!ObjectiveCloudDecompositionWorker.canRetrySafely(true, null, null, 6))
+    }
+
+    @Test
     fun approvalExpiryDoesNotChangeTaskIdentityDigest() {
         val parent = JSONObject()
             .put("task_id", "objective-a-phase-0-assess-12345678")
