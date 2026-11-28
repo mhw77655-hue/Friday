@@ -50,14 +50,14 @@ class ModelManagerLifecycleTest {
     }
 
     @Test
-    fun `resident tier always returns a loaded handle and is never auto-unloaded`() = runBlocking {
+    fun `resident tier stays warm through arbitrary idle time without memory pressure`() = runBlocking {
         val backend = FakeModelBackend()
         val m = manager(backend)
 
         val resident = m.request(OrganRole.RESIDENT, task = "resident-ac1", modelId = "resident-model")
         assertTrue("resident request must come back loaded", backend.isLoaded(resident))
 
-        // Arbitrarily long idle: the cooldown sweep must never touch the resident tier.
+        // Arbitrarily long idle without Android memory pressure keeps the resident tier warm.
         now = 1_000_000L
         m.runCooldownSweep()
         assertTrue("resident must survive arbitrary idle time", backend.isLoaded(resident))
