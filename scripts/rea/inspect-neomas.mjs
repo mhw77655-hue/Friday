@@ -13,7 +13,7 @@ import { convertReaResult, mergeReaPackets } from "../../tools/rea/evidence-conv
 const VERSION = process.env.REA_PACKAGE_VERSION;
 const INTEGRITY = process.env.REA_PACKAGE_INTEGRITY ?? "not-recorded";
 const CHROME = process.env.REA_BROWSER_EXECUTABLE;
-const URL = process.env.NEOMAS_URL ?? "https://neomas.app/";
+const NEOMAS_URL = process.env.NEOMAS_URL ?? "https://neomas.app/";
 const HOST = "127.0.0.1";
 const TIMEOUT_MS = 12 * 60 * 1000;
 
@@ -193,7 +193,7 @@ async function stopProcess(child) {
 }
 
 async function main() {
-  const requestedUrl = assertTargetUrl(URL);
+  const requestedUrl = assertTargetUrl(NEOMAS_URL);
   if (!CHROME) throw new Error("REA_BROWSER_EXECUTABLE must point to Chrome.");
   const outputDir = resolve(process.env.REA_OUTPUT_DIR ?? "neomas-rea-evidence");
   await mkdir(outputDir, { recursive: true });
