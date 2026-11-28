@@ -247,8 +247,7 @@ The second focused GitHub Actions pass completed successfully (run https://githu
 - Process-exit history: one genuine native crash of `ai.friday.assistant:voice` (reason 5, status 6, trace available) at 2026-11-25 21:47:35 UTC. The three 2026-11-27 18:42:59 UTC exits with reason 16 are Android package-update exits, not crashes. The count of 1 abnormal exit out of 12 is consistent with the single native crash. The exported JSON says the native trace is available but contains no excerpt; the archive does not include the trace itself.
 - System log records an ANR for `moe.shizuku.privileged.api` around 20:43:37 local time, before the captured log window. Shizuku is later reachable and successfully starts FridayShellService. Do not attribute this ANR to Friday.
 
-**Second confirmed defect to investigate**
-- Friday's failure evidence records an ENGINE error at 2026-11-27 18:43:09.511 UTC (20:43:09.511 local): `IllegalStateException: Unknown inference service operation.`
+**Second confirmed defect to investigate**- Friday's failure evidence records an ENGINE error at 2026-11-27 18:43:09.511 UTC (20:43:09.511 local): `IllegalStateException: Unknown inference service operation.`
 - Stack: `ProcessIsolatedModelBackend.clientMessenger$lambda$0(ProcessIsolatedModelBackend.kt:46)`.
 - In the exact 1.0.601 source, the client throws this after receiving an error response from `InferenceService`; that service returns this message only when it receives a Messenger `message.what` outside its supported `MSG_LOAD=1`, `MSG_GENERATE=2`, `MSG_UNLOAD=3` operations.
 - This proves an invalid/unknown IPC operation reached the inference service, but the current report does not include the actual `message.what` value or caller. It is not yet safe to guess whether this is an unexpected client message, protocol mismatch or stale/incorrect Messenger endpoint. Next source fix should log the numeric operation, request ID and sender-side operation at the IPC boundary, add a regression test for unknown messages, then reproduce on device. Do not silently swallow it.
@@ -499,7 +498,6 @@ Physical handset acceptance remains pending. The owner must install 1.0.610 over
 
 Collaboration continues in stacked draft PRs #194 and #195: public-only GitHub task transport and its Android polling/Settings integration. Private SIWC ChatGPT task work and the private read-only device broker remain separate follow-on adapters.
 
-
 ### 2026-11-27 — GitHub collaboration transport and Android relay integration both pass exact-head CI
 
 - Core transport PR #194 exact head: `130c2ba482982529521d0c331915d341a03b5109`; run #46069437763 completed successfully. All six JVM shards, debug APK build, whole-repository source audit, disposable Android instrumentation, aggregate evidence and debug APK promotion passed.
@@ -683,3 +681,14 @@ The repository and GitHub side are accessible here. The live phone side is **not
 - Supabase OAuth 2.1 server and dynamic client registration are still not enabled/verified. Consent page is in source but not deployed. Owner email allowlist `FRIDAY_OWNER_EMAIL` is intentionally unset; all MCP/admin requests fail closed until configured.
 - No live phone connection or snapshot exists. After Railway GitHub source authorization, deploy, verify health/metadata and invalid-token rejection, configure Supabase OAuth Site URL/consent path + OAuth 2.1 + DCR, set owner email, connect ChatGPT custom MCP on web, then pair Android and prove fresh snapshot + revocation.
 - Current main head at this log update: eac37eca6078d0400d4565b6ed2f47becf043883. Venture Autopilot remains untouched.
+
+### 2026-11-28 — Railway first deployment verified; OAuth setup is now the blocker
+
+- Owner confirmed Railway GitHub authorization. The existing Railway service is connected to `mhw77655-hue/Friday`, branch `main`, root directory `/services/friday-inspection`; no duplicate service was created.
+- Railway deployment `301cc907-2b40-46f3-86f9-cf8f178c4557` completed with status `SUCCESS`. Runtime logs confirm the Node service started on port 8080 and Railway's configured `/health` check succeeded. The 500 MB persistent volume is mounted at `/data`; production environment is healthy with no Railway service issues.
+- Independently fetched the public endpoints: `GET /health` returns `{"service":"friday-live-inspection","status":"ok"}`; `GET /` returns service status ok and identifies Supabase OAuth 2.1 as the intended auth; `GET /oauth/consent` serves the Friday read-only access approval page. Protected-resource metadata at `/.well-known/oauth-protected-resource` returns the MCP resource and Friday-auth authorization-server URL.
+- Supabase Friday-auth project `dtvhwuhmcynpbqfehlvs` remains `ACTIVE_HEALTHY`; Venture Autopilot remains a separate active project and was not modified. Supabase OIDC discovery at `/auth/v1/.well-known/openid-configuration` responds with authorization/token/JWKS endpoints. However, the Supabase MCP OAuth discovery URL `/.well-known/oauth-authorization-server/auth/v1` returned HTTP 404, so OAuth 2.1 MCP discovery and dynamic client registration are NOT yet verified/enabled.
+- Railway currently has variables named `NODE_ENV`, `PUBLIC_HOST`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `FRIDAY_STATE_PATH`. `FRIDAY_OWNER_EMAIL` is absent. The service deliberately fails closed for MCP/admin access until the owner allowlist is configured; do not weaken this gate or infer the owner's identity from connector metadata.
+- Build logs reported two high-severity npm dependency advisories. The deployment itself succeeded, but dependency audit details must be reviewed and patched without blind `npm audit fix --force` before treating the service as production-hardened.
+- Current verified state: Railway deployment + health endpoint work; protected-resource metadata is served; consent page is served; no ChatGPT MCP OAuth connection, owner authorization, phone pairing, live device snapshot, or revocation acceptance has occurred.
+- Next: owner enables OAuth 2.1 server and dynamic client registration in Friday-auth → Authentication → OAuth Server; configure Site URL/authorization path to the deployed consent page; create/sign in to the Friday-auth owner account and set `FRIDAY_OWNER_EMAIL` to that account's email in Railway Variables; then retest discovery, consent, token validation, MCP initialize/tools/list, pairing, and revocation. Only after those tests should ChatGPT be registered in ChatGPT web and Friday paired.
