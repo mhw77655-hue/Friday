@@ -10,6 +10,19 @@ class FridayInspectionRelayStore(context: Context) {
         Context.MODE_PRIVATE
     )
 
+    init {
+        // Existing paired installs must not inherit an old always-on setting.
+        // Apply this migration once, then require a fresh affirmative opt-in.
+        if (preferences.getInt(KEY_PRIVACY_DEFAULT_VERSION, 0) < 1) {
+            preferences.edit()
+                .putBoolean(KEY_ENABLED, false)
+                .putLong(KEY_CONSENTED_AT, 0L)
+                .putInt(KEY_PRIVACY_DEFAULT_VERSION, 1)
+                .putString(KEY_STATUS, "External inspection paused by privacy update")
+                .apply()
+        }
+    }
+
     fun serverUrl(): String? = preferences.getString(KEY_SERVER_URL, null)
     fun deviceId(): String = preferences.getString(KEY_DEVICE_ID, null)
         ?: UUID.randomUUID().toString().also { preferences.edit().putString(KEY_DEVICE_ID, it).apply() }
@@ -21,15 +34,18 @@ class FridayInspectionRelayStore(context: Context) {
         preferences.edit()
             .putString(KEY_SERVER_URL, serverUrl)
             .putBoolean(KEY_ENROLLED, true)
-            .putBoolean(KEY_ENABLED, true)
-            .putString(KEY_STATUS, "Paired; waiting for Friday to connect")
+            .putBoolean(KEY_ENABLED, false)
+            .putLong(KEY_CONSENTED_AT, 0L)
+            .putString(KEY_STATUS, "Paired; external inspection is off")
             .apply()
     }
 
     fun setEnabled(enabled: Boolean) {
+        val allowed = enabled && isEnrolled()
         preferences.edit()
-            .putBoolean(KEY_ENABLED, enabled && isEnrolled())
-            .putString(KEY_STATUS, if (enabled) "Inspection enabled" else "Inspection paused")
+            .putBoolean(KEY_ENABLED, allowed)
+            .putLong(KEY_CONSENTED_AT, if (allowed) System.currentTimeMillis() else 0L)
+            .putString(KEY_STATUS, if (allowed) "Inspection enabled by owner" else "Inspection paused")
             .apply()
     }
 
@@ -53,5 +69,7 @@ class FridayInspectionRelayStore(context: Context) {
         private const val KEY_ENROLLED = "enrolled"
         private const val KEY_ENABLED = "enabled"
         private const val KEY_STATUS = "status"
+        private const val KEY_CONSENTED_AT = "consented_at_epoch_ms"
+        private const val KEY_PRIVACY_DEFAULT_VERSION = "privacy_default_version"
     }
 }
