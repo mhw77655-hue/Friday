@@ -70,6 +70,20 @@ class ModelManagerLifecycleTest {
     }
 
     @Test
+    fun `next wake evicts a handle independently reclaimed by the backend`() = runBlocking {
+        val backend = FakeModelBackend()
+        val m = manager(backend)
+        val first = m.request(OrganRole.RESIDENT, task = "first", modelId = "resident-model")
+        backend.unloadModel(first)
+        assertFalse(backend.isLoaded(first))
+
+        val second = m.request(OrganRole.RESIDENT, task = "reload-after-nae-reclaim", modelId = "resident-model")
+        assertTrue(backend.isLoaded(second))
+        assertNotEquals(first.id, second.id)
+        assertEquals(2, backend.loadCount)
+    }
+
+    @Test
     fun `resident language model is reclaimed only under Android memory pressure after idle grace`() = runBlocking {
         val backend = FakeModelBackend()
         val pressure = object : ResourceSnapshot by ResourceSnapshot.alwaysHealthy() {
