@@ -152,7 +152,7 @@ class WallClockAllowlistTest {
         put("cognitive/execution/ExecutionEngine.kt", 2)
         put("cognitive/immune/ImmuneMemory.kt", 1)
         put("cognitive/planning/PlanGraph.kt", 1)
-        put("cognitive/seed/FridayIndividual.kt", 1)
+        put("cognitive/seed/FridayIndividual.kt", 2)
         put("cognitive/seed/FridaySeedSubstrate.kt", 1)
         put("cognitive/seed/FridayModelFreeMind.kt", 1)
 
@@ -253,7 +253,7 @@ class WallClockAllowlistTest {
         put("cognitive/execution/ExecutionEngine.kt", "execution started-at and last-executed-at stamps")
         put("cognitive/immune/ImmuneMemory.kt", "injected nowMs default for immune records")
         put("cognitive/planning/PlanGraph.kt", "plan-node createdAt default")
-        put("cognitive/seed/FridayIndividual.kt", "initial local identity creation timestamp; production receives the composition-root clock")
+        put("cognitive/seed/FridayIndividual.kt", "initial local identity creation timestamp; both standard and learning-ablation constructors expose an injected clock default, while production supplies the composition-root clock")
         put("cognitive/seed/FridaySeedSubstrate.kt", "experience journal observation timestamp; production receives the composition-root clock")
         put("cognitive/seed/FridayModelFreeMind.kt", "device-local time and date answers use the current instant in the device timezone; this is presentation of current local time, not a learning or cognitive-decision timestamp")
 
