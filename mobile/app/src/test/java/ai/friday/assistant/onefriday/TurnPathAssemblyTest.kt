@@ -58,7 +58,8 @@ class TurnPathAssemblyTest {
         fun ports(
             snapshot: () -> ResourceSnapshot,
             clock: () -> Long,
-            directory: File? = null
+            directory: File? = null,
+            languageModelAvailable: Boolean = true
         ): JvmPlatformPorts {
             storageDir = directory ?: compositionDir("assembly")
             backend = FakeModelBackend()
@@ -85,7 +86,8 @@ class TurnPathAssemblyTest {
                 firstSegmentSignal = { },
                 utteranceDoneSignal = { },
                 failureSink = { },
-                failureSurface = FailureSurface()
+                failureSurface = FailureSurface(),
+                languageModelAvailable = { languageModelAvailable }
             )
         }
     }
@@ -258,6 +260,39 @@ class TurnPathAssemblyTest {
         assertEquals(listOf(subgoal), restarted.engine.cognitiveState.value.activeSubgoals)
         assertEquals(1, restarted.individual.experience.experienceCount())
         assertTrue(restarted.selfModel.goals().contains(goal.description))
+        directory.deleteRecursively()
+    }
+
+    @Test
+    fun `model-free live turns preserve Friday identity and explicitly learned facts across restart`() {
+        val directory = compositionDir("model-free-live-continuity")
+        val first = TurnPathAssembly.assemble(
+            Fixture().ports(
+                { ResourceSnapshot.alwaysHealthy() },
+                { 1_000L },
+                directory,
+                languageModelAvailable = false
+            )
+        )
+        val identityId = first.individual.identity.id
+
+        first.pipeline.onUserInput("My name is Veno")
+        val firstReply = first.pipeline.turns.value.lastOrNull { it.fromFriday }?.text
+        assertTrue("the model-free production path must answer the explicit fact", firstReply?.contains("remember that your name is Veno") == true)
+        assertTrue("the real turn path records both the input experience and its observed outcome", first.individual.experience.experienceCount() >= 2)
+
+        val restarted = TurnPathAssembly.assemble(
+            Fixture().ports(
+                { ResourceSnapshot.alwaysHealthy() },
+                { 2_000L },
+                directory,
+                languageModelAvailable = false
+            )
+        )
+        assertEquals("the same individual must survive a new production composition", identityId, restarted.individual.identity.id)
+        restarted.pipeline.onUserInput("What's my name?")
+        val recalledReply = restarted.pipeline.turns.value.lastOrNull { it.fromFriday }?.text
+        assertTrue("the later real turn must recall the explicitly stored fact after restart", recalledReply?.contains("Veno") == true)
         directory.deleteRecursively()
     }
 
