@@ -37,6 +37,7 @@ class FridayInspectionRelayClient(context: Context) {
         .build()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     @Volatile private var connectionJob: Job? = null
+    @Volatile private var sessionExpiryJob: Job? = null
     @Volatile private var socket: WebSocket? = null
 
     suspend fun enroll(serverUrlInput: String, pairingCode: String) = withContext(Dispatchers.IO) {
@@ -85,6 +86,11 @@ class FridayInspectionRelayClient(context: Context) {
     fun start() {
         if (!store.isEnabled() || !store.isEnrolled()) return
         if (connectionJob?.isActive == true) return
+        sessionExpiryJob?.cancel()
+        sessionExpiryJob = scope.launch {
+            delay(store.remainingSessionMs())
+            disable()
+        }
         connectionJob = scope.launch {
             var retryDelayMs = 1_000L
             while (isActive && store.isEnabled() && store.isEnrolled()) {
@@ -180,6 +186,8 @@ class FridayInspectionRelayClient(context: Context) {
     fun stop() {
         connectionJob?.cancel()
         connectionJob = null
+        sessionExpiryJob?.cancel()
+        sessionExpiryJob = null
         socket?.close(1000, "Friday app backgrounded")
         socket = null
     }
