@@ -95,8 +95,9 @@ function bearerToken(request) {
 }
 
 function oauthChallenge({ invalid = false } = {}) {
+  const resourceHost = PUBLIC_HOST || "example.supabase.co";
   const parameters = [
-    `resource_metadata="https://${PUBLIC_HOST}/.well-known/oauth-protected-resource"`,
+    `resource_metadata="https://${resourceHost}/.well-known/oauth-protected-resource"`,
     'scope="openid email"'
   ];
   if (invalid) {
