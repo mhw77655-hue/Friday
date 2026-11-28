@@ -154,6 +154,30 @@ class CloudModelRouterTest {
     }
 
     @Test
+    fun `router preserves provider token usage for caller side metering`() {
+        val usage = CloudTokenUsage(
+            inputTokens = 100,
+            outputTokens = 40,
+            cacheCreationInputTokens = 20,
+            cacheReadInputTokens = 60
+        )
+        val provider = FakeCloudProvider("anthropic-claude") {
+            CloudResult.Success(
+                text = "bounded result",
+                providerId = "anthropic-claude",
+                usage = usage,
+                requestId = "req-123",
+                model = "claude-opus-5-5"
+            )
+        }
+        val result = CloudModelRouter(listOf(provider)).submit(CloudReasoningRequest("task"))
+
+        assertEquals(usage, result.usage)
+        assertEquals("req-123", result.requestId)
+        assertEquals("claude-opus-5-5", result.model)
+    }
+
+    @Test
     fun `no capability execution path exists - router exposes only reasoning text`() {
         val router = CloudModelRouter(listOf(succeeding("pool-a", "poolA")))
 
