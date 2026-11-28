@@ -42,6 +42,7 @@ import ai.friday.assistant.ui.screens.BootstrapScreen
 import ai.friday.assistant.ui.screens.ConversationScreen
 import ai.friday.assistant.ui.screens.EnvironmentScreen
 import ai.friday.assistant.ui.screens.HomeScreen
+import ai.friday.assistant.ui.screens.IndividualScreen
 import ai.friday.assistant.ui.screens.MemoryScreen
 import ai.friday.assistant.ui.screens.MissionsScreen
 import ai.friday.assistant.ui.screens.ModelScreen
@@ -80,6 +81,7 @@ private const val ROUTE_VISION = "vision"
 private const val ROUTE_VIDEO_KNOWLEDGE = "video_knowledge"
 private const val ROUTE_VOICE_STUDIO = "voice_studio"
 private const val ROUTE_AI_TABLE = "ai_table"
+private const val ROUTE_INDIVIDUAL = "individual"
 
 /**
  * Living-UI pass: real screen transitions. Design spec §25/§6 rule out
@@ -219,6 +221,7 @@ fun FridayNavHost(showSetup: Boolean = false, onSetupComplete: () -> Unit = {}) 
             composable(ROUTE_VIDEO_KNOWLEDGE) { VideoKnowledgeScreen() }
             composable(ROUTE_VOICE_STUDIO) { VoiceStudioScreen() }
             composable(ROUTE_AI_TABLE) { FridayTableScreen() }
+            composable(ROUTE_INDIVIDUAL) { IndividualScreen() }
             composable(ROUTE_BOOTSTRAP) {
                 val slot = EngineAccess.bootstrapManager()
                 val manager = slot.value
