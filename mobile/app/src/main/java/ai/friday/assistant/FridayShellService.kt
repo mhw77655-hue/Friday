@@ -58,6 +58,10 @@ class FridayShellService : IFridayShellService.Stub() {
             // memory stalls from an ordinary low "free" number.
             .put("memoryPressure", readFile("/proc/pressure/memory", 4_000))
             .put("vmstat", readFile("/proc/vmstat", 6_000))
+            .put("deviceManufacturer", runFixed("getprop", "ro.product.manufacturer"))
+            .put("deviceModel", runFixed("getprop", "ro.product.model"))
+            .put("socManufacturer", runFixed("getprop", "ro.soc.manufacturer"))
+            .put("socModel", runFixed("getprop", "ro.soc.model"))
             // Compact, read-only per-process PSS breakdown. Kept local to
             // Friday's System screen; never included in the privacy-filtered
             // cloud inspection snapshot.

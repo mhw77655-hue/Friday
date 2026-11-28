@@ -6,6 +6,10 @@ package ai.friday.assistant.diagnostics
  * alone is not treated as proof of pressure. OOM counters are cumulative.
  */
 data class PhoneMemoryPressureReport(
+    val deviceManufacturer: String?,
+    val deviceModel: String?,
+    val socManufacturer: String?,
+    val socModel: String?,
     val totalMb: Long?,
     val availableMb: Long?,
     val swapTotalMb: Long?,
@@ -19,6 +23,11 @@ data class PhoneMemoryPressureReport(
     val explanation: String
 ) {
     fun summary(): String = buildString {
+        val device = listOfNotNull(deviceManufacturer, deviceModel).filter { it.isNotBlank() }.joinToString(" ")
+        val soc = listOfNotNull(socManufacturer, socModel).filter { it.isNotBlank() }.joinToString(" ")
+        if (device.isNotBlank()) append("Device: $device")
+        if (soc.isNotBlank()) append(" · SoC: $soc")
+        if (device.isNotBlank() || soc.isNotBlank()) append(" · ")
         append("Phone memory: ")
         append(assessment)
         append(" · ")
@@ -46,7 +55,11 @@ object PhoneMemoryPressureAnalyzer {
         meminfo: String,
         psi: String,
         vmstat: String,
-        memoryProcesses: String = ""
+        memoryProcesses: String = "",
+        deviceManufacturer: String? = null,
+        deviceModel: String? = null,
+        socManufacturer: String? = null,
+        socModel: String? = null
     ): PhoneMemoryPressureReport {
         val memory = parseKeyValues(meminfo)
         val vm = parseKeyValues(vmstat)
@@ -76,6 +89,10 @@ object PhoneMemoryPressureAnalyzer {
             else -> "This kernel did not expose readable PSI data. Use Android low-memory flags and process-exit history as the fallback evidence."
         }
         return PhoneMemoryPressureReport(
+            deviceManufacturer = deviceManufacturer?.takeIf { it.isNotBlank() },
+            deviceModel = deviceModel?.takeIf { it.isNotBlank() },
+            socManufacturer = socManufacturer?.takeIf { it.isNotBlank() },
+            socModel = socModel?.takeIf { it.isNotBlank() },
             totalMb = total,
             availableMb = available,
             swapTotalMb = swapTotal,

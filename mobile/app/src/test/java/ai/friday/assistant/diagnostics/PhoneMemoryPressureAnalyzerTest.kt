@@ -10,8 +10,14 @@ class PhoneMemoryPressureAnalyzerTest {
             meminfo = "MemTotal: 8192000 kB\nMemAvailable: 2048000 kB\nSwapTotal: 4096000 kB\nSwapFree: 1024000 kB",
             psi = "some avg10=12.00 avg60=8.00 avg300=2.00 total=1234\nfull avg10=1.50 avg60=0.50 avg300=0.10 total=456",
             vmstat = "oom_kill 3\npgscan_direct 77",
-            memoryProcesses = "version,1\nproc,foreground,com.example.heavy,99,123456,0,a\nproc,cached,com.example.light,88,65536,0,e"
+            memoryProcesses = "version,1\nproc,foreground,com.example.heavy,99,123456,0,a\nproc,cached,com.example.light,88,65536,0,e",
+            deviceManufacturer = "Example",
+            deviceModel = "Phone 8",
+            socManufacturer = "ExampleSilicon",
+            socModel = "X8"
         )
+        assertEquals("Phone 8", report.deviceModel)
+        assertEquals("X8", report.socModel)
         assertEquals(8000L, report.totalMb)
         assertEquals(2000L, report.availableMb)
         assertEquals(4000L, report.swapTotalMb)

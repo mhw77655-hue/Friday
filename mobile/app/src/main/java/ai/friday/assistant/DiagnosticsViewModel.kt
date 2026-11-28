@@ -128,7 +128,12 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 val report = ai.friday.assistant.diagnostics.PhoneMemoryPressureAnalyzer.analyze(
                     meminfo = root.optString("meminfo"),
                     psi = root.optString("memoryPressure"),
-                    vmstat = root.optString("vmstat")
+                    vmstat = root.optString("vmstat"),
+                    memoryProcesses = root.optString("memoryProcesses"),
+                    deviceManufacturer = root.optString("deviceManufacturer"),
+                    deviceModel = root.optString("deviceModel"),
+                    socManufacturer = root.optString("socManufacturer"),
+                    socModel = root.optString("socModel")
                 )
                 _phoneMemoryStatus.value = report.summary()
             } catch (failure: Exception) {
