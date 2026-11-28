@@ -154,7 +154,7 @@ This is a maintenance pass, not a structural migration. The objective is to remo
 
 ### Inventory and preservation decisions
 
-- Current main tree contains 1,096 tracked files across 1,387 tree entries at the time of audit.
+- Current main tree contains 1,096 tracked files across 1,385 tree entries after the archive removals.
 - The repository has 213 remote branches. Many are named audit/fix/feat/rebuild/work/friday-proposals and require ancestry and unique-work review before deletion.
 - There are 18 open pull requests. All 18 heads were compared with main; each has unique commits and/or unmerged file changes. None was blindly closed or discarded. Some overlap in purpose, but their diffs are not empty.
 - Eleven GitHub Actions workflows were present. They cover build/release, device diagnostics, candidate sandbox, formal checks, REA investigation, identity migration and live inspection. No workflow was deleted based on naming alone.
