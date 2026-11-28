@@ -283,7 +283,9 @@ const httpServer = http.createServer(async (request, response) => {
         connection.socket.close(4001, "revoked");
         connectedDevices.delete(deviceId);
       }
+      rejectPendingSnapshots(deviceId, "Friday inspection access was revoked.");
       await persistState();
+      audit("device_revoked", deviceId);
       return sendJson(response, 200, { device_id: deviceId, revoked: true });
     }
     if (request.method === "POST" && url.pathname === "/admin/revoke") {
@@ -331,7 +333,7 @@ const httpServer = http.createServer(async (request, response) => {
 
 const websocketServer = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
 httpServer.on("upgrade", (request, socket, head) => {
-  if (!hostAllowed(request) || new URL(request.url || "/", "https://" + (request.headers.host || "localhost")).pathname !== "/device") {
+  if (rateLimited(request, "device-ws", 20, 60_000) || !hostAllowed(request) || new URL(request.url || "/", "https://" + (request.headers.host || "localhost")).pathname !== "/device") {
     socket.destroy();
     return;
   }
@@ -395,6 +397,8 @@ websocketServer.on("connection", socket => {
       socket.send(JSON.stringify({ type: "revoked" }));
       socket.close(4001, "revoked");
       connectedDevices.delete(authenticatedDeviceId);
+      rejectPendingSnapshots(authenticatedDeviceId, "Friday inspection access was revoked.");
+      audit("device_revoked", authenticatedDeviceId);
       return;
     }
 
