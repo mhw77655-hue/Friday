@@ -155,7 +155,9 @@ class FridayRuntimeService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        ai.friday.assistant.diagnostics.FridayInspectionRelayRuntime.stop()
+        val appVisible = ProcessLifecycleOwner.get().lifecycle.currentState
+            .isAtLeast(Lifecycle.State.STARTED)
+        if (!appVisible) ai.friday.assistant.diagnostics.FridayInspectionRelayRuntime.stop()
         stopOwnedMicrophone()
         runtimeScope.cancel()
         super.onDestroy()
