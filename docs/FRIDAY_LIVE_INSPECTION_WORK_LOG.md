@@ -180,3 +180,11 @@ Earlier statements that no Android device was enrolled are superseded. Phone pai
 2. Complete ChatGPT MCP OAuth registration/authorization and verify the authenticated tool catalog.
 3. Execute friday_live_status and friday_inspection_snapshot through the authorized MCP client; confirm snapshot timestamp and freshness.
 4. Test device revocation and OAuth consent/token revocation, then confirm access is denied.
+
+
+### OAuth state recheck after phone enrollment — 2026-11-28
+- Read-only aggregate query now reports: 1 Supabase owner user, 1 registered OAuth client, 1 OAuth authorization, 0 persisted OAuth consents.
+- This indicates the owner bootstrap and at least one OAuth client/authorization flow have progressed since the older zero-count notes. Do not repeat owner-account creation.
+- Railway HTTP logs show MCP POST probes at 04:24Z returned 401; these were unauthenticated probes, not accepted ChatGPT MCP calls.
+- No successful authenticated /mcp request is present in the inspected production HTTP log window yet.
+- Next: resolve the outstanding consent/authorization state and capture a successful authenticated MCP initialize/tools/list/call. Do not ask the owner to reinstall or re-pair the phone.
