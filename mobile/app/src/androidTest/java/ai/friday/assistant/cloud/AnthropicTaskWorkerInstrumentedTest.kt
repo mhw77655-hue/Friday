@@ -88,7 +88,7 @@ class AnthropicTaskWorkerInstrumentedTest {
             )
             worker.recordOwnerApproval(capsule)
             val first = worker.execute(capsule)
-            assertTrue(first is CloudResult.Success)
+            assertTrue("Anthropic task failed: " + (first as? CloudResult.Failure)?.reason, first is CloudResult.Success)
             val request = server.takeRequest()
             assertEquals(apiKey, request.getHeader("x-api-key"))
             val sentBody = request.body.readUtf8()
