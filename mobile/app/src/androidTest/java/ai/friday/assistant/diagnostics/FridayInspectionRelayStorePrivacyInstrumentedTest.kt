@@ -25,10 +25,28 @@ class FridayInspectionRelayStorePrivacyInstrumentedTest {
 
             store.setEnabled(true)
             assertTrue("only the explicit owner action enables the session", store.isEnabled())
+            assertTrue("consented sessions have a finite expiry", store.remainingSessionMs() in 1L..(15L * 60L * 1000L))
 
             FridayInspectionRelayStore(context).setEnabled(false)
             assertFalse("pause must persist across store instances", FridayInspectionRelayStore(context).isEnabled())
             assertTrue("pausing does not require deleting the pairing", FridayInspectionRelayStore(context).isEnrolled())
+        } finally {
+            preferences.edit().clear().commit()
+        }
+    }
+
+    @Test
+    fun inspectionSessionExpiresWithoutAnotherOwnerAction() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val preferences = context.getSharedPreferences("friday_live_inspection", Context.MODE_PRIVATE)
+        preferences.edit().clear().commit()
+        try {
+            val store = FridayInspectionRelayStore(context)
+            store.saveEnrollment("https://example.invalid")
+            store.setEnabled(true)
+            preferences.edit().putLong("enabled_until_epoch_ms", System.currentTimeMillis() - 1L).commit()
+
+            assertFalse("expired session must not reconnect after process restart", FridayInspectionRelayStore(context).isEnabled())
         } finally {
             preferences.edit().clear().commit()
         }
