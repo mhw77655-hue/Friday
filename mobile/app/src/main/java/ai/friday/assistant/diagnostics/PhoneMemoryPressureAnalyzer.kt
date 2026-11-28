@@ -90,17 +90,30 @@ object PhoneMemoryPressureAnalyzer {
         )
     }
 
-    private fun parseTopProcesses(raw: String): List<Pair<String, Long>> =
-        Regex("""(?m)^\s*(\d+)\s+kB:\s+([^\s(]+)""")
+    private fun parseTopProcesses(raw: String): List<Pair<String, Long>> {
+        // Android 14's dumpsys meminfo -c emits CSV rows:
+        // proc,type,name,pid,pss_kb,swap_pss_kb,has_activities
+        val compact = raw.lineSequence().mapNotNull { line ->
+            val fields = line.split(",", limit = 7)
+            if (fields.size < 6 || fields[0] != "proc") return@mapNotNull null
+            val pssKb = fields[4].toLongOrNull() ?: return@mapNotNull null
+            val name = fields[2].trim().take(80)
+            if (name.isBlank()) null else name to (pssKb / 1024L)
+        }.toList()
+        // Accept the human-readable format as a fallback for OEM variants.
+        val readable = Regex("""(?m)^\s*(\d+)\s+kB:\s+([^\s(]+)""")
             .findAll(raw)
             .mapNotNull { match ->
                 val kb = match.groupValues[1].toLongOrNull() ?: return@mapNotNull null
                 val process = match.groupValues[2].take(80)
                 if (process.isBlank()) null else process to (kb / 1024L)
             }
+            .toList()
+        return (compact + readable)
             .distinctBy { it.first }
             .sortedByDescending { it.second }
             .take(8)
+    }
 
     private fun parseKeyValues(raw: String): Map<String, Long> = buildMap {
         raw.lineSequence().forEach { line ->
