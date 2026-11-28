@@ -54,7 +54,7 @@ internal fun residentBootstrapCandidates(
 ): List<OfflineModelAsset> {
     if (availableStorageBytes < 0L || minimumFreeBytes < 0L) return emptyList()
     val downloadableBudget = (availableStorageBytes - minimumFreeBytes).coerceAtLeast(0L)
-    return listOf(OfflineModelCatalog.resident, OfflineModelCatalog.tinyFallback)
+    return listOf(OfflineModelCatalog.resident, OfflineModelCatalog.fallback, OfflineModelCatalog.tinyFallback)
         .filter { asset ->
             !asset.sha256.isNullOrBlank() &&
                 (asset.id in installedAssetIds || asset.expectedMinimumBytes <= downloadableBudget)
@@ -134,7 +134,7 @@ class ResidentModelBootstrapWorker(
             // soon as RAM or thermal conditions change. Use current free storage
             // for download eligibility and let NAE re-measure RAM/CPU/thermal
             // independently for every candidate.
-            val pinnedAssets = listOf(OfflineModelCatalog.resident, OfflineModelCatalog.tinyFallback)
+            val pinnedAssets = listOf(OfflineModelCatalog.resident, OfflineModelCatalog.fallback, OfflineModelCatalog.tinyFallback)
                 .filter { !it.sha256.isNullOrBlank() }
             val installedAssetIds = pinnedAssets.filter { downloader.isInstalled(it) }
                 .map { it.id }.toSet()

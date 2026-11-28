@@ -42,11 +42,12 @@ object OfflineModelCatalog {
         displayName = "Huihui LFM2.5 1.2B Abliterated · Q4_K_M",
         repository = "mradermacher/Huihui-LFM2.5-1.2B-Instruct-abliterated-GGUF",
         revision = "7f2f76e",
-        filename = "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
+        filename = "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_S.gguf",
         license = "LFM 1.0",
-        description = "Small low-memory fallback only. Not Friday's preferred intelligence model.",
-        expectedMinimumBytes = 600L * 1024L * 1024L,
-        resident = false
+        description = "Pinned 1.2B instruction fallback at Q4_K_S. Higher-capability middle tier before the 0.8B emergency fallback; Q4_K_S is listed as a recommended fast quant.",
+        expectedMinimumBytes = 700_470_912L,
+        resident = false,
+        sha256 = "8328518a9c453554fd6987afd7b2a0d54b482d2dffd1d108bbd69700372d7327"
     )
 
     // Smallest English fallback for hosts that cannot admit either the
