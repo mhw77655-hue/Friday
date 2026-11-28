@@ -701,3 +701,13 @@ The repository and GitHub side are accessible here. The live phone side is **not
 - Source/test content was re-fetched from GitHub and the intended changes were confirmed present. This is source verification only; CI has not yet been independently observed for these two commits.
 - Live Friday inspection currently reports enrolled and not revoked, but disconnected. No fresh phone RAM/PSI/PSS capture or physical-device acceptance is available from this session.
 - Next: verify main CI for `ce16ba4`; inspect any failure; then obtain a fresh handset memory report when Friday reconnects. Do not change Android/OEM memory settings or kill other apps based on estimates alone.
+### 2026-11-28 — owner-first privacy boundary and inference race follow-through
+
+- Corrected the prior model pinning patch's retry exception path: the retry now retains `pinnedHandle` rather than referring to the removed `tierHandle` variable. This avoids a Kotlin compile failure and preserves the active-generation pin through both error and empty-response retries (`33c13a9`).
+- Changed the live-inspection relay from pairing-implies-enabled to explicit opt-in. Pairing now stores credentials but leaves the relay disabled; a one-time preference migration disables previously enabled installations after this privacy change (`cc77f55`).
+- Added a distinct pause operation that closes the WebSocket immediately while preserving pairing; full revoke remains separate and deletes the device key (`8b1e224`).
+- Rewrote the in-app disclosure to state exactly which coarse technical fields may be sent and which categories are excluded. The switch is now labelled as an external inspection session and OFF by default (`e1d03b7`).
+- Added Android instrumentation coverage for fresh-install opt-in defaults, pairing without auto-enable, persistent pause, and migration of an old enabled installation to OFF (`5ef253f`).
+- Documented the owner-trust contract in `docs/FRIDAY_LIVE_INSPECTION_BRIDGE.md` (`9ce9e70`).
+- Verification boundary: source files were re-read and the expected code paths confirmed. GitHub Actions build run for `5ef253f` was queued at the latest observation; no Android build or instrumented-test result is claimed yet.
+- This does not require a phone connection. Friday's internal identity, memory, self-diagnosis and resource adaptation remain local; external inspection is optional and independently controlled.
