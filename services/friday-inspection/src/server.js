@@ -223,15 +223,14 @@ const httpServer = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/device/enroll") {
       if (rateLimited(request, "enroll", 6, 10 * 60_000)) return sendJson(response, 429, { error: "rate_limited" });
       const body = await readJson(request);
-      const pairing = state.pairing;
-      if (!pairing || pairing.consumed || pairing.expiresAt < Date.now() ||
-          !constantTimeEqual(String(body.pairingCode || ""), pairing.code)) {
-        return sendJson(response, 403, { error: "pairing_code_invalid_or_expired" });
-      }
       const deviceId = String(body.deviceId || "");
       const publicKey = String(body.publicKeyDerBase64 || "");
       if (!/^[0-9a-f-]{36}$/i.test(deviceId) || publicKey.length > 4096) {
         return sendJson(response, 400, { error: "invalid_device_identity" });
+      }
+      const existing = state.devices[deviceId];
+      if (existing && !existing.revoked && constantTimeEqual(existing.publicKeyDerBase64, publicKey)) {
+        return sendJson(response, 200, { device_id: deviceId, enrolled: true });
       }
       try {
         const { createPublicKey } = await import("node:crypto");
@@ -241,15 +240,27 @@ const httpServer = http.createServer(async (request, response) => {
       } catch {
         return sendJson(response, 400, { error: "invalid_device_public_key" });
       }
-      if (state.devices[deviceId] && !state.devices[deviceId].revoked) {
-        return sendJson(response, 409, { error: "device_already_enrolled" });
+      const pairing = state.pairing;
+      if (!pairing || pairing.consumed || pairing.expiresAt < Date.now() ||
+          !constantTimeEqual(String(body.pairingCode || ""), pairing.code)) {
+        return sendJson(response, 403, { error: "pairing_code_invalid_or_expired" });
+      }
+      for (const [otherId, other] of Object.entries(state.devices)) {
+        if (!other.revoked) {
+          other.revoked = true;
+          other.revokedAt = Date.now();
+          const old = connectedDevices.get(otherId);
+          if (old) old.socket.close(4001, "replaced_by_new_pairing");
+          connectedDevices.delete(otherId);
+          rejectPendingSnapshots(otherId, "Friday device was replaced by a new pairing.");
+        }
       }
       state.devices[deviceId] = { publicKeyDerBase64: publicKey, enrolledAt: Date.now(), revoked: false };
       pairing.consumed = true;
       await persistState();
+      audit("device_enrolled", deviceId);
       return sendJson(response, 201, { device_id: deviceId, enrolled: true });
     }
-
     if (request.method === "POST" && url.pathname === "/device/revoke") {
       if (rateLimited(request, "device-revoke", 10, 60_000)) return sendJson(response, 429, { error: "rate_limited" });
       const body = await readJson(request);
