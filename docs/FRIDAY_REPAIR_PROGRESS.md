@@ -659,3 +659,14 @@ The repository and GitHub side are accessible here. The live phone side is **not
 - Railway remains the deployment target for the persistent Node/WebSocket MCP service. The Railway plugin has been suggested but is not connected. No service deployment, ChatGPT registration, phone pairing or live handset snapshot has occurred.
 - Android live-inspection client keeps its outbound connection while the app is visible or the existing owner-enabled Friday foreground runtime is active; it stops when neither is active. Android build remains queued; no APK release has been published.
 - Current main head at this log update: 3af5f9480b22705eb25b32aa27b7551d88677efe. Service CI run #46091421859 passed syntax checks and unit tests. Latest Android build must be rechecked before any release claim.
+
+
+### 2026-11-28 — dedicated Friday authentication project created
+
+- Owner explicitly approved creating a separate Friday-auth Supabase project in the only connected Supabase organization and instructed not to modify Venture Autopilot.
+- Created Supabase project `friday-auth`, ref `dtvhwuhmcynpbqfehlvs`, region `eu-central-1` (Frankfurt), organization `mldpsjfgfehfdiwmztdd`. Creation quote and confirmation were $0/month. Supabase reports `ACTIVE_HEALTHY`.
+- Re-listed all Supabase projects after creation: `friday-auth` and existing `venture-autopilot` are both `ACTIVE_HEALTHY`; Venture Autopilot's project ref and database version remain unchanged. No SQL, auth configuration, secrets, or data were written to Venture Autopilot.
+- Friday auth API origin: `https://dtvhwuhmcynpbqfehlvs.supabase.co`. No secret or service-role key has been retrieved or placed in GitHub.
+- Supabase OAuth 2.1 is currently documented as Public Beta and must be enabled under Authentication → OAuth Server; the Supabase MCP connector exposes no project-auth-settings mutation action. Authorization path and OAuth consent UI also require a deployed frontend. The discovery URL could not be independently fetched through the current web reader, so OAuth enablement is NOT verified.
+- Railway plugin is now connected. Railway identity has one personal workspace (`2d10472f-4540-4705-9eff-950fad7c8b3d`) and zero projects. A separate `Friday Live Inspection` Railway project was created (`de7508a5-fd29-46d1-830c-3e319f8c8d49`), production environment `339e8209-af18-4a2b-8b18-3e0288f602b1`. No service, volume, deployment or domain has been created yet. Do not claim service deployment.
+- Next work: finish OAuth consent frontend and token-validation design, enable Supabase OAuth 2.1 + dynamic registration, deploy the persistent Node/WebSocket relay to Railway with a `/data` volume and production secrets, verify service health, then register the endpoint in ChatGPT web and pair Friday. Live handset snapshot and revocation acceptance remain outstanding.
