@@ -24,6 +24,19 @@ object FridayInspectionSnapshotProvider {
             host.batteryPercent >= 15 -> "ready"
             else -> "unavailable"
         }
+        // Only aggregate counts cross the inspection boundary. Read the bounded
+        // lifecycle journal and filenames/metadata; never forward raw event or
+        // crash contents, exception text, stack traces or conversation data.
+        val diagnosticsDirectory = java.io.File(context.applicationContext.filesDir, "diagnostics")
+        val eventCount = runCatching {
+            TurnDiagnosticJournal(diagnosticsDirectory).snapshot().size
+        }.getOrDefault(0)
+        val crashCount = diagnosticsDirectory.listFiles { file ->
+            file.isFile && file.name.startsWith("last-crash-") && file.name.endsWith(".json")
+        }?.size ?: 0
+        val processExitCount = runCatching {
+            ProcessExitDiagnostics.readSummary(context.applicationContext).length()
+        }.getOrDefault(0)
         return FridayInspectionSnapshot(
             capturedAtEpochMs = System.currentTimeMillis(),
             deviceCaptureAtEpochMs = host.capturedAtEpochMs,
@@ -43,8 +56,8 @@ object FridayInspectionSnapshotProvider {
             modelRuntime = modelStatus,
             availableMemoryBytes = host.availableRamBytes,
             availableStorageBytes = host.appStorageAvailableBytes,
-            eventCount = -1,
-            failureCount = -1
+            eventCount = eventCount,
+            failureCount = crashCount + processExitCount
         )
     }
 }
