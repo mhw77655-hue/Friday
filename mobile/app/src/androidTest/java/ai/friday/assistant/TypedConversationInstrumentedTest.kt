@@ -34,16 +34,16 @@ class TypedConversationInstrumentedTest {
         // that is intentionally no longer shown.
         composeRule.waitUntil(timeoutMillis = 30_000L) {
             composeRule.onAllNodesWithText("Finish setup").fetchSemanticsNodes().isNotEmpty() ||
-                composeRule.onAllNodesWithText("Chat").fetchSemanticsNodes().isNotEmpty()
+                composeRule.onAllNodesWithText("Talk").fetchSemanticsNodes().isNotEmpty()
         }
         if (composeRule.onAllNodesWithText("Finish setup").fetchSemanticsNodes().isNotEmpty()) {
             composeRule.onNodeWithText("Finish setup").performClick()
         }
 
         composeRule.waitUntil(timeoutMillis = 30_000L) {
-            composeRule.onAllNodesWithText("Chat").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Talk").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Chat").performClick()
+        composeRule.onNodeWithText("Talk").performClick()
 
         composeRule.waitUntil(timeoutMillis = 20_000L) {
             composeRule.onAllNodesWithText("Message Friday").fetchSemanticsNodes().isNotEmpty()
