@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Friday device pairing</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,sans-serif;background:#080a0e;color:#eef2f8}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 0,#1b2635 0,transparent 55%),#080a0e}
+main{width:min(100%,520px);border:1px solid #273342;border-radius:22px;padding:28px;background:#10151d;box-shadow:0 24px 80px #0008}
+h1{font-size:25px;margin:0 0 8px}p{color:#aab7c8;line-height:1.55}
+label{display:block;margin:14px 0 6px;color:#c7d2df;font-size:13px}
+input{width:100%;padding:13px;border:1px solid #344356;border-radius:10px;background:#090e15;color:#fff;font:inherit}
+button{border:0;border-radius:10px;padding:13px 16px;font:600 14px inherit;cursor:pointer;margin:8px 8px 0 0}
+button:disabled{opacity:.5;cursor:not-allowed}
+.primary{background:#d9e6f7;color:#101722}.secondary{background:#263345;color:#edf3fc}
+[hidden]{display:none!important}
+#status{white-space:pre-wrap;color:#e3c98c;margin-top:16px}
+#pairing{padding:16px;border-radius:12px;background:#0a1018;margin-top:18px}
+#code{display:block;font-size:23px;letter-spacing:.04em;overflow-wrap:anywhere;color:#fff;padding:14px 0}
+small{color:#8190a3}
+</style>
+</head>
+<body>
+<main>
+<h1>Pair your Friday phone</h1>
+<p>Generate a one-time code for the Friday app. The code expires after ten minutes and can enroll only one device. This grants read-only diagnostics, not screen access or phone control.</p>
+<section id="login">
+<label for="email">Owner account email</label>
+<input id="email" type="email" autocomplete="username">
+<label for="password">Password</label>
+<input id="password" type="password" autocomplete="current-password">
+<button class="primary" id="signin">Sign in</button>
+<p>If no owner account exists yet, create one with the exact email configured in Railway's <code>FRIDAY_OWNER_EMAIL</code> variable. Confirm the email, then return here and sign in.</p>
+<button class="secondary" id="signup">Create owner account</button>
+</section>
+<section id="pairing" hidden>
+<strong>Inspection server</strong>
+<code id="server-url"></code>
+<button class="secondary" id="copy-server">Copy server URL</button>
+<p>In Friday, open Settings → Live inspection, enable inspection, enter this server URL and the one-time code below.</p>
+<button class="primary" id="generate">Generate one-time pairing code</button>
+<code id="code" aria-live="polite"></code>
+<p id="expires"></p>
+<button class="secondary" id="copy-code" hidden>Copy pairing code</button>
+<button class="secondary" id="signout">Sign out</button>
+</section>
+<div id="status" role="status" aria-live="polite"></div>
+<p><small>Friday Live Inspection · Owner-only setup · Codes are single-use</small></p>
+</main>
+<script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
+const supabase=createClient(__SUPABASE_URL__,__SUPABASE_PUBLISHABLE_KEY__);
+const login=document.querySelector("#login");
+const pairing=document.querySelector("#pairing");
+const status=document.querySelector("#status");
+const code=document.querySelector("#code");
+const say=value=>{status.textContent=value};
+document.querySelector("#server-url").textContent=location.origin;
+async function ownerSession(){
+ const {data,error}=await supabase.auth.getSession();
+ if(error){say(error.message);return null}
+ const session=data.session;
+ if(!session){login.hidden=false;pairing.hidden=true;return null}
+ const check=await fetch("/owner/status",{headers:{Authorization:"Bearer "+session.access_token}});
+ if(!check.ok){
+  login.hidden=false;pairing.hidden=true;
+  say(check.status===403?"This signed-in account is not authorized as the Friday owner. Sign in with the configured owner account.":"The owner session could not be verified. Sign in again.");
+  return null;
+ }
+ login.hidden=true;pairing.hidden=false;say("");
+ return session;
+}
+document.querySelector("#signin").onclick=async()=>{
+ const email=document.querySelector("#email").value.trim();
+ const password=document.querySelector("#password").value;
+ const {error}=await supabase.auth.signInWithPassword({email,password});
+ if(error){say(error.message);return}
+ await ownerSession();
+};
+document.querySelector("#signup").onclick=async()=>{
+ const email=document.querySelector("#email").value.trim();
+ const password=document.querySelector("#password").value;
+ if(!email||!password){say("Enter the owner email and a password first.");return}
+ const {data,error}=await supabase.auth.signUp({
+  email,password,
+  options:{emailRedirectTo:new URL("/oauth/consent",location.origin).toString()}
+ });
+ if(error){say(error.message);return}
+ if(data.session){await ownerSession();}
+ else{say("Confirmation email sent. Confirm it, then return to the pairing page and sign in.");}
+};
+document.querySelector("#generate").onclick=async()=>{
+ const session=await ownerSession();
+ if(!session)return;
+ const button=document.querySelector("#generate");
+ button.disabled=true;say("Generating a one-time code…");code.textContent="";
+ document.querySelector("#copy-code").hidden=true;
+ try{
+  const response=await fetch("/admin/pairing-code",{method:"POST",headers:{Authorization:"Bearer "+session.access_token}});
+  const result=await response.json();
+  if(!response.ok){say(result.error||"Pairing code could not be generated.");return}
+  code.textContent=result.pairing_code;
+  document.querySelector("#expires").textContent="Expires at "+new Date(result.expires_at_epoch_ms).toLocaleTimeString()+". Use it once in Friday.";
+  document.querySelector("#copy-code").hidden=false;
+  say("Pairing code generated. It is shown only here.");
+ }catch(error){say(error instanceof Error?error.message:"Pairing code request failed.");}
+ finally{button.disabled=false}
+};
+document.querySelector("#copy-code").onclick=async()=>{
+ try{await navigator.clipboard.writeText(code.textContent);say("Pairing code copied.");}
+ catch{say("Clipboard unavailable. Select and copy the code manually.");}
+};
+document.querySelector("#copy-server").onclick=async()=>{
+ try{await navigator.clipboard.writeText(location.origin);say("Server URL copied.");}
+ catch{say("Clipboard unavailable. Copy the server URL shown above.");}
+};
+document.querySelector("#signout").onclick=async()=>{
+ await supabase.auth.signOut();code.textContent="";document.querySelector("#expires").textContent="";await ownerSession();
+};
+await ownerSession();
+</script>
+</body>
+</html>

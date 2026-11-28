@@ -20,17 +20,22 @@ small{color:#8190a3}
 <button class="primary" id="approve">Approve access</button><button class="danger" id="deny">Deny</button></section>
 <div id="status" role="status"></div><p><small>Friday Live Inspection · Read-only by default · Access can be revoked.</small></p>
 </main><script type="module">
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 const supabase=createClient(__SUPABASE_URL__,__SUPABASE_PUBLISHABLE_KEY__);
-const ownerEmail=__OWNER_EMAIL__;
 const authId=new URLSearchParams(location.search).get("authorization_id");
 const status=document.querySelector("#status"),login=document.querySelector("#login"),details=document.querySelector("#details");
 const say=(s)=>status.textContent=s;
 async function load(){
  if(!authId){say("Missing authorization request.");return}
- const {data:{user}}=await supabase.auth.getUser();
- if(!user){login.style.display="block";return}
- if(!ownerEmail||user.email?.toLowerCase()!==ownerEmail){say("This account is not the configured Friday owner account. Access denied.");return}
+ const {data:{session},error:sessionError}=await supabase.auth.getSession();
+ if(sessionError){say(sessionError.message);return}
+ if(!session){login.style.display="block";details.style.display="none";return}
+ const ownerCheck=await fetch("/owner/status",{headers:{Authorization:"Bearer "+session.access_token}});
+ if(!ownerCheck.ok){
+  login.style.display="block";details.style.display="none";
+  say(ownerCheck.status===403?"This account is not authorized as the Friday owner. Access denied.":"The owner session could not be verified. Sign in again.");
+  return;
+ }
  login.style.display="none";
  const {data,error}=await supabase.auth.oauth.getAuthorizationDetails(authId);
  if(error){say(error.message);return}
