@@ -1,5 +1,7 @@
 package ai.friday.assistant.aiworkforce.table
 
+import ai.friday.assistant.memory.MemoryNode
+import ai.friday.assistant.memory.RankedMemory
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -37,6 +39,27 @@ class TaskCapsuleCompilerTest {
         assertFalse(capsule.context.contains("private conversation detail"))
         assertFalse(capsule.context.contains("secret credential"))
         assertTrue(capsule.context.contains("provenance=exp-1"))
+    }
+
+    @Test
+    fun `production ranked memory results compile with provenance and explicit sensitivity classification`() {
+        val node = MemoryNode(
+            id = "memory-identity-1",
+            subject = "Friday",
+            predicate = "identity",
+            `object` = "persists across restart",
+            source = "owner-confirmed",
+            validFrom = 123L
+        )
+        val ranked = RankedMemory(node, 0.93f, RankedMemory.MatchSource.HAMMING_SEED)
+        val capsule = compiler.compileRetrieved(
+            request(),
+            listOf(ranked),
+            classifySensitivity = { TaskCapsuleCompiler.Sensitivity.SANITIZED }
+        )
+        assertEquals(listOf("memory-identity-1"), capsule.memories.map { it.id })
+        assertEquals("memory-identity-1", capsule.memories.single().provenanceId)
+        assertTrue(capsule.context.contains("Friday identity persists across restart"))
     }
 
     @Test
