@@ -7,6 +7,7 @@
 import { createHash } from "node:crypto";
 import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import { resolve, basename } from "node:path";
+import { convertReaResult } from "./evidence-converter.mjs";
 import { spawn } from "node:child_process";
 
 const version = process.env.REA_PACKAGE_VERSION;
@@ -331,12 +332,37 @@ async function main() {
     const output = resolve(outputDir, "candidate-rea-evidence.json");
     const reportText = JSON.stringify(record, null, 2) + "\n";
     await writeFile(output, reportText);
+    const assimilationPacket = convertReaResult({
+      target: {
+        kind: "android-apk",
+        locator: "friday-candidate",
+        display_name: "Friday candidate APK",
+        revision: candidateSha,
+        sha256: apkSha256,
+      },
+      rea: {
+        package: "rea-agents",
+        version,
+        integrity,
+        server: initialized.serverInfo,
+        protocol_version: initialized.protocolVersion,
+      },
+      tool: "candidate-investigation",
+      result: record,
+      capturedAt: record.captured_at,
+    });
+    const assimilationPath = resolve(outputDir, "candidate-friday-assimilation.json");
+    const assimilationText = JSON.stringify(assimilationPacket, null, 2) + "\n";
+    await writeFile(assimilationPath, assimilationText);
     const summary = {
       schema_version: 1,
       candidate_commit_sha: candidateSha,
       apk_sha256: apkSha256,
       rea_version: version,
       report_sha256: digest(Buffer.from(reportText)),
+      assimilation_packet: basename(assimilationPath),
+      assimilation_packet_sha256: digest(Buffer.from(assimilationText)),
+      normalized_finding_count: assimilationPacket.findings.length,
       evidence_ids: collectEvidenceIds(record),
       failure_symbols: failureSymbols,
       method_inspection_excerpt: JSON.stringify(methodInspections.map(compactInspection)).slice(0, 5000),
@@ -359,6 +385,7 @@ async function main() {
       candidate_commit_sha: candidateSha,
       apk_sha256: apkSha256,
       report: basename(output),
+      assimilation_packet: basename(assimilationPath),
       rea_version: version,
       evidence_ids: summary.evidence_ids.length,
       class_searches: searches.length,

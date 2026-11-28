@@ -1,0 +1,32 @@
+name: Friday REA assimilation contract
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tools/rea/**"
+      - ".github/workflows/rea-assimilation-contract.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: friday-rea-assimilation
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact main revision
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.23.4"
+      - name: Check converter and integrated REA runner syntax
+        run: |
+          node --check tools/rea/evidence-converter.mjs
+          node --check tools/rea/inspect-candidate-apk.mjs
+      - name: Run REA-to-Friday assimilation contract tests
+        run: node --test tools/rea/evidence-converter.test.mjs
