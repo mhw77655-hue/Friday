@@ -103,8 +103,10 @@ class ChatGPTTaskWorker(
     )
 
     /**
-     * Call only from an explicit owner-confirmation UI. The store retains a hash,
-     * expiry and task ID, never the task text or private projection.
+     * Call only after explicit owner consent. Foreground tasks obtain a
+     * per-task confirmation; background automation may mint this one-shot
+     * approval only after its separate background-use consent has been checked.
+     * The store retains a hash, expiry and task ID, never task text or context.
      */
     fun recordOwnerApproval(projection: TaskProjection) {
         projection.validate()
