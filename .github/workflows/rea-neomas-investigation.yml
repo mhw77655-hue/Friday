@@ -42,10 +42,14 @@ jobs:
           VERSION="6.10.1"
           INTEGRITY="$(npm view "rea-agents@$VERSION" dist.integrity)"
           test -n "$INTEGRITY"
-          echo "REA_PACKAGE_VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "REA_PACKAGE_INTEGRITY=$INTEGRITY" >> "$GITHUB_ENV"
-          echo "REA_BROWSER_EXECUTABLE=$(command -v google-chrome)" >> "$GITHUB_ENV"
-          echo "REA_OUTPUT_DIR=neomas-rea-evidence" >> "$GITHUB_ENV"
+          CHROME_BIN="$(command -v google-chrome || command -v google-chrome-stable || command -v chromium || command -v chromium-browser)"
+          test -n "$CHROME_BIN"
+          {
+            printf 'REA_PACKAGE_VERSION=%s\n' "$VERSION"
+            printf 'REA_PACKAGE_INTEGRITY=%s\n' "$INTEGRITY"
+            printf 'REA_BROWSER_EXECUTABLE=%s\n' "$CHROME_BIN"
+            printf 'REA_OUTPUT_DIR=neomas-rea-evidence\n'
+          } >> "$GITHUB_ENV"
 
       - name: Validate the Neomas REA runner
         run: node --check scripts/rea/inspect-neomas.mjs
