@@ -79,6 +79,9 @@ interface PlatformPorts {
     /** Whether the phone currently has a real language model available. Test hosts default to true. */
     fun hasLanguageModel(modelManager: ai.friday.assistant.model.ModelManager): Boolean = true
 
+    /** Enables the adaptive experience substrate; false is reserved for controlled ablation tests. */
+    fun adaptiveLearningEnabled(): Boolean = true
+
     /** The per-turn session evidence; unavailable fields remain null. */
     fun sessionContext(): TurnContext?
 
