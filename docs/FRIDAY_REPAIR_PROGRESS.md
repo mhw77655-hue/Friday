@@ -711,3 +711,6 @@ The repository and GitHub side are accessible here. The live phone side is **not
 - Documented the owner-trust contract in `docs/FRIDAY_LIVE_INSPECTION_BRIDGE.md` (`9ce9e70`).
 - Verification boundary: source files were re-read and the expected code paths confirmed. GitHub Actions build run for `5ef253f` was queued at the latest observation; no Android build or instrumented-test result is claimed yet.
 - This does not require a phone connection. Friday's internal identity, memory, self-diagnosis and resource adaptation remain local; external inspection is optional and independently controlled.
+- Further tightened the inspection opt-in into a 15-minute maximum session. The expiry is persisted, checked on app/process restart, and automatically closes the socket; explicit pause and revoke also clear the expiry timer (`1ba2824`, `860d797`, `b18fe94`).
+- Added instrumentation coverage for expiry and updated the disclosure/contract to make the time limit visible (`c21b830`, `b73f6ea`, `559027b`).
+- Follow-up status handling keeps the UI at 'Inspection paused' after the socket closes rather than presenting a user-requested pause as a connection failure (`c304028`).
