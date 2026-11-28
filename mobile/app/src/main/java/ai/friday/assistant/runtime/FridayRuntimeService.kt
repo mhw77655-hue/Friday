@@ -102,6 +102,8 @@ class FridayRuntimeService : Service() {
             return START_NOT_STICKY
         }
 
+        ai.friday.assistant.diagnostics.FridayInspectionRelayRuntime.start(applicationContext)
+
         runtimeScope.launch {
             runCatching {
                 val core = CompanionCoreHolder.init(applicationContext)
@@ -153,6 +155,7 @@ class FridayRuntimeService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        ai.friday.assistant.diagnostics.FridayInspectionRelayRuntime.stop()
         stopOwnedMicrophone()
         runtimeScope.cancel()
         super.onDestroy()
@@ -184,13 +187,14 @@ class FridayRuntimeService : Service() {
             Intent(this, FridayRuntimeService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
+        val baseStatus = if (microphone) "Persistent runtime active · microphone in use"
+            else "Persistent runtime active · voice resumes when Friday is opened"
+        val inspectionStatus = if (ai.friday.assistant.diagnostics.FridayInspectionRelayRuntime.isEnabled(this))
+            " · live read-only inspection enabled" else ""
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
             .setContentTitle("Friday is active")
-            .setContentText(
-                if (microphone) "Persistent runtime active · microphone in use"
-                else "Persistent runtime active · voice resumes when Friday is opened"
-            )
+            .setContentText(baseStatus + inspectionStatus)
             .setContentIntent(open)
             .setOngoing(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
