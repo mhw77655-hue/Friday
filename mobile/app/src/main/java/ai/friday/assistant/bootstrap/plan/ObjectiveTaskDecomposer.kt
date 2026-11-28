@@ -62,7 +62,7 @@ class ObjectiveTaskDecomposer(
             .trim()
         val start = trimmed.indexOf('{')
         val end = trimmed.lastIndexOf('}')
-        require(start >= 0 && end > start) { "The local model did not return JSON." }
+        require(start >= 0 && end > start) { "The planner did not return JSON." }
         return JSONObject(trimmed.substring(start, end + 1))
     }
 

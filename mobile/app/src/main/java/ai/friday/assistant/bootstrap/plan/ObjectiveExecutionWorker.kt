@@ -54,11 +54,13 @@ class ObjectiveExecutionWorker(
             val parent = store.nextQueuedParentTask()
             if (parent != null) {
                 if (manager == null || !manager.isTierLoaded(ModelTier.RESIDENT)) {
-                    if (ai.friday.assistant.aiworkforce.table.ChatGPTPlanBackgroundConsentStore(applicationContext).isEnabled()) {
+                    val chatGptConsent = ai.friday.assistant.aiworkforce.table.ChatGPTPlanBackgroundConsentStore(applicationContext)
+                    val chatGptAuth = ai.friday.assistant.aiworkforce.table.ChatGPTPlanAuth(applicationContext)
+                    if (chatGptConsent.isEnabled() && chatGptAuth.isConnected()) {
                         ObjectiveCloudDecompositionWorker.enqueue(applicationContext, parent.getString("task_id"))
-                        android.util.Log.i(TAG, "No resident model is installed; dispatched this PUBLIC objective digest to the separately consented ChatGPT plan worker.")
+                        android.util.Log.i(TAG, "No resident model is installed; dispatched this PUBLIC objective digest to the separately authorized ChatGPT plan worker.")
                     } else {
-                        android.util.Log.i(TAG, "Plan ledger ready; waiting for a local resident model or explicit background ChatGPT plan-use consent.")
+                        android.util.Log.i(TAG, "Plan ledger ready; waiting for a local resident model or an authorized ChatGPT plan connection with background-use consent.")
                     }
                     return@withContext Result.success()
                 }

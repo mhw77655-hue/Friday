@@ -107,6 +107,7 @@ class ObjectiveCloudDecompositionWorker(
             val publicContext = JSONObject()
                 .put("objective_id", parent.optString("objective_id"))
                 .put("phase_id", parent.opt("phase_id") ?: JSONObject.NULL)
+                .put("plan_sha256", parent.optString("plan_sha256"))
                 .put("acceptance_criteria", parent.optString("acceptance_criteria"))
                 .put("canonical_scope_markdown", parent.optString("scope_markdown").take(6_000))
             return ChatGPTTaskWorker.TaskProjection(

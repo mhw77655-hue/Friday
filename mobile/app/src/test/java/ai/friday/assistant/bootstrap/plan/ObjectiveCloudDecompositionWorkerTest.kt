@@ -13,6 +13,7 @@ class ObjectiveCloudDecompositionWorkerTest {
             .put("task_id", "objective-a-phase-0-assess-12345678")
             .put("objective_id", "A")
             .put("phase_id", 0)
+            .put("plan_sha256", "a".repeat(64))
             .put("goal", "Assess phase zero.")
             .put("acceptance_criteria", "A source-backed evidence map exists.")
             .put("scope_markdown", "Canonical public scope.")
@@ -25,6 +26,7 @@ class ObjectiveCloudDecompositionWorkerTest {
         assertEquals(ChatGPTTaskWorker.TaskProjection.Classification.PUBLIC, projection.classification)
         assertEquals(parent.getString("task_id"), projection.taskId)
         assertTrue(projection.context.contains("Canonical public scope."))
+        assertTrue(projection.context.contains("a".repeat(64)))
         assertTrue(projection.context.contains("source-backed evidence map"))
         assertEquals(3, projection.acceptanceCriteria.size)
     }
