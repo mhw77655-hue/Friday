@@ -160,7 +160,7 @@ function findTargets(value, depth = 0) {
   return Object.values(value).flatMap((item) => findTargets(item, depth + 1));
 }
 
-async function waitForPage(endpoint, browser, allowedHosts = null, timeoutMs = 90000) {
+async function waitForPage(endpoint, browser, timeoutMs = 90000) {
   const deadline = Date.now() + timeoutMs;
   let lastError = "No page target is visible yet.";
   while (Date.now() < deadline) {
@@ -173,8 +173,7 @@ async function waitForPage(endpoint, browser, allowedHosts = null, timeoutMs = 9
         if (item.type !== "page" || typeof item.url !== "string") return false;
         try {
           const url = new URL(item.url);
-          if (!allowedHosts) return true;
-          return url.protocol === "https:" && allowedHosts.includes(url.hostname);
+          return url.protocol === "https:" && ["neomas.app", "www.neomas.app"].includes(url.hostname);
         } catch { return false; }
       });
       if (page) return page;
@@ -206,13 +205,14 @@ async function main() {
     "--disable-extensions", "--disable-background-networking", "--disable-sync",
     "--metrics-recording-only", "--no-first-run", "--no-default-browser-check",
     "--remote-debugging-address=" + HOST, "--remote-debugging-port=" + String(port),
-    "--user-data-dir=" + profileDir, "about:blank",
+    "--user-data-dir=" + profileDir, requestedUrl.href,
   ], { stdio: ["ignore", "ignore", "pipe"], windowsHide: true });
   const server = new ReaMcp();
   const results = [];
   const capturedAt = new Date().toISOString();
   try {
-    const initialPage = await waitForPage(endpoint, browser);
+    const page = await waitForPage(endpoint, browser);
+    const pageUrl = new URL(page.url);
     const versionResponse = await fetch(endpoint + "/json/version");
     const browserVersion = versionResponse.ok ? await versionResponse.json() : null;
     const serverInfo = await server.initialize();
@@ -224,20 +224,12 @@ async function main() {
     if (!listTool || !scenarioTool || !inspectTool) {
       throw new Error("Pinned REA must advertise list_browser_targets, capture_browser_scenario and inspect_web_page.");
     }
-    const listed = await server.callTool(listTool.name, toolArguments(listTool, { cdp_endpoint: endpoint }));
-    if (listed?.isError) throw new Error("REA browser discovery failed: " + JSON.stringify(listed.content ?? listed).slice(0, 2500));
-    const targets = findTargets(structured(listed));
-    const selected = targets.find((item) => {
-      const id = item?.target_id ?? item?.targetId;
-      return Boolean(id && (id === initialPage.id || item?.url === "about:blank"));
-    }) ?? targets[0];
-    if (!selected) throw new Error("REA did not return the disposable Chrome page target.");
-    const targetId = selected.target_id ?? selected.targetId;
 
-    // Connect-mode scenario capture records the initial navigation and network
-    // events, then disconnects without closing our disposable browser.
+    // A separate REA-launched browser captures the initial page navigation,
+    // screenshot and network events. The connected browser below is used for
+    // detailed page and JavaScript-bundle analysis.
     const scenarioArgs = toolArguments(scenarioTool, {
-      browser: { mode: "connect", cdp_endpoint: endpoint, target_id: targetId },
+      browser: { mode: "launch", executable_path: CHROME, headless: true },
       start_url: { url: requestedUrl.href },
       actions: [{ step_id: "settle-neomas", action: "wait_for_timeout", duration_ms: 2000 }],
       capture: {
@@ -254,8 +246,15 @@ async function main() {
       throw new Error("REA browser scenario failed: " + JSON.stringify(scenarioResult.content ?? scenarioResult).slice(0, 3000));
     }
 
-    const page = await waitForPage(endpoint, browser, ["neomas.app", "www.neomas.app"]);
-    const pageUrl = new URL(page.url);
+    const listed = await server.callTool(listTool.name, toolArguments(listTool, { cdp_endpoint: endpoint }));
+    if (listed?.isError) throw new Error("REA browser discovery failed: " + JSON.stringify(listed.content ?? listed).slice(0, 2500));
+    const selected = findTargets(structured(listed)).find((item) => {
+      const id = item?.target_id ?? item?.targetId;
+      if (!id || typeof item?.url !== "string") return false;
+      try { return new URL(item.url).origin === pageUrl.origin; } catch { return false; }
+    });
+    if (!selected) throw new Error("REA did not return the Neomas page target: " + JSON.stringify(structured(listed) ?? listed.content ?? listed).slice(0, 2500));
+    const targetId = selected.target_id ?? selected.targetId;
     const target = {
       kind: "website",
       locator: pageUrl.origin + pageUrl.pathname,
