@@ -94,17 +94,33 @@ function bearerToken(request) {
   return match?.[1] || null;
 }
 
-async function ownerOnly(request, response, { resource = `https://${PUBLIC_HOST}/mcp`, requireClientId = true } = {}) {
+function oauthChallenge({ invalid = false } = {}) {
+  const parameters = [
+    `resource_metadata="https://${PUBLIC_HOST}/.well-known/oauth-protected-resource"`,
+    'scope="openid email"'
+  ];
+  if (invalid) {
+    parameters.push('error="invalid_token"');
+    parameters.push('error_description="Access token is not valid for Friday Live Inspection"');
+  }
+  return "Bearer " + parameters.join(", ");
+}
+
+async function ownerOnly(request, response, {
+  resource = `https://${PUBLIC_HOST}/mcp`,
+  requireClientId = true,
+  challenge = true
+} = {}) {
   const token = bearerToken(request);
   if (!token || !supabase) {
-    response.setHeader("www-authenticate", `Bearer resource_metadata="https://${PUBLIC_HOST}/.well-known/oauth-protected-resource"`);
+    if (challenge) response.setHeader("www-authenticate", oauthChallenge());
     sendJson(response, 401, { error: "oauth_required" });
     return null;
   }
   const { data, error } = await supabase.auth.getClaims(token);
   const claims = data?.claims;
   if (error || !claims) {
-    response.setHeader("www-authenticate", `Bearer resource_metadata="https://${PUBLIC_HOST}/.well-known/oauth-protected-resource"`);
+    if (challenge) response.setHeader("www-authenticate", oauthChallenge({ invalid: true }));
     sendJson(response, 401, { error: "invalid_access_token" });
     return null;
   }
@@ -117,6 +133,7 @@ async function ownerOnly(request, response, { resource = `https://${PUBLIC_HOST}
     });
   } catch (validationError) {
     const denied = validationError?.message === "owner_access_denied";
+    if (challenge && !denied) response.setHeader("www-authenticate", oauthChallenge({ invalid: true }));
     sendJson(response, denied ? 403 : 401, {
       error: denied ? "owner_access_not_configured_or_denied" : "invalid_access_token"
     });
@@ -155,7 +172,7 @@ async function readJson(request) {
 async function adminOnly(request, response) {
   // Admin browser pages use a normal Supabase owner session (aud=authenticated).
   // The remote MCP endpoint still requires the narrower Friday resource audience.
-  return !!(await ownerOnly(request, response, { resource: "authenticated", requireClientId: false }));
+  return !!(await ownerOnly(request, response, { resource: "authenticated", requireClientId: false, challenge: false }));
 }
 
 function publicDeviceStatus(deviceId) {
@@ -202,7 +219,8 @@ function createMcpServer() {
 
   mcp.registerTool("friday_live_status", {
     description: "Read whether the enrolled Friday phone is currently connected and whether its last allowlisted snapshot is fresh. This tool never operates the phone.",
-    inputSchema: {}
+    inputSchema: {},
+    _meta: { securitySchemes: [{ type: "oauth2", scopes: ["openid", "email"] }] }
   }, async () => {
     const deviceId = Object.keys(state.devices).find(id => !state.devices[id].revoked) || Object.keys(state.devices)[0];
     const result = deviceId ? (state.devices[deviceId].revoked
@@ -215,7 +233,8 @@ function createMcpServer() {
 
   mcp.registerTool("friday_inspection_snapshot", {
     description: "Request a fresh, privacy-minimised, read-only snapshot from the currently enrolled Friday phone. Fails if the phone is offline, the session is revoked, or fresh evidence is unavailable.",
-    inputSchema: {}
+    inputSchema: {},
+    _meta: { securitySchemes: [{ type: "oauth2", scopes: ["openid", "email"] }] }
   }, async () => {
     const deviceId = Object.keys(state.devices).find(id => !state.devices[id].revoked);
     if (!deviceId) return {
@@ -246,7 +265,7 @@ const httpServer = http.createServer(async (request, response) => {
       return sendJson(response, 200, {
         resource: "https://" + PUBLIC_HOST + "/mcp",
         authorization_servers: [SUPABASE_URL + "/auth/v1"],
-        scopes_supported: ["openid", "email", "profile"],
+        scopes_supported: ["openid", "email"],
         bearer_methods_supported: ["header"],
         resource_documentation: "https://" + PUBLIC_HOST + "/"
       });
