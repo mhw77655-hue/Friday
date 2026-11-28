@@ -10,6 +10,7 @@
  * and future REA result types.
  */
 import { createHash } from "node:crypto";
+import { adaptNeomasMemoryUi } from "./adapters/neomas-memory-ui.mjs";
 
 const SCHEMA = "friday.rea-assimilation/v1";
 const GROUP_KIND = new Map([
@@ -494,6 +495,21 @@ export function mergeReaPackets(packets) {
     },
     raw_results: packets.map((packet) => packet.raw_result),
   };
+  const targetAdapter = adaptNeomasMemoryUi({
+    target: first.target,
+    evidenceRecords,
+    findings,
+    evidenceRefs,
+  });
+  if (targetAdapter) {
+    packetCore.findings.push(...targetAdapter.findings);
+    packetCore.capability_candidates.push(...targetAdapter.capability_candidates);
+    packetCore.limitations.push(...targetAdapter.limitations.map((statement) => ({
+      kind: "adapter_limitation",
+      statement,
+    })));
+    packetCore.adaptation_plan = targetAdapter.adaptation_plan;
+  }
   return {
     packet_id: "rea_packet_" + sha256(stableJson(packetCore)).slice(0, 32),
     ...packetCore,
