@@ -8,6 +8,26 @@ import org.junit.Test
 
 class ObjectiveCloudDecompositionWorkerTest {
     @Test
+    fun approvalExpiryDoesNotChangeTaskIdentityDigest() {
+        val parent = JSONObject()
+            .put("task_id", "objective-a-phase-0-assess-12345678")
+            .put("objective_id", "A")
+            .put("phase_id", 0)
+            .put("plan_sha256", "a".repeat(64))
+            .put("goal", "Assess phase zero.")
+            .put("acceptance_criteria", "A source-backed evidence map exists.")
+            .put("scope_markdown", "Canonical public scope.")
+        val first = ObjectiveCloudDecompositionWorker.buildProjection(
+            parent, "0123456789abcdef0123456789abcdef01234567", 1_000L
+        )
+        val later = ObjectiveCloudDecompositionWorker.buildProjection(
+            parent, "0123456789abcdef0123456789abcdef01234567", 2_000L
+        )
+        assertTrue(first.expiresAtEpochMs != later.expiresAtEpochMs)
+        assertEquals(first.projectionDigest(), later.projectionDigest())
+    }
+
+    @Test
     fun publicProjectionContainsOnlyCanonicalObjectiveScope() {
         val parent = JSONObject()
             .put("task_id", "objective-a-phase-0-assess-12345678")
