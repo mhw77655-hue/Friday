@@ -253,11 +253,6 @@ class ObjectiveExecutionWorker(
                     android.util.Log.i(TAG, "Independent review is waiting for repository authorization.")
                     return@withContext Result.success()
                 }
-                if (manager == null) {
-                    enqueueFollowUp(applicationContext, reviewTaskId, initialDelaySeconds = 600)
-                    android.util.Log.i(TAG, "Independent review is waiting for the model manager to initialize.")
-                    return@withContext Result.success()
-                }
                 try {
                     val repository = ai.friday.assistant.github.reporting.GitHubDevelopmentRepositoryClient(token)
                     val review = ObjectiveBuilderCandidateExecutor(applicationContext, manager, repository)
@@ -290,14 +285,9 @@ class ObjectiveExecutionWorker(
                 return@withContext Result.success()
             }
 
-            if (manager == null || !manager.isTierLoaded(ModelTier.RESIDENT)) {
-                android.util.Log.i(TAG, "Builder candidate queue is waiting for a verified local resident model.")
-                return@withContext Result.success()
-            }
-
-            // Once parent packets have been decomposed, the local Builder turns
-            // one safe child task into an isolated GitHub candidate. CI/review
-            // are separate evidence stages; this worker never merges or releases.
+            // Once parent packets have been decomposed, a local model is preferred.
+            // If none is installed, the same bounded candidate contract can use
+            // the separately consented ChatGPT plan worker on public repository data.
             val child = store.nextQueuedChildTask()
                 ?: return@withContext Result.success()
             if (token == null) {
@@ -305,6 +295,14 @@ class ObjectiveExecutionWorker(
                 return@withContext Result.success()
             }
             val taskId = child.optString("task_id")
+            val localModelReady = manager?.isTierLoaded(ModelTier.RESIDENT) == true
+            val cloudReady = ai.friday.assistant.aiworkforce.table.ChatGPTPlanBackgroundConsentStore(applicationContext).isEnabled() &&
+                ai.friday.assistant.aiworkforce.table.ChatGPTPlanAuth(applicationContext).isConnected() &&
+                runCatching { ai.friday.assistant.github.reporting.GitHubDevelopmentRepositoryClient(token).isRepositoryPublic() }.getOrDefault(false)
+            if (!localModelReady && !cloudReady) {
+                android.util.Log.i(TAG, "Builder candidate is waiting for a resident model or an authorized ChatGPT plan connection with background-use consent.")
+                return@withContext Result.success()
+            }
             if (!store.markChildTaskExecuting(taskId, PROCESS_INSTANCE_ID)) {
                 return@withContext Result.success()
             }
