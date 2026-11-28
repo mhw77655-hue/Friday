@@ -91,6 +91,57 @@ class FridayAgentTaskRelayTest {
     }
 
     @Test
+    fun pollAcceptsTrustedChatGptEvidenceRequestAsASeparateMessageKind() {
+        val directory = Files.createTempDirectory("friday-agent-inbound-evidence").toFile()
+        val server = MockWebServer()
+        try {
+            val store = AgentTaskThreadStore(directory)
+            store.put(
+                AgentTaskThread(
+                    taskId = taskId,
+                    issueNumber = 321,
+                    issueUrl = "https://github.com/mhw77655-hue/Friday/issues/321",
+                    sourceRevision = "main",
+                    createdAtEpochMs = now
+                )
+            )
+            val envelope = AgentTaskEnvelope(
+                taskId = taskId,
+                messageId = "$taskId:in:1",
+                sequence = 1L,
+                sender = "chatgpt-cloud",
+                recipient = "friday",
+                kind = AgentTaskMessageKind.EVIDENCE_REQUEST,
+                createdAtEpochMs = now,
+                expiresAtEpochMs = now + 60_000L,
+                sourceRevision = "main",
+                payload = JSONObject()
+                    .put("data_classification", "public")
+                    .put("reason", "Please share the public CI summary.")
+                    .put("requested_evidence", JSONArray().put("ci_run_summary"))
+            )
+            val comments = JSONArray().put(comment(9011L, "mhw77655-hue", taskId, 1L, envelope))
+            server.enqueue(MockResponse().setBody(comments.toString()))
+            server.start()
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val relay = FridayAgentTaskRelay(
+                github = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot),
+                threads = store,
+                trustedActors = setOf("mhw77655-hue"),
+                consentEnabled = { true },
+                clock = { now + 1_000L }
+            )
+
+            val received = relay.pollReplies(taskId).single()
+            assertEquals(AgentTaskMessageKind.EVIDENCE_REQUEST, received.envelope.kind)
+            assertEquals("Please share the public CI summary.", received.envelope.payload.getString("reason"))
+        } finally {
+            server.shutdown()
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun createTaskUsesDurableIssueMarkerAndDoesNotRecreateAfterLocalRecovery() {
         val directory = Files.createTempDirectory("friday-agent-create").toFile()
         val server = MockWebServer()
