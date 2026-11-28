@@ -127,6 +127,12 @@ object LatencyLayer {
         // arrives. Flush BOTH cached-WAV and live-TTS playback before choosing
         // the streaming path: streamingSpeak bypasses SpeechEngine.fullSpeak,
         // whose previous implementation was the only place that stopped acks.
+        // This marker lets an incident report prove whether the ack flush was
+        // requested before the full reply was handed to either speech path.
+        ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
+            exchangeCounter.get(),
+            ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.ACK_FLUSH_REQUESTED
+        )
         ai.friday.assistant.TtsBridge.stopSpeaking()
         val streaming = streamingSpeak
         if (streaming != null) streaming(text) else SpeechEngine.fullSpeak(text)
@@ -386,11 +392,23 @@ class LatencyPipeline(
                 }
                 val settledText = localReply
                     ?: "I'm here, but my local expression capability is not available right now."
+                if (localReply != null) {
+                    ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
+                        id, ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.SPEECH_HANDOFF,
+                        ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Route.MODEL_FREE,
+                        ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Outcome.STARTED
+                    )
+                }
                 appendTurn(Turn(fromFriday = true, text = settledText, verified = false))
                 logTurn(true, settledText)
                 reactorFirstSegment()
                 _phase.value = LatencyLayer.Phase.REPLYING
                 if (localReply != null) fullSpeak(localReply)
+                ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
+                    id, ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.TURN_SETTLED,
+                    ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Route.MODEL_FREE,
+                    ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Outcome.SUCCEEDED
+                )
                 _phase.value = LatencyLayer.Phase.IDLE
                 reactorUtteranceDone()
                 return@dispatch
@@ -410,6 +428,10 @@ class LatencyPipeline(
                 pending.addLast(id)
                 pendingInputs[id] = text
             }
+            ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
+                id, ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.COGNITION_STARTED,
+                ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Route.MODEL
+            )
             val engine = cognitiveEngine
             if (engine != null) {
                 kotlinx.coroutines.runBlocking {
@@ -548,6 +570,10 @@ class LatencyPipeline(
                 matchedTurn, ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.SPEECH_HANDOFF,
                 ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Route.MODEL,
                 ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Outcome.STARTED
+            )
+            ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
+                matchedTurn, ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.ACK_FLUSH_REQUESTED,
+                ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Route.MODEL
             )
             fullSpeak(outbound)
             ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
