@@ -16,7 +16,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
+import org.json.JSONObject
 
 /**
  * Local-first Objective plan reconciler and work decomposer.
@@ -35,6 +37,13 @@ class ObjectiveExecutionWorker(
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val store = ObjectiveExecutionLedgerStore(applicationContext)
         try {
+            if (!hasVerifiedCanonicalPlan(applicationContext)) {
+                // The plan sync worker owns import and remote refresh. Never
+                // race it or create a second plan snapshot in the executor.
+                ObjectivePlanSyncWorker.enqueue(applicationContext)
+                android.util.Log.i(TAG, "Canonical plan synchronization is pending; Builder execution will retry after the verified plan is ready.")
+                return@withContext Result.retry()
+            }
             store.reconcile()
             val recoveredTasks = store.recoverInterruptedTasks(PROCESS_INSTANCE_ID)
             if (recoveredTasks > 0) {
@@ -371,6 +380,23 @@ class ObjectiveExecutionWorker(
             request
         )
     }
+
+    private fun hasVerifiedCanonicalPlan(context: Context): Boolean = runCatching {
+        val directory = File(context.filesDir, "friday-development/plan")
+        val planFile = File(directory, "canonical-delivery-plan.md")
+        val metadataFile = File(directory, "objective-ledger.json")
+        if (!planFile.isFile || !metadataFile.isFile) return@runCatching false
+        val markdown = planFile.readText(Charsets.UTF_8)
+        val objectives = ObjectivePlanParser.parse(markdown)
+        val expected = ('A'..'G').map { it.toString() }.toSet()
+        val metadata = JSONObject(metadataFile.readText(Charsets.UTF_8))
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(markdown.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        objectives.map { it.id }.toSet().containsAll(expected) &&
+            metadata.optInt("schema_version") == 1 &&
+            metadata.optString("content_sha256") == digest
+    }.getOrDefault(false)
 
     companion object {
         private const val TAG = "FridayObjectivePlan"
