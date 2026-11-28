@@ -156,7 +156,7 @@ fun FridayNavHost(showSetup: Boolean = false, onSetupComplete: () -> Unit = {}) 
                 moreSelected = moreSheetOpen,
                 onHome = { navigateToTab(ROUTE_HOME) },
                 onConversation = { navigateToTab(ROUTE_CONVERSATION) },
-                onMissions = { navigateToTab(ROUTE_MISSIONS) },
+                onIndividual = { navigateToTab(ROUTE_INDIVIDUAL) },
                 onMore = { moreSheetOpen = true }
             )
         }
@@ -254,7 +254,7 @@ private fun FridayBottomBar(
     moreSelected: Boolean,
     onHome: () -> Unit,
     onConversation: () -> Unit,
-    onMissions: () -> Unit,
+    onIndividual: () -> Unit,
     onMore: () -> Unit
 ) {
     GlassPanel(modifier = Modifier.fillMaxWidth()) {
@@ -264,7 +264,7 @@ private fun FridayBottomBar(
         ) {
             BottomBarItem("home", "Home", currentRoute == ROUTE_HOME, onHome, Modifier.weight(1f))
             BottomBarItem("talk", "Talk", currentRoute == ROUTE_CONVERSATION, onConversation, Modifier.weight(1f))
-            BottomBarItem("build", "Build", currentRoute == ROUTE_MISSIONS, onMissions, Modifier.weight(1f))
+            BottomBarItem("individual", "Individual", currentRoute == ROUTE_INDIVIDUAL, onIndividual, Modifier.weight(1f))
             BottomBarItem("more", "More", moreSelected, onMore, Modifier.weight(1f))
         }
     }
@@ -315,6 +315,17 @@ private fun NavigationGlyph(kind: String, tint: Color) {
                 path.lineTo(w * 0.3f, h * 0.72f)
                 path.lineTo(w * 0.14f, h * 0.72f)
                 path.close()
+            }
+            "individual" -> {
+                path.moveTo(w * 0.5f, h * 0.12f)
+                path.cubicTo(w * 0.28f, h * 0.12f, w * 0.16f, h * 0.28f, w * 0.16f, h * 0.46f)
+                path.cubicTo(w * 0.16f, h * 0.72f, w * 0.34f, h * 0.88f, w * 0.5f, h * 0.88f)
+                path.cubicTo(w * 0.66f, h * 0.88f, w * 0.84f, h * 0.72f, w * 0.84f, h * 0.46f)
+                path.cubicTo(w * 0.84f, h * 0.28f, w * 0.72f, h * 0.12f, w * 0.5f, h * 0.12f)
+                path.moveTo(w * 0.34f, h * 0.43f)
+                path.cubicTo(w * 0.39f, h * 0.34f, w * 0.61f, h * 0.34f, w * 0.66f, h * 0.43f)
+                path.moveTo(w * 0.34f, h * 0.64f)
+                path.cubicTo(w * 0.42f, h * 0.72f, w * 0.58f, h * 0.72f, w * 0.66f, h * 0.64f)
             }
             "build" -> {
                 path.moveTo(w * 0.5f, h * 0.1f)
