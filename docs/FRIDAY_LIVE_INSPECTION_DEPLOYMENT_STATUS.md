@@ -37,3 +37,12 @@ Venture Autopilot remains untouched. This deployment is a real cloud-service mil
 - Pairing code creation remains available only through the owner-authenticated `POST /admin/pairing-code` setup endpoint; ChatGPT's MCP surface is now limited to `friday_live_status` and `friday_inspection_snapshot`.
 - Source commit: `d012c8df271a82945b56fcac5bef52f166ded46c`.
 - Railway deployment for this source commit is currently building. Do not claim the tightened MCP tool catalog is live until that deployment succeeds and the endpoint is rechecked.
+
+
+### Admin revocation authorization fix — 2026-11-28
+
+- Source audit confirmed `POST /admin/revoke` called the asynchronous `adminOnly()` guard without `await`, allowing the handler to continue before owner authorization resolved.
+- Fixed the guard to `if (!await adminOnly(request, response)) return;` in `services/friday-inspection/src/server.js`.
+- Commit: `7239a906c19f6246fa2b6d24f8df7e7d8609ed1f` (`Await owner authorization before admin revocation`).
+- Railway deployment `e2440eeb-399f-42f1-801f-7abe63d1c297` is BUILDING; do not claim the fix is live until SUCCESS and runtime rejection checks pass.
+- Remaining acceptance: OAuth DCR POST + PKCE consent/token flow; verify resource/audience/scope enforcement; test invalid/expired/wrong-owner tokens; inspect npm audit findings; ChatGPT custom MCP connection; pair physical handset; prove fresh snapshot and revocation.
