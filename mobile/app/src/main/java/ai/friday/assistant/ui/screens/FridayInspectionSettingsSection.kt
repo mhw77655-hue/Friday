@@ -58,7 +58,7 @@ internal fun FridayInspectionSettingsSection(context: Context) {
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            "External inspection is OFF by default. Pairing alone does not start a connection. If you explicitly turn this on, Friday opens an encrypted outbound session so the authorised inspection service can request a small technical snapshot: app version, Android version, coarse subsystem readiness, and available RAM/storage.",
+            "External inspection is OFF by default. Pairing alone does not start a connection. If you explicitly turn this on, Friday opens an encrypted outbound session for at most 15 minutes. During that session the authorised inspection service can request a small technical snapshot: app version, Android version, coarse subsystem readiness, and available RAM/storage. The session then closes automatically.",
             style = FridayType.Label,
             color = FridayColors.TextPrimary
         )
@@ -111,7 +111,7 @@ internal fun FridayInspectionSettingsSection(context: Context) {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Allow external inspection session", style = FridayType.Body)
-                Text("Default OFF · only runs after this explicit opt-in", style = FridayType.Label)
+                Text("Default OFF · explicit opt-in · auto-expires after 15 minutes", style = FridayType.Label)
             }
             Switch(
                 checked = enabled,
