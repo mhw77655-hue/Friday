@@ -2,7 +2,7 @@
 
 Last updated: 2026-11-28
 Controlling tracker: https://github.com/mhw77655-hue/Friday/issues/188
-Status: Bootstrap bridge partially deployed; authenticated end-to-end acceptance remains open.
+Status: Cloud bridge deployed and healthy; authenticated ChatGPT-to-phone acceptance remains open.
 Architecture constraint: This is temporary bootstrap infrastructure. Advanced Friday REA is intended to own the long-term diagnostic, repair, orchestration, verification, and evolution lifecycle. Do not turn this bridge into a permanent substitute for REA.
 
 ## Working protocol (keep this file current)
@@ -89,21 +89,51 @@ For every meaningful work session:
 - Do not expose secrets, JWTs, owner email, private phone diagnostics, transcripts, or memory in public GitHub comments.
 
 ## Remaining work — ordered execution
-1. **OAuth server configuration and client registration:** verify Supabase Site URL + OAuth Authorization Path point to the deployed consent UI; verify DCR enabled; test registration with a proper POST using an MCP-compatible redirect URI; record result without publishing credentials.
-2. **Consent flow:** exercise the deployed consent UI with a real `authorization_id`; confirm sign-in, owner gate, requested scopes, approve/deny and redirect.
-3. **PKCE/token exchange:** complete authorization-code exchange, inspect JWT claims locally/securely, and verify refresh-token rotation and revocation.
-4. **MCP auth acceptance:** initialize MCP, call `tools/list`, then call `friday_live_status` and `friday_inspection_snapshot`; verify unauthenticated, expired, wrong-owner, wrong-audience and revoked tokens are rejected.
-5. **Dependency audit:** obtain a reproducible package lock; run npm audit with full advisory output; identify exact transitive/direct packages; patch only affected dependencies; run tests and deploy.
-6. **ChatGPT connection:** provide the verified MCP URL and perform the user-side custom connector setup if required by ChatGPT account permissions. Do not claim connected before authenticated MCP calls succeed.
-7. **Phone pairing:** generate owner-authorized short-lived pairing code, pair actual Friday Android installation, retrieve a timestamped fresh snapshot, and test disconnect/revocation.
-8. **Closeout:** update issue #188 and this log with acceptance evidence and remaining limitations.
 
-## Current blockers / user action
-- No Auth Hook dashboard action remains; owner screenshot confirmed it enabled.
-- The OAuth Server Authorization Path + Site URL configuration and DCR toggle still need verification; the hook screenshot does not prove these.
-- ChatGPT-side connector creation may require a one-time action in the user's ChatGPT UI after OAuth works.
-- Actual Android pairing requires the user's installed phone to participate in the pairing flow.
-- Everything else should be pursued through the connected repository, Railway, Supabase and browser tools without asking the user to repeat information.
+1. **Owner bootstrap:** create and confirm the Supabase owner account using the exact email configured in Railway `FRIDAY_OWNER_EMAIL`. Current database count is 0 users, 0 OAuth clients, 0 authorizations and 0 consents.
+2. **ChatGPT custom MCP connection:** in ChatGPT web, add `https://friday-inspection-production.up.railway.app/mcp` as **Friday Live Inspection**, choose OAuth, review the risk warning, complete DCR/PKCE, sign in as the owner, and approve `openid email`.
+3. **MCP acceptance:** verify the two read-only tools are discovered and call `friday_live_status`; inspect the real JWT issuer, exact Friday resource audience, expiry, not-before and OAuth client ID. Confirm refresh-token renewal.
+4. **Phone update and pairing:** update the owner's phone from Friday 1.0.610 to official release 1.0.631 (one update only); sign in at `/admin/pairing`, generate the one-time code, then enrol under Settings → Live inspection.
+5. **Live snapshot and revocation:** retrieve a fresh timestamped `friday_inspection_snapshot`; test device revocation, OAuth consent revocation and the expected denial behavior.
+6. **Closeout:** record end-to-end evidence in issue #188 and this file. Do not claim the bridge complete before the real ChatGPT-to-phone snapshot and revocation test pass.
+
+## Current truthful status
+
+The cloud service and Auth Hook are deployed and verified. Main-branch service tests and dependency audit pass; the Railway service build reports 0 vulnerabilities. The MCP tool definitions now advertise OAuth security requirements and the server sends standards-aligned scope-aware challenges. The owner pairing and OAuth consent pages are live.
+
+The phone is still on Friday 1.0.610 according to the owner. Supabase currently has no owner user or OAuth client, and ChatGPT has not registered or authorized. No phone is enrolled and no live snapshot has been retrieved. The remaining blockers are therefore user-side account bootstrap, ChatGPT authorization, and the one-time phone update/pairing—not cloud deployment.
+
+## Session log — 2026-11-28 (continued: phone version and OAuth hardening)
+
+1. Owner confirmed the installed Android app is **Friday 1.0.610**. Verified that the live-inspection client is in release 1.0.631, not 1.0.610.
+2. Verified official GitHub release asset `friday-v1.0.631/app-release.apk`, 129,802,992 bytes, GitHub asset SHA-256 `ef2a34966d87fab617d43882e2678a4c1999ee207046450933fb606f8d557b47`. Release metadata says the APK certificate is checked against the pinned Friday release fingerprint. User must install it over 1.0.610; no uninstall or intermediate APK is required.
+3. Re-read current Supabase OAuth 2.1 and Custom Access Token Hook documentation. Supabase documents authorization-code + PKCE, OAuth-specific `client_id` claims, and a refresh-token grant. The custom hook preserves normal password-session audiences and sets the exact Friday MCP resource audience for OAuth authorization-code and refresh-token issuance.
+4. Ran fresh read-only Supabase checks:
+   - Project `friday-auth` is `ACTIVE_HEALTHY`.
+   - `auth.users`: 0.
+   - `auth.oauth_clients`: 0.
+   - `auth.oauth_authorizations`: 0.
+   - `auth.oauth_consents`: 0.
+   - Security advisors: no lints.
+   - `public.friday_mcp_access_token_hook` is SECURITY INVOKER; `supabase_auth_admin` can execute; `anon` and `authenticated` cannot.
+5. Inspected current Supabase Auth JS `getClaims`: it verifies the token signature and expiry but does not itself enforce the MCP resource audience or issuer. Friday's own validator therefore continues to enforce issuer, exact audience, expiry, issued-at, subject, client ID, owner email, and now `nbf`.
+6. Reviewed current OpenAI custom MCP docs. They specify protected-resource metadata, per-tool `_meta.securitySchemes`, scope-aware OAuth challenges, resource binding, and PKCE. Updated Friday's MCP descriptors to declare OAuth with `openid email`; narrowed resource metadata from `openid email profile` to `openid email`; added `WWW-Authenticate` with resource metadata and scope for unauthenticated/invalid MCP requests; ensured browser owner-setup routes do not emit an MCP OAuth challenge; and added `nbf` rejection plus tests.
+7. Merged PR #202: https://github.com/mhw77655-hue/Friday/pull/202. Merge commit: `c4c3a7ffc7e8d984ed7e03963d1c20cabca39725`.
+8. Verified main-branch Friday inspection service tests SUCCESS and dependency audit SUCCESS on the merge commit.
+9. Verified Railway deployment `7a5951e4-2166-4008-8813-ed52f6377211` reached SUCCESS for that merge commit. Build output reports 0 vulnerabilities.
+10. Fetched live production endpoints after deployment:
+    - `/health` returns `status: ok`.
+    - `/.well-known/oauth-protected-resource` now advertises exactly `openid email` and the Supabase authorization server.
+    - `/admin/pairing` and `/oauth/consent` both serve successfully.
+11. Confirmed the actual ChatGPT DCR/PKCE exchange has not happened: OAuth client, authorization, consent and user counts remain zero. No Android device is enrolled and no fresh phone snapshot or revocation test exists.
+12. Added the new state and required user-side actions to GitHub issue #188 and updated the deployment status document.
+
+### User action required to unblock the next acceptance stage
+
+- Install the official 1.0.631 APK over the installed 1.0.610 app: https://github.com/mhw77655-hue/Friday/releases/download/friday-v1.0.631/app-release.apk
+- Create/confirm the Supabase owner account with the email matching Railway `FRIDAY_OWNER_EMAIL`.
+- Add the custom MCP server in ChatGPT web at `https://friday-inspection-production.up.railway.app/mcp`, choose OAuth, and approve the owner consent.
+- Then generate the one-time pairing code at `https://friday-inspection-production.up.railway.app/admin/pairing` and enter it in Friday → Settings → Live inspection.
 
 ## Current truthful status
 Cloud service and Auth Hook configuration are verified. The consent implementation has been reviewed in source, but OAuth server URL configuration, client registration, owner consent, PKCE token issuance, authenticated MCP calls, ChatGPT connector acceptance, physical phone pairing, and fresh phone diagnostics are NOT YET VERIFIED.
