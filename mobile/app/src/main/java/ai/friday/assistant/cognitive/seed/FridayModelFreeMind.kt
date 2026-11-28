@@ -16,14 +16,18 @@ import java.time.format.DateTimeFormatter
 class FridayModelFreeMind(
     private val substrate: FridaySeedSubstrate,
     private val identityName: String = "Friday",
-    private val clock: Clock = Clock.systemDefaultZone()
+    private val clock: Clock = Clock.systemDefaultZone(),
+    /** Ablation switch for proving that later behavior depends on persisted learning. */
+    private val learningEnabled: Boolean = true
 ) {
     fun observe(experienceText: String) {
+        if (!learningEnabled) return
         val features = features(experienceText)
         if (features.isNotEmpty()) substrate.observe(features)
     }
 
     fun observeOutcome(input: String, observedOutcome: String) {
+        if (!learningEnabled) return
         val context = features(input)
         val outcome = features(observedOutcome)
         if (context.isNotEmpty() && outcome.isNotEmpty()) substrate.observeOutcome(context, outcome)
@@ -31,27 +35,27 @@ class FridayModelFreeMind(
 
     fun respond(input: String): String {
         val normalized = input.trim().lowercase()
-        val associations = substrate.infer(features(input), limit = 8)
+        val associations = if (learningEnabled) substrate.infer(features(input), limit = 8) else emptyMap()
             .filterKeys { it.startsWith("word:") }
             .keys.map { it.removePrefix("word:") }
 
         MY_NAME.matchEntire(input.trim())?.groupValues?.getOrNull(1)?.let { rawName ->
             val name = rawName.trim().trimEnd('.', '!', '?').take(80)
-            if (name.isNotBlank() && substrate.rememberFact("user_name", name)) {
+            if (name.isNotBlank() && learningEnabled && substrate.rememberFact("user_name", name)) {
                 return "I'll remember that your name is $name. I stored that fact in my local memory."
             }
         }
 
         LIKE.matchEntire(input.trim())?.groupValues?.getOrNull(1)?.let { rawValue ->
             val value = rawValue.trim().trimEnd('.', '!', '?').take(120)
-            if (value.isNotBlank() && substrate.rememberFact("user_likes", value)) {
+            if (value.isNotBlank() && learningEnabled && substrate.rememberFact("user_likes", value)) {
                 return "I've noted that you like $value. You can correct me if that changes."
             }
         }
 
         DISLIKE.matchEntire(input.trim())?.groupValues?.getOrNull(1)?.let { rawValue ->
             val value = rawValue.trim().trimEnd('.', '!', '?').take(120)
-            if (value.isNotBlank() && substrate.rememberFact("user_dislikes", value)) {
+            if (value.isNotBlank() && learningEnabled && substrate.rememberFact("user_dislikes", value)) {
                 return "I've noted that you don't like $value. You can correct me if that changes."
             }
         }
