@@ -36,9 +36,9 @@ class TurnDiagnosticJournalTest {
         assertEquals(2, json.getInt("event_count"))
         assertEquals(TurnDiagnosticJournal.Stage.ACK_STARTED.name,
             json.getJSONArray("events").getJSONObject(0).getString("stage"))
-        assertFalse(exported.contains("message"))
+        assertFalse(exported.contains("private user phrase"))
         assertFalse(exported.contains("transcript text"))
-        assertTrue(json.getJSONObject("privacy").getBoolean("message_bodies_included"))
+        assertFalse(json.getJSONObject("privacy").getBoolean("message_bodies_included"))
         assertFalse(json.getJSONObject("privacy").getBoolean("transcripts_included"))
     }
 
