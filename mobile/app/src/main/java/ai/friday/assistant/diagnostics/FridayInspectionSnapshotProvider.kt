@@ -84,7 +84,8 @@ object FridayInspectionSnapshotProvider {
             turnStageCounts = stageCounts,
             turnRouteCounts = routeCounts,
             turnOutcomeCounts = outcomeCounts,
-            processExitReasonCounts = exitReasonCounts
+            processExitReasonCounts = exitReasonCounts,
+            recentTurnEvents = turnEvents.takeLast(FridayInspectionSnapshot.MAX_REMOTE_TURN_EVENTS)
         )
     }
 
