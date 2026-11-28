@@ -47,7 +47,8 @@ class JvmPlatformPorts(
     private val utteranceDoneSignal: () -> Unit,
     private val failureSink: (FailureReport) -> Unit,
     private val failureSurface: ai.friday.assistant.failure.FailureSurface,
-    private val forgetter: ai.friday.assistant.memory.provenance.MemoryForgetter? = null
+    private val forgetter: ai.friday.assistant.memory.provenance.MemoryForgetter? = null,
+    private val languageModelAvailable: () -> Boolean = { true }
 ) : PlatformPorts {
 
     override fun failureSurface(): ai.friday.assistant.failure.FailureSurface = failureSurface
@@ -71,6 +72,9 @@ class JvmPlatformPorts(
     override fun logTurn(fromFriday: Boolean, text: String) = turnLogSink(fromFriday, text)
 
     override fun warmModel() = warmer()
+
+    override fun hasLanguageModel(modelManager: ai.friday.assistant.model.ModelManager): Boolean =
+        languageModelAvailable()
 
     override fun sessionContext(): TurnContext? = session()
 
