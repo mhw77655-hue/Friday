@@ -24,6 +24,9 @@ class OfflineModelCatalogTest {
         val model = OfflineModelCatalog.fallback
         assertEquals("lfm2.5-1.2b-abliterated", model.id)
         assertEquals("LFM 1.0", model.license)
+        assertEquals("Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_S.gguf", model.filename)
+        assertEquals(700_470_912L, model.expectedMinimumBytes)
+        assertEquals("8328518a9c453554fd6987afd7b2a0d54b482d2dffd1d108bbd69700372d7327", model.sha256)
         assertFalse(model.resident)
     }
 
@@ -51,7 +54,7 @@ class OfflineModelCatalogTest {
         )
         val largeBudget = 2L * 1024L * 1024L * 1024L
         assertEquals(
-            listOf(OfflineModelCatalog.resident.id, OfflineModelCatalog.tinyFallback.id),
+            listOf(OfflineModelCatalog.resident.id, OfflineModelCatalog.fallback.id, OfflineModelCatalog.tinyFallback.id),
             residentBootstrapCandidates(largeBudget).map { it.id }
         )
         assertTrue(residentBootstrapCandidates(0L).isEmpty())
@@ -87,7 +90,7 @@ class OfflineModelCatalogTest {
             ModelPathResolver.modelFileName(OfflineModelCatalog.resident.id)
         )
         assertEquals(
-            "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_M.gguf",
+            "Huihui-LFM2.5-1.2B-Instruct-abliterated.Q4_K_S.gguf",
             ModelPathResolver.modelFileName(OfflineModelCatalog.fallback.id)
         )
         assertEquals(
