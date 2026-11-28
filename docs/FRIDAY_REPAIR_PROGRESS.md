@@ -619,3 +619,9 @@ The only Supabase project visible to this session is `venture-autopilot`; it is 
 
 ### Honest status
 The repository and GitHub side are accessible here. The live phone side is **not connected yet**. The required MCP host/ChatGPT connection is not deployed or registered. This is the current critical path, not a completed handshake.
+
+### 2026-11-28 — terminology correction merged
+
+- PR [#199](https://github.com/mhw77655-hue/Friday/pull/199) was squash-merged to main as `90ef28f64151d89d0075872c55aef6ccf1238399` after exact-head Actions run [#3799](https://github.com/mhw77655-hue/Friday/actions/runs/46089097031) completed successfully. This changes terminology/UI wording to describe structured agent task exchange rather than chat; it does not add live phone inspection.
+- A workflow run associated with the merge commit was not returned by the commit-to-PR-workflow lookup; do not claim a post-merge main build passed until an exact-SHA run is observed.
+- Critical path remains issue #188: implement the private read-only Android diagnostic broker and a Friday-hosted remote MCP endpoint, then connect that endpoint to ChatGPT web and verify live read/revoke. No fresh handset snapshot has been retrieved by this ChatGPT session.
