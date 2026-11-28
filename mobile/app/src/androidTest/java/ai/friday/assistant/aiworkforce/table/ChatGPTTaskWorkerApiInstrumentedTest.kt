@@ -97,13 +97,38 @@ class ChatGPTTaskWorkerApiInstrumentedTest {
             assertTrue(payload.optBoolean("stream", false))
             assertTrue(payload.getJSONArray("input").toString().contains("Only this explicitly approved private source excerpt."))
 
-            val replay = runCatching { worker.execute(projection) }
-            assertTrue(replay.isFailure)
-            assertTrue(replay.exceptionOrNull()?.message.orEmpty().contains("not been approved"))
+            // Simulate Friday process recreation: a completed result is recovered
+            // from the encrypted local journal without consuming another approval
+            // or making another request against the user's ChatGPT plan.
+            val restartedWorker = ChatGPTTaskWorker(
+                context = context,
+                tokenProvider = ChatGPTPlanTokenProvider { "plan-access-token" },
+                credentials = credentialStore,
+                approvals = ChatGPTTaskApprovalStore(context),
+                apiBaseUrl = server.url("/v1").toString().trimEnd('/'),
+                http = OkHttpClient.Builder()
+                    .sslSocketFactory(clientCertificates.sslSocketFactory(), clientCertificates.trustManager)
+                    .build()
+            )
+            val recovered = restartedWorker.execute(projection)
+            assertEquals(result.responseId, recovered.responseId)
+            assertEquals(result.output, recovered.output)
+            assertEquals(result.requestId, recovered.requestId)
             assertEquals(1, server.requestCount)
+
+            val journalHash = java.security.MessageDigest.getInstance("SHA-256")
+                .digest(projection.taskId.toByteArray(Charsets.UTF_8))
+                .joinToString("") { "%02x".format(it) }
+            val journal = java.io.File(
+                context.filesDir,
+                "friday-development/chatgpt-task-results/$journalHash.enc"
+            )
+            assertTrue(journal.isFile)
+            assertFalse(journal.readText().contains("Findings complete."))
         } finally {
             server.shutdown()
             credentialStore.clear()
+            ChatGPTTaskResultStore(context).clear("friday-private-task-001")
             approvalPrefs.edit().clear().commit()
         }
     }
