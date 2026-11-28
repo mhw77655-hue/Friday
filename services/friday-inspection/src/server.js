@@ -183,18 +183,8 @@ function requestSnapshot(deviceId) {
   });
 }
 
-function createMcpServer(ownerUserId) {
+function createMcpServer() {
   const mcp = new McpServer({ name: "friday-live-inspection", version: "1.0.0" });
-  mcp.registerTool("friday_create_pairing_code", {
-    description: "Create a one-time ten-minute pairing code for the owner to enter in Friday Settings. This does not grant phone control.",
-    inputSchema: {}
-  }, async () => {
-    const code = randomBytes(18).toString("base64url");
-    state.pairing = { code, expiresAt: Date.now() + 10 * 60_000, consumed: false, createdBy: ownerUserId };
-    await persistState();
-    audit("pairing_code_issued");
-    return { content: [{ type: "text", text: JSON.stringify({ pairing_code: code, expires_at_epoch_ms: state.pairing.expiresAt, expires_in_seconds: 600 }) }] };
-  });
 
   mcp.registerTool("friday_live_status", {
     description: "Read whether the enrolled Friday phone is currently connected and whether its last allowlisted snapshot is fresh. This tool never operates the phone.",
@@ -367,7 +357,7 @@ const httpServer = http.createServer(async (request, response) => {
       if (!owner) return;
       const body = await readJson(request);
       audit("mcp_request");
-      const mcp = createMcpServer(owner.id);
+      const mcp = createMcpServer();
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
       await mcp.connect(transport);
       response.on("close", () => { void transport.close(); void mcp.close(); });
