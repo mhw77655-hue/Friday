@@ -1,5 +1,7 @@
 package ai.friday.assistant.cloud
 
+import ai.friday.assistant.aiworkforce.table.TaskCapsuleCompiler
+
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
