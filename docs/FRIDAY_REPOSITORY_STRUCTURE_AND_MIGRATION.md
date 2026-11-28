@@ -191,9 +191,9 @@ A fresh paginated inventory of all three branch pages and all 159 closed PRs plu
 - **67 branches** are associated with closed, unmerged PRs. Preserve pending per-branch comparison and salvage decisions; closure is not proof that unique work is disposable.
 - **39 branches** have no PR association in the fetched inventory, including `main`; 38 require direct comparison and intent review.
 - Ten branches use the `friday-proposals/` namespace: one is associated with merged PR #52; nine correspond to closed, unmerged proposal PRs (#40 and #89, #102–#108) and remain preserved pending comparison.
-- No branch deletion has been performed yet. The GitHub connector supports branch listing and ref movement but not DELETE refs; moving a ref is not an acceptable substitute for deletion. A signed-in GitHub browser session is being established to perform the actual branch deletion through GitHub's UI after the candidate list is verified.
+- No branch deletion has been performed. The owner subsequently deferred branch pruning; do not pursue browser sign-in or deletion unless explicitly requested again. Moving a ref is not an acceptable substitute for deletion.
 
-The 89 merged-PR branches are candidates, not yet claimed deleted. Recheck each branch still exists and is not referenced by an open PR immediately before deletion. Preserve `main`, tags, releases, and all open-PR heads. Do not rewrite history.
+The 89 merged-PR branches are candidates, not yet claimed deleted. Recheck each branch still exists and is not referenced by an open PR immediately before deletion. Preserve `main`, tags, releases, and all open-PR heads. Do not rewrite history. The owner has since asked to stop branch pruning and continue with other repository maintenance; branch deletion is deferred and no branch refs were deleted.
 
 
 ### Closed proposal branch review
@@ -216,3 +216,17 @@ Three duplicate-tip groups were found in the 38 no-PR branches:
 - `audit/one-3-to-6` and `wip/one-3-to-6` point to the same SHA. Keep `audit/one-3-to-6` and retire only the duplicate `wip/` name after authenticated access is available.
 
 This adds four more clearly redundant refs to the branch-pruning candidate set (two aliases of a merged PR commit and two duplicate-name refs). The other orphan branches remain preserved pending comparison.
+
+
+### Remaining root archive review and CI audit — 2026-11-28
+
+- `friday-fixes.zip` was inspected at the ZIP-header level. It contains one compressed Kotlin source snapshot: `mobile/app/src/main/java/ai/friday/assistant/DiagnosticsViewModel.kt` (44,791 uncompressed bytes). The currently tracked file at that path is a different size (55,668 UTF-8 characters in the connector response), so this archive cannot safely be called a duplicate. Preserve it until its contents are compared line-by-line; do not delete it as junk.
+- The root Arabic-named PDF remains untouched. Its purpose/ownership was not established in this maintenance pass, so deletion would be unjustified.
+- `CLAUDE.md` is a deliberate 15-byte compatibility pointer to `AGENTS.md`; keep it rather than treating it as an accidental stub.
+- The inspection service's dependency audit artifact from run `46100664786` reports zero vulnerabilities (0 info, 0 low, 0 moderate, 0 high, 0 critical). A reproducible `services/friday-inspection/package-lock.json` is present and the audit workflow completed its service checks and audit successfully. The earlier reported two high findings are not reproduced by this later audit; no blind `npm audit fix --force` was run.
+- CI failure run `46101180107` was traced to `hashFiles('log.zip')` being placed in a job-level `if`, which actionlint rejects. The guard was moved to the step-level `if`. Corrected build run `46101199862` passed, including the actionlint step, Android JVM test shards and instrumented emulator lane. Signed-release run `46102378734` also succeeded on main.
+- The cleanup pass had temporarily changed issue #24's title, causing the reporter's exact-title lookup to create issue #200. The canonical title on #24 has been restored, the rolling incident body now has a stable marker, and #200 has been closed as a duplicate of #24. The reporter updates the issue body rather than adding a comment on every failed run; the 768 historical comments remain preserved.
+
+### Current scope decision
+
+Branch pruning is deferred at the owner's request. Continue with actionable repository hygiene and engineering validation; do not spend further time trying to obtain branch-deletion access.
