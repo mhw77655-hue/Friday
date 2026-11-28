@@ -67,7 +67,7 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
     var unreadCount by remember { mutableStateOf(0) }
     var lastPollLabel by remember { mutableStateOf("Not checked yet") }
     val scope = rememberCoroutineScope()
-    val taskInbox = EngineAccess.taskInbox().value
+    var taskInboxAvailable by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
 
     fun refresh() {
@@ -82,7 +82,9 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
             }
             latestReplies = snapshot.first
             unreadCount = snapshot.second
-            pendingProposals = taskInbox
+            val inbox = EngineAccess.taskInbox().value
+            taskInboxAvailable = inbox != null
+            pendingProposals = inbox
                 ?.listTasks(InboxTaskStatus.WAITING_APPROVAL)
                 ?.filter { it.source == "chatgpt-cloud" }
                 .orEmpty()
@@ -281,7 +283,7 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
                             onClick = {
                                 scope.launch {
                                     val result: Result<Unit> = withContext(Dispatchers.IO) {
-                                        taskInbox?.reviewExternalProposal(proposal.id, accepted = true)
+                                        EngineAccess.taskInbox().value?.reviewExternalProposal(proposal.id, accepted = true)
                                             ?: Result.failure(IllegalStateException("Friday's task inbox is not ready."))
                                     }
                                     status = result.fold(
@@ -291,14 +293,14 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
                                     refresh()
                                 }
                             },
-                            enabled = taskInbox != null,
+                            enabled = taskInboxAvailable,
                             modifier = Modifier.weight(1f)
                         ) { Text("Accept for consideration") }
                         TextButton(
                             onClick = {
                                 scope.launch {
                                     val result: Result<Unit> = withContext(Dispatchers.IO) {
-                                        taskInbox?.reviewExternalProposal(proposal.id, accepted = false)
+                                        EngineAccess.taskInbox().value?.reviewExternalProposal(proposal.id, accepted = false)
                                             ?: Result.failure(IllegalStateException("Friday's task inbox is not ready."))
                                     }
                                     status = result.fold(
