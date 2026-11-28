@@ -310,7 +310,7 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
                                     refresh()
                                 }
                             },
-                            enabled = taskInbox != null
+                            enabled = taskInboxAvailable
                         ) { Text("Decline") }
                     }
                 }
