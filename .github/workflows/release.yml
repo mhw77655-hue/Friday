@@ -176,7 +176,7 @@ jobs:
           fi
 
       - name: Decode the permanent release keystore
-        if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'true' && steps.changes.outputs.release_needed == 'true'
+        if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'true' && steps.changes.outputs.release_needed == 'true' && steps.final_freshness.outputs.current == 'true'
         env:
           KEYSTORE_B64: ${{ secrets.FRIDAY_RELEASE_KEYSTORE_BASE64 }}
         run: |
@@ -188,7 +188,7 @@ jobs:
           echo "FRIDAY_RELEASE_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
 
       - name: Build the signed production APK
-        if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'true' && steps.changes.outputs.release_needed == 'true'
+        if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'true' && steps.changes.outputs.release_needed == 'true' && steps.final_freshness.outputs.current == 'true'
         env:
           FRIDAY_RELEASE_STORE_PASSWORD: ${{ secrets.FRIDAY_RELEASE_STORE_PASSWORD }}
           FRIDAY_RELEASE_KEY_ALIAS: ${{ secrets.FRIDAY_RELEASE_KEY_ALIAS }}
@@ -205,7 +205,7 @@ jobs:
             -PfridayVersionName="$VERSION_NAME"
 
       - name: Verify APK signature and produce release metadata
-        if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'true' && steps.changes.outputs.release_needed == 'true'
+        if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'true' && steps.changes.outputs.release_needed == 'true' && steps.final_freshness.outputs.current == 'true'
         env:
           EXPECTED_CERT_SHA256: ${{ secrets.FRIDAY_RELEASE_CERT_SHA256 }}
         run: |
@@ -237,8 +237,40 @@ jobs:
           }, separators=(",", ":")))
           PY
 
-      - name: Select release publisher credential
+      - name: Recheck Android source freshness immediately before publication
+        id: final_freshness
         if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'true' && steps.changes.outputs.release_needed == 'true'
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          CURRENT_MAIN_SHA="$(git rev-parse origin/main)"
+          if ! git merge-base --is-ancestor "$TARGET_SHA" "$CURRENT_MAIN_SHA"; then
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            echo "Withholding signed release: target commit is no longer an ancestor of main."
+            exit 0
+          fi
+          PRODUCT_CHANGES="$(git diff --name-only "$TARGET_SHA" "$CURRENT_MAIN_SHA" -- mobile/ gradle/ build.gradle.kts settings.gradle.kts gradle.properties jniLibs/ local-repo/)"
+          if [[ -n "$PRODUCT_CHANGES" ]]; then
+            echo "current=false" >> "$GITHUB_OUTPUT"
+            echo "Withholding signed release: Android product/build inputs changed while the APK was being built:"
+            printf '%s\\n' "$PRODUCT_CHANGES"
+          else
+            echo "current=true" >> "$GITHUB_OUTPUT"
+            echo "The signed APK still matches the current Android product source."
+          fi
+
+      - name: Explain source changed during signed build
+        if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'true' && steps.changes.outputs.release_needed == 'true' && steps.final_freshness.outputs.current == 'false'
+        run: |
+          {
+            echo "## Signed APK withheld from production publication"
+            echo
+            echo "Android product/build source changed after the CI-verified target while the signed APK was building."
+            echo "The APK will not be published as the current update. A fresh main build and signed release are required."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Select release publisher credential
+        if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'true' && steps.changes.outputs.release_needed == 'true' && steps.final_freshness.outputs.current == 'true'
         env:
           DEDICATED_RELEASE_TOKEN: ${{ secrets.FRIDAY_RELEASE_PUBLISH_TOKEN }}
         run: |
@@ -251,7 +283,7 @@ jobs:
           fi
 
       - name: Preserve verified signed APK even if release publication is blocked
-        if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'true' && steps.changes.outputs.release_needed == 'true'
+        if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'true' && steps.changes.outputs.release_needed == 'true' && steps.final_freshness.outputs.current == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: friday-signed-release-${{ github.run_number }}
@@ -264,7 +296,7 @@ jobs:
 
       - name: Publish the signed release
         id: publish
-        if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'true' && steps.changes.outputs.release_needed == 'true'
+        if: steps.signing.outputs.configured == 'true' && steps.freshness.outputs.current == 'true' && steps.changes.outputs.release_needed == 'true' && steps.final_freshness.outputs.current == 'true'
         env:
           GH_TOKEN: ${{ secrets.FRIDAY_RELEASE_PUBLISH_TOKEN || github.token }}
         run: |
