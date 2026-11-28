@@ -10,7 +10,8 @@ import {
   constantTimeEqual,
   isFresh,
   validateInspectionSnapshot,
-  verifyDeviceProof
+  verifyDeviceProof,
+  validateOwnerClaims
 } from "./security.js";
 
 const PORT = Number(process.env.PORT || 8080);
@@ -100,17 +101,27 @@ async function ownerOnly(request, response) {
     sendJson(response, 401, { error: "oauth_required" });
     return null;
   }
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data?.user) {
+  const { data, error } = await supabase.auth.getClaims(token);
+  const claims = data?.claims;
+  if (error || !claims) {
     response.setHeader("www-authenticate", `Bearer resource_metadata="https://${PUBLIC_HOST}/.well-known/oauth-protected-resource"`);
     sendJson(response, 401, { error: "invalid_access_token" });
     return null;
   }
-  if (!OWNER_EMAIL || data.user.email?.toLowerCase() !== OWNER_EMAIL) {
-    sendJson(response, 403, { error: "owner_access_not_configured_or_denied" });
+  try {
+    validateOwnerClaims(claims, {
+      issuer: SUPABASE_URL + "/auth/v1",
+      resource: `https://${PUBLIC_HOST}/mcp`,
+      ownerEmail: OWNER_EMAIL
+    });
+  } catch (validationError) {
+    const denied = validationError?.message === "owner_access_denied";
+    sendJson(response, denied ? 403 : 401, {
+      error: denied ? "owner_access_not_configured_or_denied" : "invalid_access_token"
+    });
     return null;
   }
-  return data.user;
+  return claims;
 }
 
 function hostAllowed(request) {
