@@ -158,3 +158,25 @@ Cloud service and Auth Hook configuration are verified. The consent implementati
 3. Re-run/inspect the npm audit workflow after lockfile commit if needed; verify zero findings remain on the actual main HEAD.
 4. Verify Supabase OAuth Server Site URL + Authorization Path + Dynamic Client Registration setting. The Auth Hook screenshot only confirmed Auth Hook, not these OAuth Server settings.
 5. Complete real DCR POST, consent, PKCE, token claim inspection, MCP initialize/tools/list/call, then ChatGPT connector and Android pairing.
+
+
+## Session continuation — 2026-11-28 (confirmed Android enrollment)
+
+Owner corrected the phone version: installed app is **Friday 1.0.631**, not 1.0.610. Treat 1.0.631 as current; do not request another APK update.
+
+### Verified production evidence
+- Pairing page and owner status endpoint returned HTTP 200.
+- Owner pairing-code generation: POST /admin/pairing-code returned HTTP 200 at 2026-11-28T04:48:37Z.
+- Android enrollment: POST /device/enroll returned HTTP 201 at 2026-11-28T04:48:44Z, user-agent okhttp/4.12.0.
+- Runtime emitted device_enrolled and device_connected for the same device ID at 2026-11-28T04:48:44Z.
+- Production /health returns status ok.
+- Latest application deployment remains SUCCESS: 7a5951e4-2166-4008-8813-ed52f6377211, commit c4c3a7ffc7e8d984ed7e03963d1c20cabca39725. Later documentation-only commits were correctly SKIPPED.
+
+### Status correction
+Earlier statements that no Android device was enrolled are superseded. Phone pairing is VERIFIED. This does not yet prove ChatGPT OAuth registration/authorization or retrieval of a fresh friday_inspection_snapshot.
+
+### Next acceptance actions
+1. Inspect device last-seen/heartbeat state without exposing private diagnostic payloads.
+2. Complete ChatGPT MCP OAuth registration/authorization and verify the authenticated tool catalog.
+3. Execute friday_live_status and friday_inspection_snapshot through the authorized MCP client; confirm snapshot timestamp and freshness.
+4. Test device revocation and OAuth consent/token revocation, then confirm access is denied.
