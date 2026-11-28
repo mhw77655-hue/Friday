@@ -11,10 +11,20 @@ interface CloudProvider {
     fun generate(prompt: String): CloudResult
 }
 
+data class CloudTokenUsage(
+    val inputTokens: Int = 0,
+    val outputTokens: Int = 0,
+    val cacheCreationInputTokens: Int = 0,
+    val cacheReadInputTokens: Int = 0
+)
+
 sealed class CloudResult {
     data class Success(
         val text: String,
-        val providerId: String
+        val providerId: String,
+        val usage: CloudTokenUsage? = null,
+        val requestId: String? = null,
+        val model: String? = null
     ) : CloudResult()
 
     data class Failure(
