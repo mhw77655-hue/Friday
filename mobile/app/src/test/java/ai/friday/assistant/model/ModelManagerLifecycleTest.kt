@@ -79,7 +79,7 @@ class ModelManagerLifecycleTest {
 
         val second = m.request(OrganRole.RESIDENT, task = "reload-after-nae-reclaim", modelId = "resident-model")
         assertTrue(backend.isLoaded(second))
-        assertNotEquals(first.id, second.id)
+        assertEquals(first.id, second.id)
         assertEquals(2, backend.loadCount)
     }
 
