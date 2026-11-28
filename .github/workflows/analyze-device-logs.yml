@@ -17,6 +17,8 @@ concurrency:
 
 jobs:
   analyze:
+    # A log.zip deletion is cleanup, not a request to analyze a missing archive.
+    if: ${{ hashFiles('log.zip') != '' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
