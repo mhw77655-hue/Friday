@@ -314,6 +314,9 @@ class LatencyPipeline(
     fun onUserInput(text: String, ackOverride: String? = null, interlocutor: String? = null) {
         if (text.isBlank()) return
         val id = exchangeCounter.incrementAndGet()
+        ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
+            id, ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.INPUT_ACCEPTED
+        )
 
         // Fast path — sub-millisecond, nothing blocking.
         _phase.value = LatencyLayer.Phase.ACKNOWLEDGING
@@ -329,6 +332,10 @@ class LatencyPipeline(
         val last = lastAckMs.get()
         if (last == Long.MIN_VALUE || now - last >= ACK_GAP_MS) {
             lastAckMs.set(now)
+            ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
+                id, ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.ACK_STARTED,
+                outcome = ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Outcome.STARTED
+            )
             ackSpeak(AckSpeech.pick(ackOverride))
         }
 
@@ -345,6 +352,14 @@ class LatencyPipeline(
             // individual handles the turn directly without invoking the model
             // manager or waiting for the response timeout.
             if (!modelAvailable()) {
+                ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
+                    id, ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.ROUTE_SELECTED,
+                    ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Route.MODEL_FREE
+                )
+                ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
+                    id, ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.LOCAL_FALLBACK_SELECTED,
+                    ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Route.MODEL_FREE
+                )
                 // Keep Friday's native cognitive organs active even when no
                 // language model is resident. The empty send sink preserves
                 // local perception, memory, intent, continuity and thread work
@@ -381,6 +396,15 @@ class LatencyPipeline(
                 return@dispatch
             }
 
+            ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
+                id, ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.ROUTE_SELECTED,
+                ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Route.MODEL
+            )
+            ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
+                id, ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.MODEL_REQUEST_STARTED,
+                ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Route.MODEL,
+                ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Outcome.STARTED
+            )
             val ctx = sessionContext()
             synchronized(pendingLock) {
                 pending.addLast(id)
@@ -410,6 +434,10 @@ class LatencyPipeline(
                 if (pending.remove(id)) pendingInputs.remove(id) else null
             }
             if (expiredInput != null) {
+                ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
+                    id, ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.TURN_TIMED_OUT,
+                    outcome = ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Outcome.TIMED_OUT
+                )
                 if (exchangeCounter.get() == id) _phase.value = LatencyLayer.Phase.IDLE
                 LatencyLayer.failureSink?.invoke(
                     ai.friday.assistant.failure.FailureReport(
@@ -455,6 +483,13 @@ class LatencyPipeline(
     fun ackOnly(commandText: String, ackPhrase: String) {
         if (commandText.isBlank()) return
         val id = exchangeCounter.incrementAndGet()
+        ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
+            id, ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.INPUT_ACCEPTED
+        )
+        ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
+            id, ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.ACK_STARTED,
+            outcome = ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Outcome.STARTED
+        )
 
         _phase.value = LatencyLayer.Phase.ACKNOWLEDGING
         reactorSubmitted()
@@ -488,18 +523,38 @@ class LatencyPipeline(
                 id to pendingInputs.remove(id)
             } ?: return@dispatch
             val matchedTurn = matched.first
+            ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
+                matchedTurn, ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.MODEL_REPLY_RECEIVED,
+                ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Route.MODEL,
+                ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Outcome.SUCCEEDED
+            )
             runCatching { outcomeObserver(matched.second.orEmpty(), reply) }
 
             _phase.value = LatencyLayer.Phase.REPLYING
             reactorFirstSegment()
 
+            ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
+                matchedTurn, ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.REPLY_DELIVERY_STARTED,
+                ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Route.MODEL,
+                ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Outcome.STARTED
+            )
             val outbound = replyDelivery(reply)
             val verified = bridgeStatus() == "ok (local)"
 
             appendTurn(Turn(fromFriday = true, text = outbound, verified = verified))
             logTurn(true, outbound)
 
+            ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
+                matchedTurn, ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.SPEECH_HANDOFF,
+                ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Route.MODEL,
+                ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Outcome.STARTED
+            )
             fullSpeak(outbound)
+            ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
+                matchedTurn, ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.TURN_SETTLED,
+                ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Route.MODEL,
+                ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Outcome.SUCCEEDED
+            )
             reactorUtteranceDone()
             _phase.value = LatencyLayer.Phase.IDLE
         }
