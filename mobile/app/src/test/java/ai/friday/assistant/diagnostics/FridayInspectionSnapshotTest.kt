@@ -62,7 +62,17 @@ class FridayInspectionSnapshotTest {
             turnStageCounts = mapOf("MODEL_REQUEST_STARTED" to 2, "PRIVATE_PROMPT" to 99),
             turnRouteCounts = mapOf("MODEL" to 2),
             turnOutcomeCounts = mapOf("FAILED" to 1),
-            processExitReasonCounts = mapOf("ANR" to 2, "PRIVATE_REASON_TEXT" to 8)
+            processExitReasonCounts = mapOf("ANR" to 2, "PRIVATE_REASON_TEXT" to 8),
+            recentTurnEvents = listOf(
+                TurnDiagnosticJournal.Event(
+                    atEpochMs = 1_700_000_000_000L,
+                    exchangeId = 42L,
+                    stage = TurnDiagnosticJournal.Stage.MODEL_REQUEST_STARTED,
+                    route = TurnDiagnosticJournal.Route.MODEL,
+                    outcome = TurnDiagnosticJournal.Outcome.STARTED,
+                    elapsedMs = null
+                )
+            )
         ).toJson()
         assertEquals(2, lifecycle.getJSONObject("turn_stage_counts").getInt("MODEL_REQUEST_STARTED"))
         assertFalse(lifecycle.getJSONObject("turn_stage_counts").has("PRIVATE_PROMPT"))
@@ -70,6 +80,12 @@ class FridayInspectionSnapshotTest {
         assertEquals(1, lifecycle.getJSONObject("turn_outcome_counts").getInt("FAILED"))
         assertEquals(2, lifecycle.getJSONObject("process_exit_reason_counts").getInt("ANR"))
         assertFalse(lifecycle.getJSONObject("process_exit_reason_counts").has("PRIVATE_REASON_TEXT"))
+        val events = lifecycle.getJSONArray("recent_turn_events")
+        assertEquals(1, events.length())
+        assertEquals("MODEL_REQUEST_STARTED", events.getJSONObject(0).getString("stage"))
+        assertEquals(42L, events.getJSONObject(0).getLong("exchange_id"))
+        assertFalse(events.getJSONObject(0).has("message"))
+        assertTrue(lifecycle.getJSONObject("privacy").getBoolean("structured_turn_lifecycle_events_included"))
     }
 
     @Test
