@@ -59,8 +59,13 @@ object FridayOneButtonMaintenance {
             !ShizukuBridge.isAvailable.value -> "Shizuku is not currently reachable; local/cloud lanes can still run."
             !ShizukuBridge.isGranted.value -> "Shizuku is available but Friday's existing authorization is not granted."
             else -> {
-                ScreenBridge.bind(app)
-                "Shizuku authorization detected; Friday's typed device service is binding (" + ScreenBridge.status.value + ")."
+                val binding = ScreenBridge.ensureVerifiedBinding(app, timeoutMillis = 15_000)
+                val uid = ScreenBridge.verifiedShizukuUid()
+                if ((uid == 0 || uid == 2000) && ScreenBridge.diagnosticsSnapshot() != null) {
+                    "Phone test passed: Friday's Shizuku UserService is live, UID " + uid + ", and privileged diagnostics returned."
+                } else {
+                    "Shizuku was authorized, but Friday's live UserService test did not verify: " + binding
+                }
             }
         }
 
