@@ -180,3 +180,17 @@ Do not delete branches, releases, tags, signing records, vendored runtime librar
 ### Workflow cleanup correction
 
 - Removing `log.zip` initially triggered the log-analysis workflow because its push path filter matched deletion events. The first guard attempt placed `hashFiles()` at job level; GitHub rejected that workflow run (run `46101178939`). This was corrected by moving the `hashFiles('log.zip')` guard to the analysis step, where the expression is supported. Commit: `e07e78887453423db82c9e5e77ceaed809e5ce2d`. The workflow now checks out normally and skips the archive-analysis step when no uploaded archive exists. Post-fix run `46101199902` completed SUCCESS, confirming the cleanup path.
+
+
+### Branch inventory — 2026-11-28 (follow-up)
+
+A fresh paginated inventory of all three branch pages and all 159 closed PRs plus 18 open PRs produced this classification (213 branch refs includes `main`):
+
+- **18 branches** are heads of open PRs. Preserve them while the PRs are open.
+- **89 branches** are associated only with merged PRs and no open or closed-unmerged PR head. These are safe branch-deletion candidates because their PRs were merged. This does not delete commit history.
+- **67 branches** are associated with closed, unmerged PRs. Preserve pending per-branch comparison and salvage decisions; closure is not proof that unique work is disposable.
+- **39 branches** have no PR association in the fetched inventory, including `main`; 38 require direct comparison and intent review.
+- Ten branches use the `friday-proposals/` namespace: one is associated with merged PR #52; nine correspond to closed, unmerged proposal PRs (#40 and #89, #102–#108) and remain preserved pending comparison.
+- No branch deletion has been performed yet. The GitHub connector supports branch listing and ref movement but not DELETE refs; moving a ref is not an acceptable substitute for deletion. A signed-in GitHub browser session is being established to perform the actual branch deletion through GitHub's UI after the candidate list is verified.
+
+The 89 merged-PR branches are candidates, not yet claimed deleted. Recheck each branch still exists and is not referenced by an open PR immediately before deletion. Preserve `main`, tags, releases, and all open-PR heads. Do not rewrite history.
