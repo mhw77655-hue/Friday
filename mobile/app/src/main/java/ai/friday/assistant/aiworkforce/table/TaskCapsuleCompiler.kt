@@ -190,6 +190,25 @@ class TaskCapsuleCompiler {
         )
     }
 
+    /** Verify that a capsule's exposed fields still match its content-addressed digest. */
+    fun verify(capsule: Capsule): Boolean {
+        if (capsule.context.length > MAX_CONTEXT_CHARS) return false
+        val canonical = buildString {
+            field(capsule.taskId)
+            field(capsule.objective)
+            field(capsule.instructions)
+            list(capsule.acceptanceCriteria)
+            list(capsule.constraints)
+            list(capsule.allowedTools)
+            field(capsule.outputSchema)
+            field(capsule.context)
+        }
+        return MessageDigest.isEqual(
+            sha256(canonical).toByteArray(Charsets.US_ASCII),
+            capsule.digestSha256.toByteArray(Charsets.US_ASCII)
+        )
+    }
+
     private fun buildContext(
         memories: List<SelectedMemory>,
         artifacts: List<ArtifactReference>,
