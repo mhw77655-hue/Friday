@@ -28,10 +28,17 @@ class TypedConversationInstrumentedTest {
         val marker = "FRIDAY_TYPED_UI_ACCEPTANCE_" + UUID.randomUUID()
         val assistantTurnsBefore = LatencyLayer.turns.value.count { it.fromFriday }
 
+        // Instrumentation tests share one installed app process/data directory.
+        // A prior test may already have completed first-launch setup, so accept
+        // either valid starting state instead of waiting forever for a screen
+        // that is intentionally no longer shown.
         composeRule.waitUntil(timeoutMillis = 30_000L) {
-            composeRule.onAllNodesWithText("Finish setup").fetchSemanticsNodes().isNotEmpty()
+            composeRule.onAllNodesWithText("Finish setup").fetchSemanticsNodes().isNotEmpty() ||
+                composeRule.onAllNodesWithText("Chat").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithText("Finish setup").performClick()
+        if (composeRule.onAllNodesWithText("Finish setup").fetchSemanticsNodes().isNotEmpty()) {
+            composeRule.onNodeWithText("Finish setup").performClick()
+        }
 
         composeRule.waitUntil(timeoutMillis = 30_000L) {
             composeRule.onAllNodesWithText("Chat").fetchSemanticsNodes().isNotEmpty()
