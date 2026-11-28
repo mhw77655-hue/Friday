@@ -78,7 +78,7 @@ fun MoreSheet(
                     )
                     destinations.forEach { destination ->
                         Text(
-                            text = "›   " + destination.label,
+                            text = destination.label,
                             style = FridayType.Body,
                             modifier = Modifier.fillMaxWidth()
                                 .pressScale {
