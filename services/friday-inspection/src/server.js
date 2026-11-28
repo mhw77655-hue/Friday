@@ -94,7 +94,7 @@ function bearerToken(request) {
   return match?.[1] || null;
 }
 
-async function ownerOnly(request, response, { resource = `https://${PUBLIC_HOST}/mcp` } = {}) {
+async function ownerOnly(request, response, { resource = `https://${PUBLIC_HOST}/mcp`, requireClientId = true } = {}) {
   const token = bearerToken(request);
   if (!token || !supabase) {
     response.setHeader("www-authenticate", `Bearer resource_metadata="https://${PUBLIC_HOST}/.well-known/oauth-protected-resource"`);
@@ -112,7 +112,8 @@ async function ownerOnly(request, response, { resource = `https://${PUBLIC_HOST}
     validateOwnerClaims(claims, {
       issuer: SUPABASE_URL + "/auth/v1",
       resource,
-      ownerEmail: OWNER_EMAIL
+      ownerEmail: OWNER_EMAIL,
+      requireClientId
     });
   } catch (validationError) {
     const denied = validationError?.message === "owner_access_denied";
@@ -154,7 +155,7 @@ async function readJson(request) {
 async function adminOnly(request, response) {
   // Admin browser pages use a normal Supabase owner session (aud=authenticated).
   // The remote MCP endpoint still requires the narrower Friday resource audience.
-  return !!(await ownerOnly(request, response, { resource: "authenticated" }));
+  return !!(await ownerOnly(request, response, { resource: "authenticated", requireClientId: false }));
 }
 
 function publicDeviceStatus(deviceId) {
