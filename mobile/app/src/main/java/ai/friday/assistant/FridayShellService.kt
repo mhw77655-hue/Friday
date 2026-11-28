@@ -57,7 +57,10 @@ class FridayShellService : IFridayShellService.Stub() {
             // PSI and reclaim counters distinguish genuine system-wide
             // memory stalls from an ordinary low "free" number.
             .put("memoryPressure", readFile("/proc/pressure/memory", 4_000))
-            .put("vmstat", readFile("/proc/vmstat", 6_000))
+            .put("vmstat", readSelectedFileLines(
+                "/proc/vmstat",
+                setOf("oom_kill", "pgscan_direct", "pgscan_kswapd")
+            ))
             .put("deviceManufacturer", runFixed("getprop", "ro.product.manufacturer"))
             .put("deviceModel", runFixed("getprop", "ro.product.model"))
             .put("socManufacturer", runFixed("getprop", "ro.soc.manufacturer"))
@@ -175,6 +178,15 @@ class FridayShellService : IFridayShellService.Stub() {
     private fun readFile(path: String, maxChars: Int): String =
         runCatching { File(path).takeIf { it.isFile && it.canRead() }?.readText()?.take(maxChars) }
             .getOrNull().orEmpty()
+
+    /** Read only named kernel counters so important values cannot be truncated. */
+    private fun readSelectedFileLines(path: String, keys: Set<String>): String =
+        runCatching {
+            File(path).takeIf { it.isFile && it.canRead() }?.useLines { lines ->
+                lines.filter { line -> keys.any { key -> line.startsWith("$key ") } }
+                    .joinToString("\n")
+            }.orEmpty()
+        }.getOrDefault("")
 
     private fun sha256(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
