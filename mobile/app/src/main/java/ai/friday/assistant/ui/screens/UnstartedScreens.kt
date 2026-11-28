@@ -32,6 +32,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ai.friday.assistant.FridayEngine
+import ai.friday.assistant.bootstrap.plan.ObjectiveExecutionLedgerStore
 import ai.friday.assistant.cognitive.CognitiveState
 import ai.friday.assistant.cognitive.Goal
 import ai.friday.assistant.cognitive.GoalPriority
@@ -57,6 +58,23 @@ fun MissionsScreen() {
     val engine = FridayEngine.cognitiveEngine
     val stateFlow = engine?.cognitiveState ?: flowOf(CognitiveState())
     val cognitiveState by stateFlow.collectAsStateWithLifecycle(initialValue = CognitiveState())
+    val appContext = LocalContext.current.applicationContext
+    var refreshKey by remember { mutableIntStateOf(0) }
+    val ledger = remember(appContext, refreshKey) {
+        runCatching { ObjectiveExecutionLedgerStore(appContext).snapshot() }.getOrNull()
+    }
+    val objectives = remember(ledger) {
+        val array = ledger?.optJSONArray("objectives")
+        (0 until (array?.length() ?: 0)).mapNotNull { array?.optJSONObject(it) }
+    }
+    val phases = remember(ledger) {
+        val array = ledger?.optJSONArray("phases")
+        (0 until (array?.length() ?: 0)).mapNotNull { array?.optJSONObject(it) }
+    }
+    val tasks = remember(ledger) {
+        val array = ledger?.optJSONArray("tasks")
+        (0 until (array?.length() ?: 0)).mapNotNull { array?.optJSONObject(it) }
+    }
     var objectiveDraft by remember { mutableStateOf("") }
     var createError by remember { mutableStateOf<String?>(null) }
 
@@ -125,6 +143,82 @@ fun MissionsScreen() {
                                 subgoal.status.name.replace('_', ' ') + "  ·  effort " + subgoal.estimatedEffort,
                                 style = FridayType.Technical.copy(color = FridayColors.TextSecondary),
                                 modifier = Modifier.padding(top = 5.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(18.dp))
+        GlassPanel(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth().padding(16.dp)) {
+                androidx.compose.foundation.layout.Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("CANONICAL DELIVERY PLAN", style = FridayType.Label)
+                    TextButton(onClick = { refreshKey++ }) { Text("REFRESH") }
+                }
+                if (ledger == null) {
+                    Text(
+                        "The canonical plan has not been imported into this installation yet. Start BUILD / REPAIR FRIDAY to run the plan reconciliation lane.",
+                        style = FridayType.Technical.copy(color = FridayColors.TextSecondary),
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                } else {
+                    Text(
+                        objectives.size.toString() + " objectives  ·  " +
+                            phases.size.toString() + " phases  ·  " +
+                            tasks.size.toString() + " work packets",
+                        style = FridayType.Technical.copy(color = FridayColors.TextSecondary),
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                    Text(
+                        ledger.optString("execution_state", "UNKNOWN").replace('_', ' '),
+                        style = FridayType.Technical.copy(color = FridayColors.CoreIdle),
+                        modifier = Modifier.padding(top = 5.dp)
+                    )
+                    if (objectives.isNotEmpty()) {
+                        Spacer(Modifier.height(12.dp))
+                        objectives.forEach { objective ->
+                            Text(
+                                objective.optString("id") + " · " + objective.optString("title"),
+                                style = FridayType.Body,
+                                modifier = Modifier.padding(top = 5.dp)
+                            )
+                            Text(
+                                objective.optString("status").replace('_', ' '),
+                                style = FridayType.Technical.copy(color = FridayColors.TextSecondary)
+                            )
+                        }
+                    }
+                    if (phases.isNotEmpty()) {
+                        Spacer(Modifier.height(12.dp))
+                        Text("OBJECTIVE A PHASES", style = FridayType.Label.copy(color = FridayColors.TextSecondary))
+                        phases.forEach { phase ->
+                            Text(
+                                "Phase " + phase.optInt("id") + " · " + phase.optString("title") +
+                                    " · " + phase.optString("status").replace('_', ' '),
+                                style = FridayType.Technical,
+                                modifier = Modifier.padding(top = 5.dp)
+                            )
+                        }
+                    }
+                    if (tasks.isNotEmpty()) {
+                        Spacer(Modifier.height(12.dp))
+                        Text("LATEST WORK PACKETS", style = FridayType.Label.copy(color = FridayColors.TextSecondary))
+                        tasks.takeLast(5).asReversed().forEach { task ->
+                            Text(
+                                task.optString("goal", task.optString("task_id")),
+                                style = FridayType.Body,
+                                modifier = Modifier.padding(top = 6.dp)
+                            )
+                            Text(
+                                task.optString("status").replace('_', ' ') + " · " +
+                                    task.optString("executor", "UNASSIGNED").replace('_', ' '),
+                                style = FridayType.Technical.copy(color = FridayColors.TextSecondary)
                             )
                         }
                     }
