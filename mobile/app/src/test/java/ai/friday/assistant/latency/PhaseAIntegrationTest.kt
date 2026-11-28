@@ -238,7 +238,7 @@ class PhaseAIntegrationTest {
             assertTrue("later real turn retrieves stored Galaxy Memory fact", memoryTurn.contains("[Cross-session memory]"))
             assertTrue("retrieved memory is the fact stated in turn 1", memoryTurn.contains("Python"))
             assertTrue("durable preference this turn (identity) co-present", harness.sentThroughBridge.last().contains("user preference communicationStyle"))
-            assertTrue("ephemeral mental state this turn", memoryTurn.contains("user mental state: goal=explore"))
+            assertTrue("ephemeral mental state this turn", memoryTurn.contains("tentative user-state hypothesis: goal=explore"))
 
             // None of the memory/identity turns (1-5) woke the reasoning organ:
             // only the resident organ is loaded after them.

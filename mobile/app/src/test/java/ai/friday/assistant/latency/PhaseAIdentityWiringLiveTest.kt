@@ -227,7 +227,7 @@ class PhaseAIdentityWiringLiveTest {
             val last = harness.sentThroughBridge.last()
             assertTrue(
                 "ephemeral per-turn mental state feeds the live context",
-                last.contains("user mental state: goal=explore")
+                last.contains("tentative user-state hypothesis: goal=explore")
             )
             // Ephemeral by construction: the estimator itself never writes, so
             // no durable preference or persona attrs resulted from this turn.
