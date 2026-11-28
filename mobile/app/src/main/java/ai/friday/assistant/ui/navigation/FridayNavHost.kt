@@ -269,7 +269,7 @@ private fun FridayBottomBar(
 private fun BottomBarItem(kind: String, label: String, selected: Boolean, onClick: () -> Unit) {
     val tint = if (selected) FridayColors.CoreIdle else FridayColors.CoreOffline
     androidx.compose.foundation.layout.Column(
-        modifier = Modifier.weight(1f).clickable(onClick = onClick).padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth(0.25f).clickable(onClick = onClick).padding(vertical = 4.dp),
         horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
