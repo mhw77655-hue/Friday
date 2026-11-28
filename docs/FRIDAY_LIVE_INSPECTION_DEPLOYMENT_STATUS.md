@@ -12,10 +12,11 @@ The private live-inspection service is deployed and healthy. The bridge is **not
 - Railway project: **Friday Live Inspection**.
 - Railway service: `friday-inspection`.
 - Production URL: https://friday-inspection-production.up.railway.app
-- Latest deployment: `01e5c0d0-2887-4851-80ad-0972cd8b1168`.
-- Source commit: `7e8041d3ff10a3e49f226d95b06820792fa95ee6`.
-- Deployment status: `SUCCESS`; Railway healthcheck `/health` passed.
+- Latest deployment: `65affd5f-7433-43fb-b634-039903b274da` (`SUCCESS`) on documentation-only commit `d1a80f5ce5a287ddcbbfac8b86c1b608e96a372e`.
+- The code deployment for merged PR #201 is `01e5c0d0-2887-4851-80ad-0972cd8b1168`, source commit `7e8041d3ff10a3e49f226d95b06820792fa95ee6`, also `SUCCESS`.
+- Railway healthcheck `/health` passed on both deployments.
 - External `GET /health` returns `{"service":"friday-live-inspection","status":"ok"}`.
+- Service root directory is `/services/friday-inspection`; automatic redeploy watch pattern is now restricted to `services/friday-inspection/**`, so docs-only commits no longer restart the inspection service.
 - Persistent volume `friday-inspection-state` is mounted at `/data` (500 MB, region `iad`).
 - The production service build runs `npm ci`; Railway reports **0 vulnerabilities**.
 - Supabase project `friday-auth` (`dtvhwuhmcynpbqfehlvs`) is `ACTIVE_HEALTHY`; security advisors report no lints.
@@ -55,8 +56,8 @@ Merged PR #201: https://github.com/mhw77655-hue/Friday/pull/201
 The following routes are deployed:
 
 - `GET /oauth/consent`: owner sign-in and OAuth authorization approval.
-- `GET /admin/pairing`: owner sign-in/account bootstrap and one-time phone pairing-code page.
-- `GET /owner/status`: verifies owner status server-side without exposing the allowlisted email.
+- `GET /admin/pairing`: owner sign-in/account bootstrap and one-time phone pairing-code page; verified live after deployment.
+- `GET /owner/status`: verifies owner status server-side without exposing the allowlisted email; unauthenticated request was verified to return HTTP 401.
 - `POST /admin/pairing-code`: generates a one-time pairing code, expires after ten minutes and can enroll one device.
 - `POST /admin/revoke`: owner-authenticated device revocation.
 
