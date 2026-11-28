@@ -1,0 +1,101 @@
+name: Friday inspection dependency audit
+
+on:
+  push:
+    paths:
+      - ".github/workflows/friday-inspection-dependency-audit.yml"
+      - "services/friday-inspection/package.json"
+      - "services/friday-inspection/package-lock.json"
+      - "services/friday-inspection/src/**"
+      - "services/friday-inspection/test/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: friday-inspection-dependency-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/friday-inspection
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: services/friday-inspection/package.json
+
+      - name: Generate reproducible lockfile
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Install exact locked dependencies
+        run: npm ci
+
+      - name: Run service checks
+        run: |
+          npm run check
+          npm test
+
+      - name: Capture complete npm audit report
+        id: audit
+        continue-on-error: true
+        run: |
+          npm audit --json > npm-audit.json
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Print vulnerability summary
+        if: always()
+        run: |
+          node --input-type=module -e '
+            import fs from "node:fs";
+            if (!fs.existsSync("npm-audit.json")) {
+              console.log("No npm audit JSON was produced.");
+              process.exit(0);
+            }
+            const report = JSON.parse(fs.readFileSync("npm-audit.json", "utf8"));
+            console.log(JSON.stringify(report.metadata?.vulnerabilities ?? {}, null, 2));
+            for (const [name, item] of Object.entries(report.vulnerabilities ?? {})) {
+              console.log(JSON.stringify({
+                name,
+                severity: item.severity,
+                direct: item.isDirect,
+                range: item.range,
+                fixAvailable: item.fixAvailable,
+                via: item.via
+              }, null, 2));
+            }
+          '
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-inspection-npm-audit
+          path: services/friday-inspection/npm-audit.json
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Commit generated lockfile
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          if git diff --cached --quiet; then
+            echo "Lockfile is already current."
+          else
+            git commit -m "Add reproducible lockfile for Friday inspection service"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi
