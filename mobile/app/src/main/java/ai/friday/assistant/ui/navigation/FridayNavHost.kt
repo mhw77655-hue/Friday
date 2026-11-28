@@ -12,9 +12,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -247,32 +251,39 @@ private fun FridayBottomBar(
 ) {
     GlassPanel(modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            BottomBarItem("Home", currentRoute == ROUTE_HOME, onHome)
-            BottomBarItem("Chat", currentRoute == ROUTE_CONVERSATION, onConversation)
-            BottomBarItem("Missions", currentRoute == ROUTE_MISSIONS, onMissions)
-            BottomBarItem("More", moreSelected, onMore)
+            BottomBarItem("⌂", "Home", currentRoute == ROUTE_HOME, onHome)
+            BottomBarItem("◉", "Talk", currentRoute == ROUTE_CONVERSATION, onConversation)
+            BottomBarItem("◇", "Build", currentRoute == ROUTE_MISSIONS, onMissions)
+            BottomBarItem("☷", "More", moreSelected, onMore)
         }
     }
 }
 
 @Composable
-private fun BottomBarItem(label: String, selected: Boolean, onClick: () -> Unit) {
-    Text(
-        text = label,
-        style = if (selected) {
-            FridayType.Technical.copy(color = FridayColors.TextPrimary)
-        } else {
-            FridayType.Technical
-        },
-        textAlign = TextAlign.Center,
-        maxLines = 1,
-        modifier = Modifier
-            .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp)
-    )
+private fun BottomBarItem(icon: String, label: String, selected: Boolean, onClick: () -> Unit) {
+    val active = Color(0xFF73D8F4)
+    androidx.compose.foundation.layout.Column(
+        modifier = Modifier.weight(1f).clickable(onClick = onClick).padding(vertical = 4.dp),
+        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        Text(
+            text = icon,
+            style = FridayType.Body.copy(color = if (selected) active else FridayColors.TextSecondary),
+            textAlign = TextAlign.Center
+        )
+        Text(
+            text = label,
+            style = FridayType.Technical.copy(color = if (selected) active else FridayColors.TextSecondary),
+            textAlign = TextAlign.Center,
+            maxLines = 1
+        )
+        Box(
+            modifier = Modifier.width(18.dp).height(2.dp)
+                .background(if (selected) active else Color.Transparent)
+        )
+    }
 }
