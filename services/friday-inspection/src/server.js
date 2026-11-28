@@ -143,7 +143,7 @@ function createMcpServer() {
     description: "Read whether the enrolled Friday phone is currently connected and whether its last allowlisted snapshot is fresh. This tool never operates the phone.",
     inputSchema: {}
   }, async () => {
-    const deviceId = Object.keys(state.devices)[0];
+    const deviceId = Object.keys(state.devices).find(id => !state.devices[id].revoked) || Object.keys(state.devices)[0];
     const result = deviceId ? (state.devices[deviceId].revoked
       ? { connected: false, enrolled: false, revoked: true }
       : publicDeviceStatus(deviceId)) : {
@@ -323,7 +323,15 @@ websocketServer.on("connection", socket => {
       clearTimeout(authTimer);
       authenticatedDeviceId = deviceId;
       const old = connectedDevices.get(deviceId);
-      if (old) old.socket.close(4004, "replaced_by_new_session");
+      if (old) {
+        old.socket.close(4004, "replaced_by_new_session");
+        for (const [requestId, pending] of pendingSnapshots) {
+          if (pending.deviceId === deviceId) {
+            pendingSnapshots.delete(requestId);
+            pending.reject(new Error("Friday inspection session was replaced."));
+          }
+        }
+      }
       connectedDevices.set(deviceId, { socket, lastSeenAt: Date.now(), latestSnapshot: null });
       socket.send(JSON.stringify({ type: "authenticated", deviceId }));
       return;
