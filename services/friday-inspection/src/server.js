@@ -231,7 +231,7 @@ const httpServer = http.createServer(async (request, response) => {
           Math.abs(Date.now() - timestamp) > DEVICE_AUTH_WINDOW_MS) {
         return sendJson(response, 403, { error: "device_revoke_not_authorized" });
       }
-      const signed = "friday-inspection-revoke-v1\\n" + deviceId + "\\n" + timestamp;
+      const signed = "friday-inspection-revoke-v1\n" + deviceId + "\n" + timestamp;
       if (!verifyDeviceProof(registration.publicKeyDerBase64, signed, String(body.signature || ""))) {
         return sendJson(response, 403, { error: "device_revoke_proof_invalid" });
       }
