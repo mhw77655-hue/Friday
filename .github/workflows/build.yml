@@ -1,6 +1,9 @@
 name: build
 
 on:
+  schedule:
+    # Nightly full-system Sentinel pass; staggered away from the top of the hour.
+    - cron: "17 2 * * *"
   push:
     branches: [ main ]
     paths:
@@ -26,6 +29,7 @@ on:
       - docs/OBJECTIVE_1_ADVERSARIAL_VALIDATION_PLAN.md
       - docs/OBJECTIVE_1_SOURCE_AUDIT_TRIAGE.md
       - docs/FRIDAY_INSTALL_ONCE_UPDATE_CHANNEL.md
+      - docs/FRIDAY_SENTINEL_CONTINUOUS_RELIABILITY_AUDIT.md
       - AGENTS.md
       - .github/workflows/build.yml
   pull_request:
@@ -124,6 +128,24 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Discover Friday production capabilities and persistent stores
+        id: sentinel-inventory
+        run: |
+          python3 tools/friday-builder/sentinel_inventory.py \
+            --json "$RUNNER_TEMP/friday-sentinel-inventory.json" \
+            --markdown "$RUNNER_TEMP/friday-sentinel-inventory.md"
+
+      - name: Upload Friday Sentinel inventory
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: friday-sentinel-capability-inventory
+          path: |
+            ${{ runner.temp }}/friday-sentinel-inventory.json
+            ${{ runner.temp }}/friday-sentinel-inventory.md
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Test Android harness and build contracts
         id: harness-contracts
