@@ -57,6 +57,16 @@ class FridayInspectionSnapshotTest {
         assertFalse(encoded.contains("private-model-name"))
         assertFalse(encoded.contains("private wifi SSID"))
         assertTrue(json.getJSONObject("privacy").getBoolean("credentials_or_tokens_included").not())
+
+        val lifecycle = snapshot.copy(
+            turnStageCounts = mapOf("MODEL_REQUEST_STARTED" to 2, "PRIVATE_PROMPT" to 99),
+            turnRouteCounts = mapOf("MODEL" to 2),
+            turnOutcomeCounts = mapOf("FAILED" to 1)
+        ).toJson()
+        assertEquals(2, lifecycle.getJSONObject("turn_stage_counts").getInt("MODEL_REQUEST_STARTED"))
+        assertFalse(lifecycle.getJSONObject("turn_stage_counts").has("PRIVATE_PROMPT"))
+        assertEquals(2, lifecycle.getJSONObject("turn_route_counts").getInt("MODEL"))
+        assertEquals(1, lifecycle.getJSONObject("turn_outcome_counts").getInt("FAILED"))
     }
 
     @Test
