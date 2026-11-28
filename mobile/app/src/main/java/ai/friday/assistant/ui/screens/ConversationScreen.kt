@@ -196,7 +196,7 @@ private fun InputRow(
                 value = value,
                 onValueChange = onValueChange,
                 modifier = Modifier.weight(1f),
-                placeholder = { Text("Message Friday…", style = FridayType.Body) },
+                placeholder = { Text("Message Friday", style = FridayType.Body) },
                 maxLines = 4,
                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Send),
                 keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSend = { onSend() }),
