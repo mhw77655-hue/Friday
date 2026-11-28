@@ -130,7 +130,7 @@ export function isFresh(timestamp, now = Date.now()) {
 }
 
 
-export function validateOwnerClaims(claims, { issuer, resource, ownerEmail, now = Date.now() }) {
+export function validateOwnerClaims(claims, { issuer, resource, ownerEmail, now = Date.now(), requireClientId = true }) {
   if (!claims || typeof claims !== "object" || Array.isArray(claims)) {
     throw new TypeError("token_claims_invalid");
   }
@@ -144,9 +144,10 @@ export function validateOwnerClaims(claims, { issuer, resource, ownerEmail, now 
   if (!Number.isSafeInteger(claims.iat) || claims.iat <= 0 || claims.iat > nowSeconds + 30) {
     throw new TypeError("token_issued_at_invalid");
   }
+  const validClient = !requireClientId ||
+    (typeof claims.client_id === "string" && claims.client_id.length > 0);
   if (typeof claims.sub !== "string" || claims.sub.length === 0 ||
-      typeof claims.client_id !== "string" || claims.client_id.length === 0 ||
-      claims.role !== "authenticated" || claims.is_anonymous === true) {
+      !validClient || claims.role !== "authenticated" || claims.is_anonymous === true) {
     throw new TypeError("token_subject_or_client_invalid");
   }
   if (!ownerEmail || typeof claims.email !== "string" ||
