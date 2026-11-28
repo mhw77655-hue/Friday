@@ -59,7 +59,8 @@ class TurnPathAssemblyTest {
             snapshot: () -> ResourceSnapshot,
             clock: () -> Long,
             directory: File? = null,
-            languageModelAvailable: Boolean = true
+            languageModelAvailable: Boolean = true,
+            adaptiveLearningEnabled: Boolean = true
         ): JvmPlatformPorts {
             storageDir = directory ?: compositionDir("assembly")
             backend = FakeModelBackend()
@@ -87,7 +88,8 @@ class TurnPathAssemblyTest {
                 utteranceDoneSignal = { },
                 failureSink = { },
                 failureSurface = FailureSurface(),
-                languageModelAvailable = { languageModelAvailable }
+                languageModelAvailable = { languageModelAvailable },
+                adaptiveLearning = adaptiveLearningEnabled
             )
         }
     }
@@ -294,6 +296,58 @@ class TurnPathAssemblyTest {
         val recalledReply = restarted.pipeline.turns.value.lastOrNull { it.fromFriday }?.text
         assertTrue("the later real turn must recall the explicitly stored fact after restart", recalledReply?.contains("Veno") == true)
         directory.deleteRecursively()
+    }
+
+    @Test
+    fun `held out model free behavior changes after learned experience and not in learning disabled control`() {
+        fun runCase(name: String, learningEnabled: Boolean): String {
+            val directory = compositionDir("held-out-learning-$name")
+            val first = TurnPathAssembly.assemble(
+                Fixture().ports(
+                    snapshot = { ResourceSnapshot.alwaysHealthy() },
+                    clock = { 1_000L },
+                    directory = directory,
+                    languageModelAvailable = false,
+                    adaptiveLearningEnabled = learningEnabled
+                )
+            )
+
+            // The first turn is a real production-path experience and its
+            // locally generated reply is recorded as the observed outcome.
+            first.pipeline.onUserInput("My name is Veno")
+            val experiencesAfterLearning = first.individual.experience.experienceCount()
+            assertTrue(
+                "the enabled case must persist input and observed outcome through the live turn path",
+                if (learningEnabled) experiencesAfterLearning >= 2 else experiencesAfterLearning == 0
+            )
+
+            // Reconstruct the same composition over the same app-private
+            // directory, then ask a different question. No source turn replay.
+            val restarted = TurnPathAssembly.assemble(
+                Fixture().ports(
+                    snapshot = { ResourceSnapshot.alwaysHealthy() },
+                    clock = { 2_000L },
+                    directory = directory,
+                    languageModelAvailable = false,
+                    adaptiveLearningEnabled = learningEnabled
+                )
+            )
+            val reply = restarted.individual.expression.respond("What do you know about my name?")
+            directory.deleteRecursively()
+            return reply
+        }
+
+        val learnedReply = runCase("enabled", learningEnabled = true)
+        val controlReply = runCase("disabled", learningEnabled = false)
+
+        assertTrue(
+            "the held-out context must activate the persisted learned association",
+            learnedReply.contains("veno", ignoreCase = true)
+        )
+        assertTrue(
+            "with learning disabled, the same held-out context must not acquire the learned value",
+            !controlReply.contains("veno", ignoreCase = true)
+        )
     }
 
     // ── The host's clock is the turn clock ───────────────────────────────────
