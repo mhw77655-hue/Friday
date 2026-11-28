@@ -7,7 +7,8 @@ import ai.friday.assistant.env.AndroidHostSnapshot
 
 /**
  * Captures only the strict live-inspection projection. It never exports the
- * richer support report or raw diagnostic/event/failure content.
+ * richer support report or raw diagnostic/failure content; event evidence is
+ * reduced to fixed enums and numeric timing/correlation fields.
  */
 object FridayInspectionSnapshotProvider {
     fun capture(context: Context): FridayInspectionSnapshot {
