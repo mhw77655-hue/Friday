@@ -102,7 +102,11 @@ class FridayRuntimeService : Service() {
             return START_NOT_STICKY
         }
 
-        ai.friday.assistant.diagnostics.FridayInspectionRelayRuntime.start(applicationContext)
+        // External inspection is never part of ordinary runtime startup.
+        // Only an explicit, still-valid owner opt-in may start the outbound relay.
+        if (ai.friday.assistant.diagnostics.FridayInspectionRelayRuntime.isEnabled(applicationContext)) {
+            ai.friday.assistant.diagnostics.FridayInspectionRelayRuntime.start(applicationContext)
+        }
 
         runtimeScope.launch {
             runCatching {
