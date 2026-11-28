@@ -132,6 +132,8 @@ class ChatGPTTaskWorkerApiInstrumentedTest {
             approvalPrefs.edit().clear().commit()
         }
 
+    }
+
     @Test
     fun interruptedStreamLeavesRecoverablePartialCheckpointAndDoesNotAutoRetry() = runBlocking {
         val server = MockWebServer()
@@ -211,6 +213,5 @@ class ChatGPTTaskWorkerApiInstrumentedTest {
             ChatGPTTaskResultStore(context).clear(taskId)
             approvalPrefs.edit().clear().commit()
         }
-    }
     }
 }
