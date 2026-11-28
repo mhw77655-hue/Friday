@@ -34,11 +34,7 @@ class ScreenBridgeControlBackend : ControlBackend {
         return when (action.actionType) {
             ActionType.SCREENSCAPE_SUMMARY -> {
                 val text = ScreenBridge.captureScreenSummary()
-                if (text.isNotBlank() && text != "not bound") {
-                    VerificationEvidence(VerificationStage.VERIFIED, id, text.take(200))
-                } else {
-                    VerificationEvidence(VerificationStage.NOT_ATTEMPTED, id, "no screen text captured yet")
-                }
+                screenCaptureEvidence(text)
             }
             ActionType.LAUNCH_APP -> {
                 val packageName = action.packageName
@@ -55,5 +51,29 @@ class ScreenBridgeControlBackend : ControlBackend {
             }
             else -> VerificationEvidence(VerificationStage.NOT_ATTEMPTED, id, "unsupported action ${action.actionType}")
         }
+    }
+}
+
+/**
+ * Convert ScreenBridge's result into evidence without treating its diagnostic
+ * error strings ("read failed", "parse failed", timeout, etc.) as screen data.
+ */
+internal fun screenCaptureEvidence(text: String): VerificationEvidence {
+    val normalized = text.trim()
+    val failure = normalized.isBlank() ||
+        normalized.equals("not bound", ignoreCase = true) ||
+        normalized.equals("timeout", ignoreCase = true) ||
+        normalized.startsWith("unavailable:", ignoreCase = true) ||
+        normalized.startsWith("read failed:", ignoreCase = true) ||
+        normalized.startsWith("parse failed:", ignoreCase = true) ||
+        normalized.startsWith("error:", ignoreCase = true)
+    return if (failure) {
+        VerificationEvidence(
+            VerificationStage.NOT_ATTEMPTED,
+            "shizuku",
+            normalized.take(200).ifBlank { "no screen capture evidence returned" }
+        )
+    } else {
+        VerificationEvidence(VerificationStage.VERIFIED, "shizuku", normalized.take(200))
     }
 }
