@@ -187,6 +187,74 @@ class FridayAgentTaskRelayTest {
 
 
     @Test
+    fun fridayCanRequestScopedPublicEvidenceFromChatGptThroughTheDurableTaskThread() {
+        val directory = Files.createTempDirectory("friday-agent-evidence-request").toFile()
+        val server = MockWebServer()
+        try {
+            val store = AgentTaskThreadStore(directory)
+            store.put(
+                AgentTaskThread(
+                    taskId = taskId,
+                    issueNumber = 321,
+                    issueUrl = "https://github.com/mhw77655-hue/Friday/issues/321",
+                    sourceRevision = "main",
+                    createdAtEpochMs = now
+                )
+            )
+            val envelope = AgentTaskEnvelope(
+                taskId = taskId,
+                messageId = "$taskId:out:1",
+                sequence = 1L,
+                sender = "friday",
+                recipient = "chatgpt-cloud",
+                kind = AgentTaskMessageKind.EVIDENCE_REQUEST,
+                createdAtEpochMs = now,
+                expiresAtEpochMs = now + 60_000L,
+                sourceRevision = "main",
+                payload = JSONObject()
+                    .put("data_classification", "public")
+                    .put("reason", "Need an independent source review.")
+                    .put("requested_evidence", JSONArray().put("public_source_excerpt").put("ci_run_summary"))
+            )
+            server.enqueue(MockResponse().setResponseCode(201).setBody(
+                JSONObject()
+                    .put("id", 9010L)
+                    .put("user", JSONObject().put("login", "mhw77655-hue"))
+                    .put("body", "<!-- friday-agent-message:v1:$taskId:1 -->\\n\\n" + envelope.toJson())
+                    .put("created_at", "2026-11-28T20:00:00Z")
+                    .put("html_url", "https://github.com/mhw77655-hue/Friday/issues/321#issuecomment-9010")
+                    .toString()
+            ))
+            server.start()
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val relay = FridayAgentTaskRelay(
+                github = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot),
+                threads = store,
+                trustedActors = setOf("mhw77655-hue"),
+                consentEnabled = { true },
+                clock = { now }
+            )
+
+            val posted = relay.send(
+                taskId,
+                AgentTaskMessageKind.EVIDENCE_REQUEST,
+                JSONObject()
+                    .put("data_classification", "public")
+                    .put("reason", "Need an independent source review.")
+                    .put("requested_evidence", JSONArray().put("public_source_excerpt").put("ci_run_summary"))
+            )
+            assertEquals(9010L, posted.id)
+            assertEquals(2L, AgentTaskThreadStore(directory).get(taskId)!!.nextOutgoingSequence)
+            val request = server.takeRequest()
+            assertEquals("POST", request.method)
+            assertTrue(request.body.readUtf8().contains("\\"kind\\":\\"evidence_request\\""))
+        } finally {
+            server.shutdown()
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun collaborationIsBlockedByDefaultBeforeAnyGitHubRequest() {
         val directory = Files.createTempDirectory("friday-agent-consent").toFile()
         val server = MockWebServer()
