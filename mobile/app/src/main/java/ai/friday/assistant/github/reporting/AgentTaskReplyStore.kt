@@ -96,9 +96,19 @@ class AgentTaskReplyStore(directory: File) {
     private fun readLocked(): List<StoredAgentTaskReply> {
         if (!file.isFile) return emptyList()
         return try {
-            file.readLines(Charsets.UTF_8).mapNotNull { line ->
-                if (line.isBlank()) null
-                else runCatching { StoredAgentTaskReply.fromJson(JSONObject(line)) }.getOrNull()
+            file.readLines(Charsets.UTF_8).mapIndexedNotNull { index, line ->
+                if (line.isBlank()) {
+                    null
+                } else {
+                    try {
+                        StoredAgentTaskReply.fromJson(JSONObject(line))
+                    } catch (failure: Exception) {
+                        throw IOException(
+                            "Friday agent reply journal contains an invalid entry at line ${index + 1}.",
+                            failure
+                        )
+                    }
+                }
             }
         } catch (failure: Exception) {
             throw IOException("Friday agent reply journal could not be read; existing data was not overwritten.", failure)
