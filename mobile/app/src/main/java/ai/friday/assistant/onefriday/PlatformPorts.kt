@@ -1,6 +1,7 @@
 package ai.friday.assistant.onefriday
 
 import ai.friday.assistant.body.MemoryStorePort
+import ai.friday.assistant.cloud.CloudProvider
 import ai.friday.assistant.capability.CapabilityRegistry
 import ai.friday.assistant.failure.FailureReport
 import ai.friday.assistant.failure.FailureSurface
@@ -78,6 +79,9 @@ interface PlatformPorts {
 
     /** Whether the phone currently has a real language model available. Test hosts default to true. */
     fun hasLanguageModel(modelManager: ai.friday.assistant.model.ModelManager): Boolean = true
+
+    /** Optional cloud reasoning providers explicitly configured by the owner. */
+    fun cloudProviders(): List<CloudProvider> = emptyList()
 
     /** Enables the adaptive experience substrate; false is reserved for controlled ablation tests. */
     fun adaptiveLearningEnabled(): Boolean = true
