@@ -14,7 +14,7 @@ class AgentTaskReplyStoreTest {
         try {
             val journal = java.io.File(directory, "friday-development/agent-task-replies.jsonl")
             journal.parentFile.mkdirs()
-            val original = """{"task_id":"incomplete-record"}\\nnot-json\\n"""
+            val original = """{"task_id":"incomplete-record"}""" + "\nnot-json\n"
             journal.writeText(original)
 
             val store = AgentTaskReplyStore(directory)
