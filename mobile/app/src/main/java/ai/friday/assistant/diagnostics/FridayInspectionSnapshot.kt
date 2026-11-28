@@ -124,6 +124,8 @@ data class FridayInspectionSnapshot(
         private fun status(raw: String): String {
             val value = raw.trim().lowercase()
             if (value.isBlank()) return "unknown"
+            if (value == "true") return "ready"
+            if (value == "false") return "permission_required"
             return when {
                 value.contains("denied") || value.contains("permission required") -> "permission_required"
                 value.contains("unavailable") || value.contains("failed") ||
