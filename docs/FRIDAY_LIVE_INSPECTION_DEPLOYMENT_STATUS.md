@@ -4,7 +4,7 @@ Last verified: 2026-11-28
 
 ## Current state
 
-<badge>Cloud service deployed</badge>
+**Status: cloud service deployed and healthy**
 
 The private live-inspection service is deployed and healthy. The bridge is **not yet connected to ChatGPT or to a physical phone**. Do not describe it as a completed three-way connection.
 
