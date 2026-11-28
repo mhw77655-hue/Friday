@@ -21,7 +21,8 @@ import java.util.UUID
  */
 class FridayIndividual(
     private val directory: File,
-    private val nowMs: () -> Long = { System.currentTimeMillis() }
+    private val nowMs: () -> Long = { System.currentTimeMillis() },
+    adaptiveLearningEnabled: Boolean = true
 ) {
     data class Identity(
         val id: String,
@@ -36,7 +37,11 @@ class FridayIndividual(
         journal = File(directory, "experiences.bin"),
         nowMs = nowMs
     )
-    val expression: FridayModelFreeMind = FridayModelFreeMind(experience, identity.name)
+    val expression: FridayModelFreeMind = FridayModelFreeMind(
+        substrate = experience,
+        identityName = identity.name,
+        learningEnabled = adaptiveLearningEnabled
+    )
 
     fun recordExperience(text: String) = expression.observe(text)
 
