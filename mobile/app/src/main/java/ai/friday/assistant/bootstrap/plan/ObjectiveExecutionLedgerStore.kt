@@ -1,5 +1,6 @@
 package ai.friday.assistant.bootstrap.plan
 
+import ai.friday.assistant.BuildConfig
 import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
@@ -13,13 +14,16 @@ import java.security.MessageDigest
  * history. A changed phase is explicitly returned to reassessment instead.
  */
 class ObjectiveExecutionLedgerStore(context: Context) {
+    private val appContext = context.applicationContext
     private val directory = File(context.filesDir, "friday-development/plan")
     private val planFile = File(directory, "canonical-delivery-plan.md")
     private val ledgerFile = File(directory, "execution-ledger.json")
 
     @Synchronized
     fun reconcile(): JSONObject {
-        require(planFile.isFile) { "Canonical local objectives plan is not imported yet." }
+        val planMetadataFile = File(directory, "objective-ledger.json")
+        syncPackagedCanonicalPlan(planMetadataFile)
+        require(planFile.isFile) { "Canonical local objectives plan could not be imported." }
         val markdown = planFile.readText(Charsets.UTF_8)
         val objectives = ObjectivePlanParser.parse(markdown)
         val phases = ObjectivePlanParser.parseObjectiveOnePhases(markdown)
@@ -31,13 +35,11 @@ class ObjectiveExecutionLedgerStore(context: Context) {
             // the old task history/checkpoints may be the only recovery evidence.
             throw java.io.IOException("Execution ledger is damaged; preserving it for recovery.", it)
         } else null
-        val planMetadataFile = File(directory, "objective-ledger.json")
-        if (!planMetadataFile.isFile) throw java.io.IOException("Plan metadata is not committed yet.")
         val planMetadata = runCatching {
             JSONObject(planMetadataFile.readText(Charsets.UTF_8))
         }.getOrElse { throw java.io.IOException("Plan metadata is unreadable.", it) }
         if (planMetadata.optString("content_sha256") != planHash) {
-            throw java.io.IOException("Canonical plan and its integrity ledger do not match yet.")
+            throw java.io.IOException("Canonical plan and its integrity ledger do not match.")
         }
         val oldPhases = previous?.optJSONArray("phases") ?: JSONArray()
         val oldObjectives = previous?.optJSONArray("objectives") ?: JSONArray()
@@ -101,6 +103,70 @@ class ObjectiveExecutionLedgerStore(context: Context) {
             .put("execution_state", "PLAN_RECONCILED_TASKS_REQUIRE_REAL_EVIDENCE")
         writeAtomically(ledgerFile, ledger.toString(2))
         return ledger
+    }
+
+    /**
+     * Import and reconcile the signed APK's canonical plan asset before any
+     * objective worker attempts to execute it. The packaged asset is the
+     * versioned source of truth; the local copy is retained for offline work.
+     *
+     * The metadata hash detects local edits/corruption. A mismatched local copy
+     * is only repaired automatically when either the old metadata authenticates
+     * it or the new packaged asset already matches it (crash recovery between
+     * the two atomic file replacements). Unknown divergence fails closed.
+     */
+    private fun syncPackagedCanonicalPlan(metadataFile: File) {
+        val packaged = try {
+            appContext.assets.open("friday/FRIDAY_DELIVERY_PLAN.md")
+                .bufferedReader(Charsets.UTF_8)
+                .use { it.readText() }
+        } catch (failure: Exception) {
+            throw java.io.IOException("The canonical delivery plan is missing from this APK.", failure)
+        }
+        if (packaged.isBlank()) throw java.io.IOException("The packaged canonical delivery plan is empty.")
+        val packagedHash = sha256(packaged)
+        val sourceRevision = BuildConfig.SOURCE_REVISION
+            .takeIf { it.matches(Regex("[0-9a-fA-F]{40}")) }
+            ?.lowercase() ?: "unknown"
+
+        val localText = if (planFile.isFile) planFile.readText(Charsets.UTF_8) else null
+        val localHash = localText?.let(::sha256)
+        val metadata = if (metadataFile.isFile) {
+            runCatching { JSONObject(metadataFile.readText(Charsets.UTF_8)) }
+                .getOrElse { throw java.io.IOException("Plan integrity metadata is unreadable.", it) }
+        } else null
+        val recordedHash = metadata?.optString("content_sha256").orEmpty()
+
+        if (localText != null && metadata == null && localHash != packagedHash) {
+            throw java.io.IOException(
+                "An unverified local plan exists and differs from the packaged plan; preserving it for recovery."
+            )
+        }
+        if (localText != null && metadata != null &&
+            recordedHash != localHash && localHash != packagedHash && recordedHash != packagedHash
+        ) {
+            throw java.io.IOException(
+                "The local plan matches neither its integrity record nor this APK; preserving it for recovery."
+            )
+        }
+
+        if (localHash != packagedHash) {
+            // If metadata authenticates the current local plan, this is a normal
+            // packaged-plan upgrade. If metadata already authenticates the new
+            // asset, this recovers a crash after metadata was written first.
+            if (localText != null && metadata != null &&
+                recordedHash != localHash && recordedHash != packagedHash
+            ) {
+                throw java.io.IOException("Refusing to replace an unauthenticated local plan.")
+            }
+            writeAtomically(planFile, packaged)
+        }
+
+        val nextMetadata = JSONObject()
+            .put("content_sha256", packagedHash)
+            .put("source_revision_at_install", sourceRevision)
+            .put("updated_at_epoch_ms", System.currentTimeMillis())
+        writeAtomically(metadataFile, nextMetadata.toString(2))
     }
 
     @Synchronized
