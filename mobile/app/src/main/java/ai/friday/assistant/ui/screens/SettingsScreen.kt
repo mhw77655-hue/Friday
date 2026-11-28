@@ -897,7 +897,7 @@ fun SettingsScreen() {
             SettingsGroup("GitHub repository and device reporting", "Fine-grained token, repository permissions and diagnostics", repositoryExpanded, { repositoryExpanded = !repositoryExpanded }) {
                 GitHubDeviceReportingSection(context, actionTraceCount)
             }
-            SettingsGroup("Friday ↔ ChatGPT collaboration", "Public project task relay and reply inbox; private device data stays off GitHub", agentRelayExpanded, { agentRelayExpanded = !agentRelayExpanded }) {
+            SettingsGroup("Friday agent collaboration", "Structured GPT task exchange and durable GitHub engineering records; private device data stays off GitHub", agentRelayExpanded, { agentRelayExpanded = !agentRelayExpanded }) {
                 FridayAgentRelaySettingsSection(context)
             }
             SettingsGroup("Reverse engineering and repair", "REA investigations and controlled repair workflows", reaExpanded, { reaExpanded = !reaExpanded }) {
