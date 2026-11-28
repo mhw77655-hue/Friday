@@ -44,6 +44,20 @@ private data class SystemRow(val name: String, val stateLabel: String, val dotCo
 fun SystemScreen() {
     val diagnosticsViewModel: DiagnosticsViewModel = viewModel()
     val context = LocalContext.current
+    val incidentReportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            val result = runCatching {
+                context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use {
+                    it.write(diagnosticsViewModel.createIncidentEvidenceReport())
+                } ?: error("Could not open the selected destination.")
+            }
+            val message = if (result.isSuccess) "Private incident evidence exported."
+                else "Incident evidence export failed: " + (result.exceptionOrNull()?.message ?: "unknown error")
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+        }
+    }
     val reportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
@@ -114,6 +128,17 @@ fun SystemScreen() {
             .background(FridayColors.SurfaceBase)
             .padding(16.dp)
     ) {
+        Button(
+            onClick = { incidentReportLauncher.launch("friday-incident-evidence.json") },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Export one-time incident evidence")
+        }
+        Text(
+            "Exports only timestamps, exchange IDs and fixed conversation stages/routes. No messages, prompts, transcripts, audio, memories, stack messages or credentials. Nothing is uploaded automatically.",
+            style = FridayType.Technical,
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
         Button(
             onClick = { reportLauncher.launch("friday-device-report.json") },
             modifier = Modifier.fillMaxWidth()
