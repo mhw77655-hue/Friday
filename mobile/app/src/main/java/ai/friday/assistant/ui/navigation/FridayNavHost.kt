@@ -262,19 +262,19 @@ private fun FridayBottomBar(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            BottomBarItem("home", "Home", currentRoute == ROUTE_HOME, onHome)
-            BottomBarItem("talk", "Talk", currentRoute == ROUTE_CONVERSATION, onConversation)
-            BottomBarItem("build", "Build", currentRoute == ROUTE_MISSIONS, onMissions)
-            BottomBarItem("more", "More", moreSelected, onMore)
+            BottomBarItem("home", "Home", currentRoute == ROUTE_HOME, onHome, Modifier.weight(1f))
+            BottomBarItem("talk", "Talk", currentRoute == ROUTE_CONVERSATION, onConversation, Modifier.weight(1f))
+            BottomBarItem("build", "Build", currentRoute == ROUTE_MISSIONS, onMissions, Modifier.weight(1f))
+            BottomBarItem("more", "More", moreSelected, onMore, Modifier.weight(1f))
         }
     }
 }
 
 @Composable
-private fun BottomBarItem(kind: String, label: String, selected: Boolean, onClick: () -> Unit) {
+private fun BottomBarItem(kind: String, label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val tint = if (selected) FridayColors.CoreIdle else FridayColors.CoreOffline
     androidx.compose.foundation.layout.Column(
-        modifier = Modifier.fillMaxWidth(0.25f).clickable(onClick = onClick).padding(vertical = 4.dp),
+        modifier = modifier.clickable(onClick = onClick).padding(vertical = 4.dp),
         horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
