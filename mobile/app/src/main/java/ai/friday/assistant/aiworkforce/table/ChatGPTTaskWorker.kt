@@ -83,8 +83,10 @@ class ChatGPTTaskWorker(
                 field(sourceRevision)
                 append(acceptanceCriteria.size).append(':')
                 acceptanceCriteria.forEach(::field)
+                // Approval expiry is validated and stored separately. It is not
+                // task identity: including it would change the digest on every
+                // retry and make an interrupted request look like new work.
                 field(classification.name)
-                append(expiresAtEpochMs)
             }
             return sha256(canonical)
         }
@@ -231,6 +233,10 @@ class ChatGPTTaskWorker(
             ))
         }
     }
+
+    /** Inspect the most recent attempt regardless of its projection digest. */
+    fun latestCheckpoint(taskId: String): ChatGPTTaskResultStore.Checkpoint? =
+        resultStore.latestCheckpoint(taskId)
 
     /** Recoverable progress is available even when it is not safe to call it a completed result. */
     fun recoverCheckpoint(taskId: String, contextDigest: String): ChatGPTTaskResultStore.Checkpoint? =
