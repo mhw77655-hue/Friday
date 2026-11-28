@@ -109,7 +109,7 @@ object PhoneMemoryPressureAnalyzer {
 
     private fun parseTopProcesses(raw: String): List<Pair<String, Long>> {
         // Android 14's dumpsys meminfo -c emits CSV rows:
-        // proc,type,name,pid,pss_kb,swap_pss_kb,has_activities
+        // proc,type,name,pid,pss_kb,activities
         val compact = raw.lineSequence().mapNotNull { line ->
             val fields = line.split(",", limit = 7)
             if (fields.size < 6 || fields[0] != "proc") return@mapNotNull null
