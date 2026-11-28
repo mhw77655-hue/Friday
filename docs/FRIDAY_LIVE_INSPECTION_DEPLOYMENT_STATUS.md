@@ -12,13 +12,13 @@ The private live-inspection service is deployed and healthy. The bridge is **not
 - Railway project: **Friday Live Inspection**.
 - Railway service: `friday-inspection`.
 - Production URL: https://friday-inspection-production.up.railway.app
-- Latest deployment: `65affd5f-7433-43fb-b634-039903b274da` (`SUCCESS`) on documentation-only commit `d1a80f5ce5a287ddcbbfac8b86c1b608e96a372e`.
-- The code deployment for merged PR #201 is `01e5c0d0-2887-4851-80ad-0972cd8b1168`, source commit `7e8041d3ff10a3e49f226d95b06820792fa95ee6`, also `SUCCESS`.
-- Railway healthcheck `/health` passed on both deployments.
+- Latest production deployment: `7a5951e4-2166-4008-8813-ed52f6377211` (`SUCCESS`), source commit `c4c3a7ffc7e8d984ed7e03963d1c20cabca39725` (merged PR #202).
+- Previous owner-pairing code from PR #201 remains included in this deployment.
+- Railway healthcheck `/health` passed; external health and metadata endpoints were fetched successfully after deployment.
 - External `GET /health` returns `{"service":"friday-live-inspection","status":"ok"}`.
 - Service root directory is `/services/friday-inspection`; automatic redeploy watch pattern is now restricted to `services/friday-inspection/**`, so docs-only commits no longer restart the inspection service.
 - Persistent volume `friday-inspection-state` is mounted at `/data` (500 MB, region `iad`).
-- The production service build runs `npm ci`; Railway reports **0 vulnerabilities**.
+- The production service build runs `npm ci`; Railway reports **0 vulnerabilities**. Main-branch service tests and dependency audit both completed `SUCCESS` on commit `c4c3a7ffc7e8d984ed7e03963d1c20cabca39725`.
 - Supabase project `friday-auth` (`dtvhwuhmcynpbqfehlvs`) is `ACTIVE_HEALTHY`; security advisors report no lints.
 
 ## OAuth server — verified prerequisites
@@ -27,11 +27,7 @@ The Supabase OAuth 2.1 server is now discoverable at:
 
 `https://dtvhwuhmcynpbqfehlvs.supabase.co/.well-known/oauth-authorization-server/auth/v1`
 
-The live metadata advertises:
-- Authorization, token, UserInfo, JWKS and dynamic client-registration endpoints.
-- PKCE with `S256`.
-- `offline_access` and refresh-token support.
-- OIDC scopes including `openid`, `email` and `profile`.
+The live metadata was previously verified to advertise authorization, token, UserInfo, JWKS and dynamic client-registration endpoints, with PKCE `S256`. Supabase's current OAuth flow documentation confirms authorization-code + PKCE and a `refresh_token` grant; the token response includes a refresh token. Friday now requests only the least-privilege `openid email` scopes in its protected-resource metadata and tool security declarations. The real ChatGPT token/refresh exchange remains untested.
 
 The public JWKS endpoint publishes an ES256 P-256 key. The OAuth server can therefore issue verifiable OIDC ID tokens.
 
@@ -41,7 +37,7 @@ The applied Supabase migration version is `20261128024611`. The repository migra
 
 ### Important owner-account blocker
 
-A read-only count of `auth.users` returned **0 users and 0 confirmed users**. The OAuth server is enabled, but there is no owner account yet.
+A fresh read-only query returned **0 `auth.users`, 0 OAuth clients, 0 OAuth authorizations and 0 OAuth consents**. The OAuth server is enabled, but no owner account or ChatGPT client has been created yet.
 
 Railway's variable-name inventory includes `FRIDAY_OWNER_EMAIL`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `PUBLIC_HOST`, `FRIDAY_STATE_PATH` and `NODE_ENV`. The Railway connector redacts variable values, so the actual allowlisted email cannot be independently read or checked here.
 
@@ -67,6 +63,8 @@ The remote MCP surface is source-limited to two read-only tools:
 - `friday_live_status`
 - `friday_inspection_snapshot`
 
+Merged PR #202 adds per-tool `_meta.securitySchemes` (`oauth2`, scopes `openid email`) and scopes the protected-resource metadata to `openid email`. Unauthenticated/invalid MCP requests now return a scope-aware `WWW-Authenticate` challenge with the resource-metadata URL. Browser owner-setup routes deliberately do not emit the MCP OAuth challenge. JWT validation now rejects future `nbf` values as well as checking signature, issuer, audience, expiry, issued-at, subject, client binding and owner email.
+
 The mutating pairing-code tool was removed from MCP; pairing stays outside the ChatGPT tool catalog.
 
 ## Android client
@@ -76,7 +74,7 @@ Published release `friday-v1.0.631` contains:
 - `FridayInspectionSettingsSection`
 - Process-lifecycle integration in `FridayApplication`.
 
-The older `friday-v1.0.610` tag does **not** contain the live inspection client. No new APK is required if the phone is already on 1.0.631 or later. If it is still on 1.0.610, use the existing 1.0.631 release once; do not install intermediate builds.
+The owner confirmed the phone is currently on **Friday 1.0.610**, which does **not** contain the live inspection client. It must be updated once to 1.0.631 or later; no intermediate builds are needed. Official APK: https://github.com/mhw77655-hue/Friday/releases/download/friday-v1.0.631/app-release.apk. GitHub release asset SHA-256: `ef2a34966d87fab617d43882e2678a4c1999ee207046450933fb606f8d557b47`. The release uses the pinned Friday signing certificate and is intended to install over 1.0.610 without uninstalling.
 
 The phone UI is under **Settings → Live inspection**. The relay is outbound and read-only. The snapshot is a privacy-filtered operational status report; it does not expose screen contents, conversations, files, taps or phone-control actions. Background connection is retained when Friday Runtime is active; otherwise the app may stop the relay when backgrounded.
 
@@ -91,7 +89,7 @@ The phone UI is under **Settings → Live inspection**. The relay is outbound an
 | MCP audience validator source/tests | Verified by source and unit tests; real OAuth token not yet observed |
 | Owner pairing page deployed | Verified |
 | Public consent HTML no longer contains owner email allowlist | Verified |
-| Dependency audit | 0 vulnerabilities |
+| Dependency audit | 0 vulnerabilities; main CI passed |
 | ChatGPT dynamic client registration | Not done |
 | ChatGPT PKCE authorization and token exchange | Not tested |
 | Real OAuth-issued JWT claims | Not observed |
@@ -102,15 +100,16 @@ The phone UI is under **Settings → Live inspection**. The relay is outbound an
 
 ## Remaining acceptance sequence
 
-1. In **ChatGPT web**, add a custom MCP server named **Friday Live Inspection** with endpoint:
+1. Update the phone from Friday 1.0.610 to the official 1.0.631 APK linked above. Install over the existing app; do not uninstall.
+2. In **ChatGPT web**, add a custom MCP server named **Friday Live Inspection** with endpoint:
    `https://friday-inspection-production.up.railway.app/mcp`
    Choose OAuth and allow ChatGPT to discover the authorization server. The service is read-only. ChatGPT custom MCP setup is web-only; Pro accounts can connect read/fetch tools, while full MCP is available to Business and Enterprise/Edu according to OpenAI's current guidance: https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt
-2. When redirected to `/oauth/consent`, create or sign in to the Supabase owner account using the email matching Railway's `FRIDAY_OWNER_EMAIL`; confirm email if signing up; review the client/scopes and approve.
-3. Verify ChatGPT discovers exactly `friday_live_status` and `friday_inspection_snapshot`; call `friday_live_status` and confirm the OAuth token has the expected issuer, audience, expiry and client binding.
-4. Open https://friday-inspection-production.up.railway.app/admin/pairing, sign in as the owner and generate the one-time code.
-5. On a phone running Friday 1.0.631 or later, open **Settings → Live inspection**, enter server URL `https://friday-inspection-production.up.railway.app` and the one-time code, and enable inspection.
-6. Call `friday_live_status` and `friday_inspection_snapshot` from the connected ChatGPT app. Verify a fresh timestamp and matching enrolled device.
-7. Revoke the device and OAuth consent, then verify the expected denial behavior. Current JWT validation checks signature, issuer, audience, expiry, owner and client binding; immediate access-token revocation semantics still need a real-flow acceptance test.
+3. When redirected to `/oauth/consent`, create or sign in to the Supabase owner account using the email matching Railway's `FRIDAY_OWNER_EMAIL`; confirm email if signing up; review the client/scopes and approve.
+4. Verify ChatGPT discovers exactly `friday_live_status` and `friday_inspection_snapshot`; call `friday_live_status` and confirm the OAuth token has the expected issuer, audience, expiry, `nbf`, and client binding.
+5. Open https://friday-inspection-production.up.railway.app/admin/pairing, sign in as the owner and generate the one-time code.
+6. On the updated phone, open **Settings → Live inspection**, enter server URL `https://friday-inspection-production.up.railway.app` and the one-time code, and enable inspection.
+7. Call `friday_live_status` and `friday_inspection_snapshot` from the connected ChatGPT app. Verify a fresh timestamp and matching enrolled device.
+8. Revoke the device and OAuth consent, then verify the expected denial behavior. Immediate access-token revocation semantics still need a real-flow acceptance test.
 
 ## Historical notes
 
