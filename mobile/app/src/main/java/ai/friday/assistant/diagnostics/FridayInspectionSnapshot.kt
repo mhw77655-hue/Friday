@@ -32,7 +32,8 @@ data class FridayInspectionSnapshot(
     val turnStageCounts: Map<String, Int> = emptyMap(),
     val turnRouteCounts: Map<String, Int> = emptyMap(),
     val turnOutcomeCounts: Map<String, Int> = emptyMap(),
-    val processExitReasonCounts: Map<String, Int> = emptyMap()
+    val processExitReasonCounts: Map<String, Int> = emptyMap(),
+    val recentTurnEvents: List<TurnDiagnosticJournal.Event> = emptyList()
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("schema", SCHEMA)
@@ -57,7 +58,19 @@ data class FridayInspectionSnapshot(
         .put("turn_route_counts", closedCounts(TurnDiagnosticJournal.Route.values().map { it.name }, turnRouteCounts))
         .put("turn_outcome_counts", closedCounts(TurnDiagnosticJournal.Outcome.values().map { it.name }, turnOutcomeCounts))
         .put("process_exit_reason_counts", closedCounts(PROCESS_EXIT_REASONS, processExitReasonCounts))
+        .put("recent_turn_events", JSONArray().apply {
+            recentTurnEvents.takeLast(MAX_REMOTE_TURN_EVENTS).forEach { event ->
+                put(JSONObject()
+                    .put("at_epoch_ms", event.atEpochMs.coerceAtLeast(0L))
+                    .put("exchange_id", event.exchangeId.coerceAtLeast(0L))
+                    .put("stage", event.stage.name)
+                    .put("route", event.route.name)
+                    .put("outcome", event.outcome.name)
+                    .put("elapsed_ms", event.elapsedMs?.coerceAtLeast(0L) ?: JSONObject.NULL))
+            }
+        })
         .put("privacy", JSONObject()
+            .put("structured_turn_lifecycle_events_included", true)
             .put("conversation_content_included", false)
             .put("transcripts_or_audio_included", false)
             .put("screen_or_notification_content_included", false)
@@ -67,6 +80,7 @@ data class FridayInspectionSnapshot(
 
     companion object {
         const val SCHEMA = "friday-live-inspection-v1"
+        const val MAX_REMOTE_TURN_EVENTS = 100
         private val PROCESS_EXIT_REASONS = listOf(
             "ANR", "CRASH", "NATIVE_CRASH", "LOW_MEMORY", "EXCESSIVE_RESOURCE",
             "INITIALIZATION_FAILURE", "DEPENDENCY_DIED", "APP_FREEZER", "PERMISSION_CHANGE",
