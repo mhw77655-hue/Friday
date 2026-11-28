@@ -5,6 +5,7 @@ import { dirname } from "node:path";
 import { WebSocketServer } from "ws";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { createClient } from "@supabase/supabase-js";
 import {
   constantTimeEqual,
   isFresh,
@@ -14,19 +15,23 @@ import {
 
 const PORT = Number(process.env.PORT || 8080);
 const PUBLIC_HOST = process.env.PUBLIC_HOST || "";
-const MCP_TOKEN = process.env.FRIDAY_MCP_TOKEN || "";
-const ADMIN_TOKEN = process.env.FRIDAY_ADMIN_TOKEN || "";
+const SUPABASE_URL = process.env.SUPABASE_URL || "";
+const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY || "";
+const OWNER_EMAIL = (process.env.FRIDAY_OWNER_EMAIL || "").trim().toLowerCase();
 const STATE_PATH = process.env.FRIDAY_STATE_PATH || "/data/state.json";
 const MAX_BODY_BYTES = 32 * 1024;
 const DEVICE_AUTH_WINDOW_MS = 60_000;
 const SNAPSHOT_TIMEOUT_MS = 10_000;
 
 if (process.env.NODE_ENV === "production") {
-  if (!PUBLIC_HOST || !MCP_TOKEN || MCP_TOKEN.length < 32 ||
-      !ADMIN_TOKEN || ADMIN_TOKEN.length < 32) {
-    throw new Error("Production requires PUBLIC_HOST and independent 32+ character MCP/admin tokens.");
+  if (!PUBLIC_HOST || !SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+    throw new Error("Production requires PUBLIC_HOST, SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY.");
   }
 }
+
+const supabase = SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } })
+  : null;
 
 const state = await loadState();
 const connectedDevices = new Map();
@@ -83,10 +88,29 @@ function persistState() {
   return persistChain;
 }
 
-function bearerMatches(request, expected) {
-  const header = request.headers.authorization || "";
-  const match = /^Bearer ([A-Za-z0-9._~-]{32,512})$/.exec(header);
-  return !!match && constantTimeEqual(match[1], expected);
+function bearerToken(request) {
+  const match = /^Bearer ([A-Za-z0-9._~-]{32,8192})$/.exec(request.headers.authorization || "");
+  return match?.[1] || null;
+}
+
+async function ownerOnly(request, response) {
+  const token = bearerToken(request);
+  if (!token || !supabase) {
+    response.setHeader("www-authenticate", `Bearer resource_metadata="https://${PUBLIC_HOST}/.well-known/oauth-protected-resource"`);
+    sendJson(response, 401, { error: "oauth_required" });
+    return null;
+  }
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user) {
+    response.setHeader("www-authenticate", `Bearer resource_metadata="https://${PUBLIC_HOST}/.well-known/oauth-protected-resource"`);
+    sendJson(response, 401, { error: "invalid_access_token" });
+    return null;
+  }
+  if (!OWNER_EMAIL || data.user.email?.toLowerCase() !== OWNER_EMAIL) {
+    sendJson(response, 403, { error: "owner_access_not_configured_or_denied" });
+    return null;
+  }
+  return data.user;
 }
 
 function hostAllowed(request) {
@@ -116,12 +140,8 @@ async function readJson(request) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
-function adminOnly(request, response) {
-  if (!ADMIN_TOKEN || !bearerMatches(request, ADMIN_TOKEN)) {
-    sendJson(response, 401, { error: "unauthorized" });
-    return false;
-  }
-  return true;
+async function adminOnly(request, response) {
+  return !!(await ownerOnly(request, response));
 }
 
 function publicDeviceStatus(deviceId) {
@@ -163,8 +183,19 @@ function requestSnapshot(deviceId) {
   });
 }
 
-function createMcpServer() {
+function createMcpServer(ownerUserId) {
   const mcp = new McpServer({ name: "friday-live-inspection", version: "1.0.0" });
+  mcp.registerTool("friday_create_pairing_code", {
+    description: "Create a one-time ten-minute pairing code for the owner to enter in Friday Settings. This does not grant phone control.",
+    inputSchema: {}
+  }, async () => {
+    const code = randomBytes(18).toString("base64url");
+    state.pairing = { code, expiresAt: Date.now() + 10 * 60_000, consumed: false, createdBy: ownerUserId };
+    await persistState();
+    audit("pairing_code_issued");
+    return { content: [{ type: "text", text: JSON.stringify({ pairing_code: code, expires_at_epoch_ms: state.pairing.expiresAt, expires_in_seconds: 600 }) }] };
+  });
+
   mcp.registerTool("friday_live_status", {
     description: "Read whether the enrolled Friday phone is currently connected and whether its last allowlisted snapshot is fresh. This tool never operates the phone.",
     inputSchema: {}
@@ -207,13 +238,27 @@ const httpServer = http.createServer(async (request, response) => {
       return sendJson(response, 421, { error: "host_not_allowed" });
     }
 
+    if (request.method === "GET" && (url.pathname === "/.well-known/oauth-protected-resource" || url.pathname === "/.well-known/oauth-protected-resource/mcp")) {
+      return sendJson(response, 200, {
+        resource: "https://" + PUBLIC_HOST + "/mcp",
+        authorization_servers: [SUPABASE_URL + "/auth/v1"],
+        scopes_supported: ["openid", "email", "profile"],
+        bearer_methods_supported: ["header"],
+        resource_documentation: "https://" + PUBLIC_HOST + "/"
+      });
+    }
+
+    if (request.method === "GET" && url.pathname === "/") {
+      return sendJson(response, 200, { service: "friday-live-inspection", status: "ok", authentication: "Supabase OAuth 2.1" });
+    }
+
     if (request.method === "GET" && url.pathname === "/health") {
       return sendJson(response, 200, { service: "friday-live-inspection", status: "ok" });
     }
 
     if (request.method === "POST" && url.pathname === "/admin/pairing-code") {
       if (rateLimited(request, "pairing", 4, 10 * 60_000)) return sendJson(response, 429, { error: "rate_limited" });
-      if (!adminOnly(request, response)) return;
+      if (!await adminOnly(request, response)) return;
       const code = randomBytes(18).toString("base64url");
       state.pairing = { code, expiresAt: Date.now() + 10 * 60_000, consumed: false };
       await persistState();
@@ -307,13 +352,11 @@ const httpServer = http.createServer(async (request, response) => {
 
     if (request.method === "POST" && url.pathname === "/mcp") {
       if (rateLimited(request, "mcp", 60, 60_000)) return sendJson(response, 429, { error: "rate_limited" });
-      if (!MCP_TOKEN || !bearerMatches(request, MCP_TOKEN)) {
-        response.setHeader("www-authenticate", 'Bearer realm="Friday inspection"');
-        return sendJson(response, 401, { error: "unauthorized" });
-      }
+      const owner = await ownerOnly(request, response);
+      if (!owner) return;
       const body = await readJson(request);
       audit("mcp_request");
-      const mcp = createMcpServer();
+      const mcp = createMcpServer(owner.id);
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
       await mcp.connect(transport);
       response.on("close", () => { void transport.close(); void mcp.close(); });
