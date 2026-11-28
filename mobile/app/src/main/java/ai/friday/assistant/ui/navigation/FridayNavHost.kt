@@ -171,11 +171,7 @@ fun FridayNavHost(showSetup: Boolean = false, onSetupComplete: () -> Unit = {}) 
             popExitTransition = { tabExit }
         ) {
             composable(ROUTE_HOME) {
-                HomeScreen(
-                    onOpenTools = { navigateToTab(ROUTE_TOOLS) },
-                    onOpenConversation = { navigateToTab(ROUTE_CONVERSATION) },
-                    onOpenMissions = { navigateToTab(ROUTE_MISSIONS) }
-                )
+                HomeScreen(onOpenTools = { navigateToTab(ROUTE_TOOLS) })
             }
             composable(ROUTE_CONVERSATION) { ConversationScreen() }
             composable(ROUTE_MISSIONS) { MissionsScreen() }
