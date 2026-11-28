@@ -96,6 +96,23 @@ class FridayModelFreeMindTest {
     }
 
     @Test
+    fun `project continuity questions never turn loose word associations into claimed memories`() {
+        val file = File.createTempFile("friday-project-continuity-", ".bin").apply { delete() }
+        val mind = FridayModelFreeMind(FridaySeedSubstrate(file))
+        mind.observe("hay hey here")
+        val first = mind.respond(
+            "Tell me what you remember about our ongoing project and what our next step should be."
+        )
+        val second = mind.respond("what you were discussing")
+
+        assertTrue(first.contains("can't reliably reconstruct our previous conversation", ignoreCase = true))
+        assertTrue(second.contains("grounded conversation summary", ignoreCase = true))
+        assertTrue(!first.contains("learned feature links", ignoreCase = true))
+        assertTrue(!second.contains("learned feature links", ignoreCase = true))
+        file.delete()
+    }
+
+    @Test
     fun `unknown natural language is handled honestly instead of fabricated`() {
         val file = File.createTempFile("friday-mind-", ".bin").apply { delete() }
         val mind = FridayModelFreeMind(FridaySeedSubstrate(file))
