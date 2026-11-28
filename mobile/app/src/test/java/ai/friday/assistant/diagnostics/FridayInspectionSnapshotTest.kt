@@ -81,4 +81,23 @@ class FridayInspectionSnapshotTest {
         assertEquals("unknown", snapshot.sourceRevision)
         assertEquals("unknown", snapshot.appVersionName)
     }
+    @Test
+    fun liveInspectionExportsOnlyNonNegativeAggregateDiagnosticCounts() {
+        val counts = FridayInspectionSnapshotProvider.aggregateDiagnosticCounts(
+            turnEvents = 23,
+            crashRecords = 2,
+            processExitRecords = 4
+        )
+        assertEquals(23, counts.first)
+        assertEquals(6, counts.second)
+
+        val empty = FridayInspectionSnapshotProvider.aggregateDiagnosticCounts(
+            turnEvents = -1,
+            crashRecords = -3,
+            processExitRecords = 0
+        )
+        assertEquals(0, empty.first)
+        assertEquals(0, empty.second)
+    }
+
 }
