@@ -7,9 +7,10 @@ import org.json.JSONObject
  *
  * This projection deliberately does not forward the full support report.
  * It selects a small set of operational facts and normalises free-form status
- * strings into a closed vocabulary. Failure messages, stack traces, event
- * payloads, screen state, memory contents, device identifiers and credentials
- * are never copied into this object.
+ * strings into a closed vocabulary. Failure messages, stack traces, raw event payloads, screen state, memory
+ * contents, device identifiers and credentials are never copied into this object.
+ * A bounded projection of fixed lifecycle enums and numeric timing/correlation
+ * fields is the only event-level evidence that may cross the boundary.
  */
 data class FridayInspectionSnapshot(
     val capturedAtEpochMs: Long,
