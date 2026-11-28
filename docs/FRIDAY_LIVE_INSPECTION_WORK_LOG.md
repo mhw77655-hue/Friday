@@ -107,3 +107,24 @@ For every meaningful work session:
 
 ## Current truthful status
 Cloud service and Auth Hook configuration are verified. The consent implementation has been reviewed in source, but OAuth server URL configuration, client registration, owner consent, PKCE token issuance, authenticated MCP calls, ChatGPT connector acceptance, physical phone pairing, and fresh phone diagnostics are NOT YET VERIFIED.
+
+
+## Session continuation — 2026-11-28 (dependency remediation)
+### Completed
+16. Added dependency audit workflow `.github/workflows/friday-inspection-dependency-audit.yml` (commit `21b0eade36212477b51e149a8fb8578d3ceb963b`). It generates and commits a lockfile, installs with `npm ci`, runs checks/tests, captures npm audit JSON, and uploads the report.
+17. First reproducible audit found two direct high-severity packages:
+   - `ws@8.18.3`: GHSA-96hv-2xvq-fx4p (high DoS, affected <8.21.0; npm fix 8.23.1) and GHSA-58qx-3vcg-4xpx (moderate).
+   - `zod@4.1.12`: GHSA-mrhx-c7xc-m3w5 (high memory exhaustion, affected <4.6.6; npm fix 4.6.7).
+18. Updated direct dependencies to patched same-major versions `ws@8.23.1` and `zod@4.6.7` in commit `e54cf85aba11b0889e6cb3e8bf2fd5e815ae03ed`.
+19. The audit workflow regenerated the lockfile and ran `npm ci`, `npm run check`, and `npm test`; all 11 tests passed. Final npm audit summary: info 0, low 0, moderate 0, high 0, critical 0, total 0.
+20. Workflow committed the corrected lockfile in commit `32c256364c9725f40620f90374df67c6e530dec7`. Audit report artifact ID `15244848492`; workflow run `46100664786` completed SUCCESS.
+21. Railway build for intermediate commit `e54cf85` failed because it started before the audit workflow pushed the matching updated lockfile. Exact error: lockfile still had ws 8.18.3 and zod 4.1.12. This is a sequencing failure, not an application test failure.
+22. Railway has a newer deployment for corrected lockfile commit `32c2563`, deployment `1eea396b-d084-43d7-9fdb-6c1aff34c9ff`, status NEEDS_APPROVAL at last check. The prior deploy of commit `140b7ac` succeeded; do not claim patched dependencies are live until the lockfile commit's deployment succeeds.
+23. Health endpoint still responded during the checks. The currently serving service is still an older successful build until the latest pending deployment is approved and succeeds.
+
+### Next actions
+1. Resolve Railway's pending approval for deployment `1eea396b-d084-43d7-9fdb-6c1aff34c9ff` (if the dashboard still shows NEEDS_APPROVAL). User-side approval may be required; do not bypass approval.
+2. Verify Railway build uses `npm ci` with the corrected lockfile, reaches SUCCESS, and health + protected-resource metadata respond.
+3. Re-run/inspect the npm audit workflow after lockfile commit if needed; verify zero findings remain on the actual main HEAD.
+4. Verify Supabase OAuth Server Site URL + Authorization Path + Dynamic Client Registration setting. The Auth Hook screenshot only confirmed Auth Hook, not these OAuth Server settings.
+5. Complete real DCR POST, consent, PKCE, token claim inspection, MCP initialize/tools/list/call, then ChatGPT connector and Android pairing.
