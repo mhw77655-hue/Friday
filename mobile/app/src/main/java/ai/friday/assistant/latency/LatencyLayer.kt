@@ -123,6 +123,11 @@ object LatencyLayer {
     fun speakReplyText(text: String) = speakReply(text)
 
     private fun speakReply(text: String) {
+        // The fast acknowledgement may still be playing when the real answer
+        // arrives. Flush BOTH cached-WAV and live-TTS playback before choosing
+        // the streaming path: streamingSpeak bypasses SpeechEngine.fullSpeak,
+        // whose previous implementation was the only place that stopped acks.
+        ai.friday.assistant.TtsBridge.stopSpeaking()
         val streaming = streamingSpeak
         if (streaming != null) streaming(text) else SpeechEngine.fullSpeak(text)
     }
