@@ -252,6 +252,17 @@ const httpServer = http.createServer(async (request, response) => {
       return sendJson(response, 200, { service: "friday-live-inspection", status: "ok", authentication: "Supabase OAuth 2.1" });
     }
 
+    if (request.method === "GET" && url.pathname === "/oauth/consent") {
+      const template = await readFile(new URL("./oauth-consent.html", import.meta.url), "utf8");
+      const html = template
+        .replace("__SUPABASE_URL__", JSON.stringify(SUPABASE_URL))
+        .replace("__SUPABASE_PUBLISHABLE_KEY__", JSON.stringify(SUPABASE_PUBLISHABLE_KEY))
+        .replace("__OWNER_EMAIL__", JSON.stringify(OWNER_EMAIL));
+      response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" });
+      response.end(html);
+      return;
+    }
+
     if (request.method === "GET" && url.pathname === "/health") {
       return sendJson(response, 200, { service: "friday-live-inspection", status: "ok" });
     }
