@@ -205,3 +205,14 @@ The nine closed, unmerged `friday-proposals/` PRs were inspected:
 - PRs #102–#108 each contain one unmerged worker-proposal commit (one to three files each). These are untrusted, never merged/released/installed, and remain available as closed PR diffs. Their branch refs are not being treated as merged work or silently discarded; retain their PR records and review their proposal value before any ref deletion.
 
 This reinforces the cleanup rule: deleting a branch ref does not delete the PR conversation or its diff, but preserve the PR itself as the audit trail. No closed PR has been deleted.
+
+
+### Duplicate orphan branch tips
+
+Three duplicate-tip groups were found in the 38 no-PR branches:
+
+- `audit/friday-evidence-validation` and `audit/friday-evidence-validation-2` point to the exact same SHA as merged PR branch `feat/friday-lived-state-development-bridge`; these two extra refs can be retired with the merged-PR set.
+- `audit/friday-developmental-seed` and `work/phone-first-offline-bootstrap` point to the same SHA. Keep one pointer (`work/phone-first-offline-bootstrap`) and retire only the duplicate `audit/` name after the user has connected the authenticated GitHub browser.
+- `audit/one-3-to-6` and `wip/one-3-to-6` point to the same SHA. Keep `audit/one-3-to-6` and retire only the duplicate `wip/` name after authenticated access is available.
+
+This adds four more clearly redundant refs to the branch-pruning candidate set (two aliases of a merged PR commit and two duplicate-name refs). The other orphan branches remain preserved pending comparison.
