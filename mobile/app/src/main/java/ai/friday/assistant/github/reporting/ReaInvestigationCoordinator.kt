@@ -50,6 +50,7 @@ class ReaInvestigationCoordinator(context: Context) {
         val id = newInvestigationId()
         val dispatchedRunId = GitHubDevelopmentRepositoryClient(token).dispatchReaInvestigation(id)
         persistDispatch(id, WORKFLOW_ANDROID, dispatchedRunId)
+        ReaInvestigationPollWorker.check(appContext, id)
         return current()!!
     }
 
@@ -62,6 +63,7 @@ class ReaInvestigationCoordinator(context: Context) {
         val dispatchedRunId = GitHubDevelopmentRepositoryClient(token)
             .dispatchNeomasInvestigation(id, targetUrl)
         persistDispatch(id, WORKFLOW_NEOMAS, dispatchedRunId)
+        ReaInvestigationPollWorker.check(appContext, id)
         return current()!!
     }
 
@@ -122,6 +124,7 @@ class ReaInvestigationCoordinator(context: Context) {
     }
 
     fun clear() {
+        current()?.investigationId?.let { ReaInvestigationPollWorker.cancel(appContext, it) }
         check(
             prefs.edit()
                 .remove(KEY_INVESTIGATION_ID)
