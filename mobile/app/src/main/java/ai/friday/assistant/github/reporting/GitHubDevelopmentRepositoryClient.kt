@@ -10,6 +10,7 @@ import java.io.IOException
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.net.URLEncoder
+import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.util.Base64
 import java.util.zip.ZipInputStream
@@ -476,6 +477,168 @@ class GitHubDevelopmentRepositoryClient(
         throw IOException("REA evidence archive did not contain investigation-summary.json.")
     }
 
+    /** Dispatch the reviewed Neomas public-site investigation through Friday's pinned REA workflow. */
+    fun dispatchNeomasInvestigation(
+        investigationId: String,
+        targetUrl: String = "https://neomas.app/",
+        ref: String = "main"
+    ): Long? {
+        require(investigationId.matches(Regex("[A-Za-z0-9._-]{8,80}"))) {
+            "REA investigation id is malformed."
+        }
+        require(ref == "main") { "REA investigations may only run from the protected main ref." }
+        validateNeomasTargetUrl(targetUrl)
+        val payload = JSONObject()
+            .put("ref", ref)
+            .put("inputs", JSONObject()
+                .put("investigation_id", investigationId)
+                .put("target_url", targetUrl))
+        val response = request(
+            apiRoot + "/actions/workflows/rea-neomas-investigation.yml/dispatches",
+            "POST",
+            payload.toString()
+        )
+        response.use {
+            if (it.code == 204) return null
+            if (it.code == 200) {
+                val body = runCatching { JSONObject(it.body?.string().orEmpty()) }
+                    .getOrElse { throw IOException("GitHub accepted the Neomas REA dispatch but returned invalid run metadata.") }
+                val runId = body.optLong("workflow_run_id", -1L)
+                if (runId > 0L) return runId
+                throw IOException("GitHub accepted the Neomas REA dispatch but omitted its workflow run id.")
+            }
+            throw IOException(apiError(it.code, "dispatch the Neomas REA investigation"))
+        }
+    }
+
+    /** Find only the workflow run whose generated run-name contains this investigation id. */
+    fun findNeomasInvestigationRun(investigationId: String): ReaInvestigationRun? {
+        require(investigationId.matches(Regex("[A-Za-z0-9._-]{8,80}"))) {
+            "REA investigation id is malformed."
+        }
+        val json = getJson(
+            apiRoot + "/actions/workflows/rea-neomas-investigation.yml/runs?branch=main&event=workflow_dispatch&per_page=50"
+        )
+        val runs = json.optJSONArray("workflow_runs") ?: JSONArray()
+        val expectedTitle = "Friday REA Neomas investigation " + investigationId
+        for (index in 0 until runs.length()) {
+            val run = runs.optJSONObject(index) ?: continue
+            val title = run.optString("display_title").ifBlank { run.optString("name") }
+            if (title != expectedTitle && !title.endsWith(investigationId)) continue
+            val id = run.optLong("id", -1L)
+            val url = run.optString("html_url")
+            if (id <= 0L || !url.startsWith("https://github.com/")) continue
+            return ReaInvestigationRun(
+                id = id,
+                title = title,
+                status = run.optString("status", "unknown"),
+                conclusion = run.optString("conclusion").takeIf { value -> value.isNotBlank() && value != "null" },
+                url = url,
+                headSha = run.optString("head_sha")
+            )
+        }
+        return null
+    }
+
+    /**
+     * Download only the Friday-native assimilation packet from the Neomas run.
+     * ZIP entries are streamed in memory, matched exactly, and bounded before
+     * the packet's trust and provenance contract is accepted.
+     */
+    fun downloadNeomasAssimilationPacket(runId: Long): String {
+        require(runId > 0L) { "Neomas REA workflow run id is invalid." }
+        val json = getJson(apiRoot + "/actions/runs/" + runId + "/artifacts?per_page=100")
+        val artifacts = json.optJSONArray("artifacts") ?: JSONArray()
+        var artifactId = -1L
+        for (index in 0 until artifacts.length()) {
+            val artifact = artifacts.optJSONObject(index) ?: continue
+            if (artifact.optString("name") == NEOMAS_REA_ARTIFACT_NAME &&
+                !artifact.optBoolean("expired", true)
+            ) {
+                artifactId = artifact.optLong("id", -1L)
+                break
+            }
+        }
+        require(artifactId > 0L) { "The completed Neomas REA run has no available evidence artifact." }
+
+        val response = request(apiRoot + "/actions/artifacts/" + artifactId + "/zip", "GET", null)
+        val archive = response.use {
+            if (!it.isSuccessful) throw IOException(apiError(it.code, "download Neomas REA evidence"))
+            val body = it.body ?: throw IOException("GitHub returned an empty Neomas REA evidence archive.")
+            val contentLength = body.contentLength()
+            require(contentLength < 0L || contentLength <= MAX_REA_ARCHIVE_BYTES.toLong()) {
+                "Neomas REA evidence archive exceeds the download limit."
+            }
+            body.byteStream().use { input ->
+                val output = ByteArrayOutputStream()
+                val buffer = ByteArray(8_192)
+                var total = 0
+                while (true) {
+                    val count = input.read(buffer)
+                    if (count < 0) break
+                    total += count
+                    require(total <= MAX_REA_ARCHIVE_BYTES) {
+                        "Neomas REA evidence archive exceeds the download limit."
+                    }
+                    output.write(buffer, 0, count)
+                }
+                output.toByteArray()
+            }
+        }
+
+        ZipInputStream(ByteArrayInputStream(archive)).use { zip ->
+            var totalUncompressed = 0
+            while (true) {
+                val entry = zip.nextEntry ?: break
+                if (entry.isDirectory) {
+                    zip.closeEntry()
+                    continue
+                }
+                if (entry.name == NEOMAS_REA_PACKET_ENTRY) {
+                    val output = ByteArrayOutputStream()
+                    val buffer = ByteArray(8_192)
+                    var packetBytes = 0
+                    while (true) {
+                        val count = zip.read(buffer)
+                        if (count < 0) break
+                        packetBytes += count
+                        totalUncompressed += count
+                        require(packetBytes <= MAX_REA_PACKET_BYTES) {
+                            "Neomas assimilation packet exceeds the local ingestion limit."
+                        }
+                        require(totalUncompressed <= MAX_REA_UNCOMPRESSED_BYTES) {
+                            "Neomas REA archive exceeds the uncompressed size limit."
+                        }
+                        output.write(buffer, 0, count)
+                    }
+                    val packet = output.toString(StandardCharsets.UTF_8.name())
+                    ReaAssimilationPacketStore.validatePacket(packet)
+                    return packet
+                }
+
+                val skipBuffer = ByteArray(8_192)
+                while (true) {
+                    val count = zip.read(skipBuffer)
+                    if (count < 0) break
+                    totalUncompressed += count
+                    require(totalUncompressed <= MAX_REA_UNCOMPRESSED_BYTES) {
+                        "Neomas REA archive exceeds the uncompressed size limit."
+                    }
+                }
+                zip.closeEntry()
+            }
+        }
+        throw IOException("Neomas REA evidence archive did not contain " + NEOMAS_REA_PACKET_ENTRY + ".")
+    }
+
+    private fun validateNeomasTargetUrl(value: String) {
+        val uri = runCatching { URI(value) }
+            .getOrElse { throw IllegalArgumentException("Neomas target URL is malformed.", it) }
+        require(uri.scheme == "https" && uri.host in setOf("neomas.app", "www.neomas.app") &&
+            uri.userInfo == null && uri.port == -1 && uri.query == null && uri.fragment == null
+        ) { "Only the public Neomas HTTPS origin is currently enabled for this workflow." }
+    }
+
     data class CandidateSandboxRun(
         val id: Long,
         val title: String,
@@ -896,6 +1059,9 @@ class GitHubDevelopmentRepositoryClient(
         private const val MAX_REA_ARCHIVE_BYTES = 20 * 1024 * 1024
         private const val MAX_REA_SUMMARY_BYTES = 2 * 1024 * 1024
         private const val MAX_REA_UNCOMPRESSED_BYTES = 50 * 1024 * 1024
+        private const val MAX_REA_PACKET_BYTES = 16 * 1024 * 1024
+        private const val NEOMAS_REA_ARTIFACT_NAME = "friday-rea-neomas"
+        private const val NEOMAS_REA_PACKET_ENTRY = "neomas-friday-assimilation.json"
         private val SECRET_PATTERN = Regex(
             "(?i)(github_pat_[A-Za-z0-9_]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|sk-(?:proj-)?[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{30,}|xox[baprs]-[A-Za-z0-9-]{20,}|bearer\\s+[A-Za-z0-9._-]{20,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)"
         )
