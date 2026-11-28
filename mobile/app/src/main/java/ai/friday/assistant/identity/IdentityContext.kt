@@ -175,11 +175,41 @@ class IdentityContext(
             sb.appendLine("- persona trait ${a.trait} = ${a.value}")
         }
         if (ctx.mentalState != null) {
-            sb.appendLine("- user mental state: goal=${ctx.mentalState.goal}, mood=${ctx.mentalState.mood}, unstated=${ctx.mentalState.unstatedNeed}")
+            sb.appendLine(formatMentalStateHypothesis(ctx.mentalState))
         }
         if (ctx.dialectSignal != null && ctx.dialectSignal != DialectSignal.neutral()) {
             sb.appendLine("- user dialect: ${ctx.dialectSignal.detectedLanguageMix} (register=${ctx.dialectSignal.register}, confidence=${ctx.dialectSignal.dialectConfidence})")
         }
         return sb.toString().trimEnd()
+    }
+
+    companion object {
+        /**
+         * Preserve the complete uncertainty-aware affect signal for the
+         * reasoning model. The lexical reader is a hint, never a diagnosis:
+         * the model must interpret the original message and wider context.
+         */
+        internal fun formatMentalStateHypothesis(mental: MentalStateHypothesis): String {
+            val affect = mental.emotion
+            return buildString {
+                appendLine("- tentative user-state hypothesis: goal=${mental.goal}; mood=${mental.mood}; possible unstated need=${mental.unstatedNeed.ifBlank { "unknown" }}")
+                appendLine(
+                    "- text-only affect estimate (not a diagnosis): state=${affect.likelyState}; " +
+                        "confidence=${"%.2f".format(java.util.Locale.ROOT, affect.confidence)}; " +
+                        "valence=${"%.2f".format(java.util.Locale.ROOT, affect.valence)}; " +
+                        "arousal=${"%.2f".format(java.util.Locale.ROOT, affect.arousal)}; " +
+                        "agency=${"%.2f".format(java.util.Locale.ROOT, affect.dominance)}; " +
+                        "tension=${"%.2f".format(java.util.Locale.ROOT, affect.tension)}; " +
+                        "trend=${affect.temporalTrend}"
+                )
+                if (affect.alternatives.isNotEmpty()) {
+                    appendLine("- alternative affect interpretations: ${affect.alternatives.joinToString()}")
+                }
+                if (affect.evidence.isNotEmpty()) {
+                    appendLine("- observed text cues: ${affect.evidence.take(5).joinToString("; ")}")
+                }
+                append("- Treat this as a fallible hypothesis, not a fact about the person. Re-read their actual words and history, avoid overconfident emotion labels, and adapt tone/pacing with empathy without becoming patronising.")
+            }
+        }
     }
 }
