@@ -28,9 +28,19 @@ object FridayInspectionSnapshotProvider {
         // lifecycle journal and filenames/metadata; never forward raw event or
         // crash contents, exception text, stack traces or conversation data.
         val diagnosticsDirectory = java.io.File(context.applicationContext.filesDir, "diagnostics")
-        val eventCount = runCatching {
-            TurnDiagnosticJournal(diagnosticsDirectory).snapshot().size
-        }.getOrDefault(0)
+        val turnEvents = runCatching {
+            TurnDiagnosticJournal(diagnosticsDirectory).snapshot()
+        }.getOrDefault(emptyList())
+        val eventCount = turnEvents.size
+        val stageCounts = TurnDiagnosticJournal.Stage.values().associate { stage ->
+            stage.name to turnEvents.count { it.stage == stage }
+        }
+        val routeCounts = TurnDiagnosticJournal.Route.values().associate { route ->
+            route.name to turnEvents.count { it.route == route }
+        }
+        val outcomeCounts = TurnDiagnosticJournal.Outcome.values().associate { outcome ->
+            outcome.name to turnEvents.count { it.outcome == outcome }
+        }
         val crashCount = diagnosticsDirectory.listFiles { file ->
             file.isFile && file.name.startsWith("last-crash-") && file.name.endsWith(".json")
         }?.size ?: 0
@@ -58,7 +68,10 @@ object FridayInspectionSnapshotProvider {
             availableMemoryBytes = host.availableRamBytes,
             availableStorageBytes = host.appStorageAvailableBytes,
             eventCount = counts.first,
-            failureCount = counts.second
+            failureCount = counts.second,
+            turnStageCounts = stageCounts,
+            turnRouteCounts = routeCounts,
+            turnOutcomeCounts = outcomeCounts
         )
     }
 
