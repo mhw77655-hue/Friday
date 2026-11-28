@@ -38,6 +38,7 @@ fun MoreSheet(
             MoreDestination("Environment", "environment")
         ),
         "FRIDAY" to listOf(
+            MoreDestination("Individuality", "individual"),
             MoreDestination("Memory", "memory"),
             MoreDestination("Visual Presence", "vision"),
             MoreDestination("Voice Studio", "voice_studio"),
