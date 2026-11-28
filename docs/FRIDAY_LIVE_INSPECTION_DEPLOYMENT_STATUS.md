@@ -30,3 +30,10 @@ Next:
 6. Connect the custom MCP server in ChatGPT web, generate a one-time pairing code via owner setup, pair the physical Android app, then prove fresh snapshot and revocation from this exact ChatGPT session.
 
 Venture Autopilot remains untouched. This deployment is a real cloud-service milestone, not proof that ChatGPT or the phone is connected.
+
+### Follow-up hardening — 2026-11-28
+
+- Removed `friday_create_pairing_code` from the remote MCP tool catalog because it mutates server pairing state and therefore violated the read-only MCP contract.
+- Pairing code creation remains available only through the owner-authenticated `POST /admin/pairing-code` setup endpoint; ChatGPT's MCP surface is now limited to `friday_live_status` and `friday_inspection_snapshot`.
+- Source commit: `d012c8df271a82945b56fcac5bef52f166ded46c`.
+- Railway deployment for this source commit is currently building. Do not claim the tightened MCP tool catalog is live until that deployment succeeds and the endpoint is rechecked.
