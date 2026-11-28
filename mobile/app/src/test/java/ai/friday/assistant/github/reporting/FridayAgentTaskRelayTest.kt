@@ -229,7 +229,7 @@ class FridayAgentTaskRelayTest {
             assertEquals(2L, AgentTaskThreadStore(directory).get(taskId)!!.nextOutgoingSequence)
             val request = server.takeRequest()
             assertEquals("POST", request.method)
-            assertTrue(request.body.readUtf8().contains("friday-agent-message:v1:$taskId:1"))
+            assertTrue(JSONObject(request.body.readUtf8()).getString("body").contains("\"kind\":\"evidence_request\""))
         } finally {
             server.shutdown()
             directory.deleteRecursively()
