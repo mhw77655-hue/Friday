@@ -150,6 +150,8 @@ test("rejects wrong issuer, expired token, missing OAuth client and non-owner", 
   const options = { issuer: base.iss, resource: base.aud, ownerEmail: "owner@example.com", now };
   assert.throws(() => validateOwnerClaims({ ...base, iss: "https://attacker.example" }, options), /token_issuer_invalid/);
   assert.throws(() => validateOwnerClaims({ ...base, exp: Math.floor(now / 1000) }, options), /token_expired/);
+  assert.throws(() => validateOwnerClaims({ ...base, nbf: Math.floor(now / 1000) + 1 }, options), /token_not_yet_valid/);
+  assert.throws(() => validateOwnerClaims({ ...base, nbf: "tomorrow" }, options), /token_not_yet_valid/);
   assert.throws(() => validateOwnerClaims({ ...base, client_id: "" }, options), /token_subject_or_client_invalid/);
   assert.throws(() => validateOwnerClaims({ ...base, email: "other@example.com" }, options), /owner_access_denied/);
 });

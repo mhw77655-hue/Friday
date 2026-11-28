@@ -94,5 +94,25 @@ test("owner setup pages keep the owner allowlist private and enforce server-side
     });
     assert.equal(pairing.status, 401);
     assert.equal((await pairing.json()).error, "oauth_required");
+
+    const mcp = await fetch(base + "/mcp", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2025-11-25",
+          capabilities: {},
+          clientInfo: { name: "unauthenticated-test", version: "1.0.0" }
+        }
+      })
+    });
+    assert.equal(mcp.status, 401);
+    const challenge = mcp.headers.get("www-authenticate") || "";
+    assert.match(challenge, /resource_metadata="https:\/\/example\.supabase\.co/);
+    assert.match(challenge, /scope="openid email"/);
+    assert.match(challenge, /Bearer/);
   });
 });
