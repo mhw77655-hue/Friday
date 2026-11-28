@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "scripts/rea/**"
+      - "tools/rea/evidence-converter.mjs"
       - ".github/workflows/rea-neomas-investigation.yml"
   workflow_dispatch:
 

@@ -82,6 +82,16 @@ function confidenceOf(value, kind) {
   })[kind] ?? 0.25;
 }
 
+function evidenceConfidenceOf(label) {
+  return ({
+    observed: 0.9,
+    derived: 0.65,
+    inferred: 0.4,
+    speculative: 0.2,
+    unknown: 0.15,
+  })[String(label ?? "unknown").toLowerCase()] ?? 0.25;
+}
+
 function collectEvidenceIds(value, found = new Set(), depth = 0) {
   if (depth > 24 || found.size >= 500) return [...found];
   if (typeof value === "string") {
@@ -166,6 +176,105 @@ function findingFrom(value, fallbackKind, sourcePath, source, targetKey) {
   };
 }
 
+function isCanonicalEvidenceRecord(value) {
+  return Boolean(value && typeof value === "object" &&
+    typeof value.evidence_id === "string" &&
+    /^ev_[0-9a-f]{64}$/.test(value.evidence_id) &&
+    typeof value.operation === "string" &&
+    value.normalized_result && typeof value.normalized_result === "object");
+}
+
+function canonicalEvidenceFinding(value, sourcePath, source, targetKey) {
+  const subject = value.subject?.name ??
+    value.subject?.identity?.name ??
+    value.subject?.identity?.sha256 ??
+    "inspected target";
+  const operation = value.operation ?? source.tool;
+  const confidenceLabel = String(value.confidence ?? "unknown").toLowerCase();
+  const statement = "REA " + operation + " produced " + confidenceLabel +
+    " evidence for " + String(subject) + ".";
+  const refs = [...new Set([
+    value.evidence_id,
+    ...(Array.isArray(value.evidence_links)
+      ? value.evidence_links.flatMap((link) => typeof link === "string" ? [link] :
+          typeof link?.evidence_id === "string" ? [link.evidence_id] : [])
+      : []),
+  ])].sort();
+  return {
+    id: "rea_" + sha256(value.evidence_id).slice(0, 32),
+    kind: "observation",
+    statement,
+    confidence: evidenceConfidenceOf(confidenceLabel),
+    evidence_refs: refs,
+    provenance: {
+      source: "rea",
+      tool: operation,
+      path: sourcePath,
+      provider: value.provider ?? null,
+      authority: value.authority ?? null,
+      subject: value.subject?.identity ?? null,
+    },
+    review_state: "unreviewed",
+    executable: false,
+    raw_sha256: sha256(stableJson(value)),
+    structured_evidence: value.normalized_result,
+    limitations: Array.isArray(value.limitations) ? value.limitations : [],
+    locations: Array.isArray(value.locations) ? value.locations : [],
+  };
+}
+
+function collectCanonicalEvidence(value, output = new Map(), depth = 0) {
+  if (depth > 24 || !value || typeof value !== "object") return [...output.values()];
+  if (Array.isArray(value)) {
+    for (const child of value) collectCanonicalEvidence(child, output, depth + 1);
+    return [...output.values()];
+  }
+  if (isCanonicalEvidenceRecord(value)) {
+    const id = value.evidence_id;
+    if (!output.has(id)) {
+      output.set(id, {
+        evidence_id: id,
+        evidence_format: value.evidence_format ?? null,
+        subject: value.subject ?? null,
+        provider: value.provider ?? null,
+        analysis_profile: value.analysis_profile ?? null,
+        predicate_type: value.predicate_type ?? null,
+        operation: value.operation,
+        parameters: value.parameters ?? null,
+        normalized_result: value.normalized_result,
+        confidence: value.confidence ?? null,
+        authority: value.authority ?? null,
+        environment: value.environment ?? null,
+        limitations: Array.isArray(value.limitations) ? value.limitations : [],
+        relationship_coverage: value.relationship_coverage ?? null,
+        locations: Array.isArray(value.locations) ? value.locations : [],
+        evidence_links: Array.isArray(value.evidence_links) ? value.evidence_links : [],
+      });
+    }
+    return [...output.values()];
+  }
+  for (const child of Object.values(value)) collectCanonicalEvidence(child, output, depth + 1);
+  return [...output.values()];
+}
+
+function appendTextFinding(text, sourcePath, source, targetKey, output) {
+  if (typeof text !== "string" || !text.trim()) return;
+  let parsed;
+  try { parsed = JSON.parse(text); } catch { parsed = null; }
+  if (parsed && typeof parsed === "object") {
+    collectFindings(parsed, sourcePath + ".json", source, targetKey, output);
+  } else {
+    const finding = findingFrom(
+      { text, kind: "unclassified" },
+      "unclassified",
+      sourcePath,
+      source,
+      targetKey,
+    );
+    if (finding) output.push(finding);
+  }
+}
+
 function collectFindings(value, sourcePath, source, targetKey, output, depth = 0) {
   if (depth > 24 || output.length >= 500) return;
   if (Array.isArray(value)) {
@@ -174,8 +283,24 @@ function collectFindings(value, sourcePath, source, targetKey, output, depth = 0
     return;
   }
   if (!value || typeof value !== "object") return;
+  if (isCanonicalEvidenceRecord(value)) {
+    output.push(canonicalEvidenceFinding(value, sourcePath, source, targetKey));
+    return;
+  }
+  if (value.type === "text" && typeof value.text === "string") {
+    appendTextFinding(value.text, sourcePath + ".text", source, targetKey, output);
+    return;
+  }
 
   for (const [key, child] of Object.entries(value)) {
+    if (key.toLowerCase().endsWith("_text")) {
+      const textItems = Array.isArray(child) ? child : [child];
+      textItems.forEach((item, index) => {
+        const text = typeof item === "string" ? item : item?.type === "text" ? item.text : null;
+        if (typeof text === "string") appendTextFinding(text, sourcePath + "." + key + "[" + index + "]", source, targetKey, output);
+      });
+      continue;
+    }
     const kind = GROUP_KIND.get(key.toLowerCase());
     if (kind) {
       const items = Array.isArray(child) ? child : [child];
@@ -247,12 +372,16 @@ export function convertReaResult({
   const source = { tool: String(tool).slice(0, 256) };
   const rawJson = stableJson(result);
   const findings = [];
-  collectFindings(result?.structuredContent ?? result?.structured_content ?? result,
-    "result.structuredContent", source, targetKey, findings);
-  if (findings.length === 0) {
-    findings.push(...fallbackTextFindings(result, source, targetKey));
+  const primaryResult = result?.structuredContent ?? result?.structured_content ?? result;
+  collectFindings(primaryResult, "result.structuredContent", source, targetKey, findings);
+  if (primaryResult !== result && Array.isArray(result?.content)) {
+    collectFindings(result.content, "result.content", source, targetKey, findings);
   }
   const uniqueFindings = [...new Map(findings.map((finding) => [finding.id, finding])).values()];
+  const evidenceRecords = collectCanonicalEvidence(result);
+  const evidenceLimitations = evidenceRecords.flatMap((record) =>
+    record.limitations.map((statement) => ({ evidence_id: record.evidence_id, statement })),
+  );
   const evidenceRefs = [...new Set([
     ...collectEvidenceIds(result),
     ...uniqueFindings.flatMap((finding) => finding.evidence_refs),
@@ -287,10 +416,14 @@ export function convertReaResult({
       captured_at: capturedAt,
       raw_result_sha256: rawSha256,
     },
-    status: result?.isError ? "error" : uniqueFindings.length ? "ready_for_review" : "empty",
+    status: result?.isError ? "error" : (uniqueFindings.length || evidenceRecords.length) ? "ready_for_review" : "empty",
     findings: uniqueFindings,
+    evidence_records: evidenceRecords,
     evidence_refs: evidenceRefs,
-    limitations: uniqueFindings.filter((finding) => finding.kind === "limitation"),
+    limitations: [
+      ...uniqueFindings.filter((finding) => finding.kind === "limitation"),
+      ...evidenceLimitations,
+    ],
     capability_candidates: capabilities,
     assimilation: {
       state: "pending_review",
@@ -326,6 +459,8 @@ export function mergeReaPackets(packets) {
   }
   const findings = [...new Map(packets.flatMap((packet) => packet.findings ?? [])
     .map((finding) => [finding.id, finding])).values()];
+  const evidenceRecords = [...new Map(packets.flatMap((packet) => packet.evidence_records ?? [])
+    .map((record) => [record.evidence_id, record])).values()];
   const evidenceRefs = [...new Set(packets.flatMap((packet) => packet.evidence_refs ?? []))].sort();
   const capabilityCandidates = [...new Map(packets.flatMap((packet) => packet.capability_candidates ?? [])
     .map((candidate) => [candidate.candidate_id, candidate])).values()];
@@ -338,8 +473,12 @@ export function mergeReaPackets(packets) {
       ? "partial_error"
       : findings.length ? "ready_for_review" : "empty",
     findings,
+    evidence_records: evidenceRecords,
     evidence_refs: evidenceRefs,
-    limitations: findings.filter((finding) => finding.kind === "limitation"),
+    limitations: [
+      ...findings.filter((finding) => finding.kind === "limitation"),
+      ...evidenceRecords.flatMap((record) => record.limitations.map((statement) => ({ evidence_id: record.evidence_id, statement }))),
+    ],
     capability_candidates: capabilityCandidates,
     assimilation: {
       state: "pending_review",

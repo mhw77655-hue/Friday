@@ -62,6 +62,52 @@ test("preserves evidence IDs, artifact identity and source provenance", () => {
   assert.equal(packet.source.tool, "inspect_android_method");
 });
 
+test("converts canonical REA Evidence records without losing normalized results or limitations", () => {
+  const evidenceId = "ev_" + "c".repeat(64);
+  const packet = convertReaResult({
+    target,
+    rea,
+    tool: "inspect_web_page",
+    result: {
+      structuredContent: {
+        evidence_id: evidenceId,
+        evidence_format: 2,
+        subject: { name: "Neomas", identity: { kind: "website", url: "https://neomas.app/" } },
+        provider: { id: "cdp", name: "Chrome DevTools Protocol" },
+        operation: "inspect_web_page",
+        confidence: "observed",
+        authority: "live-runtime",
+        normalized_result: { dom: { node_count: 120 }, scripts: { count: 8 } },
+        limitations: ["Only the current public page was inspected."],
+        locations: [],
+        evidence_links: [],
+      },
+    },
+  });
+  assert.equal(packet.status, "ready_for_review");
+  assert.equal(packet.findings.length, 1);
+  assert.equal(packet.findings[0].confidence, 0.9);
+  assert.deepEqual(packet.evidence_refs, [evidenceId]);
+  assert.equal(packet.evidence_records.length, 1);
+  assert.equal(packet.evidence_records[0].normalized_result.dom.node_count, 120);
+  assert.equal(packet.limitations[0].evidence_id, evidenceId);
+});
+
+test("extracts nested MCP text blocks and *_text fields as unclassified evidence", () => {
+  const packet = convertReaResult({
+    target,
+    rea,
+    result: {
+      structuredContent: {
+        package_text: [{ type: "text", text: "A partial source observation." }],
+        nested: { text_content: "An additional unclassified trace." },
+      },
+    },
+  });
+  assert.equal(packet.findings.length, 2);
+  assert.ok(packet.findings.every((finding) => finding.kind === "unclassified"));
+});
+
 test("text-only REA responses remain unclassified rather than becoming facts", () => {
   const packet = convertReaResult({
     target,
