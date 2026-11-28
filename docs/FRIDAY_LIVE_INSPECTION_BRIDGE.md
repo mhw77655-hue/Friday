@@ -13,6 +13,7 @@ It copies only:
 - available memory/storage byte counts;
 - counts of bounded local diagnostic events and failures.
 - counts by the closed lifecycle stage, route and outcome enums (for example model request started, local fallback selected, speech handoff and timeout); these are aggregates only, never raw event records.
+- the most recent 100 structured turn-lifecycle records containing only timestamps, numeric exchange IDs, closed stage/route/outcome enums and optional elapsed milliseconds; this projection contains no free-form text and is not the raw diagnostic journal.
 
 It never copies raw diagnostic events, failure messages, stack traces, exception text, model names, screen state, notification content, conversation/transcript/audio data, personal memory, files, credentials or tokens. Free-form status strings are normalised to a closed vocabulary before export.
 
