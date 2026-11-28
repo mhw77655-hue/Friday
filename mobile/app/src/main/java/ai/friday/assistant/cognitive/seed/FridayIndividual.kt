@@ -19,11 +19,24 @@ import java.util.UUID
  * the limited model-free expression path. It accepts no ModelManager, cloud
  * client, network service, or external identity provider.
  */
-class FridayIndividual(
+class FridayIndividual private constructor(
     private val directory: File,
-    private val nowMs: () -> Long = { System.currentTimeMillis() },
-    adaptiveLearningEnabled: Boolean = true
+    private val nowMs: () -> Long,
+    adaptiveLearningEnabled: Boolean
 ) {
+    /** Preserve the original constructor, including trailing-lambda clock injection. */
+    constructor(
+        directory: File,
+        nowMs: () -> Long = { System.currentTimeMillis() }
+    ) : this(directory, nowMs, true)
+
+    /** Controlled learning ablation used by the production-composition experiment. */
+    constructor(
+        directory: File,
+        adaptiveLearningEnabled: Boolean,
+        nowMs: () -> Long = { System.currentTimeMillis() }
+    ) : this(directory, nowMs, adaptiveLearningEnabled)
+
     data class Identity(
         val id: String,
         val name: String,
