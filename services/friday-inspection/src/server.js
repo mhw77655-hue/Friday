@@ -336,7 +336,7 @@ const httpServer = http.createServer(async (request, response) => {
     }
     if (request.method === "POST" && url.pathname === "/admin/revoke") {
       if (rateLimited(request, "admin-revoke", 10, 60_000)) return sendJson(response, 429, { error: "rate_limited" });
-      if (!adminOnly(request, response)) return;
+      if (!await adminOnly(request, response)) return;
       const body = await readJson(request);
       const deviceId = String(body.deviceId || "");
       if (!state.devices[deviceId]) return sendJson(response, 404, { error: "device_not_found" });
