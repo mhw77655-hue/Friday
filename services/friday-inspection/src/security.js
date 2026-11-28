@@ -113,8 +113,8 @@ export function validateInspectionSnapshot(input, now = Date.now()) {
     model_runtime: input.model_runtime,
     available_memory_bytes: numeric.available_memory_bytes,
     available_storage_bytes: numeric.available_storage_bytes,
-    event_count: Math.max(0, numeric.event_count),
-    failure_count: Math.max(0, numeric.failure_count),
+    event_count: numeric.event_count,
+    failure_count: numeric.failure_count,
     privacy: Object.freeze(Object.fromEntries(PRIVACY_KEYS.map(key => [key, false])))
   });
 }
