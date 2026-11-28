@@ -59,7 +59,7 @@ class AnthropicMessagesProviderTest {
             val request = server.takeRequest()
             assertEquals("sk-ant-test-secret-credential", request.getHeader("x-api-key"))
             assertEquals(AnthropicMessagesProvider.API_VERSION, request.getHeader("anthropic-version"))
-            val body = Buffer().also { request.body!!.writeTo(it) }.readUtf8()
+            val body = request.body.readUtf8()
             assertTrue(body.contains("\"stream\":true"))
             assertTrue(body.contains("\"cache_control\":{\"type\":\"ephemeral\"}"))
             assertFalse(body.contains("tools"))
