@@ -122,6 +122,7 @@ class WallClockAllowlistTest {
     private val ALLOWED: Map<String, Int> = buildMap {
         // ── body: the keyword memory port, presence and context assembly ──────
         put("FridayEngine.kt", 1)
+        put("cloud/AnthropicTaskWorker.kt", 3)
         put("body/AdaptiveContextBuilder.kt", 4)
         put("body/BodyCoordinator.kt", 6)
         put("body/MemoryPromotion.kt", 1)
@@ -225,6 +226,7 @@ class WallClockAllowlistTest {
     /** Why each file is allowed to keep exactly that many reads. */
     private val REASONS: Map<String, String> = buildMap {
         put("FridayEngine.kt", "the single Android root clock; it is passed into the platform adapter and the production turn-path time seams")
+        put("cloud/AnthropicTaskWorker.kt", "task-envelope expiry, approval freshness and the worker time window; these are task-security/lifecycle timestamps outside cognitive decision-making")
         put("body/AdaptiveContextBuilder.kt", "context-build latency pair plus the prompt's own current-time line; the age read is the recency sort key")
         put("body/BodyCoordinator.kt", "session start, two turn-event timestamps, reasoning activity timestamps, and the reasoning idle-grace comparison; body lifecycle bookkeeping, not cognitive time")
         put("body/MemoryPromotion.kt", "id suffix for a promoted preference record")
