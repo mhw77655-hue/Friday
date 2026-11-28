@@ -76,6 +76,8 @@ test("owner setup pages keep the owner allowlist private and enforce server-side
     assert.equal(response.status, 200);
     const html = await response.text();
     assert.doesNotMatch(html, /owner@example\.com/i);
+    assert.match(html, /Create owner account/i);
+    assert.match(html, /signUp/);
     assert.match(html, /Generate one-time pairing code/i);
     assert.match(html, /\/admin\/pairing-code/);
   });
