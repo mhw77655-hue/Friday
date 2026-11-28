@@ -317,7 +317,7 @@ class TurnPathAssembly private constructor(
             // Network and cloud are resources AROUND this Friday, never a
             // different Friday: an empty provider list is an honest "none
             // configured today", not a separate route to a cognitive outcome.
-            val cloudModelRouter = CloudModelRouter(emptyList())
+            val cloudModelRouter = CloudModelRouter(ports.cloudProviders())
 
             // ── The single model loading authority ────────────────────────────
             // The admission decision reads the host's LIVE resource reading on
