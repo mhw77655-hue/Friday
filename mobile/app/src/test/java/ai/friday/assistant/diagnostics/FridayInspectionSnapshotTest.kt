@@ -61,12 +61,15 @@ class FridayInspectionSnapshotTest {
         val lifecycle = snapshot.copy(
             turnStageCounts = mapOf("MODEL_REQUEST_STARTED" to 2, "PRIVATE_PROMPT" to 99),
             turnRouteCounts = mapOf("MODEL" to 2),
-            turnOutcomeCounts = mapOf("FAILED" to 1)
+            turnOutcomeCounts = mapOf("FAILED" to 1),
+            processExitReasonCounts = mapOf("ANR" to 2, "PRIVATE_REASON_TEXT" to 8)
         ).toJson()
         assertEquals(2, lifecycle.getJSONObject("turn_stage_counts").getInt("MODEL_REQUEST_STARTED"))
         assertFalse(lifecycle.getJSONObject("turn_stage_counts").has("PRIVATE_PROMPT"))
         assertEquals(2, lifecycle.getJSONObject("turn_route_counts").getInt("MODEL"))
         assertEquals(1, lifecycle.getJSONObject("turn_outcome_counts").getInt("FAILED"))
+        assertEquals(2, lifecycle.getJSONObject("process_exit_reason_counts").getInt("ANR"))
+        assertFalse(lifecycle.getJSONObject("process_exit_reason_counts").has("PRIVATE_REASON_TEXT"))
     }
 
     @Test
