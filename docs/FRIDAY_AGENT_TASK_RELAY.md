@@ -1,4 +1,4 @@
-# Friday agent task relay — GitHub issue threads
+# Friday agent task channel — structured GitHub task records
 
 Status: public GitHub transport, default-OFF consent/trusted-actor controls, durable local reply inbox, WorkManager polling and Settings handshake UI are implemented on `feat/github-task-relay-integrated` (PR #198, draft). The separate private SIWC worker is implemented in PR #197 (draft); durable private-result recovery and handset acceptance remain pending. The relay Settings section now exposes explicit approve/decline controls for imported ChatGPT proposals; acceptance records a completed review decision, never places the proposal in the executable queue, and never executes an external action. A separate, explicitly authored task is required to act on accepted findings.
 
@@ -30,9 +30,9 @@ A GitHub issue is the durable **public project task record**:
 
 This gives a durable, inspectable, crash-tolerant collaboration history using the repository access Friday already needs. It does not require an always-open inbound phone port or a new public relay server.
 
-## ChatGPT reply contract for the connected GitHub session
+## GPT task-result contract for the connected engineering collaborator
 
-When Friday creates a public task issue, the connected ChatGPT engineering session can answer by posting an issue comment using the authenticated GitHub connector. The comment must be a valid v1 envelope, not free-form Markdown alone, so Friday's poller can authenticate and ingest it.
+When Friday creates a public task issue, the connected GPT engineering collaborator can process the bounded task and publish a structured result envelope using the authenticated GitHub connector. This is asynchronous task delegation, not an interactive conversation or a route for Friday's owner-facing chat. The comment must be a valid v1 envelope, not free-form Markdown alone, so Friday's poller can authenticate and ingest it.
 
 The required comment shape is:
 
@@ -69,7 +69,7 @@ A comment is not accepted merely because it exists. Friday also checks the GitHu
 - Friday's GitHub token remains encrypted in Android Keystore and never enters ChatGPT task content.
 - The app must verify the GitHub author against an owner-configured trusted-actor allowlist before treating a comment as a task instruction. Repository membership alone is not enough.
 - Comments and model output are untrusted data. Friday validates schema, task ID, sequence, expiry, scope and provenance before accepting a result.
-- ChatGPT can propose code, tests, diagnosis and follow-up evidence requests. It cannot tap the phone, run arbitrary shell commands, approve changes, merge PRs, publish releases or access signing material.
+- The GPT collaborator can propose code, tests, diagnosis and follow-up evidence requests. It cannot tap the phone, run arbitrary shell commands, approve changes, merge PRs, publish releases or access signing material.
 - Device observations are not sent through public GitHub threads. They belong to the private read-only broker in #188 and must be allowlisted, redacted, timestamped and marked live/stale. Conversation text, transcripts, microphone audio, notifications, contacts, credentials and arbitrary screen contents are excluded.
 - Friday's local task journal remains authoritative. GitHub is the durable collaboration surface, not Friday's identity or memory.
 
@@ -110,7 +110,7 @@ The read-only phone inspection broker remains separately specified in Issue #188
 2. Friday UI exposes an explicit, separate owner permission for agent-task communication.
 3. Friday creates a task from an approved local task/outbox entry and persists issue number/sequence before marking delivery complete.
 4. Friday polls only known task threads, validates trusted author and envelope, deduplicates by comment ID/message ID and persists accepted messages before acting.
-5. ChatGPT replies to a task thread; Friday receives it after app restart and presents it as a proposal.
+5. GPT returns a task-result envelope to the task record; Friday receives it after app restart and presents it as a proposal.
 6. Friday validates a proposed source change, uses the existing isolated candidate branch/PR route, and waits for CI and owner approval.
 7. A separate read-only live-device bridge lets this ChatGPT session ask Friday for a current allowlisted snapshot; no remote control in this phase.
 
@@ -121,4 +121,4 @@ This design reuses GitHub's Issues/Comments API and SIWC. The potential differen
 
 ## Delivery semantics: mailbox, not a push wake-up
 
-The GitHub issue thread is an asynchronous mailbox. Friday can create a task and poll for replies, and this active ChatGPT session can inspect the public task and post a reply when it is invoked. GitHub does **not** have a supported mechanism to inject a message into or wake this exact ChatGPT conversation automatically. The SIWC private worker is the separate Friday-triggerable model endpoint; it is not this session. A future unattended callback into a ChatGPT-side agent requires a separately hosted/event-driven execution surface or supported ChatGPT automation integration. Do not describe the current mailbox as real-time push or a live phone session.
+The GitHub issue thread is an asynchronous task mailbox. Friday creates a scoped task record and polls for a typed result. The connected GPT engineering collaborator can inspect the public task record and publish a result when it is active. GitHub does **not** inject a task into or wake this exact ChatGPT session automatically. The SIWC private worker is the separate Friday-triggerable model endpoint; it is not this collaborator session. A future unattended callback into a GPT-side agent requires a separately hosted/event-driven execution surface or supported ChatGPT automation integration. Do not describe the current mailbox as real-time push, an interactive chat, or a live phone session.
