@@ -6,6 +6,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlin.coroutines.CoroutineContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -123,6 +125,48 @@ class ModelManagerLifecycleTest {
         now += ModelManager.PRESSURE_RECLAIM_GRACE_MS
         m.runCooldownSweep()
         assertFalse("model becomes reclaimable after generation ends and idle grace passes", backend.isLoaded(resident))
+    }
+
+    private class PausedDispatcher : CoroutineDispatcher() {
+        private val queued = java.util.ArrayDeque<Runnable>()
+        override fun dispatch(context: CoroutineContext, block: Runnable) {
+            queued.addLast(block)
+        }
+        fun runAll() {
+            while (queued.isNotEmpty()) queued.removeFirst().run()
+        }
+    }
+
+    @Test
+    fun `turn booked model is pinned before the send coroutine is scheduled`() = runBlocking {
+        val backend = FakeModelBackend()
+        val dispatcher = PausedDispatcher()
+        val pressure = object : ResourceSnapshot by ResourceSnapshot.alwaysHealthy() {
+            override val isLowMemory: Boolean = true
+        }
+        val m = ModelManager(
+            context = null,
+            scope = CoroutineScope(dispatcher),
+            backend = backend,
+            resourceGovernor = ResourceGovernor(snapshotProvider = { pressure }),
+            clock = { now },
+            autoSweep = false
+        )
+        val handle = m.request(OrganRole.RESIDENT, task = "booked-send", modelId = "resident-model")
+        m.noteTurnServe(handle)
+
+        // The coroutine cannot start yet. send() itself must already have pinned it.
+        m.send("preserve the booked model")
+        now = ModelManager.PRESSURE_RECLAIM_GRACE_MS * 2
+        m.runCooldownSweep()
+        assertTrue("the booked handle must survive pressure before coroutine dispatch", backend.isLoaded(handle))
+
+        dispatcher.runAll()
+        assertEquals("ok (local)", m.status.value)
+
+        now += ModelManager.PRESSURE_RECLAIM_GRACE_MS
+        m.runCooldownSweep()
+        assertFalse("the model becomes reclaimable after the send releases its pin", backend.isLoaded(handle))
     }
 
     @Test
