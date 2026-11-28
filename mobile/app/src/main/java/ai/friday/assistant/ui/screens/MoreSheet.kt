@@ -2,6 +2,8 @@ package ai.friday.assistant.ui.screens
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -13,6 +15,7 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import ai.friday.assistant.ui.components.pressScale
@@ -77,18 +80,33 @@ fun MoreSheet(
                         modifier = Modifier.padding(top = 10.dp, bottom = 6.dp)
                     )
                     destinations.forEach { destination ->
-                        Text(
-                            text = destination.label,
-                            style = FridayType.Body,
+                        GlassPanel(
                             modifier = Modifier.fillMaxWidth()
+                                .padding(vertical = 3.dp)
                                 .pressScale {
                                     onNavigate(destination.route)
                                     onDismiss()
                                 }
-                                .padding(horizontal = 12.dp, vertical = 13.dp)
-                        )
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth()
+                                    .heightIn(min = 56.dp)
+                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = destination.label,
+                                    style = FridayType.Body,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = "›",
+                                    style = FridayType.Display.copy(color = FridayColors.TextSecondary)
+                                )
+                            }
+                        }
                     }
-                    Spacer(Modifier.height(6.dp))
+                    Spacer(Modifier.height(8.dp))
                 }
                 Spacer(Modifier.height(18.dp))
             }
