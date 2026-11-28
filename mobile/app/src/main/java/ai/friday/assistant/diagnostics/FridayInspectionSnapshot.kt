@@ -28,7 +28,10 @@ data class FridayInspectionSnapshot(
     val availableMemoryBytes: Long,
     val availableStorageBytes: Long,
     val eventCount: Int,
-    val failureCount: Int
+    val failureCount: Int,
+    val turnStageCounts: Map<String, Int> = emptyMap(),
+    val turnRouteCounts: Map<String, Int> = emptyMap(),
+    val turnOutcomeCounts: Map<String, Int> = emptyMap()
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("schema", SCHEMA)
@@ -49,6 +52,9 @@ data class FridayInspectionSnapshot(
         .put("available_storage_bytes", availableStorageBytes)
         .put("event_count", eventCount)
         .put("failure_count", failureCount)
+        .put("turn_stage_counts", closedCounts(TurnDiagnosticJournal.Stage.values().map { it.name }, turnStageCounts))
+        .put("turn_route_counts", closedCounts(TurnDiagnosticJournal.Route.values().map { it.name }, turnRouteCounts))
+        .put("turn_outcome_counts", closedCounts(TurnDiagnosticJournal.Outcome.values().map { it.name }, turnOutcomeCounts))
         .put("privacy", JSONObject()
             .put("conversation_content_included", false)
             .put("transcripts_or_audio_included", false)
@@ -113,6 +119,11 @@ data class FridayInspectionSnapshot(
                 failureCount = failures?.length()?.coerceAtLeast(0) ?: 0
             )
         }
+
+        private fun closedCounts(allowed: List<String>, counts: Map<String, Int>): JSONObject =
+            JSONObject().apply {
+                allowed.forEach { key -> put(key, counts[key]?.coerceAtLeast(0) ?: 0) }
+            }
 
         private fun safeRevision(value: String): String =
             value.takeIf { it.matches(Regex("[0-9a-fA-F]{40}")) }?.lowercase() ?: "unknown"
