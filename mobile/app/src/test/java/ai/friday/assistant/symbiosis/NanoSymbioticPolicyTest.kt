@@ -26,6 +26,26 @@ class NanoSymbioticPolicyTest {
     }
 
     @Test
+    fun `Android low-memory flag forces critical mode even with apparent free RAM`() {
+        val host = HostResourceState(
+            availableMemoryMb = 4096,
+            cpuLoadPercent = 10.0,
+            thermalLevel = 0,
+            batteryPercent = 90,
+            isCharging = true,
+            availableStorageMb = 8192,
+            lowMemory = true
+        )
+        val plan = policy.plan(host)
+        assertEquals(SymbioticMode.CRITICAL, plan.mode)
+        assertEquals(768, plan.contextTokenBudget)
+        assertFalse(plan.allowBackgroundConsolidation)
+        val admission = policy.admitModel(host, 700L * 1024L * 1024L, 2048)
+        assertFalse(admission.allowed)
+        assertTrue(admission.reason.contains("system-wide low-memory"))
+    }
+
+    @Test
     fun `low battery selects eco mode and keeps expensive work serial`() {
         val plan = policy.plan(
             HostResourceState(

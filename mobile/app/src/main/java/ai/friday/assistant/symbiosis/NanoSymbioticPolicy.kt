@@ -12,7 +12,9 @@ data class HostResourceState(
     val thermalLevel: Int,
     val batteryPercent: Int,
     val isCharging: Boolean,
-    val availableStorageMb: Long = -1L
+    val availableStorageMb: Long = -1L,
+    /** Android's LMK pressure signal, stronger than a free-RAM estimate. */
+    val lowMemory: Boolean = false
 )
 
 enum class SymbioticMode { CRITICAL, ECO, BALANCED, PERFORMANCE }
@@ -105,6 +107,7 @@ class NanoSymbioticPolicy {
         val currentPlan = plan(host)
         val blockedReason = when {
             modelBytes <= 0L -> "Model file size is invalid."
+            host.lowMemory -> "Android reports system-wide low-memory pressure."
             host.thermalLevel >= 2 -> "Thermal pressure is high; wait for the phone to cool."
             host.availableMemoryMb < 650L -> "Available RAM is critically low."
             host.cpuLoadPercent >= 92.0 -> "The phone is already under heavy CPU load."
@@ -148,7 +151,7 @@ class NanoSymbioticPolicy {
             .coerceIn(192L, 768L)
 
         val mode = when {
-            host.thermalLevel >= 2 || host.availableMemoryMb < 650L -> SymbioticMode.CRITICAL
+            host.lowMemory || host.thermalLevel >= 2 || host.availableMemoryMb < 650L -> SymbioticMode.CRITICAL
             (!host.isCharging && host.batteryPercent in 0..19) ||
                 host.cpuLoadPercent >= 85.0 -> SymbioticMode.ECO
             host.isCharging && host.batteryPercent >= 60 &&

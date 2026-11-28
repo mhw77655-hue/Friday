@@ -124,6 +124,9 @@ class NanoSymbioticController(
             override val thermalLevel: Int = raw.thermalLevel
             override val batteryPercent: Int = raw.batteryPercent
             override val isCharging: Boolean = raw.isCharging
+            override val isLowMemory: Boolean = raw.lowMemory
+            override val totalMemoryMb: Long = device.totalMemoryMb
+            override val memoryThresholdMb: Long = device.memoryThresholdMb
         }
     }
 
@@ -232,7 +235,8 @@ class NanoSymbioticController(
             thermalLevel = device.thermalLevel,
             batteryPercent = device.batteryPercent,
             isCharging = device.isCharging,
-            availableStorageMb = storage
+            availableStorageMb = storage,
+            lowMemory = device.isLowMemory
         )
     }
 

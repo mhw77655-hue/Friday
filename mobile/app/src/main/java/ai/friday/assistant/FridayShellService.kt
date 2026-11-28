@@ -54,6 +54,10 @@ class FridayShellService : IFridayShellService.Stub() {
             .put("uid", Process.myUid())
             .put("pid", Process.myPid())
             .put("meminfo", readFile("/proc/meminfo", 12_000))
+            // PSI and reclaim counters distinguish genuine system-wide
+            // memory stalls from an ordinary low "free" number.
+            .put("memoryPressure", readFile("/proc/pressure/memory", 4_000))
+            .put("vmstat", readFile("/proc/vmstat", 6_000))
             .put("dataFilesystem", runFixed("df", "-k", "/data"))
             .put("battery", runFixed("dumpsys", "battery"))
             .put("buildFingerprint", runFixed("getprop", "ro.build.fingerprint"))
