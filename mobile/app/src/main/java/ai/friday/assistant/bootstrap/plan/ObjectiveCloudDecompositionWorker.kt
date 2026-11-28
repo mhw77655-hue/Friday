@@ -102,7 +102,12 @@ class ObjectiveCloudDecompositionWorker(
                 checkpointAfterFailure.isSuccess &&
                 checkpointAfterFailure.getOrNull() == checkpointBeforeAttempt
             val retryAttempt = inputData.getInt(KEY_SAFE_RETRY_ATTEMPT, 0)
-            val retryScheduled = safePreRequestFailure && retryAttempt < MAX_SAFE_RETRIES
+            val retryScheduled = canRetrySafely(
+                checkpointInspectionCompleted,
+                checkpointBeforeAttempt,
+                checkpointAfterFailure.getOrNull(),
+                retryAttempt
+            )
             if (retryScheduled) {
                 enqueueSafeRetry(applicationContext, taskId, retryAttempt + 1)
                 android.util.Log.i(TAG, "Cloud decomposition failed before a model request; scheduled bounded automatic retry ${retryAttempt + 1}/$MAX_SAFE_RETRIES.")
@@ -156,6 +161,18 @@ class ObjectiveCloudDecompositionWorker(
                 expiresAtEpochMs = now + TimeUnit.HOURS.toMillis(1)
             ).also { it.validate(now) }
         }
+
+        internal fun canRetrySafely(
+            checkpointInspectionCompleted: Boolean,
+            before: ai.friday.assistant.aiworkforce.table.ChatGPTTaskResultStore.Checkpoint?,
+            after: ai.friday.assistant.aiworkforce.table.ChatGPTTaskResultStore.Checkpoint?,
+            retryAttempt: Int
+        ): Boolean =
+            checkpointInspectionCompleted &&
+                before == after &&
+                before?.state != ai.friday.assistant.aiworkforce.table.ChatGPTTaskResultStore.State.RUNNING &&
+                before?.state != ai.friday.assistant.aiworkforce.table.ChatGPTTaskResultStore.State.INCOMPLETE &&
+                retryAttempt in 0 until MAX_SAFE_RETRIES
 
         private fun enqueueSafeRetry(context: Context, taskId: String, attempt: Int) {
             val request = OneTimeWorkRequestBuilder<ObjectiveCloudDecompositionWorker>()
