@@ -38,6 +38,7 @@ class TurnDiagnosticJournal(
     enum class Stage {
         INPUT_ACCEPTED,
         ACK_STARTED,
+        ACK_FLUSH_REQUESTED,
         ROUTE_SELECTED,
         COGNITION_STARTED,
         MODEL_REQUEST_STARTED,
