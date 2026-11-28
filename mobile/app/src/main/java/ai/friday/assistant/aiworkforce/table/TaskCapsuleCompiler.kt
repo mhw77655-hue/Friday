@@ -271,7 +271,7 @@ class TaskCapsuleCompiler {
 
     private fun StringBuilder.list(values: List<String>) {
         append(values.size).append(':')
-        values.forEach(::field)
+        values.forEach { value -> field(value) }
     }
 
     private fun sha256(value: String): String =
