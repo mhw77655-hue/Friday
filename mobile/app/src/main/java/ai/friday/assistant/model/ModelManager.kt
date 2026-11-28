@@ -765,7 +765,7 @@ class ModelManager(
         } catch (e: Exception) {
             if (attempt < MAX_RETRIES) {
                 delay(RETRY_DELAYS_MS.getOrElse(attempt) { RETRY_DELAYS_MS.last() })
-                attemptSend(message, attempt + 1, tierHandle)
+                attemptSend(message, attempt + 1, pinnedHandle)
             } else {
                 _status.value =
                     "local brain unreachable after ${attempt + 1} attempts (${e.message})"
