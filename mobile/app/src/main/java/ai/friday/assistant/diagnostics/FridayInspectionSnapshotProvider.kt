@@ -37,6 +37,7 @@ object FridayInspectionSnapshotProvider {
         val processExitCount = runCatching {
             ProcessExitDiagnostics.readSummary(context.applicationContext).length()
         }.getOrDefault(0)
+        val counts = aggregateDiagnosticCounts(eventCount, crashCount, processExitCount)
         return FridayInspectionSnapshot(
             capturedAtEpochMs = System.currentTimeMillis(),
             deviceCaptureAtEpochMs = host.capturedAtEpochMs,
@@ -56,8 +57,17 @@ object FridayInspectionSnapshotProvider {
             modelRuntime = modelStatus,
             availableMemoryBytes = host.availableRamBytes,
             availableStorageBytes = host.appStorageAvailableBytes,
-            eventCount = eventCount,
-            failureCount = crashCount + processExitCount
+            eventCount = counts.first,
+            failureCount = counts.second
         )
     }
+
+    /** Pure projection used by tests; only aggregate counts leave the handset. */
+    internal fun aggregateDiagnosticCounts(
+        turnEvents: Int,
+        crashRecords: Int,
+        processExitRecords: Int
+    ): Pair<Int, Int> =
+        turnEvents.coerceAtLeast(0) to
+            (crashRecords.coerceAtLeast(0) + processExitRecords.coerceAtLeast(0))
 }
