@@ -699,3 +699,50 @@ Current PR #183 is open at head `03ce04c641295c1b20b8a58d0ab99a97a6ec66bc`; exac
 - Immediate next actions: validate merge-SHA main build; verify the new signed release and signer/version/digest; obtain redacted physical-device runtime evidence; deliver an in-place update preserving package/data/signer; verify typed response/persistence; then verify microphone → STT → production turn → configured reasoning → voice synthesis → audible playback → interruption/idle.
 - CI green is not physical-device acceptance. The owner’s existing installation is not considered repaired until that handset passes typed and full voice acceptance.
 - The wider living-Friday vision, REA and Shizuku immune architecture remain the destination. They must not displace the current task of making the already-installed Friday functional and speaking.
+
+
+---
+
+## 16. Owner-directed execution update — 2026-11-28
+
+This entry supersedes stale operational assumptions in earlier chronological logs where they conflict with the owner's current direction or verified live state. Historical entries remain useful provenance, not current instructions.
+
+### Live bridge acceptance
+
+- The owner completed the ChatGPT custom MCP app setup for Friday Live Inspection.
+- The connected app reports the production `/mcp` endpoint and OAuth as supported and used.
+- ChatGPT successfully invoked both `friday_live_status` and `friday_inspection_snapshot`.
+- The fresh device snapshot identified Friday Android **1.0.631**, an enrolled and connected device, and an active inspection session. This establishes the read-only ChatGPT-to-phone diagnostic bridge at the tool-call level.
+- This bridge is diagnostic/read-only. It does not establish remote phone control, screen access, shell execution, file access or source-editing authority. Do not repeat phone pairing or recreate the MCP app absent evidence that enrollment or authorization has been lost.
+
+### Candidate sandbox status correction
+
+- PR #181, **Make the exact-candidate instrumented sandbox reusable and verifiable**, is merged. Its merged changes include the reusable `workflow_call`, exact-candidate/profile provenance validation and the dedicated mainline `android-instrumented` contract workflow.
+- PR #180 duplicated the same workflow/test changes, was non-mergeable, and is now closed as superseded by #181. Do not reopen or merge #180.
+- The PR-specific workflow-run lookup does not expose the push-triggered mainline canary. Therefore the canary's post-merge result remains **unverified** until its actual Actions run and artifact are inspected. Do not infer success from PR #181 being merged or from the ordinary emulator lane.
+
+### Owner clarification: current scope versus future capabilities
+
+- The owner confirms the currently installed app is **1.0.631**. Older 1.0.601/1.0.610 repair instructions are historical and must not be repeated.
+- The owner explicitly clarified that the model-runtime, speech-recognition and voice-runtime indicators discussed in the recent diagnostic exchange are placeholders for a later objective, not implemented current capabilities. The owner has no local model installed.
+- Consequently, absence/unavailability of those model/ASR/voice components is **not a current defect** and must not be reported as one. A UI label or diagnostic slot is not proof of implementation. Keep these capabilities in the future development scope without pretending they are operational today.
+
+### Immediate product direction: develop the continuing individual
+
+The primary product work is Friday's seed as one continuing digital individual—not REA, the ChatGPT bridge, the Builder, a voice feature, or an engineering dashboard. Those are resources/capabilities in service of Friday.
+
+The next product work should establish and prove the foundations already required by Sections 1–3 and 15:
+
+1. Audit the actual installed-source implementation of identity, local durable memory, experience capture, relationship/autobiographical continuity and process-restart recovery. Report only verified code paths and tests; do not infer implementation from screens, names or architecture documents.
+2. Identify the smallest real end-to-end developmental mechanism already present (if any). If none exists, implement one bounded experience-to-persistent-change path with provenance and reversible state.
+3. Add the causal acceptance experiment from Issue #74: compare pre/post behavior on a held-out later situation, preserve the causal trace, and demonstrate that disabling the learning mechanism removes or changes the learned effect. This is an experiment, not a permanent maturity scorecard or prescribed brain architecture.
+4. In parallel, progress Issue #189's local-memory/task compiler and provider-neutral cloud-worker contract. Local memory remains authoritative; cloud receives only task-scoped, consented context. No local LLM is a prerequisite.
+5. Keep the signed evolution runtime in Issue #190 as a strategic enabler, but do not let update infrastructure displace the immediate identity/continuity/development work.
+
+### Execution discipline
+
+- Read this plan, `.ralph/VISION.md`, `.ralph/OWNER_WORDS.md`, `AGENTS.md` and the relevant current issue/PR before implementation.
+- The canonical product line remains `main`; repository instructions prohibit creating competing feature branches.
+- Verify exact source SHA and current CI before modifying or promoting code. Preserve the existing production signing identity and user data.
+- Distinguish implemented, wired, operational, experimentally demonstrated and physically verified. Never convert an intention, UI placeholder, mock, CI pass or tool registration into a capability claim.
+- Do not ask the owner to repeat work already evidenced by the live bridge or current installed version.
