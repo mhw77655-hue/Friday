@@ -50,6 +50,10 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
             }
         }
 
+        /** NAE's memory mode must reach llama.cpp's transient prompt-batch allocation. */
+        internal fun resolveBatchSize(parameters: Map<String, String>): Int =
+            parameters["batch_size"]?.toIntOrNull()?.coerceIn(32, 512) ?: 512
+
         /** Native state enum matching C++ LlamaState (order must match C++ LlamaState values) */
         enum class NativeState {
             DORMANT,
@@ -205,6 +209,7 @@ class LocalInferenceEngine(private val context: Context) : ModelProvider {
         currentConfig = NativeConfig(
             modelPath = resolvedModel.absolutePath,
             nCtx = params["context_window"]?.toIntOrNull() ?: 4096,
+            nBatch = resolveBatchSize(params),
             nThreads = params["threads"]?.toIntOrNull() ?: 4,
             nGpuLayers = params["gpu_layers"]?.toIntOrNull() ?: 0,
             temp = params["temperature"]?.toFloatOrNull() ?: 0.7f,
