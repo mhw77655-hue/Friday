@@ -14,7 +14,6 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.BatteryManager
 import android.os.Build
-import android.os.Debug
 import android.app.ActivityManager
 import android.os.StatFs
 import android.os.Environment
@@ -920,7 +919,8 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                     .let { history ->
                         (0 until history.length()).count { index ->
                             val record = history.optJSONObject(index)
-                            record?.optString("reason") == "LOW_MEMORY" &&
+                            record != null &&
+                                record.optString("reason") == "LOW_MEMORY" &&
                                 record.optLong("timestamp") >= System.currentTimeMillis() - 14L * 24 * 60 * 60 * 1000
                         }
                     }
