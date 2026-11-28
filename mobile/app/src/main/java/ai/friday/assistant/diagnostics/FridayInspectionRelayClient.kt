@@ -162,7 +162,7 @@ class FridayInspectionRelayClient(context: Context) {
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                store.setStatus("Inspection connection unavailable")
+                if (store.isEnabled()) store.setStatus("Inspection connection unavailable")
                 finished.complete(Unit)
             }
 
@@ -173,8 +173,10 @@ class FridayInspectionRelayClient(context: Context) {
                     store.clearEnrollment()
                     keys.revokeLocalKey()
                     store.setStatus("Inspection access revoked")
-                } else {
+                } else if (store.isEnabled()) {
                     store.setStatus("Inspection disconnected")
+                } else {
+                    store.setStatus("Inspection paused")
                 }
                 finished.complete(Unit)
             }
