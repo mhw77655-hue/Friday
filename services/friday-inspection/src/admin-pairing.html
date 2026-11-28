@@ -62,8 +62,8 @@ async function ownerSession(){
  if(!session){login.hidden=false;pairing.hidden=true;return null}
  const check=await fetch("/owner/status",{headers:{Authorization:"Bearer "+session.access_token}});
  if(!check.ok){
-  login.hidden=true;pairing.hidden=true;
-  say(check.status===403?"This account is not authorized as the Friday owner.":"The owner session could not be verified. Sign in again.");
+  login.hidden=false;pairing.hidden=true;
+  say(check.status===403?"This signed-in account is not authorized as the Friday owner. Sign in with the configured owner account.":"The owner session could not be verified. Sign in again.");
   return null;
  }
  login.hidden=true;pairing.hidden=false;say("");
