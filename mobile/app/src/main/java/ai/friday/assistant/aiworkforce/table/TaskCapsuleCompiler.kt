@@ -45,7 +45,8 @@ class TaskCapsuleCompiler {
         val maxMemoryItems: Int = DEFAULT_MEMORY_ITEMS,
         val maxArtifactReferences: Int = DEFAULT_ARTIFACTS,
         /** Must be set only after a task-specific disclosure and owner consent. */
-        val privateContextApproved: Boolean = false
+        val privateContextApproved: Boolean = false,
+        val minimumRelevance: Double = 0.15
     )
 
     data class SelectedMemory(
@@ -56,6 +57,12 @@ class TaskCapsuleCompiler {
         val relevance: Double,
         val sensitivity: Sensitivity,
         val content: String
+    )
+
+    private data class ContextSelection(
+        val text: String,
+        val memories: List<SelectedMemory>,
+        val artifacts: List<ArtifactReference>
     )
 
     data class Capsule(
@@ -86,7 +93,7 @@ class TaskCapsuleCompiler {
 
         val memories = retrievedMemories.asSequence()
             .filter { it.id.isNotBlank() && it.source.isNotBlank() && it.provenanceId.isNotBlank() }
-            .filter { it.content.isNotBlank() && it.relevance.isFinite() && it.relevance in 0.0..1.0 }
+            .filter { it.content.isNotBlank() && it.relevance.isFinite() && it.relevance in request.minimumRelevance..1.0 }
             .filter {
                 when (it.sensitivity) {
                     Sensitivity.PUBLIC, Sensitivity.SANITIZED -> true
@@ -126,7 +133,8 @@ class TaskCapsuleCompiler {
             }
             .toList()
 
-        val context = buildContext(memories, artifacts, request.maxContextChars)
+        val selected = buildContext(memories, artifacts, request.maxContextChars)
+        val context = selected.text
         val canonical = buildString {
             field(request.taskId)
             field(objective)
@@ -145,8 +153,8 @@ class TaskCapsuleCompiler {
             constraints = constraints,
             allowedTools = request.allowedTools,
             outputSchema = schema,
-            memories = memories,
-            artifacts = artifacts,
+            memories = selected.memories,
+            artifacts = selected.artifacts,
             context = context,
             digestSha256 = sha256(canonical)
         )
@@ -156,8 +164,10 @@ class TaskCapsuleCompiler {
         memories: List<SelectedMemory>,
         artifacts: List<ArtifactReference>,
         maxChars: Int
-    ): String {
+    ): ContextSelection {
         val output = StringBuilder()
+        val includedMemories = mutableListOf<SelectedMemory>()
+        val includedArtifacts = mutableListOf<ArtifactReference>()
         for (memory in memories) {
             val block = buildString {
                 append("[MEMORY id=").append(memory.id)
@@ -170,13 +180,15 @@ class TaskCapsuleCompiler {
             }
             if (output.length + block.length > maxChars) continue
             output.append(block)
+            includedMemories.add(memory)
         }
         for (artifact in artifacts) {
             val block = "[ARTIFACT id=${artifact.id} sha256=${artifact.sha256} media_type=${artifact.mediaType} revision=${artifact.sourceRevision}] ${artifact.label}\n"
             if (output.length + block.length > maxChars) continue
             output.append(block)
+            includedArtifacts.add(artifact)
         }
-        return output.toString().trim()
+        return ContextSelection(output.toString().trim(), includedMemories, includedArtifacts)
     }
 
     private fun validate(request: Request) {
@@ -189,6 +201,7 @@ class TaskCapsuleCompiler {
         require(request.constraints.size <= 16 && request.constraints.all { it.isNotBlank() && it.length <= 500 }) { "Invalid constraints." }
         require(request.allowedTools.size <= 16 && request.allowedTools.all { it.matches(TOOL_ID) }) { "Invalid tool allowlist." }
         require(request.maxContextChars in 256..MAX_CONTEXT_CHARS) { "Invalid context budget." }
+        require(request.minimumRelevance.isFinite() && request.minimumRelevance in 0.0..1.0) { "Invalid relevance threshold." }
         require(request.maxMemoryItems in 0..MAX_MEMORY_ITEMS) { "Invalid memory item budget." }
         require(request.maxArtifactReferences in 0..MAX_ARTIFACTS) { "Invalid artifact reference budget." }
     }
