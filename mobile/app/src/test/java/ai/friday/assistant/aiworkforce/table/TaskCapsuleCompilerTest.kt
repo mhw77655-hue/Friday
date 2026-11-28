@@ -28,12 +28,12 @@ class TaskCapsuleCompilerTest {
     fun `only relevant eligible retrieved memories enter the capsule`() {
         val evidence = listOf(
             TaskCapsuleCompiler.MemoryEvidence("relevant", "Friday retained the same identity after restart.", "individual", "exp-1", 10L, 0.98, TaskCapsuleCompiler.Sensitivity.SANITIZED),
-            TaskCapsuleCompiler.MemoryEvidence("unrelated", "The user asked about a recipe.", "chat", "exp-2", 0.05, 11L, TaskCapsuleCompiler.Sensitivity.PUBLIC),
+            TaskCapsuleCompiler.MemoryEvidence("unrelated", "The user asked about a recipe.", "chat", "exp-2", 11L, 0.05, TaskCapsuleCompiler.Sensitivity.PUBLIC),
             TaskCapsuleCompiler.MemoryEvidence("private", "A private conversation detail.", "chat", "exp-3", 12L, 0.99, TaskCapsuleCompiler.Sensitivity.PRIVATE),
             TaskCapsuleCompiler.MemoryEvidence("sensitive", "A secret credential.", "settings", "exp-4", 13L, 1.0, TaskCapsuleCompiler.Sensitivity.SENSITIVE)
         )
         val capsule = compiler.compile(request(), evidence)
-        assertEquals(listOf("relevant", "unrelated"), capsule.memories.map { it.id })
+        assertEquals(listOf("relevant"), capsule.memories.map { it.id })
         assertFalse(capsule.context.contains("private conversation detail"))
         assertFalse(capsule.context.contains("secret credential"))
         assertTrue(capsule.context.contains("provenance=exp-1"))
