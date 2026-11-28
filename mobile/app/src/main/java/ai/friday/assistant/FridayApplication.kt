@@ -101,10 +101,7 @@ class FridayApplication : Application() {
             override fun onStateChanged(source: LifecycleOwner, event: Lifecycle.Event) {
                 val core = ai.friday.assistant.companioncore.presence.CompanionCoreHolder.instance()
                 when (event) {
-                    Lifecycle.Event.ON_STOP -> {
-                        ai.friday.assistant.diagnostics.FridayInspectionRelayRuntime.stop()
-                        core?.onBackground()
-                    }
+                    Lifecycle.Event.ON_STOP -> core?.onBackground()
                     Lifecycle.Event.ON_START -> {
                         core?.onForeground()
                         ai.friday.assistant.diagnostics.FridayInspectionRelayRuntime.start(this@FridayApplication)
