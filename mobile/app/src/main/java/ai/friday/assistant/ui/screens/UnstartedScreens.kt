@@ -152,6 +152,8 @@ fun MissionsScreen() {
                     createError = "Enter an objective first."
                 } else if (engine == null) {
                     createError = "Friday's cognitive engine is not ready yet."
+                } else if (cognitiveState.currentGoal != null) {
+                    createError = "Friday already has an objective. It has been preserved; this version does not overwrite it or queue a second one."
                 } else {
                     runCatching {
                         engine.setGoal(
@@ -170,7 +172,7 @@ fun MissionsScreen() {
                     }
                 }
             },
-            enabled = engine != null && objectiveDraft.isNotBlank(),
+            enabled = engine != null && cognitiveState.currentGoal == null && objectiveDraft.isNotBlank(),
             modifier = Modifier.padding(top = 10.dp)
         ) {
             Text("CREATE OBJECTIVE")
