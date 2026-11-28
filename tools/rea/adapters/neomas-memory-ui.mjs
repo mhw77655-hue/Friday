@@ -98,13 +98,28 @@ export function adaptNeomasMemoryUi({ target, evidenceRecords = [] }) {
     const asset = assetFor(evidenceRecords, spec.asset);
     if (!capture || !asset) continue;
     const refs = [...new Set([capture.evidence_id, asset.inspection.evidence_id].filter(Boolean))];
-    const confidence = 0.93;
+    // Screenshot/DOM co-observation supports a useful design hypothesis,
+    // not a near-certain claim about hidden product behavior.
+    const confidence = 0.65;
+    const provenance = {
+      source: "rea-adaptation-adapter",
+      adapter: "neomas-memory-ui",
+      adapter_version: 1,
+      target: {
+        kind: target.kind,
+        locator: url.origin + url.pathname,
+        revision: target.revision ?? null,
+      },
+      evidence_refs: refs,
+    };
     findings.push({
       id: "finding_neomas_memory_" + spec.id,
       kind: "ui_pattern",
       statement: spec.statement,
       confidence,
       evidence_refs: refs,
+      provenance,
+      review_state: "unreviewed",
       executable: false,
     });
     capabilityCandidates.push({
@@ -119,6 +134,7 @@ export function adaptNeomasMemoryUi({ target, evidenceRecords = [] }) {
       friday_mapping: spec.mapping,
       verification_requirements: spec.verification,
       evidence_refs: refs,
+      provenance,
       requires_owner_review: true,
       execution_allowed: false,
     });
@@ -160,7 +176,14 @@ export function adaptNeomasMemoryUi({ target, evidenceRecords = [] }) {
       "Verify read-only interactions do not alter stored memory.",
       "Independently review any proposed mutation or new capability before promotion.",
     ],
+    source_target: {
+      kind: target.kind,
+      locator: url.origin + url.pathname,
+      revision: target.revision ?? null,
+    },
     source_evidence_refs: sourceEvidenceRefs,
+    source_evidence_digest: digest({ target: target.locator, revision: target.revision ?? null, sourceEvidenceRefs }),
+    adapter: { name: "neomas-memory-ui", version: 1 },
     limitations,
   };
 
