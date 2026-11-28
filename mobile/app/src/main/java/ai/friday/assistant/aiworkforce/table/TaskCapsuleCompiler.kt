@@ -1,5 +1,7 @@
 package ai.friday.assistant.aiworkforce.table
 
+import ai.friday.assistant.memory.MemoryNode
+import ai.friday.assistant.memory.RankedMemory
 import java.security.MessageDigest
 
 /**
@@ -77,6 +79,34 @@ class TaskCapsuleCompiler {
         val artifacts: List<ArtifactReference>,
         val context: String,
         val digestSha256: String
+    )
+
+    /**
+     * Production retrieval adapter. Friday's existing BlendedMemoryRetriever
+     * remains the memory authority; the caller supplies the sensitivity policy
+     * because privacy classification must not be guessed from a memory's text.
+     */
+    fun compileRetrieved(
+        request: Request,
+        rankedMemories: List<RankedMemory>,
+        classifySensitivity: (MemoryNode) -> Sensitivity,
+        artifactReferences: List<ArtifactReference> = emptyList()
+    ): Capsule = compile(
+        request = request,
+        retrievedMemories = rankedMemories.map { ranked ->
+            val node = ranked.node
+            MemoryEvidence(
+                id = node.id,
+                content = listOf(node.subject, node.predicate, node.`object`)
+                    .filter { it.isNotBlank() }.joinToString(" "),
+                source = node.source.ifBlank { "local-memory-graph" },
+                provenanceId = node.id,
+                observedAtEpochMs = node.validFrom,
+                relevance = ranked.score.toDouble().coerceIn(0.0, 1.0),
+                sensitivity = classifySensitivity(node)
+            )
+        },
+        artifactReferences = artifactReferences
     )
 
     fun compile(
