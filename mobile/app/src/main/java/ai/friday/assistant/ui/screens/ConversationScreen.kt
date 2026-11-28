@@ -69,7 +69,7 @@ fun ConversationScreen() {
     fun sendCurrentInput() {
         val message = input.trim()
         if (message.isNotEmpty()) {
-            bodyCoordinator.submitText(message)
+            bodyCoordinator.submitText(input)
             input = ""
         }
     }
