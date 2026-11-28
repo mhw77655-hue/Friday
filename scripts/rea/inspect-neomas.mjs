@@ -246,6 +246,29 @@ async function main() {
       throw new Error("REA browser scenario failed: " + JSON.stringify(scenarioResult.content ?? scenarioResult).slice(0, 3000));
     }
 
+    // Capture the two public sections that contain the memory product's
+    // resurface, tension-card and source-index visual references.
+    for (const section of ["system-section", "mneme-section"]) {
+      const sectionArgs = toolArguments(scenarioTool, {
+        browser: { mode: "launch", executable_path: CHROME, headless: true },
+        start_url: { url: new URL("#" + section, requestedUrl).href },
+        actions: [{ step_id: "settle-" + section, action: "wait_for_timeout", duration_ms: 2000 }],
+        capture: {
+          at_end: ["screenshot", "dom", "accessibility", "url"],
+          events: ["network", "console", "page-errors"],
+          network: { request_body: false, response_body: false, header_values: false },
+        },
+        detail: "complete",
+        command_timeout_ms: 60000,
+      });
+      const sectionResult = await server.callTool(scenarioTool.name, sectionArgs);
+      results.push({ tool: scenarioTool.name, section, arguments: sectionArgs, result: sectionResult });
+      if (sectionResult?.isError) {
+        throw new Error("REA section capture failed for #" + section + ": " +
+          JSON.stringify(sectionResult.content ?? sectionResult).slice(0, 2500));
+      }
+    }
+
     const listed = await server.callTool(listTool.name, toolArguments(listTool, { cdp_endpoint: endpoint }));
     if (listed?.isError) throw new Error("REA browser discovery failed: " + JSON.stringify(listed.content ?? listed).slice(0, 2500));
     const selected = findTargets(structured(listed)).find((item) => {
@@ -333,6 +356,7 @@ async function main() {
       browser: browserVersion?.Browser ?? null,
       rea_version: VERSION,
       tools_called: results.map((entry) => entry.tool),
+      section_captures: ["hero", "#system-section", "#mneme-section"],
       evidence_refs: assimilation.evidence_refs,
       finding_count: assimilation.findings.length,
       capability_candidate_count: assimilation.capability_candidates.length,
