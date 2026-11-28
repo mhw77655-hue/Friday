@@ -48,14 +48,22 @@ class ObjectiveCloudDecompositionWorker(
         val cloud = ChatGPTTaskWorker(applicationContext)
         val digest = projection.projectionDigest()
 
+        var checkpointBeforeAttempt: ai.friday.assistant.aiworkforce.table.ChatGPTTaskResultStore.Checkpoint? = null
+        var checkpointInspectionCompleted = false
         try {
-            val checkpoint = cloud.recoverCheckpoint(projection.taskId, digest)
-            if (checkpoint != null && checkpoint.state != ai.friday.assistant.aiworkforce.table.ChatGPTTaskResultStore.State.COMPLETED) {
-                // An interrupted request is never silently repeated. A future
-                // explicit retry surface must mint a fresh approval.
-                android.util.Log.w(TAG, "Cloud decomposition has an incomplete prior request; preserving it without an automatic duplicate.")
+            // Inspect by stable task ID before matching the current digest.
+            // Older versions included the expiring approval timestamp in the
+            // digest; their RUNNING/INCOMPLETE checkpoint must still block a
+            // duplicate even when the newly generated digest differs.
+            checkpointBeforeAttempt = cloud.latestCheckpoint(projection.taskId)
+            checkpointInspectionCompleted = true
+            if (checkpointBeforeAttempt != null &&
+                checkpointBeforeAttempt?.state != ai.friday.assistant.aiworkforce.table.ChatGPTTaskResultStore.State.COMPLETED
+            ) {
+                android.util.Log.w(TAG, "Cloud decomposition has an ambiguous prior request; preserving it without an automatic duplicate.")
                 return@withContext Result.success()
             }
+            val checkpoint = cloud.recoverCheckpoint(projection.taskId, digest)
 
             if (checkpoint == null) {
                 // This is a PUBLIC canonical-plan projection. The owner has
@@ -86,12 +94,27 @@ class ObjectiveCloudDecompositionWorker(
             throw cancelled
         } catch (failure: Exception) {
             store.recordDecompositionFailure(taskId, failure.message ?: failure.javaClass.simpleName)
-            android.util.Log.w(TAG, "Cloud objective decomposition did not complete; the parent task remains queued.", failure)
+            // Retry automatically only when the durable journal proves no new
+            // model request was started. RUNNING/INCOMPLETE checkpoints are
+            // ambiguous (the provider may have accepted/billed the request).
+            val checkpointAfterFailure = runCatching { cloud.latestCheckpoint(projection.taskId) }
+            val safePreRequestFailure = checkpointInspectionCompleted &&
+                checkpointAfterFailure.isSuccess &&
+                checkpointAfterFailure.getOrNull() == checkpointBeforeAttempt
+            val retryAttempt = inputData.getInt(KEY_SAFE_RETRY_ATTEMPT, 0)
+            val retryScheduled = safePreRequestFailure && retryAttempt < MAX_SAFE_RETRIES
+            if (retryScheduled) {
+                enqueueSafeRetry(applicationContext, taskId, retryAttempt + 1)
+                android.util.Log.i(TAG, "Cloud decomposition failed before a model request; scheduled bounded automatic retry ${retryAttempt + 1}/$MAX_SAFE_RETRIES.")
+            } else {
+                android.util.Log.w(TAG, "Cloud objective decomposition did not complete; the parent task remains queued and no ambiguous request was repeated.", failure)
+            }
             Result.success(
                 Data.Builder()
-                    .putString("status", "deferred")
+                    .putString("status", if (retryScheduled) "safe_retry_scheduled" else "deferred")
                     .putString("task_id", taskId)
                     .putString("reason", failure.javaClass.simpleName)
+                    .putBoolean("automatic_retry_scheduled", retryScheduled)
                     .build()
             )
         }
@@ -100,6 +123,9 @@ class ObjectiveCloudDecompositionWorker(
     companion object {
         private const val TAG = "FridayObjectiveCloud"
         private const val KEY_TASK_ID = "task_id"
+        private const val KEY_SAFE_RETRY_ATTEMPT = "safe_retry_attempt"
+        private const val MAX_SAFE_RETRIES = 6
+        private const val SAFE_RETRY_DELAY_MINUTES = 10L
         private const val UNIQUE_PREFIX = "friday-objective-cloud-decomposition-"
 
         internal fun buildProjection(parent: JSONObject, sourceRevision: String, now: Long = System.currentTimeMillis()): ChatGPTTaskWorker.TaskProjection {
@@ -129,6 +155,35 @@ class ObjectiveCloudDecompositionWorker(
                 classification = ChatGPTTaskWorker.TaskProjection.Classification.PUBLIC,
                 expiresAtEpochMs = now + TimeUnit.HOURS.toMillis(1)
             ).also { it.validate(now) }
+        }
+
+        private fun enqueueSafeRetry(context: Context, taskId: String, attempt: Int) {
+            val request = OneTimeWorkRequestBuilder<ObjectiveCloudDecompositionWorker>()
+                .setInputData(
+                    Data.Builder()
+                        .putString(KEY_TASK_ID, taskId)
+                        .putInt(KEY_SAFE_RETRY_ATTEMPT, attempt)
+                        .build()
+                )
+                .setInitialDelay(SAFE_RETRY_DELAY_MINUTES, TimeUnit.MINUTES)
+                .setConstraints(
+                    Constraints.Builder()
+                        .setRequiredNetworkType(NetworkType.CONNECTED)
+                        .setRequiresStorageNotLow(true)
+                        .build()
+                )
+                .setBackoffCriteria(
+                    androidx.work.BackoffPolicy.EXPONENTIAL,
+                    30,
+                    TimeUnit.SECONDS
+                )
+                .build()
+            val uniqueName = UNIQUE_PREFIX + taskId + "-safe-retry-" + attempt
+            WorkManager.getInstance(context.applicationContext).enqueueUniqueWork(
+                uniqueName,
+                ExistingWorkPolicy.KEEP,
+                request
+            )
         }
 
         fun enqueue(context: Context, taskId: String) {
