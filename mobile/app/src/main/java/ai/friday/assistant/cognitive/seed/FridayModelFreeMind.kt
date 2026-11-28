@@ -35,8 +35,11 @@ class FridayModelFreeMind(
 
     fun respond(input: String): String {
         val normalized = input.trim().lowercase()
-        val associations = if (learningEnabled) substrate.infer(features(input), limit = 8) else emptyMap()
-            .filterKeys { it.startsWith("word:") }
+        val associations = (if (learningEnabled) {
+            substrate.infer(features(input), limit = 8)
+        } else {
+            emptyMap<String, Double>()
+        }).filterKeys { it.startsWith("word:") }
             .keys.map { it.removePrefix("word:") }
 
         MY_NAME.matchEntire(input.trim())?.groupValues?.getOrNull(1)?.let { rawName ->
