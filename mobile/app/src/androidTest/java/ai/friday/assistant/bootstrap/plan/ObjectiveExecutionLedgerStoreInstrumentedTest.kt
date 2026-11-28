@@ -48,5 +48,12 @@ class ObjectiveExecutionLedgerStoreInstrumentedTest {
         val recovered = store.reconcile()
         assertEquals("Reconciliation must preserve accepted task history.", taskCount, recovered.optJSONArray("tasks")?.length() ?: 0)
         assertFalse("Reconciliation must not silently discard the canonical source hash.", recovered.optString("plan_sha256").isBlank())
+
+        // A damaged local copy is recoverable from the exact plan packaged in
+        // this signed APK; the trusted asset wins, while the execution ledger survives.
+        plan.writeText("corrupt local plan", Charsets.UTF_8)
+        val repaired = store.reconcile()
+        assertEquals(packaged, plan.readText(Charsets.UTF_8))
+        assertEquals(taskCount, repaired.optJSONArray("tasks")?.length() ?: 0)
     }
 }
