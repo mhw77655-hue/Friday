@@ -14,6 +14,12 @@ interface ResourceSnapshot {
     val thermalLevel: Int // 0 = normal, 1 = throttled, 2 = critical
     val batteryPercent: Int // 0..100
     val isCharging: Boolean
+    /** True when Android reports system-wide low-memory pressure. */
+    val isLowMemory: Boolean get() = false
+    /** Total physical RAM, not storage-backed RAM expansion. */
+    val totalMemoryMb: Long get() = 0L
+    /** Android's low-memory threshold. */
+    val memoryThresholdMb: Long get() = 0L
 
     companion object {
         /** Neutral all-clear fallback used by ResourceGovernor's unwired default. */

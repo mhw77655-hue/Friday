@@ -77,6 +77,17 @@ class ResourceGovernorTest {
     }
 
     @Test
+    fun `Android low-memory signal degrades on-demand cognition even above static RAM budget`() {
+        val lowMemory = object : ResourceSnapshot by healthy {
+            override val isLowMemory: Boolean = true
+        }
+        assertEquals(
+            AdmissionDecision.DEGRADE_TO(ModelTier.RESIDENT),
+            governor.admit(wake(ModelTier.ON_DEMAND_REASONING), lowMemory)
+        )
+    }
+
+    @Test
     fun `low battery and not charging denies a non-essential background wake even with plenty of RAM and CPU`() {
         val lowBattery = FakeResourceSnapshot(
             availableMemoryMb = 8192,

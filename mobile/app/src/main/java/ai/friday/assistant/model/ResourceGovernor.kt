@@ -64,6 +64,9 @@ open class ResourceGovernor(
         { ResourceSnapshot.alwaysHealthy() }
 ) {
 
+    /** Capture one live snapshot for coordinated admission/reclamation decisions. */
+    fun currentSnapshot(): ResourceSnapshot = snapshotProvider()
+
     /** Admit against the live snapshot from [snapshotProvider]. */
     open fun admit(request: OrganWakeRequest): AdmissionDecision = admit(request, snapshotProvider())
 
@@ -86,7 +89,8 @@ open class ResourceGovernor(
 
         // RAM / CPU / thermal pressure: degrade down the ladder, never bare-deny.
         val underPressure =
-            snapshot.availableMemoryMb < budget.minAvailableMemoryMb ||
+            snapshot.isLowMemory ||
+                snapshot.availableMemoryMb < budget.minAvailableMemoryMb ||
                 snapshot.cpuLoadPercent > budget.maxCpuLoadPercent ||
                 snapshot.thermalLevel > budget.maxThermalLevel
         return if (underPressure) {

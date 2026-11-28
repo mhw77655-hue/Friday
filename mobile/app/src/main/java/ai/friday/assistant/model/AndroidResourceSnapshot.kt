@@ -25,13 +25,15 @@ import java.io.File
  */
 class AndroidResourceSnapshot(private val context: Context) : ResourceSnapshot {
 
-    override val availableMemoryMb: Long
-        get() {
-            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-            val info = ActivityManager.MemoryInfo()
-            am.getMemoryInfo(info)
-            return info.availMem / (1024 * 1024)
-        }
+    private fun memoryInfo(): ActivityManager.MemoryInfo {
+        val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        return ActivityManager.MemoryInfo().also(manager::getMemoryInfo)
+    }
+
+    override val availableMemoryMb: Long get() = memoryInfo().availMem / (1024 * 1024)
+    override val totalMemoryMb: Long get() = memoryInfo().totalMem / (1024 * 1024)
+    override val memoryThresholdMb: Long get() = memoryInfo().threshold / (1024 * 1024)
+    override val isLowMemory: Boolean get() = memoryInfo().lowMemory
 
     override val cpuLoadPercent: Double
         get() = readCpuLoad()

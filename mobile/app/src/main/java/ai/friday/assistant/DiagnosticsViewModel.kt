@@ -14,6 +14,7 @@ import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.BatteryManager
 import android.os.Build
+import android.os.Debug
 import android.app.ActivityManager
 import android.os.StatFs
 import android.os.Environment
@@ -903,6 +904,53 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 if (batteryExempt) "Android reports Friday as exempt from battery optimization." else "Friday is not reported as exempt from Doze battery optimization.",
                 if (!batteryExempt) "Use Android battery settings or the Shizuku Protect Friday action. This cannot prevent force-stop or all OEM task killers." else null
             )
+            // Diagnose Android-wide pressure separately from Friday's own PSS.
+            runCatching {
+                val memoryManager = context.getSystemService(ActivityManager::class.java)
+                    ?: error("ActivityManager unavailable")
+                val memoryInfo = ActivityManager.MemoryInfo().also(memoryManager::getMemoryInfo)
+                val processMemory = memoryManager.getProcessMemoryInfo(intArrayOf(android.os.Process.myPid())).firstOrNull()
+                val pssMb = (processMemory?.totalPss ?: 0) / 1024
+                val totalMb = memoryInfo.totalMem / (1024 * 1024)
+                val availableMb = memoryInfo.availMem / (1024 * 1024)
+                val thresholdMb = memoryInfo.threshold / (1024 * 1024)
+                val memoryClassMb = memoryManager.memoryClass
+                val recentLowMemoryExits = ai.friday.assistant.diagnostics.ProcessExitDiagnostics
+                    .readSummary(context)
+                    .let { history ->
+                        (0 until history.length()).count { index ->
+                            val record = history.optJSONObject(index)
+                            record?.optString("reason") == "LOW_MEMORY" &&
+                                record.optLong("timestamp") >= System.currentTimeMillis() - 14L * 24 * 60 * 60 * 1000
+                        }
+                    }
+                val pressured = memoryInfo.lowMemory || availableMb <= thresholdMb
+                val appHeavy = pssMb > (memoryClassMb * 0.65)
+                val level = if (pressured || appHeavy || recentLowMemoryExits > 0) {
+                    DiagnosticLevel.WARNING
+                } else DiagnosticLevel.PASS
+                add(
+                    "phone-memory",
+                    "Phone RAM and Friday memory footprint",
+                    level,
+                    "Physical RAM=${totalMb}MB; available=${availableMb}MB; Android low-memory threshold=${thresholdMb}MB; lowMemory=${memoryInfo.lowMemory}; Friday PSS=${pssMb}MB; app memory class=${memoryClassMb}MB; Friday low-memory exits in 14 days=${recentLowMemoryExits}.",
+                    when {
+                        pressured -> "Android currently reports system memory pressure. Friday will reduce optional model work and reclaim idle on-demand models; inspect the device-wide process list before changing OEM settings."
+                        appHeavy -> "Friday's process is using a large share of its Android memory class. Keep inference isolated, shorten model context/KV cache and inspect native allocations before selecting a larger model."
+                        recentLowMemoryExits > 0 -> "Android recorded Friday low-memory exits. Compare exit timestamps with model loads and voice activity; do not disable Android's low-memory killer."
+                        else -> "No current system low-memory pressure or recent Friday low-memory exits were observed. Repeat during the slowdown to capture the actual cause."
+                    }
+                )
+            }.onFailure {
+                add(
+                    "phone-memory",
+                    "Phone RAM and Friday memory footprint",
+                    DiagnosticLevel.WARNING,
+                    "Android memory telemetry could not be collected (${it.javaClass.simpleName}).",
+                    "Retry diagnostics while the phone is experiencing the slowdown."
+                )
+            }
+
             _selfDiagnosticFindings.value = findings
             _selfDiagnosticAt.value = System.currentTimeMillis()
             val failures = findings.count { it.level == DiagnosticLevel.FAILURE }

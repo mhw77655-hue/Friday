@@ -440,11 +440,18 @@ class ModelManager(
      */
     internal suspend fun runCooldownSweep() {
         val now = clock()
+        // Android's low-memory signal is authoritative. Under pressure, reclaim
+        // idle on-demand organs sooner; never unload the resident continuity tier
+        // or a tier currently being loaded.
+        val memory = runCatching { resourceGovernor.currentSnapshot() }.getOrNull()
+        val reclaimGraceMs = if (memory?.isLowMemory == true ||
+            (memory != null && memory.availableMemoryMb < 384L)
+        ) PRESSURE_RECLAIM_GRACE_MS else cooldownMs
         val expired = synchronized(lifecycleLock) {
             cachedByTier.keys.filter { tier ->
                 tier != ModelTier.RESIDENT &&
                     tier !in inflight &&
-                    (now - (lastUsedMs[tier] ?: 0L)) >= cooldownMs
+                    (now - (lastUsedMs[tier] ?: 0L)) >= reclaimGraceMs
             }
         }
         for (tier in expired) {
@@ -571,12 +578,17 @@ class ModelManager(
         data class Lead(val deferred: CompletableDeferred<ModelHandle>) : LoadOutcome
     }
 
+    companion object {
+        internal const val SWEEP_INTERVAL_MS = 10_000L
+        internal const val PRESSURE_RECLAIM_GRACE_MS = 20_000L
+    }
+
     // Start the background cooldown sweep (unless tests inject a manual clock).
     init {
         if (autoSweep) {
             scope.launch {
                 while (true) {
-                    delay(cooldownMs)
+                    delay(SWEEP_INTERVAL_MS)
                     try {
                         runCooldownSweep()
                     } catch (e: Exception) {
