@@ -253,7 +253,7 @@ jobs:
           if [[ -n "$PRODUCT_CHANGES" ]]; then
             echo "current=false" >> "$GITHUB_OUTPUT"
             echo "Withholding signed release: Android product/build inputs changed while the APK was being built:"
-            printf '%s\\n' "$PRODUCT_CHANGES"
+            printf '%s\n' "$PRODUCT_CHANGES"
           else
             echo "current=true" >> "$GITHUB_OUTPUT"
             echo "The signed APK still matches the current Android product source."
