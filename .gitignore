@@ -7,7 +7,6 @@ mobile/app/build/
 local.properties
 logs/*.jsonl
 snapshots/
-local.properties
 hf-space-source/
 mobile/app/src/main/assets/models/*.gguf
 mobile/app/src/main/assets/models/*.ggml
@@ -22,16 +21,18 @@ building/
 mobile/app/src/main/assets/vosk-model-small-en-us-0.15/
 mobile/app/src/main/assets/sherpa-onnx-whisper-tiny.en/
 
-# local build / run noise - NEVER commit
+# Local build / run noise — never commit
 .kotlin/
 mobile/app/.cxx/
 .ralph/*.log
 .ralph/prd.json.bak
 .ralph/.ralph_active
 
-# Private owner conversation archives must never be committed
+# Private owner conversation archives and uploaded diagnostic bundles
 New Folder chats.zip
 New folder.zip
+New folder (1).zip
+log.zip
 *.owner-private.zip
 
 # Friday production signing material
