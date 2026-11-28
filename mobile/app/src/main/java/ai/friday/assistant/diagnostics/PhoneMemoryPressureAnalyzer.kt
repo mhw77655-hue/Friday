@@ -91,7 +91,7 @@ object PhoneMemoryPressureAnalyzer {
     }
 
     private fun parseTopProcesses(raw: String): List<Pair<String, Long>> =
-        Regex("""(?m)^\\s*(\\d+)\\s+kB:\\s+([^\\s(]+)""")
+        Regex("""(?m)^\s*(\d+)\s+kB:\s+([^\s(]+)""")
             .findAll(raw)
             .mapNotNull { match ->
                 val kb = match.groupValues[1].toLongOrNull() ?: return@mapNotNull null
