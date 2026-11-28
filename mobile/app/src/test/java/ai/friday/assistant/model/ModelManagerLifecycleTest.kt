@@ -81,7 +81,7 @@ class ModelManagerLifecycleTest {
 
         val second = m.request(OrganRole.RESIDENT, task = "reload-after-nae-reclaim", modelId = "resident-model")
         assertTrue(backend.isLoaded(second))
-        assertEquals(first.id, second.id)
+        assertNotEquals("an independently reclaimed backend handle must be replaced, not reused", first.id, second.id)
         assertEquals(2, backend.loadCount)
     }
 
