@@ -107,7 +107,7 @@ internal fun FridayInspectionSettingsSection(context: Context) {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Allow live read-only inspection", style = FridayType.Body)
-                Text("Default off · connection exists while Friday is open", style = FridayType.Label)
+                Text("Default off · background connection stays alive only if Friday runtime is enabled", style = FridayType.Label)
             }
             Switch(
                 checked = enabled,
