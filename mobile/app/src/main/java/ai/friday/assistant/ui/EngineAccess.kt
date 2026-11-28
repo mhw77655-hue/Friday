@@ -46,6 +46,9 @@ object EngineAccess {
     fun fridayIndividual(): EngineSlot<ai.friday.assistant.cognitive.seed.FridayIndividual> =
         FridayEngine.fridayIndividualSlot()
 
+    fun memoryGraphStore(): EngineSlot<ai.friday.assistant.memory.MemoryGraphStore> =
+        FridayEngine.memoryGraphStoreSlot()
+
     fun sessionManager(): EngineSlot<ai.friday.assistant.session.SessionManager> =
         FridayEngine.sessionManagerSlot()
 

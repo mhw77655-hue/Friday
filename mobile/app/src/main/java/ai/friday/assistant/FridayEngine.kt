@@ -899,6 +899,7 @@ object FridayEngine {
     fun bodyCoordinatorSlot(): EngineSlot<BodyCoordinator> = readinessGate.slot { bodyCoordinator }
     fun languageRouterSlot(): EngineSlot<LanguageRouter> = readinessGate.slot { languageRouter }
     fun memoryStoreSlot(): EngineSlot<MemoryStore> = readinessGate.slot { memoryStore }
+    fun memoryGraphStoreSlot(): EngineSlot<ai.friday.assistant.memory.MemoryGraphStore> = readinessGate.slot { graphStore }
     fun streamingTtsSlot(): EngineSlot<StreamingTts> = readinessGate.slot { streamingTts }
     fun visualStateBridgeSlot(): EngineSlot<VisualStateBridge> = readinessGate.slot { visualStateBridge }
     fun voiceOrganismHostSlot(): EngineSlot<ai.friday.assistant.voice.VoiceOrganismHost> = readinessGate.slot { voiceOrganismHost }
