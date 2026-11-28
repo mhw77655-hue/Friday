@@ -109,6 +109,83 @@ class LocalTaskInboxTest {
     }
 
     @Test
+    fun `submitOnce deduplicates external proposals and preserves approval gate`() = runBlocking {
+        val dir = tempDir()
+        val firstInbox = inbox(dir)
+        val first = firstInbox.submitOnce(
+            id = "agent-reply:stable-message-id",
+            source = "chatgpt-cloud",
+            description = "Review external proposal",
+            capability = "review_external_agent_proposal",
+            arguments = mapOf("message_id" to "stable-message-id"),
+            requiresApproval = true
+        )
+        val duplicate = firstInbox.submitOnce(
+            id = "agent-reply:stable-message-id",
+            source = "chatgpt-cloud",
+            description = "Review external proposal",
+            capability = "review_external_agent_proposal",
+            arguments = mapOf("message_id" to "stable-message-id"),
+            requiresApproval = true
+        )
+
+        assertEquals(first.id, duplicate.id)
+        val changedContent = runCatching {
+            firstInbox.submitOnce(
+                id = "agent-reply:stable-message-id",
+                source = "chatgpt-cloud",
+                description = "Review external proposal",
+                capability = "review_external_agent_proposal",
+                arguments = mapOf("message_id" to "different-message-id"),
+                requiresApproval = true
+            )
+        }
+        assertTrue("stable IDs must not be rebound to changed content", changedContent.isFailure)
+        assertEquals(InboxTaskStatus.WAITING_APPROVAL, first.status)
+        assertEquals(1, firstInbox.tasks.value.count { it.id == first.id })
+
+        val reopened = inbox(dir)
+        awaitCondition { reopened.tasks.value.any { it.id == first.id } }
+        val restored = reopened.getTask(first.id)!!
+        assertEquals(InboxTaskStatus.WAITING_APPROVAL, restored.status)
+        assertEquals("stable-message-id", restored.arguments["message_id"])
+        val conflictingReplay = runCatching {
+            reopened.submitOnce(
+                id = first.id,
+                source = "chatgpt-cloud",
+                description = "Changed proposal",
+                capability = "review_external_agent_proposal",
+                arguments = mapOf("message_id" to "changed-after-restart"),
+                requiresApproval = true
+            )
+        }
+        assertTrue("recovered task identity must remain bound to its original content", conflictingReplay.isFailure)
+    }
+
+    @Test
+    fun `accepting external proposal records review without making it executable`() = runBlocking {
+        val dir = tempDir()
+        val taskInbox = inbox(dir)
+        val proposal = taskInbox.submitOnce(
+            id = "agent-reply:review-only-test",
+            source = "chatgpt-cloud",
+            description = "Consider the external engineering proposal",
+            capability = "review_external_agent_proposal",
+            arguments = mapOf("message_id" to "review-only-test"),
+            requiresApproval = true
+        )
+
+        assertEquals(InboxTaskStatus.WAITING_APPROVAL, proposal.status)
+        assertTrue(taskInbox.reviewExternalProposal(proposal.id, accepted = true).isSuccess)
+
+        val reviewed = taskInbox.getTask(proposal.id)!!
+        assertEquals(InboxTaskStatus.COMPLETED, reviewed.status)
+        assertEquals("accepted_for_consideration", reviewed.result?.get("decision"))
+        assertEquals(false, reviewed.result?.get("executed"))
+        assertEquals(null, taskInbox.claimNext())
+    }
+
+    @Test
     fun `tasks survive a simulated restart`() = runBlocking {
         val dir = tempDir()
         val i1 = inbox(dir)

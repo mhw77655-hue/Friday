@@ -528,3 +528,27 @@ Collaboration continues in stacked draft PRs #194 and #195: public-only GitHub t
 - Keep Material 3 as the semantic component/accessibility foundation; evaluate current Material 3 Expressive APIs and update Compose BOM from the stale 2024.09.00 only after dependency compatibility, minSdk 26, Kotlin/AGP, APK size, GPU/memory and screenshot/performance tests. Haze native Android backdrop backend remains experimental; use source-backed rendering as the reliable cross-version path.
 - Next UI work is a full authored design-system pass (materials, layout, typography, navigation, motion, interaction, accessibility, AMOLED true-black hierarchy), not a one-library makeover. Build screenshot/golden comparisons on Home, Conversation, Settings and system/diagnostic screens; owner review before release.
 - No dependency or production code has been changed by this audit. This is an implementation decision and investigation record only.
+
+
+### 2026-11-28 — consolidate Friday public GitHub task relay onto current main
+
+- The previous relay implementation existed as two stacked draft PRs (#194/#195), based on older main revisions. Rather than merge stale stacked branches, copied the reviewed implementation files onto a fresh branch from current main and reapplied the small SettingsScreen integration against current source.
+- Consolidated branch: `feat/github-task-relay-integrated`. Includes the versioned public-only task envelope/relay, repository client, trusted actor and default-OFF consent controls, durable local reply inbox, WorkManager polling, Settings integration, unit tests and consent instrumentation.
+- Public GitHub threads remain strictly limited to public project metadata and public engineering context. Private task projections, phone snapshots, conversations, memory, credentials and diagnostics are excluded.
+- Existing stacked PRs #194/#195 remain open pending replacement-branch CI and review; no merge or physical-device acceptance is claimed.
+- Separate private ChatGPT task-worker implementation is being developed in PR #197. It uses the existing SIWC token provider, requires a one-shot approval bound to the exact task projection, rejects sensitive classification, bounds context and expiry, uses Responses API `store=false` and `stream=true`, and never accepts GitHub credentials. It is an outbound API worker, not a connection to this exact ChatGPT UI conversation.
+- Remaining to complete the link: wire explicit per-task approval into Friday UI/task lifecycle; persist task checkpoints and completed Responses IDs/results before acknowledgement; connect public GitHub task metadata to the private worker without putting private payloads in public issues; add authenticated read-only device broker (#188); run exact-head CI and physical-phone acceptance.
+
+
+- Follow-up hardening on the consolidated relay branch: public payload validation now scans serialized content for common GitHub/OpenAI/Google/Slack bearer/API-key and private-key patterns in addition to forbidden private-field names; regression test added. The Settings handshake now embeds the exact 40-character BuildConfig source revision when available, falling back explicitly to an app-version marker rather than pretending the version is a commit SHA.
+- Added the exact ChatGPT v1 reply-envelope contract to `docs/FRIDAY_AGENT_TASK_RELAY.md`, so the connected GitHub collaborator can post machine-ingestible replies instead of unstructured comments.
+
+
+- Closed the reply-to-Friday gap in the relay branch: accepted GitHub comments are now durably journaled, then imported idempotently into the canonical `LocalTaskInbox` under a stable message-derived ID as `WAITING_APPROVAL` proposals, before GitHub acknowledgement. Crash replay is safe; duplicate replies do not create duplicate local tasks; no external proposal is auto-executed.
+- Added `LocalTaskInbox.submitOnce`, a worker-safe application-context factory, the `AgentTaskReplyInboxBridge`, and tests for stable import/deduplication and the approval gate. The relay now connects GitHub replies to Friday's local task surface rather than merely showing them in Settings.
+
+
+- Additional crash/replay hardening: LocalTaskInbox now persists an external proposal before exposing it in memory, and stable-ID deduplication rejects reuse of the same idempotency key with different proposal content. This closes the case where a failed disk write or altered duplicate message could otherwise be acknowledged as if safely imported.
+
+
+- Review correction: the GitHub reply bridge now targets the already-running `FridayEngine.taskInbox` when available, rather than always creating a second `LocalTaskInbox` instance. This prevents a stale in-memory StateFlow while preserving the cold-start path (a worker-created durable inbox is recovered by normal engine startup). CI run #3771 is validating this current relay head.

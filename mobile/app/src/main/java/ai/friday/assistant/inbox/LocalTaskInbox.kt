@@ -5,6 +5,7 @@ import android.util.Log
 import ai.friday.assistant.FridayEngine
 import ai.friday.assistant.humancore.store.FileStorage
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
@@ -17,6 +18,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
+import java.io.IOException
 import java.util.concurrent.atomic.AtomicLong
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.asLiveData
@@ -49,10 +51,18 @@ class LocalTaskInbox(
 
     private val _failedTasks = MutableStateFlow<List<InboxTask>>(emptyList())
     val failedTasks = _failedTasks.asStateFlow()
+    private val initialLoad = CompletableDeferred<Unit>()
+    @Volatile private var initialLoadFailure: Exception? = null
 
     init {
         inboxDir.mkdirs()
-        scope.launch { loadTasks() }
+        scope.launch {
+            try {
+                loadTasks()
+            } finally {
+                initialLoad.complete(Unit)
+            }
+        }
     }
 
     /** UI-friendly observe method returning LiveData of TaskEntry */
@@ -83,6 +93,53 @@ class LocalTaskInbox(
         )
         addTask(task)
         return task
+    }
+
+    /**
+     * Idempotently import an externally received proposal under a stable ID.
+     * The task is always WAITING_APPROVAL: external model output is evidence,
+     * never an executable instruction.
+     */
+    suspend fun submitOnce(
+        id: String,
+        source: String,
+        description: String,
+        capability: String,
+        arguments: Map<String, Any>,
+        requiresApproval: Boolean = true
+    ): InboxTask = withContext(Dispatchers.IO) {
+        initialLoad.await()
+        initialLoadFailure?.let {
+            throw IOException("Cannot safely deduplicate an external proposal because the existing inbox did not load.", it)
+        }
+        require(id.matches(Regex("[A-Za-z0-9._:-]{8,160}"))) { "Stable task ID is malformed." }
+        mutationMutex.withLock {
+            _tasks.value.firstOrNull { it.id == id }?.let { existing ->
+                require(
+                    existing.source == source &&
+                        existing.capability == capability &&
+                        existing.arguments == arguments &&
+                        existing.requiresApproval == requiresApproval
+                ) { "Stable task ID is already bound to different proposal content." }
+                return@withLock existing
+            }
+            val task = InboxTask(
+                id = id,
+                source = source,
+                description = description,
+                capability = capability,
+                arguments = arguments,
+                status = if (requiresApproval) InboxTaskStatus.WAITING_APPROVAL else InboxTaskStatus.PENDING,
+                createdAt = System.currentTimeMillis(),
+                requiresApproval = requiresApproval
+            )
+            // Persist first: if disk I/O fails, do not expose an in-memory
+            // task that a retry could mistake for a durable import.
+            persistTask(task)
+            _tasks.value = _tasks.value + task
+            refreshDerivedFlows()
+            task
+        }
     }
 
     /** Get a task by ID */
@@ -211,6 +268,41 @@ class LocalTaskInbox(
         Result.success(Unit)
     }
 
+    /**
+     * Record an owner decision on an external proposal without placing it in the
+     * executable PENDING queue. Accepted proposals are retained as completed
+     * review records; a separate, explicitly authored task is required to act.
+     */
+    suspend fun reviewExternalProposal(taskId: String, accepted: Boolean): Result<Unit> = withContext(Dispatchers.IO) {
+        val task = _tasks.value.find { it.id == taskId }
+            ?: return@withContext Result.failure(IllegalArgumentException("Proposal not found"))
+        if (task.source != "chatgpt-cloud" || task.capability != "review_external_agent_proposal") {
+            return@withContext Result.failure(IllegalArgumentException("Task is not an external agent proposal"))
+        }
+        if (task.status != InboxTaskStatus.WAITING_APPROVAL) {
+            return@withContext Result.failure(IllegalStateException("Proposal is no longer awaiting review"))
+        }
+        val now = System.currentTimeMillis()
+        val decision = if (accepted) "accepted_for_consideration" else "declined"
+        val updated = task.copy(
+            status = if (accepted) InboxTaskStatus.COMPLETED else InboxTaskStatus.FAILED,
+            completedAt = now,
+            requiresApproval = false,
+            result = mapOf(
+                "decision" to decision,
+                "executed" to false,
+                "reviewed_at_epoch_ms" to now
+            ),
+            history = task.history + TaskHistoryEntry(
+                timestamp = now,
+                action = if (accepted) "OWNER_ACCEPTED_PROPOSAL" else "OWNER_DECLINED_PROPOSAL",
+                detail = "Review decision recorded; no external action was executed."
+            )
+        )
+        updateTask(updated)
+        Result.success(Unit)
+    }
+
     /** Deny a waiting-approval task */
     suspend fun deny(taskId: String, reason: String): Result<Unit> = withContext(Dispatchers.IO) {
         val task = _tasks.value.find { it.id == taskId }
@@ -285,6 +377,7 @@ class LocalTaskInbox(
                 refreshDerivedFlows()
             }
         } catch (failure: Exception) {
+            initialLoadFailure = failure
             Log.e("LocalTaskInbox", "Could not load or reconcile the persisted task inbox", failure)
         }
     }
@@ -306,6 +399,12 @@ class LocalTaskInbox(
         fun create(): LocalTaskInbox = LocalTaskInbox(
             fileStorage = FileStorage(FridayEngine.appContext().filesDir),
             scope = CoroutineScope(SupervisorJob() + Dispatchers.Main + inboxExceptionHandler)
+        )
+
+        /** Worker-safe factory that does not depend on the activity/engine singleton being initialized. */
+        fun create(context: android.content.Context): LocalTaskInbox = LocalTaskInbox(
+            fileStorage = FileStorage(context.applicationContext.filesDir),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + inboxExceptionHandler)
         )
     }
 }
