@@ -128,3 +128,30 @@ export function isFresh(timestamp, now = Date.now()) {
   return Number.isSafeInteger(timestamp) && timestamp > 0 &&
     timestamp <= now + 30_000 && now - timestamp <= MAX_SNAPSHOT_AGE_MS;
 }
+
+
+export function validateOwnerClaims(claims, { issuer, resource, ownerEmail, now = Date.now() }) {
+  if (!claims || typeof claims !== "object" || Array.isArray(claims)) {
+    throw new TypeError("token_claims_invalid");
+  }
+  if (claims.iss !== issuer) throw new TypeError("token_issuer_invalid");
+  const audiences = Array.isArray(claims.aud) ? claims.aud : [claims.aud];
+  if (!audiences.includes(resource)) throw new TypeError("token_audience_invalid");
+  const nowSeconds = Math.floor(now / 1000);
+  if (!Number.isSafeInteger(claims.exp) || claims.exp <= nowSeconds) {
+    throw new TypeError("token_expired");
+  }
+  if (!Number.isSafeInteger(claims.iat) || claims.iat <= 0 || claims.iat > nowSeconds + 30) {
+    throw new TypeError("token_issued_at_invalid");
+  }
+  if (typeof claims.sub !== "string" || claims.sub.length === 0 ||
+      typeof claims.client_id !== "string" || claims.client_id.length === 0 ||
+      claims.role !== "authenticated" || claims.is_anonymous === true) {
+    throw new TypeError("token_subject_or_client_invalid");
+  }
+  if (!ownerEmail || typeof claims.email !== "string" ||
+      claims.email.toLowerCase() !== ownerEmail.toLowerCase()) {
+    throw new TypeError("owner_access_denied");
+  }
+  return claims;
+}
