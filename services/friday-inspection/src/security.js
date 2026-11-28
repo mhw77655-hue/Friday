@@ -141,6 +141,9 @@ export function validateOwnerClaims(claims, { issuer, resource, ownerEmail, now 
   if (!Number.isSafeInteger(claims.exp) || claims.exp <= nowSeconds) {
     throw new TypeError("token_expired");
   }
+  if (claims.nbf !== undefined && (!Number.isSafeInteger(claims.nbf) || claims.nbf > nowSeconds)) {
+    throw new TypeError("token_not_yet_valid");
+  }
   if (!Number.isSafeInteger(claims.iat) || claims.iat <= 0 || claims.iat > nowSeconds + 30) {
     throw new TypeError("token_issued_at_invalid");
   }
