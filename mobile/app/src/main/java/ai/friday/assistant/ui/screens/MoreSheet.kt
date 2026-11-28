@@ -31,6 +31,7 @@ fun MoreSheet(
 ) {
     val groups = listOf(
         "WORKSPACE" to listOf(
+            MoreDestination("Objectives", "missions"),
             MoreDestination("Task Inbox", "task_inbox"),
             MoreDestination("Approvals", "approvals"),
             MoreDestination("Alerts", "alerts"),
@@ -38,7 +39,6 @@ fun MoreSheet(
             MoreDestination("Environment", "environment")
         ),
         "FRIDAY" to listOf(
-            MoreDestination("Individuality", "individual"),
             MoreDestination("Memory", "memory"),
             MoreDestination("Visual Presence", "vision"),
             MoreDestination("Voice Studio", "voice_studio"),
