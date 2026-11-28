@@ -562,3 +562,32 @@ Collaboration continues in stacked draft PRs #194 and #195: public-only GitHub t
 - PR #197 is a separate Friday-triggerable SIWC Responses API worker, not this connected ChatGPT session. Its exact-head CI run #3796 passed all available CI jobs. It remains draft because owner-facing per-task approval UI and binding into Friday's canonical task lifecycle are not complete. Its encrypted task-result journal now recovers completed work after process recreation and preserves interrupted output as INCOMPLETE.
 - Next engineering work: (1) validate #3797 and release the merged public task channel in a same-signature APK; (2) implement the single Friday-owned task lifecycle that can dispatch a public engineering task through the GitHub mailbox or a private task through the separately authorized SIWC worker, preserving one task ID, consent model, checkpoint/recovery and provenance; (3) complete the private worker approval/recovery UI; (4) build the read-only device evidence broker (#188) so GPT can request allowlisted live diagnostics through Friday rather than reading private data from GitHub.
 - Do not claim the exact ChatGPT UI session can be automatically woken by Friday. The GitHub mailbox is asynchronous and processed when the connected GPT collaborator is active; SIWC is the direct Friday-triggered model endpoint. These are two adapters behind one task fabric, not a replacement for Friday's identity or a user-facing chat route.
+
+
+### 2026-11-28 — live Friday ↔ GPT inspection implementation resumed (02:50 UTC)
+
+Current repository state re-verified against GitHub, not inferred from prior chat:
+- Default branch is `main`, current commit `443f6ad5d931421a1b6903f9a03ed28789509aa7`.
+- Public structured task channel PR #198 is merged at `076eaa376654bae037f3598ff1f35b892ca46556`; exact-head build #3789 passed and post-merge main build #3797 passed.
+- Terminology clarification PR #199 has now been merged at `90ef28f64151d89d0075872c55aef6ccf1238399`; exact-head CI run #3799 passed.
+- Signed release workflow run #611 (`46089683391`) is still in progress for main commit `443f6ad...`; do not claim a signed APK exists until the workflow completes and its artifact/signature/digest are verified.
+- PR #197 remains draft/open. It is a Friday-triggered SIWC Responses API worker, not the active GPT collaborator session. It must not be presented as satisfying the owner's requested live-session connection.
+- Issue #188 remains the controlling missing capability: authenticated, device-bound, read-only inspection of the actual running Friday instance.
+
+Architecture correction for implementation:
+- Keep GitHub as source control, CI/release evidence and the public engineering task ledger. Do not place private device evidence in this public repository.
+- The active GPT session already has repository-scoped GitHub access and can inspect source, diffs, issues, commits and workflow evidence through its connected GitHub integration.
+- The missing live-runtime leg requires a private authenticated tool surface callable by ChatGPT. The technically appropriate integration target is a remote MCP server exposing narrowly scoped read-only Friday inspection tools; the phone maintains an outbound authenticated connection to a relay and answers scoped inspection requests from its local allowlisted broker.
+- A remote MCP server must be hosted on reachable HTTPS or connected through a supported Secure MCP Tunnel. ChatGPT custom MCP availability depends on account/workspace plan and settings; the user must make a one-time connection/authorization if the product surface requires it. Do not claim this session can see phone state before that connection is actually active.
+- The current connected GitHub integration cannot itself reach Android runtime state. The existing `FRIDAY_LIVE_TEST_DIAGNOSTIC_BRIDGE.md` is a local report/copy/share path, not the requested live cloud inspection channel.
+- OpenAI SIWC plan-use is separate and optional: it provides an authorized Responses API worker, not access to this ChatGPT session or its conversation. Do not substitute it for the live-session MCP bridge.
+
+Implementation order:
+1. Finish and verify release workflow #611, including APK package/version, same-signer fingerprint, SHA-256 and release asset.
+2. Build the Android read-only inspection broker with a hard-coded allowlist of runtime health/capability/process/service/provider/voice states, bounded sanitized event windows, freshness/provenance and revocation. No taps, shell, file writes, arbitrary screen content, microphone/transcript/notification/contact access.
+3. Build the private outbound relay + remote MCP surface. MCP tools must be read-only: obtain status, read allowlisted snapshot, read bounded events, and submit a scoped evidence request that Friday may accept/deny locally. No arbitrary RPC or mutation tool.
+4. Add device-bound pairing, short-lived credentials, challenge/response, replay protection, rate limits, explicit owner-visible connected indicator, local audit and immediate revocation.
+5. Connect the remote MCP server to the supported ChatGPT surface and verify from this active GPT environment that it can retrieve a timestamped live snapshot from the physical phone.
+6. Only after live inspection works, connect the same task identity/provenance to GitHub source changes, candidate PRs, CI and owner-approved release flow.
+
+Acceptance remains a real physical-phone round trip. Green CI, a public GitHub task issue, a SIWC model request, an exported diagnostic report or a release artifact alone does not satisfy it.
