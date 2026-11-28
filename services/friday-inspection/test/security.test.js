@@ -153,3 +153,26 @@ test("rejects wrong issuer, expired token, missing OAuth client and non-owner", 
   assert.throws(() => validateOwnerClaims({ ...base, client_id: "" }, options), /token_subject_or_client_invalid/);
   assert.throws(() => validateOwnerClaims({ ...base, email: "other@example.com" }, options), /owner_access_denied/);
 });
+
+
+test("allows owner Supabase sessions for admin setup without weakening MCP client binding", () => {
+  const claims = {
+    iss: "https://example.supabase.co/auth/v1",
+    aud: "authenticated",
+    exp: Math.floor(now / 1000) + 300,
+    iat: Math.floor(now / 1000),
+    sub: "owner-user-id",
+    role: "authenticated",
+    is_anonymous: false,
+    email: "owner@example.com"
+  };
+  const options = {
+    issuer: "https://example.supabase.co/auth/v1",
+    resource: "authenticated",
+    ownerEmail: "owner@example.com",
+    requireClientId: false,
+    now
+  };
+  assert.equal(validateOwnerClaims(claims, options), claims);
+  assert.throws(() => validateOwnerClaims(claims, { ...options, requireClientId: true }), /token_subject_or_client_invalid/);
+});
