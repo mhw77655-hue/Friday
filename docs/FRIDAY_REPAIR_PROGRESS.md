@@ -591,3 +591,31 @@ Implementation order:
 6. Only after live inspection works, connect the same task identity/provenance to GitHub source changes, candidate PRs, CI and owner-approved release flow.
 
 Acceptance remains a real physical-phone round trip. Green CI, a public GitHub task issue, a SIWC model request, an exported diagnostic report or a release artifact alone does not satisfy it.
+
+
+## 2026-11-28 — owner correction: build the live ChatGPT ↔ Friday inspection link
+
+The owner restated the required operating model: Friday is an independent agent; this ChatGPT engineering agent must be able to inspect the complete repository and the actual running Friday app, diagnose it, implement/review changes, validate CI and feed verified results back into Friday. The owner does not want a user-facing chat replacement, a keyboard/chat UI, or repeated intermediate APKs.
+
+### Verified live repository state
+- Merged PR [#198](https://github.com/mhw77655-hue/Friday/pull/198), merge commit `076eaa376654bae037f3598ff1f35b892ca46556`, supplies the public-only GitHub task relay and Android inbox. It does **not** expose private/live handset state to this ChatGPT session.
+- PR [#197](https://github.com/mhw77655-hue/Friday/pull/197) remains draft/open at `708cda9cec4f1b2da6d5f07b4ceffc519d08f3c1`; exact-head Actions run [#3796](https://github.com/mhw77655-hue/Friday/actions/runs/46087803792) completed successfully. It is an outbound SIWC Responses API worker, not a bridge into this exact ChatGPT UI session. Its PR description still lists approval UI/task lifecycle integration and physical-phone/live-account acceptance as incomplete.
+- PR [#199](https://github.com/mhw77655-hue/Friday/pull/199) exact-head Actions run [#3799](https://github.com/mhw77655-hue/Friday/actions/runs/46089097031) completed successfully. It is terminology/UI wording only.
+- Issue [#188](https://github.com/mhw77655-hue/Friday/issues/188) has no implementation PR yet. The authenticated read-only phone broker and private live inspection relay remain the actual missing capability.
+- This ChatGPT session has connected GitHub repository read/write access and can inspect/modify source, PRs, issues and CI. It has no direct Android/ADB/physical handset connector; no fresh live runtime snapshot has been retrieved.
+- Repository README requires authorized changes directly on `main`; do not create feature branches.
+
+### Correct ChatGPT-side integration route
+OpenAI's current documentation supports custom remote MCP apps in ChatGPT conversations. A Friday MCP server can expose strictly read-only tools for live device status, diagnostic summary, service/capability readiness and bounded safe event evidence. Private phone data must never go through this public GitHub repository. The MCP endpoint needs a Friday-owned private HTTPS host, authentication and a one-time ChatGPT web connection; account/workspace permissions determine whether custom read-only MCP is available. Sources: [ChatGPT custom MCP connections](https://help.openai.com/en/articles/12584461-connecting-custom-mcp-servers-in-chatgpt), [MCP servers](https://developers.openai.com/api/docs/guides/tools-connectors-mcp), [Secure MCP Tunnel](https://developers.openai.com/api/docs/guides/secure-mcp-tunnels).
+
+The only Supabase project visible to this session is `venture-autopilot`; it is not Friday infrastructure and must not be repurposed for private phone telemetry. No Friday-specific hosted MCP/relay deployment config was found at repository root. Do not claim the exact ChatGPT session can inspect the handset until its MCP tool can retrieve a fresh, authenticated, timestamped snapshot and revocation is tested.
+
+### Critical next implementation sequence
+1. Implement a phone-side read-only diagnostic broker with a strict allowlist, data minimisation, timestamp/source revision, redaction and local enforcement. No shell, taps, UI actions, arbitrary files, transcripts, memory or credentials.
+2. Implement a private device-bound relay and remote MCP server with short-lived credentials, mutual authentication, replay/rate limits, revocation and audit.
+3. Deploy the server to Friday-owned infrastructure; connect it to ChatGPT web if this account/workspace supports the required custom MCP read/fetch permission.
+4. Prove from this ChatGPT session: live snapshot read, freshness/provenance check, revoke, and denied access after revocation.
+5. Keep GitHub as repository/CI/review/release workspace; Friday's local task journal remains the coordination authority.
+
+### Honest status
+The repository and GitHub side are accessible here. The live phone side is **not connected yet**. The required MCP host/ChatGPT connection is not deployed or registered. This is the current critical path, not a completed handshake.
