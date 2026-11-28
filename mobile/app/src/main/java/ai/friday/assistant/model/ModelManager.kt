@@ -415,9 +415,23 @@ class ModelManager(
         var tier = role.tier
         while (true) {
             val cached = synchronized(lifecycleLock) { cachedByTier[tier] }
-            if (cached != null) {
-                synchronized(lifecycleLock) { lastUsedMs[tier] = clock() }
+            if (cached != null && modelBackend.isAvailable(cached)) {
+                synchronized(lifecycleLock) {
+                    if (cachedByTier[tier] == cached) lastUsedMs[tier] = clock()
+                }
                 return WakeResult(handle = cached, requestedTier = role.tier, servedTier = tier)
+            }
+            if (cached != null) {
+                // The backend may independently unload a model after its own
+                // per-turn NAE admission check. Do not keep returning that
+                // stale handle forever; evict it and let the normal wake gate
+                // make a fresh, resource-aware load decision.
+                synchronized(lifecycleLock) {
+                    if (cachedByTier[tier] == cached) {
+                        cachedByTier.remove(tier)
+                        lastUsedMs.remove(tier)
+                    }
+                }
             }
             if (tier == ModelTier.RESIDENT) {
                 val handle = loadOnce(tier, modelId = modelId ?: defaultModelId(tier), providerType = providerType)
