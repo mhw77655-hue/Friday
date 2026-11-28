@@ -625,3 +625,15 @@ The repository and GitHub side are accessible here. The live phone side is **not
 - PR [#199](https://github.com/mhw77655-hue/Friday/pull/199) was squash-merged to main as `90ef28f64151d89d0075872c55aef6ccf1238399` after exact-head Actions run [#3799](https://github.com/mhw77655-hue/Friday/actions/runs/46089097031) completed successfully. This changes terminology/UI wording to describe structured agent task exchange rather than chat; it does not add live phone inspection.
 - A workflow run associated with the merge commit was not returned by the commit-to-PR-workflow lookup; do not claim a post-merge main build passed until an exact-SHA run is observed.
 - Critical path remains issue #188: implement the private read-only Android diagnostic broker and a Friday-hosted remote MCP endpoint, then connect that endpoint to ChatGPT web and verify live read/revoke. No fresh handset snapshot has been retrieved by this ChatGPT session.
+
+
+### 2026-11-28 — first live-inspection privacy boundary implemented
+
+- Re-verified repository main at 89186231b3dc0bdd0d8ab182d160f56536fb8b13 before the change. Existing DiagnosticsViewModel.createExportReport() already produces friday-device-report-v2; it is intentionally richer than a remote endpoint should expose.
+- Added FridayInspectionSnapshot, a strict projection from the local support report to friday-live-inspection-v1. It copies only app version/version code/source revision, Android API, device-capture time, normalised subsystem readiness states, available RAM/storage and event/failure counts.
+- Status values are reduced to a closed vocabulary (ready, starting, idle, permission_required, unavailable, unknown). Raw subsystem text is not forwarded.
+- Added unit tests covering the allowlist, unsupported report schemas, hostile version/revision strings, and exclusion of transcript, credential, model-name, private event and raw failure content.
+- Added docs/FRIDAY_LIVE_INSPECTION_BRIDGE.md with the privacy boundary, transport requirements and Proxima decision.
+- Commits on main: fe5a2bbffddcb2f6efe4c65c209cd4f96690bca8 (projection), b8f40e641a92dae7ca0a83b3987d049ad03a34ee (tests), 656ffa3c1494af6a14c32ba9e536a654945158f6 (bridge contract), a5db33359f158b71a40fa78e321afcef5e62f73f (boolean permission normalisation).
+- NOT YET COMPLETE: no device-bound pairing/session, outbound relay, hosted MCP server, deployment or ChatGPT custom MCP registration exists yet. No physical phone snapshot has been retrieved by this ChatGPT session. This code is the data-minimisation boundary, not a live connection. Run current-main CI and fix any failures before proceeding.
+- Proxima upstream was inspected at Zen4-bit/Proxima. It is a desktop-local gateway and its current Personal Use License is non-commercial; do not embed or redistribute it as part of Friday's commercial product. It is not a phone-to-cloud tunnel and does not grant this ChatGPT session access to a local Proxima process.
