@@ -12,6 +12,7 @@ It copies only:
 - closed-vocabulary status values for network, battery, Shizuku, microphone permission, speech recognition, voice runtime and model runtime;
 - available memory/storage byte counts;
 - counts of bounded local diagnostic events and failures.
+- counts by the closed lifecycle stage, route and outcome enums (for example model request started, local fallback selected, speech handoff and timeout); these are aggregates only, never raw event records.
 
 It never copies raw diagnostic events, failure messages, stack traces, exception text, model names, screen state, notification content, conversation/transcript/audio data, personal memory, files, credentials or tokens. Free-form status strings are normalised to a closed vocabulary before export.
 
