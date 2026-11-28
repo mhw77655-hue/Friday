@@ -44,9 +44,21 @@ object FridayInspectionSnapshotProvider {
         val crashCount = diagnosticsDirectory.listFiles { file ->
             file.isFile && file.name.startsWith("last-crash-") && file.name.endsWith(".json")
         }?.size ?: 0
-        val processExitCount = runCatching {
-            ProcessExitDiagnostics.readSummary(context.applicationContext).length()
-        }.getOrDefault(0)
+        val processExitRecords = runCatching {
+            ProcessExitDiagnostics.readSummary(context.applicationContext)
+        }.getOrElse { org.json.JSONArray() }
+        val processExitCount = processExitRecords.length()
+        val exitReasons = listOf(
+            "ANR", "CRASH", "NATIVE_CRASH", "LOW_MEMORY", "EXCESSIVE_RESOURCE",
+            "INITIALIZATION_FAILURE", "DEPENDENCY_DIED", "APP_FREEZER", "PERMISSION_CHANGE",
+            "PACKAGE_UPDATED", "USER_REQUESTED", "USER_STOPPED", "OS_SIGNAL", "SELF_EXIT", "OTHER"
+        )
+        val exitReasonCounts = exitReasons.associateWith { reason ->
+            (0 until processExitRecords.length()).count { index ->
+                val raw = processExitRecords.optJSONObject(index)?.optString("reason").orEmpty()
+                (raw.takeIf { it in exitReasons } ?: "OTHER") == reason
+            }
+        }
         val counts = aggregateDiagnosticCounts(eventCount, crashCount, processExitCount)
         return FridayInspectionSnapshot(
             capturedAtEpochMs = System.currentTimeMillis(),
@@ -71,7 +83,8 @@ object FridayInspectionSnapshotProvider {
             failureCount = counts.second,
             turnStageCounts = stageCounts,
             turnRouteCounts = routeCounts,
-            turnOutcomeCounts = outcomeCounts
+            turnOutcomeCounts = outcomeCounts,
+            processExitReasonCounts = exitReasonCounts
         )
     }
 
