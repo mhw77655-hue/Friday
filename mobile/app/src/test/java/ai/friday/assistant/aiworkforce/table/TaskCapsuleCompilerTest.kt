@@ -88,7 +88,7 @@ class TaskCapsuleCompilerTest {
     fun `context budget is hard and artifact bytes are never embedded`() {
         val evidence = (1..8).map {
             TaskCapsuleCompiler.MemoryEvidence(
-                "m$it", "Evidence $it " + "x".repeat(100), "memory", "p$it", it.toLong(), 1.0 - it / 100.0,
+                "m$it", "Evidence $it " + "x".repeat(500), "memory", "p$it", it.toLong(), 1.0 - it / 100.0,
                 TaskCapsuleCompiler.Sensitivity.PUBLIC
             )
         }
@@ -98,7 +98,7 @@ class TaskCapsuleCompilerTest {
         )
         val capsule = compiler.compile(request(maxContextChars = 400), evidence, listOf(artifact))
         assertTrue(capsule.context.length <= 400)
-        assertFalse(capsule.context.contains("x".repeat(100)))
+        assertTrue(capsule.memories.isEmpty())
         assertTrue(capsule.context.contains("sha256=" + "a".repeat(64)) || capsule.artifacts.isEmpty())
     }
 
