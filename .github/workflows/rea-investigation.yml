@@ -89,7 +89,8 @@ jobs:
           mkdir -p "$RUNNER_TEMP/rea-targets"
           # Match the owner's confirmed installed Friday version for this investigation.
           gh release download friday-v1.0.631 --repo mhw77655-hue/Friday \
-            --pattern app-release.apk --dir "$RUNNER_TEMP/rea-targets"
+            --pattern app-release.apk --pattern friday.apk.sha256 --dir "$RUNNER_TEMP/rea-targets"
+          (cd "$RUNNER_TEMP/rea-targets" && sed 's#friday.apk#app-release.apk#' friday.apk.sha256 | sha256sum -c -)
           curl -fL --retry 3 \
             -o "$RUNNER_TEMP/rea-targets/shizuku-v13.6.0.apk" \
             https://github.com/RikkaApps/Shizuku/releases/download/v13.6.0/shizuku-v13.6.0.r1086.2650830c-release.apk
