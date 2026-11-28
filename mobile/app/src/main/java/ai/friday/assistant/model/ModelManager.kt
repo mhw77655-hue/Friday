@@ -578,11 +578,6 @@ class ModelManager(
         data class Lead(val deferred: CompletableDeferred<ModelHandle>) : LoadOutcome
     }
 
-    companion object {
-        internal const val SWEEP_INTERVAL_MS = 10_000L
-        internal const val PRESSURE_RECLAIM_GRACE_MS = 20_000L
-    }
-
     // Start the background cooldown sweep (unless tests inject a manual clock).
     init {
         if (autoSweep) {
@@ -733,6 +728,9 @@ class ModelManager(
     }
 
     internal companion object {
+        /** Pressure-aware sweep cadence and idle reclamation grace. */
+        const val SWEEP_INTERVAL_MS = 10_000L
+        const val PRESSURE_RECLAIM_GRACE_MS = 20_000L
         /**
          * REASONING-TIER-MODEL-GROUND-TRUTH-AND-WIRE: the ON_DEMAND_REASONING
          * tier always wakes the DISTINCT friday-reasoning model — never the
