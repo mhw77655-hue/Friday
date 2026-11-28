@@ -443,9 +443,4 @@ internal class ObjectiveBuilderCandidateExecutor(
         return JSONObject(cleaned.substring(start, end + 1))
     }
 
-    companion object {
-        private const val MAX_CONTEXT_CHARS = 24_000
-        private const val MAX_CONTEXT_FILE_CHARS = 7_000
-        private const val MAX_FILE_CHARS = 60_000
-    }
 }
