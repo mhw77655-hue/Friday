@@ -377,6 +377,7 @@ async function main() {
     const rawRecord = {
       schema_version: 1,
       captured_at: capturedAt,
+      investigation_id: process.env.NEOMAS_INVESTIGATION_ID ?? null,
       target,
       browser: browserVersion,
       rea: { package: "rea-agents", version: VERSION, integrity: INTEGRITY, server: serverInfo },
@@ -391,6 +392,7 @@ async function main() {
     await writeFile(resolve(outputDir, "neomas-friday-assimilation.json"), JSON.stringify(assimilation, null, 2) + "\n");
     await writeFile(resolve(outputDir, "neomas-rea-summary.json"), JSON.stringify({
       status: results.some((entry) => entry.result?.isError) ? "partial" : "completed",
+      investigation_id: process.env.NEOMAS_INVESTIGATION_ID ?? null,
       target,
       browser: browserVersion?.Browser ?? null,
       rea_version: VERSION,

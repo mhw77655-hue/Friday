@@ -1,4 +1,5 @@
 name: Friday REA Neomas website investigation
+run-name: Friday REA Neomas investigation ${{ github.event.inputs.investigation_id || github.run_id }}
 
 on:
   push:
@@ -8,6 +9,16 @@ on:
       - "tools/rea/evidence-converter.mjs"
       - ".github/workflows/rea-neomas-investigation.yml"
   workflow_dispatch:
+    inputs:
+      investigation_id:
+        description: Friday-generated durable investigation identifier
+        required: true
+        type: string
+      target_url:
+        description: Public Neomas HTTPS URL
+        required: false
+        default: https://neomas.app/
+        type: string
 
 permissions:
   contents: read
@@ -56,7 +67,8 @@ jobs:
 
       - name: Run real upstream REA against Neomas
         env:
-          NEOMAS_URL: https://neomas.app/
+          NEOMAS_URL: ${{ github.event.inputs.target_url || 'https://neomas.app/' }}
+          NEOMAS_INVESTIGATION_ID: ${{ github.event.inputs.investigation_id || github.run_id }}
         run: node scripts/rea/inspect-neomas.mjs
 
       - name: Upload Neomas REA evidence and Friday assimilation packet
