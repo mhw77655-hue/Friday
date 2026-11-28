@@ -230,3 +230,10 @@ This adds four more clearly redundant refs to the branch-pruning candidate set (
 ### Current scope decision
 
 Branch pruning is deferred at the owner's request. Continue with actionable repository hygiene and engineering validation; do not spend further time trying to obtain branch-deletion access.
+
+
+### Open PR deduplication and legacy issue triage — 2026-11-28
+
+- Closed PR #163 as a verified duplicate aggregate. Its five full per-file patches were byte-for-byte identical to the union of PR #139 (three files: environment activation/authorization policy) and PR #138 (two files: screen-capture verification). Kept #138 and #139 open as narrower, independently reviewable safety fixes. The closed PR and its diff remain preserved in GitHub history.
+- Audited overlapping file sets across all 18 open PRs. Other overlaps were intentional/partial (e.g. stacked #194/#195, shared settings screen between #195/#134, and separate additions to the canonical delivery plan); no other exact duplicate aggregate was found. The 18th inventory count is now 17 open PRs after closing #163.
+- Legacy issue #2 remains open. Its referenced `ralph/wip` branch still exists and is three commits ahead of `main`, containing unique historical audit reports and a launch-survival test. It is stale by date but not disposable based on current evidence; preserve it for later salvage review. Issue #1 remains closed as its duplicate.
