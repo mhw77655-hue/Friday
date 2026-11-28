@@ -102,7 +102,7 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Public GitHub task relay", style = FridayType.Body, color = FridayColors.TextPrimary)
+        Text("Public engineering task channel", style = FridayType.Body, color = FridayColors.TextPrimary)
         Text(
             "This Friday repository is public. Task titles, issue bodies and replies are visible to anyone. This relay accepts public project engineering context only; never send private phone snapshots, personal details, conversations, memory, transcripts or credentials.",
             style = FridayType.Label,
@@ -120,7 +120,7 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Enable public project collaboration", style = FridayType.Body)
+                Text("Enable public engineering tasks", style = FridayType.Body)
                 Text("Default off · polls every 15 minutes when enabled", style = FridayType.Label)
             }
             Switch(
@@ -189,7 +189,7 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
                 },
                 enabled = enabled && tokenConfigured,
                 modifier = Modifier.weight(1f)
-            ) { Text("Check replies") }
+            ) { Text("Check task results") }
             Button(
                 onClick = {
                     if (!enabled) {
@@ -197,7 +197,7 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
                     } else if (!sending) {
                         sending = true
                         scope.launch {
-                            status = "Creating a public collaboration handshake…"
+                            status = "Creating a structured test task…"
                             try {
                                 val token = withContext(Dispatchers.IO) { credentials.read() }
                                     ?: error("Save the GitHub token in Settings first.")
@@ -218,7 +218,7 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
                                 val taskId = UUID.randomUUID().toString()
                                 val payload = JSONObject()
                                     .put("data_classification", "public")
-                                    .put("goal", "Verify this Friday installation can exchange a public project task with its ChatGPT collaborator.")
+                                    .put("goal", "Verify this Friday installation can exchange a structured public engineering task with its GPT collaborator.")
                                     .put("allowed_evidence", JSONArray()
                                         .put("public source references")
                                         .put("public test results")
@@ -227,13 +227,13 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
                                 val thread = withContext(Dispatchers.IO) {
                                     relay.createTask(
                                         taskId = taskId,
-                                        title = "Friday collaboration handshake",
+                                        title = "Friday agent task-channel test",
                                         sourceRevision = sourceRevision,
                                         allowedTaskPayload = payload
                                     )
                                 }
                                 latestIssueUrl = thread.issueUrl
-                                status = "Handshake task created as GitHub issue #" + thread.issueNumber + ". ChatGPT can reply in that public thread."
+                                status = "Test task recorded as GitHub issue #" + thread.issueNumber + ". Friday will import a validated structured result from its trusted GPT collaborator."
                                 FridayAgentTaskRelayPollWorker.checkNow(appContext)
                             } catch (failure: Exception) {
                                 status = failure.message ?: "Could not create the collaboration task."
@@ -245,7 +245,7 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
                 },
                 enabled = enabled && tokenConfigured && !sending,
                 modifier = Modifier.weight(1f)
-            ) { Text(if (sending) "Sending…" else "Send handshake") }
+            ) { Text(if (sending) "Sending…" else "Send test task") }
         }
         Text("Last check: " + lastPollLabel + " · " + unreadCount + " unread replies", style = FridayType.Technical)
         if (latestIssueUrl.isNotBlank()) {
@@ -274,7 +274,7 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
                 ) {
                     Text(proposal.description, style = FridayType.Body, color = FridayColors.TextPrimary)
                     Text(
-                        "External proposal · ${proposal.capability} · approval does not execute it",
+                        "External agent proposal · ${proposal.capability} · approval does not execute it",
                         style = FridayType.Label,
                         color = FridayColors.CoreIdle
                     )
@@ -317,7 +317,7 @@ internal fun FridayAgentRelaySettingsSection(context: Context) {
             }
         }
         if (latestReplies.isNotEmpty()) {
-            Text("Recent ChatGPT replies", style = FridayType.Body)
+            Text("Recent GPT task results", style = FridayType.Body)
             latestReplies.forEach { reply ->
                 Column(
                     modifier = Modifier
