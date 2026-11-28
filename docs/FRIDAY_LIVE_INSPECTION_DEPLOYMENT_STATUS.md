@@ -84,7 +84,7 @@ The phone UI is under **Settings → Live inspection**. The relay is outbound an
 |---|---|
 | Railway service deployed and healthy | Verified |
 | Supabase OAuth discovery and DCR metadata | Verified |
-| Supabase ES256 JWKS and `offline_access` | Verified |
+| Supabase ES256 JWKS and refresh-token grant | JWKS verified; refresh grant documented; live exchange not tested |
 | Custom Access Token Hook shown enabled | Owner screenshot; SQL function/permission/fixture verified |
 | MCP audience validator source/tests | Verified by source and unit tests; real OAuth token not yet observed |
 | Owner pairing page deployed | Verified |
