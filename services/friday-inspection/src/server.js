@@ -94,7 +94,7 @@ function bearerToken(request) {
   return match?.[1] || null;
 }
 
-async function ownerOnly(request, response) {
+async function ownerOnly(request, response, { resource = `https://${PUBLIC_HOST}/mcp` } = {}) {
   const token = bearerToken(request);
   if (!token || !supabase) {
     response.setHeader("www-authenticate", `Bearer resource_metadata="https://${PUBLIC_HOST}/.well-known/oauth-protected-resource"`);
@@ -111,7 +111,7 @@ async function ownerOnly(request, response) {
   try {
     validateOwnerClaims(claims, {
       issuer: SUPABASE_URL + "/auth/v1",
-      resource: `https://${PUBLIC_HOST}/mcp`,
+      resource,
       ownerEmail: OWNER_EMAIL
     });
   } catch (validationError) {
@@ -152,7 +152,9 @@ async function readJson(request) {
 }
 
 async function adminOnly(request, response) {
-  return !!(await ownerOnly(request, response));
+  // Admin browser pages use a normal Supabase owner session (aud=authenticated).
+  // The remote MCP endpoint still requires the narrower Friday resource audience.
+  return !!(await ownerOnly(request, response, { resource: "authenticated" }));
 }
 
 function publicDeviceStatus(deviceId) {
@@ -257,11 +259,25 @@ const httpServer = http.createServer(async (request, response) => {
       const template = await readFile(new URL("./oauth-consent.html", import.meta.url), "utf8");
       const html = template
         .replace("__SUPABASE_URL__", JSON.stringify(SUPABASE_URL))
-        .replace("__SUPABASE_PUBLISHABLE_KEY__", JSON.stringify(SUPABASE_PUBLISHABLE_KEY))
-        .replace("__OWNER_EMAIL__", JSON.stringify(OWNER_EMAIL));
+        .replace("__SUPABASE_PUBLISHABLE_KEY__", JSON.stringify(SUPABASE_PUBLISHABLE_KEY));
       response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" });
       response.end(html);
       return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/admin/pairing") {
+      const template = await readFile(new URL("./admin-pairing.html", import.meta.url), "utf8");
+      const html = template
+        .replace("__SUPABASE_URL__", JSON.stringify(SUPABASE_URL))
+        .replace("__SUPABASE_PUBLISHABLE_KEY__", JSON.stringify(SUPABASE_PUBLISHABLE_KEY));
+      response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" });
+      response.end(html);
+      return;
+    }
+
+    if (request.method === "GET" && url.pathname === "/owner/status") {
+      if (!await adminOnly(request, response)) return;
+      return sendJson(response, 200, { owner: true });
     }
 
     if (request.method === "GET" && url.pathname === "/health") {
