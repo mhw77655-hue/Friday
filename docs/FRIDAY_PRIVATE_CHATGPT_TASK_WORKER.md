@@ -37,8 +37,8 @@ The worker validates all limits and computes a canonical, length-prefixed SHA-25
 ## Current limitations
 
 - The worker class and projection/approval tests exist, but no Friday UI currently invokes the per-task approval flow.
-- Result output is returned to the caller but is not yet written into a crash-safe encrypted task-result journal. Do not acknowledge a task or mark it complete until a caller persists the full result and provenance.
-- A response interrupted before completion is discarded. It is not automatically retried because duplicate plan usage cannot be assumed idempotent.
+- The encrypted, crash-safe task-result journal now persists streaming checkpoints and commits a completed result before `execute()` returns. Completed results can be recovered after process recreation without another model request.
+- Interrupted streams retain encrypted partial output as `INCOMPLETE`; it is never represented as a completed result and is never retried automatically. A fresh owner approval is required before a new request.
 - The worker cannot send a message into or wake this exact ChatGPT UI conversation. The public GitHub thread relay is the available bridge to this session.
 - No live handset acceptance has been performed.
 
@@ -64,3 +64,10 @@ The first instrumented run exposed an Android cleartext-policy failure because M
 ### Retry and stream-failure hardening
 
 The worker's OkHttp client now disables automatic connection retries. A consumed one-shot approval therefore cannot silently lead to a hidden duplicate request after a transport failure. HTTP failures retain the response request ID and bounded body detail; stream failures preserve the provider error code/message, and incomplete responses retain their reason. Only `response.completed` is accepted as success, consistent with the official Sign in with ChatGPT inference contract.
+
+
+### Encrypted result journal
+
+`ChatGPTTaskResultStore` writes one AES-GCM encrypted checkpoint per stable task ID under Friday's private app storage. `FileStorage` provides fsync plus atomic replacement. The journal records request ID, model, context digest, streamed output, response ID, state and timestamp. Stream output is checkpointed in bounded chunks; the `response.completed` event commits the completed state before the worker returns. A recreated worker first checks for a matching completed result and returns it without consuming a new approval or making another request. Corrupt or undecryptable journals fail closed and are not overwritten.
+
+The Android instrumentation suite now verifies completed-result recovery across worker recreation, encrypted-at-rest output, and partial-output retention after an interrupted stream. These remain mock-endpoint tests; they do not prove a live SIWC request or phone acceptance.
