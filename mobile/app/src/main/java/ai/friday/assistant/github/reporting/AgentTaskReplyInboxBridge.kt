@@ -20,9 +20,15 @@ class AgentTaskReplyInboxBridge private constructor(
             "Only public-classified GitHub replies may enter this inbox bridge."
         }
         val payload = reply.envelope.payload
-        val summary = payload.optString("summary")
-            .ifBlank { "External ChatGPT proposal for Friday task ${reply.taskId}" }
-            .take(240)
+        val summary = when (reply.envelope.kind) {
+            AgentTaskMessageKind.EVIDENCE_REQUEST ->
+                ("ChatGPT requests additional public evidence: " +
+                    payload.optString("reason").ifBlank { "No reason supplied." })
+                    .take(240)
+            else -> payload.optString("summary")
+                .ifBlank { "External ChatGPT proposal for Friday task ${reply.taskId}" }
+                .take(240)
+        }
         val stableId = "agent-reply:" + sha256(reply.envelope.messageId).take(40)
         return inbox.submitOnce(
             id = stableId,
