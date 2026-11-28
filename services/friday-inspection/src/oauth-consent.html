@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Friday access approval</title>
+<style>
+:root{color-scheme:dark;font-family:Inter,system-ui,sans-serif;background:#080a0e;color:#eef2f8}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:radial-gradient(ellipse at 50% 0,#1b2635 0,transparent 55%),#080a0e}
+main{width:min(100%,520px);border:1px solid #273342;border-radius:22px;padding:28px;background:#10151d;box-shadow:0 24px 80px #0008}
+h1{font-size:25px;margin:0 0 8px}p{color:#aab7c8;line-height:1.55}label{display:block;margin:14px 0 6px;color:#c7d2df;font-size:13px}
+input{width:100%;padding:13px;border:1px solid #344356;border-radius:10px;background:#090e15;color:#fff;font:inherit}
+button{border:0;border-radius:10px;padding:13px 16px;font:600 14px inherit;cursor:pointer;margin:8px 8px 0 0}
+.primary{background:#d9e6f7;color:#101722}.secondary{background:#263345;color:#edf3fc}.danger{background:#3a2025;color:#ffdce0}
+#details{padding:16px;border-radius:12px;background:#0a1018;margin:18px 0;display:none}#status{white-space:pre-wrap;color:#e3c98c;margin-top:16px}
+small{color:#8190a3}
+</style></head><body><main>
+<h1>Friday is requesting access</h1><p>ChatGPT requests access to a limited, privacy-filtered status snapshot from your Friday app. This does not permit screen viewing, conversations, files, taps, shell commands or phone control.</p>
+<section id="login"><p>Sign in to the Friday owner account to review this request.</p>
+<label for="email">Owner email</label><input id="email" type="email" autocomplete="username">
+<label for="password">Password</label><input id="password" type="password" autocomplete="current-password">
+<button class="primary" id="signin">Sign in</button><button class="secondary" id="signup">Create owner account</button></section>
+<section id="details"><strong id="client"></strong><p id="redirect"></p><strong>Requested scopes</strong><ul id="scopes"></ul>
+<button class="primary" id="approve">Approve access</button><button class="danger" id="deny">Deny</button></section>
+<div id="status" role="status"></div><p><small>Friday Live Inspection · Read-only by default · Access can be revoked.</small></p>
+</main><script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+const supabase=createClient(__SUPABASE_URL__,__SUPABASE_PUBLISHABLE_KEY__);
+const ownerEmail=__OWNER_EMAIL__;
+const authId=new URLSearchParams(location.search).get("authorization_id");
+const status=document.querySelector("#status"),login=document.querySelector("#login"),details=document.querySelector("#details");
+const say=(s)=>status.textContent=s;
+async function load(){
+ if(!authId){say("Missing authorization request.");return}
+ const {data:{user}}=await supabase.auth.getUser();
+ if(!user){login.style.display="block";return}
+ if(!ownerEmail||user.email?.toLowerCase()!==ownerEmail){say("This account is not the configured Friday owner account. Access denied.");return}
+ login.style.display="none";
+ const {data,error}=await supabase.auth.oauth.getAuthorizationDetails(authId);
+ if(error){say(error.message);return}
+ if(!("authorization_id" in data)){location.href=data.redirect_url;return}
+ document.querySelector("#client").textContent=data.client?.name||"Unknown MCP client";
+ document.querySelector("#redirect").textContent="Redirect URI: "+(data.redirect_uri||"not supplied");
+ const scopes=(data.scope||"").split(" ").filter(Boolean);
+ document.querySelector("#scopes").replaceChildren(...scopes.map(x=>{const li=document.createElement("li");li.textContent=x;return li}));
+ details.style.display="block";
+}
+document.querySelector("#signin").onclick=async()=>{const {error}=await supabase.auth.signInWithPassword({email:document.querySelector("#email").value,password:document.querySelector("#password").value});if(error)say(error.message);else await load()};
+document.querySelector("#signup").onclick=async()=>{const {error}=await supabase.auth.signUp({email:document.querySelector("#email").value,password:document.querySelector("#password").value,options:{emailRedirectTo:location.href}});say(error?error.message:"Check your email to confirm the Friday owner account, then return here and sign in.")};
+document.querySelector("#approve").onclick=async()=>{const {data,error}=await supabase.auth.oauth.approveAuthorization(authId);if(error)say(error.message);else location.href=data.redirect_url};
+document.querySelector("#deny").onclick=async()=>{const {data,error}=await supabase.auth.oauth.denyAuthorization(authId);if(error)say(error.message);else location.href=data.redirect_url};
+await load();
+</script></body></html>
