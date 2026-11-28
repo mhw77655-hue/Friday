@@ -9,6 +9,53 @@ import org.junit.Test
 
 class AgentTaskReplyStoreTest {
     @Test
+    fun corruptJournalFailsClosedAndPreservesOriginalBytes() {
+        val directory = Files.createTempDirectory("friday-agent-replies-corrupt").toFile()
+        try {
+            val journal = java.io.File(directory, "friday-development/agent-task-replies.jsonl")
+            journal.parentFile.mkdirs()
+            val original = """{"task_id":"incomplete-record"}\\nnot-json\\n"""
+            journal.writeText(original)
+
+            val store = AgentTaskReplyStore(directory)
+            val readFailure = runCatching { store.all() }.exceptionOrNull()
+            assertTrue(readFailure is java.io.IOException)
+            assertEquals(original, journal.readText())
+
+            val appendFailure = runCatching {
+                val envelope = AgentTaskEnvelope(
+                    taskId = "task-2026-005",
+                    messageId = "task-2026-005:in:1",
+                    sequence = 1L,
+                    sender = "chatgpt-cloud",
+                    recipient = "friday",
+                    kind = AgentTaskMessageKind.RESULT,
+                    createdAtEpochMs = 1_795_800_000_000L,
+                    expiresAtEpochMs = 1_795_800_060_000L,
+                    sourceRevision = "main",
+                    payload = JSONObject().put("data_classification", "public")
+                )
+                store.appendIfAbsent(
+                    StoredAgentTaskReply(
+                        taskId = envelope.taskId,
+                        issueNumber = 322,
+                        issueUrl = "https://github.com/mhw77655-hue/Friday/issues/322",
+                        commentId = 9006L,
+                        authorLogin = "mhw77655-hue",
+                        createdAt = "2026-11-28T00:00:00Z",
+                        receivedAtEpochMs = 1_795_800_000_500L,
+                        envelope = envelope
+                    )
+                )
+            }.exceptionOrNull()
+            assertTrue(appendFailure is java.io.IOException)
+            assertEquals(original, journal.readText())
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun persistsRepliesDeduplicatesAndMarksReadAcrossReopen() {
         val directory = Files.createTempDirectory("friday-agent-replies").toFile()
         try {
