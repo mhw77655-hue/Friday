@@ -38,7 +38,10 @@ class CloudModelRouter(
     class PoolResult(
         val text: String?,
         val succeededProviderId: String?,
-        val failures: List<CloudResult.Failure>
+        val failures: List<CloudResult.Failure>,
+        val usage: CloudTokenUsage? = null,
+        val requestId: String? = null,
+        val model: String? = null
     ) {
         val succeeded: Boolean get() = text != null
     }
@@ -85,7 +88,7 @@ class CloudModelRouter(
                         )
                         continue
                     }
-                    return PoolResult(result.text, result.providerId, failures)
+                    return PoolResult(result.text, result.providerId, failures, result.usage, result.requestId, result.model)
                 }
                 is CloudResult.Failure -> {
                     failures.add(result)
