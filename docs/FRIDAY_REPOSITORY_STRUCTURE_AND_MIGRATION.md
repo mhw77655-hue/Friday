@@ -136,3 +136,42 @@ Success is measured by fewer cross-domain dependencies, clearer production reach
 The current candidate CI workflow now captures the Gradle project graph plus `debugCompileClasspath`, `debugRuntimeClasspath` and `releaseRuntimeClasspath` dependency reports as the `friday-gradle-structure` artifact. The existing whole-app audit also retains a source inventory, heuristic source-to-test map and explicitly lexical cross-file trace artifact. This creates the first reproducible baseline for the build graph and source navigation.
 
 **Limit:** Gradle dependency reports describe configured module/external dependency resolution; the lexical trace does not resolve Kotlin overloads, DI, reflection, generated code, coroutine callbacks, JNI or runtime reachability. Neither is yet a compiler-proven internal class/method dependency graph. Wave 0 remains open until those edges are mapped and reconciled with manifest, composition roots and runtime traces. No source relocation or module split is authorized merely by these reports.
+
+
+## Repository hygiene baseline — 2026-11-28
+
+This is a maintenance pass, not a structural migration. The objective is to remove accidental public artifacts and reduce operational noise without deleting unique engineering work or rewriting history.
+
+### Completed on main
+
+- Replaced the duplicated, instruction-heavy root README with a concise project entry point and navigation map. Detailed agent instructions remain in AGENTS.md; canonical delivery authority remains .ralph/FRIDAY_DELIVERY_PLAN.md.
+- Normalized .gitignore, removed duplicate local.properties entry, and added ignore protection for re-uploaded owner/diagnostic archive filenames.
+- Removed the unreferenced root log.zip diagnostic bundle.
+- Removed the root New folder (1).zip owner-provided evidence archive from the current source tree after verifying the build workflow treats it as optional: the artifact upload runs only when hashFiles('New folder (1).zip') is non-empty. CI continues without the archive; owner-device evidence upload is skipped.
+- Changed the build workflow's failure reporter to update the existing rolling incident issue body rather than post a new comment for every failed run.
+- Updated issue #24 to identify it as a rolling CI incident record. Its 768 historical bot comments are retained; the reporter no longer creates one per failure.
+- Recorded the additional archive cleanup in issue #76. Historical Git-object removal remains a separate task and is not claimed complete.
+
+### Inventory and preservation decisions
+
+- Current main tree contains 1,096 tracked files across 1,387 tree entries at the time of audit.
+- The repository has 213 remote branches. Many are named audit/fix/feat/rebuild/work/friday-proposals and require ancestry and unique-work review before deletion.
+- There are 18 open pull requests. All 18 heads were compared with main; each has unique commits and/or unmerged file changes. None was blindly closed or discarded. Some overlap in purpose, but their diffs are not empty.
+- Eleven GitHub Actions workflows were present. They cover build/release, device diagnostics, candidate sandbox, formal checks, REA investigation, identity migration and live inspection. No workflow was deleted based on naming alone.
+- The 55 MB Sherpa ONNX AAR and 24.6 MB ONNX runtime shared library are retained as vendored build/runtime dependencies, not treated as junk.
+- .ralph/archive and vault/ remain documented historical/provenance archives. They are not active product instructions.
+- A small root friday-fixes.zip remains pending content inspection; it is not referenced by source search, but was not deleted without verifying its contents.
+- A personal PDF that was previously removed and later re-uploaded by the owner was left untouched.
+- The root README now links to the repository structure policy and active engineering records.
+
+### Remaining cleanup
+
+1. Branch pruning: the current GitHub connector exposes branch listing and ref updates but no branch-delete action. Do not simulate deletion by force-moving refs. Use an authorized GitHub UI/API delete-ref capability, after preserving branches with unique unmerged work.
+2. Review old closed PR branches and compare each to main before pruning; merged PRs are candidates, unmerged closed PRs may still contain unique work.
+3. Inspect friday-fixes.zip before deciding whether to archive or delete it.
+4. Decide whether a full historical Git-object purge is warranted for the owner archives previously removed from the current tree. Git history rewriting has broad side effects and requires coordinated clone/fork/PR handling; it is not part of routine cleanup.
+5. Review the 43 docs as a navigation/duplication exercise only. Do not mass-delete or relocate architecture, acceptance, repair or provenance records based on age or file size.
+
+### Safety rule
+
+Do not delete branches, releases, tags, signing records, vendored runtime libraries, historical provenance or unique open-PR work merely to reduce counts. Every deletion must be tied to evidence that the item is unused, superseded or intentionally private.
