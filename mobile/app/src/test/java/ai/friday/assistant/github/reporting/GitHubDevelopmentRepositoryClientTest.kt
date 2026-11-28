@@ -595,4 +595,147 @@ class GitHubDevelopmentRepositoryClientTest {
             server.shutdown()
         }
     }
+
+    @Test fun dispatchNeomasInvestigationUsesOnlyApprovedWorkflowInputs() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(204))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val client = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+            assertTrue(client.dispatchNeomasInvestigation("friday-rea-abc12345") == null)
+            val request = server.takeRequest()
+            assertEquals("POST", request.method)
+            assertTrue(request.path!!.endsWith("/actions/workflows/rea-neomas-investigation.yml/dispatches"))
+            val payload = JSONObject(request.body.readUtf8())
+            assertEquals("main", payload.getString("ref"))
+            val inputs = payload.getJSONObject("inputs")
+            assertEquals("friday-rea-abc12345", inputs.getString("investigation_id"))
+            assertEquals("https://neomas.app/", inputs.getString("target_url"))
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun dispatchNeomasRejectsUnapprovedOriginsBeforeNetworkAccess() {
+        val server = MockWebServer()
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val client = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+            assertTrue(runCatching {
+                client.dispatchNeomasInvestigation("friday-rea-abc12345", "https://example.com/")
+            }.isFailure)
+            assertTrue(runCatching {
+                client.dispatchNeomasInvestigation("bad", "https://neomas.app/")
+            }.isFailure)
+            assertEquals(0, server.requestCount)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun findNeomasInvestigationRunMatchesTheFridayInvestigationId() {
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"workflow_runs":[{"id":987,"display_title":"Friday REA Neomas investigation friday-rea-abc12345","status":"completed","conclusion":"success","html_url":"https://github.com/mhw77655-hue/Friday/actions/runs/987","head_sha":"$sha1"}]}"""
+        ))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val run = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+                .findNeomasInvestigationRun("friday-rea-abc12345")
+            assertEquals(987L, run?.id)
+            assertEquals("success", run?.conclusion)
+            assertTrue(server.takeRequest().path!!.contains("rea-neomas-investigation.yml"))
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun downloadNeomasAssimilationPacketReadsOnlyValidatedRootPacket() {
+        val evidenceId = "ev_" + "a".repeat(64)
+        val packet = JSONObject()
+            .put("schema", "friday.rea-assimilation/v1")
+            .put("packet_id", "rea_packet_" + "b".repeat(32))
+            .put("target", JSONObject().put("kind", "website").put("locator", "https://neomas.app/"))
+            .put("trust", JSONObject()
+                .put("source_content", "untrusted")
+                .put("model_or_tool_output_is_authority", false)
+                .put("executable_instructions", false))
+            .put("assimilation", JSONObject().put("execution_allowed", false))
+            .put("evidence_records", org.json.JSONArray().put(JSONObject().put("evidence_id", evidenceId)))
+            .put("evidence_refs", org.json.JSONArray().put(evidenceId))
+            .put("findings", org.json.JSONArray())
+            .put("raw_results", org.json.JSONArray().put(JSONObject().put("tool", "inspect_web_page")))
+            .toString()
+        val archiveBytes = ByteArrayOutputStream().also { bytes ->
+            ZipOutputStream(bytes).use { zip ->
+                zip.putNextEntry(ZipEntry("neomas-friday-assimilation.json"))
+                zip.write(packet.toByteArray())
+                zip.closeEntry()
+                zip.putNextEntry(ZipEntry("neomas-rea-raw-evidence.json"))
+                zip.write("{}".toByteArray())
+                zip.closeEntry()
+            }
+        }.toByteArray()
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"artifacts":[{"id":991,"name":"friday-rea-neomas","expired":false}]}"""
+        ))
+        server.enqueue(MockResponse().setResponseCode(200).setBody(Buffer().write(archiveBytes)))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val result = GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+                .downloadNeomasAssimilationPacket(987L)
+            assertEquals(packet, result)
+            assertEquals(2, server.requestCount)
+            assertTrue(server.takeRequest().path!!.contains("/actions/runs/987/artifacts"))
+            assertTrue(server.takeRequest().path!!.endsWith("/actions/artifacts/991/zip"))
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test fun downloadNeomasAssimilationPacketRejectsUnsafeEvidence() {
+        val packet = JSONObject()
+            .put("schema", "friday.rea-assimilation/v1")
+            .put("packet_id", "rea_packet_" + "b".repeat(32))
+            .put("target", JSONObject().put("kind", "website").put("locator", "https://neomas.app/"))
+            .put("trust", JSONObject()
+                .put("source_content", "untrusted")
+                .put("model_or_tool_output_is_authority", false)
+                .put("executable_instructions", false))
+            .put("assimilation", JSONObject().put("execution_allowed", true))
+            .put("evidence_records", org.json.JSONArray().put(JSONObject().put("evidence_id", "ev_" + "a".repeat(64))))
+            .put("evidence_refs", org.json.JSONArray().put("ev_" + "a".repeat(64)))
+            .put("findings", org.json.JSONArray())
+            .put("raw_results", org.json.JSONArray().put(JSONObject()))
+            .toString()
+        val archiveBytes = ByteArrayOutputStream().also { bytes ->
+            ZipOutputStream(bytes).use { zip ->
+                zip.putNextEntry(ZipEntry("neomas-friday-assimilation.json"))
+                zip.write(packet.toByteArray())
+                zip.closeEntry()
+            }
+        }.toByteArray()
+        val server = MockWebServer()
+        server.enqueue(MockResponse().setResponseCode(200).setBody(
+            """{"artifacts":[{"id":992,"name":"friday-rea-neomas","expired":false}]}"""
+        ))
+        server.enqueue(MockResponse().setResponseCode(200).setBody(Buffer().write(archiveBytes)))
+        server.start()
+        try {
+            val apiRoot = server.url("/repos/mhw77655-hue/Friday").toString().trimEnd('/')
+            val failure = runCatching {
+                GitHubDevelopmentRepositoryClient(token, OkHttpClient(), apiRoot)
+                    .downloadNeomasAssimilationPacket(988L)
+            }.exceptionOrNull()
+            assertTrue(failure is IllegalArgumentException || failure is java.io.IOException)
+        } finally {
+            server.shutdown()
+        }
+    }
+
 }

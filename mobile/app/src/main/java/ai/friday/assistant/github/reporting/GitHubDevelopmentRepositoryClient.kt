@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Narrow GitHub engineering client. It publishes isolated candidate PRs and
- * dispatches only Friday's pinned REA workflow; it cannot merge, publish a
+ * dispatches only Friday's fixed REA workflows; it cannot merge, publish a
  * release, or access signing keys.
  */
 class GitHubDevelopmentRepositoryClient(
