@@ -31,6 +31,32 @@ if (process.env.NODE_ENV === "production") {
 const state = await loadState();
 const connectedDevices = new Map();
 const pendingSnapshots = new Map();
+const rateBuckets = new Map();
+
+function rateLimited(request, label, maximum, windowMs) {
+  const key = label + ":" + (request.socket.remoteAddress || "unknown");
+  const now = Date.now();
+  const bucket = rateBuckets.get(key);
+  if (!bucket || now - bucket.startedAt >= windowMs) {
+    rateBuckets.set(key, { startedAt: now, count: 1 });
+    return false;
+  }
+  bucket.count += 1;
+  return bucket.count > maximum;
+}
+
+function audit(event, deviceId = null) {
+  console.info(JSON.stringify({ event, device_id: deviceId, at_epoch_ms: Date.now() }));
+}
+
+function rejectPendingSnapshots(deviceId, reason) {
+  for (const [requestId, pending] of pendingSnapshots) {
+    if (pending.deviceId === deviceId) {
+      pendingSnapshots.delete(requestId);
+      pending.reject(new Error(reason));
+    }
+  }
+}
 
 async function loadState() {
   try {
@@ -186,6 +212,7 @@ const httpServer = http.createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && url.pathname === "/admin/pairing-code") {
+      if (rateLimited(request, "pairing", 4, 10 * 60_000)) return sendJson(response, 429, { error: "rate_limited" });
       if (!adminOnly(request, response)) return;
       const code = randomBytes(18).toString("base64url");
       state.pairing = { code, expiresAt: Date.now() + 10 * 60_000, consumed: false };
@@ -194,6 +221,7 @@ const httpServer = http.createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && url.pathname === "/device/enroll") {
+      if (rateLimited(request, "enroll", 6, 10 * 60_000)) return sendJson(response, 429, { error: "rate_limited" });
       const body = await readJson(request);
       const pairing = state.pairing;
       if (!pairing || pairing.consumed || pairing.expiresAt < Date.now() ||
@@ -223,6 +251,7 @@ const httpServer = http.createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && url.pathname === "/device/revoke") {
+      if (rateLimited(request, "device-revoke", 10, 60_000)) return sendJson(response, 429, { error: "rate_limited" });
       const body = await readJson(request);
       const deviceId = String(body.deviceId || "");
       const timestamp = Number(body.timestamp);
@@ -247,6 +276,7 @@ const httpServer = http.createServer(async (request, response) => {
       return sendJson(response, 200, { device_id: deviceId, revoked: true });
     }
     if (request.method === "POST" && url.pathname === "/admin/revoke") {
+      if (rateLimited(request, "admin-revoke", 10, 60_000)) return sendJson(response, 429, { error: "rate_limited" });
       if (!adminOnly(request, response)) return;
       const body = await readJson(request);
       const deviceId = String(body.deviceId || "");
@@ -263,11 +293,13 @@ const httpServer = http.createServer(async (request, response) => {
     }
 
     if (request.method === "POST" && url.pathname === "/mcp") {
+      if (rateLimited(request, "mcp", 60, 60_000)) return sendJson(response, 429, { error: "rate_limited" });
       if (!MCP_TOKEN || !bearerMatches(request, MCP_TOKEN)) {
         response.setHeader("www-authenticate", 'Bearer realm="Friday inspection"');
         return sendJson(response, 401, { error: "unauthorized" });
       }
       const body = await readJson(request);
+      audit("mcp_request");
       const mcp = createMcpServer();
       const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
       await mcp.connect(transport);
@@ -333,6 +365,7 @@ websocketServer.on("connection", socket => {
         }
       }
       connectedDevices.set(deviceId, { socket, lastSeenAt: Date.now(), latestSnapshot: null });
+      audit("device_connected", deviceId);
       socket.send(JSON.stringify({ type: "authenticated", deviceId }));
       return;
     }
@@ -360,6 +393,7 @@ websocketServer.on("connection", socket => {
       try {
         const snapshot = validateInspectionSnapshot(message.snapshot);
         connection.latestSnapshot = snapshot;
+        audit("snapshot_received", authenticatedDeviceId);
         pendingSnapshots.delete(message.requestId);
         pending.resolve(snapshot);
       } catch {
@@ -376,12 +410,8 @@ websocketServer.on("connection", socket => {
       const ownedSession = current?.socket === socket;
       if (ownedSession) {
         connectedDevices.delete(authenticatedDeviceId);
-        for (const [requestId, pending] of pendingSnapshots) {
-          if (pending.deviceId === authenticatedDeviceId) {
-            pendingSnapshots.delete(requestId);
-            pending.reject(new Error("Friday inspection session disconnected."));
-          }
-        }
+        rejectPendingSnapshots(authenticatedDeviceId, "Friday inspection session disconnected.");
+        audit("device_disconnected", authenticatedDeviceId);
       }
     }
   });
