@@ -2,6 +2,9 @@ package ai.friday.assistant.onefriday
 
 import android.content.Context
 import ai.friday.assistant.LocalTurnJournal
+import ai.friday.assistant.cloud.AnthropicApiKeyStore
+import ai.friday.assistant.cloud.AnthropicMessagesProvider
+import ai.friday.assistant.cloud.CloudProvider
 import ai.friday.assistant.companioncore.presence.CompanionCoreHolder
 import ai.friday.assistant.failure.FailureSurface
 import ai.friday.assistant.cognitive.capability.CapabilityFabric
@@ -110,6 +113,22 @@ class AndroidPlatformPorts(
     override fun warmModel() {
         WarmupEngine.start()
         WarmupEngine.prime()
+    }
+
+    override fun cloudProviders(): List<CloudProvider> {
+        val credentials = AnthropicApiKeyStore(context)
+        if (credentials.readApiKey().isNullOrBlank()) return emptyList()
+        val preferences = context.getSharedPreferences("friday_anthropic_secure", Context.MODE_PRIVATE)
+        val modelProvider = {
+            preferences.getString("model_id", "claude-opus-5-5").orEmpty()
+        }
+        if (modelProvider().isBlank()) return emptyList()
+        return listOf(
+            AnthropicMessagesProvider(
+                apiKeySource = credentials,
+                modelProvider = modelProvider
+            )
+        )
     }
 
     override fun hasLanguageModel(modelManager: ai.friday.assistant.model.ModelManager): Boolean {
