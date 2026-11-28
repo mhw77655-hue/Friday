@@ -94,6 +94,7 @@ class ReaInvestigationCoordinator(context: Context) {
                         .put("target_locator", stored.targetLocator)
                         .put("finding_count", stored.findingCount)
                         .put("evidence_count", stored.evidenceCount)
+                        .put("candidate_count", stored.candidateCount)
                         .toString()
                     packetError = null
                 } catch (failure: Exception) {

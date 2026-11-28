@@ -29,6 +29,13 @@ class ReaAssimilationPacketStoreTest {
             .put("evidence_records", JSONArray().put(JSONObject().put("evidence_id", evidenceId)))
             .put("evidence_refs", JSONArray().put(evidenceId))
             .put("findings", JSONArray())
+            .put("capability_candidates", JSONArray().put(JSONObject()
+                .put("candidate_id", "friday_memory_resurface_review")
+                .put("execution_allowed", false)))
+            .put("adaptation_plan", JSONObject()
+                .put("owner_review_required", true)
+                .put("execution_allowed", false)
+                .put("proposal_ids", JSONArray().put("friday_memory_resurface_review")))
             .put("raw_results", JSONArray().put(JSONObject().put("tool", "inspect_web_page")))
     }
 
@@ -37,6 +44,8 @@ class ReaAssimilationPacketStoreTest {
         assertEquals("friday.rea-assimilation/v1", packet.getString("schema"))
         assertEquals("rea_packet_" + "b".repeat(32), packet.getString("packet_id"))
         assertFalse(packet.getJSONObject("assimilation").getBoolean("execution_allowed"))
+        assertEquals(1, packet.getJSONArray("capability_candidates").length())
+        assertFalse(packet.getJSONObject("adaptation_plan").getBoolean("execution_allowed"))
     }
 
     @Test fun rejectsExecutionAuthority() {

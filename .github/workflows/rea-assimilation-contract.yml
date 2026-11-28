@@ -29,4 +29,4 @@ jobs:
           node --check tools/rea/evidence-converter.mjs
           node --check tools/rea/inspect-candidate-apk.mjs
       - name: Run REA-to-Friday assimilation contract tests
-        run: node --test tools/rea/evidence-converter.test.mjs
+        run: node --test tools/rea/evidence-converter.test.mjs tools/rea/adapters/neomas-memory-ui.test.mjs

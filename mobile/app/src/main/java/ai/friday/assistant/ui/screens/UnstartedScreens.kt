@@ -40,6 +40,7 @@ import java.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 /**
  * Honest empty states — only real backends are presented as live capabilities.
@@ -351,6 +352,13 @@ fun MemoryScreen() {
                     )
                 }
                 if (reaSnapshot?.packetAvailable == true) {
+                    val candidateCount = runCatching {
+                        JSONObject(reaSnapshot?.summary.orEmpty()).optInt("candidate_count")
+                    }.getOrDefault(0)
+                    Text(
+                        "Friday adaptation plan saved · " + candidateCount + " proposals pending review.",
+                        style = FridayType.Body
+                    )
                     Text(
                         "The packet is evidence for Friday's adaptation process. It is not executed or promoted automatically.",
                         style = FridayType.Technical.copy(color = FridayColors.TextSecondary)

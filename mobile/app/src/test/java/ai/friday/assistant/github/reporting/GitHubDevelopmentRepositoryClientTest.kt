@@ -667,6 +667,13 @@ class GitHubDevelopmentRepositoryClientTest {
             .put("evidence_records", org.json.JSONArray().put(JSONObject().put("evidence_id", evidenceId)))
             .put("evidence_refs", org.json.JSONArray().put(evidenceId))
             .put("findings", org.json.JSONArray())
+            .put("capability_candidates", org.json.JSONArray().put(JSONObject()
+                .put("candidate_id", "friday_memory_resurface_review")
+                .put("execution_allowed", false)))
+            .put("adaptation_plan", JSONObject()
+                .put("owner_review_required", true)
+                .put("execution_allowed", false)
+                .put("proposal_ids", org.json.JSONArray().put("friday_memory_resurface_review")))
             .put("raw_results", org.json.JSONArray().put(JSONObject().put("tool", "inspect_web_page")))
             .toString()
         val archiveBytes = ByteArrayOutputStream().also { bytes ->

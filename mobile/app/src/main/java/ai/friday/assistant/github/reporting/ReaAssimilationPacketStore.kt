@@ -23,6 +23,7 @@ class ReaAssimilationPacketStore(context: Context) {
         val targetLocator: String,
         val findingCount: Int,
         val evidenceCount: Int,
+        val candidateCount: Int,
         val filePath: String
     )
 
@@ -62,6 +63,7 @@ class ReaAssimilationPacketStore(context: Context) {
             targetLocator = packet.getJSONObject("target").getString("locator"),
             findingCount = packet.optJSONArray("findings")?.length() ?: 0,
             evidenceCount = packet.getJSONArray("evidence_records").length(),
+            candidateCount = packet.getJSONArray("capability_candidates").length(),
             filePath = destination.absolutePath
         )
     }
@@ -143,6 +145,16 @@ class ReaAssimilationPacketStore(context: Context) {
                 refs != null && refs.length() > 0 &&
                 rawResults != null && rawResults.length() > 0
             ) { "REA packet is missing its original evidence records or provenance references." }
+
+            val candidates = packet.optJSONArray("capability_candidates")
+            val plan = packet.optJSONObject("adaptation_plan")
+            val proposalIds = plan?.optJSONArray("proposal_ids")
+            require(candidates != null && candidates.length() > 0 &&
+                plan != null &&
+                plan.optBoolean("owner_review_required", false) &&
+                !plan.optBoolean("execution_allowed", true) &&
+                proposalIds != null && proposalIds.length() == candidates.length()
+            ) { "REA packet is missing a bounded Friday-native adaptation plan." }
 
             return packet
         }
