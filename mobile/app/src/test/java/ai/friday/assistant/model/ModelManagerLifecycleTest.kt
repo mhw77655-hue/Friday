@@ -5,6 +5,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.delay
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
@@ -66,6 +67,48 @@ class ModelManagerLifecycleTest {
         val again = m.request(OrganRole.RESIDENT, task = "resident-ac1-again", modelId = "resident-model")
         assertEquals("resident requests must reuse the resident handle", resident.id, again.id)
         assertEquals("no second load for the resident tier", 1, backend.loadCount)
+    }
+
+    @Test
+    fun `resident language model is reclaimed only under Android memory pressure after idle grace`() = runBlocking {
+        val backend = FakeModelBackend()
+        val pressure = object : ResourceSnapshot by ResourceSnapshot.alwaysHealthy() {
+            override val isLowMemory: Boolean = true
+        }
+        val m = manager(
+            backend,
+            governor = ResourceGovernor(snapshotProvider = { pressure })
+        )
+        val resident = m.request(OrganRole.RESIDENT, task = "resident-pressure", modelId = "resident-model")
+        now = ModelManager.PRESSURE_RECLAIM_GRACE_MS - 1
+        m.runCooldownSweep()
+        assertTrue("resident model remains during the safety grace", backend.isLoaded(resident))
+        now = ModelManager.PRESSURE_RECLAIM_GRACE_MS
+        m.runCooldownSweep()
+        assertFalse("idle resident LLM can be reclaimed to protect Android", backend.isLoaded(resident))
+        assertEquals(1, backend.unloadCount)
+    }
+
+    @Test
+    fun `memory pressure never reclaims a model during active generation`() = runBlocking {
+        val backend = FakeModelBackend(generateLatencyMs = 250L)
+        val pressure = object : ResourceSnapshot by ResourceSnapshot.alwaysHealthy() {
+            override val isLowMemory: Boolean = true
+        }
+        val m = manager(
+            backend,
+            governor = ResourceGovernor(snapshotProvider = { pressure })
+        )
+        val resident = m.request(OrganRole.RESIDENT, task = "resident-active", modelId = "resident-model")
+        val generation = async { m.generateOnTier(ModelTier.RESIDENT, "keep this model pinned") }
+        delay(40L)
+        now = ModelManager.PRESSURE_RECLAIM_GRACE_MS * 2
+        m.runCooldownSweep()
+        assertTrue("active inference pins the resident model", backend.isLoaded(resident))
+        assertTrue(generation.await().content.isNotBlank())
+        now += ModelManager.PRESSURE_RECLAIM_GRACE_MS
+        m.runCooldownSweep()
+        assertFalse("model becomes reclaimable after generation ends and idle grace passes", backend.isLoaded(resident))
     }
 
     @Test

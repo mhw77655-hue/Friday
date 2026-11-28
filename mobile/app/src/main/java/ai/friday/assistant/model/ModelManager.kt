@@ -118,6 +118,8 @@ class ModelManager(
     private val cachedByTier = mutableMapOf<ModelTier, ModelHandle>()
     private val lastUsedMs = mutableMapOf<ModelTier, Long>()
     private val inflight = mutableMapOf<ModelTier, CompletableDeferred<ModelHandle>>()
+    /** Active backend generations pin their model handle against reclamation. */
+    private val activeGenerations = mutableMapOf<ModelTier, Int>()
     private val lifecycleLock = Any()
 
     // Available provider profiles for the Model Manager UI
@@ -291,11 +293,36 @@ class ModelManager(
         if (!modelBackend.isAvailable(handle)) {
             return GenerateResult("", finishReason = FinishReason.ERROR, model = handle.modelId)
         }
-        val content = modelBackend.generate(handle, prompt)
+        val content = generateWithTrackedHandle(handle, prompt)
         return if (content.isNotBlank()) {
             GenerateResult(content = content, finishReason = FinishReason.STOP, model = handle.modelId)
         } else {
             GenerateResult("", finishReason = FinishReason.ERROR, model = handle.modelId)
+        }
+    }
+
+    /**
+     * Pin a cached model for the full duration of inference. Pressure reclamation
+     * may unload even the resident LLM, but never while a generation is active.
+     * Friday's identity/memory kernel is stored separately and is not unloaded.
+     */
+    private suspend fun generateWithTrackedHandle(handle: ModelHandle, prompt: String): String {
+        val tier = synchronized(lifecycleLock) {
+            val entry = cachedByTier.entries.firstOrNull { it.value == handle }
+                ?: throw IllegalStateException("The model was reclaimed before generation began.")
+            activeGenerations[entry.key] = (activeGenerations[entry.key] ?: 0) + 1
+            lastUsedMs[entry.key] = clock()
+            entry.key
+        }
+        return try {
+            modelBackend.generate(handle, prompt)
+        } finally {
+            synchronized(lifecycleLock) {
+                val remaining = (activeGenerations[tier] ?: 1) - 1
+                if (remaining <= 0) activeGenerations.remove(tier)
+                else activeGenerations[tier] = remaining
+                lastUsedMs[tier] = clock()
+            }
         }
     }
 
@@ -433,34 +460,49 @@ class ModelManager(
     }
 
     /**
-     * Unload every on-demand tier whose model has been idle (no [request],
-     * no [release] refresh) for at least [cooldownMs]. Resident and in-flight
-     * tiers are skipped. Unload failures keep the cache entry so a later sweep
-     * retries instead of silently forgetting the handle.
+     * Unload idle on-demand tiers after [cooldownMs]. Under real Android
+     * memory pressure, the resident LLM is also reclaimable after a short idle
+     * grace; the lightweight identity/continuity kernel is separate. Active
+     * generations and in-flight loads are always protected.
      */
     internal suspend fun runCooldownSweep() {
         val now = clock()
-        // Android's low-memory signal is authoritative. Under pressure, reclaim
-        // idle on-demand organs sooner; never unload the resident continuity tier
-        // or a tier currently being loaded.
         val memory = runCatching { resourceGovernor.currentSnapshot() }.getOrNull()
-        val reclaimGraceMs = if (memory?.isLowMemory == true ||
+        val underPressure = memory?.isLowMemory == true ||
             (memory != null && memory.availableMemoryMb < 384L)
-        ) PRESSURE_RECLAIM_GRACE_MS else cooldownMs
-        val expired = synchronized(lifecycleLock) {
+        val reclaimGraceMs = if (underPressure) PRESSURE_RECLAIM_GRACE_MS else cooldownMs
+        val candidates = synchronized(lifecycleLock) {
             cachedByTier.keys.filter { tier ->
-                tier != ModelTier.RESIDENT &&
+                (tier != ModelTier.RESIDENT || underPressure) &&
                     tier !in inflight &&
+                    (activeGenerations[tier] ?: 0) == 0 &&
                     (now - (lastUsedMs[tier] ?: 0L)) >= reclaimGraceMs
             }
         }
-        for (tier in expired) {
-            val handle = synchronized(lifecycleLock) { cachedByTier.remove(tier) } ?: continue
-            synchronized(lifecycleLock) { lastUsedMs.remove(tier) }
+        for (tier in candidates) {
+            // Recheck and detach atomically: a concurrent wake/generation may
+            // have refreshed the handle after the candidate snapshot.
+            val handle = synchronized(lifecycleLock) {
+                val current = cachedByTier[tier] ?: return@synchronized null
+                val idleFor = now - (lastUsedMs[tier] ?: now)
+                val stillUnderPressure = underPressure || tier != ModelTier.RESIDENT
+                if (!stillUnderPressure || tier in inflight ||
+                    (activeGenerations[tier] ?: 0) > 0 || idleFor < reclaimGraceMs
+                ) return@synchronized null
+                cachedByTier.remove(tier)
+                lastUsedMs.remove(tier)
+                current
+            } ?: continue
             try {
                 modelBackend.unloadModel(handle)
             } catch (e: Exception) {
-                synchronized(lifecycleLock) { cachedByTier[tier] = handle }
+                synchronized(lifecycleLock) {
+                    // Do not overwrite a newer handle loaded after detachment.
+                    if (cachedByTier[tier] == null) {
+                        cachedByTier[tier] = handle
+                        lastUsedMs[tier] = clock()
+                    }
+                }
             }
         }
     }
@@ -656,7 +698,7 @@ class ModelManager(
             if (attempt == 0) "sending (local)" else "retrying local (attempt ${attempt + 1})"
         try {
             val result = if (tierHandle != null) {
-                val content = modelBackend.generate(tierHandle, message)
+                val content = generateWithTrackedHandle(tierHandle, message)
                 if (content.isNotBlank()) {
                     GenerateResult(content = content, finishReason = FinishReason.STOP)
                 } else {
