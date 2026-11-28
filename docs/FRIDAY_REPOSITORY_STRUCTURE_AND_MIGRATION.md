@@ -194,3 +194,14 @@ A fresh paginated inventory of all three branch pages and all 159 closed PRs plu
 - No branch deletion has been performed yet. The GitHub connector supports branch listing and ref movement but not DELETE refs; moving a ref is not an acceptable substitute for deletion. A signed-in GitHub browser session is being established to perform the actual branch deletion through GitHub's UI after the candidate list is verified.
 
 The 89 merged-PR branches are candidates, not yet claimed deleted. Recheck each branch still exists and is not referenced by an open PR immediately before deletion. Preserve `main`, tags, releases, and all open-PR heads. Do not rewrite history.
+
+
+### Closed proposal branch review
+
+The nine closed, unmerged `friday-proposals/` PRs were inspected:
+
+- PR #40 explicitly says it was superseded by PR #41; its branch contains one proposal commit and is an archive-only candidate.
+- PR #89 explicitly says it was superseded by PR #97 and its implementation contents are identical; its branch is an archive-only candidate.
+- PRs #102–#108 each contain one unmerged worker-proposal commit (one to three files each). These are untrusted, never merged/released/installed, and remain available as closed PR diffs. Their branch refs are not being treated as merged work or silently discarded; retain their PR records and review their proposal value before any ref deletion.
+
+This reinforces the cleanup rule: deleting a branch ref does not delete the PR conversation or its diff, but preserve the PR itself as the audit trail. No closed PR has been deleted.
