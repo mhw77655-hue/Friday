@@ -299,9 +299,11 @@ class TurnPathAssemblyTest {
     }
 
     @Test
-    fun `held out model free behavior changes after learned experience and not in learning disabled control`() {
-        fun runCase(name: String, learningEnabled: Boolean): String {
-            val directory = compositionDir("held-out-learning-$name")
+    fun `production turn experience transfers an association after restart and learning ablation removes it`() {
+        data class Result(val reply: String, val identityBefore: String, val identityAfter: String, val experienceCount: Int)
+
+        fun runCase(name: String, learningEnabled: Boolean): Result {
+            val directory = compositionDir("production-transfer-$name")
             val first = TurnPathAssembly.assemble(
                 Fixture().ports(
                     snapshot = { ResourceSnapshot.alwaysHealthy() },
@@ -311,18 +313,17 @@ class TurnPathAssemblyTest {
                     adaptiveLearningEnabled = learningEnabled
                 )
             )
+            val identityBefore = first.individual.identity.id
 
-            // The first turn is a real production-path experience and its
-            // locally generated reply is recorded as the observed outcome.
-            first.pipeline.onUserInput("My name is Veno")
-            val experiencesAfterLearning = first.individual.experience.experienceCount()
-            assertTrue(
-                "the enabled case must persist input and observed outcome through the live turn path",
-                if (learningEnabled) experiencesAfterLearning >= 2 else experiencesAfterLearning == 0
-            )
+            // Two ordinary, non-command experiences enter through the real
+            // production LatencyPipeline. Neither input is an explicit fact,
+            // preference, greeting, or hard-coded intent handled by the seed.
+            first.pipeline.onUserInput("the bell echoes near the window")
+            first.pipeline.onUserInput("the bell rings in the hall")
+            val experienceCount = first.individual.experience.experienceCount()
 
-            // Reconstruct the same composition over the same app-private
-            // directory, then ask a different question. No source turn replay.
+            // Reconstruct the production composition over the same durable
+            // app-private directory. Do not replay either source experience.
             val restarted = TurnPathAssembly.assemble(
                 Fixture().ports(
                     snapshot = { ResourceSnapshot.alwaysHealthy() },
@@ -332,22 +333,30 @@ class TurnPathAssemblyTest {
                     adaptiveLearningEnabled = learningEnabled
                 )
             )
-            restarted.pipeline.onUserInput("What do you know about my name?")
+            restarted.pipeline.onUserInput("the bell sounds again")
             val reply = restarted.pipeline.turns.value.lastOrNull { it.fromFriday }?.text.orEmpty()
+            val result = Result(reply, identityBefore, restarted.individual.identity.id, experienceCount)
             directory.deleteRecursively()
-            return reply
+            return result
         }
 
-        val learnedReply = runCase("enabled", learningEnabled = true)
-        val controlReply = runCase("disabled", learningEnabled = false)
+        val learned = runCase("enabled", learningEnabled = true)
+        val control = runCase("disabled", learningEnabled = false)
 
+        assertEquals("the same individual must own the experience before and after restart", learned.identityBefore, learned.identityAfter)
+        assertTrue("the enabled production path must persist real turn experiences", learned.experienceCount > 0)
+        assertEquals("the ablation must prevent the adaptive substrate from recording experiences", 0, control.experienceCount)
         assertTrue(
-            "the held-out context must activate the persisted learned association",
-            learnedReply.contains("veno", ignoreCase = true)
+            "a held-out turn sharing only the learned cue should expose an earlier associated feature",
+            listOf("window", "hall", "echoes", "rings").any { learned.reply.contains(it, ignoreCase = true) }
         )
         assertTrue(
-            "with learning disabled, the same held-out context must not acquire the learned value",
-            !controlReply.contains("veno", ignoreCase = true)
+            "disabling adaptive learning must remove the learned association effect",
+            listOf("window", "hall", "echoes", "rings").none { control.reply.contains(it, ignoreCase = true) }
+        )
+        assertTrue(
+            "Friday must label these weak lexical links as associations rather than verified meanings",
+            learned.reply.contains("not verified meanings", ignoreCase = true)
         )
     }
 
