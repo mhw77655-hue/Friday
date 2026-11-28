@@ -79,6 +79,8 @@ fun SystemScreen() {
     val selfDiagnosticRunCount by diagnosticsViewModel.selfDiagnosticRunCount.collectAsStateWithLifecycle()
     val selfDiagnosticFindings by diagnosticsViewModel.selfDiagnosticFindings.collectAsStateWithLifecycle()
     val selfDiagnosticAt by diagnosticsViewModel.selfDiagnosticAt.collectAsStateWithLifecycle()
+    val phoneMemoryStatus by diagnosticsViewModel.phoneMemoryStatus.collectAsStateWithLifecycle()
+    val phoneMemoryRunning by diagnosticsViewModel.phoneMemoryRunning.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { diagnosticsViewModel.runSelfDiagnosis() }
 
     val rows = listOf(
@@ -154,6 +156,18 @@ fun SystemScreen() {
             else selfDiagnosticStatus,
             style = FridayType.Technical,
             modifier = Modifier.padding(top = 4.dp, bottom = 6.dp)
+        )
+        Button(
+            onClick = { diagnosticsViewModel.runPhoneMemoryDiagnosis() },
+            enabled = !phoneMemoryRunning,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(if (phoneMemoryRunning) "Reading phone memory pressure…" else "Diagnose phone RAM (Shizuku)")
+        }
+        Text(
+            phoneMemoryStatus,
+            style = FridayType.Technical,
+            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp)
         )
         selfDiagnosticAt?.let { checkedAt ->
             Text(

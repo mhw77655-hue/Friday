@@ -108,6 +108,38 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     private val _selfDiagnosticRunCount = MutableStateFlow(0)
     val selfDiagnosticRunCount: StateFlow<Int> = _selfDiagnosticRunCount.asStateFlow()
 
+    private val _phoneMemoryStatus = MutableStateFlow("Phone-wide memory pressure has not been measured through Shizuku yet.")
+    val phoneMemoryStatus: StateFlow<String> = _phoneMemoryStatus.asStateFlow()
+    private val _phoneMemoryRunning = MutableStateFlow(false)
+    val phoneMemoryRunning: StateFlow<Boolean> = _phoneMemoryRunning.asStateFlow()
+
+    /** Read-only system-wide RAM/PSI evidence from the already-authorized Shizuku service. */
+    fun runPhoneMemoryDiagnosis() {
+        if (_phoneMemoryRunning.value) return
+        _phoneMemoryRunning.value = true
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val raw = ScreenBridge.diagnosticsSnapshot()
+                    ?: error("Shizuku diagnostics are not connected or did not respond.")
+                val root = JSONObject(raw)
+                require(root.optInt("uid", -1) == ScreenBridge.verifiedShizukuUid()) {
+                    "Shizuku diagnostic identity did not match the verified service."
+                }
+                val report = ai.friday.assistant.diagnostics.PhoneMemoryPressureAnalyzer.analyze(
+                    meminfo = root.optString("meminfo"),
+                    psi = root.optString("memoryPressure"),
+                    vmstat = root.optString("vmstat")
+                )
+                _phoneMemoryStatus.value = report.summary()
+            } catch (failure: Exception) {
+                _phoneMemoryStatus.value =
+                    "Phone memory diagnosis unavailable: ${failure.message ?: failure.javaClass.simpleName}"
+            } finally {
+                _phoneMemoryRunning.value = false
+            }
+        }
+    }
+
     private var lastBatteryText = ""
     private var lastNetworkText = "Net: checking..."
     private var lastNotifText = "Notif: checking..."
