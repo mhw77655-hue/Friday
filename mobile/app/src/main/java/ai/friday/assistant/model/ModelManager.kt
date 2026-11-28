@@ -435,7 +435,7 @@ class ModelManager(
         var tier = role.tier
         while (true) {
             val cached = synchronized(lifecycleLock) { cachedByTier[tier] }
-            if (cached != null && modelBackend.isAvailable(cached)) {
+            if (cached != null && modelBackend.isLoaded(cached) && modelBackend.isAvailable(cached)) {
                 synchronized(lifecycleLock) {
                     if (cachedByTier[tier] == cached) lastUsedMs[tier] = clock()
                 }
