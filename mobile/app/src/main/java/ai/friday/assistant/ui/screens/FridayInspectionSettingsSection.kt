@@ -58,7 +58,12 @@ internal fun FridayInspectionSettingsSection(context: Context) {
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            "Private read-only connection between Friday on this phone and the authorised ChatGPT inspection server. It does not route your conversations through GPT and cannot tap, type, run commands or change Friday.",
+            "External inspection is OFF by default. Pairing alone does not start a connection. If you explicitly turn this on, Friday opens an encrypted outbound session so the authorised inspection service can request a small technical snapshot: app version, Android version, coarse subsystem readiness, and available RAM/storage.",
+            style = FridayType.Label,
+            color = FridayColors.TextPrimary
+        )
+        Text(
+            "Never shared by this channel: conversations, prompts, transcripts, audio, screen contents, notifications, contacts, location, personal files, private memories, credentials, or other apps' contents. Friday's local memory, identity, reasoning and self-diagnostics continue independently when external inspection is OFF. Turning it off closes the session immediately; Revoke additionally deletes this phone's pairing key.",
             style = FridayType.Label,
             color = FridayColors.TextPrimary
         )
@@ -87,8 +92,7 @@ internal fun FridayInspectionSettingsSection(context: Context) {
                     status = result.fold(
                         onSuccess = {
                             pairingCode = ""
-                            FridayInspectionRelayRuntime.start(appContext)
-                            "Phone paired. The live read-only channel is starting."
+                            "Phone paired. External inspection remains OFF until you explicitly enable it."
                         },
                         onFailure = { it.message ?: "Could not pair this phone." }
                     )
@@ -106,8 +110,8 @@ internal fun FridayInspectionSettingsSection(context: Context) {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Allow live read-only inspection", style = FridayType.Body)
-                Text("Default off · background connection stays alive only if Friday runtime is enabled", style = FridayType.Label)
+                Text("Allow external inspection session", style = FridayType.Body)
+                Text("Default OFF · only runs after this explicit opt-in", style = FridayType.Label)
             }
             Switch(
                 checked = enabled,
@@ -115,12 +119,12 @@ internal fun FridayInspectionSettingsSection(context: Context) {
                 onCheckedChange = { next ->
                     if (next) {
                         FridayInspectionRelayRuntime.enable(appContext)
-                        status = "Live inspection enabled."
+                        status = "External inspection enabled by your action."
                         refresh()
                     } else {
                         busy = true
                         scope.launch {
-                            runCatching { FridayInspectionRelayRuntime.revoke(appContext) }
+                            FridayInspectionRelayRuntime.disable(appContext)
                             refresh()
                             busy = false
                         }
