@@ -89,7 +89,8 @@ fun HomeScreen(onOpenTools: () -> Unit) {
                 text = "FRIDAY",
                 style = FridayType.Display,
                 textAlign = TextAlign.Center
-            )            Spacer(modifier = Modifier.height(20.dp))
+            )
+            Spacer(modifier = Modifier.height(20.dp))
             Button(
                 onClick = {
                     if (!maintenanceRunning) {
