@@ -217,7 +217,8 @@ class TurnPathAssembly private constructor(
             // absent and persists under app-private storage across restarts.
             val individual = FridayIndividual(
                 directory = ports.storageDir.resolve("friday"),
-                nowMs = { ports.nowMs() }
+                nowMs = { ports.nowMs() },
+                adaptiveLearningEnabled = ports.adaptiveLearningEnabled()
             )
             val modelFreeMind = individual.expression
 
