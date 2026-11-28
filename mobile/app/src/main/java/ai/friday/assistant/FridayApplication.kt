@@ -48,6 +48,9 @@ class FridayApplication : Application() {
         // process. Installing its executor in every process created needless
         // cross-process file-lock contention and could starve Settings clears.
         if (currentProcessName() != packageName) return
+        // Persist only closed-vocabulary conversation lifecycle evidence. The journal
+        // never receives message text, prompts, transcripts, audio or personal memory.
+        ai.friday.assistant.diagnostics.FridayTurnDiagnostics.initialize(filesDir)
         ai.friday.assistant.diagnostics.PhoneActionDiagnostics.install(this)
         // The conversation journal is owned by the main process only; secondary
         // processes must not append to the same JSONL stream concurrently.
