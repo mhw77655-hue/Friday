@@ -497,6 +497,18 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     /**
+     * One-time export of the closed-vocabulary turn timeline. Unlike the broad
+     * support report, this contains no failure messages, memory fields or device
+     * identifiers; it is the preferred evidence handoff for conversation symptoms.
+     */
+    fun createIncidentEvidenceReport(): String =
+        ai.friday.assistant.diagnostics.FridayTurnDiagnostics.exportJson(
+            appVersion = BuildConfig.VERSION_NAME,
+            sourceRevision = BuildConfig.SOURCE_REVISION,
+            androidApi = Build.VERSION.SDK_INT
+        )
+
+    /**
      * Creates a shareable, privacy-conscious support report.
      * It captures runtime/device/subsystem state, never chat text, transcripts,
      * notification contents, screen contents, credentials, or personal files.
