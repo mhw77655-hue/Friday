@@ -31,6 +31,8 @@ small{color:#8190a3}
 <label for="password">Password</label>
 <input id="password" type="password" autocomplete="current-password">
 <button class="primary" id="signin">Sign in</button>
+<p>If no owner account exists yet, create one with the exact email configured in Railway's <code>FRIDAY_OWNER_EMAIL</code> variable. Confirm the email, then return here and sign in.</p>
+<button class="secondary" id="signup">Create owner account</button>
 </section>
 <section id="pairing" hidden>
 <strong>Inspection server</strong>
@@ -75,6 +77,18 @@ document.querySelector("#signin").onclick=async()=>{
  const {error}=await supabase.auth.signInWithPassword({email,password});
  if(error){say(error.message);return}
  await ownerSession();
+};
+document.querySelector("#signup").onclick=async()=>{
+ const email=document.querySelector("#email").value.trim();
+ const password=document.querySelector("#password").value;
+ if(!email||!password){say("Enter the owner email and a password first.");return}
+ const {data,error}=await supabase.auth.signUp({
+  email,password,
+  options:{emailRedirectTo:new URL("/oauth/consent",location.origin).toString()}
+ });
+ if(error){say(error.message);return}
+ if(data.session){await ownerSession();}
+ else{say("Confirmation email sent. Confirm it, then return to the pairing page and sign in.");}
 };
 document.querySelector("#generate").onclick=async()=>{
  const session=await ownerSession();
