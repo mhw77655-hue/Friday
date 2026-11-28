@@ -125,6 +125,11 @@ class FridayInspectionRelayClient(context: Context) {
                             )
                         }
                         "authenticated" -> store.setStatus("Live read-only inspection connected")
+                        "revoked" -> {
+                            store.clearEnrollment()
+                            keys.revokeLocalKey()
+                            finished.complete(Unit)
+                        }
                         "snapshot_request" -> {
                             val requestId = message.getString("requestId")
                             val snapshot = FridayInspectionSnapshotProvider.capture(app).toJson()
@@ -148,7 +153,13 @@ class FridayInspectionRelayClient(context: Context) {
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                store.setStatus(if (code == 4001) "Inspection access revoked" else "Inspection disconnected")
+                if (code == 4001) {
+                    store.clearEnrollment()
+                    keys.revokeLocalKey()
+                    store.setStatus("Inspection access revoked")
+                } else {
+                    store.setStatus("Inspection disconnected")
+                }
                 finished.complete(Unit)
             }
         })
