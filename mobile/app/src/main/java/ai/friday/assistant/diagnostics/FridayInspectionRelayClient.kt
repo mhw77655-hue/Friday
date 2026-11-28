@@ -138,6 +138,8 @@ class FridayInspectionRelayClient(context: Context) {
                         }
                         "authenticated" -> store.setStatus("Live read-only inspection connected")
                         "revoked" -> {
+                            sessionExpiryJob?.cancel()
+                            sessionExpiryJob = null
                             store.clearEnrollment()
                             keys.revokeLocalKey()
                             finished.complete(Unit)
@@ -166,6 +168,8 @@ class FridayInspectionRelayClient(context: Context) {
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 if (code == 4001) {
+                    sessionExpiryJob?.cancel()
+                    sessionExpiryJob = null
                     store.clearEnrollment()
                     keys.revokeLocalKey()
                     store.setStatus("Inspection access revoked")
@@ -215,6 +219,8 @@ class FridayInspectionRelayClient(context: Context) {
         socket = null
         connectionJob?.cancel()
         connectionJob = null
+        sessionExpiryJob?.cancel()
+        sessionExpiryJob = null
         keys.revokeLocalKey()
         store.clearEnrollment()
     }
