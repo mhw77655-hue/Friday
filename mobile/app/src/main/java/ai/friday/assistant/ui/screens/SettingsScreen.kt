@@ -538,7 +538,7 @@ fun SettingsScreen() {
             Column(modifier = Modifier.weight(1f)) {
                 Text("Allow background Builder use", style = FridayType.Body)
                 Text(
-                    "Explicitly authorize Friday to send eligible public task digests to ChatGPT during background work.",
+                    "Allow Friday to send bounded public objective/task context and selected public repository source excerpts to ChatGPT during background development. No private phone data, conversations, personal memories or files are sent.",
                     style = FridayType.Label
                 )
             }
@@ -554,7 +554,7 @@ fun SettingsScreen() {
                         result.onSuccess {
                             chatGptBackgroundConsent = enabled
                             chatGptStatus = if (enabled) {
-                                "Background ChatGPT plan use is enabled for explicitly shareable Builder digests."
+                                "Background ChatGPT use is enabled for eligible public Builder tasks and selected public source excerpts. Candidate PR publication also requires the separate GitHub repository credential; merges and releases remain blocked."
                             } else {
                                 "Background ChatGPT plan use is disabled."
                             }
@@ -567,7 +567,7 @@ fun SettingsScreen() {
             )
         }
         Text(
-            text = "Friday does not receive access to ChatGPT conversations or memories. Only PUBLIC, explicitly shareable Builder digests are sent. Usage limits apply; no paid fallback is attempted.",
+            text = "Friday does not gain access to your ChatGPT conversations or memories. The Builder sends only bounded, selected PUBLIC task context and source excerpts from this public repository. It can create isolated candidate PRs using your separately configured GitHub token; CI and independent review are required, and it cannot merge or release. Usage limits apply; no paid fallback is attempted.",
             style = FridayType.Label,
             modifier = Modifier.padding(vertical = 8.dp)
         )
