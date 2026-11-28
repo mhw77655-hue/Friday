@@ -45,28 +45,24 @@ class ObjectiveTaskDecomposer(
         return parseCloudResponse(generated.content, generated.model ?: modelId)
     }
 
-    /** Validate a cloud worker's proposal through the exact same schema gate as local planning. */
-    fun parseCloudResponse(content: String, modelId: String): ResultPacket {
-        val root = parseJson(content)
-        val items = root.optJSONArray("work_items")
-            ?: throw IllegalArgumentException("The planner omitted work_items.")
-        ObjectiveTaskDecompositionValidator.validate(items)
-        return ResultPacket(modelId = modelId, items = items)
-    }
-
-    private fun parseJson(content: String): JSONObject {
-        val trimmed = content.trim()
-            .removePrefix("```json")
-            .removePrefix("```")
-            .removeSuffix("```")
-            .trim()
-        val start = trimmed.indexOf('{')
-        val end = trimmed.lastIndexOf('}')
-        require(start >= 0 && end > start) { "The planner did not return JSON." }
-        return JSONObject(trimmed.substring(start, end + 1))
-    }
-
     companion object {
+        /** Shared schema gate for both local and explicitly consented cloud proposals. */
+        fun parseCloudResponse(content: String, modelId: String): ResultPacket {
+            val trimmed = content.trim()
+                .removePrefix("```json")
+                .removePrefix("```")
+                .removeSuffix("```")
+                .trim()
+            val start = trimmed.indexOf('{')
+            val end = trimmed.lastIndexOf('}')
+            require(start >= 0 && end > start) { "The planner did not return JSON." }
+            val root = JSONObject(trimmed.substring(start, end + 1))
+            val items = root.optJSONArray("work_items")
+                ?: throw IllegalArgumentException("The planner omitted work_items.")
+            ObjectiveTaskDecompositionValidator.validate(items)
+            return ResultPacket(modelId = modelId, items = items)
+        }
+
         private const val MAX_SCOPE_CHARS = 6_000
         private const val SYSTEM_PROMPT = """
 You are Friday's local development planner. Convert the supplied canonical task into 1-4 small, independently verifiable work items.
