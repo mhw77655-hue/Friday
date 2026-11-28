@@ -22,10 +22,13 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ai.friday.assistant.FridayMic
+import ai.friday.assistant.ui.EngineAccess
 import ai.friday.assistant.ui.components.GlassPanel
 import ai.friday.assistant.ui.theme.FridayColors
 import ai.friday.assistant.ui.theme.FridayType
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -36,7 +39,14 @@ fun HomeScreen(onOpenTools: () -> Unit) {
     val scope = rememberCoroutineScope()
     var maintenanceRunning by remember { mutableStateOf(false) }
     var maintenanceStatus by remember { mutableStateOf("") }
-    val readiness by ai.friday.assistant.ui.EngineAccess.readinessState.collectAsStateWithLifecycle()
+    val voiceSlot = EngineAccess.voiceOutputPath()
+    val voiceOutput = voiceSlot.value
+    val outputActive by (voiceOutput?.isSpeaking ?: flowOf(false)).collectAsStateWithLifecycle(initialValue = false)
+    val outputLevel by (voiceOutput?.audioLevel ?: flowOf(0f)).collectAsStateWithLifecycle(initialValue = 0f)
+    val inputLevel by FridayMic.lastLevel.collectAsStateWithLifecycle(initialValue = 0)
+    val acousticActivity = outputActive || inputLevel > 35
+    val acousticLevel = maxOf(outputLevel, (inputLevel / 120f).coerceIn(0f, 1f))
+    val readiness by EngineAccess.readinessState.collectAsStateWithLifecycle()
     val readinessLabel = when (readiness) {
         is ai.friday.assistant.EngineReadinessState.Ready -> "CORE READY"
         else -> "INITIALISING"
