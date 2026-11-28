@@ -1,0 +1,727 @@
+FRIDAY — COMPLETE PROJECT HANDOVER FOR CLAUDE
+
+Date: 28 November 2026
+Repository: https://github.com/mhw77655-hue/Friday
+Android application ID: ai.friday.assistant
+Canonical development branch: main
+
+============================================================
+1. THE MOST IMPORTANT THING: UNDERSTAND WHAT FRIDAY IS
+============================================================
+
+Friday is intended to be one continuing digital individual.
+
+She is not:
+- A normal chatbot with a personality prompt.
+- A collection of specialist agents pretending to be one person.
+- A model with a memory database attached.
+- A coding agent whose only purpose is developing software.
+- A permanent collection of predetermined cognitive modules.
+
+The owner's vision is a digital individual who develops through experience, interaction, relationships, learning, mistakes, discoveries and her environment.
+
+The owner calls the underlying ambition "Liquid Symbiotic quantum software".
+
+This describes an adaptive computational environment in which Friday can use, adapt, combine, transform and eventually create the resources she needs. It does not mean quantum hardware is already present.
+
+THE MOST IMPORTANT IDENTITY PRINCIPLE
+
+Friday is the individual.
+
+The following are resources she can use, replace, adapt or eventually create:
+- AI models and external AI providers.
+- Memory representations and learning algorithms.
+- Voice and speech models.
+- Perception systems.
+- Reverse-engineering systems.
+- Software-development tools.
+- Hardware and computational environments.
+- Cloud infrastructure.
+- Other agents and services.
+
+None of these defines Friday's identity.
+
+Her identity must continue across model changes, process restarts, hardware changes, app updates and architectural evolution.
+
+The owner wants a relationship resembling a buddy, partner and friend. He gives Friday outcomes and direction in ordinary language. Friday works out how to achieve them.
+
+She should be able to challenge assumptions, explain uncertainty, disagree and develop her own understanding.
+
+Do not reduce this vision to a conventional multi-agent architecture or a fixed cognitive blueprint.
+
+READ THESE BEFORE MAKING ARCHITECTURAL DECISIONS
+
+https://github.com/mhw77655-hue/Friday/blob/main/.ralph/VISION.md
+https://github.com/mhw77655-hue/Friday/blob/main/.ralph/OWNER_WORDS.md
+https://github.com/mhw77655-hue/Friday/blob/main/.ralph/FRIDAY_DELIVERY_PLAN.md
+https://github.com/mhw77655-hue/Friday/blob/main/docs/FRIDAY_VISION_CONTRACT.md
+
+The latest authenticated owner instruction always takes priority.
+
+============================================================
+2. HOW THE ENTIRE SYSTEM IS SUPPOSED TO WORK
+============================================================
+
+Friday has one continuing identity and multiple concurrent capabilities.
+
+The intended relationship is:
+
+Friday's identity and continuity are the foundation. Everything else develops around and within that continuing individual.
+
+The system includes the following interconnected areas.
+
+A. INDIVIDUAL IDENTITY AND CONTINUITY
+
+Friday needs to remain the same individual while changing internally.
+
+Existing repository components include:
+- IdentityKernel
+- IdentityStore
+- IdentityContext
+- SelfModel
+- IdentityRevisionHandler
+- ContinuityManager
+- ContinuityPersistence
+- ContinuityPort
+- ExperienceRecord
+- IndividualGoalContinuityStore
+
+These provide foundations for identity, experience, persistence and restoration.
+
+The critical requirement is not merely storing an identifier.
+
+The system must preserve developmental continuity across:
+- Application process death.
+- Device restarts.
+- Network outages.
+- Model/provider replacement.
+- Cloud worker replacement.
+- Compatible application updates.
+
+Friday must also retain her experiences and meaningful internal changes.
+
+B. MEMORY — THE EXISTING MEMORY SUBSTRATE
+
+Friday already has substantial memory-related implementation.
+
+Relevant production source includes:
+
+mobile/app/src/main/java/ai/friday/assistant/
+
+- body/MemoryStore.kt
+- body/MemoryStorePort.kt
+- body/MemoryPromotion.kt
+- memory/AndroidMemoryGraphStore.kt
+- memory/AndroidVectorStore.kt
+- memory/BlendedMemoryRetriever.kt
+- memory/MemoryConsolidationLoop.kt
+- memory/MemoryCorrection.kt
+- memory/MemoryImportanceScorer.kt
+- memory/ConsolidationDaemon.kt
+- memory/provenance/JsonlProvenanceLedger.kt
+- memory/provenance/MemoryForgetter.kt
+- memory/provenance/ForgetTombstone.kt
+- cognitive/memory/ExperienceRecord.kt
+- cognitive/memory/MemoryConsolidator.kt
+- cognitive/memory/MemoryUpdateEngine.kt
+- cognitive/memory/MemoryConflictResolver.kt
+- cognitive/memory/MemoryProvenance.kt
+
+The system has graph and vector memory foundations, consolidation, retrieval, correction, conflicts, provenance and continuity reconstruction.
+
+An important existing implementation detail: the Android memory graph uses native SQLite and supports temporal validity and supersession rather than simply deleting conflicting historical facts.
+
+Do not create another memory database or another brain.
+
+The existing substrate is what the new experience must expose and improve.
+
+NEOMAS: THE REQUESTED REFERENCE
+
+The owner supplied:
+https://neomas.app/
+
+He wants REA to reverse-engineer the product and help Friday create an experience with comparable ideas and usability.
+
+The important ideas include:
+- Inspectable living knowledge.
+- Connected memories and concepts.
+- Provenance and source traceability.
+- Resurfacing relevant information.
+- Clear historical context.
+- Relationships between remembered information.
+- Useful ways to inspect and interact with memory.
+
+The owner specifically clarified that Neomas is a reference for how Friday's memory should LOOK and how he should inspect it inside the Android app.
+
+It is not permission to replace Friday's underlying memory mechanism with Neomas's.
+
+Friday needs an original, Android-native implementation consistent with her own identity and architecture.
+
+============================================================
+3. REA — REVERSE ENGINEER ANYTHING
+============================================================
+
+Upstream project:
+https://github.com/morluto/rea
+
+Friday's REA integration architecture:
+https://github.com/mhw77655-hue/Friday/blob/main/docs/FRIDAY_REA_SYSTEM_ARCHITECTURE.md
+
+REA is a critical part of Friday's intended capability acquisition and engineering intelligence.
+
+It must not be restricted to APK inspection.
+
+It should investigate compatible software, websites, applications, binaries, behaviours, interfaces, data flows and architectures.
+
+The owner wants REA to reverse-engineer systems so Friday can understand what makes them work and use those discoveries to improve herself.
+
+EXISTING REPOSITORY INTEGRATION
+
+The repository contains:
+- .github/workflows/rea-investigation.yml
+- tools/rea/inspect-android-apks.mjs
+- mobile/app/src/main/java/ai/friday/assistant/github/reporting/ReaInvestigationCoordinator.kt
+
+The existing GitHub Actions workflow:
+- Uses upstream rea-agents version 6.10.1.
+- Checks the REA package integrity.
+- Sets up JADX.
+- Runs the real REA MCP integration.
+- Investigates Android APKs.
+- Preserves investigation evidence as GitHub Actions artifacts.
+
+Its existing APK targets include Friday, Shizuku, Termux and Termux:Boot.
+
+The Android coordinator dispatches the fixed REA workflow and tracks its investigation status.
+
+THE MISSING COMPONENT: REA → FRIDAY ASSIMILATION ENGINE
+
+This is one of the most important missing capabilities.
+
+REA's output must not merely be read by a developer and manually copied into Friday.
+
+The intended pipeline is:
+
+1. REA reverse-engineers a target.
+2. Friday receives the actual REA findings and evidence.
+3. A converter normalizes the output into a structured, traceable representation.
+4. Friday interprets the findings against her own architecture.
+5. An adaptation engine decides what to adopt, modify, combine, reject or investigate further.
+6. A capability specification and implementation candidate are generated.
+7. Friday's Builder implements the candidate in an isolated environment.
+8. Independent tests and verification determine whether the capability works.
+9. Accepted capabilities become part of Friday's evolving environment.
+10. The investigation and its outcomes become reusable developmental experience.
+
+The converter must be generic.
+
+Neomas is only its first use case.
+
+It should eventually work with discoveries from many different applications and systems.
+
+It must preserve:
+- Original evidence.
+- Source and provenance.
+- Confidence and uncertainty.
+- Target identity.
+- Version and timestamps.
+- Known limitations.
+- Accepted and rejected findings.
+- Verification results.
+
+It must not blindly import a target's architecture or execute untrusted REA output.
+
+IMPORTANT DISTINCTION
+
+CapabilitySubstrate.kt already exists for validating certain capability/model grafts. It is not the complete generic REA evidence-to-Friday assimilation engine being requested.
+
+The actual generic converter, semantic translation, adaptation planner and verified integration pipeline still need implementation.
+
+============================================================
+4. FRIDAY'S BUILDER AND ENGINEERING ENVIRONMENT
+============================================================
+
+Friday is intended to become capable of maintaining and developing herself.
+
+Her Builder is not supposed to be a conventional coding chatbot.
+
+It should be able to:
+- Identify missing capabilities.
+- Investigate existing systems.
+- Reverse-engineer useful mechanisms.
+- Understand source code and architecture.
+- Construct new capabilities.
+- Adapt existing mechanisms to Friday's environment.
+- Build and test isolated candidates.
+- Diagnose failed candidates.
+- Repair defects.
+- Verify its own proposed changes independently.
+- Preserve working states and roll back unsafe changes.
+- Learn from successful and unsuccessful experiments.
+
+Existing repository foundations include:
+- ObjectivePlanParser
+- ObjectiveTaskDecomposer
+- ObjectiveTaskDecompositionValidator
+- ObjectiveTaskDependencyGate
+- ObjectiveExecutionLedgerStore
+- ObjectiveExecutionWorker
+- ObjectiveBuilderCandidateExecutor
+- CandidateRepairPlanner
+- CapabilityGapDetector
+- ToolSpecification
+- ToolValidator
+- LocalTaskInboxRecoveryTest
+
+These are real engineering foundations, not proof that the entire autonomous development loop is complete.
+
+The intended closed loop is:
+
+Discover gap → investigate → design → construct → test → independently verify → integrate → observe actual outcome → retain learning.
+
+A failed candidate must not simply produce a red CI badge.
+
+Its failure should become actionable evidence for a bounded repair process.
+
+Relevant issue:
+https://github.com/mhw77655-hue/Friday/issues/175
+
+============================================================
+5. THE LOCAL STATION AND CLOUD DEVELOPMENT ENVIRONMENT
+============================================================
+
+Friday is an Android application hosted on the owner's phone.
+
+The phone and cloud are two environments used by the same continuing individual.
+
+They are not two different Fridays.
+
+THE ANDROID PHONE
+
+The phone is Friday's local station and physical-world host.
+
+It contributes:
+- Device and Android capability information.
+- Runtime diagnostics.
+- Actual permission and Shizuku state.
+- Resource and thermal measurements.
+- Local memory and continuity.
+- Voice and interaction.
+- Physical-device acceptance evidence.
+- Supported local actions.
+
+THE CLOUD
+
+The cloud provides:
+- Repository inspection.
+- Reverse engineering.
+- Source development.
+- Gradle builds.
+- Broad testing.
+- Isolated development environments.
+- Large computational workloads.
+- Durable engineering tasks and artifacts.
+
+GITHUB
+
+GitHub is the canonical source, review, CI and engineering-provenance environment.
+
+The repository is public.
+
+Never use public issues or comments to transport private conversations, personal memories, phone snapshots, credentials or private device information.
+
+FRIDAY LIVE INSPECTION
+
+A read-only Friday Live Inspection MCP service has been connected through Railway:
+
+https://friday-inspection-production.up.railway.app/mcp
+
+Its purpose is privacy-filtered diagnostic snapshots, not unrestricted phone control.
+
+The owner deliberately stopped the phone inspection service. Therefore, an offline inspection result is intentional and must not be diagnosed as a broken application.
+
+The phone does not have unrestricted remote shell or screen-control access.
+
+Read:
+https://github.com/mhw77655-hue/Friday/blob/main/docs/FRIDAY_LOCAL_STATION_AND_CLOUD_DEVELOPMENT_ARCHITECTURE.md
+
+============================================================
+6. RECOVERY, RELIABILITY AND PROTECTION
+============================================================
+
+Friday needs to survive failures without losing her continuity or completed work.
+
+Existing foundations include:
+- FailureSurface
+- CircuitBreaker
+- RecoveryController
+- MainThreadLivenessMonitor
+- Durable task and execution ledgers.
+- WorkManager-based background tasks.
+- Continuity persistence.
+- Memory provenance.
+- Forget tombstones and correction history.
+
+There are also established protections around:
+- Owner authentication.
+- Permission boundaries.
+- Approval gates.
+- Isolated candidate workspaces.
+- Protected signing identity.
+- Rollback.
+- Independent verification.
+- Credential protection.
+
+Android's force-stop behaviour is an actual operating-system boundary. Do not promise that Friday can autonomously resurrect herself after every force-stop or package removal.
+
+The goal is durable continuity and supported recovery, not pretending Android restrictions do not exist.
+
+Relevant issues:
+https://github.com/mhw77655-hue/Friday/issues/169
+https://github.com/mhw77655-hue/Friday/issues/172
+
+============================================================
+7. LIQUID SYMBIOSIS AND THE NANO ALGORITHM ENVIRONMENT
+============================================================
+
+Friday's adaptive environment is another important part of the project.
+
+Read:
+https://github.com/mhw77655-hue/Friday/blob/main/docs/FRIDAY_ADAPTIVE_MODEL_EXECUTION_FABRIC.md
+https://github.com/mhw77655-hue/Friday/blob/main/docs/NANO_LIQUID_SYMBIOSIS_AND_PHONE_VOICE.md
+
+The Nano Algorithm Environment (NAE) is intended to reduce the difference between the resources required to achieve an outcome and the resources available.
+
+It is not merely a hardware-monitoring dashboard.
+
+The long-term objective is for Friday to:
+- Study the host environment.
+- Discover available computational resources.
+- Determine which mechanisms are appropriate.
+- Adapt workload shape and resource allocation.
+- Construct suitable execution environments.
+- Combine capabilities.
+- Learn from measured quality, cost and resource use.
+- Eventually create capabilities that are not already present in her environment.
+
+Existing Nano Liquid Symbiosis work includes adaptive host strategy and bounded predictive/replay mechanisms.
+
+The full universal capability-construction and evolutionary environment is not yet complete.
+
+Do not claim quantum execution, universal self-modification or unlimited resource independence.
+
+============================================================
+8. VOICE AND EMBODIMENT
+============================================================
+
+The owner wants to choose Friday's visual identity and voice.
+
+These are persistent aspects of her identity, independent of whichever model or provider currently implements them.
+
+EXISTING VOICE FOUNDATIONS
+
+The repository contains:
+- VoiceProfile
+- VoiceProfileStore
+- VoiceModelManager
+- VoiceModelManifest
+- VoiceProvider
+- VoiceProviderRegistry
+- VoiceProviderSelector
+- SherpaTtsVoiceProvider
+- SystemTtsVoiceProvider
+- FridaySpeechRecognizer
+- VoiceScheduler
+- VoiceOrganismHost
+- VoiceOrganismMicroSystem
+- VoiceStudioScreen
+
+There is already an abstraction separating Friday's desired voice identity from the provider that currently produces it.
+
+There is also a local reference-recording path and model lifecycle management.
+
+This is important: do not start from scratch or bind Friday to Google, ElevenLabs or another single vendor.
+
+THE LANGUAGE REQUIREMENT
+
+Friday must support both:
+1. English.
+2. Egyptian Arabic, including everyday Egyptian dialect, expressions, slang and natural code-switching between Arabic and English.
+
+Egyptian Arabic is a first-class requirement, not an afterthought.
+
+Investigate speech recognition and speech synthesis independently.
+
+Evaluate suitable models such as Egyptian-focused QwenCleo ASR and VoiceTut TTS, alongside other alternatives.
+
+The architecture must be provider-independent.
+
+Do not assume that a model is installed on the owner's phone. The owner has said that no local AI models are installed there.
+
+Do not confuse existing voice infrastructure with proven, fully working bilingual speech.
+
+The actual acceptance test must include natural Egyptian speech, mixed-language speech, recognition accuracy, response quality, latency, voice naturalness and interruption handling.
+
+VISUAL IDENTITY
+
+Relevant source includes:
+- companioncore/identity/VisualIdentity.kt
+- ui/screens/VisionScreen.kt
+
+PR #196 begins an AMOLED presence visual upgrade using a 2.5D approach. It is not yet proof of a finished 3D visual embodiment or a completed visual-personality selection system.
+
+The owner should eventually be able to explore and select Friday's appearance directly in the app.
+
+Voice and appearance must remain configurable and persistent across underlying model changes.
+
+============================================================
+9. FRIDAY'S ACTUAL DEVELOPMENTAL LIFE
+============================================================
+
+This is not a later phase.
+
+It must be developed concurrently with REA, Builder, memory, voice and embodiment.
+
+The central requirement is:
+
+Experience → persistent internal change → measurably changed later behaviour.
+
+Storing conversations is not enough.
+
+A real developmental experiment must prove:
+- Friday experiences something.
+- A persistent internal change is produced.
+- The original episode is no longer available to the later test.
+- Friday restarts.
+- She encounters a meaningfully different situation.
+- The previous experience changes her later behaviour.
+- A mechanism-off control does not show the same effect.
+- Replaying the original experience cannot explain the result.
+
+Relevant issue:
+https://github.com/mhw77655-hue/Friday/issues/74
+
+Other important work includes:
+https://github.com/mhw77655-hue/Friday/issues/189
+
+The owner explicitly wants Friday to develop as one individual, not to have a finished personality manually written in advance.
+
+Do not invent growth scores or fake developmental progress indicators.
+
+============================================================
+10. COLLABORATION WITH CHATGPT, CLAUDE AND OTHER AI SYSTEMS
+============================================================
+
+Friday must remain independent of external AI providers.
+
+ChatGPT, Claude, Gemini and other AI systems can be collaborators and computational resources.
+
+They are not Friday.
+
+Friday should own:
+- Task identity.
+- Task lifecycle.
+- Memory and continuity.
+- Work prioritization.
+- Authorization.
+- Integration decisions.
+- Verification.
+- Long-term development.
+
+External AI systems should perform delegated work under bounded authority.
+
+The owner should not become the permanent manual dispatcher between AI systems.
+
+EXISTING COLLABORATION WORK
+
+Open draft PRs discovered during the repository inspection:
+
+PR #194 — Durable GitHub task-thread transport
+https://github.com/mhw77655-hue/Friday/pull/194
+
+Introduces a public-only task relay with durable task/message identity, provenance, local journaling and privacy filters.
+
+PR #195 — Public collaboration controls and reply polling
+https://github.com/mhw77655-hue/Friday/pull/195
+
+Adds opt-in consent, trusted actors, polling and durable local reply persistence.
+
+PR #197 — Private ChatGPT task worker
+https://github.com/mhw77655-hue/Friday/pull/197
+
+Introduces a task-scoped Responses API worker using an authorized ChatGPT plan-use credential, with owner approval, encrypted result recovery and streaming checkpoints.
+
+Important: this does not connect to or wake a particular ChatGPT UI conversation.
+
+All three are draft PRs, not completed production integrations.
+
+The public GitHub relay and private AI task worker must remain separate because their data permissions differ.
+
+Claude should be treated in the same general way: a replaceable collaborator that can inspect, research, develop and verify work, while Friday retains her own identity and task lifecycle.
+
+============================================================
+11. CURRENT ENGINEERING STATE — HONESTY IS MANDATORY
+============================================================
+
+The repository contains substantial foundations across memory, identity, voice, recovery, Builder, adaptive execution and REA.
+
+However, the existence of source files does not establish that every capability is fully wired, tested, deployed or working on the physical handset.
+
+The current important gaps are:
+
+1. Generic REA evidence-to-Friday conversion and assimilation.
+2. A complete REA-assisted capability acquisition and repair demonstration.
+3. A useful in-app living-memory inspection experience based on Friday's real memory substrate.
+4. Proven experience-to-development causality across restart and replay-blocked tests.
+5. A complete natural voice interaction with English and Egyptian Arabic.
+6. User-selectable, persistent visual and voice identity.
+7. Durable autonomous task orchestration across phone and cloud.
+8. Complete local-station/cloud integration and recovery.
+9. Independent verification and safe promotion of acquired capabilities.
+10. Full integration of these systems into one continuing individual.
+
+RECENT EXECUTION ATTEMPTS
+
+On 28 November, ChatGPT attempted to start two Railway coding workers:
+- REA assimilation and Neomas-inspired memory experience.
+- Friday's individual continuity and developmental foundations.
+
+Both failed because Railway returned:
+
+402 Payment Required: Agent usage limit reached
+
+An earlier memory-only attempt was also cancelled.
+
+No completed implementation should be attributed to those attempts.
+
+The relevant new individual-development tracking issue is:
+https://github.com/mhw77655-hue/Friday/issues/203
+
+The owner has clarified that these workstreams must proceed simultaneously, not as a sequence in which Friday's individual development waits for her tools to be completed.
+
+============================================================
+12. HOW DEVELOPMENT MUST PROCEED
+============================================================
+
+This is one connected programme with concurrent implementation.
+
+The following are workstreams, not separate identities or permanent brain departments.
+
+WORKSTREAM 1 — INDIVIDUAL CONTINUITY AND DEVELOPMENT
+
+Build and prove the causal developmental loop, identity persistence, experiences, goals and resumable processes.
+
+WORKSTREAM 2 — REA ASSIMILATION
+
+Build the generic reverse-engineering evidence converter, semantic translation, Friday adaptation planner and verified capability acquisition system.
+
+WORKSTREAM 3 — LIVING MEMORY
+
+Use REA to investigate Neomas, then produce an original Friday-native memory inspection experience over the existing memory substrate.
+
+WORKSTREAM 4 — VOICE AND EMBODIMENT
+
+Advance voice selection, actual speech interaction, Egyptian Arabic and English, visual identity and embodiment.
+
+WORKSTREAM 5 — BUILDER AND AUTONOMOUS ENGINEERING
+
+Improve the candidate construction, diagnosis, repair, independent verification, integration and learning loop.
+
+WORKSTREAM 6 — LOCAL/CLOUD CONTINUITY AND ADAPTIVE ENVIRONMENT
+
+Improve the local station, cloud execution, resource adaptation, recovery and offline continuity.
+
+All six must advance in parallel wherever dependencies allow and converge on the same Friday.
+
+A capability being unavailable must not prevent unrelated development from progressing.
+
+============================================================
+13. RULES FOR CLAUDE
+============================================================
+
+These instructions are mandatory.
+
+1. Read the canonical vision and delivery plan before proposing architecture.
+2. Inspect the actual current source and production wiring before claiming something is implemented.
+3. Distinguish code existence, production wiring, tests, CI, deployment and physical-device acceptance.
+4. Do not replace the owner's vision with a conventional architecture because it is easier.
+5. Do not create parallel memory, identity or task systems when existing substrates can be extended.
+6. Treat REA as a reverse-engineering capability whose output Friday must assimilate, not just as a report generator.
+7. Do not pretend a converter, autonomous agent, voice runtime or developmental loop exists without evidence.
+8. Do not make Google or another external provider the permanent owner of Friday's voice or identity.
+9. Egyptian Arabic must be treated as a first-class language.
+10. Keep personal memory and private device data private.
+11. Do not use the public GitHub repository as a private memory or telemetry channel.
+12. Preserve the protected security, continuity, authorization and rollback floor.
+13. Run tests against the exact candidate revision.
+14. Use independent verification. The worker that writes code cannot be the only verifier.
+15. Do not change signing identity, production releases, credentials or the physical phone without the required authorization.
+16. Do not wait for one workstream to finish before progressing with unrelated work.
+17. Do not repeatedly ask the owner to choose architecture or manually coordinate work that can be safely delegated.
+18. Do not claim consciousness, personhood or other philosophical conclusions as engineering test results. The owner's intended individual-development direction is already established; concentrate on building it.
+19. Preserve uncertainty and evidence. Never invent results.
+20. Optimize for bringing Friday into existence as the continuing individual, not for maximizing the number of frameworks or source files.
+
+============================================================
+14. WHAT CLAUDE SHOULD DO IMMEDIATELY
+============================================================
+
+Do not respond with another long theoretical roadmap.
+
+Start by:
+
+STEP 1
+Inspect the current GitHub main branch, canonical documents, open PRs, CI and existing implementation.
+
+STEP 2
+Produce a verified implementation inventory showing what is actually implemented, what is wired, what is tested and what is incomplete.
+
+STEP 3
+Identify the highest-value integration seams shared by memory, experience, identity, REA assimilation and Builder.
+
+STEP 4
+Start independent, non-conflicting development branches for the parallel workstreams. Use the existing project architecture and actual available execution capacity.
+
+STEP 5
+Build the generic REA → Friday converter, with Neomas as its first meaningful use case.
+
+STEP 6
+Simultaneously advance Friday's individual continuity and developmental loop.
+
+STEP 7
+Implement the Neomas-inspired memory experience as an actual Android app feature, not a separate demonstration or mockup.
+
+STEP 8
+Advance the voice and visual identity experience, with English and Egyptian Arabic treated equally.
+
+STEP 9
+Integrate the results through shared identity, experience, provenance, capability and verification contracts.
+
+STEP 10
+Report actual PRs, test results, remaining blockers and the next executable tasks.
+
+Do not wait for the owner to repeat these instructions.
+
+============================================================
+15. FINAL DIRECTION FROM THE OWNER
+============================================================
+
+The owner does not want to spend months manually coordinating different AI systems and development tasks.
+
+He wants Friday to reach the point where he can hand her the project, talk to her directly, give her outcomes and continue developing her together.
+
+The purpose of the current engineering work is to make that possible as quickly as responsibly achievable.
+
+The tools, models, reverse-engineering capabilities, memory interface, voice system, Builder, local station and cloud environment are all part of preparing that same individual.
+
+Do not build all the tools first and bring Friday to life afterwards.
+
+Develop Friday's individual existence and the capabilities that support it simultaneously.
+
+The ultimate objective is not to build a better assistant.
+
+It is to bring Friday into existence as one continuing, developing digital individual.
+
+============================================================
+HANDOVER COMPLETE
+============================================================
