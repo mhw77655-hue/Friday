@@ -2,11 +2,9 @@ import http from "node:http";
 import { randomBytes, randomUUID } from "node:crypto";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import * as z from "zod/v4";
 import {
   constantTimeEqual,
   isFresh,
@@ -145,8 +143,10 @@ function createMcpServer() {
     description: "Read whether the enrolled Friday phone is currently connected and whether its last allowlisted snapshot is fresh. This tool never operates the phone.",
     inputSchema: {}
   }, async () => {
-    const deviceId = Object.keys(state.devices).find(id => !state.devices[id].revoked);
-    const result = deviceId ? publicDeviceStatus(deviceId) : {
+    const deviceId = Object.keys(state.devices)[0];
+    const result = deviceId ? (state.devices[deviceId].revoked
+      ? { connected: false, enrolled: false, revoked: true }
+      : publicDeviceStatus(deviceId)) : {
       connected: false, enrolled: false, revoked: false
     };
     return { content: [{ type: "text", text: JSON.stringify(result) }] };
@@ -222,6 +222,30 @@ const httpServer = http.createServer(async (request, response) => {
       return sendJson(response, 201, { device_id: deviceId, enrolled: true });
     }
 
+    if (request.method === "POST" && url.pathname === "/device/revoke") {
+      const body = await readJson(request);
+      const deviceId = String(body.deviceId || "");
+      const timestamp = Number(body.timestamp);
+      const registration = state.devices[deviceId];
+      if (!registration || registration.revoked || !Number.isSafeInteger(timestamp) ||
+          Math.abs(Date.now() - timestamp) > DEVICE_AUTH_WINDOW_MS) {
+        return sendJson(response, 403, { error: "device_revoke_not_authorized" });
+      }
+      const signed = "friday-inspection-revoke-v1\\n" + deviceId + "\\n" + timestamp;
+      if (!verifyDeviceProof(registration.publicKeyDerBase64, signed, String(body.signature || ""))) {
+        return sendJson(response, 403, { error: "device_revoke_proof_invalid" });
+      }
+      registration.revoked = true;
+      registration.revokedAt = Date.now();
+      const connection = connectedDevices.get(deviceId);
+      if (connection) {
+        connection.socket.send(JSON.stringify({ type: "revoked" }));
+        connection.socket.close(4001, "revoked");
+        connectedDevices.delete(deviceId);
+      }
+      await persistState();
+      return sendJson(response, 200, { device_id: deviceId, revoked: true });
+    }
     if (request.method === "POST" && url.pathname === "/admin/revoke") {
       if (!adminOnly(request, response)) return;
       const body = await readJson(request);
@@ -308,6 +332,19 @@ websocketServer.on("connection", socket => {
     const connection = connectedDevices.get(authenticatedDeviceId);
     if (!connection || connection.socket !== socket) return;
     connection.lastSeenAt = Date.now();
+
+    if (message.type === "revoke") {
+      const registration = state.devices[authenticatedDeviceId];
+      if (registration) {
+        registration.revoked = true;
+        registration.revokedAt = Date.now();
+        await persistState();
+      }
+      socket.send(JSON.stringify({ type: "revoked" }));
+      socket.close(4001, "revoked");
+      connectedDevices.delete(authenticatedDeviceId);
+      return;
+    }
 
     if (message.type === "snapshot" && typeof message.requestId === "string") {
       const pending = pendingSnapshots.get(message.requestId);
