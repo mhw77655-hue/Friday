@@ -175,3 +175,8 @@ This is a maintenance pass, not a structural migration. The objective is to remo
 ### Safety rule
 
 Do not delete branches, releases, tags, signing records, vendored runtime libraries, historical provenance or unique open-PR work merely to reduce counts. Every deletion must be tied to evidence that the item is unused, superseded or intentionally private.
+
+
+### Workflow cleanup correction
+
+- Removing `log.zip` initially triggered the log-analysis workflow because its push path filter matched deletion events. The first guard attempt placed `hashFiles()` at job level; GitHub rejected that workflow run (run `46101178939`). This was corrected by moving the `hashFiles('log.zip')` guard to the analysis step, where the expression is supported. Commit: `e07e78887453423db82c9e5e77ceaed809e5ce2d`. The workflow now checks out normally and skips the archive-analysis step when no uploaded archive exists. Verify the post-fix run before treating this cleanup item as fully validated.
