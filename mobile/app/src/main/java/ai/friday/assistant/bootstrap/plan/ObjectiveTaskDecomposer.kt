@@ -42,14 +42,16 @@ class ObjectiveTaskDecomposer(
             generated.finishReason != FinishReason.CONTENT_FILTER &&
             generated.content.isNotBlank()
         ) { "The local model did not return a usable task decomposition." }
-        val root = parseJson(generated.content)
+        return parseCloudResponse(generated.content, generated.model ?: modelId)
+    }
+
+    /** Validate a cloud worker's proposal through the exact same schema gate as local planning. */
+    fun parseCloudResponse(content: String, modelId: String): ResultPacket {
+        val root = parseJson(content)
         val items = root.optJSONArray("work_items")
-            ?: throw IllegalArgumentException("The local model omitted work_items.")
+            ?: throw IllegalArgumentException("The planner omitted work_items.")
         ObjectiveTaskDecompositionValidator.validate(items)
-        return ResultPacket(
-            modelId = generated.model ?: modelId,
-            items = items
-        )
+        return ResultPacket(modelId = modelId, items = items)
     }
 
     private fun parseJson(content: String): JSONObject {

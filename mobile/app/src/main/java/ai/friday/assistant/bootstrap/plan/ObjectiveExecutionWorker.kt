@@ -54,7 +54,12 @@ class ObjectiveExecutionWorker(
             val parent = store.nextQueuedParentTask()
             if (parent != null) {
                 if (manager == null || !manager.isTierLoaded(ModelTier.RESIDENT)) {
-                    android.util.Log.i(TAG, "Plan ledger ready; waiting for a verified local resident model.")
+                    if (ai.friday.assistant.aiworkforce.table.ChatGPTPlanBackgroundConsentStore(applicationContext).isEnabled()) {
+                        ObjectiveCloudDecompositionWorker.enqueue(applicationContext, parent.getString("task_id"))
+                        android.util.Log.i(TAG, "No resident model is installed; dispatched this PUBLIC objective digest to the separately consented ChatGPT plan worker.")
+                    } else {
+                        android.util.Log.i(TAG, "Plan ledger ready; waiting for a local resident model or explicit background ChatGPT plan-use consent.")
+                    }
                     return@withContext Result.success()
                 }
                 try {

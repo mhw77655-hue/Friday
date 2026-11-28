@@ -76,6 +76,45 @@ class ObjectiveTaskDecomposerTest {
         assertTrue(error is IllegalArgumentException)
     }
 
+    @Test fun `cloud response uses the same bounded decomposition validator`() {
+        val response = """{
+            "work_items": [{
+                "id": "inspect-plan",
+                "goal": "Inspect the canonical plan and collect exact source evidence.",
+                "acceptance_criteria": ["A source-revision-bound evidence note exists."],
+                "evidence_needed": ["Repository commit and relevant source paths."],
+                "risk": "LOW",
+                "reversible": true,
+                "requires_owner_approval": false,
+                "dependencies": [],
+                "dependency_state": "UNRESOLVED"
+            }]
+        }"""
+        val result = ObjectiveTaskDecomposer.parseCloudResponse(response, "chatgpt-plan:test-model")
+        assertEquals("chatgpt-plan:test-model", result.modelId)
+        assertEquals(1, result.items.length())
+    }
+
+    @Test fun `cloud response cannot bypass owner approval risk validation`() {
+        val response = """{
+            "work_items": [{
+                "id": "privileged-action",
+                "goal": "Perform a privileged action.",
+                "acceptance_criteria": ["The action completed."],
+                "evidence_needed": ["A verified postcondition."],
+                "risk": "HIGH",
+                "reversible": true,
+                "requires_owner_approval": false,
+                "dependencies": [],
+                "dependency_state": "UNRESOLVED"
+            }]
+        }"""
+        val failure = runCatching {
+            ObjectiveTaskDecomposer.parseCloudResponse(response, "chatgpt-plan:test-model")
+        }.exceptionOrNull()
+        assertTrue(failure is IllegalArgumentException)
+    }
+
     @Test fun `decomposition refuses to run without a loaded resident model`() = runBlocking {
         val (manager, _) = manager("{}")
         val error = runCatching { ObjectiveTaskDecomposer(manager).decompose(parentTask()) }.exceptionOrNull()
