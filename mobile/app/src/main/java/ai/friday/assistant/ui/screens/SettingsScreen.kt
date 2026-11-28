@@ -64,6 +64,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import ai.friday.assistant.aiworkforce.table.ChatGPTPlanSeat
 import ai.friday.assistant.aiworkforce.table.ChatGPTPlanAuth
 import ai.friday.assistant.aiworkforce.table.ChatGPTPlanBackgroundConsentStore
+import ai.friday.assistant.cloud.AnthropicApiKeyStore
+import ai.friday.assistant.cloud.AnthropicMessagesProvider
+import ai.friday.assistant.cloud.CloudResult
 import ai.friday.assistant.update.FridayPackageInstaller
 import ai.friday.assistant.update.FridayShizukuPackageInstaller
 import ai.friday.assistant.update.FridayUpdateClient
@@ -124,6 +127,15 @@ fun SettingsScreen() {
     var chatGptStatus by remember { mutableStateOf("Checking ChatGPT connection…") }
     var chatGptBusy by remember { mutableStateOf(false) }
     var chatGptTestBusy by remember { mutableStateOf(false) }
+    val anthropicKeyStore = remember(context) { AnthropicApiKeyStore(context) }
+    val anthropicPrefs = remember(context) { context.getSharedPreferences("friday_anthropic_secure", Context.MODE_PRIVATE) }
+    var anthropicKey by remember { mutableStateOf("") }
+    var anthropicConfigured by remember { mutableStateOf(anthropicKeyStore.readApiKey() != null) }
+    var anthropicModel by remember { mutableStateOf(anthropicPrefs.getString("model_id", "claude-opus-5-5") ?: "claude-opus-5-5") }
+    var anthropicStatus by remember { mutableStateOf("Claude API is not connected.") }
+    var anthropicBusy by remember { mutableStateOf(false) }
+    var anthropicTesting by remember { mutableStateOf(false) }
+    var anthropicExpanded by remember { mutableStateOf(true) }
     var updatesExpanded by remember { mutableStateOf(false) }
     var chatGptExpanded by remember { mutableStateOf(true) }
     var personalExpanded by remember { mutableStateOf(false) }
@@ -589,6 +601,104 @@ fun SettingsScreen() {
         }
         Text(text = chatGptStatus, style = FridayType.Technical, modifier = Modifier.padding(bottom = 16.dp))
 
+        }
+        SettingsGroup("Claude connection", if (anthropicConfigured) "Anthropic API key encrypted · ${anthropicModel}" else "Not connected · owner-controlled task delegation", anthropicExpanded, { anthropicExpanded = !anthropicExpanded }) {
+        SectionLabel("ANTHROPIC CLAUDE — TASK REASONING")
+        Text(
+            text = "Friday can use Claude as an external reasoning worker. Her identity and memory stay local. Only a task capsule selected by Friday is eligible to leave the phone; every task requires its own approval. Claude receives no phone-control tools.",
+            style = FridayType.Label,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+        OutlinedTextField(
+            value = anthropicKey,
+            onValueChange = { anthropicKey = it },
+            label = { Text("Anthropic API key") },
+            visualTransformation = PasswordVisualTransformation(),
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = anthropicModel,
+            onValueChange = { anthropicModel = it.trim().take(120) },
+            label = { Text("Claude model ID") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Button(
+            enabled = !anthropicBusy && anthropicKey.isNotBlank() && anthropicModel.isNotBlank(),
+            onClick = {
+                anthropicBusy = true
+                scope.launch {
+                    val saved = withContext(Dispatchers.IO) {
+                        runCatching {
+                            anthropicKeyStore.saveApiKey(anthropicKey)
+                            check(anthropicPrefs.edit().putString("model_id", anthropicModel.trim()).commit()) {
+                                "Could not save Claude model selection."
+                            }
+                        }
+                    }
+                    saved.onSuccess {
+                        anthropicKey = ""
+                        anthropicConfigured = true
+                        anthropicStatus = "Claude credentials encrypted locally. Restart Friday to register Claude in the cloud reasoning pool."
+                    }.onFailure {
+                        anthropicStatus = it.message ?: "Could not save Claude credentials."
+                    }
+                    anthropicBusy = false
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(if (anthropicBusy) "Saving securely…" else "Save Claude connection") }
+        Button(
+            enabled = anthropicConfigured && !anthropicTesting && !anthropicBusy,
+            onClick = {
+                anthropicTesting = true
+                anthropicStatus = "Sending a small explicit Claude connectivity test…"
+                scope.launch {
+                    val result = withContext(Dispatchers.IO) {
+                        AnthropicMessagesProvider(
+                            apiKeySource = anthropicKeyStore,
+                            modelProvider = { anthropicModel }
+                        ).generate("Return exactly this text and nothing else: FRIDAY_CLAUDE_CONNECTION_OK")
+                    }
+                    anthropicStatus = when (result) {
+                        is CloudResult.Success -> "Claude responded · ${result.model ?: anthropicModel} · input ${result.usage?.inputTokens ?: 0} tokens · output ${result.usage?.outputTokens ?: 0} · cache write ${result.usage?.cacheCreationInputTokens ?: 0} · cache read ${result.usage?.cacheReadInputTokens ?: 0}. Request ${result.requestId ?: "not supplied"}."
+                        is CloudResult.Failure -> result.reason
+                    }
+                    anthropicTesting = false
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) { Text(if (anthropicTesting) "Testing Claude…" else "Test Claude connection") }
+        if (anthropicConfigured) {
+            TextButton(
+                enabled = !anthropicBusy && !anthropicTesting,
+                onClick = {
+                    anthropicBusy = true
+                    scope.launch {
+                        val removed = withContext(Dispatchers.IO) {
+                            runCatching {
+                                anthropicKeyStore.clear()
+                                anthropicPrefs.edit().remove("model_id").commit()
+                            }
+                        }
+                        anthropicConfigured = removed.getOrDefault(false).not()
+                        anthropicStatus = if (removed.isSuccess) {
+                            "Claude API key revoked and deleted from local secure storage."
+                        } else {
+                            "Claude credentials could not be fully revoked."
+                        }
+                        anthropicBusy = false
+                    }
+                }
+            ) { Text("Revoke and delete Claude key") }
+        }
+        Text(
+            text = "API billing is separate from a Claude web subscription unless Anthropic explicitly grants linked API credits. Check the Console billing route before use. Friday does not send background tasks automatically.",
+            style = FridayType.Label,
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
+        Text(text = anthropicStatus, style = FridayType.Technical, modifier = Modifier.padding(bottom = 16.dp))
         }
         SettingsGroup("Personalization and voice", "Personality, speech and device-decision credentials", personalExpanded, { personalExpanded = !personalExpanded }) {
         SectionLabel("PERSONALITY")
