@@ -5,7 +5,8 @@ import {
   constantTimeEqual,
   isFresh,
   validateInspectionSnapshot,
-  verifyDeviceProof
+  verifyDeviceProof,
+  validateOwnerClaims
 } from "../src/security.js";
 
 const now = 1_800_000_000_000;
@@ -91,4 +92,64 @@ test("reports freshness only within the bounded evidence window", () => {
   assert.equal(isFresh(now - 90_000, now), true);
   assert.equal(isFresh(now - 90_001, now), false);
   assert.equal(isFresh(now + 31_000, now), false);
+});
+
+
+test("accepts only owner OAuth JWT claims bound to the Friday MCP resource", () => {
+  const claims = {
+    iss: "https://example.supabase.co/auth/v1",
+    aud: "https://friday.example/mcp",
+    exp: Math.floor(now / 1000) + 300,
+    iat: Math.floor(now / 1000),
+    sub: "owner-user-id",
+    client_id: "registered-mcp-client",
+    role: "authenticated",
+    is_anonymous: false,
+    email: "owner@example.com"
+  };
+  assert.equal(validateOwnerClaims(claims, {
+    issuer: "https://example.supabase.co/auth/v1",
+    resource: "https://friday.example/mcp",
+    ownerEmail: "OWNER@example.com",
+    now
+  }), claims);
+});
+
+test("rejects OAuth tokens not bound to the exact Friday MCP audience", () => {
+  const claims = {
+    iss: "https://example.supabase.co/auth/v1",
+    aud: "authenticated",
+    exp: Math.floor(now / 1000) + 300,
+    iat: Math.floor(now / 1000),
+    sub: "owner-user-id",
+    client_id: "registered-mcp-client",
+    role: "authenticated",
+    is_anonymous: false,
+    email: "owner@example.com"
+  };
+  assert.throws(() => validateOwnerClaims(claims, {
+    issuer: "https://example.supabase.co/auth/v1",
+    resource: "https://friday.example/mcp",
+    ownerEmail: "owner@example.com",
+    now
+  }), /token_audience_invalid/);
+});
+
+test("rejects wrong issuer, expired token, missing OAuth client and non-owner", () => {
+  const base = {
+    iss: "https://example.supabase.co/auth/v1",
+    aud: "https://friday.example/mcp",
+    exp: Math.floor(now / 1000) + 300,
+    iat: Math.floor(now / 1000),
+    sub: "owner-user-id",
+    client_id: "registered-mcp-client",
+    role: "authenticated",
+    is_anonymous: false,
+    email: "owner@example.com"
+  };
+  const options = { issuer: base.iss, resource: base.aud, ownerEmail: "owner@example.com", now };
+  assert.throws(() => validateOwnerClaims({ ...base, iss: "https://attacker.example" }, options), /token_issuer_invalid/);
+  assert.throws(() => validateOwnerClaims({ ...base, exp: Math.floor(now / 1000) }, options), /token_expired/);
+  assert.throws(() => validateOwnerClaims({ ...base, client_id: "" }, options), /token_subject_or_client_invalid/);
+  assert.throws(() => validateOwnerClaims({ ...base, email: "other@example.com" }, options), /owner_access_denied/);
 });
