@@ -11,6 +11,9 @@ import ai.friday.assistant.ScreenBridge
 import ai.friday.assistant.bootstrap.host.HostBootstrapWorker
 import ai.friday.assistant.bootstrap.plan.ObjectiveExecutionWorker
 import ai.friday.assistant.github.reporting.FridayAgentTaskRelayConsentStore
+import ai.friday.assistant.github.reporting.FridayAgentTaskRelay
+import ai.friday.assistant.github.reporting.AgentTaskThreadStore
+import ai.friday.assistant.github.reporting.GitHubDevelopmentRepositoryClient
 import ai.friday.assistant.github.reporting.FridayAgentTaskRelayPollWorker
 import ai.friday.assistant.github.reporting.GitHubCredentialStore
 import ai.friday.assistant.github.reporting.GitHubDeviceReportConsentStore
@@ -19,6 +22,9 @@ import ai.friday.assistant.model.storage.ResidentModelBootstrapWorker
 import ai.friday.assistant.update.FridayUpdateWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import java.time.LocalDate
 
 /**
  * Single owner-triggered entry point for Friday's existing maintenance lanes.
@@ -72,14 +78,54 @@ object FridayOneButtonMaintenance {
         queued += "signed release check"
 
         val githubReady = GitHubCredentialStore(app).read() != null
-        val relayConsent = FridayAgentTaskRelayConsentStore(app).isEnabled()
+        val relayConsentStore = FridayAgentTaskRelayConsentStore(app)
+        val relayConsent = relayConsentStore.isEnabled()
         val relayStatus = when {
-            !githubReady -> "GitHub task polling is waiting for the phone's encrypted repository credential."
-            !relayConsent -> "Public GitHub task polling remains off until its explicit owner consent is enabled."
+            !githubReady -> "GitHub task dispatch is waiting for the phone's encrypted repository credential."
+            !relayConsent -> "Public GitHub task dispatch remains off until its explicit owner consent is enabled."
             else -> {
-                FridayAgentTaskRelayPollWorker.checkNow(app)
-                queued += "trusted GitHub task-result polling"
-                "Trusted GitHub task-result polling queued."
+                val trustedActors = relayConsentStore.trustedActors()
+                if (trustedActors.isEmpty()) {
+                    "Public task dispatch is enabled, but no trusted reply actor is configured."
+                } else {
+                    val revision = ai.friday.assistant.BuildConfig.SOURCE_REVISION
+                        .takeIf { it.isNotBlank() && it.length <= 80 }
+                        ?: ("release-" + ai.friday.assistant.BuildConfig.VERSION_NAME).take(80)
+                    val taskId = "friday-maint-" +
+                        ai.friday.assistant.BuildConfig.VERSION_CODE + "-" +
+                        LocalDate.now().toString().replace("-", "")
+                    val relay = FridayAgentTaskRelay(
+                        github = GitHubDevelopmentRepositoryClient(GitHubCredentialStore(app).read()!!),
+                        threads = AgentTaskThreadStore(app.filesDir),
+                        trustedActors = trustedActors,
+                        consentEnabled = relayConsentStore::isEnabled
+                    )
+                    val payload = JSONObject()
+                        .put("data_classification", "public")
+                        .put("request_type", "friday_maintenance")
+                        .put("goal", "Continue the canonical Friday delivery plan. Inspect current main, identify the highest-value incomplete implementation slice, make a bounded source change, add or update tests, and report exact commit and CI evidence. Do not merge, publish a release, weaken security gates, or claim physical-device verification without evidence.")
+                        .put("repository", "mhw77655-hue/Friday")
+                        .put("source_revision", revision)
+                        .put("requested_outputs", JSONArray()
+                            .put("source-grounded gap analysis")
+                            .put("bounded implementation and tests")
+                            .put("commit, workflow and artifact references")
+                            .put("explicit blockers and next action"))
+                        .put("constraints", JSONArray()
+                            .put("Friday remains the independent product identity; cloud models are replaceable workers.")
+                            .put("Preserve signing, owner authorization, privacy and rollback boundaries.")
+                            .put("Never treat a queued task or a green JVM test as physical-device proof."))
+                    val thread = relay.createTask(
+                        taskId = taskId,
+                        title = "Friday one-button maintenance " + ai.friday.assistant.BuildConfig.VERSION_NAME,
+                        sourceRevision = revision,
+                        allowedTaskPayload = payload
+                    )
+                    FridayAgentTaskRelayPollWorker.checkNow(app)
+                    queued += "public cloud engineering task"
+                    queued += "trusted GitHub task-result polling"
+                    "Cloud engineering task opened: " + thread.issueUrl
+                }
             }
         }
 
