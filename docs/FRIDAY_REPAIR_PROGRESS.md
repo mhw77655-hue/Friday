@@ -757,3 +757,13 @@ The repository and GitHub side are accessible here. The live phone side is **not
 - Live phone inspection at this check: enrolled, not revoked, but disconnected. No remote UI interaction or on-device verification was possible.
 - CI for the new commits is queued; no green build or APK is claimed. Installed 1.0.747 predates these fixes. Do not ask owner to reinstall until the new source passes CI and a signed release artifact is verified.
 - Next: get the queued build to execute and pass; then implement and wire a grounded project/conversation memory response path (not token association), verify speech handoff in instrumentation/device test, and package the next signed APK.
+
+
+### 2026-11-28 — owner-triggered self-diagnosis capability opened
+
+- Owner requested a workflow where he can describe a Friday symptom in ordinary language and the engineering agent can inspect relevant evidence and repair it without requiring the owner to reconnect live phone inspection or manually gather logs.
+- Created [Issue #204](https://github.com/mhw77655-hue/Friday/issues/204) as the controlling implementation task for a privacy-bounded, owner-triggered diagnostic and repair handoff.
+- Required architecture: bounded local structured event buffer; lifecycle correlation IDs; no message bodies/prompts/transcripts/audio/screens/notifications/files/secrets in diagnostics; preview-before-export; one-time owner-approved handoff; exact source-revision mapping; ranked evidence-based hypotheses; candidate patch, regression test, independent verification and durable case ledger.
+- First vertical slice is voice acknowledgement overlap, followed by incorrect response routing/memory retrieval. No always-on inspection, background upload or arbitrary remote phone control is permitted.
+- Repository facts read this session: canonical product line is `main`; Android source is under `mobile/app`; existing System → Export full diagnostic report produces `friday-device-report-v2`. This existing export is a manually initiated artifact, not yet proof of the requested automated symptom-to-diagnosis workflow.
+- **Status:** issue created; no Android source implementation, CI run or APK has been produced for #204 yet. Next engineering action is to inspect the existing diagnostics implementation and add the first end-to-end event-capture → approved export → diagnosis correlation slice without broadening the live inspection bridge.
