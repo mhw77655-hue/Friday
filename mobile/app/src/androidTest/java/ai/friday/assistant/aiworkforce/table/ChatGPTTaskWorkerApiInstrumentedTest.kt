@@ -131,5 +131,86 @@ class ChatGPTTaskWorkerApiInstrumentedTest {
             ChatGPTTaskResultStore(context).clear("friday-private-task-001")
             approvalPrefs.edit().clear().commit()
         }
+
+    @Test
+    fun interruptedStreamLeavesRecoverablePartialCheckpointAndDoesNotAutoRetry() = runBlocking {
+        val server = MockWebServer()
+        val localhostCertificate = HeldCertificate.Builder()
+            .addSubjectAlternativeName("localhost")
+            .build()
+        val serverCertificates = HandshakeCertificates.Builder()
+            .heldCertificate(localhostCertificate)
+            .build()
+        val clientCertificates = HandshakeCertificates.Builder()
+            .addTrustedCertificate(localhostCertificate.certificate)
+            .build()
+        val credentialStore = ChatGPTPlanCredentialStore(context)
+        val approvalPrefs = context.getSharedPreferences("friday_chatgpt_task_approvals", Context.MODE_PRIVATE)
+        approvalPrefs.edit().clear().commit()
+        credentialStore.clear()
+        val partial = "A".repeat(3_000)
+        server.enqueue(
+            MockResponse()
+                .setHeader("Content-Type", "text/event-stream")
+                .setBody("data: " + JSONObject()
+                    .put("type", "response.output_text.delta")
+                    .put("delta", partial).toString() + "\\n\\n")
+        )
+        server.useHttps(serverCertificates.sslSocketFactory(), false)
+        server.start()
+        val taskId = "friday-private-task-partial"
+        try {
+            credentialStore.save(
+                ChatGPTPlanCredentialStore.Credentials(
+                    clientId = "oaiapp_test_client",
+                    hostId = credentialStore.hostId(),
+                    subject = "test-subject",
+                    email = null,
+                    idToken = "test-id-token",
+                    accessToken = "stored-plan-token",
+                    refreshToken = "stored-refresh-token",
+                    expiresAtEpochSeconds = 4_000_000_000L,
+                    scopes = setOf("openid", "chatgpt.tokens.use.direct"),
+                    modelSlug = "model-test"
+                )
+            )
+            val worker = ChatGPTTaskWorker(
+                context = context,
+                tokenProvider = ChatGPTPlanTokenProvider { "plan-access-token" },
+                credentials = credentialStore,
+                approvals = ChatGPTTaskApprovalStore(context),
+                apiBaseUrl = server.url("/v1").toString().trimEnd('/'),
+                http = OkHttpClient.Builder()
+                    .sslSocketFactory(clientCertificates.sslSocketFactory(), clientCertificates.trustManager)
+                    .build()
+            )
+            val projection = ChatGPTTaskWorker.TaskProjection(
+                taskId = taskId,
+                goal = "Recover a bounded interrupted task",
+                instructions = "Retain partial output without treating it as complete.",
+                context = "Approved test context.",
+                sourceRevision = "0123456789abcdef0123456789abcdef01234567",
+                acceptanceCriteria = listOf("Partial output remains available"),
+                classification = ChatGPTTaskWorker.TaskProjection.Classification.PRIVATE,
+                expiresAtEpochMs = System.currentTimeMillis() + 60_000L
+            )
+            worker.recordOwnerApproval(projection)
+            val failure = runCatching { worker.execute(projection) }.exceptionOrNull()
+            assertTrue(failure is java.io.IOException)
+
+            val checkpoint = worker.recoverCheckpoint(taskId, projection.projectionDigest())
+            assertEquals(ChatGPTTaskResultStore.State.INCOMPLETE, checkpoint?.state)
+            assertEquals(partial, checkpoint?.output)
+
+            val retryWithoutApproval = runCatching { worker.execute(projection) }
+            assertTrue(retryWithoutApproval.isFailure)
+            assertEquals(1, server.requestCount)
+        } finally {
+            server.shutdown()
+            credentialStore.clear()
+            ChatGPTTaskResultStore(context).clear(taskId)
+            approvalPrefs.edit().clear().commit()
+        }
+    }
     }
 }
