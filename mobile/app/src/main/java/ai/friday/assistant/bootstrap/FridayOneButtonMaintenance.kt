@@ -10,6 +10,7 @@ import ai.friday.assistant.ShizukuBridge
 import ai.friday.assistant.ScreenBridge
 import ai.friday.assistant.bootstrap.host.HostBootstrapWorker
 import ai.friday.assistant.bootstrap.plan.ObjectiveExecutionWorker
+import ai.friday.assistant.bootstrap.plan.ObjectivePlanSyncWorker
 import ai.friday.assistant.github.reporting.FridayAgentTaskRelayConsentStore
 import ai.friday.assistant.github.reporting.FridayAgentTaskRelay
 import ai.friday.assistant.github.reporting.AgentTaskThreadStore
@@ -73,6 +74,8 @@ object FridayOneButtonMaintenance {
         queued += "phone capability survey"
         ResidentModelBootstrapWorker.enqueue(app)
         queued += "resident-model readiness"
+        ObjectivePlanSyncWorker.enqueue(app)
+        queued += "canonical plan synchronization"
         ObjectiveExecutionWorker.enqueue(app)
         queued += "canonical Builder / repair queue"
 
