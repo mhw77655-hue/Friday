@@ -21,12 +21,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import ai.friday.assistant.github.reporting.ReaInvestigationCoordinator
 import ai.friday.assistant.memory.MemoryNode
 import ai.friday.assistant.ui.EngineAccess
 import ai.friday.assistant.ui.components.GlassPanel
@@ -35,6 +39,7 @@ import ai.friday.assistant.ui.theme.FridayType
 import java.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 
 /**
  * Honest empty states — only real backends are presented as live capabilities.
@@ -55,6 +60,19 @@ fun SandboxScreen() {
 fun MemoryScreen() {
     val individual = EngineAccess.fridayIndividual().value
     val graphStore = EngineAccess.memoryGraphStore().value
+    val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
+    val reaCoordinator = remember(context) { ReaInvestigationCoordinator(context) }
+    val reaScope = rememberCoroutineScope()
+    var reaSnapshot by remember { mutableStateOf(reaCoordinator.current()) }
+    var reaBusy by remember { mutableStateOf(false) }
+    var reaError by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(reaCoordinator) {
+        reaSnapshot = withContext(Dispatchers.IO) {
+            reaCoordinator.refresh() ?: reaCoordinator.current()
+        }
+    }
     var refresh by remember { mutableIntStateOf(0) }
     var selectedTab by remember { mutableIntStateOf(0) }
     var search by remember { mutableStateOf("") }
@@ -258,6 +276,89 @@ fun MemoryScreen() {
                 }
             }
         }
+        MemorySectionHeading(
+            "REFERENCE STUDY",
+            "Friday can use REA to inspect the Neomas memory experience and preserve the findings for adaptation."
+        )
+        GlassPanel(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+            Column(Modifier.padding(15.dp)) {
+                val activeRea = reaSnapshot != null && (
+                    reaSnapshot!!.status in setOf("dispatched", "queued", "in_progress") ||
+                        (reaSnapshot!!.workflowKind == "neomas" &&
+                            reaSnapshot!!.status == "completed" &&
+                            reaSnapshot!!.conclusion == "success" &&
+                            !reaSnapshot!!.packetAvailable)
+                    )
+                Text(
+                    when {
+                        reaBusy -> "REA is working…"
+                        reaSnapshot?.packetAvailable == true -> "Evidence packet saved in Friday's private inbox."
+                        activeRea -> "Investigation status · " + reaSnapshot!!.status
+                        reaSnapshot?.conclusion != null -> "Last investigation · " + (reaSnapshot?.conclusion ?: "unknown")
+                        else -> "No Neomas reference study has been run from this app yet."
+                    },
+                    style = FridayType.Body
+                )
+                reaSnapshot?.packetError?.let { error ->
+                    Spacer(Modifier.height(6.dp))
+                    Text("Packet ingestion · " + error, style = FridayType.Technical.copy(color = FridayColors.TextSecondary))
+                }
+                reaError?.let { error ->
+                    Spacer(Modifier.height(6.dp))
+                    Text(error, style = FridayType.Technical.copy(color = FridayColors.TextSecondary))
+                }
+                Spacer(Modifier.height(10.dp))
+                Button(
+                    enabled = !reaBusy,
+                    onClick = {
+                        reaScope.launch {
+                            reaBusy = true
+                            reaError = null
+                            try {
+                                val before = reaCoordinator.current()
+                                val shouldRefresh = before != null && (
+                                    before.status in setOf("dispatched", "queued", "in_progress") ||
+                                        (before.workflowKind == "neomas" &&
+                                            before.status == "completed" &&
+                                            before.conclusion == "success" &&
+                                            !before.packetAvailable)
+                                    )
+                                reaSnapshot = withContext(Dispatchers.IO) {
+                                    if (shouldRefresh) reaCoordinator.refresh() else reaCoordinator.startNeomas()
+                                }
+                            } catch (failure: Exception) {
+                                reaError = failure.message ?: "Friday could not start the REA reference study."
+                            } finally {
+                                reaBusy = false
+                            }
+                        }
+                    }
+                ) {
+                    Text(
+                        when {
+                            reaBusy -> "Working…"
+                            activeRea -> "Refresh investigation"
+                            reaSnapshot?.packetAvailable == true -> "Run REA study again"
+                            else -> "Study Neomas with REA"
+                        }
+                    )
+                }
+                reaSnapshot?.url?.let { url ->
+                    Text(
+                        "Open GitHub workflow",
+                        style = FridayType.Technical.copy(color = FridayColors.TextSecondary),
+                        modifier = Modifier.clickable { uriHandler.openUri(url) }.padding(top = 8.dp)
+                    )
+                }
+                if (reaSnapshot?.packetAvailable == true) {
+                    Text(
+                        "The packet is evidence for Friday's adaptation process. It is not executed or promoted automatically.",
+                        style = FridayType.Technical.copy(color = FridayColors.TextSecondary)
+                    )
+                }
+            }
+        }
+
         Spacer(Modifier.height(24.dp))
         Text(
             "This screen reads Friday's existing SQLite memory graph and experience records. It does not create a second memory store or infer facts that are not present.",
