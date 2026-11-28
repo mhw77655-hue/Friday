@@ -127,12 +127,6 @@ object LatencyLayer {
         // arrives. Flush BOTH cached-WAV and live-TTS playback before choosing
         // the streaming path: streamingSpeak bypasses SpeechEngine.fullSpeak,
         // whose previous implementation was the only place that stopped acks.
-        // This marker lets an incident report prove whether the ack flush was
-        // requested before the full reply was handed to either speech path.
-        ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
-            exchangeCounter.get(),
-            ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.ACK_FLUSH_REQUESTED
-        )
         ai.friday.assistant.TtsBridge.stopSpeaking()
         val streaming = streamingSpeak
         if (streaming != null) streaming(text) else SpeechEngine.fullSpeak(text)
@@ -403,7 +397,13 @@ class LatencyPipeline(
                 logTurn(true, settledText)
                 reactorFirstSegment()
                 _phase.value = LatencyLayer.Phase.REPLYING
-                if (localReply != null) fullSpeak(localReply)
+                if (localReply != null) {
+                    ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
+                        id, ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.ACK_FLUSH_REQUESTED,
+                        ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Route.MODEL_FREE
+                    )
+                    fullSpeak(localReply)
+                }
                 ai.friday.assistant.diagnostics.FridayTurnDiagnostics.record(
                     id, ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Stage.TURN_SETTLED,
                     ai.friday.assistant.diagnostics.TurnDiagnosticJournal.Route.MODEL_FREE,
