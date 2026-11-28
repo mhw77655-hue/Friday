@@ -156,7 +156,7 @@ class ChatGPTTaskWorkerApiInstrumentedTest {
                 .setHeader("Content-Type", "text/event-stream")
                 .setBody("data: " + JSONObject()
                     .put("type", "response.output_text.delta")
-                    .put("delta", partial).toString() + "\\n\\n")
+                    .put("delta", partial).toString() + "\n\n")
         )
         server.useHttps(serverCertificates.sslSocketFactory(), false)
         server.start()
