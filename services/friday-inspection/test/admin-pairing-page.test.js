@@ -66,7 +66,7 @@ test("owner setup pages keep the owner allowlist private and enforce server-side
     const response = await fetch(base + "/oauth/consent");
     assert.equal(response.status, 200);
     const html = await response.text();
-    assert.doesNotMatch(html, /owner@example\\.com/i);
+    assert.doesNotMatch(html, /owner@example\.com/i);
     assert.doesNotMatch(html, /__OWNER_EMAIL__/);
     assert.match(html, /\/owner\/status/);
   });
@@ -75,7 +75,7 @@ test("owner setup pages keep the owner allowlist private and enforce server-side
     const response = await fetch(base + "/admin/pairing");
     assert.equal(response.status, 200);
     const html = await response.text();
-    assert.doesNotMatch(html, /owner@example\\.com/i);
+    assert.doesNotMatch(html, /owner@example\.com/i);
     assert.match(html, /Generate one-time pairing code/i);
     assert.match(html, /\/admin\/pairing-code/);
   });
