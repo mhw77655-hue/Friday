@@ -288,41 +288,53 @@ class ModelManager(
      */
     suspend fun generateOnTier(tier: ModelTier, prompt: String): GenerateResult {
         require(prompt.isNotBlank()) { "Local model prompt must not be blank." }
-        val handle = synchronized(lifecycleLock) { cachedByTier[tier] }
+        // Resolve and pin under the SAME lock used by the pressure sweeper.
+        // A separate lookup followed by pinning left a race where the sweeper
+        // could detach the model between those two operations.
+        val pinned = pinCachedTier(tier)
             ?: return GenerateResult("", finishReason = FinishReason.ERROR)
-        if (!modelBackend.isAvailable(handle)) {
-            return GenerateResult("", finishReason = FinishReason.ERROR, model = handle.modelId)
-        }
-        val content = generateWithTrackedHandle(handle, prompt)
-        return if (content.isNotBlank()) {
-            GenerateResult(content = content, finishReason = FinishReason.STOP, model = handle.modelId)
-        } else {
-            GenerateResult("", finishReason = FinishReason.ERROR, model = handle.modelId)
+        return try {
+            if (!modelBackend.isAvailable(pinned.handle)) {
+                GenerateResult("", finishReason = FinishReason.ERROR, model = pinned.handle.modelId)
+            } else {
+                val content = modelBackend.generate(pinned.handle, prompt)
+                if (content.isNotBlank()) {
+                    GenerateResult(content = content, finishReason = FinishReason.STOP, model = pinned.handle.modelId)
+                } else {
+                    GenerateResult("", finishReason = FinishReason.ERROR, model = pinned.handle.modelId)
+                }
+            }
+        } finally {
+            unpin(pinned.tier)
         }
     }
 
-    /**
-     * Pin a cached model for the full duration of inference. Pressure reclamation
-     * may unload even the resident LLM, but never while a generation is active.
-     * Friday's identity/memory kernel is stored separately and is not unloaded.
-     */
-    private suspend fun generateWithTrackedHandle(handle: ModelHandle, prompt: String): String {
-        val tier = synchronized(lifecycleLock) {
-            val entry = cachedByTier.entries.firstOrNull { it.value == handle }
-                ?: throw IllegalStateException("The model was reclaimed before generation began.")
-            activeGenerations[entry.key] = (activeGenerations[entry.key] ?: 0) + 1
-            lastUsedMs[entry.key] = clock()
-            entry.key
-        }
-        return try {
-            modelBackend.generate(handle, prompt)
-        } finally {
-            synchronized(lifecycleLock) {
-                val remaining = (activeGenerations[tier] ?: 1) - 1
-                if (remaining <= 0) activeGenerations.remove(tier)
-                else activeGenerations[tier] = remaining
-                lastUsedMs[tier] = clock()
-            }
+    private data class PinnedHandle(val tier: ModelTier, val handle: ModelHandle)
+
+    /** Atomically resolve a tier's current handle and protect it from reclamation. */
+    private fun pinCachedTier(tier: ModelTier): PinnedHandle? = synchronized(lifecycleLock) {
+        val handle = cachedByTier[tier] ?: return@synchronized null
+        activeGenerations[tier] = (activeGenerations[tier] ?: 0) + 1
+        lastUsedMs[tier] = clock()
+        PinnedHandle(tier, handle)
+    }
+
+    /** Atomically pin a previously booked handle if it is still the cached instance. */
+    private fun pinBookedHandle(handle: ModelHandle): PinnedHandle? = synchronized(lifecycleLock) {
+        val tier = cachedByTier.entries.firstOrNull { it.value == handle }?.key
+            ?: return@synchronized null
+        if (!modelBackend.isLoaded(handle)) return@synchronized null
+        activeGenerations[tier] = (activeGenerations[tier] ?: 0) + 1
+        lastUsedMs[tier] = clock()
+        PinnedHandle(tier, handle)
+    }
+
+    private fun unpin(tier: ModelTier) {
+        synchronized(lifecycleLock) {
+            val remaining = (activeGenerations[tier] ?: 1) - 1
+            if (remaining <= 0) activeGenerations.remove(tier)
+            else activeGenerations[tier] = remaining
+            lastUsedMs[tier] = clock()
         }
     }
 
@@ -701,18 +713,29 @@ class ModelManager(
 
     /** Fire-and-forget conversation send against the active provider. */
     fun send(message: String) {
-        val booked = turnServeHandle.getAndSet(null)?.takeIf { modelBackend.isLoaded(it) }
+        // Consume and pin a turn-booked model synchronously, before the
+        // coroutine is scheduled. Otherwise a pressure sweep could unload it
+        // in the gap between booking and the first inference instruction.
+        val pinned = turnServeHandle.getAndSet(null)?.let(::pinBookedHandle)
         scope.launch {
-            attemptSend(message, attempt = 0, tierHandle = booked)
+            try {
+                attemptSend(message, attempt = 0, pinnedHandle = pinned)
+            } finally {
+                pinned?.let { unpin(it.tier) }
+            }
         }
     }
 
-    private suspend fun attemptSend(message: String, attempt: Int, tierHandle: ModelHandle? = null) {
+    private suspend fun attemptSend(
+        message: String,
+        attempt: Int,
+        pinnedHandle: PinnedHandle? = null
+    ) {
         _status.value =
             if (attempt == 0) "sending (local)" else "retrying local (attempt ${attempt + 1})"
         try {
-            val result = if (tierHandle != null) {
-                val content = generateWithTrackedHandle(tierHandle, message)
+            val result = if (pinnedHandle != null) {
+                val content = modelBackend.generate(pinnedHandle.handle, message)
                 if (content.isNotBlank()) {
                     GenerateResult(content = content, finishReason = FinishReason.STOP)
                 } else {
@@ -733,7 +756,7 @@ class ModelManager(
             } else {
                 if (attempt < MAX_RETRIES) {
                     delay(RETRY_DELAYS_MS.getOrElse(attempt) { RETRY_DELAYS_MS.last() })
-                    attemptSend(message, attempt + 1, tierHandle)
+                    attemptSend(message, attempt + 1, pinnedHandle)
                 } else {
                     _status.value = "local brain unreachable after ${attempt + 1} attempts"
                     _lastReply.value = MODEL_SERVER_UNREACHABLE_REPLY
