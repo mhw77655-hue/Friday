@@ -26,7 +26,7 @@ function records() {
 
 test("translates Neomas visual evidence into three Friday-native review proposals", () => {
   const result = adaptNeomasMemoryUi({
-    target: { kind: "website", locator: "https://neomas.app/" },
+    target: { kind: "website", locator: "https://neomas.app/", revision: "capture:2026-11-28T12:00:00.000Z" },
     evidenceRecords: records(),
   });
   assert.equal(result.findings.length, 3);
@@ -36,6 +36,17 @@ test("translates Neomas visual evidence into three Friday-native review proposal
   assert.equal(result.adaptation_plan.target_platform, "android");
   assert.ok(result.capability_candidates.every((candidate) => candidate.execution_allowed === false));
   assert.ok(result.capability_candidates.every((candidate) => candidate.evidence_refs.length === 2));
+  assert.ok(result.findings.every((finding) => finding.confidence === 0.65));
+  assert.ok(result.findings.every((finding) =>
+    finding.provenance?.source === "rea-adaptation-adapter" &&
+    finding.provenance?.target?.revision === "capture:2026-11-28T12:00:00.000Z"
+  ));
+  assert.ok(result.capability_candidates.every((candidate) =>
+    candidate.provenance?.adapter === "neomas-memory-ui"
+  ));
+  assert.equal(result.adaptation_plan.adapter.version, 1);
+  assert.equal(result.adaptation_plan.source_target.revision, "capture:2026-11-28T12:00:00.000Z");
+  assert.match(result.adaptation_plan.source_evidence_digest, /^[0-9a-f]{32}$/);
 });
 
 test("does not infer proposals without matching screenshot and DOM evidence", () => {
