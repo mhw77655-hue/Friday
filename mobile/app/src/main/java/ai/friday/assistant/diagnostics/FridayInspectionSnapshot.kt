@@ -1,5 +1,6 @@
 package ai.friday.assistant.diagnostics
 
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
