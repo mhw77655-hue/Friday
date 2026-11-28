@@ -9,16 +9,19 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.height
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -254,39 +257,82 @@ private fun FridayBottomBar(
 ) {
     GlassPanel(modifier = Modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            BottomBarItem("⌂", "Home", currentRoute == ROUTE_HOME, onHome)
-            BottomBarItem("◉", "Talk", currentRoute == ROUTE_CONVERSATION, onConversation)
-            BottomBarItem("◇", "Build", currentRoute == ROUTE_MISSIONS, onMissions)
-            BottomBarItem("☷", "More", moreSelected, onMore)
+            BottomBarItem("home", "Home", currentRoute == ROUTE_HOME, onHome)
+            BottomBarItem("talk", "Talk", currentRoute == ROUTE_CONVERSATION, onConversation)
+            BottomBarItem("build", "Build", currentRoute == ROUTE_MISSIONS, onMissions)
+            BottomBarItem("more", "More", moreSelected, onMore)
         }
     }
 }
 
 @Composable
-private fun BottomBarItem(icon: String, label: String, selected: Boolean, onClick: () -> Unit) {
-    val active = Color(0xFF73D8F4)
+private fun BottomBarItem(kind: String, label: String, selected: Boolean, onClick: () -> Unit) {
+    val tint = if (selected) FridayColors.CoreIdle else FridayColors.CoreOffline
     androidx.compose.foundation.layout.Column(
         modifier = Modifier.weight(1f).clickable(onClick = onClick).padding(vertical = 4.dp),
         horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(3.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Text(
-            text = icon,
-            style = FridayType.Body.copy(color = if (selected) active else FridayColors.TextSecondary),
-            textAlign = TextAlign.Center
-        )
+        NavigationGlyph(kind, tint)
         Text(
             text = label,
-            style = FridayType.Technical.copy(color = if (selected) active else FridayColors.TextSecondary),
+            style = FridayType.Technical.copy(color = tint),
             textAlign = TextAlign.Center,
             maxLines = 1
         )
-        Box(
-            modifier = Modifier.width(18.dp).height(2.dp)
-                .background(if (selected) active else Color.Transparent)
+    }
+}
+
+/** 1px-equivalent monochrome line icons, drawn on the system's 24px grid. */
+@Composable
+private fun NavigationGlyph(kind: String, tint: Color) {
+    Canvas(modifier = Modifier.size(24.dp)) {
+        val w = size.width
+        val h = size.height
+        val stroke = 1.dp.toPx()
+        val path = Path()
+        when (kind) {
+            "home" -> {
+                path.moveTo(w * 0.12f, h * 0.48f)
+                path.lineTo(w * 0.5f, h * 0.16f)
+                path.lineTo(w * 0.88f, h * 0.48f)
+                path.moveTo(w * 0.25f, h * 0.42f)
+                path.lineTo(w * 0.25f, h * 0.86f)
+                path.lineTo(w * 0.75f, h * 0.86f)
+                path.lineTo(w * 0.75f, h * 0.42f)
+            }
+            "talk" -> {
+                path.moveTo(w * 0.14f, h * 0.18f)
+                path.lineTo(w * 0.86f, h * 0.18f)
+                path.lineTo(w * 0.86f, h * 0.72f)
+                path.lineTo(w * 0.48f, h * 0.72f)
+                path.lineTo(w * 0.28f, h * 0.9f)
+                path.lineTo(w * 0.3f, h * 0.72f)
+                path.lineTo(w * 0.14f, h * 0.72f)
+                path.close()
+            }
+            "build" -> {
+                path.moveTo(w * 0.5f, h * 0.1f)
+                path.lineTo(w * 0.9f, h * 0.5f)
+                path.lineTo(w * 0.5f, h * 0.9f)
+                path.lineTo(w * 0.1f, h * 0.5f)
+                path.close()
+                drawLine(tint, Offset(w * 0.5f, h * 0.3f), Offset(w * 0.5f, h * 0.7f), stroke)
+                drawLine(tint, Offset(w * 0.3f, h * 0.5f), Offset(w * 0.7f, h * 0.5f), stroke)
+            }
+            else -> {
+                drawLine(tint, Offset(w * 0.18f, h * 0.28f), Offset(w * 0.82f, h * 0.28f), stroke)
+                drawLine(tint, Offset(w * 0.18f, h * 0.5f), Offset(w * 0.82f, h * 0.5f), stroke)
+                drawLine(tint, Offset(w * 0.18f, h * 0.72f), Offset(w * 0.82f, h * 0.72f), stroke)
+            }
+        }
+        drawPath(
+            path = path,
+            color = tint,
+            style = Stroke(width = stroke, cap = StrokeCap.Round, join = StrokeJoin.Round)
         )
     }
 }
