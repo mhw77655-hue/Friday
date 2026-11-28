@@ -14,6 +14,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
+import androidx.compose.material3.Button
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -29,6 +34,9 @@ import ai.friday.assistant.FridayMic
 import ai.friday.assistant.ui.theme.FridayColors
 import ai.friday.assistant.ui.theme.FridayType
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * Home — Friday's persistent visual embodiment. It is intentionally not
@@ -38,6 +46,10 @@ import kotlinx.coroutines.flow.flowOf
  */
 @Composable
 fun HomeScreen(onOpenTools: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var maintenanceRunning by remember { mutableStateOf(false) }
+    var maintenanceStatus by remember { mutableStateOf("") }
     val voiceSlot = ai.friday.assistant.ui.EngineAccess.voiceOutputPath()
     val voiceOutput = voiceSlot.value
     val outputActive by (voiceOutput?.isSpeaking ?: flowOf(false)).collectAsStateWithLifecycle(initialValue = false)
@@ -77,7 +89,36 @@ fun HomeScreen(onOpenTools: () -> Unit) {
                 text = "FRIDAY",
                 style = FridayType.Display,
                 textAlign = TextAlign.Center
-            )
+            )            Spacer(modifier = Modifier.height(20.dp))
+            Button(
+                onClick = {
+                    if (!maintenanceRunning) {
+                        maintenanceRunning = true
+                        maintenanceStatus = "Starting Friday's maintenance lanes…"
+                        scope.launch {
+                            val result = withContext(Dispatchers.IO) {
+                                runCatching { ai.friday.assistant.bootstrap.FridayOneButtonMaintenance.start(context) }
+                            }
+                            maintenanceStatus = result.fold(
+                                onSuccess = { it.summary() },
+                                onFailure = { "Friday could not queue maintenance: " + (it.message ?: it.javaClass.simpleName) }
+                            )
+                            maintenanceRunning = false
+                        }
+                    }
+                },
+                enabled = !maintenanceRunning
+            ) {
+                Text(if (maintenanceRunning) "STARTING…" else "BUILD / REPAIR FRIDAY")
+            }
+            if (maintenanceStatus.isNotBlank()) {
+                Text(
+                    text = maintenanceStatus,
+                    style = FridayType.Technical.copy(color = FridayColors.TextSecondary),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 10.dp)
+                )
+            }
         }
 
         CapabilitySummaryBar(
