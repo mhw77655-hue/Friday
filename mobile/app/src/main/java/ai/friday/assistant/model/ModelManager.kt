@@ -309,7 +309,7 @@ class ModelManager(
         }
     }
 
-    private data class PinnedHandle(val tier: ModelTier, val handle: ModelHandle)
+    private data class PinnedHandle(val tier: ModelTier?, val handle: ModelHandle)
 
     /** Atomically resolve a tier's current handle and protect it from reclamation. */
     private fun pinCachedTier(tier: ModelTier): PinnedHandle? = synchronized(lifecycleLock) {
@@ -319,17 +319,25 @@ class ModelManager(
         PinnedHandle(tier, handle)
     }
 
-    /** Atomically pin a previously booked handle if it is still the cached instance. */
+    /**
+     * Pin a booked cached handle, or preserve a loaded typed-gap handle.
+     * Unavailable Ollama handles intentionally are not cached as warm tiers,
+     * but must still reach the backend so the user receives the truthful
+     * offline reply instead of silently falling through to the heuristic adapter.
+     */
     private fun pinBookedHandle(handle: ModelHandle): PinnedHandle? = synchronized(lifecycleLock) {
         val tier = cachedByTier.entries.firstOrNull { it.value == handle }?.key
-            ?: return@synchronized null
+        if (tier == null) {
+            return@synchronized if (modelBackend.isLoaded(handle)) PinnedHandle(null, handle) else null
+        }
         if (!modelBackend.isLoaded(handle)) return@synchronized null
         activeGenerations[tier] = (activeGenerations[tier] ?: 0) + 1
         lastUsedMs[tier] = clock()
         PinnedHandle(tier, handle)
     }
 
-    private fun unpin(tier: ModelTier) {
+    private fun unpin(tier: ModelTier?) {
+        if (tier == null) return
         synchronized(lifecycleLock) {
             val remaining = (activeGenerations[tier] ?: 1) - 1
             if (remaining <= 0) activeGenerations.remove(tier)
