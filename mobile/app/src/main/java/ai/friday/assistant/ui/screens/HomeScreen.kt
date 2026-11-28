@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -52,7 +51,7 @@ fun HomeScreen(
     val cognitiveEngine = FridayEngine.cognitiveEngine
     val cognitiveFlow = cognitiveEngine?.cognitiveState ?: flowOf(CognitiveState())
     val cognitiveState by cognitiveFlow.collectAsStateWithLifecycle(initialValue = CognitiveState())
-    val experienceCount = remember(individual) { individual?.experience?.experienceCount() ?: 0 }
+    val experienceCount = individual?.experience?.experienceCount() ?: 0
     val voiceSlot = EngineAccess.voiceOutputPath()
     val voiceOutput = voiceSlot.value
     val outputActive by (voiceOutput?.isSpeaking ?: flowOf(false)).collectAsStateWithLifecycle(initialValue = false)
