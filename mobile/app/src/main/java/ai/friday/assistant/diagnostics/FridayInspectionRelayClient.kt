@@ -76,6 +76,12 @@ class FridayInspectionRelayClient(context: Context) {
         start()
     }
 
+    /** Pause external sharing without deleting the pairing identity. */
+    fun disable() {
+        store.setEnabled(false)
+        stop()
+    }
+
     fun start() {
         if (!store.isEnabled() || !store.isEnrolled()) return
         if (connectionJob?.isActive == true) return
@@ -237,6 +243,7 @@ object FridayInspectionRelayRuntime {
         get(context).enroll(serverUrl, pairingCode)
 
     fun enable(context: Context) = get(context).enable()
+    fun disable(context: Context) = get(context).disable()
     fun start(context: Context) = get(context).start()
     fun stop() { client?.stop() }
     suspend fun revoke(context: Context) = get(context).revoke()
