@@ -14,6 +14,52 @@ import java.io.File
 
 class AgentTaskReplyInboxBridgeTest {
     @Test
+    fun importsChatGptEvidenceRequestAsAnOwnerApprovalGatedProposal() = runBlocking {
+        val directory = File(System.getProperty("java.io.tmpdir"), "agent-evidence-bridge-${System.nanoTime()}")
+        directory.mkdirs()
+        try {
+            val inbox = LocalTaskInbox(FileStorage(directory), CoroutineScope(Dispatchers.Default))
+            val bridge = AgentTaskReplyInboxBridge.withInbox(inbox)
+            val now = System.currentTimeMillis()
+            val envelope = AgentTaskEnvelope(
+                taskId = "task-2026-evidence",
+                messageId = "task-2026-evidence:in:2",
+                sequence = 2,
+                sender = "chatgpt-cloud",
+                recipient = "friday",
+                kind = AgentTaskMessageKind.EVIDENCE_REQUEST,
+                createdAtEpochMs = now,
+                expiresAtEpochMs = now + 60_000,
+                sourceRevision = "0123456789abcdef0123456789abcdef01234567",
+                payload = JSONObject()
+                    .put("data_classification", "public")
+                    .put("reason", "Please provide the relevant public source excerpt.")
+                    .put("requested_evidence", org.json.JSONArray().put("public_source_excerpt"))
+            )
+            val reply = StoredAgentTaskReply(
+                taskId = envelope.taskId,
+                issueNumber = 457,
+                issueUrl = "https://github.com/mhw77655-hue/Friday/issues/457",
+                commentId = 790,
+                authorLogin = "mhw77655-hue",
+                createdAt = "2026-11-28T00:00:00Z",
+                receivedAtEpochMs = now,
+                envelope = envelope
+            )
+
+            val imported = bridge.import(reply)
+            assertEquals(InboxTaskStatus.WAITING_APPROVAL, imported.status)
+            assertTrue(imported.requiresApproval)
+            assertEquals("review_external_agent_proposal", imported.capability)
+            assertTrue(imported.description.contains("requests additional public evidence"))
+            assertEquals("EVIDENCE_REQUEST", imported.arguments["message_kind"])
+            assertTrue(imported.arguments["payload_json"].toString().contains("public_source_excerpt"))
+        } finally {
+            directory.deleteRecursively()
+        }
+    }
+
+    @Test
     fun importsValidatedReplyAsOneApprovalGatedLocalTask() = runBlocking {
         val directory = File(System.getProperty("java.io.tmpdir"), "agent-reply-bridge-${System.nanoTime()}")
         directory.mkdirs()
