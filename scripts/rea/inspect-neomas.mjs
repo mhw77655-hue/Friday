@@ -269,6 +269,45 @@ async function main() {
       }
     }
 
+    // Capture the exact public product screenshots identified by REA's DOM
+    // inventory. These are visual references, not claims about app internals.
+    const visualReferences = [
+      {
+        id: "daily-resurface",
+        url: "https://neomas.app/assets/screens/e5/01-resurface-past-self-dark-w1440.webp",
+      },
+      {
+        id: "tension-card",
+        url: "https://neomas.app/assets/screens/e5/02b-resurface-tension-card-dark-w1440.webp",
+      },
+      {
+        id: "atomized-source-index",
+        url: "https://neomas.app/assets/screens/e5/03-atomized-source-index-dark-w1440.webp",
+      },
+    ];
+    for (const reference of visualReferences) {
+      const referenceArgs = toolArguments(scenarioTool, {
+        browser: { mode: "launch", executable_path: CHROME, headless: true },
+        start_url: { url: reference.url },
+        actions: [{ step_id: "load-" + reference.id, action: "wait_for_timeout", duration_ms: 900 }],
+        capture: { at_end: ["screenshot", "url"] },
+        detail: "complete",
+        command_timeout_ms: 60000,
+      });
+      const referenceResult = await server.callTool(scenarioTool.name, referenceArgs);
+      results.push({
+        tool: scenarioTool.name,
+        section: "visual-reference:" + reference.id,
+        reference_url: reference.url,
+        arguments: referenceArgs,
+        result: referenceResult,
+      });
+      if (referenceResult?.isError) {
+        throw new Error("REA visual reference capture failed for " + reference.id + ": " +
+          JSON.stringify(referenceResult.content ?? referenceResult).slice(0, 2500));
+      }
+    }
+
     const listed = await server.callTool(listTool.name, toolArguments(listTool, { cdp_endpoint: endpoint }));
     if (listed?.isError) throw new Error("REA browser discovery failed: " + JSON.stringify(listed.content ?? listed).slice(0, 2500));
     const selected = findTargets(structured(listed)).find((item) => {
@@ -356,7 +395,12 @@ async function main() {
       browser: browserVersion?.Browser ?? null,
       rea_version: VERSION,
       tools_called: results.map((entry) => entry.tool),
-      section_captures: ["hero", "#system-section", "#mneme-section"],
+      section_captures: [
+        "hero", "#system-section", "#mneme-section",
+        "visual-reference:daily-resurface",
+        "visual-reference:tension-card",
+        "visual-reference:atomized-source-index",
+      ],
       evidence_refs: assimilation.evidence_refs,
       finding_count: assimilation.findings.length,
       capability_candidate_count: assimilation.capability_candidates.length,
