@@ -30,6 +30,11 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ai.friday.assistant.FridayEngine
+import ai.friday.assistant.cognitive.CognitiveState
+import ai.friday.assistant.cognitive.Goal
+import ai.friday.assistant.cognitive.GoalPriority
 import ai.friday.assistant.github.reporting.ReaInvestigationCoordinator
 import ai.friday.assistant.memory.MemoryNode
 import ai.friday.assistant.ui.EngineAccess
@@ -40,6 +45,8 @@ import java.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.flowOf
+import java.util.UUID
 import org.json.JSONObject
 
 /**
@@ -47,7 +54,133 @@ import org.json.JSONObject
  */
 @Composable
 fun MissionsScreen() {
-    EmptyStateScreen(message = "No missions yet — Friday has not identified a verified capability gap.")
+    val engine = FridayEngine.cognitiveEngine
+    val stateFlow = engine?.cognitiveState ?: flowOf(CognitiveState())
+    val cognitiveState by stateFlow.collectAsStateWithLifecycle(initialValue = CognitiveState())
+    var objectiveDraft by remember { mutableStateOf("") }
+    var createError by remember { mutableStateOf<String?>(null) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(FridayColors.SurfaceBase)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 24.dp)
+    ) {
+        Text("BUILD", style = FridayType.Label.copy(color = FridayColors.TextSecondary))
+        Text("Objectives", style = FridayType.Display)
+        Text(
+            "What Friday is currently working toward, from her live cognitive state.",
+            style = FridayType.Technical.copy(color = FridayColors.TextSecondary),
+            modifier = Modifier.padding(top = 5.dp)
+        )
+
+        Spacer(Modifier.height(18.dp))
+        val goal = cognitiveState.currentGoal
+        if (goal == null) {
+            GlassPanel(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("NO ACTIVE OBJECTIVE", style = FridayType.Label)
+                    Text(
+                        "Friday has no active goal in her cognitive state yet. Create an objective below to give her a durable direction.",
+                        style = FridayType.Body.copy(color = FridayColors.TextSecondary),
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
+                }
+            }
+        } else {
+            GlassPanel(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("CURRENT OBJECTIVE", style = FridayType.Label.copy(color = FridayColors.TextSecondary))
+                    Text(goal.description, style = FridayType.Display, modifier = Modifier.padding(top = 6.dp))
+                    Text(
+                        goal.status.name.replace('_', ' ') + "  ·  " + goal.priority.name,
+                        style = FridayType.Technical.copy(color = FridayColors.CoreIdle),
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                    if (goal.successCriteria.isNotEmpty()) {
+                        Spacer(Modifier.height(12.dp))
+                        Text("SUCCESS CRITERIA", style = FridayType.Label)
+                        goal.successCriteria.forEach { criterion ->
+                            Text("•  " + criterion, style = FridayType.Body, modifier = Modifier.padding(top = 5.dp))
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(14.dp))
+            Text("SUBGOALS  ·  " + cognitiveState.activeSubgoals.size, style = FridayType.Label)
+            if (cognitiveState.activeSubgoals.isEmpty()) {
+                Text(
+                    "No decomposed subgoals are recorded for this objective.",
+                    style = FridayType.Technical.copy(color = FridayColors.TextSecondary),
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            } else {
+                cognitiveState.activeSubgoals.forEach { subgoal ->
+                    GlassPanel(Modifier.fillMaxWidth().padding(top = 7.dp)) {
+                        Column(Modifier.padding(14.dp)) {
+                            Text(subgoal.description, style = FridayType.Body)
+                            Text(
+                                subgoal.status.name.replace('_', ' ') + "  ·  effort " + subgoal.estimatedEffort,
+                                style = FridayType.Technical.copy(color = FridayColors.TextSecondary),
+                                modifier = Modifier.padding(top = 5.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(22.dp))
+        Text("SET A DIRECTION", style = FridayType.Label)
+        OutlinedTextField(
+            value = objectiveDraft,
+            onValueChange = { objectiveDraft = it; createError = null },
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            label = { Text("What should Friday work toward?") },
+            minLines = 2,
+            maxLines = 4
+        )
+        createError?.let {
+            Text(it, style = FridayType.Technical.copy(color = FridayColors.CoreOffline), modifier = Modifier.padding(top = 6.dp))
+        }
+        Button(
+            onClick = {
+                val description = objectiveDraft.trim()
+                if (description.isBlank()) {
+                    createError = "Enter an objective first."
+                } else if (engine == null) {
+                    createError = "Friday's cognitive engine is not ready yet."
+                } else {
+                    runCatching {
+                        engine.setGoal(
+                            Goal(
+                                id = UUID.randomUUID().toString(),
+                                description = description.take(2_000),
+                                priority = GoalPriority.NORMAL,
+                                successCriteria = emptyList()
+                            )
+                        )
+                    }.onSuccess {
+                        objectiveDraft = ""
+                        createError = null
+                    }.onFailure {
+                        createError = it.message ?: "Friday could not save this objective."
+                    }
+                }
+            },
+            enabled = engine != null && objectiveDraft.isNotBlank(),
+            modifier = Modifier.padding(top = 10.dp)
+        ) {
+            Text("CREATE OBJECTIVE")
+        }
+        Spacer(Modifier.height(14.dp))
+        Text(
+            "Objectives are stored by Friday's existing continuity system. This screen does not claim a goal is being executed merely because it is recorded.",
+            style = FridayType.Technical.copy(color = FridayColors.TextSecondary)
+        )
+    }
 }
 
 @Composable
