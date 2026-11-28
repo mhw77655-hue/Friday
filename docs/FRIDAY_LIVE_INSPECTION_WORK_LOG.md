@@ -203,3 +203,28 @@ Source review of `services/friday-inspection/src/oauth-consent.html` confirms:
 - The pairing page and consent page are separate routes and separate flows.
 
 No new owner account, password, phone pairing, or APK update is required. Next acceptance step: trigger a fresh OAuth authorization from the already-installed Friday connector in ChatGPT and confirm the browser lands on the consent route with an authorization_id; then approve if the displayed client and scopes are correct.
+
+
+## OAuth consent root-cause fix — 2026-11-28
+
+### Evidence and diagnosis
+- Production Supabase OAuth client is registered as **ChatGPT**, with authorization-code + refresh-token grants and PKCE-compatible public-client authentication.
+- A real ChatGPT authorization request existed with resource `https://friday-inspection-production.up.railway.app/mcp`, scopes `openid email offline_access`, and status `pending`; it expired after 10 minutes without approval.
+- Railway logs show consent-route visits from the owner's Android browser and successful `GET /owner/status` responses (HTTP 200). This proves the browser had an authenticated owner session on the consent origin; the problem was after owner-session validation, not missing owner sign-in.
+- Root cause found in source: both browser pages loaded `@supabase/supabase-js@2.57.4`. Supabase added OAuth 2.1 consent APIs (`auth.oauth.getAuthorizationDetails`, `approveAuthorization`, `denyAuthorization`) in supabase-js 2.77/2.78. The old pinned CDN version therefore cannot execute the consent UI's OAuth methods. The page could authenticate the owner, then fail at authorization-details retrieval. Supabase's changelog confirms the feature introduction (2.77/2.78).
+- This explains why the user reached an already-signed-in Friday page but never saw the approval controls. This was a code defect, not a user mistake.
+
+### Fix committed
+- Updated the CDN import in `src/oauth-consent.html` and `src/admin-pairing.html` to `@supabase/supabase-js@2.119.2`, which includes the OAuth consent API.
+- Added a clear runtime guard on the consent page for missing OAuth API support.
+- Fixed guard initialization ordering before commit.
+- Commits: `4cb6af23a416d6115ae148cd2ab20bee4016441d`, `34c06ffe5b0d48d51091f4ffc37deae3772fd2b5`, `61a9a49c8e0cc357018a40d607f83490fae93482`.
+- Railway deployment triggered for these changes; at log time latest deployment `ac891402-33bf-49d7-bc54-0af29297657b` was INITIALIZING and two preceding commits BUILDING. Do not claim fix is live until deployment succeeds.
+
+### Next acceptance sequence
+1. Confirm the latest Railway deployment succeeds.
+2. Start a fresh ChatGPT OAuth connection attempt (expired authorization ID cannot be reused).
+3. Confirm consent route loads with a new authorization_id and displays client/scopes plus Approve/Deny controls.
+4. Approve explicitly; confirm redirect to ChatGPT with authorization code and successful PKCE token exchange.
+5. Confirm valid MCP bearer token accepted, tools/list returns exactly `friday_live_status` and `friday_inspection_snapshot`.
+6. Call both tools and verify fresh phone snapshot; then test revocation.
