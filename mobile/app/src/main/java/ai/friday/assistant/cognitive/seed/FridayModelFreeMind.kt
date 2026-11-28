@@ -121,6 +121,9 @@ class FridayModelFreeMind(
                 }
             }
 
+            PROJECT_CONTINUITY.containsMatchIn(normalized) ->
+                "I can't reliably reconstruct our previous conversation or ongoing project from word associations alone. I don't currently have a grounded conversation summary available to this local response path, so I won't present loosely related words as memories."
+
             associations.isNotEmpty() ->
                 "I notice an association with earlier experiences: " +
                     associations.distinct().take(5).joinToString(", ") +
@@ -171,6 +174,7 @@ class FridayModelFreeMind(
         private val GREETING = Regex("^(hi|hello|hey|hay|hiya|yo|good morning|good evening|good afternoon)(\\b|[.!?])")
         private val IDENTITY = Regex("\\b(who are you|what are you|your identity|are you friday|what is friday)\\b")
         private val LEARNING = Regex("\\b(what have you learned|what do you remember|what do you know about me|what do you remember about me|what do you recall|what did you learn|show your associations)\\b")
+        private val PROJECT_CONTINUITY = Regex("\\b(what you remember|what were we discussing|what were you discussing|what were we talking about|what were you talking about|ongoing project|our next step|what is our next step|what are we working on)\\b")
         private val MY_NAME = Regex("^my name is\\s+(.+?)\\s*$", RegexOption.IGNORE_CASE)
         private val ASK_MY_NAME = Regex("\\b(what('?s| is) my name|do you know my name|who am i)\\b")
         private val LIKE = Regex("^i (?:really )?like\\s+(.+?)\\s*$", RegexOption.IGNORE_CASE)
