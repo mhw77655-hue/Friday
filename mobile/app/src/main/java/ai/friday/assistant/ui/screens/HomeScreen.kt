@@ -63,8 +63,8 @@ fun HomeScreen(onOpenTools: () -> Unit) {
         ) {
             ai.friday.assistant.ui.components.FridayAvatar(
                 size = 280.dp,
-                voiceActive = false,
-                voiceLevel = 0f,
+                voiceActive = acousticActivity,
+                voiceLevel = acousticLevel,
                 morphologySeed = ai.friday.assistant.FridayEngine.fridayIndividual?.identity?.morphologySeed ?: 0L
             )
             Spacer(Modifier.height(20.dp))
