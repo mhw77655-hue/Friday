@@ -38,6 +38,7 @@ class MoreSheetNavigationInstrumentedTest {
         compose.waitForIdle()
 
         val destinations = listOf(
+            "Objectives" to "missions",
             "Task Inbox" to "task_inbox",
             "Approvals" to "approvals",
             "Alerts" to "alerts",
