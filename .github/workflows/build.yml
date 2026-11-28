@@ -835,7 +835,8 @@ jobs:
             ].join('\\n');
             const match = existing.data.find(issue => issue.title === title && !issue.pull_request);
             if (match) {
-              await github.rest.issues.createComment({
+              // Keep one rolling incident record; do not add a comment on every failed run.
+              await github.rest.issues.update({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: match.number,
