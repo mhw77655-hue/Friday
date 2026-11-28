@@ -18,7 +18,7 @@ const PORT = Number(process.env.PORT || 8080);
 const PUBLIC_HOST = process.env.PUBLIC_HOST || "";
 const MCP_TOKEN = process.env.FRIDAY_MCP_TOKEN || "";
 const ADMIN_TOKEN = process.env.FRIDAY_ADMIN_TOKEN || "";
-const STATE_PATH = process.env.FRIDAY_STATE_PATH || "./data/state.json";
+const STATE_PATH = process.env.FRIDAY_STATE_PATH || "/data/state.json";
 const MAX_BODY_BYTES = 32 * 1024;
 const DEVICE_AUTH_WINDOW_MS = 60_000;
 const SNAPSHOT_TIMEOUT_MS = 10_000;
@@ -176,8 +176,10 @@ function createMcpServer() {
 
 const httpServer = http.createServer(async (request, response) => {
   try {
-    if (!hostAllowed(request)) return sendJson(response, 421, { error: "host_not_allowed" });
     const url = new URL(request.url || "/", "https://" + (request.headers.host || "localhost"));
+    if (url.pathname !== "/health" && !hostAllowed(request)) {
+      return sendJson(response, 421, { error: "host_not_allowed" });
+    }
 
     if (request.method === "GET" && url.pathname === "/health") {
       return sendJson(response, 200, { service: "friday-live-inspection", status: "ok" });
@@ -326,11 +328,14 @@ websocketServer.on("connection", socket => {
     clearTimeout(authTimer);
     if (authenticatedDeviceId) {
       const current = connectedDevices.get(authenticatedDeviceId);
-      if (current?.socket === socket) connectedDevices.delete(authenticatedDeviceId);
-      for (const [requestId, pending] of pendingSnapshots) {
-        if (pending.deviceId === authenticatedDeviceId) {
-          pendingSnapshots.delete(requestId);
-          pending.reject(new Error("Friday inspection session disconnected."));
+      const ownedSession = current?.socket === socket;
+      if (ownedSession) {
+        connectedDevices.delete(authenticatedDeviceId);
+        for (const [requestId, pending] of pendingSnapshots) {
+          if (pending.deviceId === authenticatedDeviceId) {
+            pendingSnapshots.delete(requestId);
+            pending.reject(new Error("Friday inspection session disconnected."));
+          }
         }
       }
     }
