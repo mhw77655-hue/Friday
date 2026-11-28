@@ -293,7 +293,7 @@ function collectFindings(value, sourcePath, source, targetKey, output, depth = 0
   }
 
   for (const [key, child] of Object.entries(value)) {
-    if (key.toLowerCase().endsWith("_text")) {
+    if (/(^|_)text(_content)?$/i.test(key)) {
       const textItems = Array.isArray(child) ? child : [child];
       textItems.forEach((item, index) => {
         const text = typeof item === "string" ? item : item?.type === "text" ? item.text : null;

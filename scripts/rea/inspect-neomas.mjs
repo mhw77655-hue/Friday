@@ -322,14 +322,14 @@ async function main() {
       results,
       limitations: [
         "Only the public unauthenticated website was inspected; no account was created and no private user data was accessed.",
-        "REA browser inspection is passive: no clicks, page-side JavaScript evaluation, login, or state mutation was performed.",
-        "A public landing-page capture does not establish authenticated memory-feature behavior.",
+        "The browser scenario only opened the public landing page and waited; it did not log in, submit forms, or change account state.",
+        "The public landing page does not establish authenticated memory-feature behavior or the full native macOS application's runtime behavior.",
       ],
     };
     await writeFile(resolve(outputDir, "neomas-rea-raw-evidence.json"), JSON.stringify(rawRecord, null, 2) + "\n");
     await writeFile(resolve(outputDir, "neomas-friday-assimilation.json"), JSON.stringify(assimilation, null, 2) + "\n");
     await writeFile(resolve(outputDir, "neomas-rea-summary.json"), JSON.stringify({
-      status: "completed",
+      status: results.some((entry) => entry.result?.isError) ? "partial" : "completed",
       target,
       browser: browserVersion?.Browser ?? null,
       rea_version: VERSION,
