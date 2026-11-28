@@ -31,7 +31,8 @@ data class FridayInspectionSnapshot(
     val failureCount: Int,
     val turnStageCounts: Map<String, Int> = emptyMap(),
     val turnRouteCounts: Map<String, Int> = emptyMap(),
-    val turnOutcomeCounts: Map<String, Int> = emptyMap()
+    val turnOutcomeCounts: Map<String, Int> = emptyMap(),
+    val processExitReasonCounts: Map<String, Int> = emptyMap()
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("schema", SCHEMA)
@@ -55,6 +56,7 @@ data class FridayInspectionSnapshot(
         .put("turn_stage_counts", closedCounts(TurnDiagnosticJournal.Stage.values().map { it.name }, turnStageCounts))
         .put("turn_route_counts", closedCounts(TurnDiagnosticJournal.Route.values().map { it.name }, turnRouteCounts))
         .put("turn_outcome_counts", closedCounts(TurnDiagnosticJournal.Outcome.values().map { it.name }, turnOutcomeCounts))
+        .put("process_exit_reason_counts", closedCounts(PROCESS_EXIT_REASONS, processExitReasonCounts))
         .put("privacy", JSONObject()
             .put("conversation_content_included", false)
             .put("transcripts_or_audio_included", false)
@@ -65,6 +67,11 @@ data class FridayInspectionSnapshot(
 
     companion object {
         const val SCHEMA = "friday-live-inspection-v1"
+        private val PROCESS_EXIT_REASONS = listOf(
+            "ANR", "CRASH", "NATIVE_CRASH", "LOW_MEMORY", "EXCESSIVE_RESOURCE",
+            "INITIALIZATION_FAILURE", "DEPENDENCY_DIED", "APP_FREEZER", "PERMISSION_CHANGE",
+            "PACKAGE_UPDATED", "USER_REQUESTED", "USER_STOPPED", "OS_SIGNAL", "SELF_EXIT", "OTHER"
+        )
 
         /**
          * Converts the existing local support report to a deliberately smaller
