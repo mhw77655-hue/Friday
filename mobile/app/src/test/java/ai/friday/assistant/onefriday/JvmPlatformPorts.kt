@@ -48,7 +48,8 @@ class JvmPlatformPorts(
     private val failureSink: (FailureReport) -> Unit,
     private val failureSurface: ai.friday.assistant.failure.FailureSurface,
     private val forgetter: ai.friday.assistant.memory.provenance.MemoryForgetter? = null,
-    private val languageModelAvailable: () -> Boolean = { true }
+    private val languageModelAvailable: () -> Boolean = { true },
+    private val adaptiveLearning: Boolean = true
 ) : PlatformPorts {
 
     override fun failureSurface(): ai.friday.assistant.failure.FailureSurface = failureSurface
@@ -75,6 +76,8 @@ class JvmPlatformPorts(
 
     override fun hasLanguageModel(modelManager: ai.friday.assistant.model.ModelManager): Boolean =
         languageModelAvailable()
+
+    override fun adaptiveLearningEnabled(): Boolean = adaptiveLearning
 
     override fun sessionContext(): TurnContext? = session()
 
