@@ -36,3 +36,11 @@ The ChatGPT custom MCP connection is a separate one-time account/workspace actio
 ## Proxima decision
 
 Upstream Proxima is a desktop-local multi-provider gateway and its current published licence is personal/non-commercial. It is not a suitable embedded dependency for Friday's commercial product or a phone-to-cloud transport. Its orchestration concepts may inform a separately implemented, licence-clean Friday model router; it is not part of this read-only inspection bridge.
+## Owner trust and privacy defaults (2026-11-28)
+
+- Pairing is not consent to maintain a live connection. A newly paired device remains externally disconnected until the owner explicitly enables the inspection session in Friday settings.
+- A one-time migration turns off the prior enabled preference on existing installations. This prevents an app update from silently preserving a previously enabled always-on relay.
+- The owner can pause the session without deleting the pairing identity. Pause closes the WebSocket immediately; the separate revoke action deletes the local device key and revokes the server registration.
+- Friday's internal self-diagnosis and resource adaptation remain local and independent. They do not require the remote inspection relay.
+- The owner-facing disclosure names the exact coarse technical fields shared and explicitly excludes conversations, prompts, transcripts, audio, screen contents, notifications, contacts, location, files, private memories, credentials and other apps' contents.
+- This is still a manually enabled live session when switched on, not a one-shot export. The connection is not started by pairing or app launch while the session is off.
