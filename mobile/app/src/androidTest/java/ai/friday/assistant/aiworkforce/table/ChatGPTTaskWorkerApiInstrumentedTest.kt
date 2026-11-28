@@ -24,7 +24,7 @@ class ChatGPTTaskWorkerApiInstrumentedTest {
     fun sendsOnlyApprovedProjectionWithNoServerStorageAndBlocksReplay() = runBlocking {
         val server = MockWebServer()
         val localhostCertificate = HeldCertificate.Builder()
-            .subjectAlternativeName("localhost")
+            .addSubjectAlternativeName("localhost")
             .build()
         val serverCertificates = HandshakeCertificates.Builder()
             .heldCertificate(localhostCertificate)
