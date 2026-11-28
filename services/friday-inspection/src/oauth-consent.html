@@ -20,7 +20,7 @@ small{color:#8190a3}
 <button class="primary" id="approve">Approve access</button><button class="danger" id="deny">Deny</button></section>
 <div id="status" role="status"></div><p><small>Friday Live Inspection · Read-only by default · Access can be revoked.</small></p>
 </main><script type="module">
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 const supabase=createClient(__SUPABASE_URL__,__SUPABASE_PUBLISHABLE_KEY__);
 const authId=new URLSearchParams(location.search).get("authorization_id");
 const status=document.querySelector("#status"),login=document.querySelector("#login"),details=document.querySelector("#details");
