@@ -19,6 +19,8 @@ class PhoneMemoryPressureAnalyzerTest {
         assertEquals(1.5, report.fullAvg10!!, 0.001)
         assertEquals(3L, report.oomKills)
         assertEquals(77L, report.directPageScans)
+        assertEquals("com.example.heavy", report.topProcesses.first().first)
+        assertEquals(120L, report.topProcesses.first().second)
         assertTrue(report.assessment.contains("SEVERE"))
     }
 

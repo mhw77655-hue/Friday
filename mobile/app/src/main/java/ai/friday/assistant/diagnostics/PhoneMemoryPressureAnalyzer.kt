@@ -14,6 +14,7 @@ data class PhoneMemoryPressureReport(
     val fullAvg10: Double?,
     val oomKills: Long?,
     val directPageScans: Long?,
+    val topProcesses: List<Pair<String, Long>>,
     val assessment: String,
     val explanation: String
 ) {
@@ -31,13 +32,22 @@ data class PhoneMemoryPressureReport(
         append(fullAvg10?.let { "%.2f%%".format(java.util.Locale.ROOT, it) } ?: "unavailable")
         append(" · cumulative OOM kills=")
         append(oomKills?.toString() ?: "unavailable")
+        if (topProcesses.isNotEmpty()) {
+            append(" · largest processes by PSS: ")
+            append(topProcesses.joinToString { (name, mb) -> "$name ${mb}MB" })
+        }
         append(". ")
         append(explanation)
     }
 }
 
 object PhoneMemoryPressureAnalyzer {
-    fun analyze(meminfo: String, psi: String, vmstat: String): PhoneMemoryPressureReport {
+    fun analyze(
+        meminfo: String,
+        psi: String,
+        vmstat: String,
+        memoryProcesses: String = ""
+    ): PhoneMemoryPressureReport {
         val memory = parseKeyValues(meminfo)
         val vm = parseKeyValues(vmstat)
         val some = parsePsiAvg10(psi, "some")
@@ -74,10 +84,23 @@ object PhoneMemoryPressureAnalyzer {
             fullAvg10 = full,
             oomKills = oomKills,
             directPageScans = directScans,
+            topProcesses = parseTopProcesses(memoryProcesses),
             assessment = assessment,
             explanation = explanation
         )
     }
+
+    private fun parseTopProcesses(raw: String): List<Pair<String, Long>> =
+        Regex("""(?m)^\\s*(\\d+)\\s+kB:\\s+([^\\s(]+)""")
+            .findAll(raw)
+            .mapNotNull { match ->
+                val kb = match.groupValues[1].toLongOrNull() ?: return@mapNotNull null
+                val process = match.groupValues[2].take(80)
+                if (process.isBlank()) null else process to (kb / 1024L)
+            }
+            .distinctBy { it.first }
+            .sortedByDescending { it.second }
+            .take(8)
 
     private fun parseKeyValues(raw: String): Map<String, Long> = buildMap {
         raw.lineSequence().forEach { line ->
