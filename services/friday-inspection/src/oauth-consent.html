@@ -23,9 +23,9 @@ small{color:#8190a3}
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.119.2";
 const supabase=createClient(__SUPABASE_URL__,__SUPABASE_PUBLISHABLE_KEY__);
 const authId=new URLSearchParams(location.search).get("authorization_id");
-if(!supabase.auth.oauth?.getAuthorizationDetails){say("OAuth consent support is unavailable in the loaded Supabase client. Refresh this page after updating.");throw new Error("Supabase OAuth consent API unavailable");}
 const status=document.querySelector("#status"),login=document.querySelector("#login"),details=document.querySelector("#details");
 const say=(s)=>status.textContent=s;
+if(!supabase.auth.oauth?.getAuthorizationDetails){say("OAuth consent support is unavailable in the loaded Supabase client. Refresh this page after updating.");throw new Error("Supabase OAuth consent API unavailable");}
 async function load(){
  if(!authId){say("Missing authorization request.");return}
  const {data:{session},error:sessionError}=await supabase.auth.getSession();
