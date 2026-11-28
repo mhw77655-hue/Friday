@@ -188,3 +188,18 @@ Earlier statements that no Android device was enrolled are superseded. Phone pai
 - Railway HTTP logs show MCP POST probes at 04:24Z returned 401; these were unauthenticated probes, not accepted ChatGPT MCP calls.
 - No successful authenticated /mcp request is present in the inspected production HTTP log window yet.
 - Next: resolve the outstanding consent/authorization state and capture a successful authenticated MCP initialize/tools/list/call. Do not ask the owner to reinstall or re-pair the phone.
+
+
+### Consent-screen clarification — 2026-11-28
+Owner clarified that opening the previously supplied link showed the already-authenticated **/admin/pairing** page, not the OAuth consent page. This is expected: pairing-page sign-in is only the owner session for generating device pairing codes and does not approve ChatGPT OAuth access.
+
+The actual OAuth consent route is **/oauth/consent?authorization_id=...**, and must be opened by a fresh OAuth authorization request initiated by the ChatGPT Friday connector. The prior authorization request expired while pending; it cannot be approved retroactively.
+
+Source review of `services/friday-inspection/src/oauth-consent.html` confirms:
+- It reads `authorization_id` from the query string.
+- It uses the already-signed-in Supabase owner session when available.
+- It retrieves OAuth authorization details.
+- If Supabase returns an already-approved redirect response, it redirects automatically; otherwise it displays client/scopes and Approve/Deny.
+- The pairing page and consent page are separate routes and separate flows.
+
+No new owner account, password, phone pairing, or APK update is required. Next acceptance step: trigger a fresh OAuth authorization from the already-installed Friday connector in ChatGPT and confirm the browser lands on the consent route with an authorization_id; then approve if the displayed client and scopes are correct.
