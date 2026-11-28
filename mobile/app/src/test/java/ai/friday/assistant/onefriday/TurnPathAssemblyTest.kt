@@ -332,7 +332,8 @@ class TurnPathAssemblyTest {
                     adaptiveLearningEnabled = learningEnabled
                 )
             )
-            val reply = restarted.individual.expression.respond("What do you know about my name?")
+            restarted.pipeline.onUserInput("What do you know about my name?")
+            val reply = restarted.pipeline.turns.value.lastOrNull { it.fromFriday }?.text.orEmpty()
             directory.deleteRecursively()
             return reply
         }
